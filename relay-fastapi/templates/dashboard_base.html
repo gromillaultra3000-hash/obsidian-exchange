@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="dash-layout">
+    <aside class="dash-sidebar">
+        <div class="dash-user">
+            👤 {{ web_user.email }}
+            {% if web_user.totp_enabled %}<span title="2FA включена" style="margin-left:4px;">🔐</span>{% endif %}
+        </div>
+        <nav class="dash-nav">
+            <a href="/dashboard" class="{{ 'active' if active == 'overview' else '' }}">📊 Обзор</a>
+            <a href="/dashboard/exchange" class="{{ 'active' if active == 'exchange' else '' }}">💱 Купить крипту</a>
+            <a href="/dashboard/swap" class="{{ 'active' if active == 'swap' else '' }}">🔄 Своп</a>
+            <a href="/dashboard/orders" class="{{ 'active' if active == 'orders' else '' }}">📋 История</a>
+            <a href="/dashboard/referral" class="{{ 'active' if active == 'referral' else '' }}">👥 Рефералы</a>
+            <a href="/dashboard/support" class="{{ 'active' if active == 'support' else '' }}">💬 Поддержка</a>
+            <a href="/dashboard/profile" class="{{ 'active' if active == 'profile' else '' }}">⚙️ Профиль</a>
+            <a href="/dashboard/profile/2fa" class="{{ 'active' if active == '2fa' else '' }}" style="font-size:12px;opacity:.8;">🔐 2FA</a>
+            <form method="post" action="/logout">
+                <input type="hidden" name="csrf_token" value="{{ web_user.csrf_token }}">
+                <button class="dash-logout" type="submit">🚪 Выйти</button>
+            </form>
+        </nav>
+    </aside>
+    <div class="dash-content">
+        {% block dashboard_content %}{% endblock %}
+    </div>
+</div>
+{% endblock %}

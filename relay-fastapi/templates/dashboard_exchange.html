@@ -1,0 +1,56 @@
+{% extends "dashboard_base.html" %}
+{% block title %}Обмен | ObsidianExchange{% endblock %}
+{% block dashboard_content %}
+<h1>💎 Обмен RUB → крипта</h1>
+
+<div class="dash-card">
+    {% if error %}<div class="error-msg">{{ error }}</div>{% endif %}
+    <form method="post" action="/dashboard/exchange">
+        <input type="hidden" name="csrf_token" value="{{ web_user.csrf_token }}">
+        <div class="input-group">
+            <label>Валюта</label>
+            <select id="currency" name="currency" onchange="calculateFee()">
+                {% set cur = (form.currency if form else (prefill.currency if prefill else 'BTC')) %}
+                <option value="BTC" {{ 'selected' if cur == 'BTC' }}>BTC</option>
+                <option value="LTC" {{ 'selected' if cur == 'LTC' }}>LTC</option>
+                <option value="USDT" {{ 'selected' if cur == 'USDT' }}>USDT (TRC20)</option>
+            </select>
+        </div>
+        <div class="input-group">
+            <label>Сумма (RUB)</label>
+            <input type="number" id="amount" name="amount" step="1" min="{{ min_amount|int }}" max="{{ max_amount|int }}"
+                   placeholder="{{ min_amount|int }} - {{ max_amount|int }} RUB"
+                   value="{{ form.amount if form else (prefill.amount if prefill else '') }}"
+                   oninput="calculateFee()" required>
+        </div>
+        <div class="fee-box" id="fee-display">⚡ Комиссия обмена: <strong>—</strong> &middot; Вы получите: <strong id="fee-amount">—</strong></div>
+        <div class="input-group">
+            <label>Адрес для получения</label>
+            <input type="text" name="address" placeholder="Введите адрес кошелька"
+                   value="{{ form.address if form else (prefill.address if prefill else '') }}" required>
+        </div>
+        <button class="btn btn-primary btn-block" type="submit">🚀 Создать заявку</button>
+    </form>
+</div>
+
+<div class="dash-card">
+    <p>Курс фиксируется на 15 минут после создания заявки. Комиссия: BTC/LTC — 27% (до 5 000 ₽), 23% (5 000–14 999 ₽), 19% (от 15 000 ₽); USDT (TRC20) — 2%.</p>
+</div>
+
+<script>
+function getCommissionPercent(amount, currency) {
+    if (currency === 'USDT') return 2;
+    if (amount < 5000) return 27;
+    if (amount <= 14999) return 23;
+    return 19;
+}
+function calculateFee() {
+    const amount = parseFloat(document.getElementById('amount').value) || 0;
+    const currency = document.getElementById('currency').value;
+    const fee = getCommissionPercent(amount, currency);
+    document.getElementById('fee-display').innerHTML =
+        `⚡ Комиссия обмена: <strong>${fee}%</strong> &middot; Вы получите ≈ <strong id="fee-amount">${amount ? (amount * (1 - fee/100)).toLocaleString(undefined, {maximumFractionDigits:2}) + ' ₽ экв.' : '—'}</strong>`;
+}
+calculateFee();
+</script>
+{% endblock %}

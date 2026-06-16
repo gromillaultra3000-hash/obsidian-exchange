@@ -1,0 +1,83 @@
+{% extends "dashboard_base.html" %}
+{% block title %}История | ObsidianExchange{% endblock %}
+{% block dashboard_content %}
+<h1>📋 История</h1>
+
+<div class="dash-card">
+    <h2>Заявки на обмен</h2>
+    {% if orders %}
+    <table class="dash-table">
+        <thead>
+            <tr><th>№</th><th>Валюта</th><th>Сумма (RUB)</th><th>Статус</th><th>Дата</th><th></th></tr>
+        </thead>
+        <tbody>
+            {% for o in orders %}
+            <tr>
+                <td>#{{ o.order_id }}</td>
+                <td>{{ o.currency }}</td>
+                <td>{{ '%.2f'|format(o.rub_amount) }}</td>
+                <td><span class="status-badge status-{{ o.status }}">{{ o.status }}</span></td>
+                <td>{{ o.created_at }}</td>
+                <td><a href="/dashboard/exchange?repeat={{ o.order_id }}&currency={{ o.currency }}&amount={{ o.rub_amount|int }}&address={{ o.crypto_address }}" class="btn btn-secondary" style="padding:4px 10px;font-size:12px;">🔁 Повторить</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>Заявок пока нет. <a href="/dashboard/exchange">Создать заявку</a></p>
+    {% endif %}
+</div>
+
+<div class="dash-card">
+    <h2>Свопы</h2>
+    {% if swaps %}
+    <table class="dash-table">
+        <thead>
+            <tr><th>Пара</th><th>Сумма</th><th>Статус</th><th>Дата</th><th></th></tr>
+        </thead>
+        <tbody>
+            {% for s in swaps %}
+            <tr>
+                <td>{{ s.coin_from }} → {{ s.coin_to }}</td>
+                <td>{{ s.amount_from }}</td>
+                <td><span class="status-badge status-{{ s.status }}">{{ s.status }}</span></td>
+                <td>{{ s.created_at }}</td>
+                <td style="white-space:nowrap;">
+                    <a href="/swap/{{ s.token }}" style="margin-right:6px;">Открыть</a>
+                    <a href="/dashboard/swap?repeat=1&coin_from={{ s.coin_from }}&coin_to={{ s.coin_to }}&amount={{ s.amount_from }}&address={{ s.address_to }}" class="btn btn-secondary" style="padding:4px 10px;font-size:12px;">🔁 Повторить</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>Свопов пока нет. <a href="/dashboard/swap">Создать своп</a></p>
+    {% endif %}
+</div>
+
+<div class="dash-card">
+    <h2>💰 Продажи крипты → RUB</h2>
+    {% if sell_orders %}
+    <table class="dash-table">
+        <thead>
+            <tr><th>№</th><th>Валюта</th><th>Крипта</th><th>≈ RUB</th><th>СБП-телефон</th><th>Статус</th><th>Дата</th></tr>
+        </thead>
+        <tbody>
+            {% for s in sell_orders %}
+            <tr>
+                <td>#{{ s.id }}</td>
+                <td>{{ s.currency }}</td>
+                <td>{{ s.crypto_amount }}</td>
+                <td>{{ '%.2f'|format(s.rub_amount) }}</td>
+                <td>{{ s.sbp_phone }}</td>
+                <td><span class="status-badge status-{{ s.status }}">{{ s.status }}</span></td>
+                <td>{{ s.created_at }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>Продаж пока нет. Продайте крипту через <a href="https://t.me/{{ bot_username }}">бота</a> — меню «💰 Продать крипту».</p>
+    {% endif %}
+</div>
+{% endblock %}

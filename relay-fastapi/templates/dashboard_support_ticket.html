@@ -1,0 +1,27 @@
+{% extends "dashboard_base.html" %}
+{% block title %}Обращение #{{ ticket.id }} | ObsidianExchange{% endblock %}
+{% block dashboard_content %}
+<h1>💬 Обращение #{{ ticket.id }}: {{ ticket.subject }}</h1>
+<p><span class="status-badge status-{{ ticket.status }}">{{ ticket.status }}</span></p>
+
+<div class="dash-card">
+    <div class="support-thread">
+        {% for m in messages %}
+        <div class="support-msg {{ 'user' if m.sender == 'user' else 'admin' }}">
+            <div class="meta">{{ 'Вы' if m.sender == 'user' else 'Поддержка' }} &middot; {{ m.created_at }}</div>
+            <div class="text">{{ m.message }}</div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <form method="post" action="/dashboard/support/{{ ticket.id }}/reply">
+        <input type="hidden" name="csrf_token" value="{{ web_user.csrf_token }}">
+        <div class="input-group">
+            <textarea name="message" class="support-textarea" rows="3" placeholder="Ваш ответ..." required></textarea>
+        </div>
+        <button class="btn btn-primary" type="submit">📨 Ответить</button>
+    </form>
+</div>
+
+<p><a href="/dashboard/support">← Ко всем обращениям</a></p>
+{% endblock %}

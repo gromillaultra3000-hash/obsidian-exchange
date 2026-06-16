@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}ObsidianExchange — обмен криптовалют без KYC{% endblock %}</title>
+    <meta name="description" content="{% block description %}ObsidianExchange — быстрый обмен RUB на BTC, LTC и USDT без верификации. Автовыплаты, оплата СБП и картой, фиксация курса на 15 минут.{% endblock %}">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚫</text></svg>">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="matrix-bg"></div>
+
+    <nav class="navbar">
+        <div class="wrap">
+            <a href="/" class="logo">⚫ ObsidianExchange</a>
+            <div class="nav-links">
+                <a href="/" data-path="/">Главная</a>
+                <a href="/rates" data-path="/rates">Курсы</a>
+                <a href="/how-it-works" data-path="/how-it-works">Как это работает</a>
+                <a href="/faq" data-path="/faq">FAQ</a>
+                <a href="/reviews" data-path="/reviews">Отзывы</a>
+                <a href="/contacts" data-path="/contacts">Контакты</a>
+                {% if web_user %}
+                <a href="/dashboard" data-path="/dashboard">Личный кабинет</a>
+                {% else %}
+                <a href="/login" data-path="/login">Войти</a>
+                <a href="/register" data-path="/register" class="nav-cta">Регистрация</a>
+                {% endif %}
+            </div>
+            <button class="burger" aria-label="Меню"><span></span><span></span><span></span></button>
+        </div>
+    </nav>
+
+    <main class="wrap">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="footer">
+        <div class="wrap">
+            <p>⚫ ObsidianExchange — Non-KYC обмен криптовалют &middot; © 2026</p>
+            <p style="margin-top:6px;">
+                Бот: <a href="https://t.me/{{ bot_username }}">@{{ bot_username }}</a> &middot;
+                Поддержка: <a href="https://t.me/{{ support_username }}">@{{ support_username }}</a> &middot;
+                Отзывы: <a href="https://t.me/{{ reviews_username }}">@{{ reviews_username }}</a>
+            </p>
+        </div>
+    </footer>
+
+    <script src="/static/js/main.js"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

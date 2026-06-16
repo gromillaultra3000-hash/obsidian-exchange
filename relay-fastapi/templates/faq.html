@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}FAQ — ObsidianExchange{% endblock %}
+{% block description %}Ответы на частые вопросы об обмене криптовалюты на ObsidianExchange: KYC, комиссии, лимиты, способы оплаты и безопасность.{% endblock %}
+
+{% block content %}
+<section class="hero" style="padding-top:50px;">
+    <h1>Часто задаваемые вопросы</h1>
+    <p class="lead">Не нашли ответ? Напишите в поддержку — <a href="https://t.me/{{ support_username }}">@{{ support_username }}</a>.</p>
+</section>
+
+<section class="section">
+    <div class="faq-list">
+        <div class="faq-item open">
+            <button class="faq-question">Нужна ли верификация (KYC)?<span class="arrow">▾</span></button>
+            <div class="faq-answer"><div class="faq-answer-inner">Нет. ObsidianExchange работает полностью без KYC — не требуется никаких документов или верификации личности.</div></div>
+        </div>
+        <div class="faq-item">
+            <button class="faq-question">Какие способы оплаты доступны?<span class="arrow">▾</span></button>
+            <div class="faq-answer"><div class="faq-answer-inner">Оплата СБП или картой (по реквизитам). Способ оплаты выбирается при создании заявки.</div></div>
+        </div>
+        <div class="faq-item">
+            <button class="faq-question">Какая комиссия за обмен?<span class="arrow">▾</span></button>
+            <div class="faq-answer"><div class="faq-answer-inner">Для BTC и LTC: 27% при сумме до 5 000 ₽, 23% при 5 000–14 999 ₽, 19% при сумме от 15 000 ₽. Для USDT (TRC20) — фиксированные 2%. Подробнее на странице <a href="/rates">«Курсы»</a>.</div></div>
+        </div>
+        <div class="faq-item">
+            <button class="faq-question">Какие лимиты на сумму обмена?<span class="arrow">▾</span></button>
+            <div class="faq-answer"><div class="faq-answer-inner">Минимальная сумма заявки — {{ "{:,.0f}".format(min_amount) }} ₽, максимальная — {{ "{:,.0f}".format(max_amount) }} ₽.</div></div>
+        </div>
+        <div class="faq-item">
+            <button class="faq-question">На сколько фиксируется курс?<span class="arrow">▾</span></button>
+            <div class="faq-answer"><div class="faq-answer-inner">После создания заявки курс фиксируется на 15 минут — за это время нужно успеть оплатить.</div></div>
+        </div>
+        <div class="faq-item">
+            <button class="faq-question">Как быстро я получу криптовалюту?<span class="arrow">▾</span></button>
+            <div class="faq-answer"><div class="faq-answer-inner">Выплата отправляется автоматически сразу после подтверждения оплаты — обычно в течение нескольких минут.</div></div>
+        </div>
+        <div class="faq-item">
+            <button class="faq-question">Оплата прошла, но крипта не пришла. Что делать?<span class="arrow">▾</span></button>
+            <div class="faq-answer"><div class="faq-answer-inner">Напишите в поддержку <a href="https://t.me/{{ support_username }}">@{{ support_username }}</a>, указав номер заявки — мы оперативно разберёмся.</div></div>
+        </div>
+        <div class="faq-item">
+            <button class="faq-question">Насколько это безопасно?<span class="arrow">▾</span></button>
+            <div class="faq-answer"><div class="faq-answer-inner">Заявки проходят капчу и проверку, что снижает риски ошибок и мошенничества. Все обмены проходят через гарант — сделка без риска для клиента.</div></div>
+        </div>
+        <div class="faq-item">
+            <button class="faq-question">Есть ли реферальная программа?<span class="arrow">▾</span></button>
+            <div class="faq-answer"><div class="faq-answer-inner">Да — приглашайте друзей по своей реферальной ссылке из бота и получайте бонусы в BTC за их обмены и свопы. Реферальная ссылка доступна в разделе «👥 Рефералка» в боте и в личном кабинете на сайте.</div></div>
+        </div>
+        <div class="faq-item">
+            <button class="faq-question">Где почитать отзывы о сервисе?<span class="arrow">▾</span></button>
+            <div class="faq-answer"><div class="faq-answer-inner">Отзывы о нас можно найти на следующих площадках:
+                <ul style="margin-top:8px;padding-left:20px;">
+                    <li>Telegram-канал отзывов: <a href="https://t.me/ObsidianReviews" target="_blank">@ObsidianReviews</a></li>
+                    <li>MMGP (форум): <a href="https://mmgp.ru" target="_blank">mmgp.ru</a> — поиск по «ObsidianExchange»</li>
+                    <li>Trustpilot: <a href="https://www.trustpilot.com" target="_blank">trustpilot.com</a> — поиск по «ObsidianExchange»</li>
+                    <li>Otzovik: <a href="https://otzovik.com" target="_blank">otzovik.com</a> — поиск по «ObsidianExchange»</li>
+                </ul>
+            </div></div>
+        </div>
+        <div class="faq-item">
+            <button class="faq-question">Есть ли скидки для постоянных клиентов?<span class="arrow">▾</span></button>
+            <div class="faq-answer"><div class="faq-answer-inner">Да — действует программа накопительных скидок (VIP-статусы). Чем больший объём операций вы совершили, тем ниже ваша комиссия:
+                <ul style="margin-top:8px;padding-left:20px;">
+                    <li>🥈 <b>Silver</b> (от 30 000 ₽ оборота) — скидка 3%</li>
+                    <li>🥇 <b>Gold</b> (от 100 000 ₽) — скидка 6%</li>
+                    <li>💎 <b>Platinum</b> (от 300 000 ₽) — скидка 10%</li>
+                </ul>
+                Статус рассчитывается автоматически и виден в боте при следующем открытии.
+            </div></div>
+        </div>
+        <div class="faq-item">
+            <button class="faq-question">Что такое своп и чем он отличается от обмена?<span class="arrow">▾</span></button>
+            <div class="faq-answer"><div class="faq-answer-inner">Своп — это прямой обмен одной криптовалюты на другую (BTC ↔ LTC ↔ USDT) без участия рублей и без участия наших кошельков. Обычный обмен — это покупка криптовалюты за рубли через СБП или карту. Своп доступен в боте (меню «🔄 Своп криптовалют») и в личном кабинете на сайте.</div></div>
+        </div>
+        <div class="faq-item">
+            <button class="faq-question">Какая комиссия за своп?<span class="arrow">▾</span></button>
+            <div class="faq-answer"><div class="faq-answer-inner">Примерно 1% — уже включена в курс обмена. Никаких дополнительных или скрытых сборов нет. Итоговую сумму к получению вы увидите до подтверждения свопа.</div></div>
+        </div>
+        <div class="faq-item">
+            <button class="faq-question">Как быстро завершается своп?<span class="arrow">▾</span></button>
+            <div class="faq-answer"><div class="faq-answer-inner">Обычно от 10 до 40 минут в зависимости от загруженности сети блокчейна. После того как вы отправили монеты на указанный адрес — остальное происходит автоматически. Бот пришлёт уведомление о завершении.</div></div>
+        </div>
+        <div class="faq-item">
+            <button class="faq-question">Нужно ли доверять вам монеты при свопе?<span class="arrow">▾</span></button>
+            <div class="faq-answer"><div class="faq-answer-inner">Нет. Своп некастодиальный: вы отправляете монеты напрямую на адрес сервиса обмена, и результат приходит на ваш кошелёк без промежуточного хранения у нас.</div></div>
+        </div>
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Вход в личный кабинет | ObsidianExchange{% endblock %}
+{% block content %}
+<div class="auth-card">
+    <h1>⚫ Вход</h1>
+    <p class="sub">Личный кабинет ObsidianExchange</p>
+    {% if error %}<div class="error-msg">{{ error }}</div>{% endif %}
+    {% if totp_required %}
+    <div class="dash-card" style="margin-bottom:16px;">
+        <p>🔐 На вашем аккаунте включена двухфакторная аутентификация.</p>
+        <p style="margin-top:8px;color:var(--text-muted,#888);">Введите 6-значный код из приложения:</p>
+    </div>
+    <form method="post" action="/login">
+        <input type="hidden" name="totp_step_token" value="{{ totp_step_token }}">
+        <div class="input-group">
+            <label>Код 2FA</label>
+            <input type="text" name="totp_code" placeholder="000000" maxlength="6" autocomplete="one-time-code" autofocus required>
+        </div>
+        <button class="btn btn-primary btn-block" type="submit">✅ Подтвердить</button>
+    </form>
+    {% else %}
+    <form method="post" action="/login">
+        <div class="input-group">
+            <label>Email</label>
+            <input type="email" name="email" required value="{{ email or '' }}">
+        </div>
+        <div class="input-group">
+            <label>Пароль</label>
+            <input type="password" name="password" required>
+        </div>
+        <button class="btn btn-primary btn-block" type="submit">Войти</button>
+    </form>
+    {% endif %}
+    <p class="alt-link">Нет аккаунта? <a href="/register">Зарегистрироваться</a></p>
+</div>
+{% endblock %}

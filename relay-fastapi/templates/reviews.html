@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Отзывы — ObsidianExchange{% endblock %}
+{% block description %}Отзывы клиентов ObsidianExchange в официальном Telegram-канале.{% endblock %}
+
+{% block content %}
+<section class="hero" style="padding-top:50px;">
+    <h1>Отзывы клиентов</h1>
+    <p class="lead">Все отзывы публикуются в открытом Telegram-канале — никаких подделок, только реальные сделки.</p>
+</section>
+
+<section class="section">
+    <div class="contacts-grid" style="max-width:520px; margin:0 auto;">
+        <div class="contact-card">
+            <div class="icon">⭐</div>
+            <h3>Канал отзывов</h3>
+            <p>Реальные отзывы клиентов о скорости и качестве обмена.</p>
+            <a href="https://t.me/{{ reviews_username }}" class="btn btn-primary">Открыть @{{ reviews_username }}</a>
+        </div>
+    </div>
+    <p class="section-sub" style="margin-top:30px;">Совершили обмен? Поделитесь впечатлениями — напишите в канал отзывов или в поддержку <a href="https://t.me/{{ support_username }}">@{{ support_username }}</a>.</p>
+</section>
+{% endblock %}

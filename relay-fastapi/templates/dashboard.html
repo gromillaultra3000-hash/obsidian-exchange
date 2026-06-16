@@ -1,0 +1,77 @@
+{% extends "dashboard_base.html" %}
+{% block title %}Личный кабинет | ObsidianExchange{% endblock %}
+{% block dashboard_content %}
+<h1>📊 Обзор</h1>
+
+<div class="dash-grid">
+    <div class="dash-stat">
+        <div class="num">{{ orders|length }}</div>
+        <div class="label">Заявок на обмен</div>
+    </div>
+    <div class="dash-stat">
+        <div class="num">{{ swaps|length }}</div>
+        <div class="label">Свопов</div>
+    </div>
+    <div class="dash-stat">
+        <div class="num">{{ open_tickets }}</div>
+        <div class="label">Открытых обращений</div>
+    </div>
+    <div class="dash-stat">
+        <div class="num">{{ '✅' if web_user.telegram_id else '—' }}</div>
+        <div class="label">Telegram привязан</div>
+    </div>
+</div>
+
+{% if not web_user.telegram_id %}
+<div class="dash-card">
+    <p>Привяжите Telegram-аккаунт в <a href="/dashboard/profile">профиле</a>, чтобы видеть историю заявок из бота и получать уведомления.</p>
+</div>
+{% endif %}
+
+<div class="dash-card">
+    <h2>Последние заявки на обмен</h2>
+    {% if orders %}
+    <table class="dash-table">
+        <thead>
+            <tr><th>№</th><th>Валюта</th><th>Сумма (RUB)</th><th>Статус</th><th>Дата</th></tr>
+        </thead>
+        <tbody>
+            {% for o in orders %}
+            <tr>
+                <td>#{{ o.order_id }}</td>
+                <td>{{ o.currency }}</td>
+                <td>{{ '%.2f'|format(o.rub_amount) }}</td>
+                <td><span class="status-badge status-{{ o.status }}">{{ o.status }}</span></td>
+                <td>{{ o.created_at }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>Заявок пока нет. <a href="/dashboard/exchange">Создать заявку</a></p>
+    {% endif %}
+</div>
+
+<div class="dash-card">
+    <h2>Последние свопы</h2>
+    {% if swaps %}
+    <table class="dash-table">
+        <thead>
+            <tr><th>Пара</th><th>Сумма</th><th>Статус</th><th>Дата</th></tr>
+        </thead>
+        <tbody>
+            {% for s in swaps %}
+            <tr>
+                <td>{{ s.coin_from }} → {{ s.coin_to }}</td>
+                <td>{{ s.amount_from }}</td>
+                <td><span class="status-badge status-{{ s.status }}">{{ s.status }}</span></td>
+                <td>{{ s.created_at }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>Свопов пока нет. <a href="/dashboard/swap">Создать своп</a></p>
+    {% endif %}
+</div>
+{% endblock %}

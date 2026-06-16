@@ -1,0 +1,46 @@
+{% extends "dashboard_base.html" %}
+{% block title %}Поддержка | ObsidianExchange{% endblock %}
+{% block dashboard_content %}
+<h1>💬 Поддержка</h1>
+
+{% if error == 'empty' %}<div class="error-msg">Заполните тему и сообщение.</div>{% endif %}
+
+<div class="dash-card">
+    <h2>Новое обращение</h2>
+    <form method="post" action="/dashboard/support">
+        <input type="hidden" name="csrf_token" value="{{ web_user.csrf_token }}">
+        <div class="input-group">
+            <label>Тема</label>
+            <input type="text" name="subject" placeholder="Кратко опишите проблему" required>
+        </div>
+        <div class="input-group">
+            <label>Сообщение</label>
+            <textarea name="message" class="support-textarea" rows="4" placeholder="Подробности..." required></textarea>
+        </div>
+        <button class="btn btn-primary" type="submit">📨 Отправить</button>
+    </form>
+</div>
+
+<div class="dash-card">
+    <h2>Мои обращения</h2>
+    {% if tickets %}
+    <table class="dash-table">
+        <thead>
+            <tr><th>№</th><th>Тема</th><th>Статус</th><th>Обновлено</th></tr>
+        </thead>
+        <tbody>
+            {% for t in tickets %}
+            <tr>
+                <td>#{{ t.id }}</td>
+                <td><a href="/dashboard/support/{{ t.id }}">{{ t.subject }}</a></td>
+                <td><span class="status-badge status-{{ t.status }}">{{ t.status }}</span></td>
+                <td>{{ t.updated_at }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>У вас пока нет обращений.</p>
+    {% endif %}
+</div>
+{% endblock %}

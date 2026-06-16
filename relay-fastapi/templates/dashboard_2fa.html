@@ -1,0 +1,59 @@
+{% extends "dashboard_base.html" %}
+{% block title %}Двухфакторная аутентификация | ObsidianExchange{% endblock %}
+{% block dashboard_content %}
+<h1>🔐 Двухфакторная аутентификация</h1>
+
+{% if success == 'enabled' %}<div class="success-msg">✅ 2FA включена. Теперь при входе потребуется код из приложения.</div>{% endif %}
+{% if success == 'disabled' %}<div class="success-msg">✅ 2FA отключена.</div>{% endif %}
+{% if error == 'invalid_code' %}<div class="error-msg">❌ Неверный код. Убедитесь, что время на устройстве синхронизировано.</div>{% endif %}
+
+{% if totp_enabled %}
+<div class="dash-card">
+    <p>🟢 <strong>2FA активна.</strong> При каждом входе в аккаунт требуется код из приложения-аутентификатора.</p>
+    <p style="margin-top:12px;">Для отключения 2FA введите текущий код из приложения:</p>
+    <form method="post" action="/dashboard/profile/2fa/disable" style="margin-top:12px;">
+        <input type="hidden" name="csrf_token" value="{{ web_user.csrf_token }}">
+        <div class="input-group" style="max-width:220px;">
+            <input type="text" name="totp_code" placeholder="000000" maxlength="6" autocomplete="one-time-code" required>
+        </div>
+        <button class="btn btn-secondary" type="submit">🔓 Отключить 2FA</button>
+    </form>
+</div>
+{% else %}
+<div class="dash-card">
+    <p>🔴 <strong>2FA не активна.</strong> Включите двухфакторную аутентификацию для защиты аккаунта.</p>
+    <p style="margin-top:12px;color:var(--text-muted,#888);">Используйте любое TOTP-приложение: Google Authenticator, Authy, 2FAS, Microsoft Authenticator.</p>
+</div>
+
+<div class="dash-card">
+    <h2>Подключить 2FA</h2>
+    <ol style="padding-left:20px;line-height:2;">
+        <li>Установите приложение-аутентификатор на телефон</li>
+        <li>Отсканируйте QR-код или введите ключ вручную</li>
+        <li>Введите 6-значный код из приложения для подтверждения</li>
+    </ol>
+
+    <div style="margin:20px 0;text-align:center;">
+        <img src="/dashboard/profile/2fa/qr.png?secret={{ new_secret }}"
+             alt="QR для 2FA" style="border:4px solid rgba(168,85,247,.4);border-radius:8px;width:200px;height:200px;">
+    </div>
+
+    <p style="margin-bottom:8px;">Ключ (если не можете сканировать):</p>
+    <code style="display:block;padding:10px;background:rgba(0,0,0,.4);border-radius:6px;word-break:break-all;letter-spacing:2px;">{{ new_secret }}</code>
+
+    <form method="post" action="/dashboard/profile/2fa/enable" style="margin-top:20px;">
+        <input type="hidden" name="csrf_token" value="{{ web_user.csrf_token }}">
+        <input type="hidden" name="totp_secret" value="{{ new_secret }}">
+        <div class="input-group" style="max-width:220px;">
+            <label>Код из приложения</label>
+            <input type="text" name="totp_code" placeholder="000000" maxlength="6" autocomplete="one-time-code" required>
+        </div>
+        <button class="btn btn-primary" type="submit">🔐 Включить 2FA</button>
+    </form>
+</div>
+{% endif %}
+
+<div class="dash-card" style="font-size:13px;color:var(--text-muted,#888);">
+    ⚠️ <strong>Важно:</strong> сохраните ключ в надёжном месте. Если вы потеряете доступ к приложению и не сохраните ключ — восстановить доступ к аккаунту можно только через поддержку.
+</div>
+{% endblock %}

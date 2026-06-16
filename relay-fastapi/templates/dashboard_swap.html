@@ -1,0 +1,52 @@
+{% extends "dashboard_base.html" %}
+{% block title %}Своп | ObsidianExchange{% endblock %}
+{% block dashboard_content %}
+<h1>🔄 Своп криптовалют</h1>
+
+<div class="dash-card">
+    <p>Прямой обмен BTC, LTC и USDT (TRC20) без рубля — монеты приходят прямо на ваш кошелёк, без участия наших адресов и без KYC.</p>
+    <p style="margin-top:10px;">💰 <b>Комиссия: ~1%</b> — включена в курс, отдельных сборов нет. Вы видите итоговую сумму до подтверждения.</p>
+</div>
+
+<div class="dash-card">
+    {% if error %}<div class="error-msg">{{ error }}</div>{% endif %}
+    <form method="post" action="/dashboard/swap">
+        <input type="hidden" name="csrf_token" value="{{ web_user.csrf_token }}">
+        <div class="input-group">
+            <label>Отдаёте</label>
+            <select name="coin_from">
+                {% set cf = form.coin_from if form else (prefill.coin_from if prefill else '') %}
+                {% for c in swap_coins %}
+                <option value="{{ c }}" {{ 'selected' if cf == c }}>{{ c }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="input-group">
+            <label>Получаете</label>
+            <select name="coin_to">
+                {% set ct = form.coin_to if form else (prefill.coin_to if prefill else '') %}
+                {% for c in swap_coins %}
+                <option value="{{ c }}" {{ 'selected' if ct == c }}>{{ c }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="input-group">
+            <label>Сумма к отправке (сколько отдаёте)</label>
+            <input type="number" name="amount" step="any" min="0"
+                   value="{{ form.amount if form else (prefill.amount if prefill else '') }}"
+                   placeholder="Например, 0.01" required>
+        </div>
+        <div class="input-group">
+            <label>Адрес для получения</label>
+            <input type="text" name="address"
+                   value="{{ form.address if form else (prefill.address if prefill else '') }}"
+                   placeholder="Введите адрес кошелька" required>
+        </div>
+        <button class="btn btn-primary btn-block" type="submit">🔄 Создать своп</button>
+    </form>
+</div>
+
+<div class="dash-card" style="font-size:13px;color:var(--text-muted,#888);">
+    ℹ️ После создания свопа вы получите адрес для перевода. Средства поступают на ваш кошелёк напрямую. Минимальные суммы: BTC от 0.0014, LTC от 1.97, USDT от 90.
+</div>
+{% endblock %}

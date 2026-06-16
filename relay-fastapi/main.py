@@ -1,0 +1,1257 @@
+from dotenv import load_dotenv
+load_dotenv("/root/bot/.env")
+
+import os, json, sqlite3, qrcode, logging, re, asyncio, time, hmac, hashlib
+from io import BytesIO
+from datetime import datetime, timedelta
+from pathlib import Path
+from fastapi import FastAPI, Request, HTTPException, Form
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+import requests
+import sys
+import urllib.parse
+
+import auth
+
+# Загрузка .env
+env_path = Path('/root/bot/.env')
+if env_path.exists():
+    with open(env_path) as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith('#') and '=' in line:
+                key, val = line.split('=', 1)
+                os.environ[key.strip()] = val.strip().strip('"').strip("'")
+
+DB_PATH = os.getenv('DB_PATH', '/root/exchange.db')
+SECRET_KEY = os.getenv('RELAY_SECRET', 'fallback')
+PUBLIC_RELAY = os.getenv('PUBLIC_RELAY', 'https://obsidian-exchange.org')
+GREENPAY_API_SECRET = os.getenv('GREENPAY_API_SECRET', '')
+MONTERA_API_TOKEN = os.getenv('MONTERA_API_TOKEN', '')
+MIN_AMOUNT = float(os.getenv('MIN_AMOUNT', 2000))
+MAX_AMOUNT = float(os.getenv('MAX_AMOUNT', 500000))
+BOT_TOKEN = os.getenv('BOT_TOKEN', '')
+ADMIN_ID = int(os.getenv('ADMIN_ID', '0') or '0')
+INTERNAL_ADMIN_SECRET = os.getenv('INTERNAL_ADMIN_SECRET', '')
+BOT_USERNAME = os.getenv('BOT_USERNAME', 'Obsidian666999bot')
+SUPPORT_USERNAME = os.getenv('SUPPORT_USERNAME', 'ObsidianSupBot')
+REVIEWS_USERNAME = os.getenv('REVIEWS_USERNAME', 'ObsidianReviews')
+
+# Добавляем путь к модулям
+sys.path.insert(0, '/root/relay')
+
+BASE_DIR = Path(__file__).resolve().parent
+
+async def _session_cleanup_loop():
+    """Удаляет истёкшие сессии раз в 6 часов и чистит audit_log старше 90 дней."""
+    while True:
+        try:
+            with db_conn(5) as conn:
+                conn.execute("DELETE FROM web_sessions WHERE expires_at < datetime('now')")
+                conn.execute("DELETE FROM audit_log WHERE created_at < datetime('now', '-90 days')")
+                conn.commit()
+        except Exception as e:
+            logger.warning(f"Session cleanup error: {e}")
+        await asyncio.sleep(6 * 3600)
+
+@asynccontextmanager
+async def lifespan(app):
+    asyncio.create_task(_session_cleanup_loop())
+    yield
+
+app = FastAPI(title="ObsidianExchange Relay", version="3.0", lifespan=lifespan)
+app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
+templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+
+from contextlib import contextmanager, asynccontextmanager
+
+@contextmanager
+def db_conn(timeout=5):
+    conn = sqlite3.connect(DB_PATH, timeout=timeout)
+    try:
+        yield conn
+    finally:
+        conn.close()
+
+def site_context(request: Request, **extra):
+    ctx = {
+        "bot_username": BOT_USERNAME,
+        "support_username": SUPPORT_USERNAME,
+        "reviews_username": REVIEWS_USERNAME,
+        "min_amount": MIN_AMOUNT,
+        "max_amount": MAX_AMOUNT,
+        "public_relay": PUBLIC_RELAY,
+        "web_user": auth.get_web_user(request),
+    }
+    ctx.update(extra)
+    return ctx
+
+# Функция аудита
+def audit_log(event, details=""):
+    try:
+        with db_conn(5) as conn:
+            c = conn.cursor()
+            c.execute("INSERT INTO audit_log (event, details) VALUES (?, ?)", (event, str(details)))
+            conn.commit()
+    except Exception as e:
+        logger.error(f"Audit log error: {e}")
+
+def verify_admin_init_data(init_data: str):
+    """Проверяет подпись Telegram WebApp initData и что user.id == ADMIN_ID."""
+    if not init_data or not BOT_TOKEN:
+        return None
+    try:
+        parsed = dict(urllib.parse.parse_qsl(init_data, strict_parsing=True))
+        received_hash = parsed.pop('hash', None)
+        if not received_hash:
+            return None
+        data_check_string = '\n'.join(f"{k}={v}" for k, v in sorted(parsed.items()))
+        secret_key = hmac.new(b"WebAppData", BOT_TOKEN.encode(), hashlib.sha256).digest()
+        computed_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(computed_hash, received_hash):
+            return None
+        user = json.loads(parsed.get('user', '{}'))
+        if user.get('id') != ADMIN_ID:
+            return None
+        return user
+    except Exception:
+        return None
+
+def require_admin(request: Request):
+    init_data = request.headers.get('X-Telegram-Init-Data', '')
+    user = verify_admin_init_data(init_data)
+    if not user:
+        raise HTTPException(status_code=403, detail="forbidden")
+    return user
+
+def notify_telegram(user_id, text):
+    if not BOT_TOKEN:
+        return
+    try:
+        requests.post(
+            f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
+            json={"chat_id": user_id, "text": text, "parse_mode": "HTML"},
+            timeout=10,
+        )
+    except Exception as e:
+        logger.error(f"notify_telegram error: {e}")
+
+# --- Личный кабинет: аутентификация ---
+
+def get_user_orders(web_user, limit=20):
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        c.execute("""
+            SELECT order_id, currency, rub_amount, status, created_at
+            FROM orders
+            WHERE web_user_id = ? OR (? IS NOT NULL AND user_id = ?)
+            ORDER BY created_at DESC LIMIT ?
+        """, (web_user['id'], web_user['telegram_id'], web_user['telegram_id'], limit))
+        rows = c.fetchall()
+    return [
+        {"order_id": r[0], "currency": r[1], "rub_amount": r[2], "status": r[3], "created_at": r[4]}
+        for r in rows
+    ]
+
+def get_user_swaps(web_user, limit=20):
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        c.execute("""
+            SELECT session_token, coin_from, coin_to, amount_from, status, created_at
+            FROM swap_sessions
+            WHERE web_user_id = ? OR (? IS NOT NULL AND user_id = ?)
+            ORDER BY created_at DESC LIMIT ?
+        """, (web_user['id'], web_user['telegram_id'], web_user['telegram_id'], limit))
+        rows = c.fetchall()
+    return [
+        {"token": r[0], "coin_from": r[1], "coin_to": r[2], "amount_from": r[3], "status": r[4], "created_at": r[5]}
+        for r in rows
+    ]
+
+def get_open_tickets_count(web_user):
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        c.execute("SELECT COUNT(*) FROM support_tickets WHERE web_user_id=? AND status != 'closed'", (web_user['id'],))
+        n = c.fetchone()[0]
+    return n
+
+def get_user_sell_orders(web_user, limit=20):
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        conditions = ["user_id = ?"]
+        params = [web_user['telegram_id'] if web_user['telegram_id'] else -web_user['id']]
+        c.execute(
+            f"SELECT id, currency, crypto_amount, rub_amount, sbp_phone, status, created_at FROM sell_orders WHERE {' OR '.join(conditions)} ORDER BY created_at DESC LIMIT ?",
+            params + [limit]
+        )
+        rows = c.fetchall()
+    return [
+        {"id": r[0], "currency": r[1], "crypto_amount": r[2], "rub_amount": r[3],
+         "sbp_phone": r[4], "status": r[5], "created_at": r[6]}
+        for r in rows
+    ]
+
+@app.get("/register", response_class=HTMLResponse)
+async def register_page(request: Request):
+    if auth.get_web_user(request):
+        return RedirectResponse("/dashboard", status_code=302)
+    return templates.TemplateResponse(request, "register.html", site_context(request))
+
+@app.post("/register", response_class=HTMLResponse)
+async def register_submit(request: Request, email: str = Form(...), password: str = Form(...), password2: str = Form(...)):
+    email = email.strip().lower()
+    error = None
+    if not auth.is_valid_email(email):
+        error = "Введите корректный email."
+    elif len(password) < 8:
+        error = "Пароль должен быть не короче 8 символов."
+    elif password != password2:
+        error = "Пароли не совпадают."
+    elif auth.get_user_by_email(email):
+        error = "Этот email уже зарегистрирован."
+    if error:
+        return templates.TemplateResponse(request, "register.html", site_context(request, error=error, email=email), status_code=400)
+    web_user_id = auth.create_user(email, password)
+    token, _ = auth.create_session(web_user_id)
+    response = RedirectResponse("/dashboard", status_code=302)
+    auth.set_session_cookie(response, token)
+    audit_log("web_register", f"email={email}")
+    return response
+
+@app.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request):
+    if auth.get_web_user(request):
+        return RedirectResponse("/dashboard", status_code=302)
+    return templates.TemplateResponse(request, "login.html", site_context(request))
+
+@app.post("/login", response_class=HTMLResponse)
+async def login_submit(
+    request: Request,
+    email: str = Form(default=None),
+    password: str = Form(default=None),
+    totp_code: str = Form(default=None),
+    totp_step_token: str = Form(default=None),
+):
+    # Второй шаг: TOTP
+    if totp_step_token:
+        user_id = auth.verify_totp_step_token(totp_step_token)
+        if not user_id:
+            return templates.TemplateResponse(request, "login.html", site_context(
+                request, error="Сессия проверки истекла. Войдите снова."), status_code=400)
+        user = auth.get_user_by_id(user_id)
+        if not user or not auth.verify_totp_code(user.get('totp_secret', ''), totp_code or ''):
+            return templates.TemplateResponse(request, "login.html", site_context(
+                request, totp_required=True, totp_step_token=totp_step_token,
+                error="Неверный код 2FA. Попробуйте ещё раз."), status_code=400)
+        token, _ = auth.create_session(user['id'])
+        response = RedirectResponse("/dashboard", status_code=302)
+        auth.set_session_cookie(response, token)
+        audit_log("web_login_2fa", f"user_id={user_id}")
+        return response
+    # Первый шаг: пароль
+    email = (email or '').strip().lower()
+    user = auth.get_user_by_email(email)
+    if not user or not auth.verify_password(password or '', user['password_hash']):
+        return templates.TemplateResponse(request, "login.html", site_context(
+            request, error="Неверный email или пароль.", email=email), status_code=400)
+    if user.get('totp_enabled'):
+        step_token = auth.make_totp_step_token(user['id'])
+        return templates.TemplateResponse(request, "login.html", site_context(
+            request, totp_required=True, totp_step_token=step_token))
+    token, _ = auth.create_session(user['id'])
+    response = RedirectResponse("/dashboard", status_code=302)
+    auth.set_session_cookie(response, token)
+    audit_log("web_login", f"email={email}")
+    return response
+
+@app.post("/logout")
+async def logout(request: Request):
+    web_user = auth.get_web_user(request)
+    response = RedirectResponse("/", status_code=302)
+    if web_user:
+        auth.destroy_session(web_user['session_token'])
+        auth.clear_session_cookie(response)
+    return response
+
+@app.get("/dashboard", response_class=HTMLResponse)
+async def dashboard_page(request: Request):
+    web_user = auth.get_web_user(request)
+    if not web_user:
+        return RedirectResponse("/login", status_code=302)
+    orders = get_user_orders(web_user, limit=5)
+    swaps = get_user_swaps(web_user, limit=5)
+    open_tickets = get_open_tickets_count(web_user)
+    return templates.TemplateResponse(request, "dashboard.html", site_context(
+        request, active="overview", orders=orders, swaps=swaps, open_tickets=open_tickets,
+    ))
+
+# --- Личный кабинет: обмен RUB → крипта ---
+from utils import exchange_calc
+
+@app.get("/dashboard/exchange", response_class=HTMLResponse)
+async def dashboard_exchange_page(request: Request):
+    web_user = auth.get_web_user(request)
+    if not web_user:
+        return RedirectResponse("/login", status_code=302)
+    q = request.query_params
+    prefill = {}
+    if q.get("repeat"):
+        prefill = {"currency": q.get("currency","BTC"), "amount": q.get("amount",""), "address": q.get("address","")}
+    return templates.TemplateResponse(request, "dashboard_exchange.html", site_context(
+        request, active="exchange", prefill=prefill,
+    ))
+
+@app.post("/dashboard/exchange", response_class=HTMLResponse)
+async def dashboard_exchange_submit(
+    request: Request,
+    csrf_token: str = Form(...),
+    currency: str = Form(...),
+    amount: float = Form(...),
+    address: str = Form(...),
+):
+    web_user = auth.get_web_user(request)
+    if not web_user:
+        return RedirectResponse("/login", status_code=302)
+    if not auth.verify_csrf(web_user, csrf_token):
+        raise HTTPException(status_code=403, detail="invalid csrf")
+
+    currency = currency.upper().strip()
+    address = address.strip()
+    error = None
+    if currency not in ("BTC", "LTC", "USDT"):
+        error = "Неподдерживаемая валюта."
+    elif amount < MIN_AMOUNT or amount > MAX_AMOUNT:
+        error = f"Сумма должна быть от {MIN_AMOUNT:.0f} до {MAX_AMOUNT:.0f} RUB."
+    elif not exchange_calc.validate_crypto_address(address, currency):
+        error = "Некорректный адрес для выбранной валюты."
+
+    if error:
+        return templates.TemplateResponse(request, "dashboard_exchange.html", site_context(
+            request, active="exchange", error=error,
+            form={"currency": currency, "amount": amount, "address": address},
+        ), status_code=400)
+
+    user_id = web_user['telegram_id'] if web_user['telegram_id'] else -web_user['id']
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        c.execute(
+            "INSERT INTO orders (user_id, username, currency, rub_amount, crypto_address, status, web_user_id) VALUES (?,?,?,?,?,'pending',?)",
+            (user_id, web_user['email'], currency, amount, address, web_user['id']),
+        )
+        conn.commit()
+        order_id = c.lastrowid
+
+    rate = exchange_calc.get_rate_with_markup(currency, amount)
+    crypto_amount = round(amount / rate, 8) if rate else 0
+    if ADMIN_ID:
+        notify_telegram(ADMIN_ID, (
+            f"🆕 Новая заявка #{order_id} (сайт)\n"
+            f"Аккаунт: {web_user['email']}\n"
+            f"Сумма: {amount:g} RUB ≈ {crypto_amount} {currency}\n"
+            f"Адрес: {address}"
+        ))
+    audit_log("web_order_created", f"order_id={order_id} web_user_id={web_user['id']}")
+
+    try:
+        from services.payment_service import PaymentService
+        payment_service = PaymentService()
+        session = payment_service.create_session(
+            order_id, amount, client_ip=request.client.host, telegram_id=web_user['telegram_id'],
+        )
+        if 'session_token' in session:
+            return RedirectResponse(f"/pay/{session['session_token']}", status_code=302)
+    except Exception as e:
+        logger.error(f"Не удалось создать payment session для заявки {order_id} (сайт): {e}")
+
+    return RedirectResponse(f"/pay/{order_id}", status_code=302)
+
+@app.get("/dashboard/orders", response_class=HTMLResponse)
+async def dashboard_orders_page(request: Request):
+    web_user = auth.get_web_user(request)
+    if not web_user:
+        return RedirectResponse("/login", status_code=302)
+    orders = get_user_orders(web_user, limit=50)
+    swaps = get_user_swaps(web_user, limit=50)
+    sell_orders = get_user_sell_orders(web_user, limit=50)
+    return templates.TemplateResponse(request, "dashboard_orders.html", site_context(
+        request, active="orders", orders=orders, swaps=swaps, sell_orders=sell_orders,
+    ))
+
+# --- Личный кабинет: своп криптовалют (Trocador) ---
+
+@app.get("/dashboard/swap", response_class=HTMLResponse)
+async def dashboard_swap_page(request: Request):
+    web_user = auth.get_web_user(request)
+    if not web_user:
+        return RedirectResponse("/login", status_code=302)
+    q = request.query_params
+    prefill = {}
+    if q.get("repeat"):
+        prefill = {"coin_from": q.get("coin_from","BTC"), "coin_to": q.get("coin_to","LTC"),
+                   "amount": q.get("amount",""), "address": q.get("address","")}
+    return templates.TemplateResponse(request, "dashboard_swap.html", site_context(
+        request, active="swap", swap_coins=exchange_calc.SWAP_COINS, prefill=prefill,
+    ))
+
+@app.post("/dashboard/swap", response_class=HTMLResponse)
+async def dashboard_swap_submit(
+    request: Request,
+    csrf_token: str = Form(...),
+    coin_from: str = Form(...),
+    coin_to: str = Form(...),
+    amount: float = Form(...),
+    address: str = Form(...),
+):
+    web_user = auth.get_web_user(request)
+    if not web_user:
+        return RedirectResponse("/login", status_code=302)
+    if not auth.verify_csrf(web_user, csrf_token):
+        raise HTTPException(status_code=403, detail="invalid csrf")
+
+    coin_from = coin_from.upper().strip()
+    coin_to = coin_to.upper().strip()
+    address = address.strip()
+    error = None
+    if coin_from not in exchange_calc.SWAP_COINS or coin_to not in exchange_calc.SWAP_COINS:
+        error = "Неподдерживаемая пара валют."
+    elif coin_from == coin_to:
+        error = "Валюты пары должны отличаться."
+    elif amount <= 0:
+        error = "Сумма должна быть больше 0."
+    elif not exchange_calc.validate_crypto_address(address, coin_to):
+        error = "Некорректный адрес для выбранной валюты."
+
+    if error:
+        return templates.TemplateResponse(request, "dashboard_swap.html", site_context(
+            request, active="swap", swap_coins=exchange_calc.SWAP_COINS, error=error,
+            form={"coin_from": coin_from, "coin_to": coin_to, "amount": amount, "address": address},
+        ), status_code=400)
+
+    from utils.tokens import generate_session_token
+    from providers.swapuz import SwapUzProvider
+
+    token = generate_session_token()
+    provider = SwapUzProvider()
+
+    # Проверяем курс и лимиты
+    rate_info = provider.get_rate(coin_from, coin_to, amount)
+    if "error" in rate_info:
+        return templates.TemplateResponse(request, "dashboard_swap.html", site_context(
+            request, active="swap", swap_coins=exchange_calc.SWAP_COINS,
+            error=f"Не удалось получить курс: {rate_info['error']}",
+            form={"coin_from": coin_from, "coin_to": coin_to, "amount": amount, "address": address},
+        ), status_code=400)
+
+    result = provider.create_swap(
+        coin_from=coin_from,
+        coin_to=coin_to,
+        amount=amount,
+        address=address,
+        order_uuid=token,
+    )
+
+    if "error" in result:
+        return templates.TemplateResponse(request, "dashboard_swap.html", site_context(
+            request, active="swap", swap_coins=exchange_calc.SWAP_COINS,
+            error=f"Не удалось создать своп: {result['error']}. Попробуйте другую сумму или адрес.",
+            form={"coin_from": coin_from, "coin_to": coin_to, "amount": amount, "address": address},
+        ), status_code=400)
+
+    user_id = web_user['telegram_id'] if web_user['telegram_id'] else -web_user['id']
+    with db_conn(5) as conn:
+        conn.execute(
+            "INSERT INTO swap_sessions (session_token, user_id, coin_from, coin_to, amount_from, address_to, trocador_id, trocador_url, status, web_user_id, provider, deposit_address) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+            (token, user_id, coin_from, coin_to, amount, address, result['uid'], result['url'], 'waiting', web_user['id'], 'swapuz', result['deposit_address']),
+        )
+        conn.commit()
+    audit_log("web_swap_created", f"token={token} web_user_id={web_user['id']} provider=swapuz")
+
+    return RedirectResponse(f"/swap/{token}", status_code=302)
+
+# --- Личный кабинет: рефералы и профиль ---
+
+@app.get("/dashboard/referral", response_class=HTMLResponse)
+async def dashboard_referral_page(request: Request):
+    web_user = auth.get_web_user(request)
+    if not web_user:
+        return RedirectResponse("/login", status_code=302)
+    ref_link = None
+    stats = {"referrals": 0, "total_bonus_btc": 0}
+    if web_user['telegram_id']:
+        ref_link = f"https://t.me/{BOT_USERNAME}?start=ref_{web_user['telegram_id']}"
+        with db_conn(5) as conn:
+            c = conn.cursor()
+            c.execute("SELECT COUNT(*), SUM(total_bonus_btc) FROM referrals WHERE referrer_id=?", (web_user['telegram_id'],))
+            row = c.fetchone()
+        stats = {"referrals": row[0] or 0, "total_bonus_btc": row[1] or 0}
+    return templates.TemplateResponse(request, "dashboard_referral.html", site_context(
+        request, active="referral", ref_link=ref_link, stats=stats,
+    ))
+
+@app.get("/dashboard/profile", response_class=HTMLResponse)
+async def dashboard_profile_page(request: Request):
+    web_user = auth.get_web_user(request)
+    if not web_user:
+        return RedirectResponse("/login", status_code=302)
+    ref_address = None
+    if web_user['telegram_id']:
+        with db_conn(5) as conn:
+            c = conn.cursor()
+            c.execute("SELECT address FROM referral_addresses WHERE user_id=? AND currency='BTC'", (web_user['telegram_id'],))
+            row = c.fetchone()
+        ref_address = row[0] if row else None
+    return templates.TemplateResponse(request, "dashboard_profile.html", site_context(
+        request, active="profile", ref_address=ref_address,
+        error=request.query_params.get('error'), success=request.query_params.get('success'),
+    ))
+
+@app.post("/dashboard/profile/referral-address")
+async def dashboard_profile_referral_address(request: Request, csrf_token: str = Form(...), address: str = Form(...)):
+    web_user = auth.get_web_user(request)
+    if not web_user:
+        return RedirectResponse("/login", status_code=302)
+    if not auth.verify_csrf(web_user, csrf_token):
+        raise HTTPException(status_code=403, detail="invalid csrf")
+    if not web_user['telegram_id']:
+        return RedirectResponse("/dashboard/profile?error=notelegram", status_code=302)
+    address = address.strip()
+    if not exchange_calc.validate_crypto_address(address, 'BTC'):
+        return RedirectResponse("/dashboard/profile?error=address", status_code=302)
+    with db_conn(5) as conn:
+        conn.execute("INSERT OR REPLACE INTO referral_addresses (user_id, currency, address) VALUES (?, 'BTC', ?)", (web_user['telegram_id'], address))
+        conn.commit()
+    return RedirectResponse("/dashboard/profile?success=address", status_code=302)
+
+@app.get("/dashboard/profile/2fa", response_class=HTMLResponse)
+async def dashboard_2fa_page(request: Request):
+    web_user = auth.get_web_user(request)
+    if not web_user:
+        return RedirectResponse("/login", status_code=302)
+    user_full = auth.get_user_by_id(web_user['id'])
+    new_secret = auth.generate_totp_secret()
+    totp_uri = auth.get_totp_uri(new_secret, web_user['email'])
+    return templates.TemplateResponse(request, "dashboard_2fa.html", site_context(
+        request, active="profile",
+        totp_enabled=user_full.get('totp_enabled', False),
+        new_secret=new_secret,
+        totp_uri=totp_uri,
+        error=request.query_params.get('error'),
+        success=request.query_params.get('success'),
+    ))
+
+@app.post("/dashboard/profile/2fa/enable")
+async def dashboard_2fa_enable(
+    request: Request, csrf_token: str = Form(...),
+    totp_secret: str = Form(...), totp_code: str = Form(...),
+):
+    web_user = auth.get_web_user(request)
+    if not web_user:
+        return RedirectResponse("/login", status_code=302)
+    if not auth.verify_csrf(web_user, csrf_token):
+        raise HTTPException(status_code=403, detail="invalid csrf")
+    if not auth.verify_totp_code(totp_secret, totp_code):
+        return RedirectResponse("/dashboard/profile/2fa?error=invalid_code", status_code=302)
+    auth.enable_totp(web_user['id'], totp_secret)
+    audit_log("web_2fa_enabled", f"user_id={web_user['id']}")
+    return RedirectResponse("/dashboard/profile/2fa?success=enabled", status_code=302)
+
+@app.post("/dashboard/profile/2fa/disable")
+async def dashboard_2fa_disable(
+    request: Request, csrf_token: str = Form(...), totp_code: str = Form(...),
+):
+    web_user = auth.get_web_user(request)
+    if not web_user:
+        return RedirectResponse("/login", status_code=302)
+    if not auth.verify_csrf(web_user, csrf_token):
+        raise HTTPException(status_code=403, detail="invalid csrf")
+    user_full = auth.get_user_by_id(web_user['id'])
+    if not auth.verify_totp_code(user_full.get('totp_secret', ''), totp_code):
+        return RedirectResponse("/dashboard/profile/2fa?error=invalid_code", status_code=302)
+    auth.disable_totp(web_user['id'])
+    audit_log("web_2fa_disabled", f"user_id={web_user['id']}")
+    return RedirectResponse("/dashboard/profile/2fa?success=disabled", status_code=302)
+
+@app.get("/dashboard/profile/2fa/qr.png")
+async def dashboard_2fa_qr(request: Request, secret: str = None):
+    web_user = auth.get_web_user(request)
+    if not web_user:
+        raise HTTPException(status_code=401)
+    if not secret or len(secret) < 16:
+        raise HTTPException(status_code=400)
+    # Разрешаем только base32-символы
+    if not re.match(r'^[A-Z2-7]{16,64}$', secret.upper()):
+        raise HTTPException(status_code=400)
+    totp_uri = auth.get_totp_uri(secret.upper(), web_user['email'])
+    img = qrcode.make(totp_uri)
+    buf = BytesIO()
+    img.save(buf, format="PNG")
+    buf.seek(0)
+    return Response(content=buf.read(), media_type="image/png",
+                    headers={"Cache-Control": "no-store, no-cache, must-revalidate"})
+
+@app.get("/auth/telegram/callback")
+async def telegram_login_callback(request: Request):
+    web_user = auth.get_web_user(request)
+    if not web_user:
+        return RedirectResponse("/login", status_code=302)
+    data = auth.verify_telegram_login_widget(dict(request.query_params), BOT_TOKEN)
+    if not data:
+        return RedirectResponse("/dashboard/profile?error=telegram", status_code=302)
+    telegram_id = int(data['id'])
+    telegram_username = data.get('username')
+    with db_conn(5) as conn:
+        try:
+            conn.execute("UPDATE web_users SET telegram_id=?, telegram_username=? WHERE id=?", (telegram_id, telegram_username, web_user['id']))
+            conn.commit()
+        except sqlite3.IntegrityError:
+            conn.close()
+            return RedirectResponse("/dashboard/profile?error=taken", status_code=302)
+    audit_log("web_telegram_linked", f"web_user_id={web_user['id']} telegram_id={telegram_id}")
+    return RedirectResponse("/dashboard/profile?success=telegram", status_code=302)
+
+# --- Личный кабинет: поддержка (тикеты) ---
+
+@app.get("/dashboard/support", response_class=HTMLResponse)
+async def dashboard_support_page(request: Request):
+    web_user = auth.get_web_user(request)
+    if not web_user:
+        return RedirectResponse("/login", status_code=302)
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        c.execute("SELECT id, subject, status, created_at, updated_at FROM support_tickets WHERE web_user_id=? ORDER BY updated_at DESC", (web_user['id'],))
+        tickets = [{"id": r[0], "subject": r[1], "status": r[2], "created_at": r[3], "updated_at": r[4]} for r in c.fetchall()]
+    return templates.TemplateResponse(request, "dashboard_support.html", site_context(
+        request, active="support", tickets=tickets,
+    ))
+
+@app.post("/dashboard/support")
+async def dashboard_support_create(request: Request, csrf_token: str = Form(...), subject: str = Form(...), message: str = Form(...)):
+    web_user = auth.get_web_user(request)
+    if not web_user:
+        return RedirectResponse("/login", status_code=302)
+    if not auth.verify_csrf(web_user, csrf_token):
+        raise HTTPException(status_code=403, detail="invalid csrf")
+    subject = subject.strip()
+    message = message.strip()
+    if not subject or not message:
+        return RedirectResponse("/dashboard/support?error=empty", status_code=302)
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        c.execute("INSERT INTO support_tickets (web_user_id, subject, status) VALUES (?,?,'open')", (web_user['id'], subject))
+        ticket_id = c.lastrowid
+        c.execute("INSERT INTO support_messages (ticket_id, sender, message) VALUES (?, 'user', ?)", (ticket_id, message))
+        conn.commit()
+    audit_log("web_support_ticket_created", f"ticket_id={ticket_id} web_user_id={web_user['id']}")
+    if ADMIN_ID:
+        notify_telegram(ADMIN_ID, f"💬 Новое обращение #{ticket_id} от {web_user['email']}\nТема: {subject}")
+    return RedirectResponse(f"/dashboard/support/{ticket_id}", status_code=302)
+
+@app.get("/dashboard/support/{ticket_id}", response_class=HTMLResponse)
+async def dashboard_support_ticket_page(request: Request, ticket_id: int):
+    web_user = auth.get_web_user(request)
+    if not web_user:
+        return RedirectResponse("/login", status_code=302)
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        c.execute("SELECT id, subject, status FROM support_tickets WHERE id=? AND web_user_id=?", (ticket_id, web_user['id']))
+        ticket = c.fetchone()
+        if not ticket:
+            conn.close()
+            raise HTTPException(status_code=404)
+        c.execute("SELECT sender, message, created_at FROM support_messages WHERE ticket_id=? ORDER BY created_at ASC, id ASC", (ticket_id,))
+        messages = [{"sender": r[0], "message": r[1], "created_at": r[2]} for r in c.fetchall()]
+    return templates.TemplateResponse(request, "dashboard_support_ticket.html", site_context(
+        request, active="support",
+        ticket={"id": ticket[0], "subject": ticket[1], "status": ticket[2]}, messages=messages,
+    ))
+
+@app.post("/dashboard/support/{ticket_id}/reply")
+async def dashboard_support_reply(request: Request, ticket_id: int, csrf_token: str = Form(...), message: str = Form(...)):
+    web_user = auth.get_web_user(request)
+    if not web_user:
+        return RedirectResponse("/login", status_code=302)
+    if not auth.verify_csrf(web_user, csrf_token):
+        raise HTTPException(status_code=403, detail="invalid csrf")
+    message = message.strip()
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        c.execute("SELECT id, status FROM support_tickets WHERE id=? AND web_user_id=?", (ticket_id, web_user['id']))
+        ticket = c.fetchone()
+        if not ticket:
+            conn.close()
+            raise HTTPException(status_code=404)
+        if message:
+            c.execute("INSERT INTO support_messages (ticket_id, sender, message) VALUES (?, 'user', ?)", (ticket_id, message))
+            c.execute("UPDATE support_tickets SET status='open', updated_at=datetime('now') WHERE id=?", (ticket_id,))
+            conn.commit()
+            if ADMIN_ID:
+                notify_telegram(ADMIN_ID, f"💬 Новое сообщение в обращении #{ticket_id} от {web_user['email']}")
+    return RedirectResponse(f"/dashboard/support/{ticket_id}", status_code=302)
+
+# --- Публичный сайт ---
+@app.get("/", response_class=HTMLResponse)
+async def index(request: Request):
+    return templates.TemplateResponse(request, "index.html", site_context(request))
+
+@app.get("/rates", response_class=HTMLResponse)
+async def rates_page(request: Request):
+    return templates.TemplateResponse(request, "rates.html", site_context(request))
+
+@app.get("/how-it-works", response_class=HTMLResponse)
+async def how_it_works_page(request: Request):
+    return templates.TemplateResponse(request, "how_it_works.html", site_context(request))
+
+@app.get("/faq", response_class=HTMLResponse)
+async def faq_page(request: Request):
+    return templates.TemplateResponse(request, "faq.html", site_context(request))
+
+@app.get("/reviews", response_class=HTMLResponse)
+async def reviews_page(request: Request):
+    return templates.TemplateResponse(request, "reviews.html", site_context(request))
+
+@app.get("/contacts", response_class=HTMLResponse)
+async def contacts_page(request: Request):
+    return templates.TemplateResponse(request, "contacts.html", site_context(request))
+
+@app.get("/api/stats/public")
+async def api_stats_public():
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        c.execute("SELECT COUNT(*) FROM orders WHERE date(created_at)=? AND status='sent'", (datetime.now().strftime("%Y-%m-%d"),))
+        sent_today = c.fetchone()[0]
+    return {"exchanges_today": sent_today}
+
+@app.get("/webapp", response_class=HTMLResponse)
+async def webapp():
+    try:
+        with open('/root/relay/webapp.html', 'r') as f:
+            return f.read()
+    except:
+        raise HTTPException(status_code=500)
+
+# --- API эндпоинты ---
+@app.get("/api/history")
+async def api_history(user_id: int):
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        c.execute("SELECT order_id, rub_amount, currency, status, created_at FROM orders WHERE user_id=? ORDER BY created_at DESC LIMIT 10", (user_id,))
+        rows = c.fetchall()
+    return [{"order_id": r[0], "amount": r[1], "currency": r[2], "status": r[3], "created": r[4]} for r in rows]
+
+@app.get("/api/referral_stats")
+async def api_referral(user_id: int):
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        c.execute("SELECT COUNT(*), SUM(total_bonus_btc) FROM referrals WHERE referrer_id=?", (user_id,))
+        row = c.fetchone()
+    return {"referrals": row[0] or 0, "total_bonus_btc": row[1] or 0}
+
+@app.get("/api/order/{order_id}")
+async def api_order(order_id: int):
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        c.execute("SELECT status, paid_btc_tx FROM orders WHERE order_id=?", (order_id,))
+        row = c.fetchone()
+    if not row:
+        raise HTTPException(status_code=404)
+    return {"status": row[0], "txid": row[1]}
+
+# --- Админ-вкладка Mini App ---
+@app.get("/api/admin/stats")
+async def admin_stats_api(request: Request):
+    require_admin(request)
+    with db_conn(10) as conn:
+        c = conn.cursor()
+        c.execute("SELECT COUNT(*) FROM orders")
+        total = c.fetchone()[0]
+        c.execute("SELECT COUNT(*) FROM orders WHERE status='sent'")
+        sent = c.fetchone()[0]
+        c.execute("SELECT SUM(rub_amount) FROM orders WHERE status='sent'")
+        volume = c.fetchone()[0] or 0
+        c.execute("SELECT COUNT(*) FROM orders WHERE status='pending'")
+        pending = c.fetchone()[0]
+    return {"total": total, "pending": pending, "sent": sent, "volume": volume}
+
+@app.get("/api/admin/orders")
+async def admin_orders_api(request: Request, limit: int = 20):
+    require_admin(request)
+    limit = max(1, min(limit, 100))
+    with db_conn(10) as conn:
+        c = conn.cursor()
+        c.execute("SELECT order_id, user_id, username, rub_amount, currency, status, created_at FROM orders ORDER BY created_at DESC LIMIT ?", (limit,))
+        rows = c.fetchall()
+    return {"orders": [
+        {"order_id": r[0], "user_id": r[1], "username": r[2], "rub_amount": r[3], "currency": r[4], "status": r[5], "created_at": r[6]}
+        for r in rows
+    ]}
+
+@app.get("/api/admin/blocked")
+async def admin_blocked_api(request: Request):
+    require_admin(request)
+    with db_conn(10) as conn:
+        c = conn.cursor()
+        c.execute("SELECT user_id, reason, blocked_at FROM blocked_users ORDER BY blocked_at DESC LIMIT 50")
+        rows = c.fetchall()
+    return {"blocked": [{"user_id": r[0], "reason": r[1], "blocked_at": r[2]} for r in rows]}
+
+@app.post("/api/admin/block")
+async def admin_block_api(request: Request):
+    require_admin(request)
+    data = await request.json()
+    user_id = int(data['user_id'])
+    reason = (data.get('reason') or 'admin block').strip()
+    with db_conn(10) as conn:
+        conn.execute("INSERT OR IGNORE INTO blocked_users (user_id, reason) VALUES (?, ?)", (user_id, reason))
+        conn.commit()
+    audit_log("admin_block", f"user_id={user_id}")
+    return {"ok": True}
+
+@app.post("/api/admin/unblock")
+async def admin_unblock_api(request: Request):
+    require_admin(request)
+    data = await request.json()
+    user_id = int(data['user_id'])
+    with db_conn(10) as conn:
+        conn.execute("DELETE FROM blocked_users WHERE user_id=?", (user_id,))
+        conn.commit()
+    audit_log("admin_unblock", f"user_id={user_id}")
+    return {"ok": True}
+
+@app.post("/api/admin/force_payout")
+async def admin_force_payout_api(request: Request):
+    require_admin(request)
+    data = await request.json()
+    order_id = int(data['order_id'])
+    fake_tx = f"manual_{int(time.time())}"
+    with db_conn(10) as conn:
+        conn.execute("UPDATE orders SET status='sent', paid_btc_tx=?, updated_at=CURRENT_TIMESTAMP WHERE order_id=?", (fake_tx, order_id))
+        conn.commit()
+    audit_log("admin_force_payout", f"order_id={order_id} tx={fake_tx}")
+    return {"ok": True, "txid": fake_tx}
+
+@app.post("/internal/admin/force_payout")
+async def internal_force_payout(request: Request):
+    secret = request.headers.get("X-Internal-Secret", "")
+    if not INTERNAL_ADMIN_SECRET or not hmac.compare_digest(secret, INTERNAL_ADMIN_SECRET):
+        raise HTTPException(status_code=403, detail="forbidden")
+    data = await request.json()
+    order_id = int(data['order_id'])
+    fake_tx = f"manual_{int(time.time())}"
+    with db_conn(10) as conn:
+        conn.execute("UPDATE orders SET status='sent', paid_btc_tx=?, updated_at=CURRENT_TIMESTAMP WHERE order_id=?", (fake_tx, order_id))
+        conn.commit()
+    audit_log("admin_force_payout_laravel", f"order_id={order_id} tx={fake_tx}")
+    return {"ok": True, "txid": fake_tx}
+
+@app.post("/internal/admin/notify_support")
+async def internal_notify_support(request: Request):
+    secret = request.headers.get("X-Internal-Secret", "")
+    if not INTERNAL_ADMIN_SECRET or not hmac.compare_digest(secret, INTERNAL_ADMIN_SECRET):
+        raise HTTPException(status_code=403, detail="forbidden")
+    data = await request.json()
+    web_user_id = int(data['web_user_id'])
+    text = data['text']
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        c.execute("SELECT telegram_id FROM web_users WHERE id=?", (web_user_id,))
+        row = c.fetchone()
+    if row and row[0]:
+        notify_telegram(row[0], text)
+    return {"ok": True}
+
+@app.get("/api/server-stats")
+async def api_server_stats():
+    import psutil
+    cpu = psutil.cpu_percent(interval=1)
+    mem = psutil.virtual_memory()
+    disk = psutil.disk_usage('/')
+    return {
+        "cpu": cpu,
+        "memory_used": round(mem.used / (1024**3), 1),
+        "memory_total": round(mem.total / (1024**3), 1),
+        "disk_used": round(disk.used / (1024**3), 1),
+        "disk_total": round(disk.total / (1024**3), 1)
+    }
+
+# --- Платёжный шлюз (старый формат /pay/{order_id}) ---
+@app.get("/pay/{token}", response_class=HTMLResponse)
+async def pay(token: str, request: Request):
+    client_ip = request.client.host
+    audit_log("payment_page_opened", f"token={token} ip={client_ip}")
+    
+    # Проверяем, является ли token числом (старый формат)
+    if token.isdigit():
+        order_id = int(token)
+        with db_conn(5) as conn:
+            c = conn.cursor()
+            c.execute("SELECT rub_amount, paid_btc_tx FROM orders WHERE order_id=?", (order_id,))
+            row = c.fetchone()
+        if not row:
+            raise HTTPException(status_code=404)
+        
+        amount, platega_url = row
+        if not platega_url:
+            platega_url = "https://obsidian-exchange.org/error"
+        
+        qr = qrcode.make(platega_url)
+        bio = BytesIO(); qr.save(bio, "PNG"); bio.seek(0)
+        import base64
+        qr_base64 = base64.b64encode(bio.read()).decode()
+        
+        # Старая вёрстка (зелёная) — позже заменим на киберпанк
+        html = f"""<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Оплата заказа #{order_id} | ObsidianExchange</title>
+    <style>
+        body {{ font-family: Arial, sans-serif; background: #0a0a0a; color: #e0e0e0; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }}
+        .container {{ text-align: center; background: #141414; padding: 40px; border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.6); max-width: 400px; width: 90%; }}
+        h1 {{ color: #2a7d2a; font-size: 24px; }}
+        .amount {{ font-size: 28px; font-weight: 700; color: #2a7d2a; margin: 20px 0; }}
+        .qr {{ margin: 20px auto; }}
+        .qr img {{ border-radius: 15px; }}
+        .btn {{ display: inline-block; padding: 14px 30px; background: #2a7d2a; color: #fff; text-decoration: none; border-radius: 10px; font-size: 18px; margin-top: 20px; }}
+        .btn:hover {{ background: #236923; }}
+        p {{ color: #999; font-size: 14px; margin-top: 15px; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⚫ ObsidianExchange</h1>
+        <p>Заказ #{order_id}</p>
+        <div class="amount">{amount} RUB</div>
+        <p>📲 Отсканируйте QR-код в приложении вашего банка для оплаты через СБП</p>
+        <div class="qr"><img src="data:image/png;base64,{qr_base64}" width="250" alt="QR-код оплаты"></div>
+        <a class="btn" href="{platega_url}" target="_blank">Открыть в приложении банка</a>
+        <p>После оплаты нажмите «Я оплатил» в боте</p>
+    </div>
+</body>
+</html>"""
+        return html
+    
+    # Если token не число, пробуем найти сессию (новый формат)
+    try:
+        from services.payment_service import PaymentService
+        payment_service = PaymentService()
+        session = payment_service.get_session(token)
+        if not session:
+            raise HTTPException(status_code=404)
+        amount = session['amount']
+        order_id = session['order_id']
+        platega_url = session.get('qr_payload', 'https://obsidian-exchange.org/error')
+        
+        qr = qrcode.make(platega_url)
+        bio = BytesIO(); qr.save(bio, "PNG"); bio.seek(0)
+        import base64
+        qr_base64 = base64.b64encode(bio.read()).decode()
+        
+        # Здесь должен быть киберпанк-шаблон (позже заменим)
+        html = f"""<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Payment #{order_id} | ObsidianExchange</title>
+    <style>
+        :root {{ --bg: #050507; --card: #0f0f14; --input: #151520; --border: rgba(168,85,247,.18); --purple: #8b5cf6; --text: #f3f3f3; --radius: 22px; }}
+        @keyframes matrixRain {{ 0% {{ transform: translateY(-100vh); opacity: 0; }} 20% {{ opacity: 1; }} 100% {{ transform: translateY(100vh); opacity: 0; }} }}
+        @keyframes pulseGlow {{ 0%, 100% {{ box-shadow: 0 0 20px rgba(168,85,247,0.5); }} 50% {{ box-shadow: 0 0 40px rgba(168,85,247,0.9), 0 0 80px rgba(168,85,247,0.4); }} }}
+        @keyframes scanLine {{ 0% {{ transform: translateY(-100%); }} 100% {{ transform: translateY(100%); }} }}
+        @keyframes containerFloat {{ 0%, 100% {{ transform: translateY(0); }} 50% {{ transform: translateY(-4px); }} }}
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: radial-gradient(circle at top, rgba(139,92,246,.25), transparent 45%), linear-gradient(180deg,#050507,#09090f); color: var(--text); min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 20px; position: relative; overflow: hidden; }}
+        .matrix-bg {{ position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-image: linear-gradient(rgba(168,85,247,.08) 1px, transparent 1px), linear-gradient(90deg, rgba(168,85,247,.05) 1px, transparent 1px); background-size: 40px 40px; animation: matrixRain 10s linear infinite; pointer-events: none; z-index: 0; }}
+        .container {{ width: 100%; max-width: 420px; background: rgba(10,10,15,.88); backdrop-filter: blur(24px); border: 1px solid var(--border); border-radius: 34px; padding: 30px 20px; box-shadow: 0 0 80px rgba(168,85,247,.18), inset 0 0 0 1px rgba(255,255,255,.03); text-align: center; position: relative; z-index: 1; animation: containerFloat 6s ease-in-out infinite; }}
+        h1 {{ font-size: 24px; font-weight: 800; background: linear-gradient(90deg,#fff,#c084fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px; }}
+        .amount {{ font-size: 28px; font-weight: 700; color: #00ff9d; margin: 15px 0; }}
+        .qr {{ margin: 20px auto; border-radius: 15px; padding: 10px; background: rgba(168,85,247,.05); border: 1px solid rgba(168,85,247,.2); display: inline-block; animation: pulseGlow 2s ease-in-out infinite; position: relative; }}
+        .qr img {{ border-radius: 10px; }}
+        .scan-overlay {{ position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(to bottom, transparent, rgba(168,85,247,0.2), transparent); animation: scanLine 3s linear infinite; pointer-events: none; }}
+        .bank-list {{ display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 20px; }}
+        .bank-btn {{ display: block; padding: 14px; border-radius: 18px; background: linear-gradient(180deg, rgba(168,85,247,.18), rgba(168,85,247,.08)); border: 1px solid rgba(168,85,247,.25); color: #fff; font-weight: 600; text-decoration: none; transition: all .3s; backdrop-filter: blur(5px); position: relative; overflow: hidden; }}
+        .bank-btn:hover {{ background: linear-gradient(180deg, #7c3aed, #a855f7); box-shadow: 0 0 25px rgba(168,85,247,.5); transform: translateY(-2px); }}
+        .bank-btn::before {{ content: ""; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent); transition: left 0.5s; }}
+        .bank-btn:hover::before {{ left: 100%; }}
+        .info-text {{ color: #999; font-size: 14px; margin-top: 20px; }}
+    </style>
+</head>
+<body>
+    <div class="matrix-bg"></div>
+    <div class="container">
+        <h1>⚫ ObsidianExchange</h1>
+        <p>Заказ #{order_id}</p>
+        <div class="amount">{amount} RUB</div>
+        <p>📲 Отсканируйте QR-код для оплаты через СБП</p>
+        <div class="qr"><img src="data:image/png;base64,{qr_base64}" width="220" alt="QR-код"><div class="scan-overlay"></div></div>
+        <a class="bank-btn" href="{platega_url}">Оплатить через СБП</a>
+        <p class="info-text">После оплаты нажмите «Я оплатил» в боте</p>
+    </div>
+</body>
+</html>"""
+        return html
+    except Exception as e:
+        logger.error(f"Error in /pay/{token}: {e}")
+        raise HTTPException(status_code=500)
+
+# --- Своп криптовалют через Trocador ---
+@app.get("/swap/{token}", response_class=HTMLResponse)
+async def swap_page(token: str, request: Request):
+    audit_log("swap_page_opened", f"token={token} ip={request.client.host}")
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        c.execute("SELECT coin_from, coin_to, amount_from, address_to, trocador_id, trocador_url, status, provider, deposit_address FROM swap_sessions WHERE session_token=?", (token,))
+        row = c.fetchone()
+    if not row:
+        raise HTTPException(status_code=404)
+    coin_from, coin_to, amount_from, address_to, ext_id, ext_url, status, provider_name, deposit_address = row
+    provider_name = provider_name or 'trocador'
+
+    try:
+        if provider_name == 'swapuz':
+            from providers.swapuz import SwapUzProvider
+            info = SwapUzProvider().get_status(ext_id)
+            new_status = info.get('status')
+        else:
+            from providers.trocador import TrocadorProvider
+            info = TrocadorProvider().get_status(ext_id)
+            new_status = info.get('Status')
+        if new_status and new_status != status:
+            status = new_status
+            with db_conn(5) as conn:
+                conn.execute("UPDATE swap_sessions SET status=?, updated_at=datetime('now') WHERE session_token=?", (status, token))
+                conn.commit()
+    except Exception as e:
+        logger.error(f"Swap status fetch error: {e}")
+
+    status_labels = {
+        'anonpaynew': 'Ожидание оплаты',
+        'waiting': 'Ожидание перевода ⏳',
+        'confirming': 'Подтверждение в сети 🔄',
+        'exchanging': 'Обмен 🔄',
+        'sending': 'Отправка получателю 📤',
+        'finished': 'Завершено ✅',
+        'failed': 'Ошибка ❌',
+        'expired': 'Истекло ⏰',
+        'halted': 'Приостановлено',
+        'refunded': 'Возврат средств',
+    }
+    status_label = status_labels.get(status, status or 'Ожидание')
+
+    if provider_name == 'swapuz' and deposit_address:
+        action_block = f"""
+        <div class="deposit-block">
+            <div class="deposit-label">Отправьте <b>{amount_from} {coin_from}</b> на адрес:</div>
+            <div class="deposit-addr" id="depAddr">{deposit_address}</div>
+            <button class="copy-btn" onclick="navigator.clipboard.writeText('{deposit_address}').then(()=>this.textContent='Скопировано ✅')">Скопировать адрес</button>
+        </div>
+        <p class="info-text">ObsidianExchange не получает доступ к вашим средствам — своп выполняется через SwapUZ.</p>"""
+        extra_style = """.deposit-block{{margin:18px 0;padding:14px;border-radius:14px;background:rgba(0,255,157,.06);border:1px solid rgba(0,255,157,.2);text-align:center}}.deposit-label{{font-size:14px;color:#aaa;margin-bottom:8px}}.deposit-addr{{font-size:13px;font-family:monospace;color:#00ff9d;word-break:break-all;margin:8px 0;padding:10px;background:rgba(0,0,0,.3);border-radius:10px}}.copy-btn{{margin-top:8px;padding:10px 22px;border-radius:12px;border:none;background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;font-weight:600;cursor:pointer;font-size:14px}}"""
+    else:
+        action_block = f"""
+        <a class="bank-btn" href="{ext_url}" target="_blank">Открыть страницу обмена</a>
+        <p class="info-text">На странице появится адрес для отправки {coin_from} и QR-код.</p>"""
+        extra_style = ""
+
+    html = f"""<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Своп {coin_from} → {coin_to} | ObsidianExchange</title>
+    <style>
+        :root {{ --bg: #050507; --border: rgba(168,85,247,.18); --purple: #8b5cf6; --text: #f3f3f3; }}
+        @keyframes pulseGlow {{ 0%, 100% {{ box-shadow: 0 0 20px rgba(168,85,247,0.5); }} 50% {{ box-shadow: 0 0 40px rgba(168,85,247,0.9); }} }}
+        @keyframes containerFloat {{ 0%, 100% {{ transform: translateY(0); }} 50% {{ transform: translateY(-4px); }} }}
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: radial-gradient(circle at top, rgba(139,92,246,.25), transparent 45%), linear-gradient(180deg,#050507,#09090f); color: var(--text); min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 20px; }}
+        .container {{ width: 100%; max-width: 420px; background: rgba(10,10,15,.88); backdrop-filter: blur(24px); border: 1px solid var(--border); border-radius: 34px; padding: 30px 20px; box-shadow: 0 0 80px rgba(168,85,247,.18); text-align: center; animation: containerFloat 6s ease-in-out infinite; }}
+        h1 {{ font-size: 24px; font-weight: 800; background: linear-gradient(90deg,#fff,#c084fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px; }}
+        .pair {{ font-size: 20px; font-weight: 700; color: #fff; margin: 10px 0; }}
+        .amount {{ font-size: 26px; font-weight: 700; color: #00ff9d; margin: 10px 0; }}
+        .row {{ display: flex; justify-content: space-between; gap: 10px; margin: 6px 0; font-size: 14px; color: #aaa; text-align: left; }}
+        .row b {{ color: #f3f3f3; word-break: break-all; text-align: right; margin-left: 10px; }}
+        .status-box {{ margin: 18px 0; padding: 12px; border-radius: 14px; background: rgba(168,85,247,.08); border: 1px solid var(--border); font-weight: 600; }}
+        .bank-btn {{ display: block; padding: 14px; border-radius: 18px; background: linear-gradient(180deg, rgba(168,85,247,.18), rgba(168,85,247,.08)); border: 1px solid rgba(168,85,247,.25); color: #fff; font-weight: 600; text-decoration: none; margin-top: 16px; animation: pulseGlow 2.5s ease-in-out infinite; }}
+        .info-text {{ color: #999; font-size: 13px; margin-top: 18px; }}
+        {extra_style}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⚫ ObsidianExchange</h1>
+        <div class="pair">🔄 {coin_from} → {coin_to}</div>
+        <div class="amount">≈ {amount_from} {coin_from}</div>
+        <div class="row"><span>Получите</span><b>{address_to}</b></div>
+        <div class="status-box">Статус: {status_label}</div>
+        {action_block}
+    </div>
+</body>
+</html>"""
+    return html
+
+@app.post("/trocador/webhook")
+async def trocador_webhook(request: Request, token: str = None):
+    try:
+        raw = await request.body()
+        data = {}
+        if raw:
+            try:
+                data = json.loads(raw)
+            except Exception:
+                data = {}
+        if not data:
+            data = dict(request.query_params)
+        audit_log("trocador_webhook_received", f"token={token} data={data}")
+
+        new_status = data.get('status') or data.get('Status')
+        trocador_id = data.get('id') or data.get('ID')
+
+        with db_conn(5) as conn:
+            c = conn.cursor()
+            if token:
+                c.execute("SELECT session_token, user_id, coin_from, coin_to, amount_from, status FROM swap_sessions WHERE session_token=?", (token,))
+            elif trocador_id:
+                c.execute("SELECT session_token, user_id, coin_from, coin_to, amount_from, status FROM swap_sessions WHERE trocador_id=?", (trocador_id,))
+            else:
+                conn.close()
+                return JSONResponse(status_code=400, content={})
+            row = c.fetchone()
+            if not row:
+                conn.close()
+                return JSONResponse(status_code=404, content={})
+            session_token, user_id, coin_from, coin_to, amount_to, old_status = row
+
+            if not new_status and trocador_id:
+                from providers.trocador import TrocadorProvider
+                info = TrocadorProvider().get_status(trocador_id)
+                new_status = info.get('Status')
+                data = info
+
+            if new_status and new_status != old_status:
+                c.execute("UPDATE swap_sessions SET status=?, updated_at=datetime('now') WHERE session_token=?", (new_status, session_token))
+                conn.commit()
+                if new_status == 'finished':
+                    received = data.get('AmountReceived') or data.get('AmountTo') or amount_to
+                    notify_telegram(user_id, f"✅ Своп {coin_from} → {coin_to} завершён!\nПолучено: {received} {coin_to}")
+        return JSONResponse(status_code=200, content={})
+    except Exception as e:
+        logger.error(f"Trocador webhook error: {e}")
+        return JSONResponse(status_code=200, content={})
+
+# --- Gateway Endpoint (упрощённый) ---
+@app.get("/gateway/{order_id}")
+async def gateway(order_id: str, bank: str = "sber"):
+    deep_links = {
+        "sber": "https://sberbank.ru/pay/sbp?qrcode=...",
+        "tbank": "https://www.tbank.ru/pay/qr/...",
+        "alfa": "https://alfa.link/a/qr/...",
+        "vtb": "https://vtb.ru/pay/sbp?...",
+    }
+    redirect_url = deep_links.get(bank, "https://obsidian-exchange.org/error")
+    audit_log("gateway_redirect", f"order={order_id} bank={bank} url={redirect_url}")
+    return RedirectResponse(url=redirect_url)
+
+# --- Вебхуки ---
+@app.post("/platega/webhook")
+async def platega_webhook(request: Request):
+    data = await request.json()
+    audit_log("webhook_received", str(data))
+    if data.get('key') != SECRET_KEY:
+        raise HTTPException(status_code=403)
+    order_id = data.get('order_id')
+    status = data.get('status')
+    if not order_id or not status:
+        return JSONResponse(status_code=400, content={})
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        if status == 'paid':
+            c.execute("UPDATE orders SET status='paid' WHERE order_id=? AND status='pending'", (order_id,))
+        conn.commit()
+    audit_log("webhook_processed", f"order={order_id} status={status}")
+    return JSONResponse(status_code=200, content={})
+
+@app.post("/greenpay/webhook")
+async def greenpay_webhook(request: Request):
+    raw = await request.body()
+    sig = request.headers.get('X-Signature', '')
+    expected = hmac.new(GREENPAY_API_SECRET.encode(), raw, hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(expected, sig):
+        raise HTTPException(status_code=401)
+    data = json.loads(raw)
+    audit_log("greenpay_webhook_received", str(data))
+    external_id = data.get('external_id', '') or ''
+    status = data.get('status')
+    order_id = None
+    if external_id.startswith('obsidian_'):
+        order_id = external_id.split('_', 1)[1]
+    if not order_id:
+        order_id = (data.get('additional_info') or {}).get('order_id')
+    if order_id and status == 'success':
+        with db_conn(5) as conn:
+            c = conn.cursor()
+            c.execute("UPDATE orders SET status='paid' WHERE order_id=? AND status='pending'", (order_id,))
+            conn.commit()
+    audit_log("greenpay_webhook_processed", f"order={order_id} status={status}")
+    return JSONResponse(status_code=200, content={})
+
+@app.post("/montera/webhook")
+async def montera_webhook(request: Request):
+    token = request.headers.get('Access-Token', '')
+    if not hmac.compare_digest(token, MONTERA_API_TOKEN):
+        raise HTTPException(status_code=401)
+    data = await request.json()
+    audit_log("montera_webhook_received", str(data))
+    external_id = data.get('external_id', '') or ''
+    status = data.get('status')
+    order_id = None
+    if external_id.startswith('obsidian_'):
+        order_id = external_id.split('_', 1)[1]
+    if order_id and status == 'success':
+        with db_conn(5) as conn:
+            c = conn.cursor()
+            c.execute("UPDATE orders SET status='paid' WHERE order_id=? AND status='pending'", (order_id,))
+            conn.commit()
+    audit_log("montera_webhook_processed", f"order={order_id} status={status}")
+    return JSONResponse(status_code=200, content={})
+
+@app.post("/payment/callback")
+async def payment_callback(request: Request):
+    from urllib.parse import parse_qs
+    body = (await request.body()).decode()
+    data = parse_qs(body)
+    order_id = data.get('order_id', [None])[0]
+    key = data.get('key', [''])[0]
+    if key != SECRET_KEY:
+        raise HTTPException(status_code=403)
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        c.execute("UPDATE orders SET status='paid' WHERE order_id=? AND status='pending'", (order_id,))
+        conn.commit()
+    return JSONResponse(status_code=200, content={})
+
+# --- Запуск ---
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=5001)
+
+@app.get("/pay/{token}")
+async def pay_redirect(token: str):
+    import sqlite3
+    from fastapi.responses import RedirectResponse
+    conn = sqlite3.connect("/root/exchange.db", timeout=5)
+    c = conn.cursor()
+    c.execute("SELECT paid_btc_tx FROM orders WHERE paid_btc_tx LIKE ? ORDER BY order_id DESC LIMIT 1", (f'%{token}%',))
+    row = c.fetchone()
+    conn.close()
+    if not row:
+        raise HTTPException(status_code=404, detail="Order not found")
+    return RedirectResponse(url=row[0])

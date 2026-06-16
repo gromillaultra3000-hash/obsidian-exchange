@@ -1,0 +1,50 @@
+{% extends "dashboard_base.html" %}
+{% block title %}Профиль | ObsidianExchange{% endblock %}
+{% block dashboard_content %}
+<h1>⚙️ Профиль</h1>
+
+{% if success == 'telegram' %}<div class="success-msg">Telegram-аккаунт успешно привязан.</div>{% endif %}
+{% if success == 'address' %}<div class="success-msg">Адрес для бонусов сохранён.</div>{% endif %}
+{% if error == 'telegram' %}<div class="error-msg">Не удалось проверить данные Telegram. Попробуйте ещё раз.</div>{% endif %}
+{% if error == 'taken' %}<div class="error-msg">Этот Telegram-аккаунт уже привязан к другому личному кабинету.</div>{% endif %}
+{% if error == 'address' %}<div class="error-msg">Некорректный BTC-адрес.</div>{% endif %}
+{% if error == 'notelegram' %}<div class="error-msg">Сначала привяжите Telegram-аккаунт.</div>{% endif %}
+
+<div class="dash-card">
+    <p><strong>Email:</strong> {{ web_user.email }}</p>
+    {% if web_user.telegram_id %}
+    <p><strong>Telegram:</strong> @{{ web_user.telegram_username or web_user.telegram_id }} ✅</p>
+    {% else %}
+    <p><strong>Telegram:</strong> не привязан</p>
+    <p>Привяжите Telegram, чтобы видеть историю заявок из бота, получать уведомления и участвовать в реферальной программе.</p>
+    <script async src="https://telegram.org/js/telegram-widget.js?22"
+        data-telegram-login="{{ bot_username }}"
+        data-size="large"
+        data-auth-url="{{ public_relay }}/auth/telegram/callback"
+        data-request-access="write"></script>
+    {% endif %}
+</div>
+
+<div class="dash-card">
+    <h2>🔐 Двухфакторная аутентификация</h2>
+    {% if web_user.totp_enabled %}
+    <p>✅ 2FA включена — ваш аккаунт защищён.</p>
+    {% else %}
+    <p>⚠️ 2FA не активна — рекомендуем включить для защиты аккаунта.</p>
+    {% endif %}
+    <a href="/dashboard/profile/2fa" class="btn btn-secondary" style="margin-top:12px;display:inline-block;">Управление 2FA</a>
+</div>
+
+{% if web_user.telegram_id %}
+<div class="dash-card">
+    <h2>Адрес для реферальных бонусов (BTC)</h2>
+    <form method="post" action="/dashboard/profile/referral-address">
+        <input type="hidden" name="csrf_token" value="{{ web_user.csrf_token }}">
+        <div class="input-group">
+            <input type="text" name="address" value="{{ ref_address or '' }}" placeholder="Введите BTC-адрес">
+        </div>
+        <button class="btn btn-primary" type="submit">💾 Сохранить</button>
+    </form>
+</div>
+{% endif %}
+{% endblock %}

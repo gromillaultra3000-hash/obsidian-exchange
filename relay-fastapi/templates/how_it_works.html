@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% block title %}Как это работает — ObsidianExchange{% endblock %}
+{% block description %}Как обменять рубли на криптовалюту через ObsidianExchange: пошаговая инструкция от заявки до получения средств.{% endblock %}
+
+{% block content %}
+<section class="hero" style="padding-top:50px;">
+    <h1>Как это работает</h1>
+    <p class="lead">Весь процесс занимает несколько минут и проходит прямо в Telegram.</p>
+</section>
+
+<section class="section">
+    <div class="timeline">
+        <div class="timeline-step">
+            <div class="num">1</div>
+            <div>
+                <h3>Откройте бота или WebApp</h3>
+                <p>Перейдите в <a href="https://t.me/{{ bot_username }}">@{{ bot_username }}</a> и нажмите «Старт», либо откройте <a href="/webapp">WebApp</a> прямо в браузере.</p>
+            </div>
+        </div>
+        <div class="timeline-step">
+            <div class="num">2</div>
+            <div>
+                <h3>Выберите валюту и сумму</h3>
+                <p>Укажите, что хотите получить — BTC, LTC или USDT (TRC20), и сумму обмена в RUB (от {{ "{:,.0f}".format(min_amount) }} до {{ "{:,.0f}".format(max_amount) }} ₽).</p>
+            </div>
+        </div>
+        <div class="timeline-step">
+            <div class="num">3</div>
+            <div>
+                <h3>Укажите адрес для выплаты</h3>
+                <p>Введите адрес вашего криптокошелька — бот проверит формат адреса перед созданием заявки.</p>
+            </div>
+        </div>
+        <div class="timeline-step">
+            <div class="num">4</div>
+            <div>
+                <h3>Оплатите удобным способом</h3>
+                <p>Курс фиксируется на 15 минут. Оплатите через СБП или картой (по реквизитам), которые пришлёт бот.</p>
+            </div>
+        </div>
+        <div class="timeline-step">
+            <div class="num">5</div>
+            <div>
+                <h3>Получите криптовалюту</h3>
+                <p>После подтверждения оплаты выплата отправляется на указанный адрес автоматически — никаких ручных задержек.</p>
+            </div>
+        </div>
+    </div>
+    <div class="hero-cta" style="margin-top:36px;">
+        <a href="https://t.me/{{ bot_username }}" class="btn btn-primary">🚀 Начать обмен</a>
+        <a href="/faq" class="btn btn-secondary">Остались вопросы? FAQ</a>
+    </div>
+</section>
+
+<section class="section">
+    <h2 class="section-title">Как продать крипту за рубли</h2>
+    <p class="section-sub">BTC, LTC или USDT → рубли на ваш СБП. Без сложных шагов, без верификации.</p>
+    <div class="timeline">
+        <div class="timeline-step">
+            <div class="num">1</div>
+            <div>
+                <h3>Нажмите «💰 Продать крипту» в боте</h3>
+                <p>Выберите валюту: BTC, LTC или USDT (TRC20).</p>
+            </div>
+        </div>
+        <div class="timeline-step">
+            <div class="num">2</div>
+            <div>
+                <h3>Укажите сумму и телефон для СБП</h3>
+                <p>Введите, сколько монет отправляете, и номер телефона для перевода рублей.</p>
+            </div>
+        </div>
+        <div class="timeline-step">
+            <div class="num">3</div>
+            <div>
+                <h3>Отправьте монеты на наш адрес</h3>
+                <p>Бот покажет адрес для перевода. Отправьте точную сумму.</p>
+            </div>
+        </div>
+        <div class="timeline-step">
+            <div class="num">4</div>
+            <div>
+                <h3>Получите рубли по СБП</h3>
+                <p>После подтверждения получения монет — переводим рубли на ваш телефон. Обычно в течение 30–60 минут.</p>
+            </div>
+        </div>
+    </div>
+    <div class="hero-cta" style="margin-top:36px;">
+        <a href="https://t.me/{{ bot_username }}" class="btn btn-primary">💰 Продать крипту</a>
+    </div>
+</section>
+
+<section class="section">
+    <h2 class="section-title">Как работает своп крипта → крипта</h2>
+    <p class="section-sub">Обменяйте BTC, LTC или USDT напрямую — без рублей, без верификации, ~1% комиссии.</p>
+    <div class="timeline">
+        <div class="timeline-step">
+            <div class="num">1</div>
+            <div>
+                <h3>Выберите пару</h3>
+                <p>В боте нажмите «🔄 Своп криптовалют» и выберите пару: BTC → LTC, LTC → USDT и т.д. Доступны все комбинации.</p>
+            </div>
+        </div>
+        <div class="timeline-step">
+            <div class="num">2</div>
+            <div>
+                <h3>Укажите сумму и адрес</h3>
+                <p>Введите, сколько монет хотите отправить. Бот покажет актуальный курс и ожидаемую сумму к получению. Затем введите адрес для зачисления.</p>
+            </div>
+        </div>
+        <div class="timeline-step">
+            <div class="num">3</div>
+            <div>
+                <h3>Отправьте монеты</h3>
+                <p>Бот даст адрес для перевода — отправьте на него точную сумму из своего кошелька.</p>
+            </div>
+        </div>
+        <div class="timeline-step">
+            <div class="num">4</div>
+            <div>
+                <h3>Получите результат</h3>
+                <p>После подтверждения транзакции в блокчейне монеты автоматически придут на ваш адрес. Бот уведомит о завершении.</p>
+            </div>
+        </div>
+    </div>
+    <div class="hero-cta" style="margin-top:36px;">
+        <a href="https://t.me/{{ bot_username }}" class="btn btn-primary">🔄 Начать своп</a>
+    </div>
+</section>
+{% endblock %}

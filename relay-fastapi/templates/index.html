@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}ObsidianExchange — обмен криптовалют без KYC{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <h1>Обмен RUB на криптовалюту<br>без верификации</h1>
+    <p class="lead">BTC, LTC и USDT (TRC20) с автоматическими выплатами, оплатой через СБП или картой и фиксацией курса на 15 минут.</p>
+    <div class="hero-cta">
+        <a href="https://t.me/{{ bot_username }}" class="btn btn-primary">🚀 Открыть в Telegram</a>
+        <a href="/webapp" class="btn btn-secondary">🌐 Открыть WebApp</a>
+    </div>
+    <div class="stats-bar">
+        <div class="stat"><div class="num" id="stat-exchanges-today">…</div><div class="label">обменов сегодня</div></div>
+        <div class="stat"><div class="num">15 мин</div><div class="label">фиксация курса</div></div>
+        <div class="stat"><div class="num">0%</div><div class="label">KYC-верификация</div></div>
+    </div>
+</section>
+
+<section class="section">
+    <h2 class="section-title">Текущий курс</h2>
+    <p class="section-sub">Рыночные котировки, обновляются раз в минуту. Точную сумму к получению с учётом комиссии считайте на странице «Курсы».</p>
+    <div class="rates-grid">
+        <div class="rate-card"><div class="coin">₿ Bitcoin (BTC)</div><div class="value loading" data-rate="bitcoin">загрузка…</div></div>
+        <div class="rate-card"><div class="coin">Ł Litecoin (LTC)</div><div class="value loading" data-rate="litecoin">загрузка…</div></div>
+        <div class="rate-card"><div class="coin">💵 USDT (TRC20)</div><div class="value loading" data-rate="tether">загрузка…</div></div>
+    </div>
+    <div class="hero-cta">
+        <a href="/rates" class="btn btn-secondary">Тарифы и калькулятор →</a>
+    </div>
+</section>
+
+<section class="section">
+    <h2 class="section-title">Три направления в одном сервисе</h2>
+    <div class="features-grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr));margin-bottom:16px;">
+        <div class="feature-card" style="border-color:rgba(168,85,247,.35);">
+            <span class="icon">💱</span>
+            <h3>Купить крипту (RUB → BTC/LTC/USDT)</h3>
+            <p>Оплачивайте через СБП или карту. Курс фиксируется на 15 минут, выплата автоматическая.</p>
+        </div>
+        <div class="feature-card" style="border-color:rgba(255,200,0,.2);">
+            <span class="icon">💰</span>
+            <h3>Продать крипту (BTC/LTC/USDT → RUB)</h3>
+            <p>Отправьте монеты на наш адрес — получите рубли по СБП. Быстро, без лишних шагов.</p>
+        </div>
+        <div class="feature-card" style="border-color:rgba(0,255,157,.2);">
+            <span class="icon">🔄</span>
+            <h3>Своп крипта → крипта</h3>
+            <p>BTC ↔ LTC ↔ USDT без рублей. Комиссия ~1%, некастодиально.</p>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <h2 class="section-title">Почему ObsidianExchange</h2>
+    <div class="features-grid">
+        <div class="feature-card">
+            <span class="icon">🔒</span>
+            <h3>Без KYC</h3>
+            <p>Никаких документов и верификации — все операции полностью анонимны.</p>
+        </div>
+        <div class="feature-card">
+            <span class="icon">⚡</span>
+            <h3>Автовыплаты</h3>
+            <p>Криптовалюта отправляется на ваш адрес автоматически после оплаты.</p>
+        </div>
+        <div class="feature-card">
+            <span class="icon">⏱️</span>
+            <h3>Фиксация курса</h3>
+            <p>Курс по заявке фиксируется на 15 минут — без сюрпризов при оплате.</p>
+        </div>
+        <div class="feature-card">
+            <span class="icon">💳</span>
+            <h3>СБП и карта</h3>
+            <p>Оплата СБП или картой (по реквизитам) — выбирайте удобный способ.</p>
+        </div>
+        <div class="feature-card">
+            <span class="icon">🛡️</span>
+            <h3>Некастодиальный своп</h3>
+            <p>При свопе мы не держим ваши монеты — обмен идёт напрямую между кошельками.</p>
+        </div>
+        <div class="feature-card">
+            <span class="icon">👥</span>
+            <h3>Реферальная программа</h3>
+            <p>Приглашайте друзей и получайте бонусы в BTC за их обмены и свопы.</p>
+        </div>
+        <div class="feature-card">
+            <span class="icon">🏅</span>
+            <h3>VIP-скидки</h3>
+            <p>Silver/Gold/Platinum: чем больший оборот — тем ниже комиссия. Скидка до −10%.</p>
+        </div>
+        <div class="feature-card">
+            <span class="icon">🔐</span>
+            <h3>2FA защита кабинета</h3>
+            <p>Включите двухфакторную аутентификацию в личном кабинете — ваш аккаунт защищён от взлома.</p>
+        </div>
+    </div>
+</section>
+{% endblock %}

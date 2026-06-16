@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Контакты — ObsidianExchange{% endblock %}
+{% block description %}Контакты ObsidianExchange: Telegram-бот для обмена, поддержка и канал отзывов.{% endblock %}
+
+{% block content %}
+<section class="hero" style="padding-top:50px;">
+    <h1>Контакты</h1>
+    <p class="lead">ObsidianExchange — тёмный обменник без KYC. Автовыплаты, поддержка BTC, LTC, USDT, двойная защита.</p>
+</section>
+
+<section class="section">
+    <div class="contacts-grid">
+        <div class="contact-card">
+            <div class="icon">🤖</div>
+            <h3>Бот для обмена</h3>
+            <p>Создание заявок, история, рефералка и WebApp.</p>
+            <a href="https://t.me/{{ bot_username }}" class="btn btn-primary">@{{ bot_username }}</a>
+        </div>
+        <div class="contact-card">
+            <div class="icon">🆘</div>
+            <h3>Поддержка</h3>
+            <p>Вопросы по заявкам, оплате и выплатам.</p>
+            <a href="https://t.me/{{ support_username }}" class="btn btn-secondary">@{{ support_username }}</a>
+        </div>
+        <div class="contact-card">
+            <div class="icon">⭐</div>
+            <h3>Отзывы</h3>
+            <p>Реальные отзывы клиентов об обменах.</p>
+            <a href="https://t.me/{{ reviews_username }}" class="btn btn-secondary">@{{ reviews_username }}</a>
+        </div>
+    </div>
+</section>
+{% endblock %}

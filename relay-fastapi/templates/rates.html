@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Курсы и тарифы — ObsidianExchange{% endblock %}
+{% block description %}Актуальные курсы BTC, LTC и USDT, тарифная сетка комиссий и калькулятор обмена ObsidianExchange.{% endblock %}
+
+{% block content %}
+<section class="hero" style="padding-top:50px;">
+    <h1>Курсы и тарифы</h1>
+    <p class="lead">Прозрачная комиссия в зависимости от суммы заявки. Курс фиксируется на 15 минут после создания заявки.</p>
+</section>
+
+<section class="section">
+    <div class="rates-grid">
+        <div class="rate-card"><div class="coin">₿ Bitcoin (BTC)</div><div class="value loading" data-rate="bitcoin">загрузка…</div></div>
+        <div class="rate-card"><div class="coin">Ł Litecoin (LTC)</div><div class="value loading" data-rate="litecoin">загрузка…</div></div>
+        <div class="rate-card"><div class="coin">💵 USDT (TRC20)</div><div class="value loading" data-rate="tether">загрузка…</div></div>
+    </div>
+    <p class="section-sub" style="margin-top:10px;">Рыночные котировки без учёта комиссии обмена.</p>
+</section>
+
+<section class="section">
+    <h2 class="section-title">Тарифная сетка</h2>
+    <p class="section-sub">Комиссия зависит от суммы заявки в RUB. Лимиты: от {{ "{:,.0f}".format(min_amount) }} до {{ "{:,.0f}".format(max_amount) }} ₽.</p>
+    <div class="table-wrap">
+        <table class="tariffs">
+            <thead>
+                <tr><th>Сумма заявки</th><th>BTC / LTC</th><th>USDT (TRC20)</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>до 5 000 ₽</td><td class="highlight">27%</td><td class="highlight">2%</td></tr>
+                <tr><td>5 000 – 14 999 ₽</td><td class="highlight">23%</td><td class="highlight">2%</td></tr>
+                <tr><td>от 15 000 ₽</td><td class="highlight">19%</td><td class="highlight">2%</td></tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="section">
+    <h2 class="section-title">Калькулятор обмена</h2>
+    <p class="section-sub">Узнайте, сколько криптовалюты вы получите при обмене указанной суммы.</p>
+    <div class="card calc">
+        <div class="input-group">
+            <label>Сумма (RUB)</label>
+            <input type="number" id="calc-amount" placeholder="например, 5000" min="{{ min_amount|int }}" max="{{ max_amount|int }}">
+        </div>
+        <div class="input-group">
+            <label>Валюта</label>
+            <select id="calc-currency">
+                <option value="BTC">BTC</option>
+                <option value="LTC">LTC</option>
+                <option value="USDT">USDT (TRC20)</option>
+            </select>
+        </div>
+        <div class="calc-result" id="calc-result">
+            <div class="big">—</div>
+            <div class="small">Введите сумму в RUB</div>
+        </div>
+        <div class="hero-cta" style="margin-top:18px;">
+            <a href="https://t.me/{{ bot_username }}" class="btn btn-primary btn-block">Создать заявку в Telegram</a>
+        </div>
+    </div>
+</section>
+{% endblock %}
