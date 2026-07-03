@@ -13,14 +13,20 @@ DB_PATH = Path("/root/exchange.db")
 logger = logging.getLogger(__name__)
 
 PROVIDER_CONFIG = {
+    "MonteraProvider": {
+        "weight": 0.70,        # primary provider (SBP phone + card)
+        "min_amount": 1000,
+        "cooldown_seconds": 240,
+        "max_consecutive_fails": 3,
+    },
     "BrabusProvider": {
-        "weight": 0.75,        # primary provider
+        "weight": 0.20,        # secondary provider
         "min_amount": 1000,
         "cooldown_seconds": 180,
         "max_consecutive_fails": 3,
     },
     "GreenPayProvider": {
-        "weight": 0.25,        # backup
+        "weight": 0.10,        # backup
         "min_amount": 500,
         "cooldown_seconds": 300,
         "max_consecutive_fails": 2,

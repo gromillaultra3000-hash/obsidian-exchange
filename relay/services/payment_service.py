@@ -23,6 +23,9 @@ class PaymentService:
             if name == 'BrabusProvider':
                 from providers.brabus import BrabusProvider
                 return BrabusProvider()
+            elif name == 'MonteraProvider':
+                from providers.montera import MonteraProvider
+                return MonteraProvider()
             elif name == 'GreenPayProvider':
                 from providers.greenpay import GreenPayProvider
                 return GreenPayProvider()
