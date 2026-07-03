@@ -345,6 +345,7 @@ async def dashboard_exchange_submit(
     currency: str = Form(...),
     amount: float = Form(...),
     address: str = Form(...),
+    payment_method: str = Form("sbp"),
 ):
     web_user = auth.get_web_user(request)
     if not web_user:
@@ -391,9 +392,11 @@ async def dashboard_exchange_submit(
 
     try:
         from services.payment_service import PaymentService
-        payment_service = PaymentService()
+        pm = payment_method if payment_method in ("sbp", "card") else "sbp"
+        payment_service = PaymentService(amount=amount)
         session = payment_service.create_session(
-            order_id, amount, client_ip=request.client.host, telegram_id=web_user['telegram_id'],
+            order_id, amount, client_ip=request.client.host,
+            telegram_id=web_user['telegram_id'], payment_method=pm,
         )
         if 'session_token' in session:
             return RedirectResponse(f"/pay/{session['session_token']}", status_code=302)

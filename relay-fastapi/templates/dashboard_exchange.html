@@ -25,6 +25,13 @@
         </div>
         <div class="fee-box" id="fee-display">⚡ Комиссия обмена: <strong>—</strong> &middot; Вы получите: <strong id="fee-amount">—</strong></div>
         <div class="input-group">
+            <label>Способ оплаты</label>
+            <select name="payment_method">
+                <option value="sbp">СБП — по номеру телефона (0% комиссия банка)</option>
+                <option value="card">Карта — по номеру карты</option>
+            </select>
+        </div>
+        <div class="input-group">
             <label>Адрес для получения</label>
             <input type="text" name="address" placeholder="Введите адрес кошелька"
                    value="{{ form.address if form else (prefill.address if prefill else '') }}" required>
