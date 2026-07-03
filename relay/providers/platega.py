@@ -19,9 +19,10 @@ class PlategaProvider(PaymentProvider):
         }
 
     def create_invoice(self, order_id, amount, payment_method=None):
+        # Platega API v2: paymentMethod = строка "SBPQR" (не число 2)
         try:
             payload = {
-                "paymentMethod": 2,  # СБП (QR-код)
+                "paymentMethod": "SBPQR",
                 "paymentDetails": {"amount": float(amount), "currency": "RUB"},
                 "description": f"Order #{order_id}",
                 "return": "https://obsidian-exchange.org/success",

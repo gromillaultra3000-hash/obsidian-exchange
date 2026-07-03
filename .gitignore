@@ -1,0 +1,73 @@
+# Secrets & env
+bot/.env
+bot/.env.backup
+*.env
+
+# Backups & archives
+*.tar.gz
+*.zip
+_archive_old_backups/
+backup_important_*.tar.gz
+bc1*
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.swp
+*.swo
+
+# Logs
+bot/bot.log*
+
+# DB
+*.db
+.mongodb/
+
+# Node
+node_modules/
+.npm/
+.nvm/
+
+# System / tools
+.cache/
+.config/
+.docker/
+.ollama/
+.local/
+.ssh/
+.wget-hsts
+.bash_history
+.bashrc
+.profile
+.lesshst
+.selected_editor
+.claude.json
+
+# Bot artifacts
+bot/gold_v*.tar.gz
+bot/gold_v*/
+bot/main_bot.backup*
+bot/main_bot.backup
+bot/.sticker_ids.json
+bot/.sticker_set_name
+bot/images/
+bot/create_assets.py
+
+# Admin panel
+admin-panel/vendor/
+admin-panel/node_modules/
+
+# Bitcoin lib
+.bitcoinlib/
+
+# Claude Code internal
+.claude/
+
+# Embedded git repos
+condenseit/
+crypto-news-aggregator/
+
+# Swap files & temp
+*.swp
+*.swo

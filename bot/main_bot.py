@@ -36,11 +36,12 @@ load_env()
 
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 ADMIN_ID = int(os.getenv('ADMIN_ID', 0))
-RELAY_SITE = os.getenv('RELAY_SITE', 'http://127.0.0.1:5000')
+RELAY_SITE = os.getenv('RELAY_SITE', 'http://127.0.0.1:5001')
 PUBLIC_RELAY = os.getenv('PUBLIC_RELAY', 'https://obsidian-exchange.org')
 MIN_AMOUNT = float(os.getenv('MIN_AMOUNT', 1000))
 MAX_AMOUNT = float(os.getenv('MAX_AMOUNT', 500000))
-HIGH_AMOUNT = float(os.getenv('HIGH_AMOUNT', 100000))
+HIGH_AMOUNT        = float(os.getenv('HIGH_AMOUNT', 100000))
+AUTO_PAYOUT_LIMIT  = float(os.getenv('AUTO_PAYOUT_LIMIT', 5000))
 DB_PATH = os.getenv('DB_PATH', '/root/exchange.db')
 
 @contextmanager
@@ -53,12 +54,365 @@ def db_conn(timeout=5):
 
 RELAY_SECRET = os.getenv('RELAY_SECRET', '')
 COMMISSION_PERCENT = float(os.getenv('COMMISSION_PERCENT', 12))
+
+def get_active_workers() -> list[int]:
+    """Возвращает список user_id всех активных работников из БД."""
+    try:
+        with db_conn(5) as conn:
+            c = conn.cursor()
+            c.execute("SELECT user_id FROM workers WHERE is_active=1")
+            return [row[0] for row in c.fetchall()]
+    except Exception:
+        return []
+
+def is_worker(user_id: int) -> bool:
+    return user_id in get_active_workers()
 REFERRAL_BONUS_PERCENT = float(os.getenv('REFERRAL_BONUS_PERCENT', 10))
 REFERRAL_DUST_BTC = 0.00002
 REVIEWS_CHANNEL_ID = os.getenv('REVIEWS_CHANNEL_ID', '@ObsidianReviews')
+SUPPORT_BOT = os.getenv('SUPPORT_BOT', '@ObsidianSupBot')
+CHANNEL_ID = os.getenv('CHANNEL_ID', '')          # Основной канал для ежедневных постов
+DAILY_POST_GIF      = os.getenv('DAILY_POST_GIF', '')
+POST_HEADER_FILE_ID = os.getenv('POST_HEADER_FILE_ID', '')  # склеенные стикеры OBSIDIAN+EXCHANGE
+DAILY_POST_HOUR_UTC = int(os.getenv('DAILY_POST_HOUR_UTC', '7'))  # 07:00 UTC = 10:00 МСК
 SELL_BTC_ADDRESS = os.getenv('SELL_BTC_ADDRESS', '')
 SELL_LTC_ADDRESS = os.getenv('SELL_LTC_ADDRESS', '')
 SELL_USDT_ADDRESS = os.getenv('SELL_USDT_ADDRESS', '')
+
+# Фирменные анимированные стикеры (см. /root/bot/create_assets.py)
+STICKER_SET_NAME = os.getenv('STICKER_SET_NAME', '')
+STICKER_CRYSTAL  = os.getenv('STICKER_CRYSTAL', '')
+STICKER_EXCHANGE = os.getenv('STICKER_EXCHANGE', '')
+STICKER_SUCCESS  = os.getenv('STICKER_SUCCESS', '')
+STICKER_VIP      = os.getenv('STICKER_VIP', '')
+STICKER_WAIT     = os.getenv('STICKER_WAIT', '')
+STICKER_REFERRAL = os.getenv('STICKER_REFERRAL', '')
+# Новые стикеры (seamless слова)
+STICKER_OE   = os.getenv('STICKER_OE',   STICKER_CRYSTAL)
+STICKER_BTC  = os.getenv('STICKER_BTC',  '')
+STICKER_USDT = os.getenv('STICKER_USDT', '')
+STICKER_LTC  = os.getenv('STICKER_LTC',  '')
+STICKER_OK   = os.getenv('STICKER_OK',   '')
+STICKER_OBS1 = os.getenv('STICKER_OBS1', '')
+STICKER_OBS2 = os.getenv('STICKER_OBS2', '')
+STICKER_OBS3 = os.getenv('STICKER_OBS3', '')
+STICKER_EXC1 = os.getenv('STICKER_EXC1', '')
+STICKER_EXC2 = os.getenv('STICKER_EXC2', '')
+STICKER_EXC3 = os.getenv('STICKER_EXC3', '')
+STICKER_OBM1 = os.getenv('STICKER_OBM1', '')
+STICKER_OBM2 = os.getenv('STICKER_OBM2', '')
+
+def _glow_text(draw_img, text, xy, font, color_bright, color_glow, glow_radius=18):
+    """Рисует текст с неоновым glow-эффектом на PIL Image."""
+    from PIL import Image as _Img, ImageDraw as _Draw, ImageFilter as _Flt
+    # Слой с текстом (RGBA)
+    layer = _Img.new('RGBA', draw_img.size, (0, 0, 0, 0))
+    _Draw.Draw(layer).text(xy, text, font=font, fill=(255, 255, 255, 255), anchor='rm')
+    blurred = layer.filter(_Flt.GaussianBlur(glow_radius))
+    # Раскрашиваем glow в фиолетовый
+    r, g, b = color_glow
+    for px_layer, col in [(blurred, color_glow), (blurred, color_glow)]:
+        glow_layer = _Img.new('RGBA', draw_img.size, (r, g, b, 0))
+        glow_layer.putalpha(px_layer.split()[3])
+        draw_img.paste(_Img.alpha_composite(
+            _Img.new('RGBA', draw_img.size, (0,0,0,0)), glow_layer), mask=glow_layer.split()[3])
+    # Сам текст поверх
+    draw_img.paste(layer, mask=layer.split()[3])
+
+
+_CARD_FONTS = [
+    '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+    '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf',
+    '/usr/share/fonts/opentype/urw-base35/NimbusSansNarrow-Bold.otf',
+]
+def _card_font(sz):
+    from PIL import ImageFont
+    for p in _CARD_FONTS:
+        try: return ImageFont.truetype(p, sz)
+        except: pass
+    return ImageFont.load_default()
+
+
+def generate_rates_card(btc_rate: float, ltc_rate: float, usdt_rate: float) -> BytesIO:
+    """Карточка курсов для /start — фиолетовый стиль с карточками монет."""
+    from PIL import Image, ImageDraw, ImageFilter, ImageFont
+    from datetime import datetime, timezone, timedelta
+
+    EXAMPLE   = 10_000
+    comm_btc  = get_commission_percent(EXAMPLE)
+    comm_usdt = 2
+    ex_btc  = round(EXAMPLE * (1 - comm_btc  / 100) / btc_rate,  6) if btc_rate  else 0
+    ex_ltc  = round(EXAMPLE * (1 - comm_btc  / 100) / ltc_rate,  4) if ltc_rate  else 0
+    ex_usdt = round(EXAMPLE * (1 - comm_usdt / 100) / usdt_rate, 2) if usdt_rate else 0
+
+    W, H = 820, 330
+
+    BG        = (8,   0,  18)
+    BG_CARD   = (16,  0,  36)
+    BORDER    = (80,  0, 160)
+    PURPLE    = (180, 50, 255)
+    PURP_DIM  = (100, 20, 180)
+    PURP_ICON = (24,  0,  52)
+    MUTED     = (110, 80, 160)
+    WHITE     = (245, 230, 255)
+
+    def fnt(sz, bold=True):
+        fp = _CARD_FONTS[0] if bold else _CARD_FONTS[0].replace('Bold', '')
+        for p in ([fp] + _CARD_FONTS):
+            try: return ImageFont.truetype(p, sz)
+            except: pass
+        return ImageFont.load_default()
+
+    img  = Image.new('RGB', (W, H), BG)
+    draw = ImageDraw.Draw(img)
+
+    for i, col in enumerate([(BORDER, 1), (PURP_DIM, 1)]):
+        draw.rounded_rectangle([(i, i), (W-1-i, H-1-i)], radius=14-i, outline=col[0], width=col[1])
+
+    PAD   = 22
+    INNER = PAD + 2
+
+    gem_x, gem_y = INNER + 12, 20
+    draw.polygon([(gem_x, gem_y-10), (gem_x+10, gem_y), (gem_x, gem_y+10), (gem_x-10, gem_y)],
+                 fill=PURPLE)
+    draw.text((INNER + 28, gem_y - 8), 'OBSIDIAN', fill=WHITE,    font=fnt(17), anchor='lm')
+    draw.text((INNER + 28, gem_y + 9), 'EXCHANGE', fill=PURP_DIM, font=fnt(11), anchor='lm')
+
+    cx = W // 2
+    draw.text((cx, gem_y - 7), f'За {EXAMPLE:,} руб. вы получите'.replace(',', ' '),
+              fill=MUTED, font=fnt(11, False), anchor='mm')
+    draw.text((cx, gem_y + 9), f'Комиссия {comm_btc}% / USDT {comm_usdt}%',
+              fill=PURP_DIM, font=fnt(10, False), anchor='mm')
+
+    msk = datetime.now(timezone.utc) + timedelta(hours=3)
+    draw.text((W - INNER - 18, gem_y - 7), 'Обновлено',               fill=MUTED,    font=fnt(10, False), anchor='rm')
+    draw.text((W - INNER - 18, gem_y + 9), msk.strftime('%H:%M МСК'), fill=PURP_DIM, font=fnt(11),        anchor='rm')
+    rc = W - INNER - 8
+    draw.ellipse([(rc-8, gem_y-8), (rc+8, gem_y+8)], outline=PURP_DIM, width=1)
+    draw.text((rc, gem_y), 'O', fill=PURP_DIM, font=fnt(9), anchor='mm')
+
+    CARD_X  = INNER
+    CARD_W  = W - INNER * 2
+    CARD_H  = 68
+    CARD_GAP = 5
+    CARD_Y0  = 46
+
+    coins = [
+        ('BTC',  'Bitcoin',  f'{ex_btc} BTC'),
+        ('LTC',  'Litecoin', f'{ex_ltc} LTC'),
+        ('USDT', 'Tether',   f'{ex_usdt} USDT'),
+    ]
+
+    for i, (ticker, name, value_str) in enumerate(coins):
+        cy0 = CARD_Y0 + i * (CARD_H + CARD_GAP)
+        cy1 = cy0 + CARD_H
+
+        draw.rounded_rectangle([(CARD_X, cy0), (CARD_X + CARD_W, cy1)],
+                                radius=10, fill=BG_CARD, outline=BORDER, width=1)
+
+        ico_cx = CARD_X + 36
+        ico_cy = cy0 + CARD_H // 2
+        draw.ellipse([(ico_cx-20, ico_cy-20), (ico_cx+20, ico_cy+20)],
+                     fill=PURP_ICON, outline=BORDER, width=1)
+        sym = {'BTC': 'B', 'LTC': 'L', 'USDT': 'T'}[ticker]
+        draw.text((ico_cx, ico_cy), sym, fill=PURPLE, font=fnt(16), anchor='mm')
+
+        tx = CARD_X + 72
+        draw.text((tx, ico_cy - 9),  ticker, fill=WHITE, font=fnt(18), anchor='lm')
+        draw.text((tx, ico_cy + 10), name,   fill=MUTED, font=fnt(11, False), anchor='lm')
+
+        vx = CARD_X + CARD_W - 50
+        layer = Image.new('RGBA', (W, H), (0,0,0,0))
+        ld = ImageDraw.Draw(layer)
+        ld.text((vx, ico_cy + 1), value_str, fill=WHITE, font=fnt(26), anchor='rm')
+        for rad, s in [(12, 0.4), (4, 0.7)]:
+            blur = layer.filter(ImageFilter.GaussianBlur(rad))
+            glow = Image.new('RGBA', (W, H), (*PURPLE, 0))
+            mask = blur.split()[3].point(lambda p: int(p * s))
+            glow.putalpha(mask)
+            img.paste(Image.alpha_composite(Image.new('RGBA',(W,H),(0,0,0,0)),glow).convert('RGB'), mask=mask)
+        img.paste(layer.convert('RGB'), mask=layer.split()[3])
+
+        ax = CARD_X + CARD_W - 22
+        ay = ico_cy
+        pts = [(ax-12, ay+8), (ax-6, ay+2), (ax-1, ay+5), (ax+5, ay-6), (ax+12, ay-10)]
+        for j in range(len(pts)-1):
+            draw.line([pts[j], pts[j+1]], fill=PURP_DIM, width=2)
+        draw.polygon([(ax+10, ay-14), (ax+15, ay-7), (ax+6, ay-9)], fill=PURP_DIM)
+
+    FY = CARD_Y0 + 3 * (CARD_H + CARD_GAP) + 10
+    items = [('o', 'Non-KYC'), ('z', '15 мин'), ('~', 'Своп BTC/LTC/USDT'), ('>', 'Мин. 2 000 руб.')]
+    col_w = CARD_W // len(items)
+    for j, (icon, text) in enumerate(items):
+        fx = CARD_X + j * col_w + col_w // 2
+        draw.text((fx, FY + 17), text, fill=MUTED, font=fnt(10, False), anchor='mm')
+
+    buf = BytesIO()
+    img.save(buf, 'PNG')
+    buf.seek(0)
+    return buf
+def build_welcome_caption(btc_rate: float, ltc_rate: float, usdt_rate: float, vip_badge=''):
+    """Caption к карточке курсов — комиссии, своп, правила."""
+    badge_line = f' — {vip_badge}' if vip_badge else ''
+
+    def fmt_rate(r, decimals=0):
+        if not r:
+            return '—'
+        return f"{r:,.{decimals}f}".replace(',', ' ')
+
+    btc_str  = fmt_rate(btc_rate)
+    ltc_str  = fmt_rate(ltc_rate)
+    usdt_str = fmt_rate(usdt_rate, 2)
+
+    return (
+        f"🟣 <b>ObsidianExchange{badge_line}</b>\n\n"
+        f"<blockquote>"
+        f"₿  1 BTC  ≈  <b>{btc_str} ₽</b>\n"
+        f"Ł  1 LTC  ≈  <b>{ltc_str} ₽</b>\n"
+        f"💵 1 USDT ≈  <b>{usdt_str} ₽</b>"
+        f"</blockquote>\n\n"
+        f"<blockquote expandable>"
+        f"📈 Комиссия BTC / LTC:\n"
+        f"2 000 – 5 000 ₽  →  27%\n"
+        f"5 000 – 10 000 ₽  →  25%\n"
+        f"10 000 – 20 000 ₽  →  23%\n"
+        f"от 20 000 ₽  →  19%\n\n"
+        f"💵 USDT TRC20  →  2%\n\n"
+        f"🔒 Non-KYC · Без верификации\n"
+        f"⚡ Мин. сумма 2 000 ₽"
+        f"</blockquote>\n\n"
+        f"Выберите действие 👇"
+    )
+
+
+async def send_sticker_safe(chat_id, sticker_id):
+    """Отправляет стикер, тихо игнорируя ошибки (заблокирован бот, неверный file_id и т.п.)."""
+    if not sticker_id:
+        return
+    try:
+        await bot.send_sticker(chat_id, sticker_id)
+    except Exception as e:
+        logger.debug(f"Не удалось отправить стикер {sticker_id} в {chat_id}: {e}")
+
+def _montera_limits_text(avail: dict) -> str:
+    """Форматирует строку с доступными диапазонами сумм для Montera."""
+    slots = avail.get("slots") or []
+    if not slots:
+        return ""
+    ranges = sorted({(int(s["min_limit"]), int(s["max_limit"])) for s in slots})
+    parts = [f"{mn:,}–{mx:,} ₽".replace(",", " ") for mn, mx in ranges]
+    return "Доступные диапазоны сумм прямо сейчас: " + ", ".join(parts)
+
+
+async def montera_precheck(callback, amount, payment_method=None, order_id=None):
+    """
+    Предпроверка доступности Montera для данной суммы.
+    Возвращает True если можно продолжать, False если уже ответили пользователю.
+    """
+    import sys
+    sys.path.insert(0, '/root/relay')
+    try:
+        from providers.montera import MonteraProvider
+        avail = MonteraProvider().check_availability(amount, payment_method)
+    except Exception:
+        return True  # при ошибке проверки — не блокируем, пробуем invoice
+
+    if avail.get("available"):
+        return True
+
+    slots = avail.get("slots") or []
+    mn = avail.get("min_available")
+    mx = avail.get("max_available")
+    method_label = "СБП" if payment_method == "sbp" else "карте"
+
+    if not slots:
+        # Вообще нет активных трейдеров
+        detail = f"По {method_label} сейчас нет свободных реквизитов — трейдеры временно недоступны."
+    else:
+        # Трейдеры есть, но не под нашу сумму
+        ranges_str = _montera_limits_text(avail)
+        detail = (
+            f"Ваша сумма <b>{int(amount):,} ₽</b> не входит ни в один доступный диапазон.\n"
+            f"{ranges_str}".replace(",", " ")
+        )
+
+    await reply_no_requisites(callback, order_id, detail)
+    return False
+
+
+async def build_payment_methods_kb(order_id: int, amount: float) -> InlineKeyboardMarkup:
+    """Клавиатура способов оплаты — показывает только методы, реально доступные для данной суммы."""
+    import sys
+    sys.path.insert(0, '/root/relay')
+    rows = []
+    amt = float(amount)
+
+    # Montera СБП — проверяем наличие трейдеров для этой суммы прямо сейчас
+    try:
+        from providers.montera import MonteraProvider
+        avail = MonteraProvider().check_availability(amt, "sbp")
+        if avail.get("available"):
+            rows.append([InlineKeyboardButton(
+                text="📱 СБП — по номеру телефона",
+                callback_data=f"pm_montera_sbp_{order_id}"
+            )])
+    except Exception:
+        # При ошибке проверки — показываем кнопку (провайдер сам даст ошибку)
+        rows.append([InlineKeyboardButton(
+            text="📱 СБП — по номеру телефона",
+            callback_data=f"pm_montera_sbp_{order_id}"
+        )])
+
+    # GreenPay — нет API предпроверки, показываем всегда
+    rows.append([InlineKeyboardButton(
+        text="📱 СБП — резервный канал",
+        callback_data=f"pm_gp_sbp_{order_id}"
+    )])
+    rows.append([InlineKeyboardButton(
+        text="💳 Карта — реквизиты на экране",
+        callback_data=f"pm_gp_card_{order_id}"
+    )])
+
+    # Brabus Альфа — от 3 000 ₽
+    if amt >= 3000:
+        rows.append([InlineKeyboardButton(
+            text="🅰️ Оплата через приложение (Альфа, от 3 000 ₽)",
+            callback_data=f"pm_brabus_alfa_{order_id}"
+        )])
+
+    # Brabus Т-Банк — от 1 000 ₽
+    if amt >= 1000:
+        rows.append([InlineKeyboardButton(
+            text="🟡 Оплата через приложение (Т-Банк, от 1 000 ₽)",
+            callback_data=f"pm_brabus_tbank_{order_id}"
+        )])
+
+    # Brabus VietQR — от 1 000 ₽
+    if amt >= 1000:
+        rows.append([InlineKeyboardButton(
+            text="🇻🇳 VietQR — Sber/VTB (от 1 000 ₽)",
+            callback_data=f"pm_brabus_vietqr_{order_id}"
+        )])
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+async def reply_no_requisites(message_or_callback, order_id=None, detail: str = ""):
+    """Отправляет сообщение об ошибке выдачи реквизитов с контактом оператора."""
+    order_part = f"(Заявка #{order_id}) " if order_id else ""
+    extra = f"\n\n{detail}" if detail else ""
+    text = (
+        f"⚠️ {order_part}Автоматическая выдача реквизитов временно недоступна.{extra}\n\n"
+        f"Попробуйте другой способ оплаты или немного позже.\n\n"
+        f"💬 <b>Обмен также можно провести через оператора</b> — напишите нам, "
+        f"и мы обработаем вашу заявку вручную в течение нескольких минут:\n"
+        f"👤 {SUPPORT_BOT}"
+    )
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="💬 Написать оператору", url=f"https://t.me/{SUPPORT_BOT.lstrip('@')}")]
+    ])
+    target = message_or_callback.message if hasattr(message_or_callback, 'message') else message_or_callback
+    await target.answer(text, reply_markup=kb, parse_mode="HTML")
 
 # ---------- ИЗОБРАЖЕНИЯ ДЛЯ ШАГОВ ОБМЕНА ----------
 IMAGES_DIR = Path(__file__).parent / 'images'
@@ -109,6 +463,8 @@ class Exchange(StatesGroup):
     captcha = State()
     address = State()
     payment_method = State()
+    receipt_upload = State()
+    verification_upload = State()
 
 class Review(StatesGroup):
     comment = State()
@@ -121,6 +477,13 @@ class Sell(StatesGroup):
     currency = State()
     amount = State()
     phone = State()
+
+class LimitOrder(StatesGroup):
+    currency   = State()
+    direction  = State()
+    rate       = State()
+    amount     = State()
+    address    = State()
 
 # ---------- БАЗА ДАННЫХ ----------
 def init_db():
@@ -163,6 +526,29 @@ def init_db():
         c.execute("CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_orders_created ON orders(created_at)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_swap_token ON swap_sessions(session_token)")
+        c.execute('''CREATE TABLE IF NOT EXISTS bot_users (
+            user_id INTEGER PRIMARY KEY,
+            username TEXT,
+            first_name TEXT,
+            last_name TEXT,
+            first_seen TEXT DEFAULT (datetime('now')),
+            last_seen TEXT DEFAULT (datetime('now')),
+            broadcast_enabled INTEGER DEFAULT 1
+        )''')
+        c.execute('''CREATE TABLE IF NOT EXISTS rate_subscriptions (
+            user_id INTEGER PRIMARY KEY,
+            enabled INTEGER DEFAULT 1,
+            last_notified REAL DEFAULT 0,
+            last_btc REAL DEFAULT 0,
+            last_ltc REAL DEFAULT 0,
+            last_usdt REAL DEFAULT 0
+        )''')
+        conn.commit()
+        # Заполняем bot_users из истории заявок (для существующих пользователей)
+        c.execute("""
+            INSERT OR IGNORE INTO bot_users (user_id, username)
+            SELECT DISTINCT user_id, username FROM orders WHERE user_id > 0
+        """)
         conn.commit()
 init_db()
 
@@ -195,8 +581,9 @@ def get_user_vip(user_id: int) -> tuple:
             return name, disc
     return 'Standard', 0
 
-def update_user_vip_volume(user_id: int, rub_amount: float):
-    """Прибавляет объём к накопительному VIP-счётчику."""
+async def update_user_vip_volume(user_id: int, rub_amount: float):
+    """Прибавляет объём к накопительному VIP-счётчику и уведомляет о повышении тира."""
+    old_tier, _ = get_user_vip(user_id)
     try:
         with db_conn(5) as conn:
             conn.execute("""INSERT INTO user_vip_volume (user_id, total_rub, updated_at)
@@ -207,12 +594,37 @@ def update_user_vip_volume(user_id: int, rub_amount: float):
             conn.commit()
     except Exception as e:
         logger.error(f"VIP volume update error: {e}")
+        return
+    new_tier, new_disc = get_user_vip(user_id)
+    if new_tier != old_tier and new_tier != 'Standard':
+        badge = {'Platinum': '💎 Platinum', 'Gold': '🥇 Gold', 'Silver': '🥈 Silver'}.get(new_tier, new_tier)
+        await send_sticker_safe(user_id, STICKER_VIP)
+        try:
+            await bot.send_message(
+                user_id,
+                f"🎉 <b>Поздравляем!</b> Вы достигли VIP-уровня {badge}!\n"
+                f"Теперь скидка <b>{abs(new_disc)}%</b> применяется ко всем вашим обменам автоматически.",
+                parse_mode="HTML"
+            )
+        except Exception:
+            pass
 
 def get_commission_percent(amount_rub, user_id: int = None):
-    base = 27 if amount_rub < 5000 else (23 if amount_rub < 15000 else 19)
+    if amount_rub < 5000:
+        base = 27
+    elif amount_rub < 10000:
+        base = 25
+    elif amount_rub < 20000:
+        base = 23
+    else:
+        base = 19
     if user_id:
         _, disc = get_user_vip(user_id)
         base = max(2, base + disc)
+        # Применяем скидку активного промокода
+        promo = _active_promos.get(user_id)
+        if promo:
+            base = max(1, base - promo[1])
     return base
 def get_cached_rate(coin):
     import time, requests
@@ -267,12 +679,25 @@ def get_rate_with_markup(coin, amount=None):
 # ---------- ВАЛИДАЦИЯ АДРЕСОВ ----------
 def validate_crypto_address(addr, currency):
     if currency == 'BTC':
-        return any(re.match(p, addr) for p in [r'^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$', r'^bc1[ac-hj-np-z02-9]{39,59}$'])
+        fmt_ok = any(re.match(p, addr) for p in [r'^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$', r'^bc1[ac-hj-np-z02-9]{39,59}$'])
     elif currency == 'LTC':
-        return any(re.match(p, addr) for p in [r'^[LM][1-9A-HJ-NP-Za-km-z]{26,33}$', r'^ltc1[ac-hj-np-z02-9]{39,59}$'])
+        fmt_ok = any(re.match(p, addr) for p in [r'^[LM][1-9A-HJ-NP-Za-km-z]{26,33}$', r'^ltc1[ac-hj-np-z02-9]{39,59}$'])
     elif currency == 'USDT':
-        return re.match(r'^T[A-Za-z1-9]{33}$', addr) is not None
-    return False
+        fmt_ok = re.match(r'^T[A-Za-z1-9]{33}$', addr) is not None
+    else:
+        return False
+    if not fmt_ok:
+        return False
+    # Проверка по черному списку адресов
+    try:
+        with db_conn(3) as conn:
+            c = conn.cursor()
+            c.execute("SELECT 1 FROM blocked_addresses WHERE address=?", (addr,))
+            if c.fetchone():
+                return False
+    except Exception:
+        pass
+    return True
 
 # ---------- ФОРМАТИРОВАНИЕ РЕКВИЗИТОВ GREENPAY ----------
 def format_requisites(raw):
@@ -304,21 +729,92 @@ def format_requisites(raw):
 async def notify_admin(order_id, user_id, rub_amount, address, currency):
     rate = get_rate_with_markup(currency, rub_amount)
     crypto_amount = round(rub_amount / rate, 8) if rate else 0
-    text = (f"🆕 Новая заявка #{order_id}\nПользователь: {user_id}\n"
-            f"Сумма: {rub_amount} RUB ≈ {crypto_amount} {currency}\nАдрес: {address}")
+    rub_fmt = f"{int(rub_amount):,}".replace(",", " ")
+    text = (f"🆕 <b>Новая заявка #{order_id}</b>\n\n"
+            f"<blockquote>"
+            f"👤 Пользователь: <code>{user_id}</code>\n"
+            f"💸 Сумма: <b>{rub_fmt} ₽</b> → <b>{crypto_amount} {currency}</b>\n"
+            f"📬 Адрес: <code>{address}</code>"
+            f"</blockquote>")
     try:
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="✅ Подтвердить оплату", callback_data=f"admin_confirm_{order_id}")]])
-        await bot.send_message(ADMIN_ID, text, reply_markup=kb, disable_notification=False)
+        await bot.send_message(ADMIN_ID, text, reply_markup=kb, disable_notification=False, parse_mode="HTML")
     except Exception as e:
         logger.error(f"Ошибка уведомления админа: {e}")
     if rub_amount >= HIGH_AMOUNT:
         await bot.send_message(ADMIN_ID, f"⚠️ Крупная заявка #{order_id} на {rub_amount:,.0f} RUB")
 
+async def notify_workers_paid(order_id, rub_amount, address, currency):
+    """Уведомляет всех работников о заявке, ожидающей ручной отправки."""
+    rate = get_rate_with_markup(currency, rub_amount)
+    crypto_amount = round(rub_amount / rate, 8) if rate else 0
+    text = (f"💳 <b>Заявка #{order_id} — оплачена</b>\n\n"
+            f"Сумма: <b>{rub_amount:,.0f} RUB</b> → <code>{crypto_amount} {currency}</code>\n"
+            f"Адрес: <code>{address}</code>\n\n"
+            f"Необходима ручная отправка.")
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="💸 Отправить и указать TX", callback_data=f"worker_send_{order_id}")]
+    ])
+    workers = get_active_workers()
+    for wid in workers:
+        try:
+            await bot.send_message(wid, text, reply_markup=kb, parse_mode="HTML")
+        except Exception as e:
+            logger.error(f"Ошибка уведомления работника {wid}: {e}")
+
 # ---------- /start ----------
 @router.message(Command("start"))
 async def cmd_start(message: Message, state: FSMContext):
     await state.clear()
+    # Верификация по запросу Montera: /start verify_<order_id>
+    if message.text:
+        parts = message.text.split(maxsplit=1)
+        if len(parts) > 1 and parts[1].startswith('verify_'):
+            try:
+                verify_order_id = int(parts[1][7:])
+                with db_conn(5) as conn_v:
+                    c_v = conn_v.cursor()
+                    c_v.execute(
+                        "SELECT verification_requested FROM orders WHERE order_id=? AND user_id=?",
+                        (verify_order_id, message.from_user.id)
+                    )
+                    vrow = c_v.fetchone()
+                    # Получаем Montera order_id из payment_sessions
+                    c_v.execute(
+                        "SELECT provider_invoice_id FROM payment_sessions WHERE order_id=? AND provider='montera' ORDER BY id DESC LIMIT 1",
+                        (verify_order_id,)
+                    )
+                    psrow = c_v.fetchone()
+                if vrow and vrow[0]:
+                    vtype = vrow[0]
+                    montera_invoice_id = psrow[0] if psrow else None
+                    await state.set_state(Exchange.verification_upload)
+                    await state.update_data(
+                        verify_order_id=verify_order_id,
+                        verify_type=vtype,
+                        montera_invoice_id=montera_invoice_id,
+                    )
+                    if vtype == 'video':
+                        await message.answer(
+                            f"🎥 <b>Верификация для заявки #{verify_order_id}</b>\n\n"
+                            f"Оператор Montera запросил видео-подтверждение.\n\n"
+                            f"Пожалуйста, запишите и отправьте <b>короткое видео</b> (5–15 сек): "
+                            f"держите в кадре документ, удостоверяющий личность (паспорт/ID), "
+                            f"и скажите дату сегодняшнего дня.",
+                            parse_mode="HTML"
+                        )
+                    else:
+                        await message.answer(
+                            f"📄 <b>PDF-чек для заявки #{verify_order_id}</b>\n\n"
+                            f"Оператор Montera запросил PDF-подтверждение оплаты.\n\n"
+                            f"Отправьте <b>PDF-файл</b> с чеком из банковского приложения.",
+                            parse_mode="HTML"
+                        )
+                    return
+            except (ValueError, IndexError):
+                pass
+
     # Реферальная диплинк-регистрация: /start ref_<id>
     if message.text:
         parts = message.text.split(maxsplit=1)
@@ -335,42 +831,54 @@ async def cmd_start(message: Message, state: FSMContext):
                         conn_ref.commit()
             except (ValueError, IndexError):
                 pass
-    btc_rate = get_cached_rate('BTC')
-    ltc_rate = get_cached_rate('LTC')
-    usdt_rate = get_cached_rate('USDT')
-    btc_markup = round(btc_rate / (1 - COMMISSION_PERCENT/100), 2)
-    ltc_markup = round(ltc_rate / (1 - COMMISSION_PERCENT/100), 2)
-    usdt_markup = round(usdt_rate / (1 - COMMISSION_PERCENT/100), 2)
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute("SELECT COUNT(*) FROM orders WHERE date(created_at)=? AND status='sent'", (datetime.now().strftime("%Y-%m-%d"),))
-        sent_today = c.fetchone()[0]
+    # Регистрируем / обновляем пользователя
+    try:
+        with db_conn(5) as conn:
+            conn.execute("""
+                INSERT INTO bot_users (user_id, username, first_name, last_name, last_seen)
+                VALUES (?, ?, ?, ?, datetime('now'))
+                ON CONFLICT(user_id) DO UPDATE SET
+                    username=excluded.username,
+                    first_name=excluded.first_name,
+                    last_name=excluded.last_name,
+                    last_seen=datetime('now')
+            """, (message.from_user.id,
+                  message.from_user.username,
+                  message.from_user.first_name,
+                  message.from_user.last_name))
+            conn.commit()
+    except Exception:
+        pass
+    btc_rate  = get_cached_rate('BTC')  or 0
+    ltc_rate  = get_cached_rate('LTC')  or 0
+    usdt_rate = get_cached_rate('USDT') or 0
     vip_name_s, _ = get_user_vip(message.from_user.id)
     vip_badge_s = {'Platinum': '💎 Platinum', 'Gold': '🥇 Gold', 'Silver': '🥈 Silver'}.get(vip_name_s, '')
-    welcome_text = (
-        f"🟣 ObsidianExchange{(' — ' + vip_badge_s) if vip_badge_s else ''}\n"
-        f"├ 💱 Купить: RUB → BTC | LTC | USDT\n"
-        f"├ 💰 Продать: BTC | LTC | USDT → RUB\n"
-        f"├ 🔄 Своп: BTC ↔ LTC ↔ USDT (~1%)\n"
-        f"├ BTC: {btc_markup:,} RUB\n"
-        f"├ LTC: {ltc_markup:,} RUB\n"
-        f"├ USDT: {usdt_markup:,} RUB\n"
-        f"├ 🔒 Non‑KYC · без верификации\n"
-        f"├ ⚡ Автовыплаты · курс 15 мин\n"
-        f"└ 🛡️ Некастодиальный своп\n\n"
-        f"📊 Сегодня выполнено: {sent_today} обменов\n\n"
-        f"👇 Выберите действие:"
-    )
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="💱 Купить крипту (RUB→)", callback_data="menu_exchange"),
-         InlineKeyboardButton(text="💰 Продать крипту (→RUB)", callback_data="menu_sell")],
-        [InlineKeyboardButton(text="🔄 Своп криптовалют", callback_data="menu_swap")],
-        [InlineKeyboardButton(text="📋 Мои заявки", callback_data="menu_orders"), InlineKeyboardButton(text="👥 Рефералка", callback_data="menu_ref")],
-        [InlineKeyboardButton(text="👤 Профиль", callback_data="menu_profile"), InlineKeyboardButton(text="🆘 Поддержка", callback_data="menu_support")],
-        [InlineKeyboardButton(text="⭐ Отзывы", callback_data="menu_reviews"), InlineKeyboardButton(text="ℹ️ О нас", callback_data="menu_about")],
-        [InlineKeyboardButton(text="🌐 WebApp", url=f"{PUBLIC_RELAY}/webapp")]
+        [InlineKeyboardButton(text="💱 Купить крипту", callback_data="menu_exchange"),
+         InlineKeyboardButton(text="💰 Продать крипту", callback_data="menu_sell")],
+        [InlineKeyboardButton(text="🔄 Своп", callback_data="menu_swap"),
+         InlineKeyboardButton(text="⏳ Лимитная заявка", callback_data="menu_limit")],
+        [InlineKeyboardButton(text="📅 DCA-автопокупка", callback_data="menu_dca"),
+         InlineKeyboardButton(text="📋 Мои заявки", callback_data="menu_orders")],
+        [InlineKeyboardButton(text="🎁 Подарить крипту", callback_data="menu_gift"),
+         InlineKeyboardButton(text="🔒 Фиксация курса", callback_data="menu_ratelock")],
+        [InlineKeyboardButton(text="👥 Пригласить и заработать", callback_data="menu_ref")],
+        [InlineKeyboardButton(text="👤 Профиль", callback_data="menu_profile"),
+         InlineKeyboardButton(text="💬 Поддержка", callback_data="menu_support")],
+        [InlineKeyboardButton(text="⭐ Отзывы", callback_data="menu_reviews"),
+         InlineKeyboardButton(text="ℹ️ О сервисе", callback_data="menu_about")],
+        [InlineKeyboardButton(text="🌐 Личный кабинет", url=f"{PUBLIC_RELAY}/webapp")]
     ])
-    await message.answer(welcome_text, reply_markup=kb)
+    try:
+        card    = generate_rates_card(btc_rate, ltc_rate, usdt_rate)
+        caption = build_welcome_caption(btc_rate, ltc_rate, usdt_rate, vip_badge_s)
+        await message.answer_photo(BufferedInputFile(card.read(), filename='rates.png'),
+                                   caption=caption, parse_mode='HTML', reply_markup=kb)
+    except Exception as e:
+        logger.warning(f'rates card failed: {e}')
+        await message.answer(build_welcome_caption(btc_rate, ltc_rate, usdt_rate, vip_badge_s),
+                             parse_mode='HTML', reply_markup=kb)
 
 # ---------- ОБРАБОТЧИКИ МЕНЮ ----------
 @router.callback_query(F.data == "back_to_menu")
@@ -380,39 +888,33 @@ async def back_to_menu(callback: CallbackQuery, state: FSMContext):
     btc_rate = get_cached_rate('BTC')
     ltc_rate = get_cached_rate('LTC')
     usdt_rate = get_cached_rate('USDT')
-    btc_markup = round(btc_rate / (1 - COMMISSION_PERCENT/100), 2)
-    ltc_markup = round(ltc_rate / (1 - COMMISSION_PERCENT/100), 2)
-    usdt_markup = round(usdt_rate / (1 - COMMISSION_PERCENT/100), 2)
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute("SELECT COUNT(*) FROM orders WHERE date(created_at)=? AND status='sent'", (datetime.now().strftime("%Y-%m-%d"),))
-        sent_today = c.fetchone()[0]
     vip_name, _ = get_user_vip(callback.from_user.id)
     vip_badge = {'Platinum': '💎 Platinum', 'Gold': '🥇 Gold', 'Silver': '🥈 Silver'}.get(vip_name, '')
-    welcome_text = (
-        f"🟣 ObsidianExchange{(' — ' + vip_badge) if vip_badge else ''}\n"
-        f"├ 💱 Купить: RUB → BTC | LTC | USDT\n"
-        f"├ 💰 Продать: BTC | LTC | USDT → RUB\n"
-        f"├ 🔄 Своп: BTC ↔ LTC ↔ USDT (~1%)\n"
-        f"├ BTC: {btc_markup:,} RUB\n"
-        f"├ LTC: {ltc_markup:,} RUB\n"
-        f"├ USDT: {usdt_markup:,} RUB\n"
-        f"├ 🔒 Non‑KYC · без верификации\n"
-        f"├ ⚡ Автовыплаты · курс 15 мин\n"
-        f"└ 🛡️ Некастодиальный своп\n\n"
-        f"📊 Сегодня выполнено: {sent_today} обменов\n\n"
-        f"👇 Выберите действие:"
-    )
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="💱 Купить крипту (RUB→)", callback_data="menu_exchange"),
-         InlineKeyboardButton(text="💰 Продать крипту (→RUB)", callback_data="menu_sell")],
-        [InlineKeyboardButton(text="🔄 Своп криптовалют", callback_data="menu_swap")],
-        [InlineKeyboardButton(text="📋 Мои заявки", callback_data="menu_orders"), InlineKeyboardButton(text="👥 Рефералка", callback_data="menu_ref")],
-        [InlineKeyboardButton(text="👤 Профиль", callback_data="menu_profile"), InlineKeyboardButton(text="🆘 Поддержка", callback_data="menu_support")],
-        [InlineKeyboardButton(text="⭐ Отзывы", callback_data="menu_reviews"), InlineKeyboardButton(text="ℹ️ О нас", callback_data="menu_about")],
-        [InlineKeyboardButton(text="🌐 WebApp", url=f"{PUBLIC_RELAY}/webapp")]
+        [InlineKeyboardButton(text="💱 Купить крипту", callback_data="menu_exchange"),
+         InlineKeyboardButton(text="💰 Продать крипту", callback_data="menu_sell")],
+        [InlineKeyboardButton(text="🔄 Своп", callback_data="menu_swap"),
+         InlineKeyboardButton(text="⏳ Лимитная заявка", callback_data="menu_limit")],
+        [InlineKeyboardButton(text="📅 DCA-автопокупка", callback_data="menu_dca"),
+         InlineKeyboardButton(text="📋 Мои заявки", callback_data="menu_orders")],
+        [InlineKeyboardButton(text="🎁 Подарить крипту", callback_data="menu_gift"),
+         InlineKeyboardButton(text="🔒 Фиксация курса", callback_data="menu_ratelock")],
+        [InlineKeyboardButton(text="👥 Пригласить и заработать", callback_data="menu_ref")],
+        [InlineKeyboardButton(text="👤 Профиль", callback_data="menu_profile"),
+         InlineKeyboardButton(text="💬 Поддержка", callback_data="menu_support")],
+        [InlineKeyboardButton(text="⭐ Отзывы", callback_data="menu_reviews"),
+         InlineKeyboardButton(text="ℹ️ О сервисе", callback_data="menu_about")],
+        [InlineKeyboardButton(text="🌐 Личный кабинет", url=f"{PUBLIC_RELAY}/webapp")]
     ])
-    await callback.message.answer(welcome_text, reply_markup=kb)
+    try:
+        card    = generate_rates_card(btc_rate, ltc_rate, usdt_rate)
+        caption = build_welcome_caption(btc_rate, ltc_rate, usdt_rate, vip_badge)
+        await callback.message.answer_photo(BufferedInputFile(card.read(), filename='rates.png'),
+                                            caption=caption, parse_mode='HTML', reply_markup=kb)
+    except Exception as e:
+        logger.warning(f'rates card failed: {e}')
+        await callback.message.answer(build_welcome_caption(btc_rate, ltc_rate, usdt_rate, vip_badge),
+                                      parse_mode='HTML', reply_markup=kb)
     await callback.answer()
 
 @router.callback_query(F.data == "menu_exchange")
@@ -427,9 +929,9 @@ async def menu_exchange(callback: CallbackQuery, state: FSMContext):
         [InlineKeyboardButton(text="🔙 Назад в меню", callback_data="back_to_menu")]
     ])
     if IMG_CURRENCIES.exists():
-        await callback.message.answer_photo(FSInputFile(IMG_CURRENCIES), caption="🟣 💎 Выберите валюту для обмена:", reply_markup=kb)
+        await callback.message.answer_photo(FSInputFile(IMG_CURRENCIES), caption="🟣 <b>Купить криптовалюту</b>\n\nВыберите монету, которую хотите получить:", reply_markup=kb, parse_mode="HTML")
     else:
-        await callback.message.answer("🟣 💎 Выберите валюту для обмена:", reply_markup=kb)
+        await callback.message.answer("🟣 <b>Купить криптовалюту</b>\n\nВыберите монету, которую хотите получить:", reply_markup=kb, parse_mode="HTML")
     await callback.answer()
 
 # ---------- СВОП КРИПТОВАЛЮТ (Trocador) ----------
@@ -449,12 +951,11 @@ async def menu_swap(callback: CallbackQuery, state: FSMContext):
     rows.append([InlineKeyboardButton(text="🔙 Назад в меню", callback_data="back_to_menu")])
     kb = InlineKeyboardMarkup(inline_keyboard=rows)
     await callback.message.answer(
-        "🟣 🔄 Своп криптовалют\n\n"
-        "Прямой обмен BTC, LTC и USDT (TRC20) — без рубля, без участия наших кошельков и без KYC.\n\n"
-        "Вы отправляете монеты на указанный адрес, получаете результат сразу на свой кошелёк.\n\n"
-        "💰 Комиссия: ~1% (включена в курс, скрытых сборов нет)\n\n"
-        "Выберите пару:",
-        reply_markup=kb
+        "🔄 <b>Своп криптовалют</b>\n\n"
+        "<blockquote expandable>Прямой обмен BTC, LTC и USDT (TRC20) без рублей — вы отправляете монеты на указанный адрес и сразу получаете выбранную монету на свой кошелёк.\n\n💰 Комиссия ~1% включена в курс, скрытых сборов нет\n🔒 Без регистрации и KYC</blockquote>\n\n"
+        "Выберите пару обмена:",
+        reply_markup=kb,
+        parse_mode="HTML"
     )
     await callback.answer()
 
@@ -466,11 +967,12 @@ async def process_swap_pair(callback: CallbackQuery, state: FSMContext):
     from providers.swapuz import SwapUzProvider
     rate_info = SwapUzProvider().get_rate(coin_from, coin_to, amount=1)
     min_amount = rate_info.get("min_amount")
-    min_hint = f"\nМинимум: {min_amount} {coin_from}" if min_amount else ""
+    min_hint = f"\nМин. сумма: <b>{min_amount} {coin_from}</b>" if min_amount else ""
     await state.update_data(coin_from=coin_from, coin_to=coin_to)
     await callback.message.answer(
-        f"🟣 🔄 {coin_from} → {coin_to}\n\n"
-        f"Введите сумму {coin_from}, которую хотите отправить:{min_hint}",
+        f"🔄 <b>{coin_from} → {coin_to}</b>\n\n"
+        f"Введите количество <b>{coin_from}</b>, которое хотите отправить:{min_hint}",
+        parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_menu")]])
     )
     await state.set_state(Swap.amount)
@@ -481,10 +983,10 @@ async def process_swap_amount(message: Message, state: FSMContext):
     try:
         amount = float(message.text.replace(',', '.').strip())
     except ValueError:
-        await message.answer("Введите сумму цифрами.")
+        await message.answer("❌ Введите число. Например: <code>5000</code>", parse_mode="HTML")
         return
     if amount <= 0:
-        await message.answer("Сумма должна быть больше 0.")
+        await message.answer("❌ Сумма должна быть больше нуля.")
         return
     data = await state.get_data()
     coin_from = data['coin_from']
@@ -501,8 +1003,9 @@ async def process_swap_amount(message: Message, state: FSMContext):
     estimated = rate_info.get("estimated_receive")
     await state.update_data(amount_from=amount, estimated_receive=estimated)
     await message.answer(
-        f"📊 Курс: {amount} {coin_from} → ≈ {estimated} {coin_to}\n\n"
-        f"📥 Введите адрес {coin_to}, на который придут монеты:",
+        f"<blockquote>Отправляете: <b>{amount} {coin_from}</b>\nПолучаете: <b>≈ {estimated} {coin_to}</b></blockquote>\n\n"
+        f"📥 Введите <b>{coin_to}-адрес</b> получателя:",
+        parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_menu")]])
     )
     await state.set_state(Swap.address)
@@ -516,7 +1019,7 @@ async def process_swap_address(message: Message, state: FSMContext):
     amount_from = data['amount_from']
     estimated = data.get('estimated_receive')
     if not validate_crypto_address(address, coin_to):
-        await message.answer("❌ Некорректный адрес для выбранной валюты.")
+        await message.answer("❌ <b>Неверный адрес.</b>\n\nПроверьте, что вставили правильный адрес для выбранной валюты и попробуйте ещё раз.", parse_mode="HTML")
         return
 
     import sys
@@ -551,12 +1054,14 @@ async def process_swap_address(message: Message, state: FSMContext):
         conn.commit()
 
     await message.answer(
-        f"🟣 🔄 Своп {coin_from} → {coin_to} создан!\n\n"
-        f"Отправьте: <b>{amount_from} {coin_from}</b>\n"
-        f"На адрес:\n<code>{deposit_address}</code>\n\n"
-        f"Ожидаем получения: ≈ {estimated} {coin_to}\n"
-        f"Адрес зачисления: <code>{address}</code>\n\n"
-        f"⏳ Статус обновится автоматически. Страница свопа:",
+        f"✅ <b>Своп создан: {coin_from} → {coin_to}</b>\n\n"
+        f"<blockquote>"
+        f"📤 Отправьте: <b>{amount_from} {coin_from}</b>\n"
+        f"📥 Получите: <b>≈ {estimated} {coin_to}</b>\n"
+        f"📬 Адрес зачисления: <code>{address}</code>"
+        f"</blockquote>\n\n"
+        f"⬇️ Переведите монеты на этот адрес:\n<code>{deposit_address}</code>\n\n"
+        f"⏳ Статус обновится автоматически. Отслеживайте на странице свопа:",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="📊 Статус свопа", url=swap_link)]]),
         parse_mode="HTML"
     )
@@ -567,6 +1072,65 @@ async def menu_orders(callback: CallbackQuery):
     await my_orders(callback.message)
     await callback.answer()
 
+
+@router.callback_query(F.data.startswith("cancel_order_"))
+async def cancel_order_callback(callback: CallbackQuery):
+    uid = callback.from_user.id
+    try:
+        oid = int(callback.data.split("_")[2])
+    except (IndexError, ValueError):
+        await callback.answer("❌ Неверный ID", show_alert=True)
+        return
+
+    import datetime as _dt
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        c.execute("SELECT user_id, status, created_at FROM orders WHERE order_id=?", (oid,))
+        row = c.fetchone()
+
+    if not row or row[0] != uid:
+        await callback.answer("❌ Заявка не найдена.", show_alert=True)
+        return
+    _, status, created = row
+
+    if status != "pending":
+        await callback.answer(
+            f"Нельзя отменить: заявка уже в статусе «{status}».",
+            show_alert=True
+        )
+        return
+
+    # Проверяем 10-минутное окно
+    try:
+        age = (_dt.datetime.utcnow() -
+               _dt.datetime.strptime(created[:19], "%Y-%m-%d %H:%M:%S")).total_seconds()
+        if age > 600:
+            await callback.answer(
+                "⏰ Окно отмены истекло (10 минут).\nОбратитесь в поддержку: " + SUPPORT_BOT,
+                show_alert=True
+            )
+            return
+    except Exception:
+        pass
+
+    with db_conn(5) as conn:
+        conn.execute(
+            "UPDATE orders SET status='cancelled', updated_at=CURRENT_TIMESTAMP WHERE order_id=?",
+            (oid,)
+        )
+        conn.commit()
+
+    await callback.message.edit_text(
+        f"🚫 <b>Заявка #{oid} отменена.</b>\n\nСредства не были списаны.",
+        parse_mode="HTML"
+    )
+    await callback.answer("Заявка отменена.")
+    await bot.send_message(
+        ADMIN_ID,
+        f"🚫 Клиент {uid} отменил заявку #{oid}",
+        parse_mode="HTML"
+    )
+
 @router.callback_query(F.data == "menu_ref")
 async def menu_ref(callback: CallbackQuery):
     username = (await bot.get_me()).username
@@ -576,19 +1140,60 @@ async def menu_ref(callback: CallbackQuery):
         c.execute("SELECT COUNT(*), COALESCE(SUM(total_bonus_btc), 0) FROM referrals WHERE referrer_id=?", (callback.from_user.id,))
         ref_count, total_bonus = c.fetchone()
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📤 Поделиться", switch_inline_query=ref_link)],
-        [InlineKeyboardButton(text="💸 Вывести бонус", callback_data="ref_withdraw")]
+        [InlineKeyboardButton(text="📤 Поделиться ссылкой", switch_inline_query=ref_link)],
+        [InlineKeyboardButton(text="💸 Вывести бонус в BTC", callback_data="ref_withdraw")],
     ])
     text = (
-        f"🟣 👥 Ваша реферальная ссылка:\n\n<code>{ref_link}</code>\n\n"
-        f"👤 Приглашено: {ref_count}\n"
-        f"💰 Накоплено бонусов: {total_bonus:.8f} BTC"
+        f"🎁 <b>Реферальная программа</b>\n\n"
+        f"Приглашай друзей — получай <b>10%</b> от нашей комиссии в BTC за каждый их обмен.\n\n"
+        f"🔗 Твоя ссылка:\n<code>{ref_link}</code>\n\n"
+        f"<blockquote>"
+        f"👤 Приглашено: <b>{ref_count}</b>\n"
+        f"💰 Накоплено: <b>{total_bonus:.8f} BTC</b>"
+        f"</blockquote>\n\n"
+        f"💡 Бонус начисляется сразу после завершения обмена реферала. "
+        f"Вывести можно в любой момент на любой BTC-адрес."
     )
+    await send_sticker_safe(callback.message.chat.id, STICKER_REFERRAL)
     if IMG_REFERRAL.exists():
         await callback.message.answer_photo(FSInputFile(IMG_REFERRAL), caption=text, reply_markup=kb, parse_mode="HTML")
     else:
         await callback.message.answer(text, reply_markup=kb, parse_mode="HTML")
     await callback.answer()
+
+@router.callback_query(F.data == "rate_sub_toggle")
+async def rate_sub_toggle(callback: CallbackQuery):
+    uid = callback.from_user.id
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        c.execute("INSERT OR IGNORE INTO rate_subscriptions (user_id) VALUES (?)", (uid,))
+        c.execute("SELECT enabled FROM rate_subscriptions WHERE user_id=?", (uid,))
+        current = c.fetchone()[0]
+        new_val = 0 if current else 1
+        c.execute("UPDATE rate_subscriptions SET enabled=? WHERE user_id=?", (new_val, uid))
+        conn.commit()
+    if new_val:
+        await callback.answer("✅ Уведомления о курсе включены!", show_alert=True)
+    else:
+        await callback.answer("🔕 Уведомления о курсе отключены.", show_alert=True)
+
+
+@router.callback_query(F.data == "prompt_promo")
+async def prompt_promo(callback: CallbackQuery):
+    uid = callback.from_user.id
+    current = _active_promos.get(uid)
+    if current:
+        await callback.answer(
+            f"Промокод активен — скидка {current[1]:.0f}%.\nОн применится к следующей заявке.",
+            show_alert=True
+        )
+    else:
+        await callback.message.answer(
+            "🎟 Введите промокод командой:\n<code>/promo ВАШ_КОД</code>",
+            parse_mode="HTML"
+        )
+        await callback.answer()
+
 
 @router.callback_query(F.data == "ref_withdraw")
 async def ref_withdraw(callback: CallbackQuery):
@@ -603,7 +1208,7 @@ async def menu_profile(callback: CallbackQuery):
 
 @router.callback_query(F.data == "menu_support")
 async def menu_support(callback: CallbackQuery):
-    await callback.message.answer("🟣 📞 @ObsidianSupBot")
+    await callback.message.answer("💬 <b>Поддержка ObsidianExchange</b>\n\n<blockquote>Оператор ответит в течение нескольких минут. Сообщите номер заявки если вопрос по конкретному обмену.</blockquote>\n\n👤 @ObsidianSupBot", parse_mode="HTML")
     await callback.answer()
 
 @router.callback_query(F.data == "menu_reviews")
@@ -612,15 +1217,31 @@ async def menu_reviews(callback: CallbackQuery):
         c = conn.cursor()
         c.execute("SELECT COUNT(*), AVG(rating) FROM reviews WHERE status='published'")
         count, avg_rating = c.fetchone()
-    text = "🟣 ⭐ https://t.me/ObsidianReviews"
-    if count:
-        text += f"\n\n📊 Средняя оценка: {avg_rating:.1f} на основе {count} отзывов"
-    await callback.message.answer(text)
+    text = (
+        f"⭐ <b>Отзывы клиентов</b>\n\n"
+        f"<blockquote>Средняя оценка: <b>{avg_rating:.1f} / 5</b>\nНа основе {count} отзывов</blockquote>\n\n" if count else
+        f"⭐ <b>Отзывы клиентов</b>\n\nБудьте первым, кто оставит отзыв!\n\n"
+    )
+    text += "📢 Канал с отзывами: @ObsidianReviews"
+    await callback.message.answer(text, parse_mode="HTML")
     await callback.answer()
 
 @router.callback_query(F.data == "menu_about")
 async def menu_about(callback: CallbackQuery):
-    await callback.message.answer("🟣 ObsidianExchange — тёмный обменник без KYC. Автовыплаты, поддержка BTC, LTC, USDT, двойная защита.\n\n💳 Оплата: СБП или картой (по реквизитам).")
+    await callback.message.answer(
+        "🟣 <b>ObsidianExchange</b>\n\n"
+        "<blockquote expandable>"
+        "Надёжный P2P-обменник нового поколения. Работаем с 2024 года.\n\n"
+        "✅ Без KYC и верификации\n"
+        "⚡ Автоматические выплаты\n"
+        "🔒 Двойная защита каждой сделки\n"
+        "💱 BTC, LTC, USDT (TRC20)\n"
+        "💳 Оплата: СБП, карта, приложения банков"
+        "</blockquote>\n\n"
+        "📊 Комиссия от 2% (USDT) до 19% (крупные суммы BTC/LTC)\n"
+        "🌐 obsidian-exchange.org",
+        parse_mode="HTML"
+    )
     await callback.answer()
 
 # ---------- ПРОДАЖА КРИПТЫ (крипта → RUB) ----------
@@ -640,10 +1261,9 @@ async def menu_sell(callback: CallbackQuery, state: FSMContext):
         [InlineKeyboardButton(text="🔙 Назад в меню", callback_data="back_to_menu")]
     ])
     await callback.message.answer(
-        "🟣 💰 <b>Продажа крипты → RUB</b>\n\n"
-        "Отправьте нам монеты — мы переведём рубли по СБП на ваш номер телефона.\n\n"
-        "Курс: рыночный за вычетом нашей комиссии (~19–27% для BTC/LTC, ~2% для USDT).\n\n"
-        "Выберите валюту для продажи:",
+        "💰 <b>Продажа крипты → RUB</b>\n\n"
+        "<blockquote>Отправьте нам монеты на указанный адрес — мы переведём рубли по СБП на ваш номер телефона в течение 30–60 минут.\n\n💱 Курс: рыночный за вычетом комиссии\n~19–27% для BTC/LTC · ~2% для USDT</blockquote>\n\n"
+        "Выберите монету для продажи:",
         reply_markup=kb,
         parse_mode="HTML"
     )
@@ -676,12 +1296,13 @@ async def process_sell_currency(callback: CallbackQuery, state: FSMContext):
         [InlineKeyboardButton(text="🔙 Назад", callback_data="menu_sell")]
     ])
     await callback.message.answer(
-        f"🟣 💰 <b>Продажа {SELL_COIN_LABELS[currency]}</b>\n\n"
-        f"📬 Наш адрес для получения:\n<code>{receive_addr}</code>\n\n"
-        f"💱 Курс покупки: <b>{sell_rate:,.2f} RUB</b> за 1 {currency}\n"
-        f"(включает нашу комиссию)\n\n"
-        f"Минимальная сумма: <b>{min_amt} {currency}</b>\n\n"
-        f"💬 Введите <b>сколько {currency} вы отправите</b> нам (только число, например <code>{min_amt}</code>):",
+        f"💰 <b>Продажа {SELL_COIN_LABELS[currency]}</b>\n\n"
+        f"<blockquote>"
+        f"📬 Адрес для перевода:\n<code>{receive_addr}</code>\n"
+        f"💱 Курс покупки: <b>{sell_rate:,.2f} ₽</b> за 1 {currency}\n"
+        f"📦 Минимум: <b>{min_amt} {currency}</b>"
+        f"</blockquote>\n\n"
+        f"Введите количество <b>{currency}</b>, которое хотите продать:",
         reply_markup=kb,
         parse_mode="HTML"
     )
@@ -692,7 +1313,7 @@ async def process_sell_amount(message: Message, state: FSMContext):
     try:
         amount = float(message.text.replace(',', '.'))
     except ValueError:
-        await message.answer("❌ Введите число, например <code>0.01</code>", parse_mode="HTML")
+        await message.answer("❌ Введите число. Например: <code>0.01</code>", parse_mode="HTML")
         return
     data = await state.get_data()
     currency = data.get('sell_currency', 'BTC')
@@ -708,10 +1329,8 @@ async def process_sell_amount(message: Message, state: FSMContext):
         [InlineKeyboardButton(text="🔙 Отмена", callback_data="menu_sell")]
     ])
     await message.answer(
-        f"✅ Вы продаёте: <b>{amount} {currency}</b>\n"
-        f"💰 Вы получите: <b>≈ {rub_amount:,.2f} RUB</b>\n\n"
-        f"📱 Введите ваш <b>номер телефона для СБП</b> (куда перевести рубли):\n"
-        f"Формат: <code>79001234567</code> или <code>+79001234567</code>",
+        f"<blockquote>Продаёте: <b>{amount} {currency}</b>\nПолучите: <b>≈ {rub_amount:,.2f} ₽</b></blockquote>\n\n"
+        f"📱 Введите номер телефона для выплаты по <b>СБП</b>:\n<code>79001234567</code>",
         reply_markup=kb,
         parse_mode="HTML"
     )
@@ -740,19 +1359,22 @@ async def process_sell_phone(message: Message, state: FSMContext):
             conn.commit()
     except Exception as e:
         logger.error(f"Ошибка создания sell_order: {e}")
-        await message.answer("❌ Ошибка сервера. Попробуйте позже.")
+        await message.answer("⛔ Временная ошибка сервера. Попробуйте через минуту или обратитесь в поддержку @ObsidianSupBot")
         await state.clear()
         return
 
     await state.clear()
 
     await message.answer(
-        f"✅ <b>Заявка на продажу #{sell_id} создана!</b>\n\n"
-        f"📤 Отправьте <b>{amount} {currency}</b> на адрес:\n"
-        f"<code>{receive_addr}</code>\n\n"
-        f"💰 После подтверждения транзакции мы переведём <b>≈ {rub_amount:,.2f} RUB</b> на СБП <code>{phone}</code>\n\n"
-        f"⏳ Обычно выплата проходит в течение 30–60 минут.\n"
-        f"📞 Вопросы: @ObsidianSupBot",
+        f"✅ <b>Заявка на продажу #{sell_id} принята!</b>\n\n"
+        f"<blockquote>"
+        f"📤 Отправьте: <b>{amount} {currency}</b>\n"
+        f"📬 На адрес:\n<code>{receive_addr}</code>\n\n"
+        f"💰 Выплата: <b>≈ {rub_amount:,.2f} ₽</b>\n"
+        f"📱 На СБП: <code>{phone}</code>"
+        f"</blockquote>\n\n"
+        f"⏳ После подтверждения транзакции выплата поступит в течение 30–60 минут.\n\n"
+        f"💬 Вопросы: @ObsidianSupBot",
         parse_mode="HTML"
     )
 
@@ -798,13 +1420,14 @@ async def sell_confirm(callback: CallbackQuery):
         c.execute("UPDATE sell_orders SET status='paid', updated_at=datetime('now') WHERE id=?", (sell_id,))
         conn.commit()
 
-    update_user_vip_volume(user_id, rub_amount)
+    await update_user_vip_volume(user_id, rub_amount)
 
     await callback.message.edit_text(
         callback.message.text + f"\n\n✅ <b>Выплачено</b> {rub_amount:,.2f} RUB на {sbp_phone}",
         parse_mode="HTML"
     )
     await callback.answer("✅ Отмечено как выплачено")
+    await send_sticker_safe(user_id, STICKER_SUCCESS)
     try:
         await bot.send_message(
             user_id,
@@ -934,6 +1557,22 @@ async def finalize_review(order_id):
             await bot.send_message(REVIEWS_CHANNEL_ID, text)
         except Exception as e:
             logger.error(f"Не удалось опубликовать отзыв #{order_id} в {REVIEWS_CHANNEL_ID}: {e}")
+        # Приглашение оставить публичный отзыв на внешних площадках
+        try:
+            invite_kb = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="💬 Канал отзывов", url="https://t.me/ObsidianReviews")],
+                [InlineKeyboardButton(text="🌐 MMGP Forum", url="https://mmgp.ru/showthread.php?t=743938")],
+            ])
+            await bot.send_message(
+                user_id,
+                f"{'⭐' * rating} <b>Спасибо за оценку!</b>\n\n"
+                f"Если хотите помочь другим клиентам сделать выбор — оставьте отзыв публично.\n"
+                f"Это займёт 1 минуту и очень нам поможет 🙏",
+                parse_mode="HTML",
+                reply_markup=invite_kb
+            )
+        except Exception as e:
+            logger.warning(f"Не удалось отправить приглашение на внешний отзыв user {user_id}: {e}")
     else:
         try:
             await bot.send_message(
@@ -961,6 +1600,37 @@ def is_user_blocked(user_id):
         return row is not None
     except Exception:
         return False
+
+
+def check_order_limits(user_id: int) -> str | None:
+    """Возвращает текст ошибки если клиент превысил лимиты, иначе None.
+
+    Лимиты:
+    - Не более 3 заявок в статусе pending одновременно
+    - Не более 10 новых заявок за 24 часа
+    - Cooldown 3 минуты между заявками
+    """
+    try:
+        import datetime as _dt
+        now = _dt.datetime.utcnow()
+        day_ago   = (now - _dt.timedelta(hours=24)).strftime("%Y-%m-%d %H:%M:%S")
+        three_min = (now - _dt.timedelta(minutes=3)).strftime("%Y-%m-%d %H:%M:%S")
+        with db_conn(5) as conn:
+            c = conn.cursor()
+            # Суточный лимит
+            c.execute("SELECT COUNT(*) FROM orders WHERE user_id=? AND created_at > ?",
+                      (user_id, day_ago))
+            daily = c.fetchone()[0]
+            if daily >= 10:
+                return "Достигнут суточный лимит заявок (10 в день). Попробуйте завтра."
+            # Cooldown
+            c.execute("SELECT MAX(created_at) FROM orders WHERE user_id=?", (user_id,))
+            last = c.fetchone()[0]
+            if last and last > three_min:
+                return "Слишком частые заявки. Подождите 3 минуты перед следующей."
+    except Exception:
+        pass
+    return None
 @router.callback_query(F.data.startswith("cur_"))
 async def process_currency(callback: CallbackQuery, state: FSMContext):
     currency = callback.data.split("_")[1]
@@ -970,14 +1640,15 @@ async def process_currency(callback: CallbackQuery, state: FSMContext):
         [InlineKeyboardButton(text=f"💱 Указать сумму в {currency}", callback_data="amtmode_crypto")],
         [InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_menu")]
     ])
-    await callback.message.answer("🟣 Как удобнее указать сумму обмена?", reply_markup=kb)
+    await callback.message.answer("💱 <b>Как указать сумму?</b>\n\nВведите сколько хотите заплатить в рублях, или сколько крипты хотите получить:", reply_markup=kb, parse_mode="HTML")
     await callback.answer()
 
 @router.callback_query(F.data == "amtmode_rub")
 async def amtmode_rub(callback: CallbackQuery, state: FSMContext):
     await callback.message.answer(
-        f"🟣 💵 Введите сумму в RUB\n🔹 Минимум: {MIN_AMOUNT} ₽\n🔹 Максимум: {MAX_AMOUNT} ₽",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_menu")]])
+        f"💵 <b>Введите сумму в рублях</b>\n\n<blockquote>Минимум: {int(MIN_AMOUNT):,} ₽\nМаксимум: {int(MAX_AMOUNT):,} ₽</blockquote>".replace(",", " "),
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_menu")]]),
+        parse_mode="HTML"
     )
     await state.set_state(Exchange.amount)
     await callback.answer()
@@ -987,9 +1658,9 @@ async def amtmode_crypto(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     currency = data['currency']
     await callback.message.answer(
-        f"🟣 💱 Введите сумму в {currency}, которую хотите получить\n"
-        f"Бот рассчитает сумму к оплате в RUB с учётом комиссии.",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_menu")]])
+        f"💱 <b>Введите сумму в {currency}</b>\n\nБот автоматически рассчитает, сколько рублей нужно оплатить с учётом комиссии.",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_menu")]]),
+        parse_mode="HTML"
     )
     await state.set_state(Exchange.crypto_amount)
     await callback.answer()
@@ -999,17 +1670,26 @@ async def process_amount(message: Message, state: FSMContext):
     try:
         amount = float(message.text.replace(',', '.').strip())
     except ValueError:
-        await message.answer("Введите сумму цифрами.")
+        await message.answer("❌ Введите число. Например: <code>5000</code>", parse_mode="HTML")
         return
     if amount < MIN_AMOUNT or amount > MAX_AMOUNT:
         await message.answer(f"❌ Сумма должна быть от {MIN_AMOUNT} до {MAX_AMOUNT} RUB.")
         return
+    # Скидка 1000 ₽ за каждый 5-й обмен от 5000 ₽
+    if check_fifth_exchange_discount(message.from_user.id, amount):
+        amount = max(amount - 1000, MIN_AMOUNT)
+        await message.answer(
+            f"🎰 <b>Поздравляем!</b> Это ваш юбилейный обмен — скидка <b>1 000 ₽</b> применена!\n"
+            f"💵 К оплате: <b>{amount:,.0f} ₽</b>",
+            parse_mode="HTML"
+        )
     await state.update_data(amount=amount)
     a, b, correct = generate_captcha()
     await state.update_data(captcha_correct=correct)
     await message.answer(
-        f"🛡️ Проверка на робота\nСколько будет {a} + {b}?",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_menu")]])
+        f"🛡 <b>Защита от роботов</b>\n\nСколько будет <b>{a} + {b}</b>?",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_menu")]]),
+        parse_mode="HTML"
     )
     await state.set_state(Exchange.captcha)
 
@@ -1018,10 +1698,10 @@ async def process_crypto_amount(message: Message, state: FSMContext):
     try:
         crypto_amt = float(message.text.replace(',', '.').strip())
     except ValueError:
-        await message.answer("Введите сумму цифрами.")
+        await message.answer("❌ Введите число. Например: <code>5000</code>", parse_mode="HTML")
         return
     if crypto_amt <= 0:
-        await message.answer("Сумма должна быть больше 0.")
+        await message.answer("❌ Сумма должна быть больше нуля.")
         return
 
     data = await state.get_data()
@@ -1047,14 +1727,15 @@ async def process_crypto_amount(message: Message, state: FSMContext):
 
     await state.update_data(amount=rub_amount)
     await message.answer(
-        f"🟣 💱 Чтобы получить {crypto_amt} {currency}, нужно оплатить:\n"
-        f"💵 {rub_amount:,.2f} ₽ (комиссия {get_commission_percent(rub_amount)}%)"
+        f"<blockquote>Чтобы получить <b>{crypto_amt} {currency}</b> нужно оплатить:\n<b>{rub_amount:,.2f} ₽</b>  (комиссия {get_commission_percent(rub_amount)}%)</blockquote>",
+        parse_mode="HTML"
     )
     a, b, correct = generate_captcha()
     await state.update_data(captcha_correct=correct)
     await message.answer(
-        f"🛡️ Проверка на робота\nСколько будет {a} + {b}?",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_menu")]])
+        f"🛡 <b>Защита от роботов</b>\n\nСколько будет <b>{a} + {b}</b>?",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_menu")]]),
+        parse_mode="HTML"
     )
     await state.set_state(Exchange.captcha)
 
@@ -1063,17 +1744,18 @@ async def process_captcha(message: Message, state: FSMContext):
     try:
         answer = int(message.text.strip())
     except ValueError:
-        await message.answer("Введите число.")
+        await message.answer("❌ Введите число.")
         return
     data = await state.get_data()
     if answer != data.get("captcha_correct"):
-        await message.answer("❌ Капча неверная.")
+        await message.answer("❌ Неверный ответ. Попробуйте снова — введите /start чтобы начать заново.")
         await state.clear()
         return
     curr = data['currency']
     await message.answer(
-        f"📥 Введите ваш адрес ({curr}):",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_menu")]])
+        f"📥 <b>Введите {curr}-адрес</b>\n\nКуда отправить монеты после подтверждения оплаты:",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_menu")]]),
+        parse_mode="HTML"
     )
     await state.set_state(Exchange.address)
 
@@ -1089,19 +1771,24 @@ async def inline_paid(callback: CallbackQuery):
             c.execute("SELECT user_id, rub_amount, crypto_address, currency, status FROM orders WHERE order_id=?", (order_id,))
             row = c.fetchone()
         if not row:
-            await callback.answer("Заявка не найдена", show_alert=True)
+            await callback.answer("❌ Заявка не найдена", show_alert=True)
             return
         order_user_id, rub_amount, address, currency, status = row
         if status != 'pending':
-            await callback.answer("Заявка уже обработана", show_alert=True)
+            await callback.answer("ℹ️ Эта заявка уже обработана", show_alert=True)
             return
-        text = (f"💰 Пользователь сообщает, что оплатил заявку #{order_id}\n"
-                f"Пользователь: {order_user_id}\nСумма: {rub_amount} RUB, {currency}\nАдрес: {address}\n\n"
-                f"Проверьте поступление оплаты перед подтверждением.")
+        rub_fmt2 = f"{int(rub_amount):,}".replace(",", " ")
+        text = (f"💰 <b>Заявка #{order_id} — пользователь сообщил об оплате</b>\n\n"
+                f"<blockquote>"
+                f"👤 ID: <code>{order_user_id}</code>\n"
+                f"💸 Сумма: <b>{rub_fmt2} ₽</b> · {currency}\n"
+                f"📬 Адрес: <code>{address}</code>"
+                f"</blockquote>\n\n"
+                f"⚠️ Проверьте поступление средств перед подтверждением.")
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="✅ Подтвердить оплату", callback_data=f"admin_confirm_{order_id}")]])
-        await bot.send_message(ADMIN_ID, text, reply_markup=kb, disable_notification=False)
-        msg_text = f"✅ Информация об оплате заявки #{order_id} отправлена администратору на проверку. Ожидайте подтверждения."
+        await bot.send_message(ADMIN_ID, text, reply_markup=kb, disable_notification=False, parse_mode="HTML")
+        msg_text = f"⏳ <b>Ожидаем подтверждение</b>\n\nИнформация об оплате заявки <b>#{order_id}</b> передана оператору. Обычно это занимает 5–15 минут."
         await callback.message.edit_caption(caption=msg_text, parse_mode="HTML") if callback.message.photo else await callback.message.edit_text(msg_text, parse_mode="HTML")
         await callback.answer("Отправлено на проверку")
     except Exception as e:
@@ -1123,11 +1810,11 @@ async def inline_check_payment(callback: CallbackQuery):
                     status = "pending"
                     tx = None
         if status == "sent" and tx:
-            text = f"🚀 Заявка #{order_id} полностью выполнена!\n████████████ 100%\nTXID: <code>{tx}</code>"
+            text = f"✅ <b>Заявка #{order_id} выполнена!</b>\n\n<blockquote>Монеты отправлены на ваш адрес</blockquote>\n\n🔗 <code>{tx}</code>"
         elif status == "paid":
-            text = f"✅ Заявка #{order_id} оплачена!\n████████░░░░ 50%\nОжидайте отправку..."
+            text = f"🔄 <b>Заявка #{order_id}</b>\n\n<blockquote>Оплата получена — обрабатываем отправку монет…</blockquote>"
         else:
-            text = f"⏳ Заявка #{order_id} ожидает оплаты.\n████░░░░░░░░ 0%"
+            text = f"⏳ <b>Заявка #{order_id}</b>\n\n<blockquote>Ожидаем поступление оплаты</blockquote>\n\nЕсли уже оплатили — нажмите «Я оплатил»"
         if callback.message.photo:
             await callback.message.edit_caption(caption=text, parse_mode="HTML")
         else:
@@ -1144,7 +1831,7 @@ pending_large_payouts = {}  # {order_id: {code, amount, address, currency, times
 @router.callback_query(F.data.startswith("admin_confirm_"))
 async def admin_confirm_2fa(callback: CallbackQuery):
     if callback.from_user.id != ADMIN_ID:
-        await callback.answer("Нет прав.", show_alert=True)
+        await callback.answer("⛔ Нет прав доступа.", show_alert=True)
         return
     import random
     code = str(random.randint(1000, 9999))
@@ -1174,41 +1861,176 @@ async def confirm_payout(message: Message):
 
 # ---------- МОИ ЗАЯВКИ ----------
 async def my_orders(message: Message):
+    uid = message.from_user.id
     with db_conn(10) as conn:
         c = conn.cursor()
-        c.execute("SELECT order_id, rub_amount, crypto_address, currency, status, created_at, paid_btc_tx FROM orders WHERE user_id=? ORDER BY created_at DESC LIMIT 10", (message.from_user.id,))
+        c.execute("""SELECT order_id, rub_amount, crypto_address, currency, status,
+                            created_at, paid_btc_tx
+                     FROM orders WHERE user_id=? ORDER BY created_at DESC LIMIT 8""", (uid,))
         orders = c.fetchall()
     if not orders:
-        await message.answer("У вас пока нет заявок.")
+        await message.answer(
+            "🟣 <b>Мои заявки</b>\n\nУ вас пока нет ни одной заявки. Начните первый обмен прямо сейчас:",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(text="💱 Обменять", callback_data="menu_exchange")
+            ]]),
+            parse_mode="HTML"
+        )
         return
-    text = "🟣 📋 Ваши заявки:\n\n"
-    for o in orders:
-        oid, rub, addr, curr, status, created, tx = o
-        emoji = {"pending": "⏳", "paid": "✅", "sent": "🚀"}.get(status, status)
-        text += f"#{oid} {emoji} {rub} RUB → {curr}\nАдрес: {addr}\n"
-        if tx: text += f"TX: {tx}\n"
-        text += f"Дата: {created[:16]}\n\n"
-    if IMG_ORDERS_HISTORY.exists() and len(text) <= 1024:
-        await message.answer_photo(FSInputFile(IMG_ORDERS_HISTORY), caption=text)
-    elif IMG_ORDERS_HISTORY.exists():
-        await message.answer_photo(FSInputFile(IMG_ORDERS_HISTORY), caption="🟣 📋 История ваших операций")
-        await message.answer(text)
-    else:
-        await message.answer(text)
+
+    import datetime as _dt
+    STATUS_ICON = {"pending": "⏳", "paid": "🔄", "sent": "🚀", "failed": "❌", "cancelled": "🚫"}
+    STATUS_LABEL = {"pending": "Ожидает оплаты", "paid": "Обрабатывается",
+                    "sent": "Выполнена", "failed": "Ошибка", "cancelled": "Отменена"}
+    CUR_ICON = {"BTC": "₿", "LTC": "Ł", "USDT": "💵"}
+
+    for oid, rub, addr, curr, status, created, tx in orders:
+        icon   = STATUS_ICON.get(status, "❔")
+        label  = STATUS_LABEL.get(status, status)
+        cur_ic = CUR_ICON.get(curr, curr)
+        amt_fmt = f"{int(rub):,}".replace(",", " ")
+        addr_short = f"{addr[:6]}…{addr[-4:]}" if addr and len(addr) > 10 else (addr or "—")
+
+        text = (
+            f"{icon} <b>Заявка #{oid}</b> · {label}\n"
+            f"<blockquote>"
+            f"💸 {amt_fmt} ₽  →  {cur_ic} {curr}\n"
+            f"📬 <code>{addr_short}</code>\n"
+            f"🕐 {created[:16] if created else '—'}"
+            f"</blockquote>"
+        )
+        if tx:
+            tx_short = tx[:16] + "…" if len(tx) > 20 else tx
+            text += f"\n🔗 <code>{tx_short}</code>"
+
+        # Кнопки: отмена только для pending в первые 10 минут
+        buttons = []
+        if status == "pending" and created:
+            try:
+                age = (_dt.datetime.utcnow() -
+                       _dt.datetime.strptime(created[:19], "%Y-%m-%d %H:%M:%S")).total_seconds()
+                if age < 600:
+                    buttons.append(InlineKeyboardButton(
+                        text="❌ Отменить", callback_data=f"cancel_order_{oid}"
+                    ))
+            except Exception:
+                pass
+        if tx and len(tx) > 20:
+            # Угадываем блокчейн-эксплорер
+            if curr == "BTC":
+                explorer = f"https://mempool.space/tx/{tx}"
+            elif curr == "LTC":
+                explorer = f"https://blockchair.com/litecoin/transaction/{tx}"
+            else:
+                explorer = f"https://tronscan.org/#/transaction/{tx}"
+            buttons.append(InlineKeyboardButton(text="🔍 Explorer", url=explorer))
+
+        kb = InlineKeyboardMarkup(inline_keyboard=[buttons]) if buttons else None
+        await message.answer(text, parse_mode="HTML", reply_markup=kb)
+
+    await message.answer(
+        f"📋 Последние {min(len(orders), 8)} заявок · Вся история: /myhistory",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(text="💱 Новый обмен", callback_data="menu_exchange")
+        ]])
+    )
 
 # ---------- ПРОФИЛЬ ----------
 async def profile(message: Message):
+    uid = message.from_user.id
     with db_conn(10) as conn:
         c = conn.cursor()
-        c.execute("SELECT COUNT(*) FROM orders WHERE user_id=?", (message.from_user.id,))
+        c.execute("SELECT COUNT(*) FROM orders WHERE user_id=?", (uid,))
         total = c.fetchone()[0]
-        c.execute("SELECT COUNT(*) FROM orders WHERE user_id=? AND status IN ('sent','paid')", (message.from_user.id,))
-        completed = c.fetchone()[0]
-        c.execute("SELECT COUNT(*) FROM referrals WHERE referrer_id=?", (message.from_user.id,))
+        c.execute("SELECT COUNT(*), COALESCE(SUM(rub_amount),0) FROM orders WHERE user_id=? AND status='sent'", (uid,))
+        row = c.fetchone(); completed, volume = row[0], row[1]
+        # Любимая валюта (по кол-ву выполненных заявок)
+        c.execute("""SELECT currency, COUNT(*) as cnt FROM orders
+                     WHERE user_id=? AND status='sent'
+                     GROUP BY currency ORDER BY cnt DESC LIMIT 1""", (uid,))
+        fav_row = c.fetchone()
+        fav_currency = fav_row[0] if fav_row else None
+        # Дата первой заявки
+        c.execute("SELECT MIN(created_at) FROM orders WHERE user_id=?", (uid,))
+        first_row = c.fetchone()
+        first_date = first_row[0][:10] if first_row and first_row[0] else None
+        # Рефералы
+        c.execute("SELECT COUNT(*) FROM referrals WHERE referrer_id=?", (uid,))
         refs = c.fetchone()[0]
-    await message.answer(f"🟣 Профиль ObsidianExchange\n\nВсего заявок: {total}\nЗавершённых выплат: {completed}\nПриглашённых рефералов: {refs}\nЛимит заявок: 30")
+        c.execute("SELECT COALESCE(SUM(bonus_amount),0) FROM referral_bonuses WHERE referrer_id=?", (uid,))
+        ref_bonus = c.fetchone()[0]
+        # Подписка на курс
+        c.execute("SELECT enabled FROM rate_subscriptions WHERE user_id=?", (uid,))
+        sub_row = c.fetchone()
+        sub_enabled = sub_row[0] if sub_row else 0
+
+    vip_name, discount = get_user_vip(uid)
+    vip_icons = {'Platinum': '💎 Platinum', 'Gold': '🥇 Gold', 'Silver': '🥈 Silver'}
+    vip_line = vip_icons.get(vip_name, '⬜ Standard')
+    if discount > 0:
+        vip_line += f' (−{discount}%)'
+
+    sub_icon = "🔔" if sub_enabled else "🔕"
+
+    fav_icons = {'BTC': '₿', 'LTC': 'Ł', 'USDT': '💵'}
+    fav_line = f"{fav_icons.get(fav_currency,'')}{fav_currency}" if fav_currency else "—"
+
+    vol_fmt = f"{int(volume):,}".replace(",", " ")
+    ref_bonus_fmt = f"{int(ref_bonus):,}".replace(",", " ")
+
+    text = (
+        f"👤 <b>Мой профиль — ObsidianExchange</b>\n\n"
+        f"<blockquote>"
+        f"📦 Заявок всего: <b>{total}</b>   ✅ Выполнено: <b>{completed}</b>\n"
+        f"💰 Общий объём: <b>{vol_fmt} ₽</b>\n"
+        f"🏅 Любимая валюта: <b>{fav_line}</b>\n"
+        f"💎 VIP-статус: <b>{vip_line}</b>"
+        f"</blockquote>\n\n"
+        f"<blockquote>"
+        f"🎁 Рефералов приглашено: <b>{refs}</b>\n"
+        f"💸 Заработано на рефералке: <b>{ref_bonus_fmt} ₽</b>"
+        f"</blockquote>\n\n"
+        f"{sub_icon} Уведомления о курсе: <b>{'Вкл' if sub_enabled else 'Выкл'}</b>"
+    )
+    if first_date:
+        text += f"\n📅 С нами с: <b>{first_date}</b>"
+
+    # Есть ли активный промокод
+    promo_active = _active_promos.get(uid)
+    promo_btn_label = (f"🎟 Промокод активен (−{promo_active[1]:.0f}%)" if promo_active
+                       else "🎟 Ввести промокод")
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=f"{sub_icon} {'Отключить' if sub_enabled else 'Включить'} уведомления о курсе",
+                              callback_data="rate_sub_toggle")],
+        [InlineKeyboardButton(text="🎁 Реферальная программа", callback_data="menu_ref")],
+        [InlineKeyboardButton(text=promo_btn_label, callback_data="prompt_promo")],
+    ])
+    await message.answer(text, parse_mode="HTML", reply_markup=kb)
 
 # ---------- АДМИН-ПАНЕЛЬ ----------
+@router.message(Command("report"))
+async def cmd_report(message: Message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    import datetime as _dt
+    args = message.text.split()
+    period = args[1] if len(args) > 1 else "today"
+    today = _dt.datetime.utcnow().strftime("%Y-%m-%d")
+    if period in ("today", "сегодня"):
+        text = await build_admin_report("сегодня", today, today)
+    elif period in ("week", "неделя"):
+        d_from = (_dt.datetime.utcnow() - _dt.timedelta(days=7)).strftime("%Y-%m-%d")
+        text = await build_admin_report("последние 7 дней", d_from, today)
+    elif period in ("month", "месяц"):
+        d_from = (_dt.datetime.utcnow() - _dt.timedelta(days=30)).strftime("%Y-%m-%d")
+        text = await build_admin_report("последние 30 дней", d_from, today)
+    else:
+        # Вчера по умолчанию
+        yesterday = (_dt.datetime.utcnow() - _dt.timedelta(days=1)).strftime("%Y-%m-%d")
+        text = await build_admin_report(f"вчера ({yesterday})", yesterday, yesterday)
+    await message.answer(text, parse_mode="HTML")
+
+
 @router.message(Command("admin"))
 async def admin_panel(message: Message):
     if message.from_user.id != ADMIN_ID: return await message.answer("❌ Доступ запрещён.")
@@ -1332,7 +2154,12 @@ async def process_address(message: Message, state: FSMContext):
     data = await state.get_data()
     currency = data['currency']
     if not validate_crypto_address(address, currency):
-        await message.answer("❌ Некорректный адрес для выбранной валюты.")
+        await message.answer("❌ <b>Неверный адрес.</b>\n\nПроверьте, что вставили правильный адрес для выбранной валюты и попробуйте ещё раз.", parse_mode="HTML")
+        return
+    # Антиспам: проверяем лимиты
+    limit_err = check_order_limits(message.from_user.id)
+    if limit_err:
+        await message.answer(f"⛔ {limit_err}")
         return
     amount = data.get("amount")
     with db_conn(10) as conn:
@@ -1342,22 +2169,41 @@ async def process_address(message: Message, state: FSMContext):
         conn.commit()
         order_id = cursor.lastrowid
 
+    # Фиксируем промокод если был активирован
+    promo = _active_promos.pop(message.from_user.id, None)
+    if promo:
+        apply_promo_use(promo[0], message.from_user.id, order_id)
+
     await notify_admin(order_id, message.from_user.id, amount, address, currency)
 
     await state.update_data(order_id=order_id, amount=amount, currency=currency, address=address)
     await state.set_state(Exchange.payment_method)
 
-    rate = get_rate_with_markup(currency, amount)
+    # Применяем фиксацию курса если есть
+    _lock = get_active_rate_lock(message.from_user.id, currency)
+    if _lock:
+        rate = _lock["rate"] * (1 - get_commission_percent(amount, message.from_user.id) / 100)
+        # Вычитаем комиссию за фиксацию из суммы (уменьшаем крипту, а не рубли)
+        with db_conn(3) as conn:
+            conn.execute("UPDATE rate_locks SET used=1, order_id=? WHERE id=?",
+                         (_lock["lock_id"], order_id))
+            conn.commit()
+    else:
+        rate = get_rate_with_markup(currency, amount)
     crypto_amount = round(amount / rate, 8) if rate else 0
-    text = (f"🟣 ObsidianExchange\n✅ Заявка #{order_id} создана!\n⏳ Курс зафиксирован на 15 минут\n\n"
-            f"Сумма: {amount} RUB\n≈ {crypto_amount} {currency} (комиссия {get_commission_percent(amount)}%)\n\n"
-            f"Выберите способ оплаты:")
-    inline_kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🏦 Оплата СБП", callback_data=f"pm_platega_{order_id}")],
-        [InlineKeyboardButton(text="📱 СБП (способ 1)", callback_data=f"pm_montera_sbp_{order_id}")],
-        [InlineKeyboardButton(text="📱 СБП (способ 2)", callback_data=f"pm_gp_sbp_{order_id}")],
-        [InlineKeyboardButton(text="💳 Оплата по карте (реквизиты)", callback_data=f"pm_gp_card_{order_id}")],
-    ])
+    rub_fmt3 = f"{int(float(amount)):,}".replace(",", " ")
+    text = (
+        f"🟣 <b>Заявка #{order_id} создана</b>\n\n"
+        f"<blockquote>"
+        f"💸 Оплата: <b>{rub_fmt3} ₽</b>\n"
+        f"⬇️ Получаете: <b>{crypto_amount} {currency}</b>\n"
+        f"📉 Комиссия: <b>{get_commission_percent(amount)}%</b>\n"
+        f"⏱ Курс действует: <b>15 минут</b>"
+        f"</blockquote>\n\n"
+        f"Выберите удобный способ оплаты 👇"
+    )
+    await send_sticker_safe(message.chat.id, STICKER_WAIT)
+    inline_kb = await build_payment_methods_kb(order_id, amount)
     if IMG_15MIN.exists():
         await message.answer_photo(FSInputFile(IMG_15MIN), caption=text, reply_markup=inline_kb, parse_mode="HTML")
     else:
@@ -1374,40 +2220,51 @@ async def process_payment_method(callback: CallbackQuery, state: FSMContext):
     import sys
     sys.path.insert(0, '/root/relay')
 
-    if pm.startswith("pm_platega_"):
-        rate = get_rate_with_markup(currency, amount)
-        crypto_amount = round(amount / rate, 8) if rate else 0
-        payment_link = f"{PUBLIC_RELAY}/pay/{order_id}"  # fallback
-        try:
-            from services.payment_service import PaymentService
-            payment_service = PaymentService()
-            session = payment_service.create_session(order_id, amount)
-            if 'session_token' in session:
-                payment_link = f"{PUBLIC_RELAY}/pay/{session['session_token']}"
-        except Exception as e:
-            logger.error(f"Не удалось создать payment session: {e}")
-        caption = f"🟣 ObsidianExchange\nЗаявка #{order_id}\n\nСумма: {amount} RUB\n≈ {crypto_amount} {currency}\n\n<a href='{payment_link}'>Оплатить через СБП</a>"
-
-    elif pm.startswith("pm_montera_sbp_"):
+    if pm.startswith("pm_montera_sbp_"):
+        if not await montera_precheck(callback, amount, "sbp", order_id):
+            await callback.answer()
+            return
         try:
             from services.payment_service import PaymentService
             from providers.montera import MonteraProvider
             payment_service = PaymentService(provider=MonteraProvider())
             session = payment_service.create_session(order_id, amount, payment_method="sbp")
             if 'error' in session:
-                await callback.message.answer("❌ Не удалось получить реквизиты для оплаты. Попробуйте другой способ оплаты или повторите позже.")
+                await reply_no_requisites(callback, order_id)
                 await callback.answer()
                 return
-            requisites_text = format_requisites(session.get('raw') or {})
+            raw_session = session.get('raw') or {}
+            requisites_text = format_requisites(raw_session)
+            receipt_url = raw_session.get("receipt_upload_url")
+            montera_iid = raw_session.get("order_id") or raw_session.get("id")
         except Exception as e:
             logger.error(f"Ошибка создания сессии Montera SBP: {e}")
-            await callback.message.answer("❌ Не удалось получить реквизиты для оплаты. Попробуйте другой способ оплаты или повторите позже.")
+            await reply_no_requisites(callback, order_id)
             await callback.answer()
             return
 
+        # Сохраняем invoice_id и дедлайн в БД
+        import datetime as _dt
+        _deadline = (_dt.datetime.utcnow() + _dt.timedelta(minutes=30)).strftime("%Y-%m-%d %H:%M:%S")
+        with db_conn(5) as _c:
+            _c.execute("UPDATE orders SET montera_invoice_id=?, receipt_deadline=? WHERE order_id=?",
+                       (str(montera_iid), _deadline, order_id))
+            _c.commit()
+
         caption = (f"🟣 ObsidianExchange\nЗаявка #{order_id}\n\n"
-                   f"Сумма: {amount} RUB\n\n"
-                   f"Переведите указанную сумму на СБП:\n{requisites_text}")
+                   f"Сумма: <b>{int(amount):,} ₽</b>\n\n"
+                   f"Переведите указанную сумму по СБП:\n{requisites_text}\n\n"
+                   f"⏱ <b>У вас 30 минут</b> с момента создания заявки чтобы оплатить и отправить PDF-чек.\n\n"
+                   f"📄 <b>После оплаты отправьте PDF-чек</b> из банковского приложения прямо сюда — "
+                   f"без него оператор не сможет подтвердить платёж.").replace(",", " ")
+        await state.update_data(montera_receipt_url=receipt_url, montera_invoice_id=montera_iid)
+        await state.set_state(Exchange.receipt_upload)
+        if IMG_SECURITY.exists() and len(caption) <= 1024:
+            await callback.message.answer_photo(FSInputFile(IMG_SECURITY), caption=caption, parse_mode="HTML")
+        else:
+            await callback.message.answer(caption, parse_mode="HTML")
+        await callback.answer()
+        return
 
     elif pm.startswith("pm_gp_sbp_"):
         try:
@@ -1416,40 +2273,158 @@ async def process_payment_method(callback: CallbackQuery, state: FSMContext):
             payment_service = PaymentService(provider=GreenPayProvider())
             session = payment_service.create_session(order_id, amount, payment_method="sbp")
             if 'error' in session:
-                await callback.message.answer("❌ Не удалось получить реквизиты для оплаты. Попробуйте другой способ оплаты или повторите позже.")
+                await reply_no_requisites(callback, order_id)
                 await callback.answer()
                 return
             requisites_text = format_requisites(session.get('raw') or {})
         except Exception as e:
             logger.error(f"Ошибка создания сессии GreenPay: {e}")
-            await callback.message.answer("❌ Не удалось получить реквизиты для оплаты. Попробуйте другой способ оплаты или повторите позже.")
+            await reply_no_requisites(callback, order_id)
             await callback.answer()
             return
 
         caption = (f"🟣 ObsidianExchange\nЗаявка #{order_id}\n\n"
-                   f"Сумма: {amount} RUB\n\n"
-                   f"Переведите указанную сумму на СБП:\n{requisites_text}")
+                   f"Сумма: <b>{int(float(amount)):,} ₽</b>\n\n"
+                   f"Переведите указанную сумму по СБП:\n{requisites_text}\n\n"
+                   f"После перевода нажмите <b>«Я оплатил»</b> — оплата подтвердится автоматически.").replace(",", " ")
 
     elif pm.startswith("pm_gp_card_"):
+        if not await montera_precheck(callback, amount, "card", order_id):
+            await callback.answer()
+            return
         try:
             from services.payment_service import PaymentService
             from providers.montera import MonteraProvider
             payment_service = PaymentService(provider=MonteraProvider())
             session = payment_service.create_session(order_id, amount, payment_method="card")
             if 'error' in session:
-                await callback.message.answer("❌ Не удалось получить реквизиты для оплаты. Попробуйте другой способ оплаты или повторите позже.")
+                await reply_no_requisites(callback, order_id)
                 await callback.answer()
                 return
-            requisites_text = format_requisites(session.get('raw') or {})
+            raw_session = session.get('raw') or {}
+            requisites_text = format_requisites(raw_session)
+            receipt_url = raw_session.get("receipt_upload_url")
+            montera_iid = raw_session.get("order_id") or raw_session.get("id")
         except Exception as e:
             logger.error(f"Ошибка создания сессии Montera: {e}")
-            await callback.message.answer("❌ Не удалось получить реквизиты для оплаты. Попробуйте другой способ оплаты или повторите позже.")
+            await reply_no_requisites(callback, order_id)
             await callback.answer()
             return
 
+        import datetime as _dt
+        _deadline = (_dt.datetime.utcnow() + _dt.timedelta(minutes=30)).strftime("%Y-%m-%d %H:%M:%S")
+        with db_conn(5) as _c:
+            _c.execute("UPDATE orders SET montera_invoice_id=?, receipt_deadline=? WHERE order_id=?",
+                       (str(montera_iid), _deadline, order_id))
+            _c.commit()
+
         caption = (f"🟣 ObsidianExchange\nЗаявка #{order_id}\n\n"
-                   f"Сумма: {amount} RUB\n\n"
-                   f"Переведите указанную сумму на карту:\n{requisites_text}")
+                   f"Сумма: <b>{int(amount):,} ₽</b>\n\n"
+                   f"Переведите указанную сумму на карту:\n{requisites_text}\n\n"
+                   f"⏱ <b>У вас 30 минут</b> с момента создания заявки чтобы оплатить и отправить PDF-чек.\n\n"
+                   f"📄 <b>После оплаты отправьте PDF-чек</b> из банковского приложения прямо сюда — "
+                   f"без него оператор не сможет подтвердить платёж.").replace(",", " ")
+        await state.update_data(montera_receipt_url=receipt_url, montera_invoice_id=montera_iid)
+        await state.set_state(Exchange.receipt_upload)
+        if IMG_SECURITY.exists() and len(caption) <= 1024:
+            await callback.message.answer_photo(FSInputFile(IMG_SECURITY), caption=caption, parse_mode="HTML")
+        else:
+            await callback.message.answer(caption, parse_mode="HTML")
+        await callback.answer()
+        return
+
+    elif pm.startswith("pm_brabus_"):
+        # Только варианты с активными трейдерами (classic/vtb/receipt отключены — нет ликвидности)
+        BRABUS_VARIANT_BY_PM = {
+            "pm_brabus_alfa_":   ("alfa_deeplink",  None, 3000),   # (вариант, payment_method, мин. сумма)
+            "pm_brabus_tbank_":  ("tbank_deeplink", None, 1000),
+            "pm_brabus_vietqr_": ("vietqr",         None, 1000),
+        }
+        entry = next(
+            (v for prefix, v in BRABUS_VARIANT_BY_PM.items() if pm.startswith(prefix)),
+            None
+        )
+        if not entry:
+            await callback.answer("Этот способ оплаты временно недоступен.")
+            return
+        variant, pmethod, min_amount = entry
+
+        # Проверяем минимальную сумму до обращения к API
+        if float(amount) < min_amount:
+            await reply_no_requisites(
+                callback, order_id,
+                f"Минимальная сумма для этого способа оплаты — {min_amount:,} ₽.".replace(",", " ")
+            )
+            await callback.answer()
+            return
+
+        try:
+            from services.payment_service import PaymentService
+            from providers.brabus import BrabusProvider
+            provider = BrabusProvider(variant=variant)
+            payment_service = PaymentService(provider=provider)
+            session = payment_service.create_session(order_id, amount, payment_method=pmethod)
+            if 'error' in session:
+                await reply_no_requisites(callback, order_id)
+                await callback.answer()
+                return
+            raw = session.get('raw') or {}
+        except Exception as e:
+            logger.error(f"Ошибка создания сессии Brabus[{variant}]: {e}")
+            await reply_no_requisites(callback, order_id)
+            await callback.answer()
+            return
+
+        invoice_id = raw.get('invoice_id')
+
+        # VietQR — отправляем QR-картинку
+        if variant == "vietqr":
+            requisites_text = format_requisites(raw)
+            qr_img = raw.get('qr_image_url')
+            caption = (f"🟣 ObsidianExchange\nЗаявка #{order_id}\n\nСумма: {int(amount):,} ₽\n\n"
+                       f"Отсканируйте QR-код в приложении банка (Vietcombank/BIDV/Sber/VTB):\n{requisites_text}").replace(",", " ")
+            inline_kb = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="✅ Я оплатил", callback_data=f"paid_{order_id}")],
+                [InlineKeyboardButton(text="🔍 Проверить статус", callback_data=f"check_{order_id}")]
+            ])
+            if qr_img:
+                await callback.message.answer_photo(qr_img, caption=caption, reply_markup=inline_kb, parse_mode="HTML")
+            else:
+                await callback.message.answer(caption, reply_markup=inline_kb, parse_mode="HTML")
+            await callback.answer()
+            await state.clear()
+            return
+
+        # Deeplink-варианты (Alfa/T-Bank): показываем кнопку «Открыть в приложении»
+        # deeplink_url хранится отдельно — не в requisites, чтобы не попасть в format_requisites
+        deeplink = raw.get("deeplink_url")
+        if not deeplink:
+            await reply_no_requisites(callback, order_id)
+            await callback.answer()
+            return
+
+        bank_label_map = {
+            "alfa_deeplink": "Альфа-Банк",
+            "tbank_deeplink": "Т-Банк",
+        }
+        bank_label = bank_label_map.get(variant, "банка")
+        caption = (f"🟣 ObsidianExchange\nЗаявка #{order_id}\n\n"
+                   f"Сумма: <b>{int(amount):,} ₽</b>\n\n"
+                   f"Нажмите кнопку ниже — откроется приложение <b>{bank_label}</b>.\n"
+                   f"Подтвердите перевод на указанную сумму.").replace(",", " ")
+        inline_kb_rows = [
+            [InlineKeyboardButton(text=f"📲 Открыть {bank_label}", url=deeplink)],
+            [InlineKeyboardButton(text="✅ Я оплатил", callback_data=f"paid_{order_id}")],
+            [InlineKeyboardButton(text="🔍 Проверить статус", callback_data=f"check_{order_id}")],
+        ]
+        inline_kb = InlineKeyboardMarkup(inline_keyboard=inline_kb_rows)
+        if IMG_SECURITY.exists() and len(caption) <= 1024:
+            await callback.message.answer_photo(FSInputFile(IMG_SECURITY), caption=caption, reply_markup=inline_kb, parse_mode="HTML")
+        else:
+            await callback.message.answer(caption, reply_markup=inline_kb, parse_mode="HTML")
+        await callback.answer()
+        await state.clear()
+        return
     else:
         await callback.answer()
         return
@@ -1464,6 +2439,1941 @@ async def process_payment_method(callback: CallbackQuery, state: FSMContext):
         await callback.message.answer(caption, reply_markup=inline_kb, parse_mode="HTML")
     await callback.answer()
     await state.clear()
+
+@router.message(Exchange.receipt_upload, F.photo)
+async def process_receipt_upload(message: Message, state: FSMContext):
+    data = await state.get_data()
+    order_id = data.get("order_id")
+    invoice_id = data.get("brabus_invoice_id")
+    if not invoice_id:
+        await message.answer("⚠️ Не найдена заявка для подтверждения. Обратитесь в поддержку.")
+        return
+    try:
+        photo = message.photo[-1]
+        file = await bot.get_file(photo.file_id)
+        file_bytes = await bot.download_file(file.file_path)
+        import sys
+        sys.path.insert(0, '/root/relay')
+        from providers.brabus import BrabusProvider
+        provider = BrabusProvider(variant="with_receipt")
+        result = provider.confirm_transfer(invoice_id, file_bytes.read())
+        if result.get('ok'):
+            await message.answer(
+                "✅ Чек отправлен на проверку! Как только оплата подтвердится, мы автоматически вышлем вашу криптовалюту.",
+            )
+            await bot.send_message(ADMIN_ID, f"🧾 Получен чек для заявки #{order_id} (Brabus invoice {invoice_id})")
+        else:
+            await message.answer(f"❌ Не удалось отправить чек: {result.get('error', 'неизвестная ошибка')}\nПопробуйте ещё раз или обратитесь в поддержку.")
+    except Exception as e:
+        logger.error(f"Ошибка отправки чека Brabus: {e}")
+        await message.answer("❌ Не удалось отправить чек. Попробуйте ещё раз или обратитесь в поддержку.")
+        return
+    await state.clear()
+
+
+@router.message(Exchange.receipt_upload, F.document)
+async def process_montera_receipt_upload(message: Message, state: FSMContext):
+    """Принимает PDF-чек для подтверждения оплаты через Montera."""
+    data = await state.get_data()
+    order_id = data.get("order_id")
+    receipt_url = data.get("montera_receipt_url")
+
+    # Если нет receipt_url — это не Montera, игнорируем документ
+    if not receipt_url:
+        await message.answer("⚠️ Для этого способа оплаты документ не требуется. Ожидайте подтверждения автоматически.")
+        return
+
+    doc = message.document
+    if not doc or not (doc.mime_type == "application/pdf" or (doc.file_name or "").lower().endswith(".pdf")):
+        await message.answer("📄 Пожалуйста, отправьте файл в формате <b>PDF</b> (чек из банковского приложения).",
+                             parse_mode="HTML")
+        return
+
+    try:
+        file = await bot.get_file(doc.file_id)
+        file_bytes_io = await bot.download_file(file.file_path)
+        file_bytes = file_bytes_io.read()
+
+        import sys
+        sys.path.insert(0, '/root/relay')
+        from providers.montera import MonteraProvider
+        result = MonteraProvider().upload_receipt(receipt_url, file_bytes, doc.file_name or "receipt.pdf")
+
+        if result.get("ok"):
+            import datetime as _dt
+            with db_conn(5) as _c:
+                _c.execute("UPDATE orders SET receipt_sent_at=? WHERE order_id=?",
+                           (_dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"), order_id))
+                _c.commit()
+            await message.answer(
+                "✅ Чек успешно отправлен в Montera!\n\n"
+                "Проверка занимает несколько минут. Как только оплата будет подтверждена — "
+                "мы автоматически вышлем вашу криптовалюту."
+            )
+            await bot.send_message(ADMIN_ID,
+                f"🧾 Получен PDF-чек для заявки #{order_id} (Montera)\n"
+                f"Файл: {doc.file_name or 'receipt.pdf'}")
+            await state.clear()
+        else:
+            await message.answer(
+                f"❌ Не удалось загрузить чек: {result.get('error', 'неизвестная ошибка')}\n"
+                f"Попробуйте ещё раз или обратитесь к оператору: {SUPPORT_BOT}"
+            )
+    except Exception as e:
+        logger.error(f"Ошибка загрузки чека Montera: {e}")
+        await message.answer(f"❌ Ошибка при отправке чека. Напишите оператору: {SUPPORT_BOT}")
+
+
+# ---------- MONTERA: верификация по запросу оператора ----------
+
+@router.message(Exchange.verification_upload, F.video)
+async def process_montera_video_verification(message: Message, state: FSMContext):
+    """Принимает видео-верификацию по запросу оператора Montera."""
+    data = await state.get_data()
+    order_id = data.get("verify_order_id")
+    montera_invoice_id = data.get("montera_invoice_id")
+    if not montera_invoice_id:
+        await message.answer(
+            "⚠️ Не удалось найти номер заявки Montera. Напишите оператору: " + SUPPORT_BOT
+        )
+        return
+    try:
+        video = message.video
+        file = await bot.get_file(video.file_id)
+        file_bytes_io = await bot.download_file(file.file_path)
+        file_bytes = file_bytes_io.read()
+        import sys
+        sys.path.insert(0, '/root/relay')
+        from providers.montera import MonteraProvider
+        filename = f"verification_{order_id}.mp4"
+        result = MonteraProvider().upload_additional_info(montera_invoice_id, file_bytes, filename, "video/mp4")
+        if result.get("ok"):
+            await message.answer(
+                "✅ Видео успешно отправлено в Montera!\n\n"
+                "Оператор проверит запись в течение нескольких минут. "
+                "После подтверждения мы вышлем криптовалюту автоматически."
+            )
+            await bot.send_message(ADMIN_ID,
+                f"🎥 Получено видео-верификация для заявки #{order_id} (Montera invoice {montera_invoice_id})")
+            with db_conn(5) as conn_c:
+                conn_c.execute("UPDATE orders SET verification_requested=NULL WHERE order_id=?", (order_id,))
+                conn_c.commit()
+            await state.clear()
+        else:
+            await message.answer(
+                f"❌ Не удалось отправить видео: {result.get('error', 'неизвестная ошибка')}\n"
+                f"Попробуйте ещё раз или напишите оператору: {SUPPORT_BOT}"
+            )
+    except Exception as e:
+        logger.error(f"Ошибка загрузки видео Montera: {e}")
+        await message.answer(f"❌ Ошибка при отправке видео. Напишите оператору: {SUPPORT_BOT}")
+
+
+@router.message(Exchange.verification_upload, F.document)
+async def process_montera_pdf_verification(message: Message, state: FSMContext):
+    """Принимает PDF-чек для верификации 'pdf-success' по запросу оператора Montera."""
+    data = await state.get_data()
+    order_id = data.get("verify_order_id")
+    montera_invoice_id = data.get("montera_invoice_id")
+    if not montera_invoice_id:
+        await message.answer(
+            "⚠️ Не удалось найти номер заявки Montera. Напишите оператору: " + SUPPORT_BOT
+        )
+        return
+    doc = message.document
+    if not doc or not (doc.mime_type == "application/pdf" or (doc.file_name or "").lower().endswith(".pdf")):
+        await message.answer(
+            "📄 Пожалуйста, отправьте файл в формате <b>PDF</b> (чек из банковского приложения).",
+            parse_mode="HTML"
+        )
+        return
+    try:
+        file = await bot.get_file(doc.file_id)
+        file_bytes_io = await bot.download_file(file.file_path)
+        file_bytes = file_bytes_io.read()
+        import sys
+        sys.path.insert(0, '/root/relay')
+        from providers.montera import MonteraProvider
+        filename = doc.file_name or f"verification_{order_id}.pdf"
+        result = MonteraProvider().upload_additional_info(montera_invoice_id, file_bytes, filename, "application/pdf")
+        if result.get("ok"):
+            await message.answer(
+                "✅ PDF-чек успешно отправлен в Montera!\n\n"
+                "Оператор проверит документ. "
+                "После подтверждения мы вышлем криптовалюту автоматически."
+            )
+            await bot.send_message(ADMIN_ID,
+                f"📄 Получен PDF-верификация для заявки #{order_id} (Montera invoice {montera_invoice_id})")
+            with db_conn(5) as conn_c:
+                conn_c.execute("UPDATE orders SET verification_requested=NULL WHERE order_id=?", (order_id,))
+                conn_c.commit()
+            await state.clear()
+        else:
+            await message.answer(
+                f"❌ Не удалось отправить PDF: {result.get('error', 'неизвестная ошибка')}\n"
+                f"Попробуйте ещё раз или напишите оператору: {SUPPORT_BOT}"
+            )
+    except Exception as e:
+        logger.error(f"Ошибка загрузки PDF-верификации Montera: {e}")
+        await message.answer(f"❌ Ошибка при отправке. Напишите оператору: {SUPPORT_BOT}")
+
+
+# ========== РАБОТНИК (ОПЕРАТОР) ==========
+
+class WorkerState(StatesGroup):
+    waiting_tx = State()
+
+# --- Команды админа для управления работниками ---
+
+@router.message(Command("addworker"))
+async def cmd_addworker(message: Message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    parts = message.text.split()
+    if len(parts) < 2:
+        await message.answer("Формат: /addworker <telegram_id> [username]")
+        return
+    try:
+        wid = int(parts[1])
+        wname = parts[2].lstrip('@') if len(parts) > 2 else None
+        with db_conn(5) as conn:
+            conn.execute(
+                "INSERT INTO workers (user_id, username, added_by) VALUES (?,?,?) "
+                "ON CONFLICT(user_id) DO UPDATE SET is_active=1, username=excluded.username",
+                (wid, wname, ADMIN_ID)
+            )
+            conn.commit()
+        await message.answer(f"✅ Работник {wid} (@{wname or '—'}) добавлен.")
+        try:
+            await bot.send_message(wid,
+                "🟣 <b>Добро пожаловать в ObsidianExchange!</b>\n\n"
+                "Вы добавлены как оператор по обработке заявок.\n\n"
+                "Команды:\n"
+                "/worker — список заявок к отправке\n\n"
+                "При поступлении оплаченной заявки вы получите уведомление.",
+                parse_mode="HTML"
+            )
+        except Exception:
+            pass
+    except ValueError:
+        await message.answer("❌ Неверный формат ID")
+
+@router.message(Command("removeworker"))
+async def cmd_removeworker(message: Message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    parts = message.text.split()
+    if len(parts) < 2:
+        await message.answer("Формат: /removeworker <telegram_id>")
+        return
+    try:
+        wid = int(parts[1])
+        with db_conn(5) as conn:
+            conn.execute("UPDATE workers SET is_active=0 WHERE user_id=?", (wid,))
+            conn.commit()
+        await message.answer(f"✅ Работник {wid} деактивирован.")
+    except ValueError:
+        await message.answer("❌ Неверный формат ID")
+
+@router.message(Command("workers"))
+async def cmd_workers_list(message: Message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        c.execute("SELECT user_id, username, added_at, is_active FROM workers ORDER BY added_at DESC")
+        rows = c.fetchall()
+    if not rows:
+        await message.answer("Работников нет. /addworker <id>")
+        return
+    text = "👷 <b>Список работников:</b>\n\n"
+    for uid, uname, added, active in rows:
+        status = "✅" if active else "❌"
+        text += f"{status} <code>{uid}</code> @{uname or '—'} (добавлен {added[:10]})\n"
+    await message.answer(text, parse_mode="HTML")
+
+# --- Панель работника ---
+
+@router.message(Command("worker"))
+async def cmd_worker_panel(message: Message):
+    if not is_worker(message.from_user.id):
+        return
+    with db_conn(10) as conn:
+        c = conn.cursor()
+        c.execute(
+            "SELECT order_id, rub_amount, crypto_address, currency, created_at "
+            "FROM orders WHERE status='paid' ORDER BY created_at ASC LIMIT 20"
+        )
+        rows = c.fetchall()
+    if not rows:
+        await message.answer("✅ Нет заявок, ожидающих отправки.")
+        return
+    text = f"📋 <b>Заявки к отправке ({len(rows)}):</b>\n\n"
+    buttons = []
+    for oid, rub, addr, curr, created in rows:
+        rate = get_rate_with_markup(curr, rub)
+        crypto = round(rub / rate, 8) if rate else 0
+        text += (f"<b>#{oid}</b> · {rub:,.0f} RUB → <code>{crypto} {curr}</code>\n"
+                 f"Адрес: <code>{addr}</code>\n"
+                 f"Время: {created[:16]}\n\n")
+        buttons.append([InlineKeyboardButton(
+            text=f"💸 Отправить #{oid}", callback_data=f"worker_send_{oid}"
+        )])
+    await message.answer(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode="HTML")
+
+@router.callback_query(F.data.startswith("worker_send_"))
+async def worker_send_start(callback: CallbackQuery, state: FSMContext):
+    if not is_worker(callback.from_user.id) and callback.from_user.id != ADMIN_ID:
+        await callback.answer("⛔ Нет прав", show_alert=True)
+        return
+    order_id = int(callback.data.split("_")[-1])
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        c.execute("SELECT rub_amount, crypto_address, currency, status FROM orders WHERE order_id=?", (order_id,))
+        row = c.fetchone()
+    if not row:
+        await callback.answer("❌ Заявка не найдена", show_alert=True)
+        return
+    rub, addr, curr, status = row
+    if status == 'sent':
+        await callback.answer("✅ Уже отправлено", show_alert=True)
+        return
+    if status not in ('paid', 'pending'):
+        await callback.answer(f"Статус: {status}", show_alert=True)
+        return
+    await state.set_state(WorkerState.waiting_tx)
+    await state.update_data(worker_order_id=order_id)
+    await callback.message.answer(
+        f"💸 <b>Заявка #{order_id}</b>\n"
+        f"Сумма: {rub:,.0f} RUB → <code>{curr}</code>\n"
+        f"Адрес: <code>{addr}</code>\n\n"
+        f"Отправьте крипту на адрес выше, затем введите <b>TXID транзакции</b>:",
+        parse_mode="HTML"
+    )
+    await callback.answer()
+
+@router.message(WorkerState.waiting_tx)
+async def worker_enter_tx(message: Message, state: FSMContext):
+    if not is_worker(message.from_user.id) and message.from_user.id != ADMIN_ID:
+        await state.clear()
+        return
+    data = await state.get_data()
+    order_id = data.get("worker_order_id")
+    tx = message.text.strip()
+    if not tx or len(tx) < 10:
+        await message.answer("❌ Введите корректный TXID (минимум 10 символов).")
+        return
+    with db_conn(10) as conn:
+        c = conn.cursor()
+        c.execute("SELECT user_id, rub_amount, currency FROM orders WHERE order_id=?", (order_id,))
+        row = c.fetchone()
+        if not row:
+            await message.answer("❌ Заявка не найдена.")
+            await state.clear()
+            return
+        user_id, rub_amount, currency = row
+        c.execute(
+            "UPDATE orders SET status='sent', paid_btc_tx=?, updated_at=CURRENT_TIMESTAMP WHERE order_id=? AND status IN ('paid','pending')",
+            (tx, order_id)
+        )
+        conn.commit()
+    await state.clear()
+    await message.answer(
+        f"✅ <b>Заявка #{order_id} отмечена как выполнена</b>\n"
+        f"TX: <code>{tx}</code>",
+        parse_mode="HTML"
+    )
+    await bot.send_message(
+        ADMIN_ID,
+        f"💸 Работник @{message.from_user.username or message.from_user.id} "
+        f"выполнил заявку #{order_id}\nTX: <code>{tx}</code>",
+        parse_mode="HTML"
+    )
+    try:
+        await send_sticker_safe(user_id, STICKER_SUCCESS)
+        await bot.send_message(
+            user_id,
+            f"🚀 <b>Заявка #{order_id} выполнена!</b>\n\n"
+            f"Криптовалюта отправлена на ваш адрес.\n"
+            f"TXID: <code>{tx}</code>\n\n"
+            f"Спасибо за обмен в ObsidianExchange! 🟣",
+            parse_mode="HTML"
+        )
+    except Exception:
+        pass
+    try:
+        await credit_referral_bonus(order_id, user_id, rub_amount)
+        await update_user_vip_volume(user_id, rub_amount)
+    except Exception:
+        pass
+
+
+# ══════════════════════════════════════════════════════════════════
+# ПРОМОКОДЫ
+# ══════════════════════════════════════════════════════════════════
+
+# user_id → (code_id, discount_percent) — хранится в памяти до применения
+_active_promos: dict[int, tuple[int, float]] = {}
+
+def check_promo_code(code: str, user_id: int) -> dict | None:
+    """Валидирует промокод. Возвращает dict с code_id и discount или None."""
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        c.execute("""SELECT id, discount_percent, max_uses, uses_count, valid_until
+                     FROM promo_codes
+                     WHERE code=? COLLATE NOCASE AND is_active=1
+                       AND valid_until >= datetime('now')""", (code,))
+        row = c.fetchone()
+        if not row:
+            return None
+        cid, disc, max_uses, uses_count, valid_until = row
+        if uses_count >= max_uses:
+            return None
+        # Проверяем не использовал ли этот юзер уже
+        c.execute("SELECT 1 FROM promo_uses WHERE code_id=? AND user_id=?", (cid, user_id))
+        if c.fetchone():
+            return None
+    return {"code_id": cid, "discount": disc}
+
+def apply_promo_use(code_id: int, user_id: int, order_id: int):
+    """Фиксирует использование промокода."""
+    with db_conn(5) as conn:
+        conn.execute(
+            "INSERT OR IGNORE INTO promo_uses (code_id, user_id, order_id) VALUES (?,?,?)",
+            (code_id, user_id, order_id)
+        )
+        conn.execute(
+            "UPDATE promo_codes SET uses_count = uses_count + 1 WHERE id=?",
+            (code_id,)
+        )
+        conn.commit()
+
+
+@router.message(Command("promo"))
+async def cmd_promo(message: Message):
+    """Клиент вводит /promo КОД — код применяется к следующей заявке."""
+    parts = message.text.split()
+    if len(parts) < 2:
+        current = _active_promos.get(message.from_user.id)
+        if current:
+            await message.answer(f"✅ У вас активирован промокод со скидкой <b>{current[1]:.0f}%</b>.\n"
+                                 f"Он будет применён к следующей заявке.", parse_mode="HTML")
+        else:
+            await message.answer("Введите: <code>/promo КОД</code>", parse_mode="HTML")
+        return
+    code = parts[1].strip().upper()
+    result = check_promo_code(code, message.from_user.id)
+    if not result:
+        await message.answer(
+            "❌ Промокод не найден, уже использован вами или истёк срок действия."
+        )
+        return
+    _active_promos[message.from_user.id] = (result["code_id"], result["discount"])
+    await message.answer(
+        f"🎉 Промокод <b>{code}</b> активирован!\n"
+        f"Скидка <b>{result['discount']:.0f}%</b> к комиссии будет применена к следующей заявке.",
+        parse_mode="HTML"
+    )
+
+
+@router.message(Command("addpromo"))
+async def cmd_addpromo(message: Message):
+    """/addpromo КОД СКИДКА МАКС_ИСПОЛЬЗОВАНИЙ ДНЕЙ_ДЕЙСТВИЯ"""
+    if message.from_user.id != ADMIN_ID:
+        return
+    parts = message.text.split()
+    if len(parts) < 5:
+        await message.answer(
+            "Формат: /addpromo КОД СКИДКА_% МАХ_ИСПОЛЬЗОВАНИЙ ДНЕЙ\n"
+            "Пример: /addpromo OBSIDIAN20 5 100 30"
+        )
+        return
+    code, discount, max_uses, days = parts[1].upper(), float(parts[2]), int(parts[3]), int(parts[4])
+    import datetime as _dt
+    valid_until = (_dt.datetime.utcnow() + _dt.timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S")
+    with db_conn(5) as conn:
+        try:
+            conn.execute(
+                "INSERT INTO promo_codes (code, discount_percent, max_uses, valid_until) VALUES (?,?,?,?)",
+                (code, discount, max_uses, valid_until)
+            )
+            conn.commit()
+        except Exception as e:
+            await message.answer(f"❌ Ошибка: {e}")
+            return
+    await message.answer(
+        f"✅ Промокод создан:\n"
+        f"Код: <b>{code}</b>\n"
+        f"Скидка: <b>{discount:.0f}%</b>\n"
+        f"Использований: <b>{max_uses}</b>\n"
+        f"Действует до: <b>{valid_until[:10]}</b>",
+        parse_mode="HTML"
+    )
+
+
+@router.message(Command("promos"))
+async def cmd_promos(message: Message):
+    """Список активных промокодов."""
+    if message.from_user.id != ADMIN_ID:
+        return
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        c.execute("""SELECT code, discount_percent, uses_count, max_uses, valid_until
+                     FROM promo_codes WHERE is_active=1 ORDER BY id DESC LIMIT 20""")
+        rows = c.fetchall()
+    if not rows:
+        await message.answer("Нет активных промокодов.")
+        return
+    text = "🎟 <b>Активные промокоды:</b>\n\n"
+    for code, disc, used, maxu, until in rows:
+        status = "✅" if used < maxu else "⛔"
+        text += f"{status} <code>{code}</code> — {disc:.0f}% · {used}/{maxu} · до {until[:10]}\n"
+    await message.answer(text, parse_mode="HTML")
+
+
+# ══════════════════════════════════════════════════════════════════
+# БЛОКИРОВКА АДРЕСОВ (антифрод)
+# ══════════════════════════════════════════════════════════════════
+
+@router.message(Command("blockaddr"))
+async def cmd_blockaddr(message: Message):
+    """/blockaddr АДРЕС ПРИЧИНА — добавить адрес в чёрный список."""
+    if message.from_user.id != ADMIN_ID:
+        return
+    parts = message.text.split(maxsplit=2)
+    if len(parts) < 2:
+        await message.answer("Формат: /blockaddr АДРЕС [причина]")
+        return
+    addr = parts[1].strip()
+    reason = parts[2].strip() if len(parts) > 2 else "manual block"
+    with db_conn(5) as conn:
+        try:
+            conn.execute(
+                "INSERT OR REPLACE INTO blocked_addresses (address, reason, blocked_by) VALUES (?,?,?)",
+                (addr, reason, message.from_user.id)
+            )
+            conn.commit()
+        except Exception as e:
+            await message.answer(f"❌ {e}")
+            return
+    await message.answer(f"✅ Адрес заблокирован:\n<code>{addr}</code>\nПричина: {reason}", parse_mode="HTML")
+
+
+@router.message(Command("unblockaddr"))
+async def cmd_unblockaddr(message: Message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    parts = message.text.split()
+    if len(parts) < 2:
+        await message.answer("Формат: /unblockaddr АДРЕС")
+        return
+    addr = parts[1].strip()
+    with db_conn(5) as conn:
+        conn.execute("DELETE FROM blocked_addresses WHERE address=?", (addr,))
+        conn.commit()
+    await message.answer(f"✅ Адрес разблокирован: <code>{addr}</code>", parse_mode="HTML")
+
+
+@router.message(Command("blocklist"))
+async def cmd_blocklist(message: Message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        c.execute("SELECT address, reason, created_at FROM blocked_addresses ORDER BY created_at DESC LIMIT 20")
+        rows = c.fetchall()
+    if not rows:
+        await message.answer("Чёрный список пуст.")
+        return
+    text = "🚫 <b>Заблокированные адреса:</b>\n\n"
+    for addr, reason, dt in rows:
+        text += f"<code>{addr[:20]}…</code>\n  {reason} · {dt[:10]}\n"
+    await message.answer(text, parse_mode="HTML")
+
+
+# ══════════════════════════════════════════════════════════════════
+# ЭКСПОРТ ИСТОРИИ ДЛЯ КЛИЕНТА
+# ══════════════════════════════════════════════════════════════════
+
+# ══════════════════════════════════════════════════════════════════
+# ПОДДЕРЖКА — ТИКЕТЫ ПРЯМО В БОТЕ
+# ══════════════════════════════════════════════════════════════════
+
+class SupportTicketState(StatesGroup):
+    subject = State()
+    message = State()
+    reply   = State()   # для ответа от админа
+
+@router.callback_query(F.data == "menu_support")
+async def menu_support_new(callback: CallbackQuery, state: FSMContext):
+    uid = callback.from_user.id
+    # Показываем открытые тикеты юзера
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        c.execute("""SELECT id, subject, status, updated_at
+                     FROM support_tickets WHERE user_id=?
+                     ORDER BY updated_at DESC LIMIT 5""", (uid,))
+        tickets = c.fetchall()
+
+    kb_rows = []
+    if tickets:
+        for tid, subj, status, upd in tickets:
+            icon = {"open": "🟡", "answered": "🟢", "closed": "⚫"}.get(status, "⚪")
+            label = (subj or "Обращение")[:28]
+            kb_rows.append([InlineKeyboardButton(
+                text=f"{icon} #{tid} {label}", callback_data=f"ticket_view_{tid}"
+            )])
+    kb_rows.append([InlineKeyboardButton(text="✏️ Новое обращение", callback_data="ticket_new")])
+    kb_rows.append([InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_menu")])
+
+    text = "🆘 <b>Поддержка ObsidianExchange</b>\n\n"
+    if tickets:
+        text += "Ваши обращения:\n"
+        text += "🟡 открыто · 🟢 отвечено · ⚫ закрыто\n"
+    else:
+        text += "У вас нет активных обращений.\n"
+    text += "\nСреднее время ответа: до 30 минут."
+    await callback.message.answer(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=kb_rows),
+                                  parse_mode="HTML")
+    await callback.answer()
+
+
+@router.callback_query(F.data == "ticket_new")
+async def ticket_new(callback: CallbackQuery, state: FSMContext):
+    await callback.message.answer(
+        "✏️ <b>Новое обращение</b>\n\nКратко опишите тему (1-2 слова):\n"
+        "Например: <i>Зависла заявка</i>, <i>Ошибка оплаты</i>, <i>Другое</i>",
+        parse_mode="HTML"
+    )
+    await state.set_state(SupportTicketState.subject)
+    await callback.answer()
+
+
+@router.message(SupportTicketState.subject)
+async def ticket_enter_subject(message: Message, state: FSMContext):
+    subj = message.text.strip()[:100]
+    await state.update_data(ticket_subject=subj)
+    await message.answer(
+        f"📝 Тема: <b>{subj}</b>\n\n"
+        f"Опишите проблему подробнее. Прикрепите скриншот если нужно:",
+        parse_mode="HTML"
+    )
+    await state.set_state(SupportTicketState.message)
+
+
+@router.message(SupportTicketState.message)
+async def ticket_enter_message(message: Message, state: FSMContext):
+    data = await state.get_data()
+    subj = data.get("ticket_subject", "Без темы")
+    uid  = message.from_user.id
+    uname = message.from_user.username or str(uid)
+    text_body = message.text or message.caption or "[медиа-файл]"
+
+    with db_conn(5) as conn:
+        conn.execute(
+            "INSERT INTO support_tickets (user_id, username, subject, status, web_user_id) VALUES (?,?,?,'open',0)",
+            (uid, uname, subj)
+        )
+        tid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+        conn.execute(
+            "INSERT INTO support_messages (ticket_id, sender, message) VALUES (?,?,?)",
+            (tid, "user", text_body)
+        )
+        conn.commit()
+
+    # Пересылаем медиа если есть
+    media_info = ""
+    if message.photo:
+        fid = message.photo[-1].file_id
+        try:
+            await bot.send_photo(ADMIN_ID, fid,
+                caption=f"🎫 <b>Тикет #{tid}</b> от @{uname} ({uid})\n<b>{subj}</b>\n\n{text_body}\n\n"
+                        f"/reply_{tid}",
+                parse_mode="HTML")
+        except Exception:
+            pass
+        media_info = " + фото"
+    elif message.document:
+        fid = message.document.file_id
+        try:
+            await bot.send_document(ADMIN_ID, fid,
+                caption=f"🎫 <b>Тикет #{tid}</b> от @{uname} ({uid})\n<b>{subj}</b>\n\n{text_body}\n\n"
+                        f"/reply_{tid}",
+                parse_mode="HTML")
+        except Exception:
+            pass
+        media_info = " + документ"
+    else:
+        await bot.send_message(
+            ADMIN_ID,
+            f"🎫 <b>Тикет #{tid}</b> от @{uname} ({uid})\n"
+            f"<b>{subj}</b>\n\n{text_body}\n\n/reply_{tid}",
+            parse_mode="HTML"
+        )
+
+    await message.answer(
+        f"✅ <b>Обращение #{tid} принято!</b>\n\n"
+        f"Ответим в течение 30 минут. Вы получите уведомление в этом боте.",
+        parse_mode="HTML"
+    )
+    await state.clear()
+
+
+@router.callback_query(F.data.startswith("ticket_view_"))
+async def ticket_view(callback: CallbackQuery):
+    tid = int(callback.data.split("_")[2])
+    uid = callback.from_user.id
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        c.execute("SELECT subject, status FROM support_tickets WHERE id=? AND user_id=?", (tid, uid))
+        row = c.fetchone()
+        if not row:
+            await callback.answer("Тикет не найден.", show_alert=True)
+            return
+        subj, status = row
+        c.execute("SELECT sender, message, created_at FROM support_messages WHERE ticket_id=? ORDER BY id",
+                  (tid,))
+        msgs = c.fetchall()
+
+    status_label = {"open": "🟡 Открыт", "answered": "🟢 Отвечен", "closed": "⚫ Закрыт"}.get(status, status)
+    text = f"🎫 <b>Тикет #{tid}</b> — {subj}\n{status_label}\n\n"
+    for sender, msg_text, dt in msgs[-10:]:
+        who = "👤 Вы" if sender == "user" else "🟣 Поддержка"
+        text += f"<b>{who}</b> [{dt[:16]}]:\n{msg_text}\n\n"
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📩 Написать ещё", callback_data=f"ticket_reply_{tid}")],
+        [InlineKeyboardButton(text="🔙 К списку", callback_data="menu_support")],
+    ]) if status != "closed" else InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="🔙 К списку", callback_data="menu_support")
+    ]])
+    await callback.message.answer(text[:4000], parse_mode="HTML", reply_markup=kb)
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("ticket_reply_"))
+async def ticket_reply_start(callback: CallbackQuery, state: FSMContext):
+    tid = int(callback.data.split("_")[2])
+    await state.update_data(reply_ticket_id=tid)
+    await callback.message.answer(f"📩 Напишите ответ в тикет #{tid}:")
+    await state.set_state(SupportTicketState.reply)
+    await callback.answer()
+
+
+@router.message(SupportTicketState.reply)
+async def ticket_reply_message(message: Message, state: FSMContext):
+    data = await state.get_data()
+    tid  = data["reply_ticket_id"]
+    uid  = message.from_user.id
+    text_body = message.text or message.caption or "[медиа]"
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        c.execute("SELECT subject, username FROM support_tickets WHERE id=? AND user_id=?", (tid, uid))
+        row = c.fetchone()
+        if not row:
+            await message.answer("❌ Тикет не найден.")
+            await state.clear()
+            return
+        subj, uname = row
+        conn.execute("INSERT INTO support_messages (ticket_id, sender, message) VALUES (?,?,?)",
+                     (tid, "user", text_body))
+        conn.execute("UPDATE support_tickets SET status='open', updated_at=datetime('now') WHERE id=?", (tid,))
+        conn.commit()
+    await message.answer(f"✅ Сообщение добавлено в тикет #{tid}.")
+    await bot.send_message(
+        ADMIN_ID,
+        f"🔔 <b>Новое сообщение в тикет #{tid}</b>\nОт @{uname} ({uid})\n<b>{subj}</b>\n\n{text_body}\n\n/reply_{tid}",
+        parse_mode="HTML"
+    )
+    await state.clear()
+
+
+# ── Ответ от администратора ──────────────────────────────────────
+
+@router.message(lambda m: m.from_user.id == ADMIN_ID and m.text and m.text.startswith("/reply_"))
+async def admin_reply_ticket(message: Message, state: FSMContext):
+    parts = message.text.split(None, 1)
+    try:
+        tid = int(parts[0].replace("/reply_", ""))
+    except ValueError:
+        await message.answer("Формат: /reply_ID текст ответа")
+        return
+    reply_text = parts[1].strip() if len(parts) > 1 else None
+    if not reply_text:
+        # Ждём следующее сообщение
+        await state.update_data(admin_reply_tid=tid)
+        await message.answer(f"Введите ответ для тикета #{tid}:")
+        await state.set_state(SupportTicketState.message)
+        return
+    await _send_admin_reply(tid, reply_text, message)
+
+
+@router.message(Command("tickets"))
+async def cmd_tickets(message: Message):
+    """Список открытых тикетов для администратора."""
+    if message.from_user.id != ADMIN_ID:
+        return
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        c.execute("""SELECT id, user_id, username, subject, status, updated_at
+                     FROM support_tickets WHERE status IN ('open','answered')
+                     ORDER BY updated_at DESC LIMIT 20""")
+        rows = c.fetchall()
+    if not rows:
+        await message.answer("✅ Нет открытых тикетов.")
+        return
+    text = "🎫 <b>Открытые тикеты:</b>\n\n"
+    icons = {"open": "🟡", "answered": "🟢"}
+    for tid, uid, uname, subj, status, upd in rows:
+        text += (f"{icons.get(status,'⚪')} <b>#{tid}</b> @{uname or uid} "
+                 f"— {subj or 'Без темы'}\n"
+                 f"   {upd[:16]} · /reply_{tid}\n\n")
+    await message.answer(text, parse_mode="HTML")
+
+
+@router.message(Command("force_payout"))
+async def cmd_force_payout(message: Message):
+    """/force_payout ORDER_ID [TXID] — вручную отметить заявку как выполненную."""
+    if message.from_user.id != ADMIN_ID:
+        return
+    parts = message.text.split(None, 2)
+    if len(parts) < 2:
+        await message.answer(
+            "Формат: /force_payout ORDER_ID\n"
+            "или: /force_payout ORDER_ID TXID"
+        )
+        return
+    try:
+        oid = int(parts[1])
+    except ValueError:
+        await message.answer("❌ Неверный ORDER_ID")
+        return
+    txid = parts[2].strip() if len(parts) > 2 else None
+
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        c.execute("SELECT user_id, rub_amount, currency, status FROM orders WHERE order_id=?", (oid,))
+        row = c.fetchone()
+
+    if not row:
+        await message.answer(f"❌ Заявка #{oid} не найдена.")
+        return
+    user_id, rub, currency, status = row
+    if status == "sent":
+        await message.answer(f"⚠️ Заявка #{oid} уже в статусе «sent».")
+        return
+
+    with db_conn(5) as conn:
+        if txid:
+            conn.execute(
+                "UPDATE orders SET status='sent', paid_btc_tx=?, updated_at=CURRENT_TIMESTAMP WHERE order_id=?",
+                (txid, oid)
+            )
+        else:
+            conn.execute(
+                "UPDATE orders SET status='sent', updated_at=CURRENT_TIMESTAMP WHERE order_id=?",
+                (oid,)
+            )
+        conn.commit()
+
+    amt_fmt = f"{int(rub):,}".replace(",", " ")
+    CUR_ICON = {"BTC": "₿", "LTC": "Ł", "USDT": "💵"}
+    await message.answer(
+        f"✅ Заявка #{oid} отмечена как выполнена.\n"
+        f"{amt_fmt} ₽ → {CUR_ICON.get(currency,'')} {currency}"
+        + (f"\nTXID: <code>{txid}</code>" if txid else ""),
+        parse_mode="HTML"
+    )
+    # Уведомляем клиента (status_notifier подхватит через pending-цикл,
+    # но дублируем сразу чтобы не ждать 20 секунд)
+    try:
+        text = (
+            f"🚀 <b>Заявка #{oid} выполнена!</b>\n\n"
+            f"{amt_fmt} ₽ → {CUR_ICON.get(currency,'')} {currency} отправлен на ваш адрес."
+        )
+        if txid:
+            text += f"\n\n🔗 TXID: <code>{txid}</code>"
+        text += "\n\n<b>Оцените качество обслуживания:</b>"
+        rate_kb = InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(text="😞 1", callback_data=f"rate_{oid}_1"),
+            InlineKeyboardButton(text="😐 2", callback_data=f"rate_{oid}_2"),
+            InlineKeyboardButton(text="🙂 3", callback_data=f"rate_{oid}_3"),
+            InlineKeyboardButton(text="😊 4", callback_data=f"rate_{oid}_4"),
+            InlineKeyboardButton(text="🤩 5", callback_data=f"rate_{oid}_5"),
+        ]])
+        await bot.send_message(user_id, text, parse_mode="HTML", reply_markup=rate_kb)
+    except Exception as e:
+        await message.answer(f"⚠️ Не удалось уведомить клиента {user_id}: {e}")
+
+
+@router.message(Command("broadcast"))
+async def cmd_broadcast(message: Message, state: FSMContext):
+    """/broadcast текст — массовая рассылка всем активным пользователям."""
+    if message.from_user.id != ADMIN_ID:
+        return
+    parts = message.text.split(None, 1)
+    if len(parts) < 2:
+        await message.answer(
+            "Формат: /broadcast текст сообщения\n\n"
+            "Сообщение отправится всем пользователям с заявками за последние 30 дней.\n"
+            "Поддерживает HTML: <b>жирный</b>, <i>курсив</i>, <code>код</code>",
+            parse_mode="HTML"
+        )
+        return
+    text = parts[1].strip()
+
+    # Получаем уникальных активных пользователей
+    with db_conn(10) as conn:
+        c = conn.cursor()
+        c.execute("""SELECT DISTINCT user_id FROM orders
+                     WHERE user_id > 0
+                       AND created_at >= datetime('now', '-30 days')
+                     ORDER BY MAX(created_at) DESC""")
+        users = [r[0] for r in c.fetchall()]
+
+    if not users:
+        await message.answer("Нет активных пользователей для рассылки.")
+        return
+
+    msg = await message.answer(
+        f"📣 Начинаю рассылку для <b>{len(users)}</b> пользователей...",
+        parse_mode="HTML"
+    )
+    ok = err = 0
+    for uid in users:
+        try:
+            await bot.send_message(
+                uid,
+                f"📣 <b>ObsidianExchange</b>\n\n{text}",
+                parse_mode="HTML"
+            )
+            ok += 1
+        except Exception:
+            err += 1
+        await asyncio.sleep(0.05)  # 20 в секунду, Telegram лимит 30
+
+    await msg.edit_text(
+        f"📣 Рассылка завершена.\n✅ Доставлено: {ok} · ❌ Ошибок: {err}",
+        parse_mode="HTML"
+    )
+
+
+@router.message(Command("stats"))
+async def cmd_stats(message: Message):
+    """/stats — быстрая сводка сегодня для администратора."""
+    if message.from_user.id != ADMIN_ID:
+        return
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        # Сегодня
+        c.execute("""SELECT COUNT(*), COALESCE(SUM(rub_amount),0)
+                     FROM orders WHERE date(created_at)=date('now')""")
+        today_cnt, today_vol = c.fetchone()
+        c.execute("""SELECT COUNT(*), COALESCE(SUM(rub_amount),0)
+                     FROM orders WHERE status='sent' AND date(created_at)=date('now')""")
+        today_done, today_done_vol = c.fetchone()
+        # Ожидают
+        c.execute("SELECT COUNT(*) FROM orders WHERE status='pending'")
+        pend = c.fetchone()[0]
+        c.execute("SELECT COUNT(*) FROM orders WHERE status='paid'")
+        paid_cnt = c.fetchone()[0]
+        # Новые юзеры сегодня
+        c.execute("""SELECT COUNT(*) FROM (
+                         SELECT DISTINCT user_id FROM orders WHERE date(created_at)=date('now')
+                         AND user_id NOT IN (
+                             SELECT DISTINCT user_id FROM orders WHERE date(created_at)<date('now')
+                         ))""")
+        new_users = c.fetchone()[0]
+        # Открытые тикеты
+        c.execute("SELECT COUNT(*) FROM support_tickets WHERE status IN ('open','answered')")
+        tickets = c.fetchone()[0]
+        # Лимитные заявки
+        c.execute("SELECT COUNT(*) FROM limit_orders WHERE status='active'")
+        limit_orders = c.fetchone()[0]
+        # DCA
+        c.execute("SELECT COUNT(*) FROM dca_schedules WHERE status='active'")
+        dca_cnt = c.fetchone()[0]
+
+    vol_fmt = f"{int(today_vol):,}".replace(",", " ")
+    done_vol_fmt = f"{int(today_done_vol):,}".replace(",", " ")
+    text = (
+        f"📊 <b>Статистика сегодня</b>\n\n"
+        f"<blockquote>"
+        f"📦 Всего заявок: {today_cnt} (объём {vol_fmt} ₽)\n"
+        f"✅ Выполнено: {today_done} ({done_vol_fmt} ₽)\n"
+        f"⏳ Ожидают оплаты: {pend}\n"
+        f"🔄 Оплачено → в обработке: {paid_cnt}\n"
+        f"👤 Новых клиентов: {new_users}"
+        f"</blockquote>\n\n"
+        f"<blockquote>"
+        f"🎫 Открытых тикетов: {tickets}\n"
+        f"⏳ Лимитных заявок: {limit_orders}\n"
+        f"📅 Активных DCA: {dca_cnt}"
+        f"</blockquote>"
+    )
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔄 Обновить", callback_data="admin_stats_refresh")],
+        [InlineKeyboardButton(text="📋 Ожидают выплаты", callback_data="admin_show_pending")],
+        [InlineKeyboardButton(text="📊 Отчёт за день", callback_data="admin_report_today")],
+    ])
+    await message.answer(text, parse_mode="HTML", reply_markup=kb)
+
+
+@router.callback_query(F.data == "admin_stats_refresh")
+async def admin_stats_refresh(callback: CallbackQuery):
+    if callback.from_user.id != ADMIN_ID:
+        return
+    await callback.message.delete()
+    await cmd_stats(callback.message.__class__.__new__(callback.message.__class__))
+    # Простой подход — переиспользуем через новое сообщение
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        c.execute("""SELECT COUNT(*), COALESCE(SUM(rub_amount),0)
+                     FROM orders WHERE date(created_at)=date('now')""")
+        today_cnt, today_vol = c.fetchone()
+        c.execute("SELECT COUNT(*) FROM orders WHERE status='pending'")
+        pend = c.fetchone()[0]
+        c.execute("SELECT COUNT(*) FROM orders WHERE status='paid'")
+        paid_cnt = c.fetchone()[0]
+        c.execute("SELECT COUNT(*) FROM support_tickets WHERE status IN ('open','answered')")
+        tickets = c.fetchone()[0]
+    vol_fmt = f"{int(today_vol):,}".replace(",", " ")
+    text = (
+        f"📊 <b>Сводка (обновлено)</b>\n"
+        f"Заявок сегодня: {today_cnt} · {vol_fmt} ₽\n"
+        f"Ожидают: {pend} · Оплачено: {paid_cnt} · Тикеты: {tickets}"
+    )
+    await callback.message.answer(text, parse_mode="HTML")
+    await callback.answer()
+
+
+@router.callback_query(F.data == "admin_show_pending")
+async def admin_show_pending_cb(callback: CallbackQuery):
+    if callback.from_user.id != ADMIN_ID:
+        return
+    await cmd_pending(callback.message)
+    await callback.answer()
+
+
+@router.callback_query(F.data == "admin_report_today")
+async def admin_report_today_cb(callback: CallbackQuery):
+    if callback.from_user.id != ADMIN_ID:
+        return
+    import datetime as _dt
+    today = _dt.date.today().isoformat()
+    report = await build_admin_report("сегодня", f"{today} 00:00", f"{today} 23:59")
+    await callback.message.answer(report, parse_mode="HTML")
+    await callback.answer()
+
+
+async def _send_admin_reply(tid: int, reply_text: str, admin_message):
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        c.execute("SELECT user_id, subject FROM support_tickets WHERE id=?", (tid,))
+        row = c.fetchone()
+        if not row:
+            await admin_message.answer(f"❌ Тикет #{tid} не найден.")
+            return
+        user_id, subj = row
+        conn.execute("INSERT INTO support_messages (ticket_id, sender, message) VALUES (?,?,?)",
+                     (tid, "admin", reply_text))
+        conn.execute("UPDATE support_tickets SET status='answered', updated_at=datetime('now') WHERE id=?", (tid,))
+        conn.commit()
+    try:
+        await bot.send_message(
+            user_id,
+            f"💬 <b>Ответ по обращению #{tid}</b>\n<i>{subj}</i>\n\n{reply_text}\n\n"
+            f"Посмотреть всю переписку: /support",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(text="📩 Ответить", callback_data=f"ticket_reply_{tid}")
+            ]])
+        )
+        await admin_message.answer(f"✅ Ответ отправлен клиенту (тикет #{tid})")
+    except Exception as e:
+        await admin_message.answer(f"❌ Не удалось отправить: {e}")
+
+
+# ══════════════════════════════════════════════════════════════════
+# ИНСТРУМЕНТЫ АДМИНИСТРАТОРА
+# ══════════════════════════════════════════════════════════════════
+
+@router.message(Command("finduser"))
+async def cmd_finduser(message: Message):
+    """/finduser ID или /finduser @username — полная карточка клиента."""
+    if message.from_user.id != ADMIN_ID:
+        return
+    parts = message.text.split(None, 1)
+    if len(parts) < 2:
+        await message.answer("Формат: /finduser 123456789 или /finduser @username")
+        return
+    query = parts[1].strip().lstrip("@")
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        if query.isdigit():
+            c.execute("""SELECT user_id, username,
+                                COUNT(*) as total,
+                                SUM(CASE WHEN status='sent' THEN 1 ELSE 0 END) as sent_cnt,
+                                COALESCE(SUM(CASE WHEN status='sent' THEN rub_amount ELSE 0 END),0) as volume
+                         FROM orders WHERE user_id=?""", (int(query),))
+        else:
+            c.execute("""SELECT user_id, username,
+                                COUNT(*) as total,
+                                SUM(CASE WHEN status='sent' THEN 1 ELSE 0 END) as sent_cnt,
+                                COALESCE(SUM(CASE WHEN status='sent' THEN rub_amount ELSE 0 END),0) as volume
+                         FROM orders WHERE username=?""", (query,))
+        row = c.fetchone()
+
+    if not row or not row[0]:
+        await message.answer("❌ Пользователь не найден в базе заявок.")
+        return
+
+    uid, uname, total, sent_cnt, volume = row
+    vip_name, disc = get_user_vip(uid)
+    vip_icons = {'Platinum': '💎', 'Gold': '🥇', 'Silver': '🥈'}
+
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        c.execute("SELECT COUNT(*) FROM referrals WHERE referrer_id=?", (uid,))
+        refs = c.fetchone()[0]
+        c.execute("SELECT COUNT(*) FROM support_tickets WHERE user_id=? AND status='open'", (uid,))
+        open_tickets = c.fetchone()[0]
+        c.execute("SELECT id, status, rub_amount, currency, created_at FROM orders WHERE user_id=? ORDER BY id DESC LIMIT 3", (uid,))
+        last3 = c.fetchall()
+        blocked = bool(conn.execute("SELECT 1 FROM blocked_users WHERE user_id=?", (uid,)).fetchone())
+
+    vol_fmt = f"{int(volume):,}".replace(",", " ")
+    text = (
+        f"👤 <b>Клиент: @{uname or '—'}</b>\n"
+        f"ID: <code>{uid}</code>"
+        f"{' 🚫 ЗАБЛОКИРОВАН' if blocked else ''}\n\n"
+        f"<blockquote>"
+        f"📦 Заявок: {total} · Выполнено: {sent_cnt}\n"
+        f"💰 Объём: {vol_fmt} ₽\n"
+        f"{vip_icons.get(vip_name,'')} VIP: {vip_name or 'Standard'}"
+        f"{f' (−{disc}%)' if disc else ''}\n"
+        f"👥 Рефералов: {refs}\n"
+        f"🎫 Открытых тикетов: {open_tickets}"
+        f"</blockquote>\n\n"
+        f"<b>Последние 3 заявки:</b>\n"
+    )
+    STATUS_ICON = {"pending": "⏳", "paid": "🔄", "sent": "✅", "failed": "❌", "cancelled": "🚫"}
+    for oid, st, amt, cur, dt in last3:
+        text += f"  {STATUS_ICON.get(st,'?')} #{oid} · {int(amt):,} ₽ → {cur} · {dt[:10]}\n".replace(",", " ")
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✉️ Написать клиенту", callback_data=f"admin_msg_{uid}")],
+        [InlineKeyboardButton(text="🚫 Заблокировать" if not blocked else "✅ Разблокировать",
+                              callback_data=f"admin_{'block' if not blocked else 'unblock'}_{uid}")],
+    ])
+    await message.answer(text, parse_mode="HTML", reply_markup=kb)
+
+
+@router.message(Command("pending"))
+async def cmd_pending(message: Message):
+    """/pending — заявки которые оплачены но ещё не выплачены."""
+    if message.from_user.id != ADMIN_ID:
+        return
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        c.execute("""SELECT order_id, user_id, username, rub_amount, currency,
+                            crypto_address, updated_at
+                     FROM orders WHERE status='paid'
+                     ORDER BY updated_at ASC LIMIT 15""")
+        rows = c.fetchall()
+    if not rows:
+        await message.answer("✅ Нет оплаченных заявок, ожидающих выплаты.")
+        return
+    text = f"🔄 <b>Ожидают выплаты ({len(rows)}):</b>\n\n"
+    for oid, uid, uname, amt, cur, addr, upd in rows:
+        addr_s = f"{addr[:8]}…{addr[-4:]}" if addr else "—"
+        text += (f"<b>#{oid}</b> @{uname or uid} · {int(amt):,} ₽ → {cur}\n"
+                 f"  📬 <code>{addr_s}</code> · {upd[:16]}\n"
+                 f"  /force_payout {oid}\n\n").replace(",", " ")
+    await message.answer(text, parse_mode="HTML")
+
+
+@router.message(Command("msg"))
+async def cmd_msg(message: Message, state: FSMContext):
+    """/msg USER_ID текст — отправить сообщение клиенту от имени бота."""
+    if message.from_user.id != ADMIN_ID:
+        return
+    parts = message.text.split(None, 2)
+    if len(parts) < 3:
+        await message.answer("Формат: /msg USER_ID текст сообщения")
+        return
+    try:
+        target_id = int(parts[1])
+    except ValueError:
+        await message.answer("❌ Неверный USER_ID")
+        return
+    text = parts[2].strip()
+    try:
+        await bot.send_message(
+            target_id,
+            f"🟣 <b>Сообщение от ObsidianExchange</b>\n\n{text}",
+            parse_mode="HTML"
+        )
+        await message.answer(f"✅ Отправлено пользователю {target_id}")
+    except Exception as e:
+        await message.answer(f"❌ Ошибка: {e}")
+
+
+@router.callback_query(F.data.startswith("admin_msg_"))
+async def admin_msg_callback(callback: CallbackQuery, state: FSMContext):
+    if callback.from_user.id != ADMIN_ID:
+        return
+    target_id = int(callback.data.split("_")[2])
+    await state.update_data(admin_msg_target=target_id)
+    await callback.message.answer(f"✉️ Введите текст для клиента {target_id}:")
+    # Используем простое состояние через data
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("admin_block_"))
+async def admin_block_callback(callback: CallbackQuery):
+    if callback.from_user.id != ADMIN_ID:
+        return
+    uid = int(callback.data.split("_")[2])
+    with db_conn(5) as conn:
+        conn.execute("INSERT OR IGNORE INTO blocked_users (user_id) VALUES (?)", (uid,))
+        conn.commit()
+    await callback.answer(f"🚫 Пользователь {uid} заблокирован.", show_alert=True)
+
+
+@router.callback_query(F.data.startswith("admin_unblock_"))
+async def admin_unblock_callback(callback: CallbackQuery):
+    if callback.from_user.id != ADMIN_ID:
+        return
+    uid = int(callback.data.split("_")[2])
+    with db_conn(5) as conn:
+        conn.execute("DELETE FROM blocked_users WHERE user_id=?", (uid,))
+        conn.commit()
+    await callback.answer(f"✅ Пользователь {uid} разблокирован.", show_alert=True)
+
+
+@router.message(Command("mystatus"))
+async def cmd_mystatus(message: Message):
+    """/mystatus ORDER_ID — статус конкретной заявки."""
+    parts = message.text.split()
+    uid = message.from_user.id
+    if len(parts) < 2:
+        # Показать последнюю заявку
+        with db_conn(5) as conn:
+            c = conn.cursor()
+            c.execute("""SELECT order_id FROM orders WHERE user_id=?
+                         ORDER BY created_at DESC LIMIT 1""", (uid,))
+            row = c.fetchone()
+        if not row:
+            await message.answer("У вас нет заявок. Начните обмен в меню.")
+            return
+        oid = row[0]
+    else:
+        try:
+            oid = int(parts[1])
+        except ValueError:
+            await message.answer("Формат: /mystatus 1234")
+            return
+
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        c.execute("""SELECT order_id, user_id, rub_amount, currency, crypto_address,
+                            status, created_at, paid_btc_tx
+                     FROM orders WHERE order_id=?""", (oid,))
+        row = c.fetchone()
+
+    if not row or row[1] != uid:
+        await message.answer("❌ Заявка не найдена.")
+        return
+
+    oid, _, rub, cur, addr, status, created, tx = row
+    STATUS_ICON  = {"pending": "⏳", "paid": "🔄", "sent": "🚀", "failed": "❌", "cancelled": "🚫"}
+    STATUS_LABEL = {"pending": "Ожидает оплаты", "paid": "Оплата подтверждена — обрабатываем",
+                    "sent": "Выполнена ✅", "failed": "Ошибка", "cancelled": "Отменена"}
+    CUR_ICON = {"BTC": "₿", "LTC": "Ł", "USDT": "💵"}
+
+    text = (
+        f"{STATUS_ICON.get(status,'❔')} <b>Заявка #{oid}</b>\n\n"
+        f"Статус: <b>{STATUS_LABEL.get(status, status)}</b>\n"
+        f"Сумма: <b>{int(rub):,} ₽</b> → {CUR_ICON.get(cur,'')} {cur}\n"
+        f"Адрес: <code>{addr}</code>\n"
+        f"Создана: {created[:16] if created else '—'}"
+    ).replace(",", " ")
+    if tx:
+        text += f"\n🔗 TXID: <code>{tx}</code>"
+
+    buttons = []
+    if tx and len(tx) > 20:
+        if cur == "BTC":
+            url = f"https://mempool.space/tx/{tx}"
+        elif cur == "LTC":
+            url = f"https://blockchair.com/litecoin/transaction/{tx}"
+        else:
+            url = f"https://tronscan.org/#/transaction/{tx}"
+        buttons.append(InlineKeyboardButton(text="🔍 Проверить в блокчейне", url=url))
+
+    import datetime as _dt
+    if status == "pending" and created:
+        try:
+            age = (_dt.datetime.utcnow() -
+                   _dt.datetime.strptime(created[:19], "%Y-%m-%d %H:%M:%S")).total_seconds()
+            if age < 600:
+                buttons.append(InlineKeyboardButton(
+                    text="❌ Отменить заявку", callback_data=f"cancel_order_{oid}"
+                ))
+        except Exception:
+            pass
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[buttons]) if buttons else None
+    await message.answer(text, parse_mode="HTML", reply_markup=kb)
+
+
+@router.message(Command("myhistory"))
+async def cmd_myhistory(message: Message):
+    """Клиент получает CSV со всеми своими заявками."""
+    uid = message.from_user.id
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        c.execute("""SELECT order_id, created_at, currency, rub_amount, status,
+                            crypto_address, paid_btc_tx
+                     FROM orders WHERE user_id=? ORDER BY order_id DESC""", (uid,))
+        rows = c.fetchall()
+    if not rows:
+        await message.answer("У вас пока нет заявок.")
+        return
+
+    from io import StringIO
+    import csv as _csv
+    buf = StringIO()
+    w = _csv.writer(buf)
+    w.writerow(["#", "Дата", "Валюта", "Сумма RUB", "Статус", "Адрес", "TXID"])
+    status_map = {"sent": "Выполнена", "paid": "Оплачена", "pending": "Ожидает",
+                  "failed": "Ошибка", "cancelled": "Отменена"}
+    for oid, dt, cur, amt, status, addr, tx in rows:
+        w.writerow([oid, dt[:16] if dt else "", cur, f"{amt:.2f}",
+                    status_map.get(status, status), addr or "", tx or ""])
+    buf.seek(0)
+
+    from aiogram.types import BufferedInputFile
+    await message.answer_document(
+        BufferedInputFile(buf.getvalue().encode("utf-8-sig"), filename=f"obsidian_history_{uid}.csv"),
+        caption=f"📋 История ваших заявок — {len(rows)} шт.\nОткройте в Excel или Google Sheets."
+    )
+
+
+# ══════════════════════════════════════════════════════════════════
+# DCA — АВТОПОКУПКА ПО РАСПИСАНИЮ
+# Клиент настраивает: "покупай BTC на 3000 ₽ каждые 7 дней"
+# ══════════════════════════════════════════════════════════════════
+
+class DCAState(StatesGroup):
+    currency  = State()
+    amount    = State()
+    interval  = State()
+    address   = State()
+
+_DCA_INTERVALS = {
+    "3":  "Каждые 3 дня",
+    "7":  "Каждую неделю",
+    "14": "Раз в 2 недели",
+    "30": "Раз в месяц",
+}
+
+@router.callback_query(F.data == "menu_dca")
+async def menu_dca(callback: CallbackQuery, state: FSMContext):
+    if is_user_blocked(callback.from_user.id):
+        await callback.answer("⛔ Доступ ограничен.", show_alert=True)
+        return
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="₿ Bitcoin (BTC)",  callback_data="dca_cur_BTC")],
+        [InlineKeyboardButton(text="Ł Litecoin (LTC)", callback_data="dca_cur_LTC")],
+        [InlineKeyboardButton(text="💵 USDT (TRC20)",  callback_data="dca_cur_USDT")],
+        [InlineKeyboardButton(text="📋 Мои DCA",       callback_data="dca_list")],
+        [InlineKeyboardButton(text="🔙 Назад",         callback_data="back_to_menu")],
+    ])
+    await callback.message.answer(
+        "📅 <b>DCA — автопокупка по расписанию</b>\n\n"
+        "Настройте регулярную покупку крипты: бот будет автоматически "
+        "создавать заявку по расписанию и присылать вам ссылку на оплату.\n\n"
+        "Стратегия <b>DCA</b> (усреднение стоимости) снижает риски "
+        "волатильности — вы покупаете по разным ценам и усредняете.\n\n"
+        "Выберите валюту:",
+        reply_markup=kb, parse_mode="HTML"
+    )
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("dca_cur_"))
+async def dca_choose_currency(callback: CallbackQuery, state: FSMContext):
+    cur = callback.data.split("_")[2]
+    await state.update_data(dca_currency=cur)
+    min_a = int(os.getenv('MIN_AMOUNT', 2000))
+    await callback.message.answer(
+        f"💰 Введите сумму в рублях для каждой покупки:\n"
+        f"(минимум <b>{min_a:,} ₽</b>)\n\nПример: <code>3000</code>".replace(",", " "),
+        parse_mode="HTML"
+    )
+    await state.set_state(DCAState.amount)
+    await callback.answer()
+
+@router.message(DCAState.amount)
+async def dca_enter_amount(message: Message, state: FSMContext):
+    try:
+        amount = float(message.text.replace(" ", "").replace(",", "."))
+    except ValueError:
+        await message.answer("❌ Введите число, например <code>3000</code>", parse_mode="HTML")
+        return
+    min_a = float(os.getenv('MIN_AMOUNT', 2000))
+    max_a = float(os.getenv('MAX_AMOUNT', 500000))
+    if amount < min_a or amount > max_a:
+        await message.answer(f"❌ Сумма от {int(min_a):,} до {int(max_a):,} ₽".replace(",", " "))
+        return
+    await state.update_data(dca_amount=amount)
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=label, callback_data=f"dca_int_{days}")]
+        for days, label in _DCA_INTERVALS.items()
+    ])
+    await message.answer("🗓 Как часто покупать?", reply_markup=kb)
+    await state.set_state(DCAState.interval)
+
+@router.callback_query(F.data.startswith("dca_int_"), DCAState.interval)
+async def dca_choose_interval(callback: CallbackQuery, state: FSMContext):
+    days = callback.data.split("_")[2]
+    await state.update_data(dca_interval=int(days))
+    data = await state.get_data()
+    cur = data["dca_currency"]
+    await callback.message.answer(
+        f"📬 Введите ваш <b>{cur}-адрес</b> для получения криптовалюты:",
+        parse_mode="HTML"
+    )
+    await state.set_state(DCAState.address)
+    await callback.answer()
+
+@router.message(DCAState.address)
+async def dca_enter_address(message: Message, state: FSMContext):
+    addr = message.text.strip()
+    data = await state.get_data()
+    cur = data["dca_currency"]
+    if not validate_crypto_address(addr, cur):
+        await message.answer(f"❌ Неверный {cur}-адрес. Проверьте и введите снова.")
+        return
+    await state.update_data(dca_address=addr)
+    amount   = data["dca_amount"]
+    interval = data["dca_interval"]
+    interval_label = _DCA_INTERVALS.get(str(interval), f"каждые {interval} дней")
+    commission = get_commission_percent(amount, message.from_user.id)
+    rate = get_cached_rate(cur)
+    net_rate = rate * (1 - commission / 100)
+    approx = round(amount / net_rate, 8) if net_rate else 0
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✅ Запустить DCA",  callback_data="dca_confirm")],
+        [InlineKeyboardButton(text="❌ Отмена",         callback_data="back_to_menu")],
+    ])
+    await message.answer(
+        f"📋 <b>Подтвердите DCA-расписание</b>\n\n"
+        f"<blockquote>"
+        f"Валюта: <b>{cur}</b>\n"
+        f"Сумма каждой покупки: <b>{int(amount):,} ₽</b>\n"
+        f"≈ получаете: <b>{approx:.6f} {cur}</b> (по текущему курсу)\n"
+        f"Расписание: <b>{interval_label}</b>\n"
+        f"Адрес: <code>{addr}</code>"
+        f"</blockquote>\n\n"
+        f"Первая покупка — сегодня. Бот пришлёт ссылку на оплату.".replace(",", " "),
+        reply_markup=kb, parse_mode="HTML"
+    )
+
+@router.callback_query(F.data == "dca_confirm", DCAState.address)
+async def dca_confirm(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    uid  = callback.from_user.id
+    import datetime as _dt
+    next_run = _dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+    with db_conn(5) as conn:
+        conn.execute("""INSERT INTO dca_schedules
+            (user_id, currency, rub_amount, crypto_address, interval_days, next_run)
+            VALUES (?,?,?,?,?,?)""",
+            (uid, data["dca_currency"], data["dca_amount"],
+             data["dca_address"], data["dca_interval"], next_run))
+        conn.commit()
+    await callback.message.answer(
+        f"✅ <b>DCA запущен!</b>\n\n"
+        f"Буду покупать <b>{data['dca_currency']}</b> на <b>{int(data['dca_amount']):,} ₽</b> "
+        f"{_DCA_INTERVALS.get(str(data['dca_interval']), '')}.\n\n"
+        f"Управление: /mydca".replace(",", " "),
+        parse_mode="HTML"
+    )
+    await state.clear()
+    await callback.answer()
+
+@router.message(Command("mydca"))
+@router.callback_query(F.data == "dca_list")
+async def dca_list(update, state: FSMContext = None):
+    msg = update if isinstance(update, Message) else update.message
+    uid = update.from_user.id
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        c.execute("""SELECT id, currency, rub_amount, interval_days, next_run, runs_total, status
+                     FROM dca_schedules WHERE user_id=? ORDER BY id DESC LIMIT 10""", (uid,))
+        rows = c.fetchall()
+    if not rows:
+        await msg.answer("У вас нет активных DCA-расписаний.\n\nЗапустить: нажмите 📅 DCA в меню.")
+        if isinstance(update, CallbackQuery): await update.answer()
+        return
+    text = "📅 <b>Ваши DCA-расписания:</b>\n\n"
+    icons = {"active": "✅", "paused": "⏸", "cancelled": "❌"}
+    for did, cur, amt, intv, next_r, runs, status in rows:
+        text += (f"{icons.get(status,'?')} <b>#{did}</b> {cur} · {int(amt):,} ₽ "
+                 f"· каждые {intv}д · выполнено {runs}х\n"
+                 f"   Следующая: {next_r[:10]}\n\n").replace(",", " ")
+    text += "Отменить: /canceldca ID"
+    await msg.answer(text, parse_mode="HTML")
+    if isinstance(update, CallbackQuery): await update.answer()
+
+@router.message(Command("canceldca"))
+async def dca_cancel(message: Message):
+    parts = message.text.split()
+    if len(parts) < 2:
+        await message.answer("Использование: /canceldca ID")
+        return
+    try:
+        did = int(parts[1])
+    except ValueError:
+        await message.answer("❌ Неверный ID")
+        return
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        c.execute("SELECT user_id FROM dca_schedules WHERE id=?", (did,))
+        row = c.fetchone()
+        if not row or row[0] != message.from_user.id:
+            await message.answer("❌ Расписание не найдено или не ваше.")
+            return
+        conn.execute("UPDATE dca_schedules SET status='cancelled' WHERE id=?", (did,))
+        conn.commit()
+    await message.answer(f"✅ DCA-расписание #{did} отменено.")
+
+
+async def dca_runner():
+    """Фоновая задача: раз в час проверяет DCA-расписания и создаёт заявки."""
+    import datetime as _dt
+    while True:
+        try:
+            now_str = _dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+            with db_conn(5) as conn:
+                c = conn.cursor()
+                c.execute("""SELECT id, user_id, currency, rub_amount, crypto_address, interval_days
+                             FROM dca_schedules
+                             WHERE status='active' AND next_run <= ?""", (now_str,))
+                due = c.fetchall()
+
+            for did, uid, cur, amt, addr, intv in due:
+                try:
+                    # Создаём заявку
+                    with db_conn(5) as conn:
+                        conn.execute(
+                            "INSERT INTO orders (user_id, username, currency, rub_amount, crypto_address, status) "
+                            "VALUES (?,?,?,?,?,'pending')",
+                            (uid, f"dca_{did}", cur, amt, addr)
+                        )
+                        oid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+                        # Обновляем next_run
+                        next_run = (_dt.datetime.utcnow() + _dt.timedelta(days=intv)).strftime("%Y-%m-%d %H:%M:%S")
+                        conn.execute(
+                            "UPDATE dca_schedules SET next_run=?, runs_total=runs_total+1 WHERE id=?",
+                            (next_run, did)
+                        )
+                        conn.commit()
+
+                    icons = {'BTC': '₿', 'LTC': 'Ł', 'USDT': '💵'}
+                    commission = get_commission_percent(amt, uid)
+                    rate = get_cached_rate(cur)
+                    net_rate = rate * (1 - commission / 100)
+                    approx = round(amt / net_rate, 8) if net_rate else 0
+                    bot_username = os.getenv('BOT_USERNAME', 'Obsidian666999bot')
+                    kb = InlineKeyboardMarkup(inline_keyboard=[[
+                        InlineKeyboardButton(
+                            text="💳 Оплатить",
+                            url=f"https://t.me/{bot_username}?start=pay_{oid}"
+                        )
+                    ]])
+                    await bot.send_message(
+                        uid,
+                        f"📅 <b>DCA — время покупки!</b>\n\n"
+                        f"Заявка <b>#{oid}</b>:\n"
+                        f"{icons.get(cur,'')} {approx:.6f} {cur} за {int(amt):,} ₽\n\n"
+                        f"Нажмите кнопку и оплатите — криптовалюта уйдёт на ваш адрес автоматически.".replace(",", " "),
+                        reply_markup=kb, parse_mode="HTML"
+                    )
+                except Exception as e:
+                    logger.error(f"dca_runner order error did={did}: {e}")
+
+        except Exception as e:
+            logger.error(f"dca_runner error: {e}")
+
+        await asyncio.sleep(3600)
+
+
+# ══════════════════════════════════════════════════════════════════
+# КРИПТО-ПОДАРКИ
+# Клиент оплачивает подарок → получает код → дарит другу
+# Друг вводит код, указывает адрес → получает крипту
+# ══════════════════════════════════════════════════════════════════
+
+import secrets as _secrets
+
+class GiftState(StatesGroup):
+    currency = State()
+    amount   = State()
+    address  = State()   # адрес получателя при выкупе
+
+def _make_gift_code() -> str:
+    """6-символьный код подарка (только буквы+цифры без похожих символов)."""
+    alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+    return "".join(_secrets.choice(alphabet) for _ in range(6))
+
+async def _generate_gift_card(currency: str, rub_amount: int, code: str) -> bytes | None:
+    """Генерирует PNG-карточку подарка через PIL. Возвращает bytes или None."""
+    try:
+        from PIL import Image, ImageDraw, ImageFont
+        import io
+        W, H = 800, 420
+        BG   = (18, 10, 30)
+        PURP = (138, 43, 226)
+        GOLD = (255, 215, 0)
+        img  = Image.new("RGB", (W, H), BG)
+        d    = ImageDraw.Draw(img)
+        # Рамка
+        for i in range(3):
+            d.rectangle([i, i, W-1-i, H-1-i], outline=PURP)
+        # Заголовок
+        try:
+            fnt_big  = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 36)
+            fnt_med  = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 28)
+            fnt_code = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf", 52)
+            fnt_sm   = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 20)
+        except Exception:
+            fnt_big = fnt_med = fnt_code = fnt_sm = ImageFont.load_default()
+        d.text((W//2, 50),  "🟣 ObsidianExchange", font=fnt_big, fill=PURP, anchor="mm")
+        d.text((W//2, 105), "КРИПТО-ПОДАРОК",       font=fnt_med, fill=(220,200,255), anchor="mm")
+        icons = {"BTC": "₿", "LTC": "Ł", "USDT": "💵"}
+        label = f"{icons.get(currency,'')} {currency}  ·  {rub_amount:,} ₽".replace(",", " ")
+        d.text((W//2, 185), label, font=fnt_med, fill=GOLD, anchor="mm")
+        d.text((W//2, 265), code,  font=fnt_code, fill=(255,255,255), anchor="mm")
+        d.text((W//2, 330), "Введи /redeem КОД в @Obsidian666999bot", font=fnt_sm, fill=(180,160,210), anchor="mm")
+        d.text((W//2, 370), "obsidian-exchange.org", font=fnt_sm, fill=(120,100,160), anchor="mm")
+        buf = io.BytesIO()
+        img.save(buf, "PNG")
+        return buf.getvalue()
+    except Exception as e:
+        logger.warning(f"gift card generation failed: {e}")
+        return None
+
+
+@router.callback_query(F.data == "menu_gift")
+async def menu_gift(callback: CallbackQuery, state: FSMContext):
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="₿ Bitcoin (BTC)",  callback_data="gift_cur_BTC")],
+        [InlineKeyboardButton(text="Ł Litecoin (LTC)", callback_data="gift_cur_LTC")],
+        [InlineKeyboardButton(text="💵 USDT (TRC20)",  callback_data="gift_cur_USDT")],
+        [InlineKeyboardButton(text="🔙 Назад",         callback_data="back_to_menu")],
+    ])
+    await callback.message.answer(
+        "🎁 <b>Крипто-подарок</b>\n\n"
+        "Сделайте подарок другу — оплатите криптовалюту, получите "
+        "красивую карточку с кодом и отправьте её другу.\n\n"
+        "Друг вводит код в боте, указывает свой адрес — "
+        "и получает крипту прямо на кошелёк.\n\n"
+        "Выберите валюту подарка:",
+        reply_markup=kb, parse_mode="HTML"
+    )
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("gift_cur_"))
+async def gift_choose_currency(callback: CallbackQuery, state: FSMContext):
+    cur = callback.data.split("_")[2]
+    await state.update_data(gift_currency=cur)
+    min_a = int(os.getenv("MIN_AMOUNT", 2000))
+    rate  = get_cached_rate(cur)
+    commission = get_commission_percent(10000, callback.from_user.id)
+    net_rate = rate * (1 - commission / 100)
+    example_rub = 5000
+    example_crypto = round(example_rub / net_rate, 6) if net_rate else 0
+    await callback.message.answer(
+        f"💰 Введите сумму подарка <b>в рублях</b>:\n"
+        f"(минимум {min_a:,} ₽)\n\n"
+        f"Пример: 5 000 ₽ ≈ {example_crypto} {cur}".replace(",", " "),
+        parse_mode="HTML"
+    )
+    await state.set_state(GiftState.amount)
+    await callback.answer()
+
+@router.message(GiftState.amount)
+async def gift_enter_amount(message: Message, state: FSMContext):
+    try:
+        amount = float(message.text.replace(" ", "").replace(",", "."))
+    except ValueError:
+        await message.answer("❌ Введите число, например <code>3000</code>", parse_mode="HTML")
+        return
+    min_a = float(os.getenv("MIN_AMOUNT", 2000))
+    max_a = float(os.getenv("MAX_AMOUNT", 500000))
+    if amount < min_a or amount > max_a:
+        await message.answer(f"❌ Сумма от {int(min_a):,} до {int(max_a):,} ₽".replace(",", " "))
+        return
+    data = await state.get_data()
+    cur  = data["gift_currency"]
+    commission = get_commission_percent(amount, message.from_user.id)
+    rate = get_cached_rate(cur)
+    net_rate = rate * (1 - commission / 100)
+    approx = round(amount / net_rate, 8) if net_rate else 0
+    # Генерируем уникальный код заранее
+    code = _make_gift_code()
+    while True:
+        with db_conn(3) as conn:
+            c = conn.cursor()
+            c.execute("SELECT 1 FROM gift_vouchers WHERE code=?", (code,))
+            if not c.fetchone():
+                break
+        code = _make_gift_code()
+    await state.update_data(gift_amount=amount, gift_approx=approx, gift_code=code)
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✅ Оплатить подарок", callback_data="gift_pay")],
+        [InlineKeyboardButton(text="❌ Отмена",           callback_data="back_to_menu")],
+    ])
+    await message.answer(
+        f"🎁 <b>Подарок — {cur}</b>\n\n"
+        f"<blockquote>"
+        f"Сумма: <b>{int(amount):,} ₽</b>\n"
+        f"Получатель получит: <b>≈ {approx:.6f} {cur}</b>\n"
+        f"Код подарка: <b>{code}</b>"
+        f"</blockquote>\n\n"
+        f"После оплаты получите карточку с кодом для отправки другу.".replace(",", " "),
+        reply_markup=kb, parse_mode="HTML"
+    )
+
+@router.callback_query(F.data == "gift_pay", GiftState.amount)
+async def gift_pay(callback: CallbackQuery, state: FSMContext):
+    data   = await state.get_data()
+    uid    = callback.from_user.id
+    cur    = data["gift_currency"]
+    amount = data["gift_amount"]
+    code   = data["gift_code"]
+    # Создаём заявку — адрес-заглушка (заменится при выкупе)
+    placeholder_addr = {"BTC": "1GiftPlaceholder1111111111111111111",
+                        "LTC": "LGiftPlaceholder111111111111111111",
+                        "USDT": "TGiftPlaceholderUSDT111111111111111"}.get(cur, "placeholder")
+    with db_conn(5) as conn:
+        conn.execute(
+            "INSERT INTO orders (user_id, username, currency, rub_amount, crypto_address, status) "
+            "VALUES (?,?,?,?,?,'pending')",
+            (uid, f"gift_{code}", cur, amount, placeholder_addr)
+        )
+        oid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+        conn.execute(
+            "INSERT INTO gift_vouchers (sender_id, currency, rub_amount, code, order_id) VALUES (?,?,?,?,?)",
+            (uid, cur, amount, code, oid)
+        )
+        conn.commit()
+    await state.update_data(order_id=oid, gift_order_id=oid)
+    await state.set_state(Exchange.payment_method)
+    # Показываем выбор способа оплаты как обычно
+    commission = get_commission_percent(amount, uid)
+    rate = get_cached_rate(cur)
+    net_rate = rate * (1 - commission / 100)
+    approx = round(amount / net_rate, 8) if net_rate else 0
+    await callback.message.answer(
+        f"🟣 Заявка <b>#{oid}</b> создана (подарок {code})\n\n"
+        f"Сумма: <b>{int(amount):,} ₽</b> → ≈ {approx:.6f} {cur}\n\n"
+        f"Выберите способ оплаты:".replace(",", " "),
+        reply_markup=await build_payment_methods_kb(oid, amount),
+        parse_mode="HTML"
+    )
+    await callback.answer()
+
+
+async def _send_gift_card(sender_id: int, gift_id: int):
+    """Отправляет карточку подарка отправителю после подтверждения оплаты."""
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        c.execute("SELECT currency, rub_amount, code FROM gift_vouchers WHERE id=?", (gift_id,))
+        row = c.fetchone()
+    if not row:
+        return
+    cur, amt, code = row
+    card_bytes = await _generate_gift_card(cur, int(amt), code)
+    text = (
+        f"🎁 <b>Ваш крипто-подарок готов!</b>\n\n"
+        f"Код подарка: <code>{code}</code>\n\n"
+        f"Отправьте другу это сообщение:\n\n"
+        f"<blockquote>🟣 Тебе подарили {cur} на {int(amt):,} ₽!\n"
+        f"Открой @Obsidian666999bot и введи команду:\n"
+        f"/redeem {code}</blockquote>".replace(",", " ")
+    )
+    try:
+        if card_bytes:
+            from aiogram.types import BufferedInputFile
+            await bot.send_photo(sender_id, BufferedInputFile(card_bytes, "gift.png"),
+                                 caption=text, parse_mode="HTML")
+        else:
+            await bot.send_message(sender_id, text, parse_mode="HTML")
+    except Exception as e:
+        logger.error(f"_send_gift_card error: {e}")
+
+
+@router.message(Command("redeem"))
+async def cmd_redeem(message: Message, state: FSMContext):
+    """Получатель вводит /redeem КОД."""
+    parts = message.text.split()
+    if len(parts) < 2:
+        await message.answer("Введите: <code>/redeem КОД</code>", parse_mode="HTML")
+        return
+    code = parts[1].strip().upper()
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        c.execute("SELECT id, currency, rub_amount, status, sender_id FROM gift_vouchers WHERE code=?", (code,))
+        row = c.fetchone()
+    if not row:
+        await message.answer("❌ Подарочный код не найден.")
+        return
+    gid, cur, amt, status, sender_id = row
+    if status == "redeemed":
+        await message.answer("❌ Этот подарок уже был получен.")
+        return
+    if status not in ("paid",):
+        await message.answer("⏳ Подарок ещё не оплачен отправителем. Попробуйте позже.")
+        return
+    if message.from_user.id == sender_id:
+        await message.answer("❌ Нельзя получить собственный подарок.")
+        return
+    commission = get_commission_percent(amt, message.from_user.id)
+    rate = get_cached_rate(cur)
+    net_rate = rate * (1 - commission / 100)
+    approx = round(amt / net_rate, 8) if net_rate else 0
+    await state.update_data(redeem_gift_id=gid, redeem_currency=cur,
+                            redeem_amount=amt, redeem_approx=approx)
+    await state.set_state(GiftState.address)
+    icons = {"BTC": "₿", "LTC": "Ł", "USDT": "💵"}
+    await message.answer(
+        f"🎁 <b>Подарок найден!</b>\n\n"
+        f"{icons.get(cur,'')} <b>{approx:.6f} {cur}</b> (~{int(amt):,} ₽)\n\n"
+        f"Введите ваш <b>{cur}-адрес</b> для получения:".replace(",", " "),
+        parse_mode="HTML"
+    )
+
+@router.message(GiftState.address)
+async def gift_enter_recipient_address(message: Message, state: FSMContext):
+    addr = message.text.strip()
+    data = await state.get_data()
+    cur  = data["redeem_currency"]
+    gid  = data["redeem_gift_id"]
+    amt  = data["redeem_amount"]
+    if not validate_crypto_address(addr, cur):
+        await message.answer(f"❌ Неверный {cur}-адрес. Проверьте и введите снова.")
+        return
+    uid = message.from_user.id
+    # Создаём заявку для получателя
+    with db_conn(5) as conn:
+        conn.execute(
+            "INSERT INTO orders (user_id, username, currency, rub_amount, crypto_address, status) "
+            "VALUES (?,?,?,?,?,'paid')",
+            (uid, f"gift_redeem_{gid}", cur, amt, addr)
+        )
+        oid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+        conn.execute(
+            "UPDATE gift_vouchers SET status='redeemed', recipient_id=?, recipient_address=?, claimed_at=datetime('now') WHERE id=?",
+            (uid, addr, gid)
+        )
+        conn.commit()
+    await message.answer(
+        f"✅ <b>Подарок принят!</b>\n\n"
+        f"Криптовалюта {cur} будет отправлена на ваш адрес в течение 15 минут.\n"
+        f"Заявка #{oid}.",
+        parse_mode="HTML"
+    )
+    await notify_workers_paid(oid, amt, addr, cur)
+    await bot.send_message(
+        ADMIN_ID,
+        f"🎁 Подарочный код {data.get('redeem_gift_id')} выкуплен!\n"
+        f"Получатель: {uid} · {cur} · {int(amt):,} ₽ · {addr}\n"
+        f"Заявка #{oid}".replace(",", " "),
+        parse_mode="HTML"
+    )
+    await state.clear()
+
+
+# ══════════════════════════════════════════════════════════════════
+# ГАРАНТИРОВАННЫЙ КУРС НА 15 МИНУТ
+# Клиент фиксирует курс — платит 100 ₽ за блокировку.
+# Если рынок улетел — его это не касается.
+# ══════════════════════════════════════════════════════════════════
+
+RATE_LOCK_FEE    = 100.0   # стоимость фиксации курса, руб
+RATE_LOCK_MINS   = 15      # длительность фиксации
+
+@router.callback_query(F.data == "menu_ratelock")
+async def menu_ratelock(callback: CallbackQuery):
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="₿ Зафиксировать BTC",  callback_data="ratelock_BTC")],
+        [InlineKeyboardButton(text="Ł Зафиксировать LTC",  callback_data="ratelock_LTC")],
+        [InlineKeyboardButton(text="💵 Зафиксировать USDT", callback_data="ratelock_USDT")],
+        [InlineKeyboardButton(text="🔙 Назад",              callback_data="back_to_menu")],
+    ])
+    btc = get_cached_rate("BTC")
+    ltc = get_cached_rate("LTC")
+    usdt = get_cached_rate("USDT")
+    await callback.message.answer(
+        f"🔒 <b>Гарантированный курс</b>\n\n"
+        f"Зафиксируйте текущий курс на <b>{RATE_LOCK_MINS} минут</b> — "
+        f"даже если рынок улетит, ваш обмен пройдёт по зафиксированной цене.\n\n"
+        f"<blockquote>"
+        f"₿ BTC → {int(btc):,} ₽\n"
+        f"Ł LTC → {int(ltc):,} ₽\n"
+        f"💵 USDT → {usdt:.2f} ₽"
+        f"</blockquote>\n\n"
+        f"Стоимость фиксации: <b>{int(RATE_LOCK_FEE)} ₽</b> "
+        f"(вычитается из суммы обмена)\n\n"
+        f"Выберите валюту:".replace(",", " "),
+        reply_markup=kb, parse_mode="HTML"
+    )
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("ratelock_"))
+async def ratelock_choose(callback: CallbackQuery):
+    cur  = callback.data.split("_")[1]
+    uid  = callback.from_user.id
+    rate = get_cached_rate(cur)
+    import datetime as _dt
+    until = (_dt.datetime.utcnow() + _dt.timedelta(minutes=RATE_LOCK_MINS)).strftime("%Y-%m-%d %H:%M:%S")
+    with db_conn(5) as conn:
+        # Деактивируем старые локи этого юзера по этой валюте
+        conn.execute("UPDATE rate_locks SET used=1 WHERE user_id=? AND currency=? AND used=0", (uid, cur))
+        conn.execute(
+            "INSERT INTO rate_locks (user_id, currency, locked_rate, fee_rub, locked_until) VALUES (?,?,?,?,?)",
+            (uid, cur, rate, RATE_LOCK_FEE, until)
+        )
+        conn.commit()
+    await callback.message.answer(
+        f"🔒 <b>Курс зафиксирован!</b>\n\n"
+        f"{cur}: <b>{int(rate):,} ₽</b>\n"
+        f"Действует до: <b>{until[11:16]} UTC</b> ({RATE_LOCK_MINS} мин)\n\n"
+        f"Создайте заявку на обмен <b>прямо сейчас</b> — "
+        f"курс будет применён автоматически.\n"
+        f"Комиссия за фиксацию <b>{int(RATE_LOCK_FEE)} ₽</b> вычтется из суммы.".replace(",", " "),
+        parse_mode="HTML"
+    )
+    await callback.answer()
+
+
+def get_active_rate_lock(user_id: int, currency: str) -> dict | None:
+    """Возвращает активную фиксацию курса или None."""
+    import datetime as _dt
+    now = _dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+    with db_conn(3) as conn:
+        c = conn.cursor()
+        c.execute("""SELECT id, locked_rate, fee_rub FROM rate_locks
+                     WHERE user_id=? AND currency=? AND used=0 AND locked_until > ?
+                     ORDER BY id DESC LIMIT 1""", (user_id, currency, now))
+        row = c.fetchone()
+    if row:
+        return {"lock_id": row[0], "rate": row[1], "fee": row[2]}
+    return None
 
 
 # ---------- АДМИН-КОМАНДЫ УПРАВЛЕНИЯ ----------
@@ -1538,40 +4448,84 @@ async def cmd_stats(message: Message):
 
 
 # ---------- УЛУЧШЕННЫЙ МОНИТОРИНГ ----------
-async def daily_report():
-    while True:
-        now = datetime.now()
-        if now.hour == 9 and now.minute == 0:
-            with db_conn(10) as conn:
-                c = conn.cursor()
-                yesterday = (now - timedelta(days=1)).strftime("%Y-%m-%d")
-                c.execute("SELECT COUNT(*), SUM(rub_amount) FROM orders WHERE date(created_at)=? AND status='sent'", (yesterday,))
-                cnt, vol = c.fetchone()
-            text = f"📅 Ежедневный отчёт за {yesterday}\n"
-            text += f"• Успешных обменов: {cnt or 0}\n"
-            text += f"• Оборот: {vol or 0:,.0f} RUB\n"
-            try:
-                wallet = Wallet('PayoutWallet')
-                wallet.scan()
-                balance_btc = wallet.balance(network='bitcoin') / 1e8
-                text += f"• Баланс кошелька: {balance_btc:.8f} BTC"
-            except:
-                pass
-            await bot.send_message(ADMIN_ID, text)
-            await asyncio.sleep(24 * 3600)
-        else:
-            await asyncio.sleep(30)
+async def build_admin_report(period_label: str, date_from: str, date_to: str) -> str:
+    """Строит текст отчёта за указанный период (date_from/date_to — строки YYYY-MM-DD)."""
+    with db_conn(10) as conn:
+        c = conn.cursor()
+        # Выполненные заявки
+        c.execute("""SELECT COUNT(*), COALESCE(SUM(rub_amount),0)
+                     FROM orders WHERE date(created_at) BETWEEN ? AND ? AND status='sent'""",
+                  (date_from, date_to))
+        cnt_sent, vol_sent = c.fetchone()
+        # Все созданные
+        c.execute("SELECT COUNT(*) FROM orders WHERE date(created_at) BETWEEN ? AND ?",
+                  (date_from, date_to))
+        cnt_all = c.fetchone()[0]
+        # По валютам
+        c.execute("""SELECT currency, COUNT(*), COALESCE(SUM(rub_amount),0)
+                     FROM orders WHERE date(created_at) BETWEEN ? AND ? AND status='sent'
+                     GROUP BY currency ORDER BY 3 DESC""",
+                  (date_from, date_to))
+        by_cur = c.fetchall()
+        # Новые пользователи (первая заявка за период)
+        c.execute("""SELECT COUNT(DISTINCT user_id) FROM orders
+                     WHERE date(created_at) BETWEEN ? AND ?
+                       AND user_id > 0
+                       AND NOT EXISTS (
+                           SELECT 1 FROM orders o2
+                           WHERE o2.user_id = orders.user_id
+                             AND date(o2.created_at) < ?
+                       )""",
+                  (date_from, date_to, date_from))
+        new_users = c.fetchone()[0]
+        # Средний чек
+        avg_check = (vol_sent / cnt_sent) if cnt_sent else 0
+        # Конверсия
+        conv = (cnt_sent / cnt_all * 100) if cnt_all else 0
+        # Реферальные бонусы выплачено
+        c.execute("""SELECT COALESCE(SUM(bonus_amount),0) FROM referral_bonuses
+                     WHERE date(created_at) BETWEEN ? AND ?""",
+                  (date_from, date_to))
+        ref_paid = c.fetchone()[0]
 
-async def platega_healthcheck():
+    vol_fmt = f"{int(vol_sent):,}".replace(",", " ")
+    avg_fmt = f"{int(avg_check):,}".replace(",", " ")
+    ref_fmt = f"{int(ref_paid):,}".replace(",", " ")
+
+    lines = [f"📊 <b>Отчёт ObsidianExchange — {period_label}</b>\n"]
+    lines.append(f"📦 Заявок создано: <b>{cnt_all}</b>")
+    lines.append(f"✅ Выполнено: <b>{cnt_sent}</b> ({conv:.0f}%)")
+    lines.append(f"💰 Объём: <b>{vol_fmt} ₽</b>")
+    lines.append(f"📐 Средний чек: <b>{avg_fmt} ₽</b>")
+    lines.append(f"👤 Новых клиентов: <b>{new_users}</b>")
+    lines.append(f"🎁 Реф. бонусов выплачено: <b>{ref_fmt} ₽</b>")
+
+    if by_cur:
+        lines.append("\n<b>По валютам:</b>")
+        icons = {'BTC': '₿', 'LTC': 'Ł', 'USDT': '💵'}
+        for cur, c_cnt, c_vol in by_cur:
+            lines.append(f"  {icons.get(cur, cur)} {cur}: {c_cnt} шт · {int(c_vol):,} ₽".replace(",", " "))
+
+    return "\n".join(lines)
+
+
+async def daily_report():
+    """Отправляет ежедневный отчёт в 09:00 UTC (12:00 МСК)."""
     while True:
+        import datetime as _dt
+        now = _dt.datetime.utcnow()
+        # Ждём 09:00 UTC
+        target = now.replace(hour=9, minute=0, second=0, microsecond=0)
+        if now >= target:
+            target += _dt.timedelta(days=1)
+        await asyncio.sleep((target - now).total_seconds())
+
+        yesterday = (_dt.datetime.utcnow() - _dt.timedelta(days=1)).strftime("%Y-%m-%d")
+        text = await build_admin_report(f"вчера ({yesterday})", yesterday, yesterday)
         try:
-            r = requests.post("http://5.206.224.157:5003/platega/invoice",
-                             json={"order_id": 0, "amount": 100}, timeout=5)
-            if r.status_code != 200:
-                await bot.send_message(ADMIN_ID, f"⚠️ Platega прокси не отвечает (status {r.status_code}).")
-        except Exception:
-            await bot.send_message(ADMIN_ID, "❌ Platega прокси недоступен!")
-        await asyncio.sleep(3600)
+            await bot.send_message(ADMIN_ID, text, parse_mode="HTML")
+        except Exception as e:
+            logger.error(f"daily_report send error: {e}")
 
 async def check_stuck_orders():
     while True:
@@ -1584,6 +4538,345 @@ async def check_stuck_orders():
                 ids = ", ".join([str(row[0]) for row in stuck])
                 await bot.send_message(ADMIN_ID, f"🕒 Зависшие заявки (>30 мин): {ids}")
         await asyncio.sleep(900)
+
+
+# ══════════════════════════════════════════════════════════════════
+# ЛИМИТНЫЕ ЗАЯВКИ — покупка крипты по целевому курсу
+# Клиент задаёт курс и ждёт: бот сам создаёт заявку при достижении.
+# Комиссия: +1% (LIMIT_COMMISSION_EXTRA) к стандартной.
+# ══════════════════════════════════════════════════════════════════
+LIMIT_COMMISSION_EXTRA = 1.0   # доп. % за лимитный ордер
+LIMIT_ORDER_TTL_DAYS   = 7     # ордер истекает через 7 дней
+
+_LIMIT_CURRENCIES = {
+    "BTC":  ("₿ Bitcoin",   "BTC"),
+    "LTC":  ("Ł Litecoin",  "LTC"),
+    "USDT": ("💵 USDT TRC20","USDT"),
+}
+
+@router.callback_query(F.data == "menu_limit")
+async def menu_limit(callback: CallbackQuery, state: FSMContext):
+    if is_user_blocked(callback.from_user.id):
+        await callback.answer("⛔ Доступ ограничен.", show_alert=True)
+        return
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="₿ Bitcoin (BTC)",    callback_data="lo_cur_BTC")],
+        [InlineKeyboardButton(text="Ł Litecoin (LTC)",   callback_data="lo_cur_LTC")],
+        [InlineKeyboardButton(text="💵 USDT (TRC20)",    callback_data="lo_cur_USDT")],
+        [InlineKeyboardButton(text="📋 Мои лимитки",     callback_data="lo_list")],
+        [InlineKeyboardButton(text="🔙 Назад",           callback_data="back_to_menu")],
+    ])
+    await callback.message.answer(
+        "⏳ <b>Лимитная заявка</b>\n\n"
+        "Укажите курс и сумму — бот автоматически создаст заявку на покупку "
+        "криптовалюты как только курс достигнет вашей цели.\n\n"
+        "📌 Комиссия: стандартная <b>+1%</b>\n"
+        "⏱ Ордер действует <b>7 дней</b>, затем отменяется.\n\n"
+        "Выберите валюту:",
+        reply_markup=kb, parse_mode="HTML"
+    )
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("lo_cur_"))
+async def lo_choose_currency(callback: CallbackQuery, state: FSMContext):
+    cur = callback.data.split("_")[2]
+    if cur not in _LIMIT_CURRENCIES:
+        await callback.answer("❌ Неверная валюта", show_alert=True)
+        return
+    await state.update_data(lo_currency=cur)
+    rate = get_cached_rate(cur)
+    rate_fmt = f"{int(rate):,}".replace(",", " ")
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📉 Купить если НИЖЕ",  callback_data="lo_dir_below")],
+        [InlineKeyboardButton(text="📈 Купить если ВЫШЕ",  callback_data="lo_dir_above")],
+        [InlineKeyboardButton(text="🔙 Назад",             callback_data="menu_limit")],
+    ])
+    await callback.message.answer(
+        f"⏳ <b>Лимитная заявка — {_LIMIT_CURRENCIES[cur][0]}</b>\n\n"
+        f"Текущий курс: <b>{rate_fmt} ₽</b> за 1 {cur}\n\n"
+        f"Что вы хотите сделать?",
+        reply_markup=kb, parse_mode="HTML"
+    )
+    await state.set_state(LimitOrder.direction)
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("lo_dir_"), LimitOrder.direction)
+async def lo_choose_direction(callback: CallbackQuery, state: FSMContext):
+    direction = callback.data.split("_")[2]
+    await state.update_data(lo_direction=direction)
+    data = await state.get_data()
+    cur = data["lo_currency"]
+    rate = get_cached_rate(cur)
+    rate_fmt = f"{int(rate):,}".replace(",", " ")
+    dir_label = "ниже" if direction == "below" else "выше"
+    await callback.message.answer(
+        f"💱 Укажите целевой курс {cur} в рублях\n"
+        f"(сейчас: <b>{rate_fmt} ₽</b>)\n\n"
+        f"Как только курс станет <b>{dir_label}</b> вашей цифры — "
+        f"заявка будет создана автоматически.\n\n"
+        f"Введите курс цифрой, например: <code>{int(rate * (0.97 if direction == 'below' else 1.03)):,}</code>".replace(",", " "),
+        parse_mode="HTML"
+    )
+    await state.set_state(LimitOrder.rate)
+    await callback.answer()
+
+@router.message(LimitOrder.rate)
+async def lo_enter_rate(message: Message, state: FSMContext):
+    try:
+        target_rate = float(message.text.replace(" ", "").replace(",", "."))
+        if target_rate <= 0:
+            raise ValueError
+    except ValueError:
+        await message.answer("❌ Введите число, например <code>5800000</code>", parse_mode="HTML")
+        return
+    data = await state.get_data()
+    cur = data["lo_currency"]
+    cur_rate = get_cached_rate(cur)
+    direction = data["lo_direction"]
+    # Предупреждаем если цель уже достигнута
+    if direction == "below" and target_rate >= cur_rate:
+        await message.answer(
+            f"⚠️ Текущий курс <b>{int(cur_rate):,} ₽</b> уже ниже вашей цели.\n"
+            f"Укажите курс <b>ниже</b> текущего или сделайте обычный обмен.".replace(",", " "),
+            parse_mode="HTML"
+        )
+        return
+    if direction == "above" and target_rate <= cur_rate:
+        await message.answer(
+            f"⚠️ Текущий курс <b>{int(cur_rate):,} ₽</b> уже выше вашей цели.\n"
+            f"Укажите курс <b>выше</b> текущего или сделайте обычный обмен.".replace(",", " "),
+            parse_mode="HTML"
+        )
+        return
+    await state.update_data(lo_rate=target_rate)
+    min_a = float(os.getenv('MIN_AMOUNT', 2000))
+    max_a = float(os.getenv('MAX_AMOUNT', 500000))
+    await message.answer(
+        f"✅ Целевой курс: <b>{int(target_rate):,} ₽</b>\n\n"
+        f"Введите сумму <b>в рублях</b>, которую вы готовы потратить:\n"
+        f"Мин: <b>{int(min_a):,} ₽</b>  Макс: <b>{int(max_a):,} ₽</b>".replace(",", " "),
+        parse_mode="HTML"
+    )
+    await state.set_state(LimitOrder.amount)
+
+@router.message(LimitOrder.amount)
+async def lo_enter_amount(message: Message, state: FSMContext):
+    try:
+        amount = float(message.text.replace(" ", "").replace(",", "."))
+    except ValueError:
+        await message.answer("❌ Введите число, например <code>5000</code>", parse_mode="HTML")
+        return
+    min_a = float(os.getenv('MIN_AMOUNT', 2000))
+    max_a = float(os.getenv('MAX_AMOUNT', 500000))
+    if amount < min_a or amount > max_a:
+        await message.answer(f"❌ Сумма должна быть от {int(min_a):,} до {int(max_a):,} ₽".replace(",", " "))
+        return
+    data = await state.get_data()
+    cur = data["lo_currency"]
+    target_rate = data["lo_rate"]
+    commission = get_commission_percent(amount, message.from_user.id) + LIMIT_COMMISSION_EXTRA
+    net_rate = target_rate * (1 - commission / 100)
+    crypto_amount = round(amount / net_rate, 8)
+    await state.update_data(lo_amount=amount, lo_crypto_approx=crypto_amount, lo_commission=commission)
+    await message.answer(
+        f"💰 Сумма: <b>{int(amount):,} ₽</b>\n"
+        f"≈ получите: <b>{crypto_amount:.6f} {cur}</b>\n"
+        f"(по курсу {int(target_rate):,} ₽ − {commission:.1f}% комиссии)\n\n"
+        f"Введите ваш <b>{cur}-адрес</b> для получения:".replace(",", " "),
+        parse_mode="HTML"
+    )
+    await state.set_state(LimitOrder.address)
+
+@router.message(LimitOrder.address)
+async def lo_enter_address(message: Message, state: FSMContext):
+    address = message.text.strip()
+    data = await state.get_data()
+    cur = data["lo_currency"]
+    if not validate_crypto_address(address, cur):
+        await message.answer(f"❌ Неверный {cur}-адрес. Проверьте и введите снова.")
+        return
+    await state.update_data(lo_address=address)
+    data = await state.get_data()
+    target_rate = data["lo_rate"]
+    amount = data["lo_amount"]
+    direction = data["lo_direction"]
+    commission = data["lo_commission"]
+    crypto_approx = data["lo_crypto_approx"]
+    dir_label = "упадёт ниже" if direction == "below" else "вырастет выше"
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✅ Создать лимитный ордер", callback_data="lo_confirm")],
+        [InlineKeyboardButton(text="❌ Отмена",                 callback_data="back_to_menu")],
+    ])
+    await message.answer(
+        f"📋 <b>Подтвердите лимитный ордер</b>\n\n"
+        f"<blockquote>"
+        f"Валюта: <b>{cur}</b>\n"
+        f"Триггер: курс {dir_label} <b>{int(target_rate):,} ₽</b>\n"
+        f"Сумма: <b>{int(amount):,} ₽</b>\n"
+        f"≈ получите: <b>{crypto_approx:.6f} {cur}</b>\n"
+        f"Адрес: <code>{address}</code>\n"
+        f"Комиссия: <b>{commission:.1f}%</b>\n"
+        f"Срок: <b>7 дней</b>"
+        f"</blockquote>\n\n"
+        f"После создания бот будет следить за курсом и уведомит вас.".replace(",", " "),
+        reply_markup=kb, parse_mode="HTML"
+    )
+
+@router.callback_query(F.data == "lo_confirm", LimitOrder.address)
+async def lo_confirm(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    uid = callback.from_user.id
+    import datetime as _dt
+    expires = (_dt.datetime.utcnow() + _dt.timedelta(days=LIMIT_ORDER_TTL_DAYS)).strftime("%Y-%m-%d %H:%M:%S")
+    with db_conn(5) as conn:
+        conn.execute("""
+            INSERT INTO limit_orders
+              (user_id, currency, target_rate, direction, rub_amount, crypto_address, payment_method, expires_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (uid, data["lo_currency"], data["lo_rate"], data["lo_direction"],
+              data["lo_amount"], data["lo_address"], "sbp", expires))
+        conn.commit()
+    direction_text = "упадёт ниже" if data["lo_direction"] == "below" else "вырастет выше"
+    await callback.message.answer(
+        f"⏳ <b>Лимитный ордер создан!</b>\n\n"
+        f"Слежу за курсом {data['lo_currency']}.\n"
+        f"Как только курс {direction_text} <b>{int(data['lo_rate']):,} ₽</b> — "
+        f"сразу уведомлю вас и создам заявку.\n\n"
+        f"Управление: /limits".replace(",", " "),
+        parse_mode="HTML"
+    )
+    await state.clear()
+    await callback.answer()
+
+@router.message(Command("limits"))
+@router.callback_query(F.data == "lo_list")
+async def lo_list(update, state: FSMContext = None):
+    msg = update if isinstance(update, Message) else update.message
+    uid = update.from_user.id
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        c.execute("""SELECT id, currency, direction, target_rate, rub_amount, status, expires_at
+                     FROM limit_orders WHERE user_id=? AND status IN ('active','triggered')
+                     ORDER BY id DESC LIMIT 10""", (uid,))
+        rows = c.fetchall()
+    if not rows:
+        await msg.answer("У вас нет активных лимитных ордеров.\n\nСоздать: /limitbuy")
+        if isinstance(update, CallbackQuery):
+            await update.answer()
+        return
+    text = "📋 <b>Ваши лимитные ордера:</b>\n\n"
+    dir_icons = {"below": "📉", "above": "📈"}
+    status_icons = {"active": "⏳", "triggered": "🔔"}
+    for lid, cur, direc, rate, amt, status, exp in rows:
+        text += (f"{status_icons.get(status,'?')} <b>#{lid}</b> {dir_icons.get(direc,'')} "
+                 f"{cur} @ {int(rate):,} ₽ · {int(amt):,} ₽\n"
+                 f"   Статус: {status} · до {exp[:10]}\n\n").replace(",", " ")
+    text += "Отменить: /cancelimit ID"
+    await msg.answer(text, parse_mode="HTML")
+    if isinstance(update, CallbackQuery):
+        await update.answer()
+
+@router.message(Command("cancelimit"))
+async def lo_cancel(message: Message):
+    parts = message.text.split()
+    if len(parts) < 2:
+        await message.answer("Использование: /cancelimit ID")
+        return
+    try:
+        lid = int(parts[1])
+    except ValueError:
+        await message.answer("❌ Неверный ID")
+        return
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        c.execute("SELECT user_id FROM limit_orders WHERE id=?", (lid,))
+        row = c.fetchone()
+        if not row or row[0] != message.from_user.id:
+            await message.answer("❌ Ордер не найден или не ваш.")
+            return
+        conn.execute("UPDATE limit_orders SET status='cancelled' WHERE id=?", (lid,))
+        conn.commit()
+    await message.answer(f"✅ Лимитный ордер #{lid} отменён.")
+
+
+async def limit_order_watcher():
+    """Фоновая задача: проверяет курс каждые 5 минут, срабатывает при достижении цели."""
+    import datetime as _dt
+    while True:
+        try:
+            with db_conn(5) as conn:
+                c = conn.cursor()
+                c.execute("""SELECT id, user_id, currency, target_rate, direction,
+                                    rub_amount, crypto_address
+                             FROM limit_orders
+                             WHERE status='active' AND expires_at > datetime('now')""")
+                active = c.fetchall()
+
+            for lid, uid, cur, target_rate, direction, rub_amount, address in active:
+                current = get_cached_rate(cur)
+                if current <= 0:
+                    continue
+                triggered = (direction == "below" and current <= target_rate) or \
+                            (direction == "above" and current >= target_rate)
+                if not triggered:
+                    continue
+
+                # Создаём обычную заявку
+                commission = get_commission_percent(rub_amount, uid) + LIMIT_COMMISSION_EXTRA
+                net_rate = current * (1 - commission / 100)
+                crypto_amount = round(rub_amount / net_rate, 8)
+
+                with db_conn(5) as conn:
+                    conn.execute("""
+                        INSERT INTO orders (user_id, currency, rub_amount, crypto_address, status, username)
+                        VALUES (?, ?, ?, ?, 'pending', 'limit_order')
+                    """, (uid, cur, rub_amount, address))
+                    new_order_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+                    conn.execute(
+                        "UPDATE limit_orders SET status='triggered', triggered_at=datetime('now'), order_id=? WHERE id=?",
+                        (new_order_id, lid)
+                    )
+                    conn.commit()
+
+                dir_label = "упал ниже" if direction == "below" else "вырос выше"
+                icons = {'BTC': '₿', 'LTC': 'Ł', 'USDT': '💵'}
+                kb = InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="💳 Оплатить заявку",
+                                         url=f"https://t.me/{os.getenv('BOT_USERNAME', 'Obsidian666999bot')}?start=pay_{new_order_id}")]
+                ])
+                try:
+                    await bot.send_message(
+                        uid,
+                        f"🎯 <b>Ваш курс достигнут!</b>\n\n"
+                        f"Курс {cur} {dir_label} {int(target_rate):,} ₽\n"
+                        f"Сейчас: <b>{int(current):,} ₽</b>\n\n"
+                        f"Заявка <b>#{new_order_id}</b> создана:\n"
+                        f"{icons.get(cur,'')}{crypto_amount:.6f} {cur} · {int(rub_amount):,} ₽\n\n"
+                        f"⚡ Оплатите в течение <b>15 минут</b> — курс может измениться!".replace(",", " "),
+                        reply_markup=kb, parse_mode="HTML"
+                    )
+                except Exception:
+                    pass
+                await bot.send_message(
+                    ADMIN_ID,
+                    f"🎯 Лимитный ордер #{lid} сработал!\n"
+                    f"Клиент {uid} · {cur} · {int(rub_amount):,} ₽\n"
+                    f"Создана заявка #{new_order_id}".replace(",", " "),
+                    parse_mode="HTML"
+                )
+
+            # Истёкшие — отменяем
+            with db_conn(5) as conn:
+                conn.execute("""
+                    UPDATE limit_orders SET status='expired'
+                    WHERE status='active' AND expires_at <= datetime('now')
+                """)
+                conn.commit()
+
+        except Exception as e:
+            logger.error(f"limit_order_watcher error: {e}")
+
+        await asyncio.sleep(300)  # каждые 5 минут
 
 
 # ---------- МОНИТОРИНГ САЙТА ----------
@@ -1653,30 +4946,92 @@ async def update_fees():
 
 # ---------- АВТОМАТИЧЕСКАЯ ПРОВЕРКА ПЛАТЕЖЕЙ ----------
 async def auto_check_payments():
+    """Авто-обработка оплаченных заявок.
+
+    Безопасность: status='paid' выставляется ТОЛЬКО вебхуком от провайдера
+    (с проверкой HMAC/токена). Клиент не может подделать этот статус.
+
+    Логика:
+    - Заявки <= AUTO_PAYOUT_LIMIT: пытаемся выплатить автоматически из горячего
+      кошелька; при нехватке средств — немедленно уведомляем работников.
+    - Заявки > AUTO_PAYOUT_LIMIT: всегда уходят в ручную обработку к работникам.
+    - Каждая заявка обрабатывается только один раз (таблица sent_notifications).
+    """
     while True:
-        with db_conn(10) as conn:
-            c = conn.cursor()
-            c.execute("SELECT order_id, user_id, rub_amount, crypto_address, currency FROM orders WHERE status='paid'")
-            paid_orders = c.fetchall()
+        try:
+            with db_conn(10) as conn:
+                c = conn.cursor()
+                # Берём только свежие 'paid' заявки (не старше 24 часов),
+                # которые ещё не попали в обработку
+                c.execute("""
+                    SELECT o.order_id, o.user_id, o.rub_amount, o.crypto_address, o.currency
+                    FROM orders o
+                    WHERE o.status = 'paid'
+                      AND o.updated_at >= datetime('now', '-24 hours')
+                      AND NOT EXISTS (
+                          SELECT 1 FROM sent_notifications sn
+                          WHERE sn.order_id = o.order_id AND sn.event = 'payout_triggered'
+                      )
+                    ORDER BY o.created_at ASC
+                    LIMIT 5
+                """)
+                paid_orders = c.fetchall()
+
             for order_id, user_id, rub_amount, address, currency in paid_orders:
-                # Запускаем выплату (как в confirm_payout)
+                # Маркируем сразу — предотвращает двойную обработку
+                with db_conn(5) as conn:
+                    conn.execute(
+                        "INSERT OR IGNORE INTO sent_notifications (order_id, event) VALUES (?, 'payout_triggered')",
+                        (order_id,)
+                    )
+                    conn.commit()
+
+                # Уведомляем клиента: начинаем обработку
                 try:
-                    payout_id = await process_payout_async(order_id, rub_amount, address, currency)
-                    if payout_id:
-                        c.execute("UPDATE orders SET status='sent', paid_btc_tx=?, updated_at=CURRENT_TIMESTAMP WHERE order_id=?",
-                                  (payout_id, order_id))
-                        conn.commit()
-                        # Уведомление клиента о статусе 'sent' отправляет exchange-notifier (status_notifier.py)
-                        await bot.send_message(ADMIN_ID, f"✅ Авто-выплата #{order_id}: {rub_amount} RUB → {currency}\nTXID: <code>{payout_id}</code>", parse_mode="HTML")
-                        await credit_referral_bonus(order_id, user_id, rub_amount)
-                        update_user_vip_volume(user_id, rub_amount)
-                except Exception as e:
-                    logger.error(f"Ошибка авто-выплаты #{order_id}: {e}")
+                    cur_emoji = {'BTC': '₿', 'LTC': 'Ł', 'USDT': '💵 USDT'}.get(currency, currency)
+                    await bot.send_message(
+                        user_id,
+                        f"🔄 <b>Заявка #{order_id}</b>\n\n"
+                        f"Оплата подтверждена! Отправляем {cur_emoji} на ваш адрес.\n"
+                        f"Обычно это занимает 5–15 минут.",
+                        parse_mode="HTML"
+                    )
+                except Exception:
+                    pass
+
+                if rub_amount <= AUTO_PAYOUT_LIMIT:
+                    # Малая заявка — пробуем авто-выплату
                     try:
-                        await bot.send_message(user_id, "⚠️ Возникла временная задержка при отправке средств. Наша команда уже работает над решением. Пожалуйста, ожидайте.")
-                    except Exception:
-                        pass
-        await asyncio.sleep(30)  # проверка каждые 30 секунд
+                        payout_id = await process_payout_async(order_id, rub_amount, address, currency)
+                        if payout_id:
+                            with db_conn(5) as conn:
+                                conn.execute(
+                                    "UPDATE orders SET status='sent', paid_btc_tx=?, updated_at=CURRENT_TIMESTAMP WHERE order_id=?",
+                                    (payout_id, order_id)
+                                )
+                                conn.commit()
+                            await bot.send_message(
+                                ADMIN_ID,
+                                f"✅ <b>Авто-выплата #{order_id}</b>\n{rub_amount:,.0f} RUB → {currency}\n"
+                                f"TXID: <code>{payout_id}</code>",
+                                parse_mode="HTML"
+                            )
+                            await credit_referral_bonus(order_id, user_id, rub_amount)
+                            await update_user_vip_volume(user_id, rub_amount)
+                        else:
+                            # Горячий кошелёк пуст — уходит к работникам
+                            await notify_workers_paid(order_id, rub_amount, address, currency)
+                    except Exception as e:
+                        logger.error(f"Ошибка авто-выплаты #{order_id}: {e}")
+                        await notify_workers_paid(order_id, rub_amount, address, currency)
+                else:
+                    # Крупная заявка — всегда вручную
+                    await notify_workers_paid(order_id, rub_amount, address, currency)
+
+        except Exception as e:
+            logger.error(f"auto_check_payments error: {e}")
+
+        await asyncio.sleep(15)
 
 
 # ---------- АВТОПРОВЕРКА USDT (TRC-20) ----------
@@ -1710,6 +5065,7 @@ async def auto_check_usdt():
                             c.execute("UPDATE orders SET status='sent', paid_btc_tx=?, updated_at=CURRENT_TIMESTAMP WHERE order_id=?",
                                       (payout_id, order_id))
                             conn.commit()
+                            await send_sticker_safe(user_id, STICKER_SUCCESS)
                             try:
                                 await bot.send_message(user_id, f"✅ Выплата USDT #{order_id} выполнена!\nTXID: <code>{payout_id}</code>", parse_mode="HTML")
                             except:
@@ -1758,6 +5114,7 @@ async def swap_status_monitor():
                     c.execute("UPDATE swap_sessions SET status=?, updated_at=datetime('now') WHERE session_token=?", (new_status, token))
                     conn.commit()
                     if new_status == 'finished':
+                        await send_sticker_safe(user_id, STICKER_SUCCESS)
                         try:
                             await bot.send_message(
                                 user_id,
@@ -1902,6 +5259,7 @@ async def cmd_approve(message: Message):
                 c.execute("SELECT user_id FROM orders WHERE order_id=?", (order_id,))
                 user_id = c.fetchone()
             if user_id:
+                await send_sticker_safe(user_id[0], STICKER_SUCCESS)
                 try:
                     await bot.send_message(user_id[0], f"✅ Выплата #{order_id} выполнена после подтверждения!\nTXID: <code>{payout_id}</code>", parse_mode="HTML")
                 except: pass
@@ -2191,6 +5549,49 @@ async def balance_monitor():
         await asyncio.sleep(6 * 3600)  # раз в 6 часов
 
 
+@router.message(Command("testpost"))
+async def cmd_testpost(message: Message):
+    """Отправляет тестовый ежедневный пост только себе (только для админа)."""
+    if message.from_user.id != ADMIN_ID:
+        return
+    await message.answer("⏳ Отправляю тестовый пост...")
+    await send_daily_post(target_id=message.from_user.id)
+    await message.answer("✅ Готово! Для запуска рассылки всем: /broadcast")
+
+
+@router.message(Command("broadcast"))
+async def cmd_broadcast(message: Message):
+    """Запускает немедленную рассылку всем пользователям (только для админа)."""
+    if message.from_user.id != ADMIN_ID:
+        return
+    try:
+        with db_conn(5) as conn:
+            c = conn.cursor()
+            c.execute("SELECT COUNT(*) FROM bot_users WHERE broadcast_enabled=1")
+            count = c.fetchone()[0]
+    except Exception:
+        count = 0
+    await message.answer(f"🚀 Запускаю рассылку {count} пользователям...")
+    asyncio.create_task(send_daily_post())
+
+
+@router.message(Command("getfileid"))
+async def cmd_getfileid(message: Message):
+    """Возвращает file_id GIF/стикера/фото для использования в DAILY_POST_GIF."""
+    if message.from_user.id != ADMIN_ID:
+        return
+    if message.animation:
+        await message.reply(f"🎞 GIF file_id:\n<code>{message.animation.file_id}</code>", parse_mode="HTML")
+    elif message.sticker:
+        await message.reply(f"🎯 Sticker file_id:\n<code>{message.sticker.file_id}</code>", parse_mode="HTML")
+    elif message.photo:
+        await message.reply(f"🖼 Photo file_id:\n<code>{message.photo[-1].file_id}</code>", parse_mode="HTML")
+    elif message.video:
+        await message.reply(f"🎬 Video file_id:\n<code>{message.video.file_id}</code>", parse_mode="HTML")
+    else:
+        await message.reply("Отправь GIF/фото/стикер с командой /getfileid в подписи.")
+
+
 @router.message(Command("balance"))
 async def cmd_balance(message: Message):
     """Показывает текущие балансы и адреса горячих кошельков (BTC/LTC/USDT)."""
@@ -2280,22 +5681,9 @@ async def smart_monitor():
             elif btc_balance >= 10000 and _smart_alert_state["btc"] == 1:
                 _smart_alert_state["btc"] = 0
 
-            # Проверка доступности Platega API
-            try:
-                r = requests.get("https://app.platega.io/", timeout=5)
-                if r.status_code >= 500 and _smart_alert_state["proxy"]:
-                    await bot.send_message(ADMIN_ID, f"⚠️ Platega API недоступен (status {r.status_code})!")
-                    _smart_alert_state["proxy"] = False
-                elif r.status_code < 500 and not _smart_alert_state["proxy"]:
-                    _smart_alert_state["proxy"] = True
-            except:
-                if _smart_alert_state["proxy"]:
-                    await bot.send_message(ADMIN_ID, "❌ Ошибка подключения к Platega API!")
-                    _smart_alert_state["proxy"] = False
-
             # Проверка доступности Relay
             try:
-                r = requests.get("http://127.0.0.1:5000/", timeout=5)
+                r = requests.get("http://127.0.0.1:5001/", timeout=5)
                 if r.status_code != 200 and _smart_alert_state["relay"]:
                     await bot.send_message(ADMIN_ID, "⚠️ Relay недоступен!")
                     _smart_alert_state["relay"] = False
@@ -2306,10 +5694,926 @@ async def smart_monitor():
                     await bot.send_message(ADMIN_ID, "❌ Ошибка подключения к Relay!")
                     _smart_alert_state["relay"] = False
 
+            # Мониторинг провайдеров платежей — проверяем доступность API
+            providers_to_check = [
+                ("Montera",  "https://montera.one/api/health",   "montera"),
+                ("GreenPay", "https://greenpay.win/",             "greenpay"),
+                ("Brabus",   os.getenv('BRABUS_BASE_URL', 'https://brabus.one') + "/", "brabus"),
+            ]
+            for pname, purl, pkey in providers_to_check:
+                try:
+                    r = requests.get(purl, timeout=7)
+                    is_up = r.status_code < 500
+                except Exception:
+                    is_up = False
+
+                prev = _smart_alert_state.get(f"provider_{pkey}", True)
+                if not is_up and prev:
+                    await bot.send_message(
+                        ADMIN_ID,
+                        f"⚠️ <b>{pname}</b> API недоступен!\n"
+                        f"Новые заявки через этот провайдер могут не создаваться.",
+                        parse_mode="HTML"
+                    )
+                    _smart_alert_state[f"provider_{pkey}"] = False
+                elif is_up and not prev:
+                    await bot.send_message(ADMIN_ID, f"✅ <b>{pname}</b> снова доступен.", parse_mode="HTML")
+                    _smart_alert_state[f"provider_{pkey}"] = True
+
+            # Проверяем таблицу provider_health — много ошибок подряд
+            try:
+                with db_conn(5) as conn:
+                    c = conn.cursor()
+                    c.execute(
+                        "SELECT provider, failed_count FROM provider_health WHERE failed_count >= 5 AND is_healthy=0"
+                    )
+                    sick = c.fetchall()
+                for pname, fcnt in sick:
+                    alert_key = f"ph_alert_{pname}"
+                    if not _smart_alert_state.get(alert_key):
+                        await bot.send_message(
+                            ADMIN_ID,
+                            f"🔴 <b>Провайдер {pname}</b>: {fcnt} ошибок создания инвойсов подряд.\n"
+                            f"Проверьте баланс и доступность в личном кабинете провайдера.",
+                            parse_mode="HTML"
+                        )
+                        _smart_alert_state[alert_key] = True
+                # Сбрасываем алерт если провайдер поправился
+                with db_conn(5) as conn:
+                    c = conn.cursor()
+                    c.execute("SELECT provider FROM provider_health WHERE is_healthy=1")
+                    healthy = {r[0] for r in c.fetchall()}
+                for key in list(_smart_alert_state.keys()):
+                    if key.startswith("ph_alert_"):
+                        pname = key[len("ph_alert_"):]
+                        if pname in healthy:
+                            _smart_alert_state[key] = False
+            except Exception as e:
+                logger.warning(f"provider_health check error: {e}")
+
         except Exception as e:
             logger.error(f"Ошибка в smart_monitor: {e}")
 
         await asyncio.sleep(120)  # Проверка каждые 2 минуты
+
+
+# ========== СКИДКА ЗА КАЖДЫЙ 5-Й ОБМЕН ==========
+
+def check_fifth_exchange_discount(user_id: int, rub_amount: float) -> bool:
+    """Возвращает True если следующий обмен будет 5-м (или кратным 5) от 5000+ RUB."""
+    if rub_amount < 5000:
+        return False
+    try:
+        with db_conn(5) as conn:
+            c = conn.cursor()
+            c.execute(
+                "SELECT COUNT(*) FROM orders WHERE user_id=? AND status='completed' AND rub_amount >= 5000",
+                (user_id,)
+            )
+            count = c.fetchone()[0]
+        return count > 0 and (count % 5 == 4)
+    except Exception:
+        return False
+
+
+# ========== ЕЖЕДНЕВНЫЙ ПОСТ В КАНАЛ ==========
+
+async def compose_daily_post() -> str:
+    btc_rate  = get_cached_rate('BTC')  or 0
+    ltc_rate  = get_cached_rate('LTC')  or 0
+    usdt_rate = get_cached_rate('USDT') or 0
+
+    def fmt(val):
+        return f"{int(val):,}".replace(",", " ") if val else "—"
+
+    btc_buy  = int(round(btc_rate  / (1 - 0.27))) if btc_rate  else 0
+    ltc_buy  = int(round(ltc_rate  / (1 - 0.27))) if ltc_rate  else 0
+    usdt_buy = round(usdt_rate / (1 - 0.02), 2)   if usdt_rate else 0
+
+    text = (
+        f"🟣 <b>ObsidianExchange</b> — быстрый и надёжный обменник\n\n"
+
+        f"💱 <b>Актуальные курсы:</b>\n"
+        f"<blockquote>"
+        f"₿  BTC — от <b>{fmt(btc_buy)} ₽</b>\n"
+        f"Ł   LTC — от <b>{fmt(ltc_buy)} ₽</b>\n"
+        f"💵 USDT TRC20 — от <b>{usdt_buy:.2f} ₽</b>"
+        f"</blockquote>\n\n"
+
+        f"⚡️ <b>Почему выбирают нас:</b>\n"
+        f"<blockquote expandable>"
+        f"✅ Работаем 24/7 — бот отвечает мгновенно\n"
+        f"✅ Оплата СБП, картой, Альфа-Банк, Т-Банк, VietQR\n"
+        f"✅ Минимальная сумма — от 2 000 ₽\n"
+        f"✅ Вывод на любой BTC / LTC / USDT адрес\n"
+        f"✅ Своп крипты без регистрации (BTC ⇄ LTC ⇄ USDT)"
+        f"</blockquote>\n\n"
+
+        f"📈 <b>Комиссия BTC / LTC:</b>\n"
+        f"<blockquote>"
+        f"• 2 000 – 5 000 ₽ → <b>27%</b>\n"
+        f"• 5 000 – 10 000 ₽ → <b>25%</b>\n"
+        f"• 10 000 – 20 000 ₽ → <b>23%</b>\n"
+        f"• от 20 000 ₽ → <b>19%</b>\n"
+        f"• USDT TRC20 → <b>2%</b>"
+        f"</blockquote>\n\n"
+
+        f"🎁 <b>Реферальная программа:</b>\n"
+        f"<blockquote>"
+        f"Приглашай друзей — получай <b>10%</b> от нашей комиссии в BTC.\n"
+        f"Вывод в любое время прямо в боте!"
+        f"</blockquote>\n\n"
+
+        f"💎 <b>VIP-статусы:</b>\n"
+        f"<blockquote>"
+        f"🥈 Silver — от 30 000 ₽ → скидка <b>3%</b>\n"
+        f"🥇 Gold — от 100 000 ₽ → скидка <b>6%</b>\n"
+        f"💎 Platinum — от 300 000 ₽ → скидка <b>10%</b>"
+        f"</blockquote>\n\n"
+
+        f"🔥 Каждый 5-й обмен от 5 000 ₽ — скидка <b>1 000 ₽</b> автоматически!\n\n"
+
+        f"━━━━━━━━━━━━━━━━━━━━━\n"
+        f"👉 @Obsidian666999bot\n"
+        f"🌐 obsidian-exchange.org"
+    )
+    return text
+
+
+async def _send_post_to(uid: int, text: str):
+    """Отправляет пост: анимация (стикеры OBSIDIAN+EXCHANGE) + текст как caption — одно сообщение."""
+    if POST_HEADER_FILE_ID:
+        await bot.send_animation(chat_id=uid, animation=POST_HEADER_FILE_ID,
+                                 caption=text, parse_mode="HTML")
+    elif DAILY_POST_GIF:
+        await bot.send_animation(chat_id=uid, animation=DAILY_POST_GIF,
+                                 caption=text, parse_mode="HTML")
+    else:
+        await bot.send_message(uid, text, parse_mode="HTML")
+
+
+async def compose_announce_text() -> str:
+    """Текст разового объявления о возобновлении работы."""
+    btc_rate  = get_cached_rate('BTC')  or 0
+    ltc_rate  = get_cached_rate('LTC')  or 0
+    usdt_rate = get_cached_rate('USDT') or 0
+
+    def fmt(val):
+        return f"{int(val):,}".replace(",", " ") if val else "—"
+
+    btc_buy  = int(round(btc_rate  / (1 - 0.27))) if btc_rate  else 0
+    ltc_buy  = int(round(ltc_rate  / (1 - 0.27))) if ltc_rate  else 0
+    usdt_buy = round(usdt_rate / (1 - 0.02), 2)   if usdt_rate else 0
+
+    return (
+        f"🟣 <b>ObsidianExchange</b>\n\n"
+        f"✅ <b>Технические работы завершены!</b>\n\n"
+        f"Мы вернулись и готовы принимать новые заявки прямо сейчас.\n\n"
+        f"💼 <b>Резервы пополнены до 500 000 ₽</b> на все направления:\n"
+        f"<blockquote>"
+        f"₿  BTC · Ł LTC · 💵 USDT TRC20"
+        f"</blockquote>\n\n"
+        f"📊 <b>Актуальные курсы:</b>\n"
+        f"<blockquote>"
+        f"₿  BTC  — от <b>{fmt(btc_buy)} ₽</b>\n"
+        f"Ł  LTC  — от <b>{fmt(ltc_buy)} ₽</b>\n"
+        f"💵 USDT — от <b>{usdt_buy:.2f} ₽</b>"
+        f"</blockquote>\n\n"
+        f"🔒 Non-KYC · Без верификации · Мин. 2 000 ₽\n\n"
+        f"👉 Нажмите <b>«Обменять»</b> — бот ответит мгновенно!"
+    )
+
+
+async def send_announce(target_id: int = None):
+    """Рассылает разовое объявление всем пользователям (или одному target_id для теста)."""
+    text = await compose_announce_text()
+
+    if target_id:
+        try:
+            await bot.send_message(target_id, text, parse_mode="HTML")
+        except Exception as e:
+            logger.error(f"Ошибка тестовой отправки объявления: {e}")
+        return
+
+    try:
+        with db_conn(5) as conn:
+            c = conn.cursor()
+            c.execute("SELECT user_id FROM bot_users WHERE broadcast_enabled=1")
+            user_ids = [row[0] for row in c.fetchall()]
+    except Exception as e:
+        logger.error(f"Не удалось получить список пользователей для объявления: {e}")
+        return
+
+    sent = 0
+    failed = 0
+    blocked = 0
+    for uid in user_ids:
+        try:
+            await bot.send_message(uid, text, parse_mode="HTML")
+            sent += 1
+        except Exception as e:
+            err = str(e).lower()
+            if "blocked" in err or "deactivated" in err or "forbidden" in err or "not found" in err:
+                blocked += 1
+                try:
+                    with db_conn(5) as conn:
+                        conn.execute("UPDATE bot_users SET broadcast_enabled=0 WHERE user_id=?", (uid,))
+                        conn.commit()
+                except Exception:
+                    pass
+            else:
+                failed += 1
+                logger.warning(f"Не удалось отправить объявление пользователю {uid}: {e}")
+        await asyncio.sleep(0.05)
+
+    logger.info(f"Объявление разослано: отправлено {sent}, заблокировали {blocked}, ошибок {failed}")
+    try:
+        await bot.send_message(ADMIN_ID,
+            f"📣 Рассылка объявления завершена:\n"
+            f"✅ Доставлено: {sent}\n"
+            f"🚫 Заблокировали бота: {blocked}\n"
+            f"❌ Ошибок: {failed}"
+        )
+    except Exception:
+        pass
+
+
+@router.message(Command("testannounce"))
+async def cmd_testannounce(message: Message):
+    """Отправляет тестовое объявление только себе (только для админа)."""
+    if message.from_user.id != ADMIN_ID:
+        return
+    await message.answer("⏳ Отправляю тестовое объявление...")
+    await send_announce(target_id=message.from_user.id)
+    await message.answer("✅ Готово! Если всё ок — запусти /announce для рассылки всем.")
+
+
+@router.message(Command("announce"))
+async def cmd_announce(message: Message):
+    """Рассылает разовое объявление всем пользователям (только для админа)."""
+    if message.from_user.id != ADMIN_ID:
+        return
+    try:
+        with db_conn(5) as conn:
+            c = conn.cursor()
+            c.execute("SELECT COUNT(*) FROM bot_users WHERE broadcast_enabled=1")
+            count = c.fetchone()[0]
+    except Exception:
+        count = 0
+    await message.answer(f"📣 Запускаю рассылку объявления {count} пользователям...")
+    asyncio.create_task(send_announce())
+
+
+async def send_daily_post(target_id: int = None):
+    """Рассылает ежедневный пост всем пользователям бота (или одному target_id для теста)."""
+    text = await compose_daily_post()
+
+    if target_id:
+        try:
+            await _send_post_to(target_id, text)
+        except Exception as e:
+            logger.error(f"Ошибка тестовой отправки поста: {e}")
+        return
+
+    # Массовая рассылка
+    try:
+        with db_conn(5) as conn:
+            c = conn.cursor()
+            c.execute("SELECT user_id FROM bot_users WHERE broadcast_enabled=1")
+            user_ids = [row[0] for row in c.fetchall()]
+    except Exception as e:
+        logger.error(f"Не удалось получить список пользователей для рассылки: {e}")
+        return
+
+    sent = 0
+    failed = 0
+    blocked = 0
+    for uid in user_ids:
+        try:
+            await _send_post_to(uid, text)
+            sent += 1
+        except Exception as e:
+            err = str(e).lower()
+            if "blocked" in err or "deactivated" in err or "forbidden" in err or "not found" in err:
+                blocked += 1
+                try:
+                    with db_conn(5) as conn:
+                        conn.execute("UPDATE bot_users SET broadcast_enabled=0 WHERE user_id=?", (uid,))
+                        conn.commit()
+                except Exception:
+                    pass
+            else:
+                failed += 1
+                logger.warning(f"Не удалось отправить пост пользователю {uid}: {e}")
+        await asyncio.sleep(0.05)  # 20 сообщений/сек — в рамках лимитов Telegram
+
+    logger.info(f"Рассылка завершена: отправлено {sent}, заблокировали бота {blocked}, ошибок {failed}")
+    try:
+        await bot.send_message(ADMIN_ID,
+            f"📊 Ежедневная рассылка завершена:\n"
+            f"✅ Доставлено: {sent}\n"
+            f"🚫 Заблокировали бота: {blocked}\n"
+            f"❌ Ошибок: {failed}"
+        )
+    except Exception:
+        pass
+
+
+_RATE_TIPS = [
+    "💡 <b>VIP-статус</b> даёт скидку до 10% — накапливается автоматически от суммы всех обменов.",
+    "🔄 <b>Своп</b> BTC ↔ LTC ↔ USDT без регистрации и верификации — комиссия всего ~1%.",
+    "🎁 <b>Реферальная программа:</b> приглашай друзей и получай 10% от нашей комиссии в BTC навсегда.",
+    "🔒 <b>Non-KYC:</b> мы не запрашиваем документы. Никогда. Это принцип, а не временная акция.",
+    "⚡ <b>Скорость:</b> среднее время обработки заявки — 5–15 минут в рабочее время.",
+    "💰 <b>Продажа крипты:</b> принимаем BTC, LTC, USDT TRC20 → выплата рублями на СБП.",
+    "⭐ <b>Каждый 5-й обмен</b> от 5 000 ₽ — автоматическая скидка 1 000 ₽.",
+]
+_rate_tip_index = 0
+
+
+async def rate_alert_scheduler():
+    """Умные уведомления об изменении курса — не чаще раза в сутки, только при движении >5%."""
+    global _rate_tip_index
+    CHANGE_THRESHOLD = 0.05   # 5% изменение = повод уведомить
+    MIN_INTERVAL    = 86400   # минимум 24 часа между уведомлениями одному пользователю
+    CHECK_EVERY     = 1800    # проверяем каждые 30 минут
+
+    await asyncio.sleep(120)  # дать боту полностью запуститься
+
+    while True:
+        try:
+            btc  = get_cached_rate('BTC')  or 0
+            ltc  = get_cached_rate('LTC')  or 0
+            usdt = get_cached_rate('USDT') or 0
+            now  = time.time()
+
+            if not btc:
+                await asyncio.sleep(CHECK_EVERY)
+                continue
+
+            def fmt(v, d=0):
+                return f"{v:,.{d}f}".replace(',', ' ') if v else '—'
+
+            with db_conn(5) as conn:
+                c = conn.cursor()
+                c.execute("""
+                    SELECT rs.user_id, rs.last_notified, rs.last_btc, rs.last_ltc, rs.last_usdt
+                    FROM rate_subscriptions rs
+                    WHERE rs.enabled = 1
+                """)
+                subscribers = c.fetchall()
+
+            for uid, last_notified, last_btc, last_ltc, last_usdt in subscribers:
+                # Пропускаем если уведомляли менее 24 часов назад
+                if now - last_notified < MIN_INTERVAL:
+                    continue
+
+                # Считаем изменение курса с момента последнего уведомления
+                btc_change  = abs(btc  - last_btc)  / last_btc  if last_btc  else 1
+                ltc_change  = abs(ltc  - last_ltc)  / last_ltc  if last_ltc  else 1
+                usdt_change = abs(usdt - last_usdt) / last_usdt if last_usdt else 1
+
+                significant = (btc_change >= CHANGE_THRESHOLD or
+                               ltc_change >= CHANGE_THRESHOLD or
+                               usdt_change >= CHANGE_THRESHOLD)
+
+                # Если прошло больше 48 часов — всё равно шлём (но не слишком часто)
+                overdue = last_notified > 0 and (now - last_notified > 172800)
+
+                if not significant and not overdue:
+                    continue
+
+                # Формируем стрелку тренда
+                def trend(cur, prev):
+                    if not prev:
+                        return ''
+                    return ' 📈' if cur > prev else ' 📉'
+
+                tip = _RATE_TIPS[_rate_tip_index % len(_RATE_TIPS)]
+                _rate_tip_index += 1
+
+                text = (
+                    f"📊 <b>Курс криптовалют сейчас</b>\n\n"
+                    f"<blockquote>"
+                    f"₿  BTC  — <b>{fmt(btc)} ₽</b>{trend(btc, last_btc)}\n"
+                    f"Ł  LTC  — <b>{fmt(ltc)} ₽</b>{trend(ltc, last_ltc)}\n"
+                    f"💵 USDT — <b>{fmt(usdt, 2)} ₽</b>{trend(usdt, last_usdt)}"
+                    f"</blockquote>\n\n"
+                    f"{tip}\n\n"
+                    f"<i>Чтобы отключить уведомления — зайди в 👤 Профиль.</i>"
+                )
+                kb = InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="💱 Обменять сейчас", callback_data="menu_exchange")]
+                ])
+                try:
+                    await bot.send_message(uid, text, parse_mode="HTML", reply_markup=kb)
+                    with db_conn(5) as conn:
+                        conn.execute(
+                            "UPDATE rate_subscriptions SET last_notified=?, last_btc=?, last_ltc=?, last_usdt=? WHERE user_id=?",
+                            (now, btc, ltc, usdt, uid)
+                        )
+                        conn.commit()
+                except Exception as e:
+                    err = str(e).lower()
+                    if "blocked" in err or "forbidden" in err or "deactivated" in err:
+                        with db_conn(5) as conn:
+                            conn.execute("UPDATE rate_subscriptions SET enabled=0 WHERE user_id=?", (uid,))
+                            conn.commit()
+                    else:
+                        logger.warning(f"rate_alert: не удалось отправить {uid}: {e}")
+                await asyncio.sleep(0.05)
+
+        except Exception as e:
+            logger.error(f"rate_alert_scheduler error: {e}")
+
+        await asyncio.sleep(CHECK_EVERY)
+
+
+async def daily_post_scheduler():
+    """Отправляет пост каждый день в DAILY_POST_HOUR_UTC:00 UTC."""
+    import calendar
+    while True:
+        import time as _time
+        now_ts = _time.gmtime()
+        now_h = now_ts.tm_hour + now_ts.tm_min / 60 + now_ts.tm_sec / 3600
+        target_h = DAILY_POST_HOUR_UTC
+        if now_h < target_h:
+            delay = (target_h - now_h) * 3600
+        else:
+            delay = (24 - now_h + target_h) * 3600
+        logger.info(f"Следующий ежедневный пост через {int(delay/3600)}ч {int((delay%3600)/60)}м")
+        await asyncio.sleep(int(delay))
+        await send_daily_post()
+
+
+# ══════════════════════════════════════════════════════════════════
+# АВТОПОСТЫ — НАПОМИНАНИЯ О ФУНКЦИОНАЛЕ
+# Каждый понедельник в 11:00 МСК — ротируем блок функций.
+# Раз в 4 недели — тарифная сетка целиком.
+# ══════════════════════════════════════════════════════════════════
+
+_TARIFF_TEXT = """💎 <b>Тарифная сетка ObsidianExchange</b>
+
+<blockquote><b>Комиссия зависит от суммы:</b>
+• 2 000 — 4 999 ₽ → <b>27%</b>
+• 5 000 — 9 999 ₽ → <b>25%</b>
+• 10 000 — 19 999 ₽ → <b>23%</b>
+• от 20 000 ₽ → <b>19%</b>
+• USDT (TRC-20) → <b>~2%</b></blockquote>
+
+<blockquote><b>VIP-скидки (накопительно):</b>
+🥈 Silver — от 30 000 ₽ оборота → <b>−3%</b>
+🥇 Gold — от 100 000 ₽ → <b>−6%</b>
+💎 Platinum — от 300 000 ₽ → <b>−10%</b></blockquote>
+
+<blockquote><b>Специальные тарифы:</b>
+⏳ Лимитная заявка → <b>+1%</b> к стандарту
+🔒 Фиксация курса на 15 мин → <b>100 ₽</b>
+🎁 Промокод → скидка до <b>−5%</b> к комиссии</blockquote>
+
+Обмен BTC, LTC, USDT TRC-20 · Оплата СБП / карта · Без KYC"""
+
+_FEATURE_POSTS = [
+    # 0 — лимитные заявки
+    (
+        "⏳ <b>Лимитные заявки — покупайте по нужному курсу</b>\n\n"
+        "Устали следить за курсом вручную?\n\n"
+        "Просто скажите боту: «куплю BTC когда курс упадёт до X» — "
+        "и бот сам создаст заявку в нужный момент. Вам останется только оплатить.\n\n"
+        "<blockquote>✅ Работает круглосуточно\n"
+        "✅ Ордер действует 7 дней\n"
+        "✅ Комиссия всего +1% к стандарту</blockquote>\n\n"
+        "👉 Нажмите <b>⏳ Лимитная заявка</b> в меню бота.",
+        "menu_limit"
+    ),
+    # 1 — DCA
+    (
+        "📅 <b>DCA — копите крипту без стресса</b>\n\n"
+        "Профессиональная стратегия усреднения теперь в вашем кармане.\n\n"
+        "Настройте регулярную покупку — бот будет автоматически создавать заявку "
+        "каждые 3, 7, 14 или 30 дней. Вы просто оплачиваете.\n\n"
+        "<blockquote>💡 Покупки по разным ценам = ниже средняя стоимость\n"
+        "⚡ Без мониторинга рынка\n"
+        "🔄 Подходит для BTC, LTC, USDT</blockquote>\n\n"
+        "👉 Нажмите <b>📅 DCA-автопокупка</b> в меню бота.",
+        "menu_dca"
+    ),
+    # 2 — подарки
+    (
+        "🎁 <b>Крипто-подарок — оригинальный способ поздравить</b>\n\n"
+        "Подарите другу или близкому криптовалюту — даже если у него нет кошелька.\n\n"
+        "<blockquote>1️⃣ Вы оплачиваете подарок\n"
+        "2️⃣ Получаете красивую карточку с кодом\n"
+        "3️⃣ Отправляете другу в любом мессенджере\n"
+        "4️⃣ Друг вводит код → получает крипту на свой адрес</blockquote>\n\n"
+        "₿ BTC · Ł LTC · 💵 USDT — от 2 000 ₽\n\n"
+        "👉 Нажмите <b>🎁 Подарить крипту</b> в меню бота.",
+        "menu_gift"
+    ),
+    # 3 — тарифная сетка (раз в 4 недели)
+    (_TARIFF_TEXT, "menu_exchange"),
+    # 4 — фиксация курса
+    (
+        "🔒 <b>Гарантированный курс — оплачивайте без спешки</b>\n\n"
+        "Курс всегда движется. Бывает обидно: нашёл хороший момент, а пока "
+        "собирал деньги — курс ушёл.\n\n"
+        "Теперь не так: нажмите <b>🔒 Зафиксировать курс</b> и 15 минут "
+        "курс принадлежит вам — рынок хоть на 5% улетит.\n\n"
+        "<blockquote>💰 Стоимость фиксации: 100 ₽\n"
+        "⏱ Длительность: 15 минут\n"
+        "✅ Применяется автоматически при создании заявки</blockquote>\n\n"
+        "👉 Нажмите <b>🔒 Зафиксировать курс</b> в меню бота.",
+        "menu_ratelock"
+    ),
+    # 5 — рефералка
+    (
+        "🎁 <b>Зарабатывайте на рефералке без вложений</b>\n\n"
+        "Пригласите друга — получите бонус с каждого его обмена навсегда.\n\n"
+        "<blockquote>• Ваш друг делает обмен → вы получаете бонус\n"
+        "• Бонус начисляется автоматически\n"
+        "• Вывод в любой момент</blockquote>\n\n"
+        "Чем больше активных рефералов — тем выше пассивный доход.\n\n"
+        "👉 Нажмите <b>🎁 Пригласить и заработать</b> в меню бота.",
+        "menu_ref"
+    ),
+    # 6 — VIP
+    (
+        "💎 <b>VIP-статус — меньше комиссия, больше выгода</b>\n\n"
+        "Чем больше вы обмениваете — тем дешевле каждый следующий обмен.\n\n"
+        "<blockquote>🥈 Silver (от 30 000 ₽) → комиссия −3%\n"
+        "🥇 Gold (от 100 000 ₽) → комиссия −6%\n"
+        "💎 Platinum (от 300 000 ₽) → комиссия −10%</blockquote>\n\n"
+        "Статус начисляется автоматически. Проверить — в разделе <b>👤 Профиль</b>.\n\n"
+        "👉 Ваш статус и текущий объём — /profile",
+        "menu_profile"
+    ),
+    # 7 — полный функционал (сводка)
+    (
+        "🟣 <b>ObsidianExchange — всё в одном боте</b>\n\n"
+        "<blockquote>"
+        "💱 Купить BTC, LTC, USDT — от 2 000 ₽\n"
+        "⏳ Лимитная заявка — по нужному курсу\n"
+        "📅 DCA — автопокупка по расписанию\n"
+        "🔒 Фиксация курса на 15 минут\n"
+        "🎁 Крипто-подарки для друзей\n"
+        "💎 VIP-скидки до −10%\n"
+        "🎟 Промокоды\n"
+        "📋 История и экспорт заявок\n"
+        "🆘 Поддержка 24/7"
+        "</blockquote>\n\n"
+        "Оплата: СБП или карта. Без KYC. Работаем с 2024 года.\n\n"
+        "👉 Начать обмен →",
+        "menu_exchange"
+    ),
+]
+
+# Глобальный счётчик ротации (сохраняем между перезапусками в файле)
+_FEATURE_INDEX_FILE = "/root/bot/.feature_index"
+
+def _get_feature_index() -> int:
+    try:
+        return int(open(_FEATURE_INDEX_FILE).read().strip())
+    except Exception:
+        return 0
+
+def _set_feature_index(i: int):
+    try:
+        open(_FEATURE_INDEX_FILE, "w").write(str(i))
+    except Exception:
+        pass
+
+
+async def feature_broadcast(target_id: int = None):
+    """Рассылка одного поста из ротации всем пользователям (или target_id для теста)."""
+    idx = _get_feature_index()
+    text, btn_data = _FEATURE_POSTS[idx % len(_FEATURE_POSTS)]
+    _set_feature_index((idx + 1) % len(_FEATURE_POSTS))
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="💱 Открыть", callback_data=btn_data)
+    ]])
+
+    if target_id:
+        await bot.send_message(target_id, text, parse_mode="HTML", reply_markup=kb)
+        return
+
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        c.execute("""SELECT DISTINCT user_id FROM orders
+                     WHERE user_id > 0
+                     GROUP BY user_id""")
+        users = [r[0] for r in c.fetchall()]
+
+    sent = skipped = 0
+    for uid in users:
+        try:
+            await bot.send_message(uid, text, parse_mode="HTML", reply_markup=kb)
+            sent += 1
+        except Exception:
+            skipped += 1
+        await asyncio.sleep(0.05)
+
+    await bot.send_message(
+        ADMIN_ID,
+        f"📣 Фича-пост #{idx} разослан\n✅ {sent} · ⛔ {skipped}",
+        parse_mode="HTML"
+    )
+
+
+async def feature_broadcast_scheduler():
+    """Каждый понедельник в 08:00 UTC (11:00 МСК) — рассылаем пост о функционале."""
+    import datetime as _dt
+    while True:
+        try:
+            now = _dt.datetime.utcnow()
+            # Следующий понедельник 08:00 UTC
+            days_until_monday = (7 - now.weekday()) % 7 or 7
+            target = (now + _dt.timedelta(days=days_until_monday)).replace(
+                hour=8, minute=0, second=0, microsecond=0
+            )
+            wait = (target - now).total_seconds()
+            logger.info(f"feature_broadcast следующий через {int(wait/3600)}ч")
+            await asyncio.sleep(wait)
+            await feature_broadcast()
+        except Exception as e:
+            logger.error(f"feature_broadcast_scheduler error: {e}")
+            await asyncio.sleep(3600)
+
+
+_PROMO_POST_HTML = """🟣 <b>ObsidianExchange</b> — крипто-обменник нового поколения
+
+Без паспорта · Без ожидания · Бот работает сам круглосуточно
+
+〰〰〰〰〰〰〰〰〰〰〰〰〰
+
+⚡ <b>ЧТО УМЕЕТ НАШ БОТ</b>
+
+▸ <b>Покупка и продажа</b> — платишь рублями по СБП или картой, бот автоматически отправляет BTC / LTC / USDT на твой адрес сразу после оплаты
+
+▸ <b>Своп</b> — меняешь BTC → LTC → USDT напрямую, без конвертации в рубли
+
+▸ <b>Лимитные заявки</b> — выставляешь целевой курс и забываешь. Бот сам исполнит сделку когда цена достигнет нужной отметки. Работает 7 дней
+
+▸ <b>DCA-автопокупка</b> — настраиваешь расписание раз и навсегда. Бот покупает крипту каждые N дней без твоего участия. Усредняй позицию без нервов
+
+▸ <b>Фиксация курса</b> — заморозь текущий курс на 15 минут пока ищешь средства. Рынок хоть на 5% улетит — курс твой
+
+▸ <b>Крипто-подарок</b> — отправь BTC, LTC или USDT другу прямо в боте, одной кнопкой. Получи красивую карточку с кодом
+
+〰〰〰〰〰〰〰〰〰〰〰〰〰
+
+📊 <b>ПРОГРЕССИВНАЯ КОМИССИЯ</b>
+
+<blockquote>• 500 – 2 000 ₽ → <b>25%</b>
+• 2 000 – 10 000 ₽ → <b>23%</b>
+• от 10 000 ₽ → <b>21%</b>
+• 💎 VIP Platinum → <b>от 19%</b>
+
+<i>Чем больше объём — тем ниже комиссия</i></blockquote>
+
+💎 <b>VIP-статусы:</b> 🥈 Silver · 🥇 Gold · 💎 Platinum — присваивается автоматически по объёму, скидка без заявок
+
+👥 <b>Реферальная программа</b> — получай <b>1%</b> с каждого обмена приглашённых навсегда. Статистика в разделе Профиль
+
+🎟 <b>Промокоды</b> для новых клиентов — следи за каналом, публикуем регулярно
+
+〰〰〰〰〰〰〰〰〰〰〰〰〰
+
+✅ NON-KYC — никаких документов и верификации. Никогда
+✅ Автовыплаты — крипта уходит сразу после подтверждения оплаты
+✅ Мониторинг 24/7 — уведомления на каждом шаге заявки
+✅ Поддержка прямо в боте — отвечаем за 30 минут
+✅ Личный кабинет — obsidian-exchange.org
+
+〰〰〰〰〰〰〰〰〰〰〰〰〰
+
+👉 <b>@Obsidian666999bot</b>
+🌐 obsidian-exchange.org
+
+<i>BTC · LTC · USDT TRC-20 · СБП · Карта · Работаем без выходных</i>"""
+
+
+@router.message(Command("postpromo"))
+async def cmd_postpromo(message: Message):
+    """/postpromo — рекламный пост с баннером в канал.
+       /postpromo preview — предпросмотр без публикации."""
+    if message.from_user.id != ADMIN_ID:
+        return
+    parts = message.text.split()
+    preview = len(parts) > 1 and parts[1] == "preview"
+    target = message.chat.id if preview else CHANNEL_ID
+    banner = pathlib.Path("/root/bot/images/promo_banner.png")
+    try:
+        # Сначала баннер без caption
+        if banner.exists():
+            await bot.send_photo(target, FSInputFile(str(banner)))
+        # Затем полный текст отдельным сообщением
+        await bot.send_message(
+            target,
+            _PROMO_POST_HTML,
+            parse_mode="HTML",
+            disable_web_page_preview=True,
+        )
+        if preview:
+            await message.answer("👆 Предпросмотр выше. Для публикации: /postpromo")
+        else:
+            await message.answer("✅ Пост с баннером опубликован в канале.\n🔗 Закрепи: удержи → Закрепить")
+    except Exception as e:
+        await message.answer(f"❌ Ошибка: {e}")
+
+
+@router.message(Command("featurepost"))
+async def cmd_featurepost(message: Message):
+    """/featurepost — тест текущего поста / /featurepost all — рассылка всем."""
+    if message.from_user.id != ADMIN_ID:
+        return
+    parts = message.text.split()
+    if len(parts) > 1 and parts[1] == "all":
+        await message.answer("📣 Запускаю рассылку...")
+        await feature_broadcast()
+    else:
+        idx = _get_feature_index()
+        text, btn_data = _FEATURE_POSTS[idx % len(_FEATURE_POSTS)]
+        kb = InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(text="💱 Открыть", callback_data=btn_data)
+        ]])
+        await message.answer(f"📋 Превью поста #{idx}:\n\n{text}", parse_mode="HTML", reply_markup=kb)
+
+
+@router.message(Command("tariff"))
+async def cmd_tariff(message: Message):
+    """Публичная команда — показывает тарифную сетку."""
+    kb = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="💱 Обменять", callback_data="menu_exchange")
+    ]])
+    await message.answer(_TARIFF_TEXT, parse_mode="HTML", reply_markup=kb)
+
+
+async def recall_inactive_users():
+    """Раз в 3 дня напоминает клиентам, не делавшим заявок > 14 дней.
+    Каждый клиент получает не более одного recall-сообщения в 14 дней."""
+    import datetime as _dt
+    while True:
+        try:
+            now = _dt.datetime.utcnow()
+            # Запускаем в 10:00 UTC (13:00 МСК)
+            target = now.replace(hour=10, minute=0, second=0, microsecond=0)
+            if now >= target:
+                target += _dt.timedelta(days=3)
+            await asyncio.sleep((target - now).total_seconds())
+
+            threshold_inactive = (
+                _dt.datetime.utcnow() - _dt.timedelta(days=14)
+            ).strftime("%Y-%m-%d %H:%M:%S")
+            threshold_notified = (
+                _dt.datetime.utcnow() - _dt.timedelta(days=14)
+            ).strftime("%Y-%m-%d %H:%M:%S")
+
+            with db_conn(5) as conn:
+                c = conn.cursor()
+                # Клиенты с минимум 1 успешной заявкой, неактивные > 14 дней
+                c.execute("""
+                    SELECT DISTINCT o.user_id
+                    FROM orders o
+                    WHERE o.user_id > 0
+                      AND o.status = 'sent'
+                      AND NOT EXISTS (
+                          SELECT 1 FROM orders o2
+                          WHERE o2.user_id = o.user_id
+                            AND o2.created_at > ?
+                      )
+                      AND NOT EXISTS (
+                          SELECT 1 FROM sent_notifications sn
+                          WHERE sn.order_id = o.user_id AND sn.event = 'recall'
+                            AND sn.created_at > ?
+                      )
+                    LIMIT 200
+                """, (threshold_inactive, threshold_notified))
+                users = [r[0] for r in c.fetchall()]
+
+            btc_rate = get_cached_rate('BTC')
+            ltc_rate = get_cached_rate('LTC')
+            usdt_rate = get_cached_rate('USDT')
+
+            sent = 0
+            for uid in users:
+                try:
+                    await bot.send_message(
+                        uid,
+                        f"🟣 <b>ObsidianExchange — актуальные курсы</b>\n\n"
+                        f"<blockquote>"
+                        f"₿ BTC → {int(btc_rate * 0.81):,} ₽\n"
+                        f"Ł LTC → {int(ltc_rate * 0.81):,} ₽\n"
+                        f"💵 USDT → {int(usdt_rate * 0.98):,} ₽"
+                        f"</blockquote>\n\n"
+                        f"Готовы к обмену? Нажмите кнопку ниже 👇".replace(",", " "),
+                        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                            InlineKeyboardButton(text="💱 Обменять", callback_data="menu_exchange")
+                        ]]),
+                        parse_mode="HTML"
+                    )
+                    # Записываем факт отправки (используем user_id как order_id для recall)
+                    with db_conn(3) as conn:
+                        conn.execute(
+                            "INSERT OR IGNORE INTO sent_notifications (order_id, event) VALUES (?, 'recall')",
+                            (uid,)
+                        )
+                        conn.commit()
+                    sent += 1
+                    await asyncio.sleep(0.05)  # не спамим TG API
+                except Exception:
+                    pass
+
+            if sent:
+                logger.info(f"recall_inactive_users: отправлено {sent} сообщений")
+
+        except Exception as e:
+            logger.error(f"recall_inactive_users error: {e}")
+            await asyncio.sleep(3600)
+
+
+async def montera_receipt_reminder():
+    """Напоминание клиенту за 10 минут до истечения 30-минутного окна чека Montera."""
+    while True:
+        try:
+            import datetime as _dt
+            now = _dt.datetime.utcnow()
+            # Окно: дедлайн через 8–12 минут, чек ещё не отправлен, заявка pending
+            window_from = (now + _dt.timedelta(minutes=8)).strftime("%Y-%m-%d %H:%M:%S")
+            window_to   = (now + _dt.timedelta(minutes=12)).strftime("%Y-%m-%d %H:%M:%S")
+            with db_conn(5) as conn:
+                c = conn.cursor()
+                c.execute("""
+                    SELECT o.order_id, o.user_id, o.montera_invoice_id, o.receipt_deadline
+                    FROM orders o
+                    WHERE o.receipt_deadline BETWEEN ? AND ?
+                      AND o.receipt_sent_at IS NULL
+                      AND o.status = 'pending'
+                      AND NOT EXISTS (
+                          SELECT 1 FROM sent_notifications sn
+                          WHERE sn.order_id = o.order_id AND sn.event = 'receipt_reminder'
+                      )
+                """, (window_from, window_to))
+                rows = c.fetchall()
+
+            for oid, uid, inv_id, deadline in rows:
+                if uid and uid > 0:
+                    try:
+                        await bot.send_message(
+                            uid,
+                            f"⏰ <b>Заявка #{oid} — осталось ~10 минут!</b>\n\n"
+                            f"Пожалуйста, оплатите перевод и отправьте <b>PDF-чек</b> прямо сейчас.\n"
+                            f"Если вы уже оплатили — просто перешлите чек сюда.",
+                            parse_mode="HTML"
+                        )
+                    except Exception:
+                        pass
+                    await bot.send_message(
+                        ADMIN_ID,
+                        f"⚠️ <b>Заявка #{oid}</b> — чек не отправлен, дедлайн через ~10 мин\n"
+                        f"Montera ID: <code>{inv_id}</code>",
+                        parse_mode="HTML"
+                    )
+                with db_conn(5) as conn:
+                    conn.execute(
+                        "INSERT OR IGNORE INTO sent_notifications (order_id, event) VALUES (?, 'receipt_reminder')",
+                        (oid,)
+                    )
+                    conn.commit()
+        except Exception as e:
+            logger.error(f"montera_receipt_reminder error: {e}")
+        await asyncio.sleep(60)
+
+
+# ── Стоп-таймер: UUID сообщения для Montera-оператора при задержке чека ──────
+# Если клиент явно оплатил, но не успевает прислать чек — форвардни это сообщение
+# в чат Montera чтобы остановить таймер.
+MONTERA_STOP_TIMER_MSG_ID = "7556e112-7438-440c-bf4b-e38a81f1d49e"
+MONTERA_STOP_TIMER_IMG    = "https://postimg.cc/Wq2zpG4G"
+
+@router.message(Command("stoptimer"))
+async def stoptimer_cmd(message: Message):
+    """Для тебя: /stoptimer ORDER_ID — отправляет напоминание себе с UUID для Montera."""
+    if message.from_user.id != ADMIN_ID:
+        return
+    parts = message.text.split()
+    order_id = parts[1] if len(parts) > 1 else "?"
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        c.execute("SELECT montera_invoice_id, rub_amount FROM orders WHERE order_id=?", (order_id,))
+        row = c.fetchone()
+    inv_id = row[0] if row else "—"
+    amt    = row[1] if row else "?"
+    await message.answer(
+        f"🛑 <b>Стоп-таймер — Заявка #{order_id}</b>\n\n"
+        f"Montera Deal ID: <code>{inv_id}</code>\n"
+        f"Сумма: {amt} ₽\n\n"
+        f"Шаблонное сообщение для Montera:\n"
+        f"<code>{MONTERA_STOP_TIMER_MSG_ID}</code>\n\n"
+        f"Скопируй UUID выше и отправь в чат Montera — это остановит таймер на 30 минут.",
+        parse_mode="HTML"
+    )
+
 
 async def main():
     asyncio.create_task(balance_monitor())
@@ -2320,14 +6624,21 @@ async def main():
     # Авто-выплата готова (BTC/LTC), но отключена: PayoutWallet/PayoutLTC пусты.
     # Перед включением — пополнить горячие кошельки и проверить баланс через /balance,
     # затем раскомментировать строку ниже и перезапустить сервис.
-    # asyncio.create_task(auto_check_payments())
+    asyncio.create_task(auto_check_payments())
     asyncio.create_task(auto_check_usdt())
     asyncio.create_task(swap_status_monitor())
-    # # asyncio.create_task(daily_report())
+    asyncio.create_task(daily_post_scheduler())
+    asyncio.create_task(rate_alert_scheduler())
+    asyncio.create_task(montera_receipt_reminder())
+    asyncio.create_task(limit_order_watcher())
+    asyncio.create_task(recall_inactive_users())
+    asyncio.create_task(dca_runner())
+    asyncio.create_task(feature_broadcast_scheduler())
+    asyncio.create_task(daily_report())
     # # asyncio.create_task(platega_healthcheck())
-    # # asyncio.create_task(check_stuck_orders())
-    # # asyncio.create_task(website_healthcheck())
-    # # asyncio.create_task(disk_healthcheck())
+    asyncio.create_task(check_stuck_orders())
+    asyncio.create_task(website_healthcheck())
+    asyncio.create_task(disk_healthcheck())
     await check_balance()  # сразу при старте
     logger.info("Бот запущен")
     await dp.start_polling(bot)

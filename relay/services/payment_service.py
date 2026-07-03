@@ -1,39 +1,67 @@
 import sqlite3, os, time
 from datetime import datetime, timedelta
-from providers.platega import PlategaProvider
 from providers.fallback import FallbackProvider
 from utils.tokens import generate_session_token
 from utils.logger import get_logger
 from services.state_machine import PaymentStateMachine
+from services.smart_router import choose_provider, record_outcome, get_health_scores
 
 DB_PATH = os.getenv('DB_PATH', '/root/exchange.db')
 logger = get_logger(__name__)
 
 class PaymentService:
-    def __init__(self, provider=None):
-        self.provider = provider if provider else PlategaProvider()
+    def __init__(self, provider=None, amount=None):
+        if provider is None:
+            provider_name = choose_provider(amount or 10000)
+            self.provider = self._load_provider(provider_name)
+        else:
+            self.provider = provider
+
+    def _load_provider(self, name: str):
+        """Загружает провайдер по имени класса."""
+        try:
+            if name == 'BrabusProvider':
+                from providers.brabus import BrabusProvider
+                return BrabusProvider()
+            elif name == 'GreenPayProvider':
+                from providers.greenpay import GreenPayProvider
+                return GreenPayProvider()
+            else:
+                from providers.fallback import FallbackProvider
+                return FallbackProvider()
+        except Exception as e:
+            logger.warning(f"Failed to load {name}: {e}, using Fallback")
+            from providers.fallback import FallbackProvider
+            return FallbackProvider()
 
     def create_session(self, order_id, amount, client_ip=None, user_agent=None, telegram_id=None, payment_method=None):
         token = generate_session_token()
         expires_at = (datetime.now() + timedelta(minutes=30)).strftime('%Y-%m-%d %H:%M:%S')
         
-        # Попытка создать инвойс с retry (до 2 попыток)
-        max_retries = 2
+        # Попытка создать инвойс с retry — для P2P-агрегаторов (Brabus/Montera/GreenPay)
+        # окно доступности конкретного реквизита у трейдера может быть очень коротким,
+        # поэтому даём больше попыток с увеличенной паузой, прежде чем уходить в fallback.
+        max_retries = 3
         invoice = None
         last_error = None
         for attempt in range(max_retries):
             start_time = time.time()
-            invoice = self.provider.create_invoice(order_id, amount, payment_method=payment_method)
+            extra = {}
+            if self.provider.__class__.__name__ == 'MonteraProvider':
+                extra['user_id'] = telegram_id
+            invoice = self.provider.create_invoice(order_id, amount, payment_method=payment_method, **extra)
             elapsed = time.time() - start_time
-            
-            # Обновляем метрики здоровья провайдера
-            self._update_health_metrics(self.provider.__class__.__name__, elapsed, 'error' in invoice)
-            
+
+            # Обновляем метрики здоровья провайдера через smart_router
+            success = 'error' not in invoice
+            record_outcome(self.provider.__class__.__name__, success, elapsed)
+
             if 'error' not in invoice:
                 break
             last_error = invoice['error']
             logger.warning(f"Попытка {attempt+1}/{max_retries} для order {order_id} не удалась: {last_error}")
-            time.sleep(1)  # пауза перед повторной попыткой
+            if attempt < max_retries - 1:
+                time.sleep(2.5)  # пауза перед повторной попыткой
         
         if invoice is None or 'error' in invoice:
             logger.error(f"Все попытки создать инвойс для order {order_id} не удались")
@@ -54,7 +82,7 @@ class PaymentService:
                 return {"error": "All providers failed"}
             provider_name = 'fallback'
         else:
-            provider_names = {'PlategaProvider': 'platega', 'GreenPayProvider': 'greenpay', 'MonteraProvider': 'montera'}
+            provider_names = {'PlategaProvider': 'platega', 'GreenPayProvider': 'greenpay', 'MonteraProvider': 'montera', 'BrabusProvider': 'brabus'}
             provider_name = provider_names.get(self.provider.__class__.__name__, 'platega')
 
         c.execute("INSERT INTO payment_sessions (session_token, order_id, amount, provider, status, expires_at, client_ip, user_agent, telegram_id) VALUES (?,?,?,?,'invoice_created',?,?,?,?)",
@@ -111,23 +139,7 @@ class PaymentService:
         return self.provider.get_payment_methods(session.get('provider_invoice_id'))
 
 
-    def _update_health_metrics(self, provider_name, response_time, is_error):
-        try:
-            conn = sqlite3.connect(DB_PATH, timeout=5)
-            c = conn.cursor()
-            c.execute("SELECT avg_response_time, failed_count FROM provider_health WHERE provider=?", (provider_name,))
-            row = c.fetchone()
-            if row:
-                # Обновляем скользящее среднее
-                new_avg = (row[0] * 0.9 + response_time * 0.1) if row[0] else response_time
-                new_failed = row[1] + (1 if is_error else 0)
-                c.execute("UPDATE provider_health SET avg_response_time=?, failed_count=?, last_checked=datetime('now'), is_healthy=? WHERE provider=?",
-                          (round(new_avg, 3), new_failed, 0 if new_failed > 5 else 1, provider_name))
-            else:
-                c.execute("INSERT INTO provider_health (provider, avg_response_time, failed_count, last_checked, is_healthy) VALUES (?,?,?,datetime('now'),?)",
-                          (provider_name, response_time, 1 if is_error else 0, 0 if is_error else 1))
-            conn.commit()
-            conn.close()
-        except Exception as e:
-            logger.error(f"Ошибка обновления метрик здоровья: {e}")
+    def get_provider_status(self) -> dict:
+        """Возвращает health scores всех провайдеров из smart_router."""
+        return get_health_scores()
 

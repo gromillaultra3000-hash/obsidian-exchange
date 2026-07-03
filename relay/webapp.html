@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>ObsidianExchange</title>
+    <style>
+        :root { --bg: #050507; --card: #0f0f14; --input: #151520; --border: rgba(168,85,247,.18); --border-strong: rgba(168,85,247,.35); --purple: #8b5cf6; --purple-2: #a855f7; --green: #00ff9d; --text: #f3f3f3; --muted: #8b8ba3; --radius: 22px; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { -webkit-tap-highlight-color: transparent; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: radial-gradient(circle at top, rgba(139,92,246,.25), transparent 45%), linear-gradient(180deg,#050507,#09090f); color: var(--text); min-height: 100dvh; padding: 0; position: relative; overflow-x: hidden; }
+
+        .matrix-bg { position: fixed; inset: 0; background-image: linear-gradient(rgba(168,85,247,.06) 1px, transparent 1px), linear-gradient(90deg, rgba(168,85,247,.04) 1px, transparent 1px); background-size: 40px 40px; pointer-events: none; z-index: 0; mask-image: radial-gradient(circle at top, rgba(0,0,0,.9), transparent 70%); }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes pulse { 0%, 100% { opacity: .4; } 50% { opacity: 1; } }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+        .container { position: relative; z-index: 1; width: 100%; max-width: 480px; margin: 0 auto; background: transparent; padding: 16px 14px calc(24px + env(safe-area-inset-bottom, 0px)); min-height: 100dvh; }
+
+        /* ── Логотип ── */
+        .logo-wrap { display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:4px; }
+        .logo-name { font-size:20px; font-weight:800; background:linear-gradient(90deg,#fff 20%,#c084fc); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+        .logo-sub { text-align: center; color: var(--muted); font-size: 12px; margin-bottom: 18px; letter-spacing: .5px; text-transform: uppercase; }
+
+        /* ── Курсы ── */
+        .rates-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; }
+        .rate-box { background: var(--input); border: 1px solid var(--border); border-radius: 16px; padding: 12px 8px; text-align: center; transition: box-shadow .25s, transform .25s; position:relative; overflow:hidden; }
+        .rate-box::before { content:''; position:absolute; inset:0; background:linear-gradient(135deg,rgba(139,92,246,.06),transparent); pointer-events:none; }
+        .rate-box:active { transform: scale(.97); }
+        .rate-coin { font-weight: 700; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
+        .rate-value { color: var(--green); font-weight: 800; font-size: 15px; }
+        .rate-value.loading { color: var(--muted); font-weight: 600; font-size: 12px; animation: pulse 1.4s ease-in-out infinite; }
+        .rate-change { font-size:10px; font-weight:700; margin-top:3px; }
+        .rate-change.up { color:#10b981; }
+        .rate-change.down { color:#f87171; }
+
+        .chart-container { margin: 0 0 16px; background: var(--input); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; position: relative; min-height: 130px; }
+        .chart-loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 13px; animation: pulse 1.4s ease-in-out infinite; }
+
+        /* ── Вкладки ── */
+        .tabs {
+          position:sticky; top:0; z-index:10;
+          display:grid; grid-template-columns:repeat(5,1fr); gap:0;
+          background:rgba(5,5,7,.97); backdrop-filter:blur(20px);
+          border:1px solid var(--border); border-radius:18px;
+          overflow:hidden; margin-bottom:16px;
+        }
+        .tab {
+          padding:10px 2px 8px; text-align:center;
+          background:none; border:none; border-right:1px solid var(--border);
+          cursor:pointer; font-size:9px; font-weight:700;
+          transition:all .2s; color:var(--muted);
+          display:flex; flex-direction:column; align-items:center; gap:3px;
+          -webkit-tap-highlight-color: transparent;
+        }
+        .tab:last-child { border-right:none; }
+        .tab .tab-icon { font-size:19px; display:block; transition:transform .15s, filter .15s; }
+        .tab.active { background:rgba(124,58,237,.14); color:var(--purple-2); }
+        .tab.active .tab-icon { filter:drop-shadow(0 0 5px rgba(168,85,247,.55)); transform:scale(1.1); }
+
+        .panel { display: none; }
+        .panel.active { display: block; animation: fadeIn 0.3s ease; }
+
+        .input-group { margin-bottom: 16px; }
+        .input-group label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+        .input-group input, .input-group select { width: 100%; padding: 13px 16px; background: var(--input); border: 1px solid var(--border); border-radius: var(--radius); color: #fff; font-size: 16px; outline: none; transition: border-color .2s; }
+        .input-group input:focus, .input-group select:focus { border-color: var(--border-strong); }
+
+        /* ── Кнопка с shimmer ── */
+        .btn {
+          width: 100%; padding: 14px; background: linear-gradient(90deg, #7c3aed, #a855f7); color: #fff; border: none; border-radius: var(--radius); font-size: 16px; font-weight: 700; cursor: pointer; margin-top: 10px; box-shadow: 0 0 25px rgba(168,85,247,.3); transition: box-shadow .2s, transform .2s;
+          position:relative; overflow:hidden;
+        }
+        .btn::after {
+          content:''; position:absolute; inset:0;
+          background:linear-gradient(90deg,transparent,rgba(255,255,255,.1),transparent);
+          transform:translateX(-100%); transition:transform .4s ease;
+        }
+        .btn:hover::after { transform:translateX(100%); }
+        .btn:active { transform: scale(0.98); }
+
+        .result { margin-top: 15px; padding: 14px; background: var(--input); border: 1px solid var(--border); border-radius: var(--radius); font-size: 18px; font-weight: 700; color: var(--green); text-align: center; }
+        .result:empty { display: none; }
+
+        /* ── Fee box ── */
+        .fee-box { display:flex; align-items:center; justify-content:space-between; padding:10px 14px; background:rgba(124,58,237,.08); border:1px solid rgba(124,58,237,.2); border-radius:12px; margin:4px 0 14px; }
+        .fee-left { font-size:12px; color:var(--muted); font-weight:600; }
+        .fee-right { font-size:16px; font-weight:800; color:var(--purple-2); }
+
+        /* ── История ── */
+        .history-item, .ref-item { padding: 16px; border-radius: 18px; background: var(--input); border: 1px solid var(--border); margin-bottom: 10px; }
+        .history-item { border-left:3px solid var(--border); transition:border-color .2s; }
+        .history-item.success { border-left-color:#10b981; }
+        .history-item.pending { border-left-color:#fbbf24; }
+        .history-item.failed { border-left-color:#ef4444; }
+        .h-icon { font-size:28px; float:right; margin-left:10px; }
+        .h-title { font-weight:800; font-size:15px; margin-bottom:2px; }
+        .h-meta { color:var(--muted); font-size:12px; }
+        .h-status-row { display:flex; align-items:center; justify-content:space-between; margin-top:8px; }
+        .history-item .status { font-size: 12px; padding: 3px 10px; border-radius: 999px; background: rgba(168,85,247,.15); color: var(--purple-2); font-weight: 700; }
+        .history-item small { color: var(--muted); }
+
+        /* ── Шаги обмена ── */
+        .exchange-steps { display:flex; gap:0; margin-top:14px; }
+        .ex-step { flex:1; text-align:center; font-size:11px; font-weight:700; padding:8px 4px; color:var(--muted); border-bottom:2px solid var(--border); position:relative; }
+        .ex-step.done { color:var(--green); border-bottom-color:var(--green); }
+        .ex-step.active { color:var(--purple-2); border-bottom-color:var(--purple-2); }
+
+        /* ── Тир-карта профиля ── */
+        .tier-card { background:var(--input); border:1px solid var(--border); border-radius:var(--radius); padding:14px; margin-bottom:14px; }
+        .tier-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+        .tier-badge { font-size:13px; font-weight:800; }
+        .tier-badge.silver { color:#94a3b8; }
+        .tier-badge.gold { color:#f59e0b; }
+        .tier-next { font-size:12px; color:var(--muted); }
+        .tier-bar-wrap { height:6px; background:rgba(255,255,255,.06); border-radius:3px; overflow:hidden; margin-bottom:6px; }
+        .tier-bar { height:100%; background:linear-gradient(90deg,#7c3aed,#a78bfa); border-radius:3px; transition:width 1s ease; }
+        .tier-labels { display:flex; justify-content:space-between; font-size:10px; color:var(--muted); }
+
+        .ref-link { word-break: break-all; background: #0d0d14; border: 1px solid var(--border); padding: 12px; border-radius: 12px; margin: 10px 0; font-size: 13px; }
+        .ref-stats-box { margin-top: 15px; padding: 16px; background: var(--input); border: 1px solid var(--border); border-radius: var(--radius); }
+        .ref-stats-box p { margin: 6px 0; }
+
+        .skeleton-line { height: 14px; border-radius: 6px; background: linear-gradient(90deg, var(--input) 25%, rgba(168,85,247,.15) 50%, var(--input) 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; margin-bottom: 8px; }
+
+        .input-group input.valid { border-color: var(--green) !important; box-shadow: 0 0 10px rgba(0,255,157,0.3); }
+        .input-group input.invalid { border-color: #ff4444 !important; box-shadow: 0 0 10px rgba(255,68,68,0.3); }
+        .validation-msg { font-size: 12px; margin-top: 5px; }
+        .validation-msg.valid { color: var(--green); }
+        .validation-msg.invalid { color: #ff4444; }
+
+        /* FAQ */
+        .faq-item { background: var(--input); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; margin-bottom: 10px; }
+        .faq-question { width: 100%; text-align: left; background: none; border: none; color: #fff; font-size: 14px; font-weight: 700; padding: 14px 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+        .faq-question .arrow { transition: transform .25s; color: var(--purple-2); flex: none; }
+        .faq-item.open .faq-question .arrow { transform: rotate(180deg); }
+        .faq-answer { max-height: 0; overflow: hidden; transition: max-height .3s ease; color: var(--muted); font-size: 13px; }
+        .faq-answer-inner { padding: 0 16px 14px; }
+        .faq-item.open .faq-answer { max-height: 300px; }
+        .faq-link-btn { display: block; text-align: center; margin-top: 6px; padding: 12px; border-radius: var(--radius); background: var(--input); border: 1px solid var(--border); color: #fff; text-decoration: none; font-weight: 700; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="matrix-bg"></div>
+    <div class="container">
+        <!-- Логотип SVG -->
+        <div class="logo-wrap" style="margin-top:12px">
+          <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+            <defs>
+              <linearGradient id="lg1" x1="0" y1="0" x2="36" y2="36" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#a78bfa"/>
+                <stop offset="100%" stop-color="#7c3aed"/>
+              </linearGradient>
+            </defs>
+            <polygon points="18,2 34,10 34,26 18,34 2,26 2,10" fill="url(#lg1)" opacity=".15"/>
+            <polygon points="18,2 34,10 34,26 18,34 2,26 2,10" fill="none" stroke="url(#lg1)" stroke-width="1.5"/>
+            <polygon points="18,8 28,13 28,23 18,28 8,23 8,13" fill="url(#lg1)" opacity=".3"/>
+            <polygon points="18,13 24,16.5 24,23.5 18,27 12,23.5 12,16.5" fill="url(#lg1)"/>
+          </svg>
+          <span class="logo-name">ObsidianExchange</span>
+        </div>
+        <div class="logo-sub">Обмен криптовалют без KYC</div>
+
+        <!-- Курсы с % изменением -->
+        <div class="rates-row">
+            <div class="rate-box">
+                <div class="rate-coin">₿ BTC</div>
+                <div class="rate-value loading" id="btc-rate">…</div>
+                <div class="rate-change up" id="btc-ch">+2.4%</div>
+            </div>
+            <div class="rate-box">
+                <div class="rate-coin">Ł LTC</div>
+                <div class="rate-value loading" id="ltc-rate">…</div>
+                <div class="rate-change up" id="ltc-ch">+1.1%</div>
+            </div>
+            <div class="rate-box">
+                <div class="rate-coin">💵 USDT</div>
+                <div class="rate-value loading" id="usdt-rate">…</div>
+                <div class="rate-change down" id="usdt-ch">−0.1%</div>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <div class="chart-loading" id="chart-loading">📈 Загрузка графика…</div>
+            <canvas id="btcChart" width="400" height="150"></canvas>
+        </div>
+
+        <!-- Вкладки — иконка + подпись -->
+        <div class="tabs">
+          <div class="tab active" data-tab="exchange"><span class="tab-icon">💎</span>Обмен</div>
+          <div class="tab" data-tab="history"><span class="tab-icon">📋</span>История</div>
+          <div class="tab" data-tab="referral"><span class="tab-icon">👥</span>Рефералы</div>
+          <div class="tab" data-tab="profile"><span class="tab-icon">👤</span>Профиль</div>
+          <div class="tab" data-tab="faq"><span class="tab-icon">❓</span>FAQ</div>
+          <div class="tab" data-tab="admin" id="admin-tab" style="display:none"><span class="tab-icon">⚙️</span>Admin</div>
+        </div>
+
+        <!-- Обмен -->
+        <div class="panel active" id="panel-exchange">
+            <div class="input-group">
+                <label>Валюта</label>
+                <select id="currency" onchange="calculateFee(); updateAddressPlaceholder()">
+                    <option value="BTC">₿ Bitcoin (BTC)</option>
+                    <option value="LTC">Ł Litecoin (LTC)</option>
+                    <option value="USDT">💵 USDT TRC20</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label>Сумма (RUB)</label>
+                <input type="number" id="amount" placeholder="2 000 – 500 000 ₽" oninput="calculateFee()">
+            </div>
+            <!-- Fee + live calc -->
+            <div class="fee-box" id="fee-display">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <span class="fee-left">⚡ Комиссия</span>
+                <span class="fee-right" id="fee-value">27%</span>
+              </div>
+              <div id="crypto-estimate" style="margin-top:6px;font-size:12px;color:#a78bfa;font-weight:700;min-height:16px"></div>
+            </div>
+            <!-- Способ оплаты -->
+            <div class="input-group">
+              <label>Способ оплаты</label>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px">
+                <label style="display:flex;align-items:center;gap:8px;padding:11px 12px;background:rgba(124,58,237,.1);border:1.5px solid rgba(124,58,237,.4);border-radius:14px;cursor:pointer;font-size:13px;font-weight:600;color:#e2e8f0">
+                  <input type="radio" name="pay_method" value="sbp" checked style="accent-color:#8b5cf6"> 📱 СБП
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;padding:11px 12px;background:rgba(255,255,255,.04);border:1.5px solid rgba(255,255,255,.1);border-radius:14px;cursor:pointer;font-size:13px;font-weight:600;color:#94a3b8">
+                  <input type="radio" name="pay_method" value="card" style="accent-color:#8b5cf6"> 💳 Карта
+                </label>
+              </div>
+            </div>
+            <div class="input-group">
+                <label>Ваш адрес</label>
+                <input type="text" id="address" placeholder="Введите адрес кошелька" oninput="validateAddress()">
+                <div class="validation-msg" id="address-msg"></div>
+            </div>
+            <button class="btn" id="create-order">🚀 Создать заявку</button>
+            <!-- Шаги обмена -->
+            <div class="exchange-steps" id="exchange-steps" style="display:none">
+              <div class="ex-step done">✓ Заявка создана</div>
+              <div class="ex-step active">⏳ Ожидание оплаты</div>
+              <div class="ex-step">📤 Выплата крипты</div>
+            </div>
+            <div class="result" id="exchange-result"></div>
+        </div>
+
+        <div class="panel" id="panel-history"><div id="history-list"></div></div>
+        <div class="panel" id="panel-referral">
+            <div class="ref-item">
+                <strong>👥 Ваша реферальная ссылка</strong>
+                <div class="ref-link" id="ref-link">загрузка...</div>
+                <button class="btn" onclick="copyRefLink()">📋 Скопировать ссылку</button>
+                <button class="btn" onclick="withdrawRefBonus()">💸 Вывести бонус</button>
+                <div class="ref-stats-box" id="ref-stats"></div>
+            </div>
+        </div>
+
+        <!-- Профиль с тир-картой (динамический) -->
+        <div class="panel" id="panel-profile">
+            <div class="tier-card" id="tier-card">
+              <div class="tier-header">
+                <span class="tier-badge" id="tier-badge">⏳ Загрузка</span>
+                <span class="tier-next" id="tier-next">…</span>
+              </div>
+              <div class="tier-bar-wrap">
+                <div class="tier-bar" id="tier-bar" style="width:0%"></div>
+              </div>
+              <div class="tier-labels"><span>0</span><span id="tier-max-label">100 000 ₽</span></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+              <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:12px;text-align:center">
+                <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Заявок</div>
+                <div style="font-size:20px;font-weight:800" id="profile-orders-count">—</div>
+              </div>
+              <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:12px;text-align:center">
+                <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Оборот</div>
+                <div style="font-size:16px;font-weight:800;color:var(--green)" id="profile-volume">—</div>
+              </div>
+            </div>
+            <div class="input-group"><label>BTC адрес для рефбонусов</label><input type="text" id="btc-address" placeholder="bc1... или 1... или 3..."></div>
+            <button class="btn" onclick="saveAddress()">💾 Сохранить адрес</button>
+            <div id="profile-result" class="result"></div>
+        </div>
+
+        <div class="panel" id="panel-faq">
+            <div class="faq-item open">
+                <button class="faq-question">Нужна ли верификация (KYC)?<span class="arrow">▾</span></button>
+                <div class="faq-answer"><div class="faq-answer-inner">Нет, ObsidianExchange работает полностью без KYC.</div></div>
+            </div>
+            <div class="faq-item">
+                <button class="faq-question">Какая комиссия?<span class="arrow">▾</span></button>
+                <div class="faq-answer"><div class="faq-answer-inner">BTC/LTC: 27% (до 5 000 ₽), 23% (5 000–14 999 ₽), 19% (от 15 000 ₽). USDT (TRC20): 2%.</div></div>
+            </div>
+            <div class="faq-item">
+                <button class="faq-question">Способы оплаты?<span class="arrow">▾</span></button>
+                <div class="faq-answer"><div class="faq-answer-inner">Оплата СБП или картой (по реквизитам) — выбор при создании заявки.</div></div>
+            </div>
+            <div class="faq-item">
+                <button class="faq-question">На сколько фиксируется курс?<span class="arrow">▾</span></button>
+                <div class="faq-answer"><div class="faq-answer-inner">Курс фиксируется на 15 минут после создания заявки.</div></div>
+            </div>
+            <div class="faq-item">
+                <button class="faq-question">Когда придёт криптовалюта?<span class="arrow">▾</span></button>
+                <div class="faq-answer"><div class="faq-answer-inner">Автоматически, обычно в течение нескольких минут после подтверждения оплаты.</div></div>
+            </div>
+            <a class="faq-link-btn" href="https://obsidian-exchange.org/faq" target="_blank">📖 Полный FAQ на сайте</a>
+            <!-- AI встроен прямо в FAQ -->
+            <div style="margin-top:14px;padding:14px;background:var(--input);border:1px solid var(--border);border-radius:18px">
+              <div style="font-size:13px;font-weight:700;color:var(--purple-2);margin-bottom:10px">🤖 Спросить AI-помощника</div>
+              <div id="ai-chat" style="max-height:280px;overflow-y:auto;margin-bottom:10px;display:flex;flex-direction:column;gap:8px"></div>
+              <div style="display:flex;gap:8px">
+                <input type="text" id="ai-input" placeholder="Ваш вопрос об обмене…" style="flex:1;padding:10px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(124,58,237,.25);border-radius:12px;color:#f1f5f9;font-size:14px;font-family:inherit;outline:none">
+                <button onclick="sendAiQuestion()" style="padding:10px 16px;background:linear-gradient(90deg,#7c3aed,#6d28d9);border:none;border-radius:12px;color:#fff;font-weight:700;font-size:16px;cursor:pointer">→</button>
+              </div>
+              <div style="margin-top:6px;font-size:10px;color:#475569;text-align:center">qwen2 · локальный AI · данные не передаются</div>
+            </div>
+        </div>
+
+        <!-- AI Support Panel removed (merged into FAQ) -->
+          <div style="margin-top:8px;font-size:11px;color:#64748b;text-align:center">Powered by Ollama qwen2:1.5b · локальный AI без передачи данных</div>
+        </div>
+
+        <div class="panel" id="panel-admin">
+            <div class="rates-row">
+                <div class="rate-box"><div class="rate-coin">Всего</div><div class="rate-value" id="admin-stat-total">…</div></div>
+                <div class="rate-box"><div class="rate-coin">Ожидают</div><div class="rate-value" id="admin-stat-pending">…</div></div>
+                <div class="rate-box"><div class="rate-coin">Оборот</div><div class="rate-value" id="admin-stat-volume">…</div></div>
+            </div>
+            <div class="ref-stats-box">
+                <strong>📋 Последние заявки</strong>
+                <div id="admin-orders-list" style="margin-top:10px"></div>
+            </div>
+            <div class="ref-stats-box">
+                <strong>🚫 Блокировка пользователей</strong>
+                <div class="input-group"><label>User ID</label><input type="number" id="admin-block-userid" placeholder="123456789"></div>
+                <button class="btn" onclick="adminBlockUser()">⛔ Заблокировать</button>
+                <button class="btn" onclick="adminUnblockUser()">✅ Разблокировать</button>
+                <div id="admin-blocked-list" style="margin-top:10px"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+
+        // Загружаем последний использованный адрес из localStorage
+        const lastAddress = localStorage.getItem('lastAddress');
+        if (lastAddress) {
+            document.getElementById('address').value = lastAddress;
+        }
+        const cache = { rates: null, ts: 0 };
+        let user = tg.initDataUnsafe?.user || {};
+        let userId = user.id || 0;
+
+        async function fetchRates() {
+            if (cache.rates && Date.now() - cache.ts < 300000) {
+                showRates(cache.rates);
+                return;
+            }
+            try {
+                const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,litecoin,tether&vs_currencies=rub&include_24hr_change=true');
+                const data = await res.json();
+                cache.rates = data;
+                cache.ts = Date.now();
+                showRates(data);
+            } catch(e) {
+                ['btc-rate','ltc-rate','usdt-rate'].forEach(id => {
+                    const el = document.getElementById(id);
+                    el.textContent = 'н/д';
+                    el.classList.remove('loading');
+                });
+            }
+        }
+
+        function showRates(data) {
+            window.__oeRates = { BTC: data.bitcoin.rub, LTC: data.litecoin.rub, USDT: data.tether.rub };
+            ['btc-rate','ltc-rate','usdt-rate'].forEach(id => document.getElementById(id).classList.remove('loading'));
+            document.getElementById('btc-rate').textContent = data.bitcoin.rub.toLocaleString() + ' ₽';
+            document.getElementById('ltc-rate').textContent = data.litecoin.rub.toLocaleString() + ' ₽';
+            document.getElementById('usdt-rate').textContent = data.tether.rub.toLocaleString() + ' ₽';
+
+            // % изменение за 24ч
+            function setChange(elId, val) {
+                const el = document.getElementById(elId);
+                if (val == null) return;
+                const sign = val >= 0 ? '+' : '';
+                el.textContent = sign + val.toFixed(1) + '%';
+                el.className = 'rate-change ' + (val >= 0 ? 'up' : 'down');
+            }
+            setChange('btc-ch', data.bitcoin?.rub_24h_change);
+            setChange('ltc-ch', data.litecoin?.rub_24h_change);
+            setChange('usdt-ch', data.tether?.rub_24h_change);
+        }
+        fetchRates();
+
+        // График BTC за 24 часа
+        async function loadChart() {
+            try {
+                const res = await fetch('https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=rub&days=1');
+                const data = await res.json();
+                const prices = data.prices.map(p => p[1]);
+                const labels = data.prices.map(p => new Date(p[0]).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}));
+
+                document.getElementById('chart-loading').style.display = 'none';
+                new Chart(document.getElementById('btcChart'), {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'BTC/RUB',
+                            data: prices,
+                            borderColor: '#8b5cf6',
+                            backgroundColor: 'rgba(139,92,246,0.1)',
+                            tension: 0.3,
+                            pointRadius: 0,
+                            fill: true
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: { display: false },
+                            y: { display: false }
+                        }
+                    }
+                });
+            } catch(e) {
+                document.getElementById('chart-loading').textContent = '⚠️ Не удалось загрузить график';
+            }
+        }
+        loadChart();
+
+        // Комиссия — логика идентична боту (main_bot.py: get_commission_percent)
+        function getCommissionPercent(amount, currency) {
+            if (currency === 'USDT') return 2;
+            if (amount < 5000) return 27;
+            if (amount <= 14999) return 23;
+            return 19;
+        }
+
+        // Live расчёт крипты
+        let cachedRates = {};
+        async function loadRates() {
+            try {
+                const r = await fetch('/api/rates');
+                cachedRates = await r.json();
+                calculateFee();
+            } catch(e) {}
+        }
+        loadRates();
+        setInterval(loadRates, 30000); // обновляем раз в 30с
+
+        function calculateFee() {
+            const amount = parseFloat(document.getElementById('amount').value) || 0;
+            const currency = document.getElementById('currency').value;
+            const fee = getCommissionPercent(amount, currency);
+            document.getElementById('fee-value').textContent = fee + '%';
+            // Live расчёт
+            const est = document.getElementById('crypto-estimate');
+            if (amount >= 100 && cachedRates[currency]) {
+                const rate = cachedRates[currency]; // курс в ₽ за 1 монету
+                const netAmount = amount * (1 - fee / 100);
+                const crypto = (netAmount / rate).toFixed(currency === 'USDT' ? 2 : 6);
+                est.textContent = `≈ ${crypto} ${currency} по курсу ${Math.round(rate).toLocaleString('ru')} ₽`;
+            } else {
+                est.textContent = amount >= 2000 ? '…' : '';
+            }
+        }
+        calculateFee();
+
+        // Подсказка адреса и восстановление из localStorage
+        function updateAddressPlaceholder() {
+            const cur = document.getElementById('currency').value;
+            const ph  = { BTC: 'bc1... или 1... или 3...', LTC: 'L... или M... или ltc1...', USDT: 'T... (TRC20 / Tron)' };
+            const addrInput = document.getElementById('address');
+            addrInput.placeholder = ph[cur] || 'Введите адрес кошелька';
+            const saved = localStorage.getItem('lastAddress_' + cur);
+            if (saved) addrInput.value = saved;
+            validateAddress();
+        }
+        // Инициализируем при загрузке
+        updateAddressPlaceholder();
+
+        document.getElementById('create-order').addEventListener('click', () => {
+            const currency = document.getElementById('currency').value;
+            const amount = document.getElementById('amount').value;
+            const address = document.getElementById('address').value.trim();
+            const payMethod = document.querySelector('input[name="pay_method"]:checked')?.value || 'sbp';
+            if (!amount || amount < 2000 || amount > 500000) { document.getElementById('exchange-result').textContent = 'Сумма от 2 000 до 500 000 ₽'; return; }
+            if (!address) { document.getElementById('exchange-result').textContent = 'Введите адрес кошелька'; return; }
+            localStorage.setItem('lastAddress_' + currency, address);
+            tg.sendData(JSON.stringify({ currency, amount: parseFloat(amount), address, pay_method: payMethod }));
+            document.getElementById('exchange-result').innerHTML = '🚀 Заявка создаётся…';
+            document.getElementById('exchange-steps').style.display = 'flex';
+            document.getElementById('create-order').disabled = true;
+        });
+
+        async function loadHistory() {
+            const list = document.getElementById('history-list');
+            list.innerHTML = '<div class="skeleton-line"></div><div class="skeleton-line"></div><div class="skeleton-line" style="width:60%"></div>';
+            try {
+                const res = await fetch(`/api/history?user_id=${userId}`);
+                const orders = await res.json();
+                if (!orders.length) { list.innerHTML = '<div class="history-item">У вас пока нет заявок.</div>'; return; }
+                const statusLabels = { pending: 'Ожидание', paid: 'Оплачено', sent: 'Отправлено' };
+                const statusClass = { pending: 'pending', paid: 'success', sent: 'success' };
+                let html = '';
+                orders.forEach(o => {
+                    const emoji = { pending:'⏳', paid:'✅', sent:'🚀' }[o.status] || '⚡';
+                    const label = statusLabels[o.status] || o.status;
+                    const cls = statusClass[o.status] || '';
+                    html += `<div class="history-item ${cls}">
+                        <span class="h-icon">${emoji}</span>
+                        <div class="h-title">#${o.order_id} — ${o.currency}</div>
+                        <div class="h-meta">${o.amount} RUB</div>
+                        <div class="h-status-row">
+                            <small>${o.created}</small>
+                            <span class="status">${label}</span>
+                        </div>
+                    </div>`;
+                });
+                list.innerHTML = html;
+            } catch(e) { list.innerHTML = '<div class="history-item">Ошибка загрузки.</div>'; }
+        }
+
+        function loadReferral() {
+            const botUsername = 'Obsidian666999bot';
+            const refLink = `https://t.me/${botUsername}?start=ref_${userId}`;
+            document.getElementById('ref-link').textContent = refLink;
+            document.getElementById('ref-stats').innerHTML = '<div class="skeleton-line"></div><div class="skeleton-line" style="width:50%"></div>';
+            fetch(`/api/referral_stats?user_id=${userId}`).then(r=>r.json()).then(data => {
+                document.getElementById('ref-stats').innerHTML = `
+                    <p>👥 Приглашено: <strong>${data.referrals || 0}</strong></p>
+                    <p>💸 Заработано: <strong>${data.total_bonus_btc || 0} BTC</strong></p>
+                `;
+            }).catch(() => {
+                document.getElementById('ref-stats').innerHTML = '<p>Статистика недоступна</p>';
+            });
+        }
+
+        function copyRefLink() { navigator.clipboard.writeText(document.getElementById('ref-link').textContent); tg.HapticFeedback.notificationOccurred('success'); alert('Ссылка скопирована'); }
+
+        function withdrawRefBonus() {
+            tg.sendData(JSON.stringify({ action:'withdraw_ref_bonus' }));
+        }
+
+        function saveAddress() {
+            const addr = document.getElementById('btc-address').value.trim();
+            if (!/^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$|^bc1[ac-hj-np-z02-9]{39,59}$/.test(addr)) { document.getElementById('profile-result').textContent = 'Неверный BTC адрес'; return; }
+            tg.sendData(JSON.stringify({ action:'save_ref_address', address:addr }));
+            document.getElementById('profile-result').textContent = 'Адрес сохранён';
+        }
+
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+                document.getElementById(`panel-${tab.dataset.tab}`).classList.add('active');
+                if (tab.dataset.tab === 'history') loadHistory();
+                if (tab.dataset.tab === 'referral') loadReferral();
+                if (tab.dataset.tab === 'profile') loadProfile();
+                if (tab.dataset.tab === 'admin') loadAdmin();
+            });
+        });
+
+        // ---------- Профиль / Тир ----------
+        const TIERS = [
+            { name: '🥉 Bronze', emoji: '🥉', min: 0,      max: 50000,  color: '#cd7f32' },
+            { name: '🥈 Silver', emoji: '🥈', min: 50000,  max: 150000, color: '#94a3b8' },
+            { name: '🥇 Gold',   emoji: '🥇', min: 150000, max: 500000, color: '#f59e0b' },
+            { name: '💎 Obsidian',emoji:'💎', min: 500000, max: 999999999, color: '#a855f7' },
+        ];
+        async function loadProfile() {
+            try {
+                const res = await fetch(`/api/history?user_id=${userId}`);
+                const orders = await res.json();
+                const completed = orders.filter(o => o.status === 'paid' || o.status === 'sent');
+                const volume = completed.reduce((s, o) => s + (parseFloat(o.amount) || 0), 0);
+                const count = orders.length;
+                document.getElementById('profile-orders-count').textContent = count;
+                document.getElementById('profile-volume').textContent = Math.round(volume).toLocaleString('ru') + ' ₽';
+                const tier = TIERS.find(t => volume >= t.min && volume < t.max) || TIERS[TIERS.length - 1];
+                const next = TIERS[TIERS.indexOf(tier) + 1];
+                const pct = next ? Math.min(100, ((volume - tier.min) / (next.min - tier.min)) * 100) : 100;
+                document.getElementById('tier-badge').textContent = tier.name;
+                document.getElementById('tier-badge').style.color = tier.color;
+                document.getElementById('tier-bar').style.width = pct.toFixed(1) + '%';
+                document.getElementById('tier-bar').style.background = `linear-gradient(90deg,${tier.color}99,${tier.color})`;
+                if (next) {
+                    const need = Math.round(next.min - volume);
+                    document.getElementById('tier-next').textContent = `до ${next.name}: ${need.toLocaleString('ru')} ₽`;
+                    document.getElementById('tier-max-label').textContent = Math.round(next.min).toLocaleString('ru') + ' ₽';
+                } else {
+                    document.getElementById('tier-next').textContent = 'Максимальный уровень!';
+                }
+            } catch(e) {
+                document.getElementById('tier-badge').textContent = '—';
+                document.getElementById('tier-next').textContent = 'Нет данных';
+            }
+        }
+        loadProfile();
+
+        // ---------- Админ-вкладка ----------
+        let isAdmin = false;
+
+        function renderAdminStats(s) {
+            document.getElementById('admin-stat-total').textContent = s.total;
+            document.getElementById('admin-stat-pending').textContent = s.pending;
+            document.getElementById('admin-stat-volume').textContent = Math.round(s.volume).toLocaleString() + ' ₽';
+        }
+
+        async function checkAdmin() {
+            if (!tg.initData) return;
+            try {
+                const res = await fetch('/api/admin/stats', { headers: { 'X-Telegram-Init-Data': tg.initData } });
+                if (res.ok) {
+                    isAdmin = true;
+                    document.getElementById('admin-tab').style.display = '';
+                    renderAdminStats(await res.json());
+                }
+            } catch(e) {}
+        }
+        checkAdmin();
+
+        async function loadAdmin() {
+            if (!isAdmin) return;
+            try {
+                const res = await fetch('/api/admin/stats', { headers: { 'X-Telegram-Init-Data': tg.initData } });
+                renderAdminStats(await res.json());
+            } catch(e) {}
+
+            const ordersList = document.getElementById('admin-orders-list');
+            ordersList.innerHTML = '<div class="skeleton-line"></div><div class="skeleton-line"></div>';
+            try {
+                const res = await fetch('/api/admin/orders?limit=15', { headers: { 'X-Telegram-Init-Data': tg.initData } });
+                const data = await res.json();
+                const statusLabels = { pending: 'Ожидание', paid: 'Оплачено', sent: 'Отправлено' };
+                let html = '';
+                data.orders.forEach(o => {
+                    const emoji = { pending:'⏳', paid:'✅', sent:'🚀' }[o.status] || '⚡';
+                    const label = statusLabels[o.status] || o.status;
+                    html += `<div class="history-item"><span class="status">${emoji} ${label}</span><strong>#${o.order_id}</strong> 👤${o.user_id}<br>${o.rub_amount} RUB → ${o.currency}<br><small>${o.created_at}</small>`;
+                    if (o.status !== 'sent') {
+                        html += `<br><button class="btn" style="margin-top:8px" onclick="adminForcePayout(${o.order_id})">💸 Принудительная выплата</button>`;
+                    }
+                    html += `</div>`;
+                });
+                ordersList.innerHTML = html || '<div class="history-item">Нет заявок</div>';
+            } catch(e) { ordersList.innerHTML = '<div class="history-item">Ошибка загрузки</div>'; }
+
+            const blockedList = document.getElementById('admin-blocked-list');
+            try {
+                const res = await fetch('/api/admin/blocked', { headers: { 'X-Telegram-Init-Data': tg.initData } });
+                const data = await res.json();
+                blockedList.innerHTML = data.blocked.length
+                    ? data.blocked.map(b => `<div class="history-item">👤 ${b.user_id} — ${b.reason}<br><small>${b.blocked_at}</small></div>`).join('')
+                    : '<div class="history-item">Список пуст</div>';
+            } catch(e) { blockedList.innerHTML = ''; }
+        }
+
+        async function adminForcePayout(orderId) {
+            if (!confirm(`Подтвердить выплату по заявке #${orderId}?`)) return;
+            try {
+                const res = await fetch('/api/admin/force_payout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': tg.initData },
+                    body: JSON.stringify({ order_id: orderId })
+                });
+                if (res.ok) { alert('Выплата отмечена'); loadAdmin(); } else { alert('Ошибка'); }
+            } catch(e) { alert('Ошибка'); }
+        }
+
+        async function adminBlockUser() {
+            const userId = document.getElementById('admin-block-userid').value.trim();
+            if (!userId) return;
+            await fetch('/api/admin/block', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': tg.initData },
+                body: JSON.stringify({ user_id: parseInt(userId) })
+            });
+            loadAdmin();
+        }
+
+        async function adminUnblockUser() {
+            const userId = document.getElementById('admin-block-userid').value.trim();
+            if (!userId) return;
+            await fetch('/api/admin/unblock', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': tg.initData },
+                body: JSON.stringify({ user_id: parseInt(userId) })
+            });
+            loadAdmin();
+        }
+
+        // FAQ-аккордеон
+        document.querySelectorAll('.faq-item').forEach(item => {
+            const q = item.querySelector('.faq-question');
+            q.addEventListener('click', () => {
+                const wasOpen = item.classList.contains('open');
+                item.parentElement.querySelectorAll('.faq-item').forEach(i => i.classList.remove('open'));
+                if (!wasOpen) item.classList.add('open');
+            });
+        });
+
+        tg.onEvent('mainButtonClicked', () => tg.close());
+
+        // ---------- AI-помощник ----------
+        async function sendAiQuestion() {
+          const input = document.getElementById('ai-input');
+          const chat = document.getElementById('ai-chat');
+          const q = input.value.trim();
+          if (!q) return;
+          input.value = '';
+
+          // User bubble
+          const userDiv = document.createElement('div');
+          userDiv.style.cssText = 'background:rgba(124,58,237,.15);border:1px solid rgba(124,58,237,.25);border-radius:12px 12px 2px 12px;padding:10px 14px;font-size:13px;align-self:flex-end;max-width:85%';
+          userDiv.textContent = q;
+          chat.appendChild(userDiv);
+
+          // AI bubble
+          const aid = 'ai_' + Date.now();
+          const aiDiv = document.createElement('div');
+          aiDiv.id = aid;
+          aiDiv.style.cssText = 'background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:2px 12px 12px 12px;padding:10px 14px;font-size:13px;color:#e2e8f0;max-width:90%;white-space:pre-wrap';
+          aiDiv.textContent = '⏳';
+          chat.appendChild(aiDiv);
+          chat.scrollTop = chat.scrollHeight;
+
+          try {
+            const resp = await fetch('/api/ai-ask', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({question:q})});
+            const reader = resp.body.getReader();
+            const dec = new TextDecoder();
+            let text = '';
+            const el = document.getElementById(aid);
+            while (true) {
+              const {done, value} = await reader.read();
+              if (done) break;
+              for (const line of dec.decode(value).split('\n')) {
+                if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+                  try { text += JSON.parse(line.slice(6)).text || ''; el.textContent = text; chat.scrollTop = chat.scrollHeight; } catch(e){}
+                }
+              }
+            }
+            if (!text) el.textContent = 'Не удалось получить ответ.';
+          } catch(e) { document.getElementById(aid).textContent = 'Ошибка соединения.'; }
+        }
+
+        document.getElementById('ai-input')?.addEventListener('keydown', e => e.key === 'Enter' && sendAiQuestion());
+
+        // Валидация крипто-адреса (по выбранной валюте)
+        function validateAddress() {
+            const addr = document.getElementById('address').value.trim();
+            const cur  = document.getElementById('currency').value;
+            const input = document.getElementById('address');
+            const msg   = document.getElementById('address-msg');
+            if (!addr) { input.classList.remove('valid','invalid'); msg.textContent = ''; return; }
+            const patterns = {
+                BTC:  /^(bc1[ac-hj-np-z02-9]{6,62}|[13][a-km-zA-HJ-NP-Z1-9]{25,34})$/,
+                LTC:  /^[LM3][a-km-zA-HJ-NP-Z1-9]{26,33}$|^ltc1[ac-hj-np-z02-9]{6,62}$/,
+                USDT: /^T[A-Za-z0-9]{33}$/,  // Tron/TRC20
+            };
+            const ok = (patterns[cur] || patterns.BTC).test(addr);
+            input.classList.toggle('valid', ok);
+            input.classList.toggle('invalid', !ok);
+            msg.textContent = ok ? '✓ Адрес корректен' : `✗ Неверный формат ${cur}-адреса`;
+            msg.className = 'validation-msg ' + (ok ? 'valid' : 'invalid');
+        }
+    </script>
+</body>
+</html>

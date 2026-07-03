@@ -4,31 +4,34 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}ObsidianExchange — обмен криптовалют без KYC{% endblock %}</title>
-    <meta name="description" content="{% block description %}ObsidianExchange — быстрый обмен RUB на BTC, LTC и USDT без верификации. Автовыплаты, оплата СБП и картой, фиксация курса на 15 минут.{% endblock %}">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚫</text></svg>">
+    <meta name="description" content="{% block description %}ObsidianExchange — быстрый обмен RUB на BTC, LTC и USDT без верификации. Автовыплаты, оплата СБП и картой.{% endblock %}">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>◆</text></svg>">
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
     <div class="matrix-bg"></div>
 
-    <nav class="navbar">
+    <nav class="navbar" id="navbar">
         <div class="wrap">
-            <a href="/" class="logo">⚫ ObsidianExchange</a>
-            <div class="nav-links">
-                <a href="/" data-path="/">Главная</a>
+            <a href="/" class="logo">
+                <span class="logo-gem">◆</span>
+                <span class="logo-text">ObsidianExchange</span>
+            </a>
+            <div class="nav-links" id="nav-links">
                 <a href="/rates" data-path="/rates">Курсы</a>
-                <a href="/how-it-works" data-path="/how-it-works">Как это работает</a>
                 <a href="/faq" data-path="/faq">FAQ</a>
-                <a href="/reviews" data-path="/reviews">Отзывы</a>
-                <a href="/contacts" data-path="/contacts">Контакты</a>
+                <a href="/contacts" data-path="/contacts">Поддержка</a>
                 {% if web_user %}
                 <a href="/dashboard" data-path="/dashboard">Личный кабинет</a>
+                <a href="/dashboard/exchange" data-path="/dashboard/exchange" class="nav-cta">Обменять</a>
                 {% else %}
                 <a href="/login" data-path="/login">Войти</a>
-                <a href="/register" data-path="/register" class="nav-cta">Регистрация</a>
+                <a href="/register" data-path="/register" class="nav-cta">Обменять</a>
                 {% endif %}
             </div>
-            <button class="burger" aria-label="Меню"><span></span><span></span><span></span></button>
+            <button class="burger" id="burger" aria-label="Меню">
+                <span></span><span></span><span></span>
+            </button>
         </div>
     </nav>
 
@@ -38,12 +41,20 @@
 
     <footer class="footer">
         <div class="wrap">
-            <p>⚫ ObsidianExchange — Non-KYC обмен криптовалют &middot; © 2026</p>
-            <p style="margin-top:6px;">
-                Бот: <a href="https://t.me/{{ bot_username }}">@{{ bot_username }}</a> &middot;
-                Поддержка: <a href="https://t.me/{{ support_username }}">@{{ support_username }}</a> &middot;
+            <div class="footer-logo">◆ ObsidianExchange</div>
+            <div class="footer-links">
+                <a href="/rates">Курсы</a>
+                <a href="/how-it-works">Как работает</a>
+                <a href="/faq">FAQ</a>
+                <a href="/contacts">Контакты</a>
+                <a href="/reviews">Отзывы</a>
+            </div>
+            <p>
+                Бот: <a href="https://t.me/{{ bot_username }}">@{{ bot_username }}</a> &nbsp;&middot;&nbsp;
+                Поддержка: <a href="https://t.me/{{ support_username }}">@{{ support_username }}</a> &nbsp;&middot;&nbsp;
                 Отзывы: <a href="https://t.me/{{ reviews_username }}">@{{ reviews_username }}</a>
             </p>
+            <p style="margin-top:10px;font-size:12px;opacity:.5;">© 2026 ObsidianExchange &mdash; Non-KYC crypto exchange</p>
         </div>
     </footer>
 

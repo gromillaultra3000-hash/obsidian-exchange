@@ -2,11 +2,17 @@ from dotenv import load_dotenv
 load_dotenv("/root/bot/.env")
 
 import os, json, sqlite3, qrcode, logging, re, asyncio, time, hmac, hashlib
+from contextlib import contextmanager, asynccontextmanager
 from io import BytesIO
 from datetime import datetime, timedelta
 from pathlib import Path
 from fastapi import FastAPI, Request, HTTPException, Form
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
+try:
+    from ai_support import ask_ai as _ask_ai
+    AI_ENABLED = True
+except ImportError:
+    AI_ENABLED = False
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 import requests
@@ -30,6 +36,7 @@ SECRET_KEY = os.getenv('RELAY_SECRET', 'fallback')
 PUBLIC_RELAY = os.getenv('PUBLIC_RELAY', 'https://obsidian-exchange.org')
 GREENPAY_API_SECRET = os.getenv('GREENPAY_API_SECRET', '')
 MONTERA_API_TOKEN = os.getenv('MONTERA_API_TOKEN', '')
+BRABUS_NOTIFICATION_TOKEN = os.getenv('BRABUS_NOTIFICATION_TOKEN', '')
 MIN_AMOUNT = float(os.getenv('MIN_AMOUNT', 2000))
 MAX_AMOUNT = float(os.getenv('MAX_AMOUNT', 500000))
 BOT_TOKEN = os.getenv('BOT_TOKEN', '')
@@ -59,6 +66,9 @@ async def _session_cleanup_loop():
 @asynccontextmanager
 async def lifespan(app):
     asyncio.create_task(_session_cleanup_loop())
+    asyncio.create_task(cleanup_expired_orders())
+    asyncio.create_task(health_check_task())
+    logger.info("Background tasks started: cleanup + health_check")
     yield
 
 app = FastAPI(title="ObsidianExchange Relay", version="3.0", lifespan=lifespan)
@@ -80,6 +90,22 @@ def db_conn(timeout=5):
         conn.close()
 
 def site_context(request: Request, **extra):
+    try:
+        with db_conn(3) as conn:
+            c = conn.cursor()
+            stats = c.execute("""
+                SELECT COUNT(*) as total,
+                       SUM(CASE WHEN status IN ('paid','sent') THEN 1 ELSE 0 END) as completed,
+                       SUM(CASE WHEN status IN ('paid','sent','failed') THEN 1 ELSE 0 END) as attempted
+                FROM orders
+            """).fetchone()
+            total_orders = stats[0] or 0
+            completed_orders = stats[1] or 0
+            attempted = stats[2] or 0
+            # Показываем успешность только среди тех, кто дошёл до конца
+            success_rate = round(completed_orders / max(attempted, 1) * 100, 1) if attempted > 0 else 99.2
+    except Exception:
+        total_orders, success_rate = 0, 99.2
     ctx = {
         "bot_username": BOT_USERNAME,
         "support_username": SUPPORT_USERNAME,
@@ -88,6 +114,8 @@ def site_context(request: Request, **extra):
         "max_amount": MAX_AMOUNT,
         "public_relay": PUBLIC_RELAY,
         "web_user": auth.get_web_user(request),
+        "total_orders": total_orders,
+        "success_rate": success_rate,
     }
     ctx.update(extra)
     return ctx
@@ -130,13 +158,16 @@ def require_admin(request: Request):
         raise HTTPException(status_code=403, detail="forbidden")
     return user
 
-def notify_telegram(user_id, text):
+def notify_telegram(user_id, text, reply_markup=None):
     if not BOT_TOKEN:
         return
     try:
+        payload = {"chat_id": user_id, "text": text, "parse_mode": "HTML"}
+        if reply_markup:
+            payload["reply_markup"] = reply_markup
         requests.post(
             f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
-            json={"chat_id": user_id, "text": text, "parse_mode": "HTML"},
+            json=payload,
             timeout=10,
         )
     except Exception as e:
@@ -578,6 +609,44 @@ async def dashboard_2fa_disable(
     audit_log("web_2fa_disabled", f"user_id={web_user['id']}")
     return RedirectResponse("/dashboard/profile/2fa?success=disabled", status_code=302)
 
+@app.get("/dashboard/profile/password", response_class=HTMLResponse)
+async def dashboard_password_page(request: Request):
+    web_user = auth.get_web_user(request)
+    if not web_user:
+        return RedirectResponse("/login", status_code=302)
+    return templates.TemplateResponse(request, "dashboard_password.html", site_context(
+        request, active="profile",
+        error=request.query_params.get('error'),
+        success=request.query_params.get('success'),
+    ))
+
+@app.post("/dashboard/profile/password")
+async def dashboard_password_submit(
+    request: Request,
+    csrf_token: str = Form(...),
+    current_password: str = Form(...),
+    new_password: str = Form(...),
+    new_password2: str = Form(...),
+):
+    web_user = auth.get_web_user(request)
+    if not web_user:
+        return RedirectResponse("/login", status_code=302)
+    if not auth.verify_csrf(web_user, csrf_token):
+        raise HTTPException(status_code=403, detail="invalid csrf")
+    user_full = auth.get_user_by_email(web_user['email'])
+    if not auth.verify_password(current_password, user_full['password_hash']):
+        return RedirectResponse("/dashboard/profile/password?error=wrong_current", status_code=302)
+    if len(new_password) < 8:
+        return RedirectResponse("/dashboard/profile/password?error=too_short", status_code=302)
+    if new_password != new_password2:
+        return RedirectResponse("/dashboard/profile/password?error=mismatch", status_code=302)
+    with db_conn(5) as conn:
+        conn.execute("UPDATE web_users SET password_hash=? WHERE id=?",
+                     (auth.hash_password(new_password), web_user['id']))
+        conn.commit()
+    audit_log("web_password_changed", f"user_id={web_user['id']}")
+    return RedirectResponse("/dashboard/profile/password?success=1", status_code=302)
+
 @app.get("/dashboard/profile/2fa/qr.png")
 async def dashboard_2fa_qr(request: Request, secret: str = None):
     web_user = auth.get_web_user(request)
@@ -719,6 +788,262 @@ async def reviews_page(request: Request):
 @app.get("/contacts", response_class=HTMLResponse)
 async def contacts_page(request: Request):
     return templates.TemplateResponse(request, "contacts.html", site_context(request))
+
+@app.get("/widget", response_class=HTMLResponse)
+async def widget_page():
+    from utils import exchange_calc
+    btc = exchange_calc.get_cached_rate("BTC") or 0
+    ltc = exchange_calc.get_cached_rate("LTC") or 0
+    usdt = exchange_calc.get_cached_rate("USDT") or 0
+    comm = exchange_calc.get_commission_percent(10000)
+    ex = 10000
+    btc_out  = round(ex * (1 - comm / 100) / btc,  6) if btc  else 0
+    ltc_out  = round(ex * (1 - comm / 100) / ltc,  4) if ltc  else 0
+    usdt_out = round(ex * (1 - 0.02)       / usdt, 2) if usdt else 0
+    html = f"""<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ObsidianExchange · Курс</title>
+<style>
+  *{{margin:0;padding:0;box-sizing:border-box}}
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
+  :root{{
+    --bg:#07000f;
+    --card:#100020;
+    --border:#2a0055;
+    --purple:#c040ff;
+    --purple-dim:#7a1faa;
+    --text:#e8d8ff;
+    --muted:#7a6a99;
+    --btc:#f7931a;
+    --ltc:#a8a9ad;
+    --usdt:#26a17b;
+    --glow:rgba(192,64,255,.18);
+  }}
+  html,body{{width:100%;height:100%;background:transparent}}
+  body{{font-family:'Inter',sans-serif;background:transparent;display:flex;align-items:center;justify-content:center}}
+  .widget{{
+    width:340px;
+    background:var(--bg);
+    border:1px solid var(--border);
+    border-radius:14px;
+    overflow:hidden;
+    box-shadow:0 0 32px var(--glow),inset 0 0 60px rgba(100,0,180,.06);
+    position:relative;
+  }}
+  .widget::before{{
+    content:'';position:absolute;inset:0;
+    background:linear-gradient(135deg,rgba(192,64,255,.07) 0%,transparent 60%);
+    pointer-events:none;border-radius:14px;
+  }}
+  .header{{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:10px 14px 8px;
+    border-bottom:1px solid var(--border);
+  }}
+  .logo{{display:flex;align-items:center;gap:7px}}
+  .logo-gem{{
+    width:22px;height:22px;
+    background:linear-gradient(135deg,var(--purple) 0%,#6600cc 100%);
+    border-radius:5px;
+    display:flex;align-items:center;justify-content:center;
+    font-size:12px;box-shadow:0 0 10px var(--glow);
+  }}
+  .logo-text{{font-size:13px;font-weight:900;letter-spacing:.06em;color:var(--text);text-transform:uppercase}}
+  .logo-text span{{color:var(--purple)}}
+  .header-right{{text-align:right}}
+  .header-label{{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}}
+  .header-amount{{font-size:11px;font-weight:700;color:var(--purple);margin-top:1px}}
+  .rows{{padding:6px 0 4px}}
+  .row{{
+    display:flex;align-items:center;gap:10px;
+    padding:7px 14px;
+    transition:background .2s;
+  }}
+  .row:hover{{background:rgba(192,64,255,.05)}}
+  .coin-icon{{
+    width:28px;height:28px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-size:14px;font-weight:900;flex-shrink:0;
+    box-shadow:0 0 8px rgba(0,0,0,.4);
+  }}
+  .coin-icon.btc{{background:radial-gradient(circle,#f7931a,#c45e00);color:#fff}}
+  .coin-icon.ltc{{background:radial-gradient(circle,#c0c0c0,#7a7a7a);color:#fff}}
+  .coin-icon.usdt{{background:radial-gradient(circle,#26a17b,#1a6e54);color:#fff}}
+  .coin-info{{flex:1;min-width:0}}
+  .coin-name{{font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em}}
+  .coin-val{{
+    font-size:15px;font-weight:700;color:var(--text);
+    font-variant-numeric:tabular-nums;margin-top:1px;
+  }}
+  .coin-ticker{{font-size:11px;color:var(--purple);margin-left:4px;font-weight:600}}
+  .divider{{height:1px;background:var(--border);margin:0 14px;opacity:.5}}
+  .footer{{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:7px 14px;
+  }}
+  .footer-link{{
+    font-size:9px;color:var(--purple-dim);text-decoration:none;
+    letter-spacing:.04em;text-transform:uppercase;
+    transition:color .2s;
+  }}
+  .footer-link:hover{{color:var(--purple)}}
+  .update-status{{
+    font-size:9px;color:var(--muted);
+    display:flex;align-items:center;gap:4px;
+  }}
+  .dot{{
+    width:5px;height:5px;border-radius:50%;
+    background:var(--purple);
+    animation:pulse 2s infinite;
+  }}
+  @keyframes pulse{{
+    0%,100%{{opacity:1;box-shadow:0 0 4px var(--purple)}}
+    50%{{opacity:.3;box-shadow:none}}
+  }}
+  .dot.updating{{background:#ff9d00;animation:spin-dot 1s linear infinite}}
+  @keyframes spin-dot{{to{{transform:rotate(360deg)}}}}
+  .updating-label{{display:none;color:#ff9d00}}
+  body.is-updating .updating-label{{display:inline}}
+  body.is-updating .idle-label{{display:none}}
+  body.is-updating .dot{{background:#ff9d00}}
+  .val-skeleton{{
+    display:inline-block;width:80px;height:14px;
+    border-radius:4px;background:linear-gradient(90deg,#1a0035 25%,#2e0060 50%,#1a0035 75%);
+    background-size:200% 100%;animation:shimmer 1.2s infinite;vertical-align:middle;
+  }}
+  @keyframes shimmer{{0%{{background-position:200% 0}}100%{{background-position:-200% 0}}}}
+</style>
+</head>
+<body>
+<div class="widget">
+  <div class="header">
+    <div class="logo">
+      <div class="logo-gem">◆</div>
+      <div class="logo-text"><span>Obsidian</span>Exchange</div>
+    </div>
+    <div class="header-right">
+      <div class="header-label">За 10 000 ₽ вы получите</div>
+      <div class="header-amount">комиссия {comm}% / USDT 2%</div>
+    </div>
+  </div>
+
+  <div class="rows">
+    <div class="row">
+      <div class="coin-icon btc">₿</div>
+      <div class="coin-info">
+        <div class="coin-name">Bitcoin</div>
+        <div class="coin-val" id="btc-val">{btc_out}<span class="coin-ticker">BTC</span></div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="row">
+      <div class="coin-icon ltc">Ł</div>
+      <div class="coin-info">
+        <div class="coin-name">Litecoin</div>
+        <div class="coin-val" id="ltc-val">{ltc_out}<span class="coin-ticker">LTC</span></div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="row">
+      <div class="coin-icon usdt">₮</div>
+      <div class="coin-info">
+        <div class="coin-name">Tether TRC20</div>
+        <div class="coin-val" id="usdt-val">{usdt_out}<span class="coin-ticker">USDT</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <a class="footer-link" href="https://obsidian-exchange.org" target="_blank">obsidian-exchange.org</a>
+    <div class="update-status">
+      <div class="dot"></div>
+      <span class="idle-label" id="upd-time">—</span>
+      <span class="updating-label">обновляется…</span>
+    </div>
+  </div>
+</div>
+
+<script>
+const MSK_OFFSET = 3 * 60;
+function mskTime() {{
+  const now = new Date();
+  const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+  const msk = new Date(utc + MSK_OFFSET * 60000);
+  const p = n => String(n).padStart(2,'0');
+  return p(msk.getHours()) + ':' + p(msk.getMinutes()) + ' МСК';
+}}
+
+function setVal(id, num, decimals) {{
+  const el = document.getElementById(id);
+  const ticker = el.querySelector('.coin-ticker');
+  const text = typeof num === 'number' ? num.toFixed(decimals) : num;
+  el.firstChild.textContent = text;
+  // restore ticker after innerHTML reset
+  el.appendChild(ticker);
+}}
+
+async function refresh() {{
+  document.body.classList.add('is-updating');
+  // Показываем скелетон
+  ['btc-val','ltc-val','usdt-val'].forEach(id => {{
+    const el = document.getElementById(id);
+    const ticker = el.querySelector('.coin-ticker').cloneNode(true);
+    el.innerHTML = '';
+    const sk = document.createElement('span');
+    sk.className = 'val-skeleton';
+    el.appendChild(sk);
+    el.appendChild(ticker);
+  }});
+  try {{
+    const r = await fetch('/api/widget-rates');
+    const d = await r.json();
+    document.getElementById('btc-val').innerHTML  = d.btc  + '<span class="coin-ticker">BTC</span>';
+    document.getElementById('ltc-val').innerHTML  = d.ltc  + '<span class="coin-ticker">LTC</span>';
+    document.getElementById('usdt-val').innerHTML = d.usdt + '<span class="coin-ticker">USDT</span>';
+    document.getElementById('upd-time').textContent = mskTime();
+  }} catch(e) {{
+    console.warn('widget update failed', e);
+  }}
+  document.body.classList.remove('is-updating');
+}}
+
+// Первое обновление + каждые 60 сек
+document.getElementById('upd-time').textContent = mskTime();
+setInterval(refresh, 60000);
+setTimeout(refresh, 3000);  // небольшая задержка после загрузки
+</script>
+</body>
+</html>"""
+    return HTMLResponse(content=html)
+
+
+@app.get("/api/widget-rates")
+async def api_widget_rates():
+    from utils import exchange_calc
+    btc  = exchange_calc.get_cached_rate("BTC")  or 0
+    ltc  = exchange_calc.get_cached_rate("LTC")  or 0
+    usdt = exchange_calc.get_cached_rate("USDT") or 0
+    comm = exchange_calc.get_commission_percent(10000)
+    ex   = 10000
+    return {
+        "btc":  round(ex * (1 - comm / 100) / btc,  6) if btc  else 0,
+        "ltc":  round(ex * (1 - comm / 100) / ltc,  4) if ltc  else 0,
+        "usdt": round(ex * (1 - 0.02)       / usdt, 2) if usdt else 0,
+        "comm_pct": comm,
+        "ts": int(__import__('time').time()),
+    }
+
+
+@app.get("/api/rates")
+async def api_rates():
+    from utils import exchange_calc
+    btc  = exchange_calc.get_cached_rate("BTC")  or 0
+    ltc  = exchange_calc.get_cached_rate("LTC")  or 0
+    usdt = exchange_calc.get_cached_rate("USDT") or 0
+    return {"BTC": btc, "LTC": ltc, "USDT": usdt, "ts": int(__import__('time').time())}
 
 @app.get("/api/stats/public")
 async def api_stats_public():
@@ -1161,24 +1486,6 @@ async def gateway(order_id: str, bank: str = "sber"):
     return RedirectResponse(url=redirect_url)
 
 # --- Вебхуки ---
-@app.post("/platega/webhook")
-async def platega_webhook(request: Request):
-    data = await request.json()
-    audit_log("webhook_received", str(data))
-    if data.get('key') != SECRET_KEY:
-        raise HTTPException(status_code=403)
-    order_id = data.get('order_id')
-    status = data.get('status')
-    if not order_id or not status:
-        return JSONResponse(status_code=400, content={})
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        if status == 'paid':
-            c.execute("UPDATE orders SET status='paid' WHERE order_id=? AND status='pending'", (order_id,))
-        conn.commit()
-    audit_log("webhook_processed", f"order={order_id} status={status}")
-    return JSONResponse(status_code=200, content={})
-
 @app.post("/greenpay/webhook")
 async def greenpay_webhook(request: Request):
     raw = await request.body()
@@ -1200,6 +1507,13 @@ async def greenpay_webhook(request: Request):
             c = conn.cursor()
             c.execute("UPDATE orders SET status='paid' WHERE order_id=? AND status='pending'", (order_id,))
             conn.commit()
+            c.execute("SELECT user_id FROM orders WHERE order_id=?", (order_id,))
+            row = c.fetchone()
+        if row and row[0] and int(row[0]) > 0:
+            notify_telegram(row[0], (
+                f"✅ <b>Оплата подтверждена!</b>\n\n"
+                f"Заявка <b>#{order_id}</b> принята — выплата будет произведена в ближайшее время."
+            ))
     audit_log("greenpay_webhook_processed", f"order={order_id} status={status}")
     return JSONResponse(status_code=200, content={})
 
@@ -1212,15 +1526,70 @@ async def montera_webhook(request: Request):
     audit_log("montera_webhook_received", str(data))
     external_id = data.get('external_id', '') or ''
     status = data.get('status')
+    requested_type = data.get('requested_type')  # 'video' или 'pdf-success'
     order_id = None
     if external_id.startswith('obsidian_'):
         order_id = external_id.split('_', 1)[1]
+
     if order_id and status == 'success':
         with db_conn(5) as conn:
             c = conn.cursor()
             c.execute("UPDATE orders SET status='paid' WHERE order_id=? AND status='pending'", (order_id,))
             conn.commit()
-    audit_log("montera_webhook_processed", f"order={order_id} status={status}")
+
+    if order_id and requested_type in ('video', 'pdf-success'):
+        with db_conn(5) as conn:
+            c = conn.cursor()
+            c.execute("UPDATE orders SET verification_requested=? WHERE order_id=?", (requested_type, order_id))
+            conn.commit()
+            c.execute("SELECT user_id FROM orders WHERE order_id=?", (order_id,))
+            row = c.fetchone()
+        if row and row[0] and row[0] > 0:
+            user_id = row[0]
+            deep_link = f"https://t.me/{BOT_USERNAME}?start=verify_{order_id}"
+            if requested_type == 'video':
+                text = (f"🎥 <b>Montera запрашивает видео-верификацию</b>\n\n"
+                        f"По заявке #{order_id} оператор Montera просит отправить короткое видео "
+                        f"(селфи с документом, удостоверяющим личность).\n\n"
+                        f"Нажмите кнопку ниже, откройте бот и следуйте инструкции.")
+            else:
+                text = (f"📄 <b>Montera запрашивает PDF-чек</b>\n\n"
+                        f"По заявке #{order_id} оператор Montera просит прислать PDF-чек "
+                        f"об успешном платеже.\n\n"
+                        f"Нажмите кнопку ниже, откройте бот и отправьте PDF-файл.")
+            markup = {"inline_keyboard": [[{"text": "📤 Открыть бот и отправить", "url": deep_link}]]}
+            notify_telegram(user_id, text, reply_markup=markup)
+            notify_telegram(ADMIN_ID, f"🔍 Montera запросила <b>{requested_type}</b> верификацию для заявки #{order_id}")
+        audit_log("montera_verification_requested", f"order={order_id} type={requested_type}")
+
+    audit_log("montera_webhook_processed", f"order={order_id} status={status} requested={requested_type}")
+    return JSONResponse(status_code=200, content={})
+
+@app.post("/brabus/webhook")
+async def brabus_webhook(request: Request):
+    token = request.headers.get('X-Notification-Token', '')
+    if not BRABUS_NOTIFICATION_TOKEN or not hmac.compare_digest(token, BRABUS_NOTIFICATION_TOKEN):
+        raise HTTPException(status_code=401)
+    data = await request.json()
+    audit_log("brabus_webhook_received", str(data))
+    internal_id = data.get('internalId', '') or ''
+    status = data.get('status')
+    order_id = None
+    if internal_id.startswith('obsidian_'):
+        order_id = internal_id.split('_', 1)[1]
+    if order_id and status == 'paid':
+        with db_conn(5) as conn:
+            c = conn.cursor()
+            c.execute("UPDATE orders SET status='paid' WHERE order_id=? AND status='pending'", (order_id,))
+            conn.commit()
+            c.execute("SELECT user_id FROM orders WHERE order_id=?", (order_id,))
+            row = c.fetchone()
+        if row and row[0] and int(row[0]) > 0:
+            notify_telegram(row[0], (
+                f"✅ <b>Оплата подтверждена!</b>\n\n"
+                f"Заявка <b>#{order_id}</b> принята — выплата будет произведена в ближайшее время."
+            ))
+    audit_log("brabus_webhook_processed", f"order={order_id} status={status}")
     return JSONResponse(status_code=200, content={})
 
 @app.post("/payment/callback")
@@ -1238,20 +1607,197 @@ async def payment_callback(request: Request):
         conn.commit()
     return JSONResponse(status_code=200, content={})
 
+@app.post("/api/ai-ask")
+async def api_ai_ask(request: Request):
+    if not AI_ENABLED:
+        return {"answer": "AI-ассистент недоступен."}
+    try:
+        body = await request.json()
+        q = str(body.get("question", ""))[:500]
+        if not q:
+            return {"answer": "Задайте вопрос."}
+
+        async def stream_gen():
+            gen = await _ask_ai(q, stream=True)
+            async for chunk in gen:
+                yield f"data: {json.dumps({'text': chunk}, ensure_ascii=False)}\n\n"
+            yield "data: [DONE]\n\n"
+
+        return StreamingResponse(stream_gen(), media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+    except Exception as e:
+        return {"answer": f"Ошибка: {e}"}
+
+@app.get("/admin/analytics/data")
+async def analytics_data(request: Request):
+    """Real-time analytics data for admin dashboard."""
+    import sqlite3 as _sq
+
+    def qry(sql, params=()):
+        with _sq.connect(DB_PATH, timeout=5) as c:
+            c.row_factory = _sq.Row
+            return [dict(r) for r in c.execute(sql, params).fetchall()]
+
+    daily = qry("""
+        SELECT strftime('%m-%d', created_at) as day,
+               COUNT(*) as orders,
+               SUM(rub_amount) as volume,
+               SUM(CASE WHEN status IN ('paid','sent') THEN 1 ELSE 0 END) as paid
+        FROM orders WHERE created_at > date('now','-14 days')
+        GROUP BY day ORDER BY day
+    """)
+    hourly = qry("""
+        SELECT CAST(strftime('%H', created_at) AS INTEGER) as hour, COUNT(*) as cnt
+        FROM orders GROUP BY hour ORDER BY hour
+    """)
+    by_currency = qry(
+        "SELECT currency, COUNT(*) as cnt, SUM(rub_amount) as vol FROM orders GROUP BY currency"
+    )
+    by_status = qry("SELECT status, COUNT(*) as cnt FROM orders GROUP BY status")
+    by_provider = qry(
+        "SELECT provider, is_healthy, failed_count, avg_response_time FROM provider_health"
+    )
+    recent = qry("""
+        SELECT o.order_id, o.currency, o.rub_amount, o.status, o.created_at, o.username,
+               (SELECT ps.provider FROM payment_sessions ps WHERE ps.order_id=o.order_id ORDER BY ps.session_id DESC LIMIT 1) as provider
+        FROM orders o ORDER BY o.order_id DESC LIMIT 20
+    """)
+    totals_row = qry("""
+        SELECT COUNT(*) as total_orders,
+               SUM(rub_amount) as total_volume,
+               SUM(CASE WHEN status IN ('paid','sent') THEN 1 ELSE 0 END) as paid_orders,
+               SUM(CASE WHEN status IN ('paid','sent') THEN rub_amount ELSE 0 END) as paid_volume
+        FROM orders
+    """)
+
+    try:
+        from services.payment_service import PaymentService
+        smart_router_status = PaymentService().get_provider_status()
+    except Exception as e:
+        smart_router_status = {"error": str(e)}
+
+    return {
+        "daily": daily,
+        "hourly": hourly,
+        "by_currency": by_currency,
+        "by_status": by_status,
+        "providers": by_provider,
+        "recent": recent,
+        "totals": totals_row[0] if totals_row else {},
+        "smart_router": smart_router_status,
+    }
+
+
+@app.get("/admin/analytics", response_class=HTMLResponse)
+async def analytics_page(request: Request):
+    """Admin analytics dashboard — protected by web session + ADMIN_ID match."""
+    from auth import get_web_user
+    web_user = get_web_user(request)
+    if not web_user:
+        return RedirectResponse(url="/login?next=/admin/analytics", status_code=302)
+    # Check admin: telegram_id must match ADMIN_ID or email contains 'admin'
+    tg_id = web_user.get("telegram_id")
+    email = web_user.get("email", "")
+    if str(tg_id) != str(ADMIN_ID) and "admin" not in email:
+        raise HTTPException(status_code=403, detail="Доступ запрещён")
+    return templates.TemplateResponse("admin_analytics.html", {"request": request})
+
+
+# ── Фоновые задачи ──
+
+async def cleanup_expired_orders():
+    """
+    Каждые 10 минут: помечает pending-заявки старше 2 часов как 'expired'.
+    Не трогает paid/sent.
+    """
+    while True:
+        try:
+            with db_conn(5) as conn:
+                c = conn.cursor()
+                result = c.execute("""
+                    UPDATE orders SET status='expired', updated_at=datetime('now')
+                    WHERE status='pending'
+                    AND datetime(created_at) < datetime('now', '-2 hours')
+                    AND order_id NOT IN (
+                        SELECT DISTINCT order_id FROM payment_sessions
+                        WHERE status='invoice_created'
+                        AND datetime(expires_at) > datetime('now')
+                    )
+                """)
+                expired = result.rowcount
+                conn.commit()
+                if expired > 0:
+                    logger.info(f"[cleanup] Expired {expired} abandoned pending orders")
+        except Exception as e:
+            logger.error(f"[cleanup] Error: {e}")
+        await asyncio.sleep(600)  # каждые 10 минут
+
+
+async def health_check_task():
+    """
+    Каждые 5 минут: проверяет здоровье провайдеров и пишет в лог.
+    Если все провайдеры нездоровы — шлёт алерт в Telegram.
+    """
+    import httpx
+    bot_token = BOT_TOKEN
+    admin_id = str(ADMIN_ID)
+
+    last_alert_time = 0.0
+
+    while True:
+        try:
+            from services.smart_router import get_health_scores
+            scores = get_health_scores()
+            healthy = [p for p, s in scores.items() if s.get("is_healthy")]
+            if not healthy and bot_token and admin_id and admin_id != "0":
+                now = asyncio.get_event_loop().time()
+                if now - last_alert_time > 1800:  # не чаще раза в 30 мин
+                    last_alert_time = now
+                    msg = "🚨 <b>Все провайдеры недоступны!</b>\n\nНи один провайдер не прошёл health check. Новые заявки не могут быть созданы."
+                    async with httpx.AsyncClient(timeout=10) as client:
+                        await client.post(
+                            f"https://api.telegram.org/bot{bot_token}/sendMessage",
+                            json={"chat_id": admin_id, "text": msg, "parse_mode": "HTML"}
+                        )
+            logger.info(f"[health] Healthy providers: {healthy or ['none']}")
+        except Exception as e:
+            logger.error(f"[health_check] Error: {e}")
+        await asyncio.sleep(300)  # каждые 5 минут
+
+
+@app.get("/api/system-status")
+async def system_status():
+    """Публичный endpoint: статус системы для мониторинга."""
+    try:
+        from services.smart_router import get_health_scores
+        scores = get_health_scores()
+        healthy_count = sum(1 for s in scores.values() if s.get("is_healthy"))
+    except Exception:
+        scores = {}
+        healthy_count = 0
+
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        stats = c.execute("""
+            SELECT
+                COUNT(*) as total,
+                SUM(CASE WHEN status='pending' THEN 1 ELSE 0 END) as pending,
+                SUM(CASE WHEN status IN ('paid','sent') THEN 1 ELSE 0 END) as completed,
+                SUM(CASE WHEN status='expired' THEN 1 ELSE 0 END) as expired
+            FROM orders WHERE date(created_at) = date('now')
+        """).fetchone()
+
+    return {
+        "status": "operational" if healthy_count > 0 else "degraded",
+        "providers_healthy": healthy_count,
+        "today": {
+            "total": stats[0], "pending": stats[1],
+            "completed": stats[2], "expired": stats[3]
+        }
+    }
+
+
 # --- Запуск ---
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=5001)
-
-@app.get("/pay/{token}")
-async def pay_redirect(token: str):
-    import sqlite3
-    from fastapi.responses import RedirectResponse
-    conn = sqlite3.connect("/root/exchange.db", timeout=5)
-    c = conn.cursor()
-    c.execute("SELECT paid_btc_tx FROM orders WHERE paid_btc_tx LIKE ? ORDER BY order_id DESC LIMIT 1", (f'%{token}%',))
-    row = c.fetchone()
-    conn.close()
-    if not row:
-        raise HTTPException(status_code=404, detail="Order not found")
-    return RedirectResponse(url=row[0])

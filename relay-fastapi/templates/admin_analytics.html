@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Analytics · ObsidianExchange</title>
+<style>
+:root{--bg:#07070f;--s1:#0e0e1c;--s2:#131328;--b:rgba(99,65,220,.16);--b2:rgba(99,65,220,.32);--ac:#7c3aed;--adim:rgba(124,58,237,.1);--ok:#10b981;--warn:#f59e0b;--crit:#ef4444;--t1:#e2e8f0;--t2:#94a3b8;--t3:#475569;--r:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--t1);font-family:system-ui,-apple-system,'Segoe UI',sans-serif;font-size:13px;line-height:1.5}
+a{color:inherit;text-decoration:none}
+
+/* topbar */
+.topbar{position:sticky;top:0;z-index:100;background:rgba(7,7,15,.94);backdrop-filter:blur(20px);border-bottom:1px solid var(--b);display:flex;align-items:center;justify-content:space-between;padding:0 20px;height:52px}
+.tb-left{display:flex;align-items:center;gap:12px}
+.tb-logo{font-size:14px;font-weight:700;color:var(--t2)}
+.tb-logo span{color:var(--t1)}
+.tb-title{font-size:13px;color:var(--t3)}
+.tb-right{display:flex;align-items:center;gap:16px}
+.live-pill{display:flex;align-items:center;gap:5px;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);border-radius:6px;padding:3px 9px;font-size:10px;font-weight:700;color:var(--ok);text-transform:uppercase;letter-spacing:.07em}
+.live-dot{width:5px;height:5px;border-radius:50%;background:var(--ok);animation:lp 2s ease-in-out infinite}
+@keyframes lp{0%,100%{opacity:1}50%{opacity:.3}}
+.clock{font-size:12px;color:var(--t2);font-variant-numeric:tabular-nums;letter-spacing:.03em}
+.tb-back{font-size:12px;color:var(--t2);border:1px solid var(--b);padding:4px 10px;border-radius:6px;transition:all .15s}
+.tb-back:hover{color:var(--t1);border-color:var(--b2)}
+
+/* layout */
+.page{max-width:1240px;margin:0 auto;padding:18px 20px 40px}
+.gap{height:18px}.gap-sm{height:10px}
+.sec-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--t3);border-bottom:1px solid var(--b);padding-bottom:7px;margin-bottom:12px}
+
+/* kpi */
+.kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.kpi{background:var(--s1);border:1px solid var(--b);border-radius:var(--r);padding:14px 16px;position:relative;overflow:hidden;transition:border-color .2s}
+.kpi:hover{border-color:var(--b2)}
+.kpi-stripe{position:absolute;top:0;left:0;right:0;height:2px;opacity:0;transition:opacity .2s}
+.kpi:hover .kpi-stripe{opacity:1}
+.kpi-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--t3);margin-bottom:8px}
+.kpi-val{font-size:24px;font-weight:800;letter-spacing:-.04em;font-variant-numeric:tabular-nums;line-height:1}
+.kpi-sub{font-size:11px;color:var(--t2);margin-top:5px;font-variant-numeric:tabular-nums}
+.badge{display:inline-block;font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;margin-top:5px}
+.b-ok{background:rgba(16,185,129,.12);color:var(--ok)}
+.b-warn{background:rgba(245,158,11,.1);color:var(--warn)}
+.b-crit{background:rgba(239,68,68,.08);color:var(--crit)}
+.b-acc{background:rgba(124,58,237,.12);color:#a78bfa}
+
+/* charts grid */
+.charts-grid{display:grid;grid-template-columns:2fr 1fr;gap:8px}
+.card{background:var(--s1);border:1px solid var(--b);border-radius:var(--r);padding:16px;overflow:hidden}
+.card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.card-title{font-size:12px;font-weight:700;letter-spacing:-.01em}
+.card-meta{font-size:11px;color:var(--t2);font-variant-numeric:tabular-nums}
+canvas{display:block;width:100%!important}
+
+/* bottom */
+.bottom-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+
+/* currency bars */
+.cur-row{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.cur-row:last-child{margin-bottom:0}
+.cur-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.cur-name{font-size:11px;font-weight:700;min-width:40px}
+.cur-bar-bg{flex:1;height:5px;background:rgba(255,255,255,.05);border-radius:3px;overflow:hidden}
+.cur-bar{height:100%;border-radius:3px;transition:width 1s ease}
+.cur-pct{font-size:11px;color:var(--t2);font-weight:700;min-width:34px;text-align:right;font-variant-numeric:tabular-nums}
+.cur-vol{font-size:10px;color:var(--t3);min-width:72px;text-align:right;font-variant-numeric:tabular-nums}
+
+/* provider */
+.prov-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid rgba(99,65,220,.07)}
+.prov-row:last-child{border-bottom:none}
+.prov-strip{width:3px;height:32px;border-radius:2px;flex-shrink:0}
+.prov-info{flex:1}
+.prov-name{font-size:12px;font-weight:700}
+.prov-stat{font-size:10px;color:var(--t2);margin-top:1px;font-variant-numeric:tabular-nums}
+.prov-score{text-align:right}
+.prov-num{font-size:15px;font-weight:800;font-variant-numeric:tabular-nums}
+.pc{display:inline-flex;align-items:center;gap:3px;font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;text-transform:uppercase;letter-spacing:.04em;margin-left:6px}
+.pc-ok{background:rgba(16,185,129,.1);color:var(--ok)}
+.pc-warn{background:rgba(245,158,11,.1);color:var(--warn)}
+.pc-off{background:rgba(71,85,105,.12);color:var(--t3)}
+.pc-crit{background:rgba(239,68,68,.08);color:var(--crit)}
+
+/* AI insights */
+.insights-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.insight{background:var(--s1);border:1px solid var(--b);border-radius:var(--r);padding:14px}
+.insight-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--t3);margin-bottom:8px}
+.insight-val{font-size:20px;font-weight:800;margin-bottom:4px;font-variant-numeric:tabular-nums}
+.insight-txt{font-size:11px;color:var(--t2);line-height:1.5}
+
+/* table */
+.tbl-card{background:var(--s1);border:1px solid var(--b);border-radius:var(--r);overflow:hidden}
+.tbl-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px 10px;border-bottom:1px solid var(--b)}
+.tbl-title{font-size:12px;font-weight:700}
+.ovf{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+thead th{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--t3);text-align:left;padding:9px 12px;border-bottom:1px solid var(--b);white-space:nowrap}
+thead th:first-child{padding-left:16px}
+thead th:last-child{padding-right:16px;text-align:right}
+tbody td{padding:9px 12px;border-bottom:1px solid rgba(99,65,220,.06);font-size:12px;vertical-align:middle;white-space:nowrap}
+tbody td:first-child{padding-left:16px}
+tbody td:last-child{padding-right:16px;text-align:right}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:rgba(124,58,237,.04)}
+.st{display:inline-flex;align-items:center;font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;text-transform:uppercase;letter-spacing:.04em}
+.st-sent{background:rgba(16,185,129,.1);color:var(--ok)}
+.st-paid{background:rgba(124,58,237,.1);color:#a78bfa}
+.st-pend{background:rgba(245,158,11,.08);color:var(--warn)}
+.st-exp{background:rgba(71,85,105,.1);color:var(--t3)}
+
+/* period switcher */
+.period{display:flex;gap:2px}
+.pb{padding:3px 8px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;border:1px solid transparent;color:var(--t2);background:none;font-family:inherit;text-transform:uppercase;letter-spacing:.04em;transition:all .15s}
+.pb.a{background:var(--adim);border-color:var(--b2);color:var(--t1)}
+
+@media(max-width:900px){.kpi-row{grid-template-columns:repeat(3,1fr)}.charts-grid,.bottom-grid{grid-template-columns:1fr}.insights-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:600px){.kpi-row{grid-template-columns:repeat(2,1fr)}}
+::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-thumb{background:rgba(99,65,220,.3);border-radius:2px}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="tb-left">
+    <div class="tb-logo">◆ <span>ObsidianExchange</span></div>
+    <div class="tb-title">/ Admin Analytics</div>
+  </div>
+  <div class="tb-right">
+    <div class="period">
+      <button class="pb" onclick="load(7,this)">7Д</button>
+      <button class="pb a" onclick="load(14,this)">14Д</button>
+      <button class="pb" onclick="load(30,this)">30Д</button>
+    </div>
+    <div class="live-pill"><span class="live-dot"></span>Live</div>
+    <div class="clock" id="clk">—</div>
+    <a href="/dashboard" class="tb-back">← Кабинет</a>
+  </div>
+</div>
+
+<div class="page">
+  <div class="gap-sm"></div>
+
+  <!-- KPI -->
+  <div class="sec-label">Ключевые показатели</div>
+  <div class="kpi-row">
+    <div class="kpi">
+      <div class="kpi-stripe" style="background:var(--ok)"></div>
+      <div class="kpi-label">Общий оборот</div>
+      <div class="kpi-val" style="color:var(--ok)" id="k-vol">…</div>
+      <div class="kpi-sub">рублей всего</div>
+      <span class="badge b-ok" id="k-vol-b"></span>
+    </div>
+    <div class="kpi">
+      <div class="kpi-stripe" style="background:#a78bfa"></div>
+      <div class="kpi-label">Сегодня</div>
+      <div class="kpi-val" style="color:#a78bfa" id="k-today">…</div>
+      <div class="kpi-sub" id="k-today-b">…</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-stripe" style="background:var(--warn)"></div>
+      <div class="kpi-label">Конверсия</div>
+      <div class="kpi-val" style="color:var(--warn)" id="k-conv">…</div>
+      <div class="kpi-sub" id="k-conv-b">…</div>
+      <span class="badge b-warn">paid+sent</span>
+    </div>
+    <div class="kpi">
+      <div class="kpi-stripe" style="background:var(--ac)"></div>
+      <div class="kpi-label">Всего заявок</div>
+      <div class="kpi-val" id="k-orders">…</div>
+      <div class="kpi-sub" id="k-orders-b">…</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-stripe" style="background:var(--ok)"></div>
+      <div class="kpi-label">Провайдеры</div>
+      <div class="kpi-val" id="k-prov" style="color:var(--ok)">…</div>
+      <div class="kpi-sub">из 5 активны</div>
+      <span class="badge" id="k-prov-b"></span>
+    </div>
+  </div>
+
+  <div class="gap"></div>
+
+  <!-- Charts -->
+  <div class="sec-label">Динамика</div>
+  <div class="charts-grid">
+    <div class="card">
+      <div class="card-head">
+        <span class="card-title">Оборот по дням (₽)</span>
+        <span class="card-meta" id="ch-total">…</span>
+      </div>
+      <canvas id="c-rev" height="150"></canvas>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <span class="card-title">Активность по часам</span>
+        <span class="card-meta" id="ch-peak">пик: …</span>
+      </div>
+      <canvas id="c-hour" height="150"></canvas>
+    </div>
+  </div>
+
+  <div class="gap"></div>
+
+  <!-- Bottom -->
+  <div class="sec-label">Структура и провайдеры</div>
+  <div class="bottom-grid">
+    <div class="card">
+      <div class="card-head"><span class="card-title">Валюты</span><canvas id="c-donut" width="80" height="80" style="display:block"></canvas></div>
+      <div id="cur-list"></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-title">Провайдеры оплаты</span></div>
+      <div id="prov-list"></div>
+    </div>
+  </div>
+
+  <div class="gap"></div>
+
+  <!-- AI insights -->
+  <div class="sec-label">AI-инсайты</div>
+  <div class="insights-grid" id="insights-grid">
+    <div class="insight"><div class="insight-lbl">Загрузка</div><div class="insight-val" style="color:var(--t3)">…</div></div>
+  </div>
+
+  <div class="gap"></div>
+
+  <!-- Table -->
+  <div class="sec-label">Последние заявки</div>
+  <div class="tbl-card">
+    <div class="tbl-head">
+      <span class="tbl-title">Лента заявок</span>
+      <span style="font-size:10px;color:var(--t2)">● live</span>
+    </div>
+    <div class="ovf"><table>
+      <thead><tr>
+        <th>#ID</th><th>Валюта</th><th>Сумма</th><th>Статус</th>
+        <th>Провайдер</th><th>Дата</th><th>Пользователь</th>
+      </tr></thead>
+      <tbody id="tbl-body"><tr><td colspan="7" style="text-align:center;color:var(--t3);padding:20px">Загрузка…</td></tr></tbody>
+    </table></div>
+  </div>
+</div>
+
+<script>
+let DATA = null;
+let currentDays = 14;
+
+setInterval(() => {
+  const n = new Date();
+  document.getElementById('clk').textContent =
+    n.toLocaleTimeString('ru-RU', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}, 1000);
+
+function fmt(n) { return Number(n||0).toLocaleString('ru-RU'); }
+
+async function load(days, btn) {
+  if (btn) {
+    document.querySelectorAll('.pb').forEach(b=>b.classList.remove('a'));
+    btn.classList.add('a');
+  }
+  currentDays = days;
+  try {
+    const r = await fetch('/admin/analytics/data');
+    DATA = await r.json();
+    render(DATA, days);
+  } catch(e) {
+    console.error('Analytics load failed:', e);
+  }
+}
+
+function render(d, days) {
+  const t = d.totals || {};
+  const total_orders = t.total_orders || 0;
+  const paid_orders  = t.paid_orders  || 0;
+  const total_vol    = t.total_volume || 0;
+  const paid_vol     = t.paid_volume  || 0;
+
+  // KPI
+  document.getElementById('k-vol').textContent = fmt(Math.round(total_vol)) + ' ₽';
+  document.getElementById('k-vol-b').textContent = fmt(Math.round(paid_vol)) + ' ₽ выплачено';
+
+  // Today
+  const today = (d.daily||[]).slice(-1)[0] || {};
+  document.getElementById('k-today').textContent = fmt(Math.round(today.volume||0)) + ' ₽';
+  document.getElementById('k-today-b').textContent = (today.orders||0) + ' заявок сегодня';
+
+  // Conversion
+  const conv = total_orders > 0 ? (paid_orders / total_orders * 100).toFixed(1) : '0.0';
+  document.getElementById('k-conv').textContent = conv + '%';
+  document.getElementById('k-conv-b').textContent = paid_orders + ' из ' + total_orders + ' завершены';
+
+  // Orders
+  document.getElementById('k-orders').textContent = fmt(total_orders);
+  const pend = (d.by_status||[]).find(s=>s.status==='pending');
+  document.getElementById('k-orders-b').textContent = (pend?.cnt||0) + ' ожидают';
+
+  // Providers
+  const provs = d.providers || [];
+  const healthy = provs.filter(p=>p.is_healthy).length;
+  document.getElementById('k-prov').textContent = healthy;
+  const pb = document.getElementById('k-prov-b');
+  pb.textContent = (5-healthy) + ' offline';
+  pb.className = 'badge ' + (healthy>0 ? (healthy>1?'b-ok':'b-warn') : 'b-crit');
+
+  // Charts
+  const daily = (d.daily||[]).slice(-days);
+  document.getElementById('ch-total').textContent = 'Итого: ' + fmt(Math.round(daily.reduce((s,r)=>s+(r.volume||0),0))) + ' ₽';
+  drawRevenue(daily);
+  drawHourly(d.hourly||[]);
+  drawDonut(d.by_currency||[]);
+  renderCurrencies(d.by_currency||[], total_vol);
+  renderProviders(provs);
+  renderInsights(d);
+  renderTable(d.recent||[]);
+}
+
+// ── Revenue chart ──
+function drawRevenue(data) {
+  const el = document.getElementById('c-rev');
+  const dpr = devicePixelRatio||1;
+  const W = el.parentElement.clientWidth - 32;
+  const H = 150;
+  el.width = W*dpr; el.height = H*dpr;
+  el.style.width = W+'px'; el.style.height = H+'px';
+  const ctx = el.getContext('2d'); ctx.scale(dpr,dpr);
+  if (!data.length) return;
+  const pad = {l:52,r:14,t:10,b:26};
+  const iW = W-pad.l-pad.r, iH = H-pad.t-pad.b;
+  const maxV = Math.max(...data.map(d=>d.volume||0), 1);
+  const px = i => pad.l + i*(iW/(data.length-1||1));
+  const py = v => pad.t + iH - (v/maxV)*iH;
+  ctx.clearRect(0,0,W,H);
+  // grid
+  ctx.strokeStyle='rgba(99,65,220,.1)'; ctx.lineWidth=.5; ctx.setLineDash([2,4]);
+  for(let i=0;i<=3;i++){const y=pad.t+(iH/3)*i;ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(W-pad.r,y);ctx.stroke();const v=maxV*(1-i/3);ctx.fillStyle='rgba(148,163,184,.45)';ctx.font='9px system-ui';ctx.textAlign='right';ctx.fillText(v>=1000?(v/1000).toFixed(0)+'к':v.toFixed(0),pad.l-4,y+3);}
+  ctx.setLineDash([]);
+  // area
+  const g=ctx.createLinearGradient(0,pad.t,0,pad.t+iH);g.addColorStop(0,'rgba(124,58,237,.22)');g.addColorStop(1,'rgba(124,58,237,0)');
+  ctx.fillStyle=g;ctx.beginPath();ctx.moveTo(px(0),py(data[0].volume||0));
+  data.forEach((d,i)=>{if(i)ctx.lineTo(px(i),py(d.volume||0));});
+  ctx.lineTo(px(data.length-1),pad.t+iH);ctx.lineTo(px(0),pad.t+iH);ctx.closePath();ctx.fill();
+  // line
+  ctx.strokeStyle='rgba(167,139,250,.8)';ctx.lineWidth=1.8;ctx.lineJoin='round';ctx.setLineDash([]);
+  ctx.beginPath();data.forEach((d,i)=>i?ctx.lineTo(px(i),py(d.volume||0)):ctx.moveTo(px(i),py(d.volume||0)));ctx.stroke();
+  // labels + dot
+  data.forEach((d,i)=>{
+    if(data.length<=14||i%2===0){ctx.fillStyle='rgba(100,116,139,.6)';ctx.font='9px system-ui';ctx.textAlign='center';ctx.fillText(d.day||'',px(i),H-5);}
+    if(i===data.length-1){ctx.fillStyle='#a78bfa';ctx.beginPath();ctx.arc(px(i),py(d.volume||0),4,0,Math.PI*2);ctx.fill();}
+  });
+}
+
+// ── Hourly chart ──
+function drawHourly(hourly) {
+  const hours = Array.from({length:24},(_,i)=>0);
+  hourly.forEach(h=>{if(h.hour>=0&&h.hour<24)hours[h.hour]=h.cnt;});
+  const maxV = Math.max(...hours,1);
+  const peak = hours.indexOf(Math.max(...hours));
+  document.getElementById('ch-peak').textContent = 'пик: '+peak+':00 ('+maxV+')';
+  const el=document.getElementById('c-hour');
+  const dpr=devicePixelRatio||1;
+  const W=el.parentElement.clientWidth-32;const H=150;
+  el.width=W*dpr;el.height=H*dpr;el.style.width=W+'px';el.style.height=H+'px';
+  const ctx=el.getContext('2d');ctx.scale(dpr,dpr);
+  const pad={l:28,r:8,t:10,b:22};const iW=W-pad.l-pad.r;const iH=H-pad.t-pad.b;
+  const bw=iW/24;ctx.clearRect(0,0,W,H);
+  ctx.strokeStyle='rgba(99,65,220,.08)';ctx.lineWidth=.5;ctx.setLineDash([2,4]);
+  for(let i=0;i<=2;i++){const y=pad.t+(iH/2)*i;ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(W-pad.r,y);ctx.stroke();}
+  ctx.setLineDash([]);
+  hours.forEach((v,i)=>{
+    const x=pad.l+i*bw+1;const bh=(v/maxV)*iH;const y=pad.t+iH-bh;
+    const g=ctx.createLinearGradient(0,y,0,y+bh);
+    if(i===peak){g.addColorStop(0,'rgba(167,139,250,.95)');g.addColorStop(1,'rgba(124,58,237,.3)');}
+    else if(v>maxV*.6){g.addColorStop(0,'rgba(124,58,237,.7)');g.addColorStop(1,'rgba(124,58,237,.2)');}
+    else{g.addColorStop(0,'rgba(99,65,220,.45)');g.addColorStop(1,'rgba(99,65,220,.1)');}
+    ctx.fillStyle=g;ctx.beginPath();ctx.roundRect(x,y,bw-2,bh,[2,2,0,0]);ctx.fill();
+    if(i%4===0){ctx.fillStyle='rgba(100,116,139,.55)';ctx.font='9px system-ui';ctx.textAlign='center';ctx.fillText(String(i).padStart(2,'0'),x+(bw-2)/2,H-5);}
+    if(i===peak){ctx.fillStyle='#c4b5fd';ctx.font='bold 8px system-ui';ctx.textAlign='center';ctx.fillText(v,x+(bw-2)/2,y-3);}
+  });
+}
+
+// ── Donut ──
+function drawDonut(byCurrency) {
+  const el = document.getElementById('c-donut');
+  if(!el) return;
+  const dpr=devicePixelRatio||1;const S=80;
+  el.width=S*dpr;el.height=S*dpr;el.style.width=S+'px';el.style.height=S+'px';
+  const ctx=el.getContext('2d');ctx.scale(dpr,dpr);
+  const cx=S/2,cy=S/2,R=34,r=22;
+  const colors={BTC:'#f59e0b',USDT:'#10b981',LTC:'#94a3b8'};
+  const total=byCurrency.reduce((s,c)=>s+(c.cnt||0),0)||1;
+  let angle=-Math.PI/2;
+  byCurrency.forEach(c=>{
+    const end=angle+(c.cnt/total)*Math.PI*2;
+    ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,R,angle,end);ctx.closePath();
+    ctx.fillStyle=colors[c.currency]||'#475569';ctx.fill();
+    angle=end;
+  });
+  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fillStyle='#0e0e1c';ctx.fill();
+  ctx.fillStyle='#e2e8f0';ctx.font='bold 12px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(total,cx,cy-4);
+  ctx.fillStyle='#64748b';ctx.font='8px system-ui';ctx.fillText('заявок',cx,cy+7);
+}
+
+// ── Currency list ──
+function renderCurrencies(list, totalVol) {
+  const colors={BTC:'#f59e0b',USDT:'#10b981',LTC:'#94a3b8'};
+  const totalCnt=list.reduce((s,c)=>s+(c.cnt||0),0)||1;
+  document.getElementById('cur-list').innerHTML = list.map(c=>{
+    const pct=((c.cnt/totalCnt)*100).toFixed(1);
+    const barPct=((c.cnt/totalCnt)*100).toFixed(1);
+    return `<div class="cur-row">
+      <div class="cur-dot" style="background:${colors[c.currency]||'#475569'}"></div>
+      <div class="cur-name" style="color:${colors[c.currency]||'#94a3b8'}">${c.currency}</div>
+      <div class="cur-bar-bg"><div class="cur-bar" style="background:${colors[c.currency]||'#475569'};width:${barPct}%"></div></div>
+      <div class="cur-pct">${pct}%</div>
+      <div class="cur-vol">${fmt(Math.round(c.vol||0))} ₽</div>
+    </div>`;
+  }).join('') + `<div style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(99,65,220,.1);display:grid;grid-template-columns:1fr 1fr;gap:8px">
+    <div><div style="font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin-bottom:2px">Ср. чек</div>
+    <div style="font-size:15px;font-weight:800;font-variant-numeric:tabular-nums">${fmt(Math.round((totalVol||0)/(totalCnt||1)))} ₽</div></div>
+    <div><div style="font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin-bottom:2px">Выплачено</div>
+    <div style="font-size:15px;font-weight:800;font-variant-numeric:tabular-nums">...</div></div>
+  </div>`;
+}
+
+// ── Providers ──
+function renderProviders(list) {
+  const cfg = {
+    brabus:   {label:'Brabus',    w:75,  desc:'tbank/alfa deeplink'},
+    fallback: {label:'Fallback',  w:90,  desc:'авто-резерв Brabus'},
+    greenpay: {label:'GreenPay', w:18,  desc:'PROCESSORS_UNAVAILABLE'},
+    montera:  {label:'Montera',  w:0,   desc:'аккаунт заблокирован'},
+    platega:  {label:'Platega',  w:0,   desc:'отключён'},
+  };
+  const statusColor = (w) => w>=70?'var(--ok)':w>=20?'var(--warn)':'var(--t3)';
+  const statusChip  = (w) => w>=70?'<span class="pc pc-ok">● Active</span>':w>=20?'<span class="pc pc-warn">⚡ Unstable</span>':w===0?'<span class="pc pc-off">— Offline</span>':'<span class="pc pc-crit">✗ Error</span>';
+  document.getElementById('prov-list').innerHTML = Object.entries(cfg).map(([key,c])=>{
+    const row = list.find(p=>p.provider===key)||{};
+    const score = c.w;
+    const sessions = row.sessions||0;
+    return `<div class="prov-row">
+      <div class="prov-strip" style="background:${statusColor(score)}"></div>
+      <div class="prov-info">
+        <div class="prov-name">${c.label}${statusChip(score)}</div>
+        <div class="prov-stat">${sessions} сессий · ${c.desc}</div>
+      </div>
+      <div class="prov-score">
+        <div class="prov-num" style="color:${statusColor(score)}">${score}%</div>
+        <div style="font-size:9px;color:var(--t3)">health</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── AI Insights ──
+function renderInsights(d) {
+  const hourly = Array.from({length:24},(_,i)=>0);
+  (d.hourly||[]).forEach(h=>{if(h.hour>=0&&h.hour<24)hourly[h.hour]=h.cnt;});
+  const maxH=Math.max(...hourly);
+  const peakH=hourly.indexOf(maxH);
+  const nightVol=hourly.slice(20).reduce((s,v)=>s+v,0)+hourly.slice(0,3).reduce((s,v)=>s+v,0);
+  const dayTotal=hourly.reduce((s,v)=>s+v,0)||1;
+  const nightPct=Math.round(nightVol/dayTotal*100);
+
+  const pend=(d.by_status||[]).find(s=>s.status==='pending')?.cnt||0;
+  const sent=(d.by_status||[]).find(s=>s.status==='sent')?.cnt||0;
+  const total=(d.totals?.total_orders||0);
+
+  const bestDay=(d.daily||[]).reduce((a,b)=>(b.volume||0)>(a.volume||0)?b:a,{day:'—',volume:0});
+
+  document.getElementById('insights-grid').innerHTML = `
+    <div class="insight">
+      <div class="insight-lbl">Пиковые часы</div>
+      <div class="insight-val" style="color:var(--warn)">${peakH}:00–${(peakH+4)%24}:00</div>
+      <div class="insight-txt">${nightPct}% заявок приходят ночью. Держите провайдеры активными в эти часы.</div>
+    </div>
+    <div class="insight">
+      <div class="insight-lbl">Pending-заявки</div>
+      <div class="insight-val" style="color:${pend>50?'var(--crit)':'var(--warn)'}">${fmt(pend)}</div>
+      <div class="insight-txt">Из ${fmt(total)} всего. Авто-чистка: pending > 2ч → expired каждые 10 мин.</div>
+    </div>
+    <div class="insight">
+      <div class="insight-lbl">Лучший день</div>
+      <div class="insight-val" style="color:var(--ok)">${bestDay.day||'—'}</div>
+      <div class="insight-txt">${fmt(Math.round(bestDay.volume||0))} ₽ оборот. Изучите что произошло — повторите.</div>
+    </div>`;
+}
+
+// ── Table ──
+function renderTable(rows) {
+  const stMap={sent:'st-sent Выплачено',paid:'st-paid Оплачено',pending:'st-pend Ожидание',expired:'st-exp Истёк'};
+  const cMap={BTC:'#f59e0b',LTC:'#94a3b8',USDT:'#10b981'};
+  document.getElementById('tbl-body').innerHTML = rows.map(r=>{
+    const [sc,sl]=(stMap[r.status]||'st-exp '+r.status).split(' ');
+    const c=cMap[r.currency]||'#94a3b8';
+    return `<tr>
+      <td style="color:var(--t3)">#${r.order_id}</td>
+      <td style="font-weight:700;color:${c}">${r.currency}</td>
+      <td style="font-weight:700">${fmt(Math.round(r.rub_amount||0))} ₽</td>
+      <td><span class="st ${sc}">${sl}</span></td>
+      <td style="color:var(--t3)">${r.provider||'—'}</td>
+      <td style="color:var(--t3);font-size:11px">${(r.created_at||'').slice(0,16)}</td>
+      <td style="color:var(--t3)">${r.username||'—'}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--t3);padding:16px">Нет данных</td></tr>';
+}
+
+// Init + auto-refresh 60s
+load(14);
+setInterval(()=>load(currentDays), 60000);
+</script>
+</body>
+</html>
