@@ -100,6 +100,7 @@
         .h-status-row { display:flex; align-items:center; justify-content:space-between; margin-top:8px; }
         .history-item .status { font-size: 12px; padding: 3px 10px; border-radius: 999px; background: rgba(168,85,247,.15); color: var(--purple-2); font-weight: 700; }
         .history-item small { color: var(--muted); }
+        .btn-pay { display:inline-block; margin-top:10px; background:#7c3aed; color:#fff; padding:7px 16px; border-radius:10px; text-decoration:none; font-size:13px; font-weight:600; letter-spacing:.02em; }
 
         /* ── Шаги обмена ── */
         .exchange-steps { display:flex; gap:0; margin-top:14px; }
@@ -515,6 +516,8 @@
                     const emoji = { pending:'⏳', paid:'✅', sent:'🚀' }[o.status] || '⚡';
                     const label = statusLabels[o.status] || o.status;
                     const cls = statusClass[o.status] || '';
+                    const payBtn = (o.status === 'pending' && o.session_token)
+                        ? `<a href="/pay/${o.session_token}" class="btn-pay">💳 Оплатить</a>` : '';
                     html += `<div class="history-item ${cls}">
                         <span class="h-icon">${emoji}</span>
                         <div class="h-title">#${o.order_id} — ${o.currency}</div>
@@ -523,6 +526,7 @@
                             <small>${o.created}</small>
                             <span class="status">${label}</span>
                         </div>
+                        ${payBtn}
                     </div>`;
                 });
                 list.innerHTML = html;

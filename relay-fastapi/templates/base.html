@@ -5,6 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}ObsidianExchange — обмен криптовалют без KYC{% endblock %}</title>
     <meta name="description" content="{% block description %}ObsidianExchange — быстрый обмен RUB на BTC, LTC и USDT без верификации. Автовыплаты, оплата СБП и картой.{% endblock %}">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="ObsidianExchange">
+    <meta property="og:title" content="{% block og_title %}ObsidianExchange — обмен RUB на BTC/LTC/USDT без KYC{% endblock %}">
+    <meta property="og:description" content="{% block og_desc %}Быстрый обмен рублей на криптовалюту через СБП. Без KYC, автовыплаты за 15 минут.{% endblock %}">
+    <meta property="og:url" content="https://obsidian-exchange.org{{ request.url.path }}">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="{% block tw_title %}ObsidianExchange{% endblock %}">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>◆</text></svg>">
     <link rel="stylesheet" href="/static/css/style.css">
 </head>

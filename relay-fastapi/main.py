@@ -1037,13 +1037,21 @@ async def api_widget_rates():
     }
 
 
+_rates_cache: dict = {"data": {}, "ts": 0.0}
+
 @app.get("/api/rates")
 async def api_rates():
+    import time
+    if time.time() - _rates_cache["ts"] < 60 and _rates_cache["data"]:
+        return _rates_cache["data"]
     from utils import exchange_calc
     btc  = exchange_calc.get_cached_rate("BTC")  or 0
     ltc  = exchange_calc.get_cached_rate("LTC")  or 0
     usdt = exchange_calc.get_cached_rate("USDT") or 0
-    return {"BTC": btc, "LTC": ltc, "USDT": usdt, "ts": int(__import__('time').time())}
+    result = {"BTC": btc, "LTC": ltc, "USDT": usdt, "ts": int(time.time())}
+    _rates_cache["data"] = result
+    _rates_cache["ts"] = time.time()
+    return result
 
 @app.get("/api/stats/public")
 async def api_stats_public():
@@ -1066,9 +1074,17 @@ async def webapp():
 async def api_history(user_id: int):
     with db_conn(5) as conn:
         c = conn.cursor()
-        c.execute("SELECT order_id, rub_amount, currency, status, created_at FROM orders WHERE user_id=? ORDER BY created_at DESC LIMIT 10", (user_id,))
+        c.execute("""
+            SELECT o.order_id, o.rub_amount, o.currency, o.status, o.created_at,
+                   ps.session_token
+            FROM orders o
+            LEFT JOIN payment_sessions ps ON ps.order_id = o.order_id
+                AND ps.status NOT IN ('failed','expired')
+            WHERE o.user_id=?
+            ORDER BY o.created_at DESC LIMIT 30
+        """, (user_id,))
         rows = c.fetchall()
-    return [{"order_id": r[0], "amount": r[1], "currency": r[2], "status": r[3], "created": r[4]} for r in rows]
+    return [{"order_id": r[0], "amount": r[1], "currency": r[2], "status": r[3], "created": r[4], "session_token": r[5]} for r in rows]
 
 @app.get("/api/referral_stats")
 async def api_referral(user_id: int):
@@ -1795,6 +1811,16 @@ async def system_status():
             "completed": stats[2], "expired": stats[3]
         }
     }
+
+
+# --- Обработчики ошибок ---
+@app.exception_handler(404)
+async def not_found_handler(request: Request, exc):
+    return templates.TemplateResponse("404.html", {"request": request}, status_code=404)
+
+@app.exception_handler(500)
+async def server_error_handler(request: Request, exc):
+    return templates.TemplateResponse("500.html", {"request": request}, status_code=500)
 
 
 # --- Запуск ---
