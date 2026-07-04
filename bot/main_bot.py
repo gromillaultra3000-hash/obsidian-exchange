@@ -347,27 +347,13 @@ async def build_payment_methods_kb(order_id: int, amount: float) -> InlineKeyboa
     rows = []
     amt = float(amount)
 
-    # Montera СБП — проверяем наличие трейдеров для этой суммы прямо сейчас
-    try:
-        from providers.montera import MonteraProvider
-        avail = MonteraProvider().check_availability(amt, "sbp")
-        if avail.get("available"):
-            rows.append([InlineKeyboardButton(
-                text="📱 СБП — по номеру телефона",
-                callback_data=f"pm_montera_sbp_{order_id}"
-            )])
-    except Exception:
-        # При ошибке проверки — показываем кнопку (провайдер сам даст ошибку)
-        rows.append([InlineKeyboardButton(
-            text="📱 СБП — по номеру телефона",
-            callback_data=f"pm_montera_sbp_{order_id}"
-        )])
-
-    # GreenPay — нет API предпроверки, показываем всегда
+    # Montera СБП — всегда показываем, API сам определяет наличие трейдера
     rows.append([InlineKeyboardButton(
-        text="📱 СБП — резервный канал",
-        callback_data=f"pm_gp_sbp_{order_id}"
+        text="📱 СБП — по номеру телефона",
+        callback_data=f"pm_montera_sbp_{order_id}"
     )])
+
+    # Montera Карта — всегда показываем
     rows.append([InlineKeyboardButton(
         text="💳 Карта — реквизиты на экране",
         callback_data=f"pm_gp_card_{order_id}"
@@ -392,6 +378,14 @@ async def build_payment_methods_kb(order_id: int, amount: float) -> InlineKeyboa
         rows.append([InlineKeyboardButton(
             text="🇻🇳 VietQR — Sber/VTB (от 1 000 ₽)",
             callback_data=f"pm_brabus_vietqr_{order_id}"
+        )])
+
+    # Lava — СБП / Карта через страницу оплаты (все банки)
+    lava_shop = os.getenv('LAVA_SHOP_ID', '')
+    if lava_shop:
+        rows.append([InlineKeyboardButton(
+            text="🌋 Все банки — СБП / Карта (Lava)",
+            callback_data=f"pm_lava_{order_id}"
         )])
 
     return InlineKeyboardMarkup(inline_keyboard=rows)
@@ -2221,15 +2215,45 @@ async def process_payment_method(callback: CallbackQuery, state: FSMContext):
     sys.path.insert(0, '/root/relay')
 
     if pm.startswith("pm_montera_sbp_"):
-        if not await montera_precheck(callback, amount, "sbp", order_id):
-            await callback.answer()
-            return
         try:
             from services.payment_service import PaymentService
             from providers.montera import MonteraProvider
             payment_service = PaymentService(provider=MonteraProvider())
-            session = payment_service.create_session(order_id, amount, payment_method="sbp")
+            session = payment_service.create_session(order_id, amount, payment_method="sbp",
+                                                     telegram_id=callback.from_user.id)
             if 'error' in session:
+                # СБП-трейдер пропал пока шла проверка — пробуем карту автоматически
+                avail_card = MonteraProvider().check_availability(amount, "card")
+                if avail_card.get("available"):
+                    await callback.message.answer(
+                        "📱 СБП-реквизиты временно недоступны — автоматически переключаю на карту..."
+                    )
+                    session = payment_service.create_session(order_id, amount, payment_method="card",
+                                                             telegram_id=callback.from_user.id)
+                    if 'error' not in session:
+                        raw_session = session.get('raw') or {}
+                        requisites_text = format_requisites(raw_session)
+                        receipt_url = raw_session.get("receipt_upload_url")
+                        montera_iid = raw_session.get("order_id") or raw_session.get("id")
+                        import datetime as _dt
+                        _deadline = (_dt.datetime.utcnow() + _dt.timedelta(minutes=30)).strftime("%Y-%m-%d %H:%M:%S")
+                        with db_conn(5) as _c:
+                            _c.execute("UPDATE orders SET montera_invoice_id=?, receipt_deadline=? WHERE order_id=?",
+                                       (str(montera_iid), _deadline, order_id))
+                            _c.commit()
+                        caption = (f"🟣 ObsidianExchange\nЗаявка #{order_id}\n\n"
+                                   f"Сумма: <b>{int(amount):,} ₽</b>\n\n"
+                                   f"Переведите указанную сумму на карту:\n{requisites_text}\n\n"
+                                   f"⏱ <b>У вас 30 минут</b> чтобы оплатить и отправить PDF-чек.\n\n"
+                                   f"📄 <b>После оплаты отправьте PDF-чек</b> из банковского приложения.").replace(",", " ")
+                        await state.update_data(montera_receipt_url=receipt_url, montera_invoice_id=montera_iid)
+                        await state.set_state(Exchange.receipt_upload)
+                        if IMG_SECURITY.exists() and len(caption) <= 1024:
+                            await callback.message.answer_photo(FSInputFile(IMG_SECURITY), caption=caption, parse_mode="HTML")
+                        else:
+                            await callback.message.answer(caption, parse_mode="HTML")
+                        await callback.answer()
+                        return
                 await reply_no_requisites(callback, order_id)
                 await callback.answer()
                 return
@@ -2267,26 +2291,45 @@ async def process_payment_method(callback: CallbackQuery, state: FSMContext):
         return
 
     elif pm.startswith("pm_gp_sbp_"):
+        # GreenPay отключён — перенаправляем на Montera Card
+        await callback.answer("Переключаю на оплату картой...", show_alert=False)
+        if not await montera_precheck(callback, amount, "card", order_id):
+            return
         try:
             from services.payment_service import PaymentService
-            from providers.greenpay import GreenPayProvider
-            payment_service = PaymentService(provider=GreenPayProvider())
-            session = payment_service.create_session(order_id, amount, payment_method="sbp")
+            from providers.montera import MonteraProvider
+            payment_service = PaymentService(provider=MonteraProvider())
+            session = payment_service.create_session(order_id, amount, payment_method="card",
+                                                     telegram_id=callback.from_user.id)
             if 'error' in session:
                 await reply_no_requisites(callback, order_id)
-                await callback.answer()
                 return
-            requisites_text = format_requisites(session.get('raw') or {})
+            raw_session = session.get('raw') or {}
+            requisites_text = format_requisites(raw_session)
+            receipt_url = raw_session.get("receipt_upload_url")
+            montera_iid = raw_session.get("order_id") or raw_session.get("id")
         except Exception as e:
-            logger.error(f"Ошибка создания сессии GreenPay: {e}")
+            logger.error(f"Ошибка создания сессии Montera (gp_sbp redirect): {e}")
             await reply_no_requisites(callback, order_id)
-            await callback.answer()
             return
-
+        import datetime as _dt
+        _deadline = (_dt.datetime.utcnow() + _dt.timedelta(minutes=30)).strftime("%Y-%m-%d %H:%M:%S")
+        with db_conn(5) as _c:
+            _c.execute("UPDATE orders SET montera_invoice_id=?, receipt_deadline=? WHERE order_id=?",
+                       (str(montera_iid), _deadline, order_id))
+            _c.commit()
         caption = (f"🟣 ObsidianExchange\nЗаявка #{order_id}\n\n"
                    f"Сумма: <b>{int(float(amount)):,} ₽</b>\n\n"
-                   f"Переведите указанную сумму по СБП:\n{requisites_text}\n\n"
-                   f"После перевода нажмите <b>«Я оплатил»</b> — оплата подтвердится автоматически.").replace(",", " ")
+                   f"Переведите указанную сумму на карту:\n{requisites_text}\n\n"
+                   f"⏱ <b>У вас 30 минут</b> чтобы оплатить и отправить PDF-чек.\n\n"
+                   f"📄 <b>После оплаты отправьте PDF-чек</b> из банковского приложения.").replace(",", " ")
+        await state.update_data(montera_receipt_url=receipt_url, montera_invoice_id=montera_iid)
+        await state.set_state(Exchange.receipt_upload)
+        if IMG_SECURITY.exists() and len(caption) <= 1024:
+            await callback.message.answer_photo(FSInputFile(IMG_SECURITY), caption=caption, parse_mode="HTML")
+        else:
+            await callback.message.answer(caption, parse_mode="HTML")
+        return
 
     elif pm.startswith("pm_gp_card_"):
         if not await montera_precheck(callback, amount, "card", order_id):
@@ -2296,7 +2339,8 @@ async def process_payment_method(callback: CallbackQuery, state: FSMContext):
             from services.payment_service import PaymentService
             from providers.montera import MonteraProvider
             payment_service = PaymentService(provider=MonteraProvider())
-            session = payment_service.create_session(order_id, amount, payment_method="card")
+            session = payment_service.create_session(order_id, amount, payment_method="card",
+                                                     telegram_id=callback.from_user.id)
             if 'error' in session:
                 await reply_no_requisites(callback, order_id)
                 await callback.answer()
@@ -2425,6 +2469,55 @@ async def process_payment_method(callback: CallbackQuery, state: FSMContext):
         await callback.answer()
         await state.clear()
         return
+
+    elif pm.startswith("pm_lava_"):
+        # Lava: создаём инвойс, отдаём кнопку-ссылку на страницу оплаты
+        try:
+            from providers.lava import LavaProvider
+            lava = LavaProvider()
+            result = lava.create_invoice(order_id, amount, payment_method=None)
+        except Exception as e:
+            logger.error(f"Lava create_invoice exception: {e}")
+            await reply_no_requisites(callback, order_id)
+            await callback.answer()
+            return
+
+        if 'error' in result:
+            await reply_no_requisites(callback, order_id, result['error'])
+            await callback.answer()
+            return
+
+        payment_url = result.get('payment_url')
+        invoice_id  = result.get('invoice_id')
+        if not payment_url:
+            await reply_no_requisites(callback, order_id)
+            await callback.answer()
+            return
+
+        caption = (
+            f"🟣 ObsidianExchange\n"
+            f"Заявка <b>#{order_id}</b>\n\n"
+            f"Сумма: <b>{int(amount):,} ₽</b>\n\n"
+            f"Нажмите кнопку — откроется страница оплаты.\n"
+            f"Выберите свой банк, подтвердите перевод."
+        ).replace(",", " ")
+
+        inline_kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="💳 Перейти к оплате →", url=payment_url)],
+            [InlineKeyboardButton(text="✅ Я оплатил", callback_data=f"paid_{order_id}")],
+            [InlineKeyboardButton(text="🔍 Проверить статус", callback_data=f"check_{order_id}")],
+        ])
+        if IMG_SECURITY.exists() and len(caption) <= 1024:
+            await callback.message.answer_photo(
+                FSInputFile(IMG_SECURITY), caption=caption,
+                reply_markup=inline_kb, parse_mode="HTML"
+            )
+        else:
+            await callback.message.answer(caption, reply_markup=inline_kb, parse_mode="HTML")
+        await callback.answer()
+        await state.clear()
+        return
+
     else:
         await callback.answer()
         return
@@ -2560,9 +2653,13 @@ async def process_montera_video_verification(message: Message, state: FSMContext
                 conn_c.commit()
             await state.clear()
         else:
+            err = result.get('error', 'неизвестная ошибка')
             await message.answer(
-                f"❌ Не удалось отправить видео: {result.get('error', 'неизвестная ошибка')}\n"
-                f"Попробуйте ещё раз или напишите оператору: {SUPPORT_BOT}"
+                f"⏳ <b>Не удалось отправить видео</b>\n\n"
+                f"{err}\n\n"
+                f"Подождите 1-2 минуты и отправьте видео повторно — оно сохранено у вас в чате.\n"
+                f"Если ошибка повторяется — напишите оператору: {SUPPORT_BOT}",
+                parse_mode="HTML"
             )
     except Exception as e:
         logger.error(f"Ошибка загрузки видео Montera: {e}")
@@ -2609,9 +2706,13 @@ async def process_montera_pdf_verification(message: Message, state: FSMContext):
                 conn_c.commit()
             await state.clear()
         else:
+            err = result.get('error', 'неизвестная ошибка')
             await message.answer(
-                f"❌ Не удалось отправить PDF: {result.get('error', 'неизвестная ошибка')}\n"
-                f"Попробуйте ещё раз или напишите оператору: {SUPPORT_BOT}"
+                f"⏳ <b>Не удалось отправить PDF</b>\n\n"
+                f"{err}\n\n"
+                f"Подождите 1-2 минуты и отправьте файл повторно — он сохранён у вас в чате.\n"
+                f"Если ошибка повторяется — напишите оператору: {SUPPORT_BOT}",
+                parse_mode="HTML"
             )
     except Exception as e:
         logger.error(f"Ошибка загрузки PDF-верификации Montera: {e}")
@@ -6130,20 +6231,13 @@ async def rate_alert_scheduler():
 
 
 async def daily_post_scheduler():
-    """Отправляет пост каждый день в DAILY_POST_HOUR_UTC:00 UTC."""
-    import calendar
+    """Рассылает пост с курсами каждые 5 часов."""
+    interval = 5 * 3600
+    await asyncio.sleep(60)  # небольшая задержка после старта бота
     while True:
-        import time as _time
-        now_ts = _time.gmtime()
-        now_h = now_ts.tm_hour + now_ts.tm_min / 60 + now_ts.tm_sec / 3600
-        target_h = DAILY_POST_HOUR_UTC
-        if now_h < target_h:
-            delay = (target_h - now_h) * 3600
-        else:
-            delay = (24 - now_h + target_h) * 3600
-        logger.info(f"Следующий ежедневный пост через {int(delay/3600)}ч {int((delay%3600)/60)}м")
-        await asyncio.sleep(int(delay))
         await send_daily_post()
+        logger.info("Следующий пост с курсами через 5ч")
+        await asyncio.sleep(interval)
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -6321,23 +6415,16 @@ async def feature_broadcast(target_id: int = None):
 
 
 async def feature_broadcast_scheduler():
-    """Каждый понедельник в 08:00 UTC (11:00 МСК) — рассылаем пост о функционале."""
-    import datetime as _dt
+    """7 постов из ротации каждый день с интервалом 3 часа между постами."""
+    interval = 3 * 3600
+    await asyncio.sleep(300)  # стартуем через 5 минут после запуска бота
     while True:
         try:
-            now = _dt.datetime.utcnow()
-            # Следующий понедельник 08:00 UTC
-            days_until_monday = (7 - now.weekday()) % 7 or 7
-            target = (now + _dt.timedelta(days=days_until_monday)).replace(
-                hour=8, minute=0, second=0, microsecond=0
-            )
-            wait = (target - now).total_seconds()
-            logger.info(f"feature_broadcast следующий через {int(wait/3600)}ч")
-            await asyncio.sleep(wait)
             await feature_broadcast()
+            logger.info("feature_broadcast отправлен, следующий через 3ч")
         except Exception as e:
             logger.error(f"feature_broadcast_scheduler error: {e}")
-            await asyncio.sleep(3600)
+        await asyncio.sleep(interval)
 
 
 _PROMO_POST_HTML = """🟣 <b>ObsidianExchange</b> — крипто-обменник нового поколения

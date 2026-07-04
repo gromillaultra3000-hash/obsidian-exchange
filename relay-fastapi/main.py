@@ -1584,6 +1584,49 @@ async def montera_webhook(request: Request):
     audit_log("montera_webhook_processed", f"order={order_id} status={status} requested={requested_type}")
     return JSONResponse(status_code=200, content={})
 
+@app.post("/lava/webhook")
+async def lava_webhook(request: Request):
+    data = await request.json()
+    audit_log("lava_webhook_received", str(data))
+
+    # Верификация подписи через дополнительный ключ
+    import sys, json as _json, hmac as _hmac, hashlib as _hashlib
+    lava_add_key = os.getenv('LAVA_ADDITIONAL_KEY', '')
+    received_sign = request.headers.get('Signature', '')
+    if lava_add_key and received_sign:
+        ordered = dict(sorted(data.items()))
+        json_str = _json.dumps(ordered, ensure_ascii=False, separators=(',', ':'))
+        expected = _hmac.new(lava_add_key.encode(), json_str.encode(), _hashlib.sha256).hexdigest()
+        if not _hmac.compare_digest(expected, received_sign):
+            logger.warning(f"Lava webhook bad signature: expected={expected[:16]}... got={received_sign[:16]}...")
+            raise HTTPException(status_code=401)
+
+    order_ref  = data.get('orderId', '') or ''
+    raw_status = data.get('status')
+    order_id   = order_ref.replace('obsidian_', '') if order_ref.startswith('obsidian_') else None
+
+    # Lava: status 1 = успешно оплачен, 2 = отменён
+    if raw_status == 1 or raw_status == 'success':
+        paid = True
+    else:
+        paid = False
+
+    if order_id and paid:
+        with db_conn(5) as conn:
+            c = conn.cursor()
+            c.execute("UPDATE orders SET status='paid' WHERE order_id=? AND status='pending'", (order_id,))
+            conn.commit()
+            c.execute("SELECT user_id FROM orders WHERE order_id=?", (order_id,))
+            row = c.fetchone()
+        if row and row[0] and int(row[0]) > 0:
+            notify_telegram(row[0], (
+                f"✅ <b>Оплата подтверждена!</b>\n\n"
+                f"Заявка <b>#{order_id}</b> принята — выплата будет произведена в ближайшее время."
+            ))
+    audit_log("lava_webhook_processed", f"order={order_id} status={raw_status} paid={paid}")
+    return JSONResponse(status_code=200, content={"status": "ok"})
+
+
 @app.post("/brabus/webhook")
 async def brabus_webhook(request: Request):
     token = request.headers.get('X-Notification-Token', '')

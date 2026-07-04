@@ -14,25 +14,31 @@ logger = logging.getLogger(__name__)
 
 PROVIDER_CONFIG = {
     "MonteraProvider": {
-        "weight": 0.70,        # primary provider (SBP phone + card)
+        "weight": 0.60,        # primary provider (SBP phone + card requisites)
         "min_amount": 1000,
         "cooldown_seconds": 240,
         "max_consecutive_fails": 3,
     },
     "BrabusProvider": {
-        "weight": 0.20,        # secondary provider
+        "weight": 0.20,        # deeplinks: tbank / alfa / vietqr
         "min_amount": 1000,
         "cooldown_seconds": 180,
         "max_consecutive_fails": 3,
     },
+    "LavaProvider": {
+        "weight": 0.10,        # SBP + card via hosted payment page
+        "min_amount": 100,
+        "cooldown_seconds": 180,
+        "max_consecutive_fails": 3,
+    },
     "GreenPayProvider": {
-        "weight": 0.10,        # backup
+        "weight": 0.05,        # legacy backup (frequently unavailable)
         "min_amount": 500,
         "cooldown_seconds": 300,
         "max_consecutive_fails": 2,
     },
     "FallbackProvider": {
-        "weight": 0.1,         # last resort
+        "weight": 0.05,        # last resort
         "min_amount": 1000,
         "cooldown_seconds": 60,
         "max_consecutive_fails": 5,
