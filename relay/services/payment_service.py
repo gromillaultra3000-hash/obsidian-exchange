@@ -85,8 +85,12 @@ class PaymentService:
                 return {"error": "All providers failed"}
             provider_name = 'fallback'
         else:
-            provider_names = {'PlategaProvider': 'platega', 'GreenPayProvider': 'greenpay', 'MonteraProvider': 'montera', 'BrabusProvider': 'brabus'}
-            provider_name = provider_names.get(self.provider.__class__.__name__, 'platega')
+            if self.provider.__class__.__name__ == 'BrabusProvider':
+                # Сохраняем вариант для корректного cancel при истечении заявки
+                provider_name = f'brabus:{getattr(self.provider, "variant", "tbank_deeplink")}'
+            else:
+                provider_names = {'PlategaProvider': 'platega', 'GreenPayProvider': 'greenpay', 'MonteraProvider': 'montera'}
+                provider_name = provider_names.get(self.provider.__class__.__name__, 'platega')
 
         c.execute("INSERT INTO payment_sessions (session_token, order_id, amount, provider, status, expires_at, client_ip, user_agent, telegram_id) VALUES (?,?,?,?,'invoice_created',?,?,?,?)",
                   (token, order_id, amount, provider_name, expires_at, client_ip, user_agent, telegram_id))

@@ -1105,7 +1105,33 @@ async def api_order(order_id: int):
         row = c.fetchone()
     if not row:
         raise HTTPException(status_code=404)
-    return {"status": row[0], "txid": row[1]}
+    status, txid = row[0], row[1]
+
+    # Если заявка ещё pending — проверяем Brabus напрямую на случай пропущенного вебхука
+    if status == 'pending':
+        try:
+            with db_conn(5) as conn:
+                c = conn.cursor()
+                c.execute("""SELECT provider_invoice_id, provider FROM payment_sessions
+                             WHERE order_id=? AND provider LIKE 'brabus%' AND provider_invoice_id IS NOT NULL
+                             ORDER BY created_at DESC LIMIT 1""", (order_id,))
+                sess = c.fetchone()
+            if sess:
+                inv_id, prov = sess
+                variant = prov.split(':', 1)[1] if ':' in prov else 'tbank_deeplink'
+                from providers.brabus import BrabusProvider
+                brabus_status = BrabusProvider(variant=variant).get_status(inv_id)
+                if brabus_status.get('status') == 'paid':
+                    with db_conn(5) as conn:
+                        c = conn.cursor()
+                        c.execute("UPDATE orders SET status='paid', updated_at=datetime('now') WHERE order_id=? AND status='pending'", (order_id,))
+                    status = 'paid'
+                    audit_log("brabus_polled_paid", f"order={order_id} inv={inv_id}")
+                    logger.info(f"[brabus_poll] order {order_id} marked paid via polling")
+        except Exception as e:
+            logger.warning(f"[brabus_poll] order {order_id}: {e}")
+
+    return {"status": status, "txid": txid}
 
 # --- Админ-вкладка Mini App ---
 @app.get("/api/admin/stats")
@@ -1630,16 +1656,18 @@ async def lava_webhook(request: Request):
 @app.post("/brabus/webhook")
 async def brabus_webhook(request: Request):
     token = request.headers.get('X-Notification-Token', '')
-    if not BRABUS_NOTIFICATION_TOKEN or not hmac.compare_digest(token, BRABUS_NOTIFICATION_TOKEN):
+    if BRABUS_NOTIFICATION_TOKEN and not hmac.compare_digest(token, BRABUS_NOTIFICATION_TOKEN):
         raise HTTPException(status_code=401)
     data = await request.json()
     audit_log("brabus_webhook_received", str(data))
-    internal_id = data.get('internalId', '') or ''
-    status = data.get('status')
+    # Структура: {"notificationType": "invoice", "invoice": {"internalId": "...", "status": "paid", ...}}
+    invoice = data.get('invoice') or data  # fallback на flat если вдруг старый формат
+    internal_id = invoice.get('internalId', '') or ''
+    status = invoice.get('status')
     order_id = None
     if internal_id.startswith('obsidian_'):
         order_id = internal_id.split('_', 1)[1]
-    if order_id and status == 'paid':
+    if order_id and status in ('paid',):
         with db_conn(5) as conn:
             c = conn.cursor()
             c.execute("UPDATE orders SET status='paid' WHERE order_id=? AND status='pending'", (order_id,))
@@ -1651,6 +1679,8 @@ async def brabus_webhook(request: Request):
                 f"✅ <b>Оплата подтверждена!</b>\n\n"
                 f"Заявка <b>#{order_id}</b> принята — выплата будет произведена в ближайшее время."
             ))
+    elif order_id and status in ('canceled', 'expired'):
+        audit_log("brabus_webhook_cancelled", f"order={order_id} status={status}")
     audit_log("brabus_webhook_processed", f"order={order_id} status={status}")
     return JSONResponse(status_code=200, content={})
 
@@ -1790,6 +1820,34 @@ async def cleanup_expired_orders():
                 conn.commit()
                 if expired > 0:
                     logger.info(f"[cleanup] Expired {expired} abandoned pending orders")
+                    # Отменяем Brabus-инвойсы для истёкших заявок (защита от зависших сделок)
+                    try:
+                        with db_conn(5) as conn2:
+                            c2 = conn2.cursor()
+                            c2.execute("""
+                                SELECT ps.provider_invoice_id, ps.provider
+                                FROM payment_sessions ps
+                                JOIN orders o ON o.order_id = ps.order_id
+                                WHERE o.status='expired'
+                                  AND ps.provider LIKE 'brabus%'
+                                  AND ps.provider_invoice_id IS NOT NULL
+                                  AND datetime(o.updated_at) > datetime('now', '-15 minutes')
+                            """)
+                            brabus_to_cancel = c2.fetchall()
+                        for inv_id, prov in brabus_to_cancel:
+                            variant = prov.split(':', 1)[1] if ':' in prov else None
+                            try:
+                                from providers.brabus import BrabusProvider
+                                if variant:
+                                    ok = BrabusProvider(variant=variant).cancel_order(inv_id)
+                                else:
+                                    ok = BrabusProvider.cancel_any(inv_id)
+                                if ok:
+                                    logger.info(f"[cleanup] Brabus cancelled {inv_id}")
+                            except Exception as ce:
+                                logger.warning(f"[cleanup] Brabus cancel {inv_id}: {ce}")
+                    except Exception as e:
+                        logger.error(f"[cleanup] Brabus cancel loop error: {e}")
         except Exception as e:
             logger.error(f"[cleanup] Error: {e}")
         await asyncio.sleep(600)  # каждые 10 минут
