@@ -359,18 +359,11 @@ async def build_payment_methods_kb(order_id: int, amount: float) -> InlineKeyboa
         callback_data=f"pm_gp_card_{order_id}"
     )])
 
-    # Brabus Альфа — от 3 000 ₽
-    if amt >= 3000:
-        rows.append([InlineKeyboardButton(
-            text="🅰️ Оплата через приложение (Альфа, от 3 000 ₽)",
-            callback_data=f"pm_brabus_alfa_{order_id}"
-        )])
-
-    # Brabus Т-Банк — от 1 000 ₽
+    # Brabus deeplink — один инвойс, кнопки для всех банков (Сбер/Альфа/Т-Банк)
     if amt >= 1000:
         rows.append([InlineKeyboardButton(
-            text="🟡 Оплата через приложение (Т-Банк, от 1 000 ₽)",
-            callback_data=f"pm_brabus_tbank_{order_id}"
+            text="📲 Оплата через приложение (Сбер / Альфа / Т-Банк)",
+            callback_data=f"pm_brabus_deeplink_{order_id}"
         )])
 
     # Brabus VietQR — от 1 000 ₽
@@ -791,18 +784,16 @@ async def cmd_start(message: Message, state: FSMContext):
                     )
                     if vtype == 'video':
                         await message.answer(
-                            f"🎥 <b>Верификация для заявки #{verify_order_id}</b>\n\n"
-                            f"Оператор Montera запросил видео-подтверждение.\n\n"
-                            f"Пожалуйста, запишите и отправьте <b>короткое видео</b> (5–15 сек): "
-                            f"держите в кадре документ, удостоверяющий личность (паспорт/ID), "
-                            f"и скажите дату сегодняшнего дня.",
+                            f"🎥 <b>Подтверждение оплаты — заявка #{verify_order_id}</b>\n\n"
+                            f"Для подтверждения перевода необходимо короткое видео (5–15 сек).\n\n"
+                            f"Откройте PDF-чек из банковского приложения и запишите видео, "
+                            f"показывая экран с чеком об операции. Детали платежа должны быть чётко видны.",
                             parse_mode="HTML"
                         )
                     else:
                         await message.answer(
-                            f"📄 <b>PDF-чек для заявки #{verify_order_id}</b>\n\n"
-                            f"Оператор Montera запросил PDF-подтверждение оплаты.\n\n"
-                            f"Отправьте <b>PDF-файл</b> с чеком из банковского приложения.",
+                            f"📄 <b>Подтверждение оплаты — заявка #{verify_order_id}</b>\n\n"
+                            f"Отправьте <b>PDF-файл</b> с чеком об операции из банковского приложения.",
                             parse_mode="HTML"
                         )
                     return
@@ -2378,11 +2369,12 @@ async def process_payment_method(callback: CallbackQuery, state: FSMContext):
         return
 
     elif pm.startswith("pm_brabus_"):
-        # Только варианты с активными трейдерами (classic/vtb/receipt отключены — нет ликвидности)
         BRABUS_VARIANT_BY_PM = {
-            "pm_brabus_alfa_":   ("alfa_deeplink",  None, 3000),   # (вариант, payment_method, мин. сумма)
-            "pm_brabus_tbank_":  ("tbank_deeplink", None, 1000),
-            "pm_brabus_vietqr_": ("vietqr",         None, 1000),
+            "pm_brabus_deeplink_": ("tbank_deeplink", None, 1000),   # один инвойс → все 3 банка
+            "pm_brabus_alfa_":     ("alfa_deeplink",  None, 1000),
+            "pm_brabus_tbank_":    ("tbank_deeplink", None, 1000),
+            "pm_brabus_sber_":     ("sber_deeplink",  None, 1000),
+            "pm_brabus_vietqr_":   ("vietqr",         None, 1000),
         }
         entry = next(
             (v for prefix, v in BRABUS_VARIANT_BY_PM.items() if pm.startswith(prefix)),
@@ -2393,7 +2385,6 @@ async def process_payment_method(callback: CallbackQuery, state: FSMContext):
             return
         variant, pmethod, min_amount = entry
 
-        # Проверяем минимальную сумму до обращения к API
         if float(amount) < min_amount:
             await reply_no_requisites(
                 callback, order_id,
@@ -2439,28 +2430,56 @@ async def process_payment_method(callback: CallbackQuery, state: FSMContext):
             await state.clear()
             return
 
-        # Deeplink-варианты (Alfa/T-Bank): показываем кнопку «Открыть в приложении»
-        # deeplink_url хранится отдельно — не в requisites, чтобы не попасть в format_requisites
+        # Deeplink-варианты: показываем кнопки для всех доступных банков из all_deeplinks.
+        # Если pm_brabus_deeplink_ — показываем все три; иначе — только конкретный банк.
+        all_deeplinks = raw.get("all_deeplinks") or {}
         deeplink = raw.get("deeplink_url")
-        if not deeplink:
+        if not deeplink and not all_deeplinks:
             await reply_no_requisites(callback, order_id)
             await callback.answer()
             return
 
-        bank_label_map = {
-            "alfa_deeplink": "Альфа-Банк",
-            "tbank_deeplink": "Т-Банк",
+        # Метки банков в порядке отображения
+        BANK_LABELS = {
+            "sberbank": ("🟢", "Сбербанк"),
+            "alfabank": ("🅰️", "Альфа-Банк"),
+            "tinkoff":  ("🟡", "Т-Банк"),
         }
-        bank_label = bank_label_map.get(variant, "банка")
-        caption = (f"🟣 ObsidianExchange\nЗаявка #{order_id}\n\n"
-                   f"Сумма: <b>{int(amount):,} ₽</b>\n\n"
-                   f"Нажмите кнопку ниже — откроется приложение <b>{bank_label}</b>.\n"
-                   f"Подтвердите перевод на указанную сумму.").replace(",", " ")
-        inline_kb_rows = [
-            [InlineKeyboardButton(text=f"📲 Открыть {bank_label}", url=deeplink)],
+
+        # pm_brabus_deeplink_ → показываем все доступные банки из all_deeplinks
+        show_all = pm.startswith("pm_brabus_deeplink_")
+        inline_kb_rows = []
+        if show_all and all_deeplinks:
+            for bank_code, bank_url in all_deeplinks.items():
+                icon, label = BANK_LABELS.get(bank_code, ("📲", bank_code.capitalize()))
+                inline_kb_rows.append(
+                    [InlineKeyboardButton(text=f"{icon} Открыть {label}", url=bank_url)]
+                )
+        else:
+            single_map = {
+                "sber_deeplink":  ("sberbank", "🟢", "Сбербанк"),
+                "alfa_deeplink":  ("alfabank", "🅰️", "Альфа-Банк"),
+                "tbank_deeplink": ("tinkoff",  "🟡", "Т-Банк"),
+            }
+            bcode, icon, label = single_map.get(variant, (None, "📲", "банка"))
+            url = all_deeplinks.get(bcode) or deeplink
+            if url:
+                inline_kb_rows.append([InlineKeyboardButton(text=f"{icon} Открыть {label}", url=url)])
+
+        if not inline_kb_rows:
+            await reply_no_requisites(callback, order_id)
+            await callback.answer()
+            return
+
+        inline_kb_rows.extend([
             [InlineKeyboardButton(text="✅ Я оплатил", callback_data=f"paid_{order_id}")],
             [InlineKeyboardButton(text="🔍 Проверить статус", callback_data=f"check_{order_id}")],
-        ]
+        ])
+
+        bank_hint = "Выберите ваш банк и подтвердите перевод." if show_all else f"Нажмите кнопку — откроется приложение банка."
+        caption = (f"🟣 ObsidianExchange\nЗаявка #{order_id}\n\n"
+                   f"Сумма: <b>{int(amount):,} ₽</b>\n\n"
+                   f"📲 <b>Оплата через приложение банка</b>\n{bank_hint}").replace(",", " ")
         inline_kb = InlineKeyboardMarkup(inline_keyboard=inline_kb_rows)
         if IMG_SECURITY.exists() and len(caption) <= 1024:
             await callback.message.answer_photo(FSInputFile(IMG_SECURITY), caption=caption, reply_markup=inline_kb, parse_mode="HTML")
@@ -2599,7 +2618,7 @@ async def process_montera_receipt_upload(message: Message, state: FSMContext):
                            (_dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"), order_id))
                 _c.commit()
             await message.answer(
-                "✅ Чек успешно отправлен в Montera!\n\n"
+                "✅ Чек принят!\n\n"
                 "Проверка занимает несколько минут. Как только оплата будет подтверждена — "
                 "мы автоматически вышлем вашу криптовалюту."
             )
@@ -2627,7 +2646,7 @@ async def process_montera_video_verification(message: Message, state: FSMContext
     montera_invoice_id = data.get("montera_invoice_id")
     if not montera_invoice_id:
         await message.answer(
-            "⚠️ Не удалось найти номер заявки Montera. Напишите оператору: " + SUPPORT_BOT
+            "⚠️ Не удалось найти заявку. Напишите оператору: " + SUPPORT_BOT
         )
         return
     try:
@@ -2642,8 +2661,8 @@ async def process_montera_video_verification(message: Message, state: FSMContext
         result = MonteraProvider().upload_additional_info(montera_invoice_id, file_bytes, filename, "video/mp4")
         if result.get("ok"):
             await message.answer(
-                "✅ Видео успешно отправлено в Montera!\n\n"
-                "Оператор проверит запись в течение нескольких минут. "
+                "✅ Видео принято!\n\n"
+                "Проверка занимает несколько минут. "
                 "После подтверждения мы вышлем криптовалюту автоматически."
             )
             await bot.send_message(ADMIN_ID,
@@ -2674,7 +2693,7 @@ async def process_montera_pdf_verification(message: Message, state: FSMContext):
     montera_invoice_id = data.get("montera_invoice_id")
     if not montera_invoice_id:
         await message.answer(
-            "⚠️ Не удалось найти номер заявки Montera. Напишите оператору: " + SUPPORT_BOT
+            "⚠️ Не удалось найти заявку. Напишите оператору: " + SUPPORT_BOT
         )
         return
     doc = message.document
@@ -2695,8 +2714,8 @@ async def process_montera_pdf_verification(message: Message, state: FSMContext):
         result = MonteraProvider().upload_additional_info(montera_invoice_id, file_bytes, filename, "application/pdf")
         if result.get("ok"):
             await message.answer(
-                "✅ PDF-чек успешно отправлен в Montera!\n\n"
-                "Оператор проверит документ. "
+                "✅ PDF-чек принят!\n\n"
+                "Проверка занимает несколько минут. "
                 "После подтверждения мы вышлем криптовалюту автоматически."
             )
             await bot.send_message(ADMIN_ID,
