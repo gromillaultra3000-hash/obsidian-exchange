@@ -359,17 +359,10 @@ async def build_payment_methods_kb(order_id: int, amount: float) -> InlineKeyboa
         callback_data=f"pm_gp_card_{order_id}"
     )])
 
-    # Brabus deeplink — один инвойс, кнопки для всех банков (Сбер/Альфа/Т-Банк)
+    # Brabus VietQR — QR-код для оплаты через Сбер/ВТБ, от 1 000 ₽
     if amt >= 1000:
         rows.append([InlineKeyboardButton(
-            text="📲 Оплата через приложение (Сбер / Альфа / Т-Банк)",
-            callback_data=f"pm_brabus_deeplink_{order_id}"
-        )])
-
-    # Brabus VietQR — от 1 000 ₽
-    if amt >= 1000:
-        rows.append([InlineKeyboardButton(
-            text="🇻🇳 VietQR — Sber/VTB (от 1 000 ₽)",
+            text="📷 QR-код (Сбер / ВТБ)",
             callback_data=f"pm_brabus_vietqr_{order_id}"
         )])
 
@@ -2370,7 +2363,9 @@ async def process_payment_method(callback: CallbackQuery, state: FSMContext):
 
     elif pm.startswith("pm_brabus_"):
         BRABUS_VARIANT_BY_PM = {
-            "pm_brabus_deeplink_": ("tbank_deeplink", None, 1000),   # один инвойс → все 3 банка
+            # deeplink-варианты отключены — CROSS_BORDER ведёт на иностранные карты через редирект,
+            # не на российские банки. Оставлены только для совместимости со старыми сообщениями.
+            "pm_brabus_deeplink_": ("tbank_deeplink", None, 1000),
             "pm_brabus_alfa_":     ("alfa_deeplink",  None, 1000),
             "pm_brabus_tbank_":    ("tbank_deeplink", None, 1000),
             "pm_brabus_sber_":     ("sber_deeplink",  None, 1000),
@@ -2430,57 +2425,33 @@ async def process_payment_method(callback: CallbackQuery, state: FSMContext):
             await state.clear()
             return
 
-        # Deeplink-варианты: показываем кнопки для всех доступных банков из all_deeplinks.
-        # Если pm_brabus_deeplink_ — показываем все три; иначе — только конкретный банк.
-        all_deeplinks = raw.get("all_deeplinks") or {}
-        deeplink = raw.get("deeplink_url")
-        if not deeplink and not all_deeplinks:
+        # CROSS_BORDER deeplinks — отображаем как реквизиты карты (не кнопки-ссылки).
+        # deal.requisites содержит номер карты получателя и держателя.
+        requisites = raw.get("requisites") or {}
+        card_number = requisites.get("card_number") or requisites.get("card")
+        bank_name = requisites.get("bank_name", "")
+        recipient = requisites.get("recipient") or requisites.get("holder") or ""
+
+        if not card_number:
             await reply_no_requisites(callback, order_id)
             await callback.answer()
             return
 
-        # Метки банков в порядке отображения
-        BANK_LABELS = {
-            "sberbank": ("🟢", "Сбербанк"),
-            "alfabank": ("🅰️", "Альфа-Банк"),
-            "tinkoff":  ("🟡", "Т-Банк"),
-        }
+        req_lines = [f"💳 <b>Номер карты:</b> <code>{card_number}</code>"]
+        if bank_name:
+            req_lines.append(f"🏦 <b>Банк:</b> {bank_name}")
+        if recipient:
+            req_lines.append(f"👤 <b>Получатель:</b> {recipient}")
+        req_text = "\n".join(req_lines)
 
-        # pm_brabus_deeplink_ → показываем все доступные банки из all_deeplinks
-        show_all = pm.startswith("pm_brabus_deeplink_")
-        inline_kb_rows = []
-        if show_all and all_deeplinks:
-            for bank_code, bank_url in all_deeplinks.items():
-                icon, label = BANK_LABELS.get(bank_code, ("📲", bank_code.capitalize()))
-                inline_kb_rows.append(
-                    [InlineKeyboardButton(text=f"{icon} Открыть {label}", url=bank_url)]
-                )
-        else:
-            single_map = {
-                "sber_deeplink":  ("sberbank", "🟢", "Сбербанк"),
-                "alfa_deeplink":  ("alfabank", "🅰️", "Альфа-Банк"),
-                "tbank_deeplink": ("tinkoff",  "🟡", "Т-Банк"),
-            }
-            bcode, icon, label = single_map.get(variant, (None, "📲", "банка"))
-            url = all_deeplinks.get(bcode) or deeplink
-            if url:
-                inline_kb_rows.append([InlineKeyboardButton(text=f"{icon} Открыть {label}", url=url)])
-
-        if not inline_kb_rows:
-            await reply_no_requisites(callback, order_id)
-            await callback.answer()
-            return
-
-        inline_kb_rows.extend([
+        caption = (f"🟣 ObsidianExchange\nЗаявка #{order_id}\n\n"
+                   f"Сумма: <b>{int(amount):,} ₽</b>\n\n"
+                   f"{req_text}\n\n"
+                   f"⚠️ Переводите точную сумму с вашей карты.").replace(",", " ")
+        inline_kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="✅ Я оплатил", callback_data=f"paid_{order_id}")],
             [InlineKeyboardButton(text="🔍 Проверить статус", callback_data=f"check_{order_id}")],
         ])
-
-        bank_hint = "Выберите ваш банк и подтвердите перевод." if show_all else f"Нажмите кнопку — откроется приложение банка."
-        caption = (f"🟣 ObsidianExchange\nЗаявка #{order_id}\n\n"
-                   f"Сумма: <b>{int(amount):,} ₽</b>\n\n"
-                   f"📲 <b>Оплата через приложение банка</b>\n{bank_hint}").replace(",", " ")
-        inline_kb = InlineKeyboardMarkup(inline_keyboard=inline_kb_rows)
         if IMG_SECURITY.exists() and len(caption) <= 1024:
             await callback.message.answer_photo(FSInputFile(IMG_SECURITY), caption=caption, reply_markup=inline_kb, parse_mode="HTML")
         else:

@@ -152,28 +152,38 @@ class BrabusProvider(PaymentProvider):
             deeplinks = data.get("deeplinks") or {}
             inv_id = data.get("id")
 
-            # ── CROSS_BORDER deeplinks ──────────────────────────────────────────
-            # Возвращает deals от трейдеров + deeplinks {bank_code: url} для
-            # российских банковских приложений клиента.
+            # ── CROSS_BORDER: извлекаем реальные реквизиты карты из deal ──────────
+            # deal.paymentOption=TO_CARD, deal.requisites={requisites: card_number, holder: name}
             if self.is_deeplink:
                 if not deals:
                     logger.warning(f"Brabus[{self.variant}] нет deals для {inv_id}")
                     return {"error": "Нет свободных реквизитов, попробуйте другой способ"}
 
-                deeplink_url = (deeplinks or {}).get(self.default_method)
-                if not deeplink_url:
-                    # Берём любой доступный deeplink
-                    deeplink_url = next(iter(deeplinks.values()), None) if deeplinks else None
-                if not deeplink_url:
-                    logger.warning(f"Brabus[{self.variant}] нет deeplink: {deeplinks}")
+                deal = deals[0]
+                deal_req = deal.get("requisites") or {}
+                card_number = deal_req.get("requisites") or deal_req.get("card_number") or ""
+                holder = deal_req.get("holder") or ""
+                bank_code = deal.get("paymentMethod", "")
+                # dcbank / foreign card — показываем нейтрально
+                if bank_code and bank_code.lower() in ("dcbank", "humo", "uzcard", "click_uz"):
+                    bank_name_label = "Карта получателя"
+                elif bank_code and bank_code in BANK_LABELS:
+                    bank_name_label = BANK_LABELS[bank_code][1]
+                else:
+                    bank_name_label = bank_code.capitalize() if bank_code else "Карта"
+
+                if not card_number:
+                    logger.warning(f"Brabus[{self.variant}] нет card_number в deal: {deal_req}")
                     return {"error": "Нет свободных реквизитов, попробуйте другой способ"}
 
                 raw = {
-                    "requisites": {"bank_name": self.label},
-                    "deeplink_url": deeplink_url,
-                    "all_deeplinks": dict(deeplinks) if deeplinks else {},
+                    "requisites": {
+                        "card_number": card_number,
+                        "bank_name": bank_name_label,
+                        "recipient": holder,
+                    },
                     "invoice_id": inv_id,
-                    "deal_id": deals[0].get("id"),
+                    "deal_id": deal.get("id"),
                     "qr_image_url": None,
                     "expire_at": data.get("expireAt"),
                 }
@@ -181,8 +191,8 @@ class BrabusProvider(PaymentProvider):
                     "invoice_id": inv_id,
                     "amount": amount,
                     "status": "awaiting_payment",
-                    "qr_payload": deeplink_url,
-                    "banks": list(deeplinks.keys()) if deeplinks else [],
+                    "qr_payload": None,
+                    "banks": [],
                     "raw": raw,
                 }
 
