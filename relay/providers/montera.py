@@ -54,20 +54,14 @@ class MonteraProvider(PaymentProvider):
         user_rating, client_trusted = _get_user_rating(user_id)
 
         if payment_method == "sbp":
-            # Montera: СБП работает только через payment_gateway=sbp_rub (без currency).
-            # Подтверждено поддержкой и прямыми тестами: payment_detail_type=phone+currency
-            # не находит трейдеров, а payment_gateway=sbp_rub — находит.
             payload = {
                 "external_id": f"obsidian_{order_id}",
                 "amount": int(round(float(amount))),
                 "payment_gateway": "sbp_rub",
                 "merchant_id": self.merchant_id,
                 "callback_url": f"{PUBLIC_RELAY}/montera/webhook",
-                "client_trusted": client_trusted,
-                "user_rating": user_rating,
             }
         else:
-            # Карта: payment_detail_type=card + currency ищет по всем банкам одновременно
             payload = {
                 "external_id": f"obsidian_{order_id}",
                 "amount": int(round(float(amount))),
@@ -75,8 +69,6 @@ class MonteraProvider(PaymentProvider):
                 "payment_detail_type": "card",
                 "merchant_id": self.merchant_id,
                 "callback_url": f"{PUBLIC_RELAY}/montera/webhook",
-                "client_trusted": client_trusted,
-                "user_rating": user_rating,
             }
         try:
             r = requests.post(
@@ -103,7 +95,8 @@ class MonteraProvider(PaymentProvider):
             bank_display = inner.get("method_name") or inner.get("payment_gateway_name")
             if bank_display:
                 requisites["bank_name"] = bank_display
-            if detail.get("initials"):
+            # initials для телефона — имя держателя; для карты — дублирует банк, не нужен
+            if detail.get("initials") and detail.get("detail_type") == "phone":
                 requisites["recipient"] = detail["initials"]
 
             raw = dict(inner)
@@ -124,21 +117,34 @@ class MonteraProvider(PaymentProvider):
     def upload_additional_info(self, montera_order_id: str, file_bytes: bytes,
                                filename: str = "file", content_type: str = "video/mp4") -> dict:
         """Загружает видео или PDF по запросу оператора Montera (requested_type: video / pdf-success)."""
+        import time as _time
         url = f"{self.base_url}/h2h/order/{montera_order_id}/additional-info"
-        try:
-            r = requests.post(
-                url,
-                headers={"Access-Token": self.api_token, "Accept": "application/json"},
-                files={"file": (filename, file_bytes, content_type)},
-                timeout=60,
-                allow_redirects=False,
-            )
-            if r.status_code in (200, 201, 302, 303):
-                return {"ok": True}
-            return {"ok": False, "error": f"HTTP {r.status_code}: {r.text[:300]}"}
-        except Exception as e:
-            logger.error(f"Montera upload_additional_info failed: {e}")
-            return {"ok": False, "error": str(e)}
+        last_error = None
+        for attempt in range(3):
+            if attempt:
+                _time.sleep(4)
+            try:
+                r = requests.post(
+                    url,
+                    headers={"Access-Token": self.api_token, "Accept": "application/json"},
+                    files={"file": (filename, file_bytes, content_type)},
+                    timeout=60,
+                    allow_redirects=False,
+                )
+                if r.status_code in (200, 201, 302, 303):
+                    return {"ok": True}
+                if r.status_code in (502, 503, 504):
+                    last_error = f"Montera временно недоступна (HTTP {r.status_code}), попробуйте через 1-2 минуты"
+                    logger.warning(f"Montera additional-info attempt {attempt+1} got {r.status_code}, retrying...")
+                    continue
+                return {"ok": False, "error": f"HTTP {r.status_code}: {r.text[:200]}"}
+            except requests.exceptions.Timeout:
+                last_error = "Montera не отвечает (timeout), попробуйте через 1-2 минуты"
+                logger.warning(f"Montera additional-info attempt {attempt+1} timeout")
+            except Exception as e:
+                logger.error(f"Montera upload_additional_info failed: {e}")
+                return {"ok": False, "error": str(e)}
+        return {"ok": False, "error": last_error or "Montera недоступна, попробуйте позже"}
 
     def upload_receipt(self, receipt_upload_url: str, file_bytes: bytes, filename: str = "receipt.pdf") -> dict:
         """Загружает PDF-чек подтверждения оплаты на одноразовый URL Montera."""
