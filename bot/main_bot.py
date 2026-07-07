@@ -11,6 +11,8 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.fsm.storage.redis import RedisStorage
+from redis.asyncio import Redis
 import qrcode
 from bitcoinlib.wallets import Wallet, wallet_delete
 from tronpy import Tron
@@ -430,7 +432,13 @@ import atexit; atexit.register(remove_pid)
 
 # ---------- ИНИЦИАЛИЗАЦИЯ ----------
 bot = Bot(token=BOT_TOKEN)
-storage = MemoryStorage()
+try:
+    _redis = Redis(host='localhost', port=6379, db=1, decode_responses=False)
+    storage = RedisStorage(_redis)
+    logger.info("FSM storage: Redis (состояния сохраняются между перезапусками)")
+except Exception as _e:
+    storage = MemoryStorage()
+    logger.warning(f"FSM storage: MemoryStorage (Redis недоступен: {_e})")
 dp = Dispatcher(storage=storage)
 router = Router()
 dp.include_router(router)
@@ -6404,17 +6412,38 @@ async def feature_broadcast(target_id: int = None):
     )
 
 
+_BROADCAST_INTERVAL = 3 * 3600  # 3 часа между рассылками
+
 async def feature_broadcast_scheduler():
-    """7 постов из ротации каждый день с интервалом 3 часа между постами."""
-    interval = 3 * 3600
-    await asyncio.sleep(300)  # стартуем через 5 минут после запуска бота
+    """Рассылка постов из ротации раз в 3 часа. Хранит метку времени в Redis — переживает перезапуски."""
+    await asyncio.sleep(60)  # небольшая пауза при старте
+
+    _r = None
+    try:
+        import redis as _redis_sync
+        _r = _redis_sync.Redis(host='localhost', port=6379, db=1, decode_responses=True)
+    except Exception:
+        pass
+
+    LAST_KEY = "broadcast:last_sent_at"
+
     while True:
         try:
-            await feature_broadcast()
-            logger.info("feature_broadcast отправлен, следующий через 3ч")
+            now_ts = int(__import__('time').time())
+            last_ts = int(_r.get(LAST_KEY) or 0) if _r else 0
+            elapsed = now_ts - last_ts
+
+            if elapsed >= _BROADCAST_INTERVAL:
+                await feature_broadcast()
+                if _r:
+                    _r.set(LAST_KEY, now_ts)
+                logger.info(f"feature_broadcast отправлен, следующий через 3ч")
+            else:
+                wait_left = _BROADCAST_INTERVAL - elapsed
+                logger.info(f"feature_broadcast: пропуск, следующий через {wait_left//60}мин")
         except Exception as e:
             logger.error(f"feature_broadcast_scheduler error: {e}")
-        await asyncio.sleep(interval)
+        await asyncio.sleep(600)  # проверяем каждые 10 минут
 
 
 _PROMO_POST_HTML = """🟣 <b>ObsidianExchange</b> — крипто-обменник нового поколения

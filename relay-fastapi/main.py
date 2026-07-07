@@ -1593,18 +1593,19 @@ async def montera_webhook(request: Request):
             user_id = row[0]
             deep_link = f"https://t.me/{BOT_USERNAME}?start=verify_{order_id}"
             if requested_type == 'video':
-                text = (f"🎥 <b>Montera запрашивает видео-верификацию</b>\n\n"
-                        f"По заявке #{order_id} оператор Montera просит отправить короткое видео "
-                        f"(селфи с документом, удостоверяющим личность).\n\n"
-                        f"Нажмите кнопку ниже, откройте бот и следуйте инструкции.")
+                text = (f"🎥 <b>Требуется видео-подтверждение — заявка #{order_id}</b>\n\n"
+                        f"Для завершения обмена необходимо короткое видео (5–15 сек).\n\n"
+                        f"Откройте PDF-чек из банковского приложения и запишите видео, "
+                        f"показывая экран с чеком об операции. Детали платежа должны быть чётко видны.\n\n"
+                        f"Нажмите кнопку ниже, откройте бот и отправьте видео.")
             else:
-                text = (f"📄 <b>Montera запрашивает PDF-чек</b>\n\n"
-                        f"По заявке #{order_id} оператор Montera просит прислать PDF-чек "
+                text = (f"📄 <b>Требуется PDF-чек — заявка #{order_id}</b>\n\n"
+                        f"Для завершения обмена отправьте PDF-чек из банковского приложения "
                         f"об успешном платеже.\n\n"
-                        f"Нажмите кнопку ниже, откройте бот и отправьте PDF-файл.")
+                        f"Нажмите кнопку ниже, откройте бот и отправьте файл.")
             markup = {"inline_keyboard": [[{"text": "📤 Открыть бот и отправить", "url": deep_link}]]}
             notify_telegram(user_id, text, reply_markup=markup)
-            notify_telegram(ADMIN_ID, f"🔍 Montera запросила <b>{requested_type}</b> верификацию для заявки #{order_id}")
+            notify_telegram(ADMIN_ID, f"🔍 Запрошена верификация <b>{requested_type}</b> для заявки #{order_id}")
         audit_log("montera_verification_requested", f"order={order_id} type={requested_type}")
 
     audit_log("montera_webhook_processed", f"order={order_id} status={status} requested={requested_type}")
