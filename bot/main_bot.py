@@ -6752,7 +6752,6 @@ async def main():
     asyncio.create_task(check_stuck_orders())
     asyncio.create_task(website_healthcheck())
     asyncio.create_task(disk_healthcheck())
-    await check_balance()  # сразу при старте
     logger.info("Бот запущен")
     await dp.start_polling(bot)
 
