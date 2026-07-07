@@ -2601,9 +2601,16 @@ async def process_montera_receipt_upload(message: Message, state: FSMContext):
                 "Проверка занимает несколько минут. Как только оплата будет подтверждена — "
                 "мы автоматически вышлем вашу криптовалюту."
             )
+            # Берём сумму для контекста админа
+            with db_conn(5) as _oc:
+                _or = _oc.execute("SELECT rub_amount, username FROM orders WHERE order_id=?", (order_id,)).fetchone()
+            _amt = f"{int(_or[0]):,} ₽".replace(",", " ") if _or else "?"
+            _uname = f"@{_or[1]}" if (_or and _or[1]) else str(message.from_user.id)
             await bot.send_message(ADMIN_ID,
-                f"🧾 Получен PDF-чек для заявки #{order_id} (Montera)\n"
-                f"Файл: {doc.file_name or 'receipt.pdf'}")
+                f"🧾 <b>Получен PDF-чек</b> — заявка <b>#{order_id}</b>\n"
+                f"👤 {_uname} · 💸 {_amt}\n"
+                f"📄 {doc.file_name or 'receipt.pdf'}",
+                parse_mode="HTML")
             await state.clear()
         else:
             await message.answer(
@@ -2644,8 +2651,14 @@ async def process_montera_video_verification(message: Message, state: FSMContext
                 "Проверка занимает несколько минут. "
                 "После подтверждения мы вышлем криптовалюту автоматически."
             )
+            with db_conn(5) as _oc2:
+                _or2 = _oc2.execute("SELECT rub_amount, username FROM orders WHERE order_id=?", (order_id,)).fetchone()
+            _amt2 = f"{int(_or2[0]):,} ₽".replace(",", " ") if _or2 else "?"
+            _uname2 = f"@{_or2[1]}" if (_or2 and _or2[1]) else str(message.from_user.id)
             await bot.send_message(ADMIN_ID,
-                f"🎥 Получено видео-верификация для заявки #{order_id} (Montera invoice {montera_invoice_id})")
+                f"🎥 <b>Получено видео-подтверждение</b> — заявка <b>#{order_id}</b>\n"
+                f"👤 {_uname2} · 💸 {_amt2}",
+                parse_mode="HTML")
             with db_conn(5) as conn_c:
                 conn_c.execute("UPDATE orders SET verification_requested=NULL WHERE order_id=?", (order_id,))
                 conn_c.commit()
@@ -2697,8 +2710,14 @@ async def process_montera_pdf_verification(message: Message, state: FSMContext):
                 "Проверка занимает несколько минут. "
                 "После подтверждения мы вышлем криптовалюту автоматически."
             )
+            with db_conn(5) as _oc3:
+                _or3 = _oc3.execute("SELECT rub_amount, username FROM orders WHERE order_id=?", (order_id,)).fetchone()
+            _amt3 = f"{int(_or3[0]):,} ₽".replace(",", " ") if _or3 else "?"
+            _uname3 = f"@{_or3[1]}" if (_or3 and _or3[1]) else str(message.from_user.id)
             await bot.send_message(ADMIN_ID,
-                f"📄 Получен PDF-верификация для заявки #{order_id} (Montera invoice {montera_invoice_id})")
+                f"📄 <b>Получен PDF-чек верификации</b> — заявка <b>#{order_id}</b>\n"
+                f"👤 {_uname3} · 💸 {_amt3}",
+                parse_mode="HTML")
             with db_conn(5) as conn_c:
                 conn_c.execute("UPDATE orders SET verification_requested=NULL WHERE order_id=?", (order_id,))
                 conn_c.commit()
@@ -5606,46 +5625,27 @@ async def withdraw_referral_bonus(user_id):
     return f"✅ Бонус выведен!\nСумма: {total:.8f} BTC\nTXID: <code>{txid}</code>"
 
 
-async def check_balance():
-    """Проверяет балансы BTC, LTC, USDT и уведомляет админа при низком уровне."""
-    # BTC
-    try:
-        wallet = Wallet('PayoutWallet')
-        wallet.scan()
-        balance = wallet.balance(network='bitcoin')
-        if balance < 5000:
-            await bot.send_message(ADMIN_ID, f"⚠️ Низкий баланс BTC: {balance} сатоши!\nПополните: {wallet.get_key().address}")
-    except Exception as e:
-        logger.error(f"Ошибка проверки баланса BTC: {e}")
-
-    # LTC
-    try:
-        ltc_wallet = Wallet('PayoutLTC')
-        ltc_wallet.scan()
-        ltc_balance = ltc_wallet.balance(network='litecoin')
-        if ltc_balance < 500000:  # 0.005 LTC в сатоши
-            await bot.send_message(ADMIN_ID, f"⚠️ Низкий баланс LTC: {ltc_balance} сатоши!\nПополните: {ltc_wallet.get_key().address}")
-    except Exception as e:
-        logger.error(f"Ошибка проверки баланса LTC: {e}")
-
-    # USDT (TRC-20)
-    if os.getenv('USDT_PRIVATE_KEY'):
+async def balance_monitor():
+    """Проверяет баланс USDT раз в 6 часов. BTC/LTC теперь в smart_monitor."""
+    while True:
+        await asyncio.sleep(6 * 3600)
+        if not os.getenv('USDT_PRIVATE_KEY'):
+            continue
         try:
             client = Tron()
             priv_key = PrivateKey(bytes.fromhex(os.getenv('USDT_PRIVATE_KEY')))
             addr = priv_key.public_key.to_base58check_address()
             contract = client.get_contract('TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t')
-            balance = contract.functions.balanceOf(addr)
-            usdt_balance = balance / 1e6
-            if usdt_balance < 10:
-                await bot.send_message(ADMIN_ID, f"⚠️ Низкий баланс USDT: {usdt_balance:.2f} USDT\nПополните: {addr}")
+            usdt_balance = contract.functions.balanceOf(addr) / 1e6
+            if usdt_balance < 10 and not _alert_active("usdt_low"):
+                await bot.send_message(ADMIN_ID,
+                    f"🔴 <b>Низкий баланс USDT</b>: {usdt_balance:.2f} USDT\n"
+                    f"Пополните горячий кошелёк.", parse_mode="HTML")
+                _set_alert("usdt_low", True)
+            elif usdt_balance >= 10:
+                _set_alert("usdt_low", False)
         except Exception as e:
             logger.error(f"Ошибка проверки баланса USDT: {e}")
-
-async def balance_monitor():
-    while True:
-        await check_balance()
-        await asyncio.sleep(6 * 3600)  # раз в 6 часов
 
 
 @router.message(Command("testpost"))
@@ -5764,96 +5764,103 @@ async def cmd_fullstats(message: Message):
 
 
 # ---------- УМНЫЙ МОНИТОРИНГ И АЛЕРТЫ ----------
-_smart_alert_state = {"btc": 0, "ltc": 0, "usdt": 0, "proxy": True, "relay": True}
+# Состояние алертов хранится в Redis (db=1) чтобы пережить перезапуски.
+# Ключи: monitor:alert:{name} = "1" (алерт активен) или "0" (ок)
+_monitor_redis = None
+try:
+    import redis as _redis_mod
+    _monitor_redis = _redis_mod.Redis(host='localhost', port=6379, db=1, decode_responses=True)
+except Exception:
+    pass
+
+def _alert_active(key: str) -> bool:
+    if _monitor_redis:
+        return _monitor_redis.get(f"monitor:alert:{key}") == "1"
+    return False
+
+def _set_alert(key: str, active: bool):
+    if _monitor_redis:
+        _monitor_redis.set(f"monitor:alert:{key}", "1" if active else "0", ex=86400)
 
 async def smart_monitor():
-    global _smart_alert_state
+    # Разные интервалы для разных проверок
+    _iter = 0
     while True:
+        _iter += 1
         try:
-            # Проверка балансов (пороги можно настроить)
-            wallet = Wallet('PayoutWallet')
-            wallet.scan()
-            btc_balance = wallet.balance(network='bitcoin')
-            if btc_balance < 10000 and _smart_alert_state["btc"] != 1:
-                await bot.send_message(ADMIN_ID, f"🔴 КРИТИЧЕСКИ НИЗКИЙ БАЛАНС BTC: {btc_balance} сатоши!")
-                _smart_alert_state["btc"] = 1
-            elif btc_balance >= 10000 and _smart_alert_state["btc"] == 1:
-                _smart_alert_state["btc"] = 0
-
-            # Проверка доступности Relay
+            # ── Relay (каждые 2 мин) ──────────────────────────────────────────
             try:
                 r = requests.get("http://127.0.0.1:5001/", timeout=5)
-                if r.status_code != 200 and _smart_alert_state["relay"]:
-                    await bot.send_message(ADMIN_ID, "⚠️ Relay недоступен!")
-                    _smart_alert_state["relay"] = False
-                elif r.status_code == 200 and not _smart_alert_state["relay"]:
-                    _smart_alert_state["relay"] = True
-            except:
-                if _smart_alert_state["relay"]:
-                    await bot.send_message(ADMIN_ID, "❌ Ошибка подключения к Relay!")
-                    _smart_alert_state["relay"] = False
+                relay_ok = r.status_code < 500
+            except Exception:
+                relay_ok = False
+            was_down = _alert_active("relay_down")
+            if not relay_ok and not was_down:
+                await bot.send_message(ADMIN_ID, "❌ <b>Relay недоступен!</b> Проверьте сервис relay-fastapi.", parse_mode="HTML")
+                _set_alert("relay_down", True)
+            elif relay_ok and was_down:
+                await bot.send_message(ADMIN_ID, "✅ Relay снова доступен.")
+                _set_alert("relay_down", False)
 
-            # Мониторинг провайдеров платежей — проверяем доступность API
-            providers_to_check = [
-                ("Montera",  "https://montera.one/api/health",   "montera"),
-                ("GreenPay", "https://greenpay.win/",             "greenpay"),
-                ("Brabus",   os.getenv('BRABUS_BASE_URL', 'https://brabus.one') + "/", "brabus"),
-            ]
-            for pname, purl, pkey in providers_to_check:
+            # ── Провайдеры (раз в 15 мин = каждые 7 итераций по 2 мин) ──────
+            if _iter % 7 == 0:
+                providers_to_check = [
+                    ("Платёжный шлюз 1", "https://montera.one/api/health",   "p1"),
+                    ("Платёжный шлюз 2", "https://greenpay.win/",             "p2"),
+                    ("Платёжный шлюз 3", os.getenv('BRABUS_BASE_URL', 'https://api.brabus.work') + "/", "p3"),
+                ]
+                for pname, purl, pkey in providers_to_check:
+                    try:
+                        rp = requests.get(purl, timeout=8)
+                        is_up = rp.status_code < 500
+                    except Exception:
+                        is_up = False
+                    was_p_down = _alert_active(f"provider_{pkey}")
+                    if not is_up and not was_p_down:
+                        await bot.send_message(ADMIN_ID,
+                            f"⚠️ <b>{pname}</b> недоступен — резервный маршрут активен.",
+                            parse_mode="HTML")
+                        _set_alert(f"provider_{pkey}", True)
+                    elif is_up and was_p_down:
+                        await bot.send_message(ADMIN_ID, f"✅ <b>{pname}</b> снова работает.", parse_mode="HTML")
+                        _set_alert(f"provider_{pkey}", False)
+
+            # ── Балансы кошельков (раз в час = каждые 30 итераций) ───────────
+            if _iter % 30 == 0:
+                # BTC
                 try:
-                    r = requests.get(purl, timeout=7)
-                    is_up = r.status_code < 500
+                    wallet = Wallet('PayoutWallet')
+                    wallet.scan()
+                    btc_bal = wallet.balance(network='bitcoin')
+                    if btc_bal < 10000 and not _alert_active("btc_low"):
+                        await bot.send_message(ADMIN_ID,
+                            f"🔴 <b>Низкий баланс BTC</b>: {btc_bal} сат\n"
+                            f"Пополните горячий кошелёк.", parse_mode="HTML")
+                        _set_alert("btc_low", True)
+                    elif btc_bal >= 10000:
+                        _set_alert("btc_low", False)
                 except Exception:
-                    is_up = False
+                    pass  # кошелёк пустой или недоступен — не шумим
 
-                prev = _smart_alert_state.get(f"provider_{pkey}", True)
-                if not is_up and prev:
-                    await bot.send_message(
-                        ADMIN_ID,
-                        f"⚠️ <b>{pname}</b> API недоступен!\n"
-                        f"Новые заявки через этот провайдер могут не создаваться.",
-                        parse_mode="HTML"
-                    )
-                    _smart_alert_state[f"provider_{pkey}"] = False
-                elif is_up and not prev:
-                    await bot.send_message(ADMIN_ID, f"✅ <b>{pname}</b> снова доступен.", parse_mode="HTML")
-                    _smart_alert_state[f"provider_{pkey}"] = True
-
-            # Проверяем таблицу provider_health — много ошибок подряд
-            try:
-                with db_conn(5) as conn:
-                    c = conn.cursor()
-                    c.execute(
-                        "SELECT provider, failed_count FROM provider_health WHERE failed_count >= 5 AND is_healthy=0"
-                    )
-                    sick = c.fetchall()
-                for pname, fcnt in sick:
-                    alert_key = f"ph_alert_{pname}"
-                    if not _smart_alert_state.get(alert_key):
-                        await bot.send_message(
-                            ADMIN_ID,
-                            f"🔴 <b>Провайдер {pname}</b>: {fcnt} ошибок создания инвойсов подряд.\n"
-                            f"Проверьте баланс и доступность в личном кабинете провайдера.",
-                            parse_mode="HTML"
-                        )
-                        _smart_alert_state[alert_key] = True
-                # Сбрасываем алерт если провайдер поправился
-                with db_conn(5) as conn:
-                    c = conn.cursor()
-                    c.execute("SELECT provider FROM provider_health WHERE is_healthy=1")
-                    healthy = {r[0] for r in c.fetchall()}
-                for key in list(_smart_alert_state.keys()):
-                    if key.startswith("ph_alert_"):
-                        pname = key[len("ph_alert_"):]
-                        if pname in healthy:
-                            _smart_alert_state[key] = False
-            except Exception as e:
-                logger.warning(f"provider_health check error: {e}")
+                # LTC
+                try:
+                    ltc_wallet = Wallet('PayoutLTC')
+                    ltc_wallet.scan()
+                    ltc_bal = ltc_wallet.balance(network='litecoin')
+                    if ltc_bal < 500000 and not _alert_active("ltc_low"):
+                        await bot.send_message(ADMIN_ID,
+                            f"🔴 <b>Низкий баланс LTC</b>: {ltc_bal} сат\n"
+                            f"Пополните горячий кошелёк.", parse_mode="HTML")
+                        _set_alert("ltc_low", True)
+                    elif ltc_bal >= 500000:
+                        _set_alert("ltc_low", False)
+                except Exception:
+                    pass
 
         except Exception as e:
             logger.error(f"Ошибка в smart_monitor: {e}")
 
-        await asyncio.sleep(120)  # Проверка каждые 2 минуты
+        await asyncio.sleep(120)  # базовый тик 2 минуты
 
 
 # ========== СКИДКА ЗА КАЖДЫЙ 5-Й ОБМЕН ==========
