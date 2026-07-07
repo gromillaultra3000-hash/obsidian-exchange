@@ -69,6 +69,24 @@ git push origin master
 
 ## Сессии
 
+### Сессия 07.07.2026
+Выполнено:
+- CI/CD: добавлен `.github/workflows/ci.yml` — py_compile ядра (main.py,
+  smart_router.py, payment_service.py) + полный py_compile всех .py на каждый push
+Проверено (уже сделано ранее, не переделывал):
+- Task 2 (алерт «все провайдеры упали») — уже реализован в `health_check_task()`
+  (main.py:1856), шлёт в Telegram ADMIN_ID, троттлинг 30 мин
+- Task 3 (реферальная аналитика) — уже реализован: route `/dashboard/referral`
+  (main.py:514) + шаблон `dashboard_referral.html`
+Не сделано (требует доступа к серверу, не к репозиторию):
+- Task 1 (nginx rate-limit для /montera/webhook) — конфиг nginx лежит в
+  `/etc/nginx/sites-enabled/` на проде, не в git. Выполнить вручную на сервере:
+  добавить в location `/montera/webhook` блок `limit_req zone=webhook burst=20
+  nodelay;` рядом с существующим `zone=webhook` для /pay/, затем `nginx -t &&
+  systemctl reload nginx`.
+Next priority: провайдер Lava/PayOK как доп. СБП-канал; end-to-end тест
+Montera webhook.
+
 ### Сессия 03.07.2026
 Выполнено:
 - Montera установлен PRIMARY (70%), Brabus 20%, GreenPay 10%
