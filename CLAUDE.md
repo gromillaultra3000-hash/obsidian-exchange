@@ -75,6 +75,11 @@ git push origin master
 
 ### Сессия 08.07.2026
 Выполнено:
+- Второй админ (8983681949, ADMIN_ID_2 в bot/.env): ADMIN_IDS + is_admin() +
+  notify_admins() в боте, notify_admins_tg() в relay. Все админ-команды и
+  уведомления/алерты — обоим; /removeworker (удаление) — только главный ADMIN_ID.
+  Premium второго админа НЕ снимает запрет tg-emoji для бота (ограничение на
+  отправителя-бота, см. память project-obsidian-emoji-pack)
 - Редизайн виджета /start: новая PNG-карточка 1280×640 (градиент, три карточки монет
   в ряд, статус-чип, чипы преимуществ) + `get_service_status()` — живой статус из
   provider_health (кеш 60 с) в caption и на карточке; при живом Montera показывает
