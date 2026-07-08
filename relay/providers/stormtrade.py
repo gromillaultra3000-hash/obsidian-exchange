@@ -127,7 +127,8 @@ class StormTradeProvider(PaymentProvider):
         if holder:
             requisites["recipient"] = holder
         bank_name = deal.get("paymentMethodName") or (deal.get("paymentMethod") or "").capitalize()
-        if bank_name:
+        # у QR-методов банк часто приходит как "unknown" — юзеру не показываем
+        if bank_name and bank_name.lower() != "unknown":
             requisites["bank_name"] = bank_name
 
         qr_code_link = deal.get("qrCodeLink")
