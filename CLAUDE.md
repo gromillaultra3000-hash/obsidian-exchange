@@ -28,7 +28,7 @@ Production крипто-обменник RUB→BTC/LTC/USDT через СБП, n
 | BrabusProvider | ✅ фактически основной сейчас | 20% |
 | LavaProvider | ⏸ код готов, ключи LAVA_* в bot/.env пустые — роутер скипает | 10% |
 | GreenPayProvider | ⚠️ нестабилен, unhealthy | 5% |
-| StormTradeProvider | ⏸ код готов (08.07), ключи STORMTRADE_* пустые | last resort, вне weighted-выбора |
+| StormTradeProvider | ✅ активен (ключи заполнены 08.07, API api.stormtrade.club подтверждён живым тестом) | last resort, вне weighted-выбора |
 | FallbackProvider | ✅ резерв | 5% |
 | PlategaProvider | ❌ offline | не использовать |
 
@@ -115,12 +115,14 @@ git push origin master
 - Проверено на моках: подпись HMAC-SHA1/Base64, парсинг SBP_QR (payment_link из
   qr.nspk.ru) и TO_ACCOUNT, пустые deals → «нет реквизитов», parse_webhook,
   все 4 ветки эскалации
-Требует действий пользователя:
-- Завести кабинет StormTrade, заполнить в /root/bot/.env: STORMTRADE_API_KEY
-  (API-key магазина), STORMTRADE_SECRET (из «Настройки» ЛК), задать свой
-  STORMTRADE_NOTIFICATION_TOKEN (любая случайная строка), уточнить реальный
-  API-домен (STORMTRADE_BASE_URL, в доке — {{domain}}), затем
-  systemctl restart relay-fastapi exchange-bot
+Ключи получены от юзера в той же сессии и заполнены в /root/bot/.env
+(STORMTRADE_API_KEY/SECRET; NOTIFICATION_TOKEN сгенерирован openssl). API-домен —
+api.stormtrade.club (ЛК: app.stormtrade.club). Живой тест: SBP_QR выдал реальный
+QR НСПК (qr.nspk.ru), SBP — телефон (в терминале есть тестовый трейдер
+«Test +7(999)999-99-99»), cancel работает; TO_ACCOUNT на момент теста без
+свободных трейдеров (ошибка обработана штатно). Терминал поддерживает: SBP,
+SBP_QR, TO_CARD, TO_ACCOUNT, CROSS_BORDER, MOBILE_TOP_UP, TIPS, TO_BANK_DETAILS,
+VIET_QR, MANUAL_SBP_QR. Сервисы перезапущены — кнопки видны, эскалация активна.
 
 ### Сессия 08.07.2026 (Vertu)
 Выполнено:
