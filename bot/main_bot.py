@@ -1119,7 +1119,7 @@ async def process_swap_address(message: Message, state: FSMContext):
 
 @router.callback_query(F.data == "menu_orders")
 async def menu_orders(callback: CallbackQuery):
-    await my_orders(callback.message)
+    await my_orders(callback.message, uid=callback.from_user.id)
     await callback.answer()
 
 
@@ -1252,7 +1252,7 @@ async def ref_withdraw(callback: CallbackQuery):
 
 @router.callback_query(F.data == "menu_profile")
 async def menu_profile(callback: CallbackQuery):
-    await profile(callback.message)
+    await profile(callback.message, uid=callback.from_user.id)
     await callback.answer()
 
 @router.callback_query(F.data == "menu_support")
@@ -1907,8 +1907,10 @@ async def confirm_payout(message: Message):
     except: await message.answer("Использование: /confirm КОД")
 
 # ---------- МОИ ЗАЯВКИ ----------
-async def my_orders(message: Message):
-    uid = message.from_user.id
+async def my_orders(message: Message, uid: int = None):
+    # uid передаётся явно при вызове из callback: у callback.message
+    # from_user — это сам бот, а не пользователь
+    uid = uid or message.from_user.id
     with db_conn(10) as conn:
         c = conn.cursor()
         c.execute("""SELECT order_id, rub_amount, crypto_address, currency, status,
@@ -1983,8 +1985,9 @@ async def my_orders(message: Message):
     )
 
 # ---------- ПРОФИЛЬ ----------
-async def profile(message: Message):
-    uid = message.from_user.id
+async def profile(message: Message, uid: int = None):
+    # uid передаётся явно при вызове из callback (from_user у callback.message — бот)
+    uid = uid or message.from_user.id
     with db_conn(10) as conn:
         c = conn.cursor()
         c.execute("SELECT COUNT(*) FROM orders WHERE user_id=?", (uid,))
@@ -3630,7 +3633,7 @@ async def admin_stats_refresh(callback: CallbackQuery):
 async def admin_show_pending_cb(callback: CallbackQuery):
     if not is_admin(callback.from_user.id):
         return
-    await cmd_pending(callback.message)
+    await cmd_pending(callback.message, uid=callback.from_user.id)
     await callback.answer()
 
 
@@ -3749,9 +3752,9 @@ async def cmd_finduser(message: Message):
 
 
 @router.message(Command("pending"))
-async def cmd_pending(message: Message):
+async def cmd_pending(message: Message, uid: int = None):
     """/pending — заявки которые оплачены но ещё не выплачены."""
-    if not is_admin(message.from_user.id):
+    if not is_admin(uid or message.from_user.id):
         return
     with db_conn(5) as conn:
         c = conn.cursor()
