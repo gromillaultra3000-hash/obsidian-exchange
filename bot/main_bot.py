@@ -6873,6 +6873,19 @@ async def main():
     asyncio.create_task(check_stuck_orders())
     asyncio.create_task(website_healthcheck())
     asyncio.create_task(disk_healthcheck())
+    # Меню команд (кнопка «/» у пользователей)
+    try:
+        from aiogram.types import BotCommand
+        await bot.set_my_commands([
+            BotCommand(command="start",     description="🟣 Главное меню"),
+            BotCommand(command="mystatus",  description="👤 Мой VIP-статус и скидка"),
+            BotCommand(command="myhistory", description="📋 История заявок"),
+            BotCommand(command="mydca",     description="📅 Мои DCA-планы"),
+            BotCommand(command="redeem",    description="🎁 Активировать подарочный код"),
+            BotCommand(command="offer",     description="📜 Пользовательское соглашение"),
+        ])
+    except Exception as e:
+        logger.warning(f"set_my_commands: {e}")
     logger.info("Бот запущен")
     await dp.start_polling(bot)
 
