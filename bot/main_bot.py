@@ -38,6 +38,11 @@ load_env()
 
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 ADMIN_ID = int(os.getenv('ADMIN_ID', 0))
+ADMIN_ID_2 = int(os.getenv('ADMIN_ID_2', 0))  # второй админ: полные права, кроме удаления (removeworker)
+ADMIN_IDS = {a for a in (ADMIN_ID, ADMIN_ID_2) if a}
+
+def is_admin(uid) -> bool:
+    return uid in ADMIN_IDS
 RELAY_SITE = os.getenv('RELAY_SITE', 'http://127.0.0.1:5001')
 PUBLIC_RELAY = os.getenv('PUBLIC_RELAY', 'https://obsidian-exchange.org')
 MIN_AMOUNT = float(os.getenv('MIN_AMOUNT', 1000))
@@ -483,6 +488,14 @@ import atexit; atexit.register(remove_pid)
 
 # ---------- ИНИЦИАЛИЗАЦИЯ ----------
 bot = Bot(token=BOT_TOKEN)
+
+async def notify_admins(text, **kwargs):
+    """Отправляет сообщение всем админам из ADMIN_IDS; ошибки доставки не роняют вызов."""
+    for _aid in ADMIN_IDS:
+        try:
+            await bot.send_message(_aid, text, **kwargs)
+        except Exception as _e:
+            logger.debug(f"notify_admins: не доставлено {_aid}: {_e}")
 try:
     _redis = Redis(host='localhost', port=6379, db=1, decode_responses=False)
     storage = RedisStorage(_redis)
@@ -778,11 +791,11 @@ async def notify_admin(order_id, user_id, rub_amount, address, currency):
     try:
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="✅ Подтвердить оплату", callback_data=f"admin_confirm_{order_id}")]])
-        await bot.send_message(ADMIN_ID, text, reply_markup=kb, disable_notification=False, parse_mode="HTML")
+        await notify_admins( text, reply_markup=kb, disable_notification=False, parse_mode="HTML")
     except Exception as e:
         logger.error(f"Ошибка уведомления админа: {e}")
     if rub_amount >= HIGH_AMOUNT:
-        await bot.send_message(ADMIN_ID, f"⚠️ Крупная заявка #{order_id} на {rub_amount:,.0f} RUB")
+        await notify_admins( f"⚠️ Крупная заявка #{order_id} на {rub_amount:,.0f} RUB")
 
 async def notify_workers_paid(order_id, rub_amount, address, currency):
     """Уведомляет всех работников о заявке, ожидающей ручной отправки."""
@@ -1162,8 +1175,7 @@ async def cancel_order_callback(callback: CallbackQuery):
         parse_mode="HTML"
     )
     await callback.answer("Заявка отменена.")
-    await bot.send_message(
-        ADMIN_ID,
+    await notify_admins(
         f"🚫 Клиент {uid} отменил заявку #{oid}",
         parse_mode="HTML"
     )
@@ -1420,8 +1432,7 @@ async def process_sell_phone(message: Message, state: FSMContext):
             [InlineKeyboardButton(text="✅ Выплатить (подтвердить)", callback_data=f"sell_confirm_{sell_id}")],
             [InlineKeyboardButton(text="❌ Отклонить", callback_data=f"sell_reject_{sell_id}")]
         ])
-        await bot.send_message(
-            ADMIN_ID,
+        await notify_admins(
             f"💰 <b>Новая заявка на ПРОДАЖУ #{sell_id}</b>\n"
             f"👤 Пользователь: {message.from_user.id} (@{message.from_user.username or '-'})\n"
             f"💸 Продаёт: {amount} {currency}\n"
@@ -1437,7 +1448,7 @@ async def process_sell_phone(message: Message, state: FSMContext):
 
 @router.callback_query(F.data.startswith("sell_confirm_"))
 async def sell_confirm(callback: CallbackQuery):
-    if callback.from_user.id != ADMIN_ID:
+    if not is_admin(callback.from_user.id):
         await callback.answer("⛔ Нет прав", show_alert=True)
         return
     sell_id = int(callback.data.split("_")[2])
@@ -1477,7 +1488,7 @@ async def sell_confirm(callback: CallbackQuery):
 
 @router.callback_query(F.data.startswith("sell_reject_"))
 async def sell_reject(callback: CallbackQuery):
-    if callback.from_user.id != ADMIN_ID:
+    if not is_admin(callback.from_user.id):
         await callback.answer("⛔ Нет прав", show_alert=True)
         return
     sell_id = int(callback.data.split("_")[2])
@@ -1612,8 +1623,7 @@ async def finalize_review(order_id):
             logger.warning(f"Не удалось отправить приглашение на внешний отзыв user {user_id}: {e}")
     else:
         try:
-            await bot.send_message(
-                ADMIN_ID,
+            await notify_admins(
                 f"⚠️ Низкая оценка по заявке #{order_id}\n"
                 f"👤 user_id: {user_id}\n"
                 f"⭐ Оценка: {rating}\n"
@@ -1824,7 +1834,7 @@ async def inline_paid(callback: CallbackQuery):
                 f"⚠️ Проверьте поступление средств перед подтверждением.")
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="✅ Подтвердить оплату", callback_data=f"admin_confirm_{order_id}")]])
-        await bot.send_message(ADMIN_ID, text, reply_markup=kb, disable_notification=False, parse_mode="HTML")
+        await notify_admins( text, reply_markup=kb, disable_notification=False, parse_mode="HTML")
         msg_text = f"⏳ <b>Ожидаем подтверждение</b>\n\nИнформация об оплате заявки <b>#{order_id}</b> передана оператору. Обычно это занимает 5–15 минут."
         await callback.message.edit_caption(caption=msg_text, parse_mode="HTML") if callback.message.photo else await callback.message.edit_text(msg_text, parse_mode="HTML")
         await callback.answer("Отправлено на проверку")
@@ -1867,7 +1877,7 @@ pending_large_payouts = {}  # {order_id: {code, amount, address, currency, times
 
 @router.callback_query(F.data.startswith("admin_confirm_"))
 async def admin_confirm_2fa(callback: CallbackQuery):
-    if callback.from_user.id != ADMIN_ID:
+    if not is_admin(callback.from_user.id):
         await callback.answer("⛔ Нет прав доступа.", show_alert=True)
         return
     import random
@@ -1879,7 +1889,7 @@ async def admin_confirm_2fa(callback: CallbackQuery):
 
 @router.message(Command("confirm"))
 async def confirm_payout(message: Message):
-    if message.from_user.id != ADMIN_ID: return
+    if not is_admin(message.from_user.id): return
     try:
         code = message.text.split()[1]
         action = pending_admin_action.get(message.from_user.id)
@@ -2047,7 +2057,7 @@ async def profile(message: Message):
 # ---------- АДМИН-ПАНЕЛЬ ----------
 @router.message(Command("report"))
 async def cmd_report(message: Message):
-    if message.from_user.id != ADMIN_ID:
+    if not is_admin(message.from_user.id):
         return
     import datetime as _dt
     args = message.text.split()
@@ -2070,7 +2080,7 @@ async def cmd_report(message: Message):
 
 @router.message(Command("admin"))
 async def admin_panel(message: Message):
-    if message.from_user.id != ADMIN_ID: return await message.answer("❌ Доступ запрещён.")
+    if not is_admin(message.from_user.id): return await message.answer("❌ Доступ запрещён.")
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📊 Статистика", callback_data="admin_stats")],
         [InlineKeyboardButton(text="📋 Последние заявки", callback_data="admin_last_orders")],
@@ -2083,7 +2093,7 @@ async def admin_panel(message: Message):
 
 @router.callback_query(F.data == "admin_stats")
 async def admin_stats(callback: CallbackQuery):
-    if callback.from_user.id != ADMIN_ID: return
+    if not is_admin(callback.from_user.id): return
     with db_conn(10) as conn:
         c = conn.cursor()
         c.execute("SELECT COUNT(*) FROM orders")
@@ -2100,7 +2110,7 @@ async def admin_stats(callback: CallbackQuery):
 
 @router.callback_query(F.data == "admin_last_orders")
 async def admin_last_orders(callback: CallbackQuery):
-    if callback.from_user.id != ADMIN_ID: return
+    if not is_admin(callback.from_user.id): return
     with db_conn(10) as conn:
         c = conn.cursor()
         c.execute("SELECT order_id, user_id, rub_amount, currency, status, created_at FROM orders ORDER BY created_at DESC LIMIT 10")
@@ -2115,7 +2125,7 @@ async def admin_last_orders(callback: CallbackQuery):
 
 @router.callback_query(F.data == "admin_export_csv")
 async def admin_export_csv(callback: CallbackQuery):
-    if callback.from_user.id != ADMIN_ID: return
+    if not is_admin(callback.from_user.id): return
     with db_conn(10) as conn:
         c = conn.cursor()
         c.execute("SELECT * FROM (SELECT * FROM orders ORDER BY order_id DESC LIMIT 1000) ORDER BY order_id ASC")
@@ -2127,13 +2137,13 @@ async def admin_export_csv(callback: CallbackQuery):
 
 @router.callback_query(F.data == "admin_payout_menu")
 async def admin_payout_menu(callback: CallbackQuery):
-    if callback.from_user.id != ADMIN_ID: return
+    if not is_admin(callback.from_user.id): return
     await callback.message.edit_text("Введите команду /force_payout ORDER_ID")
     await callback.answer()
 
 @router.message(Command("force_payout"))
 async def force_payout(message: Message):
-    if message.from_user.id != ADMIN_ID: return
+    if not is_admin(message.from_user.id): return
     try:
         order_id = int(message.text.split()[1])
         fake_tx = f"manual_{int(time.time())}"
@@ -2145,19 +2155,19 @@ async def force_payout(message: Message):
 
 @router.callback_query(F.data == "admin_block_menu")
 async def admin_block_menu(callback: CallbackQuery):
-    if callback.from_user.id != ADMIN_ID: return
+    if not is_admin(callback.from_user.id): return
     await callback.message.edit_text("Введите команду /block USER_ID")
     await callback.answer()
 
 @router.callback_query(F.data == "admin_unblock_menu")
 async def admin_unblock_menu(callback: CallbackQuery):
-    if callback.from_user.id != ADMIN_ID: return
+    if not is_admin(callback.from_user.id): return
     await callback.message.edit_text("Введите команду /unblock USER_ID")
     await callback.answer()
 
 @router.message(Command("block"))
 async def cmd_block(message: Message):
-    if message.from_user.id != ADMIN_ID: return
+    if not is_admin(message.from_user.id): return
     try:
         user_id = int(message.text.split()[1])
         with db_conn(10) as conn:
@@ -2168,7 +2178,7 @@ async def cmd_block(message: Message):
 
 @router.message(Command("unblock"))
 async def cmd_unblock(message: Message):
-    if message.from_user.id != ADMIN_ID: return
+    if not is_admin(message.from_user.id): return
     try:
         user_id = int(message.text.split()[1])
         with db_conn(10) as conn:
@@ -2603,7 +2613,7 @@ async def process_receipt_upload(message: Message, state: FSMContext):
             await message.answer(
                 "✅ Чек отправлен на проверку! Как только оплата подтвердится, мы автоматически вышлем вашу криптовалюту.",
             )
-            await bot.send_message(ADMIN_ID, f"🧾 Получен чек для заявки #{order_id} (Brabus invoice {invoice_id})")
+            await notify_admins( f"🧾 Получен чек для заявки #{order_id} (Brabus invoice {invoice_id})")
         else:
             await message.answer(f"❌ Не удалось отправить чек: {result.get('error', 'неизвестная ошибка')}\nПопробуйте ещё раз или обратитесь в поддержку.")
     except Exception as e:
@@ -2657,7 +2667,7 @@ async def process_montera_receipt_upload(message: Message, state: FSMContext):
                 _or = _oc.execute("SELECT rub_amount, username FROM orders WHERE order_id=?", (order_id,)).fetchone()
             _amt = f"{int(_or[0]):,} ₽".replace(",", " ") if _or else "?"
             _uname = f"@{_or[1]}" if (_or and _or[1]) else str(message.from_user.id)
-            await bot.send_message(ADMIN_ID,
+            await notify_admins(
                 f"🧾 <b>Получен PDF-чек</b> — заявка <b>#{order_id}</b>\n"
                 f"👤 {_uname} · 💸 {_amt}\n"
                 f"📄 {doc.file_name or 'receipt.pdf'}",
@@ -2706,7 +2716,7 @@ async def process_montera_video_verification(message: Message, state: FSMContext
                 _or2 = _oc2.execute("SELECT rub_amount, username FROM orders WHERE order_id=?", (order_id,)).fetchone()
             _amt2 = f"{int(_or2[0]):,} ₽".replace(",", " ") if _or2 else "?"
             _uname2 = f"@{_or2[1]}" if (_or2 and _or2[1]) else str(message.from_user.id)
-            await bot.send_message(ADMIN_ID,
+            await notify_admins(
                 f"🎥 <b>Получено видео-подтверждение</b> — заявка <b>#{order_id}</b>\n"
                 f"👤 {_uname2} · 💸 {_amt2}",
                 parse_mode="HTML")
@@ -2765,7 +2775,7 @@ async def process_montera_pdf_verification(message: Message, state: FSMContext):
                 _or3 = _oc3.execute("SELECT rub_amount, username FROM orders WHERE order_id=?", (order_id,)).fetchone()
             _amt3 = f"{int(_or3[0]):,} ₽".replace(",", " ") if _or3 else "?"
             _uname3 = f"@{_or3[1]}" if (_or3 and _or3[1]) else str(message.from_user.id)
-            await bot.send_message(ADMIN_ID,
+            await notify_admins(
                 f"📄 <b>Получен PDF-чек верификации</b> — заявка <b>#{order_id}</b>\n"
                 f"👤 {_uname3} · 💸 {_amt3}",
                 parse_mode="HTML")
@@ -2796,7 +2806,7 @@ class WorkerState(StatesGroup):
 
 @router.message(Command("addworker"))
 async def cmd_addworker(message: Message):
-    if message.from_user.id != ADMIN_ID:
+    if not is_admin(message.from_user.id):
         return
     parts = message.text.split()
     if len(parts) < 2:
@@ -2809,7 +2819,7 @@ async def cmd_addworker(message: Message):
             conn.execute(
                 "INSERT INTO workers (user_id, username, added_by) VALUES (?,?,?) "
                 "ON CONFLICT(user_id) DO UPDATE SET is_active=1, username=excluded.username",
-                (wid, wname, ADMIN_ID)
+                (wid, wname, message.from_user.id)
             )
             conn.commit()
         await message.answer(f"✅ Работник {wid} (@{wname or '—'}) добавлен.")
@@ -2829,6 +2839,7 @@ async def cmd_addworker(message: Message):
 
 @router.message(Command("removeworker"))
 async def cmd_removeworker(message: Message):
+    # Удаление — только главный админ
     if message.from_user.id != ADMIN_ID:
         return
     parts = message.text.split()
@@ -2846,7 +2857,7 @@ async def cmd_removeworker(message: Message):
 
 @router.message(Command("workers"))
 async def cmd_workers_list(message: Message):
-    if message.from_user.id != ADMIN_ID:
+    if not is_admin(message.from_user.id):
         return
     with db_conn(5) as conn:
         c = conn.cursor()
@@ -2892,7 +2903,7 @@ async def cmd_worker_panel(message: Message):
 
 @router.callback_query(F.data.startswith("worker_send_"))
 async def worker_send_start(callback: CallbackQuery, state: FSMContext):
-    if not is_worker(callback.from_user.id) and callback.from_user.id != ADMIN_ID:
+    if not is_worker(callback.from_user.id) and not is_admin(callback.from_user.id):
         await callback.answer("⛔ Нет прав", show_alert=True)
         return
     order_id = int(callback.data.split("_")[-1])
@@ -2923,7 +2934,7 @@ async def worker_send_start(callback: CallbackQuery, state: FSMContext):
 
 @router.message(WorkerState.waiting_tx)
 async def worker_enter_tx(message: Message, state: FSMContext):
-    if not is_worker(message.from_user.id) and message.from_user.id != ADMIN_ID:
+    if not is_worker(message.from_user.id) and not is_admin(message.from_user.id):
         await state.clear()
         return
     data = await state.get_data()
@@ -2952,8 +2963,7 @@ async def worker_enter_tx(message: Message, state: FSMContext):
         f"TX: <code>{tx}</code>",
         parse_mode="HTML"
     )
-    await bot.send_message(
-        ADMIN_ID,
+    await notify_admins(
         f"💸 Работник @{message.from_user.username or message.from_user.id} "
         f"выполнил заявку #{order_id}\nTX: <code>{tx}</code>",
         parse_mode="HTML"
@@ -3048,7 +3058,7 @@ async def cmd_promo(message: Message):
 @router.message(Command("addpromo"))
 async def cmd_addpromo(message: Message):
     """/addpromo КОД СКИДКА МАКС_ИСПОЛЬЗОВАНИЙ ДНЕЙ_ДЕЙСТВИЯ"""
-    if message.from_user.id != ADMIN_ID:
+    if not is_admin(message.from_user.id):
         return
     parts = message.text.split()
     if len(parts) < 5:
@@ -3083,7 +3093,7 @@ async def cmd_addpromo(message: Message):
 @router.message(Command("promos"))
 async def cmd_promos(message: Message):
     """Список активных промокодов."""
-    if message.from_user.id != ADMIN_ID:
+    if not is_admin(message.from_user.id):
         return
     with db_conn(5) as conn:
         c = conn.cursor()
@@ -3107,7 +3117,7 @@ async def cmd_promos(message: Message):
 @router.message(Command("blockaddr"))
 async def cmd_blockaddr(message: Message):
     """/blockaddr АДРЕС ПРИЧИНА — добавить адрес в чёрный список."""
-    if message.from_user.id != ADMIN_ID:
+    if not is_admin(message.from_user.id):
         return
     parts = message.text.split(maxsplit=2)
     if len(parts) < 2:
@@ -3130,7 +3140,7 @@ async def cmd_blockaddr(message: Message):
 
 @router.message(Command("unblockaddr"))
 async def cmd_unblockaddr(message: Message):
-    if message.from_user.id != ADMIN_ID:
+    if not is_admin(message.from_user.id):
         return
     parts = message.text.split()
     if len(parts) < 2:
@@ -3145,7 +3155,7 @@ async def cmd_unblockaddr(message: Message):
 
 @router.message(Command("blocklist"))
 async def cmd_blocklist(message: Message):
-    if message.from_user.id != ADMIN_ID:
+    if not is_admin(message.from_user.id):
         return
     with db_conn(5) as conn:
         c = conn.cursor()
@@ -3254,27 +3264,28 @@ async def ticket_enter_message(message: Message, state: FSMContext):
     media_info = ""
     if message.photo:
         fid = message.photo[-1].file_id
-        try:
-            await bot.send_photo(ADMIN_ID, fid,
-                caption=f"🎫 <b>Тикет #{tid}</b> от @{uname} ({uid})\n<b>{subj}</b>\n\n{text_body}\n\n"
-                        f"/reply_{tid}",
-                parse_mode="HTML")
-        except Exception:
-            pass
+        for _aid in ADMIN_IDS:
+            try:
+                await bot.send_photo(_aid, fid,
+                    caption=f"🎫 <b>Тикет #{tid}</b> от @{uname} ({uid})\n<b>{subj}</b>\n\n{text_body}\n\n"
+                            f"/reply_{tid}",
+                    parse_mode="HTML")
+            except Exception:
+                pass
         media_info = " + фото"
     elif message.document:
         fid = message.document.file_id
-        try:
-            await bot.send_document(ADMIN_ID, fid,
-                caption=f"🎫 <b>Тикет #{tid}</b> от @{uname} ({uid})\n<b>{subj}</b>\n\n{text_body}\n\n"
-                        f"/reply_{tid}",
-                parse_mode="HTML")
-        except Exception:
-            pass
+        for _aid in ADMIN_IDS:
+            try:
+                await bot.send_document(_aid, fid,
+                    caption=f"🎫 <b>Тикет #{tid}</b> от @{uname} ({uid})\n<b>{subj}</b>\n\n{text_body}\n\n"
+                            f"/reply_{tid}",
+                    parse_mode="HTML")
+            except Exception:
+                pass
         media_info = " + документ"
     else:
-        await bot.send_message(
-            ADMIN_ID,
+        await notify_admins(
             f"🎫 <b>Тикет #{tid}</b> от @{uname} ({uid})\n"
             f"<b>{subj}</b>\n\n{text_body}\n\n/reply_{tid}",
             parse_mode="HTML"
@@ -3349,8 +3360,7 @@ async def ticket_reply_message(message: Message, state: FSMContext):
         conn.execute("UPDATE support_tickets SET status='open', updated_at=datetime('now') WHERE id=?", (tid,))
         conn.commit()
     await message.answer(f"✅ Сообщение добавлено в тикет #{tid}.")
-    await bot.send_message(
-        ADMIN_ID,
+    await notify_admins(
         f"🔔 <b>Новое сообщение в тикет #{tid}</b>\nОт @{uname} ({uid})\n<b>{subj}</b>\n\n{text_body}\n\n/reply_{tid}",
         parse_mode="HTML"
     )
@@ -3359,7 +3369,7 @@ async def ticket_reply_message(message: Message, state: FSMContext):
 
 # ── Ответ от администратора ──────────────────────────────────────
 
-@router.message(lambda m: m.from_user.id == ADMIN_ID and m.text and m.text.startswith("/reply_"))
+@router.message(lambda m: is_admin(m.from_user.id) and m.text and m.text.startswith("/reply_"))
 async def admin_reply_ticket(message: Message, state: FSMContext):
     parts = message.text.split(None, 1)
     try:
@@ -3380,7 +3390,7 @@ async def admin_reply_ticket(message: Message, state: FSMContext):
 @router.message(Command("tickets"))
 async def cmd_tickets(message: Message):
     """Список открытых тикетов для администратора."""
-    if message.from_user.id != ADMIN_ID:
+    if not is_admin(message.from_user.id):
         return
     with db_conn(5) as conn:
         c = conn.cursor()
@@ -3403,7 +3413,7 @@ async def cmd_tickets(message: Message):
 @router.message(Command("force_payout"))
 async def cmd_force_payout(message: Message):
     """/force_payout ORDER_ID [TXID] — вручную отметить заявку как выполненную."""
-    if message.from_user.id != ADMIN_ID:
+    if not is_admin(message.from_user.id):
         return
     parts = message.text.split(None, 2)
     if len(parts) < 2:
@@ -3478,7 +3488,7 @@ async def cmd_force_payout(message: Message):
 @router.message(Command("broadcast"))
 async def cmd_broadcast(message: Message, state: FSMContext):
     """/broadcast текст — массовая рассылка всем активным пользователям."""
-    if message.from_user.id != ADMIN_ID:
+    if not is_admin(message.from_user.id):
         return
     parts = message.text.split(None, 1)
     if len(parts) < 2:
@@ -3530,7 +3540,7 @@ async def cmd_broadcast(message: Message, state: FSMContext):
 @router.message(Command("stats"))
 async def cmd_stats(message: Message):
     """/stats — быстрая сводка сегодня для администратора."""
-    if message.from_user.id != ADMIN_ID:
+    if not is_admin(message.from_user.id):
         return
     with db_conn(5) as conn:
         c = conn.cursor()
@@ -3590,7 +3600,7 @@ async def cmd_stats(message: Message):
 
 @router.callback_query(F.data == "admin_stats_refresh")
 async def admin_stats_refresh(callback: CallbackQuery):
-    if callback.from_user.id != ADMIN_ID:
+    if not is_admin(callback.from_user.id):
         return
     await callback.message.delete()
     await cmd_stats(callback.message.__class__.__new__(callback.message.__class__))
@@ -3618,7 +3628,7 @@ async def admin_stats_refresh(callback: CallbackQuery):
 
 @router.callback_query(F.data == "admin_show_pending")
 async def admin_show_pending_cb(callback: CallbackQuery):
-    if callback.from_user.id != ADMIN_ID:
+    if not is_admin(callback.from_user.id):
         return
     await cmd_pending(callback.message)
     await callback.answer()
@@ -3626,7 +3636,7 @@ async def admin_show_pending_cb(callback: CallbackQuery):
 
 @router.callback_query(F.data == "admin_report_today")
 async def admin_report_today_cb(callback: CallbackQuery):
-    if callback.from_user.id != ADMIN_ID:
+    if not is_admin(callback.from_user.id):
         return
     import datetime as _dt
     today = _dt.date.today().isoformat()
@@ -3670,7 +3680,7 @@ async def _send_admin_reply(tid: int, reply_text: str, admin_message):
 @router.message(Command("finduser"))
 async def cmd_finduser(message: Message):
     """/finduser ID или /finduser @username — полная карточка клиента."""
-    if message.from_user.id != ADMIN_ID:
+    if not is_admin(message.from_user.id):
         return
     parts = message.text.split(None, 1)
     if len(parts) < 2:
@@ -3741,7 +3751,7 @@ async def cmd_finduser(message: Message):
 @router.message(Command("pending"))
 async def cmd_pending(message: Message):
     """/pending — заявки которые оплачены но ещё не выплачены."""
-    if message.from_user.id != ADMIN_ID:
+    if not is_admin(message.from_user.id):
         return
     with db_conn(5) as conn:
         c = conn.cursor()
@@ -3765,7 +3775,7 @@ async def cmd_pending(message: Message):
 @router.message(Command("msg"))
 async def cmd_msg(message: Message, state: FSMContext):
     """/msg USER_ID текст — отправить сообщение клиенту от имени бота."""
-    if message.from_user.id != ADMIN_ID:
+    if not is_admin(message.from_user.id):
         return
     parts = message.text.split(None, 2)
     if len(parts) < 3:
@@ -3790,7 +3800,7 @@ async def cmd_msg(message: Message, state: FSMContext):
 
 @router.callback_query(F.data.startswith("admin_msg_"))
 async def admin_msg_callback(callback: CallbackQuery, state: FSMContext):
-    if callback.from_user.id != ADMIN_ID:
+    if not is_admin(callback.from_user.id):
         return
     target_id = int(callback.data.split("_")[2])
     await state.update_data(admin_msg_target=target_id)
@@ -3801,7 +3811,7 @@ async def admin_msg_callback(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data.startswith("admin_block_"))
 async def admin_block_callback(callback: CallbackQuery):
-    if callback.from_user.id != ADMIN_ID:
+    if not is_admin(callback.from_user.id):
         return
     uid = int(callback.data.split("_")[2])
     with db_conn(5) as conn:
@@ -3812,7 +3822,7 @@ async def admin_block_callback(callback: CallbackQuery):
 
 @router.callback_query(F.data.startswith("admin_unblock_"))
 async def admin_unblock_callback(callback: CallbackQuery):
-    if callback.from_user.id != ADMIN_ID:
+    if not is_admin(callback.from_user.id):
         return
     uid = int(callback.data.split("_")[2])
     with db_conn(5) as conn:
@@ -4457,8 +4467,7 @@ async def gift_enter_recipient_address(message: Message, state: FSMContext):
         parse_mode="HTML"
     )
     await notify_workers_paid(oid, amt, addr, cur)
-    await bot.send_message(
-        ADMIN_ID,
+    await notify_admins(
         f"🎁 Подарочный код {data.get('redeem_gift_id')} выкуплен!\n"
         f"Получатель: {uid} · {cur} · {int(amt):,} ₽ · {addr}\n"
         f"Заявка #{oid}".replace(",", " "),
@@ -4548,7 +4557,7 @@ def get_active_rate_lock(user_id: int, currency: str) -> dict | None:
 # ---------- АДМИН-КОМАНДЫ УПРАВЛЕНИЯ ----------
 @router.message(Command("setrate"))
 async def cmd_setrate(message: Message):
-    if message.from_user.id != ADMIN_ID: return
+    if not is_admin(message.from_user.id): return
     try:
         parts = message.text.split()
         if len(parts) != 3:
@@ -4574,7 +4583,7 @@ async def cmd_setrate(message: Message):
 
 @router.message(Command("limits"))
 async def cmd_limits(message: Message):
-    if message.from_user.id != ADMIN_ID: return
+    if not is_admin(message.from_user.id): return
     await message.answer(
         f"Текущие лимиты:\n"
         f"Мин: {MIN_AMOUNT:,.0f} RUB\n"
@@ -4585,7 +4594,7 @@ async def cmd_limits(message: Message):
 
 @router.message(Command("stats"))
 async def cmd_stats(message: Message):
-    if message.from_user.id != ADMIN_ID: return
+    if not is_admin(message.from_user.id): return
     with db_conn(10) as conn:
         c = conn.cursor()
         now = datetime.now()
@@ -4692,7 +4701,7 @@ async def daily_report():
         yesterday = (_dt.datetime.utcnow() - _dt.timedelta(days=1)).strftime("%Y-%m-%d")
         text = await build_admin_report(f"вчера ({yesterday})", yesterday, yesterday)
         try:
-            await bot.send_message(ADMIN_ID, text, parse_mode="HTML")
+            await notify_admins( text, parse_mode="HTML")
         except Exception as e:
             logger.error(f"daily_report send error: {e}")
 
@@ -4705,7 +4714,7 @@ async def check_stuck_orders():
             stuck = c.fetchall()
             if stuck:
                 ids = ", ".join([str(row[0]) for row in stuck])
-                await bot.send_message(ADMIN_ID, f"🕒 Зависшие заявки (>30 мин): {ids}")
+                await notify_admins( f"🕒 Зависшие заявки (>30 мин): {ids}")
         await asyncio.sleep(900)
 
 
@@ -5026,8 +5035,7 @@ async def limit_order_watcher():
                     )
                 except Exception:
                     pass
-                await bot.send_message(
-                    ADMIN_ID,
+                await notify_admins(
                     f"🎯 Лимитный ордер #{lid} сработал!\n"
                     f"Клиент {uid} · {cur} · {int(rub_amount):,} ₽\n"
                     f"Создана заявка #{new_order_id}".replace(",", " "),
@@ -5060,9 +5068,9 @@ async def website_healthcheck():
 
         if current_state != last_state:
             if current_state:
-                await bot.send_message(ADMIN_ID, "✅ Сайт снова доступен.")
+                await notify_admins( "✅ Сайт снова доступен.")
             else:
-                await bot.send_message(ADMIN_ID, f"❌ Сайт недоступен!")
+                await notify_admins( f"❌ Сайт недоступен!")
             last_state = current_state
         await asyncio.sleep(300)
 
@@ -5092,7 +5100,7 @@ async def disk_healthcheck():
         stat = os.statvfs('/')
         free_gb = (stat.f_bavail * stat.f_frsize) / 1024**3
         if free_gb < 5:
-            await bot.send_message(ADMIN_ID, f"⚠️ Осталось {free_gb:.1f} ГБ свободного места на диске!")
+            await notify_admins( f"⚠️ Осталось {free_gb:.1f} ГБ свободного места на диске!")
         await asyncio.sleep(3600)
 
 
@@ -5179,8 +5187,7 @@ async def auto_check_payments():
                                     (payout_id, order_id)
                                 )
                                 conn.commit()
-                            await bot.send_message(
-                                ADMIN_ID,
+                            await notify_admins(
                                 f"✅ <b>Авто-выплата #{order_id}</b>\n{rub_amount:,.0f} RUB → {currency}\n"
                                 f"TXID: <code>{payout_id}</code>",
                                 parse_mode="HTML"
@@ -5340,14 +5347,14 @@ async def verify_backups():
             import glob, os
             files = glob.glob('/root/backups/*.tar.gz')
             if not files:
-                await bot.send_message(ADMIN_ID, "❌ Бэкапы отсутствуют!")
+                await notify_admins( "❌ Бэкапы отсутствуют!")
                 continue
             latest = max(files, key=os.path.getmtime)
             age_hours = (time.time() - os.path.getmtime(latest)) / 3600
             if age_hours > 2:
-                await bot.send_message(ADMIN_ID, f"⚠️ Последний бэкап старше 2 часов ({age_hours:.1f} ч).")
+                await notify_admins( f"⚠️ Последний бэкап старше 2 часов ({age_hours:.1f} ч).")
             elif os.path.getsize(latest) < 1000:
-                await bot.send_message(ADMIN_ID, "❌ Последний бэкап слишком маленький (возможно, повреждён).")
+                await notify_admins( "❌ Последний бэкап слишком маленький (возможно, повреждён).")
         except Exception as e:
             logger.error(f"Ошибка проверки бэкапов: {e}")
 
@@ -5368,7 +5375,7 @@ async def ssl_healthcheck():
                 now = datetime.datetime.utcnow()
                 days_left = (expire_date - now).days
                 if days_left < 7:
-                    await bot.send_message(ADMIN_ID, f"⚠️ SSL-сертификат истекает через {days_left} дней!")
+                    await notify_admins( f"⚠️ SSL-сертификат истекает через {days_left} дней!")
         except Exception as e:
             logger.error(f"Ошибка проверки SSL: {e}")
         await asyncio.sleep(86400)  # раз в сутки
@@ -5376,7 +5383,7 @@ async def ssl_healthcheck():
 
 @router.message(Command("broadcast"))
 async def cmd_broadcast(message: Message):
-    if message.from_user.id != ADMIN_ID: return
+    if not is_admin(message.from_user.id): return
     text = message.text.partition(' ')[2]
     if not text:
         await message.answer("Использование: /broadcast Текст для рассылки")
@@ -5398,7 +5405,7 @@ async def cmd_broadcast(message: Message):
 
 @router.message(Command("approve"))
 async def cmd_approve(message: Message):
-    if message.from_user.id != ADMIN_ID: return
+    if not is_admin(message.from_user.id): return
     try:
         parts = message.text.split()
         if len(parts) != 3:
@@ -5554,7 +5561,7 @@ async def pagination(callback: CallbackQuery):
 
 @router.message(Command("order"))
 async def cmd_order(message: Message):
-    if message.from_user.id != ADMIN_ID:
+    if not is_admin(message.from_user.id):
         return
     try:
         order_id = int(message.text.split()[1])
@@ -5668,7 +5675,7 @@ async def withdraw_referral_bonus(user_id):
         c.execute("UPDATE referrals SET total_bonus_btc=0, bonus_paid=1 WHERE referrer_id=?", (user_id,))
         conn.commit()
     try:
-        await bot.send_message(ADMIN_ID,
+        await notify_admins(
             f"💸 Выплата реф. бонуса пользователю {user_id}: {total:.8f} BTC\nTXID: <code>{txid}</code>",
             parse_mode="HTML")
     except Exception:
@@ -5689,7 +5696,7 @@ async def balance_monitor():
             contract = client.get_contract('TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t')
             usdt_balance = contract.functions.balanceOf(addr) / 1e6
             if usdt_balance < 10 and not _alert_active("usdt_low"):
-                await bot.send_message(ADMIN_ID,
+                await notify_admins(
                     f"🔴 <b>Низкий баланс USDT</b>: {usdt_balance:.2f} USDT\n"
                     f"Пополните горячий кошелёк.", parse_mode="HTML")
                 _set_alert("usdt_low", True)
@@ -5702,7 +5709,7 @@ async def balance_monitor():
 @router.message(Command("testpost"))
 async def cmd_testpost(message: Message):
     """Отправляет тестовый ежедневный пост только себе (только для админа)."""
-    if message.from_user.id != ADMIN_ID:
+    if not is_admin(message.from_user.id):
         return
     await message.answer("⏳ Отправляю тестовый пост...")
     await send_daily_post(target_id=message.from_user.id)
@@ -5712,7 +5719,7 @@ async def cmd_testpost(message: Message):
 @router.message(Command("broadcast"))
 async def cmd_broadcast(message: Message):
     """Запускает немедленную рассылку всем пользователям (только для админа)."""
-    if message.from_user.id != ADMIN_ID:
+    if not is_admin(message.from_user.id):
         return
     try:
         with db_conn(5) as conn:
@@ -5728,7 +5735,7 @@ async def cmd_broadcast(message: Message):
 @router.message(Command("getfileid"))
 async def cmd_getfileid(message: Message):
     """Возвращает file_id GIF/стикера/фото для использования в DAILY_POST_GIF."""
-    if message.from_user.id != ADMIN_ID:
+    if not is_admin(message.from_user.id):
         return
     if message.animation:
         await message.reply(f"🎞 GIF file_id:\n<code>{message.animation.file_id}</code>", parse_mode="HTML")
@@ -5745,7 +5752,7 @@ async def cmd_getfileid(message: Message):
 @router.message(Command("balance"))
 async def cmd_balance(message: Message):
     """Показывает текущие балансы и адреса горячих кошельков (BTC/LTC/USDT)."""
-    if message.from_user.id != ADMIN_ID:
+    if not is_admin(message.from_user.id):
         return
     text = "💰 <b>Балансы горячих кошельков</b>\n\n"
 
@@ -5783,7 +5790,7 @@ async def cmd_balance(message: Message):
 
 @router.message(Command("fullstats"))
 async def cmd_fullstats(message: Message):
-    if message.from_user.id != ADMIN_ID:
+    if not is_admin(message.from_user.id):
         return
     with db_conn(10) as conn:
         c = conn.cursor()
@@ -5847,10 +5854,10 @@ async def smart_monitor():
                 relay_ok = False
             was_down = _alert_active("relay_down")
             if not relay_ok and not was_down:
-                await bot.send_message(ADMIN_ID, "❌ <b>Relay недоступен!</b> Проверьте сервис relay-fastapi.", parse_mode="HTML")
+                await notify_admins( "❌ <b>Relay недоступен!</b> Проверьте сервис relay-fastapi.", parse_mode="HTML")
                 _set_alert("relay_down", True)
             elif relay_ok and was_down:
-                await bot.send_message(ADMIN_ID, "✅ Relay снова доступен.")
+                await notify_admins( "✅ Relay снова доступен.")
                 _set_alert("relay_down", False)
 
             # ── Провайдеры (раз в 15 мин = каждые 7 итераций по 2 мин) ──────
@@ -5868,12 +5875,12 @@ async def smart_monitor():
                         is_up = False
                     was_p_down = _alert_active(f"provider_{pkey}")
                     if not is_up and not was_p_down:
-                        await bot.send_message(ADMIN_ID,
+                        await notify_admins(
                             f"⚠️ <b>{pname}</b> недоступен — резервный маршрут активен.",
                             parse_mode="HTML")
                         _set_alert(f"provider_{pkey}", True)
                     elif is_up and was_p_down:
-                        await bot.send_message(ADMIN_ID, f"✅ <b>{pname}</b> снова работает.", parse_mode="HTML")
+                        await notify_admins( f"✅ <b>{pname}</b> снова работает.", parse_mode="HTML")
                         _set_alert(f"provider_{pkey}", False)
 
             # ── Балансы кошельков (раз в час = каждые 30 итераций) ───────────
@@ -5884,7 +5891,7 @@ async def smart_monitor():
                     wallet.scan()
                     btc_bal = wallet.balance(network='bitcoin')
                     if btc_bal < 10000 and not _alert_active("btc_low"):
-                        await bot.send_message(ADMIN_ID,
+                        await notify_admins(
                             f"🔴 <b>Низкий баланс BTC</b>: {btc_bal} сат\n"
                             f"Пополните горячий кошелёк.", parse_mode="HTML")
                         _set_alert("btc_low", True)
@@ -5899,7 +5906,7 @@ async def smart_monitor():
                     ltc_wallet.scan()
                     ltc_bal = ltc_wallet.balance(network='litecoin')
                     if ltc_bal < 500000 and not _alert_active("ltc_low"):
-                        await bot.send_message(ADMIN_ID,
+                        await notify_admins(
                             f"🔴 <b>Низкий баланс LTC</b>: {ltc_bal} сат\n"
                             f"Пополните горячий кошелёк.", parse_mode="HTML")
                         _set_alert("ltc_low", True)
@@ -6085,7 +6092,7 @@ async def send_announce(target_id: int = None):
 
     logger.info(f"Объявление разослано: отправлено {sent}, заблокировали {blocked}, ошибок {failed}")
     try:
-        await bot.send_message(ADMIN_ID,
+        await notify_admins(
             f"📣 Рассылка объявления завершена:\n"
             f"✅ Доставлено: {sent}\n"
             f"🚫 Заблокировали бота: {blocked}\n"
@@ -6098,7 +6105,7 @@ async def send_announce(target_id: int = None):
 @router.message(Command("testannounce"))
 async def cmd_testannounce(message: Message):
     """Отправляет тестовое объявление только себе (только для админа)."""
-    if message.from_user.id != ADMIN_ID:
+    if not is_admin(message.from_user.id):
         return
     await message.answer("⏳ Отправляю тестовое объявление...")
     await send_announce(target_id=message.from_user.id)
@@ -6108,7 +6115,7 @@ async def cmd_testannounce(message: Message):
 @router.message(Command("announce"))
 async def cmd_announce(message: Message):
     """Рассылает разовое объявление всем пользователям (только для админа)."""
-    if message.from_user.id != ADMIN_ID:
+    if not is_admin(message.from_user.id):
         return
     try:
         with db_conn(5) as conn:
@@ -6166,7 +6173,7 @@ async def send_daily_post(target_id: int = None):
 
     logger.info(f"Рассылка завершена: отправлено {sent}, заблокировали бота {blocked}, ошибок {failed}")
     try:
-        await bot.send_message(ADMIN_ID,
+        await notify_admins(
             f"📊 Ежедневная рассылка завершена:\n"
             f"✅ Доставлено: {sent}\n"
             f"🚫 Заблокировали бота: {blocked}\n"
@@ -6463,8 +6470,7 @@ async def feature_broadcast(target_id: int = None):
             skipped += 1
         await asyncio.sleep(0.05)
 
-    await bot.send_message(
-        ADMIN_ID,
+    await notify_admins(
         f"📣 Фича-пост #{idx} разослан\n✅ {sent} · ⛔ {skipped}",
         parse_mode="HTML"
     )
@@ -6561,7 +6567,7 @@ _PROMO_POST_HTML = """🟣 <b>ObsidianExchange</b> — крипто-обменн
 async def cmd_postpromo(message: Message):
     """/postpromo — рекламный пост с баннером в канал.
        /postpromo preview — предпросмотр без публикации."""
-    if message.from_user.id != ADMIN_ID:
+    if not is_admin(message.from_user.id):
         return
     parts = message.text.split()
     preview = len(parts) > 1 and parts[1] == "preview"
@@ -6598,7 +6604,7 @@ async def cmd_postpromo(message: Message):
 @router.message(Command("featurepost"))
 async def cmd_featurepost(message: Message):
     """/featurepost — тест текущего поста / /featurepost all — рассылка всем."""
-    if message.from_user.id != ADMIN_ID:
+    if not is_admin(message.from_user.id):
         return
     parts = message.text.split()
     if len(parts) > 1 and parts[1] == "all":
@@ -6741,8 +6747,7 @@ async def montera_receipt_reminder():
                         )
                     except Exception:
                         pass
-                    await bot.send_message(
-                        ADMIN_ID,
+                    await notify_admins(
                         f"⚠️ <b>Заявка #{oid}</b> — чек не отправлен, дедлайн через ~10 мин\n"
                         f"Montera ID: <code>{inv_id}</code>",
                         parse_mode="HTML"
@@ -6767,7 +6772,7 @@ MONTERA_STOP_TIMER_IMG    = "https://postimg.cc/Wq2zpG4G"
 @router.message(Command("stoptimer"))
 async def stoptimer_cmd(message: Message):
     """Для тебя: /stoptimer ORDER_ID — отправляет напоминание себе с UUID для Montera."""
-    if message.from_user.id != ADMIN_ID:
+    if not is_admin(message.from_user.id):
         return
     parts = message.text.split()
     order_id = parts[1] if len(parts) > 1 else "?"

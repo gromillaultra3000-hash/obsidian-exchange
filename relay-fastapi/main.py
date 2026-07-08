@@ -41,6 +41,8 @@ MIN_AMOUNT = float(os.getenv('MIN_AMOUNT', 2000))
 MAX_AMOUNT = float(os.getenv('MAX_AMOUNT', 500000))
 BOT_TOKEN = os.getenv('BOT_TOKEN', '')
 ADMIN_ID = int(os.getenv('ADMIN_ID', '0') or '0')
+ADMIN_ID_2 = int(os.getenv('ADMIN_ID_2', '0') or '0')  # второй админ (полные права, кроме удаления)
+ADMIN_IDS = {a for a in (ADMIN_ID, ADMIN_ID_2) if a}
 INTERNAL_ADMIN_SECRET = os.getenv('INTERNAL_ADMIN_SECRET', '')
 BOT_USERNAME = os.getenv('BOT_USERNAME', 'Obsidian666999bot')
 SUPPORT_USERNAME = os.getenv('SUPPORT_USERNAME', 'ObsidianSupBot')
@@ -145,7 +147,7 @@ def verify_admin_init_data(init_data: str):
         if not hmac.compare_digest(computed_hash, received_hash):
             return None
         user = json.loads(parsed.get('user', '{}'))
-        if user.get('id') != ADMIN_ID:
+        if user.get('id') not in ADMIN_IDS:
             return None
         return user
     except Exception:
@@ -172,6 +174,11 @@ def notify_telegram(user_id, text, reply_markup=None):
         )
     except Exception as e:
         logger.error(f"notify_telegram error: {e}")
+
+def notify_admins_tg(text, reply_markup=None):
+    """Уведомление всем админам из ADMIN_IDS."""
+    for _aid in ADMIN_IDS:
+        notify_telegram(_aid, text, reply_markup=reply_markup)
 
 # --- Личный кабинет: аутентификация ---
 
@@ -382,7 +389,7 @@ async def dashboard_exchange_submit(
     rate = exchange_calc.get_rate_with_markup(currency, amount)
     crypto_amount = round(amount / rate, 8) if rate else 0
     if ADMIN_ID:
-        notify_telegram(ADMIN_ID, (
+        notify_admins_tg( (
             f"🆕 Новая заявка #{order_id} (сайт)\n"
             f"Аккаунт: {web_user['email']}\n"
             f"Сумма: {amount:g} RUB ≈ {crypto_amount} {currency}\n"
@@ -722,7 +729,7 @@ async def dashboard_support_create(request: Request, csrf_token: str = Form(...)
         conn.commit()
     audit_log("web_support_ticket_created", f"ticket_id={ticket_id} web_user_id={web_user['id']}")
     if ADMIN_ID:
-        notify_telegram(ADMIN_ID, f"💬 Новое обращение #{ticket_id} от {web_user['email']}\nТема: {subject}")
+        notify_admins_tg( f"💬 Новое обращение #{ticket_id} от {web_user['email']}\nТема: {subject}")
     return RedirectResponse(f"/dashboard/support/{ticket_id}", status_code=302)
 
 @app.get("/dashboard/support/{ticket_id}", response_class=HTMLResponse)
@@ -764,7 +771,7 @@ async def dashboard_support_reply(request: Request, ticket_id: int, csrf_token: 
             c.execute("UPDATE support_tickets SET status='open', updated_at=datetime('now') WHERE id=?", (ticket_id,))
             conn.commit()
             if ADMIN_ID:
-                notify_telegram(ADMIN_ID, f"💬 Новое сообщение в обращении #{ticket_id} от {web_user['email']}")
+                notify_admins_tg( f"💬 Новое сообщение в обращении #{ticket_id} от {web_user['email']}")
     return RedirectResponse(f"/dashboard/support/{ticket_id}", status_code=302)
 
 # --- Публичный сайт ---
@@ -1605,7 +1612,7 @@ async def montera_webhook(request: Request):
                         f"Нажмите кнопку ниже, откройте бот и отправьте файл.")
             markup = {"inline_keyboard": [[{"text": "📤 Открыть бот и отправить", "url": deep_link}]]}
             notify_telegram(user_id, text, reply_markup=markup)
-            notify_telegram(ADMIN_ID, f"🔍 Запрошена верификация <b>{requested_type}</b> для заявки #{order_id}")
+            notify_admins_tg( f"🔍 Запрошена верификация <b>{requested_type}</b> для заявки #{order_id}")
         audit_log("montera_verification_requested", f"order={order_id} type={requested_type}")
 
     audit_log("montera_webhook_processed", f"order={order_id} status={status} requested={requested_type}")
@@ -1791,7 +1798,7 @@ async def analytics_page(request: Request):
     # Check admin: telegram_id must match ADMIN_ID or email contains 'admin'
     tg_id = web_user.get("telegram_id")
     email = web_user.get("email", "")
-    if str(tg_id) != str(ADMIN_ID) and "admin" not in email:
+    if str(tg_id) not in {str(a) for a in ADMIN_IDS} and "admin" not in email:
         raise HTTPException(status_code=403, detail="Доступ запрещён")
     return templates.TemplateResponse(request, "admin_analytics.html")
 
@@ -1861,7 +1868,7 @@ async def health_check_task():
     """
     import httpx
     bot_token = BOT_TOKEN
-    admin_id = str(ADMIN_ID)
+    admin_id = str(ADMIN_ID)  # для условия ниже; рассылка идёт всем ADMIN_IDS
 
     last_alert_time = 0.0
 
@@ -1876,10 +1883,11 @@ async def health_check_task():
                     last_alert_time = now
                     msg = "🚨 <b>Все провайдеры недоступны!</b>\n\nНи один провайдер не прошёл health check. Новые заявки не могут быть созданы."
                     async with httpx.AsyncClient(timeout=10) as client:
-                        await client.post(
-                            f"https://api.telegram.org/bot{bot_token}/sendMessage",
-                            json={"chat_id": admin_id, "text": msg, "parse_mode": "HTML"}
-                        )
+                        for _aid in ADMIN_IDS:
+                            await client.post(
+                                f"https://api.telegram.org/bot{bot_token}/sendMessage",
+                                json={"chat_id": _aid, "text": msg, "parse_mode": "HTML"}
+                            )
             logger.info(f"[health] Healthy providers: {healthy or ['none']}")
         except Exception as e:
             logger.error(f"[health_check] Error: {e}")
