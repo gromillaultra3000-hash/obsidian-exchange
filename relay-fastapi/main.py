@@ -1881,7 +1881,7 @@ async def health_check_task():
             from services.smart_router import get_health_scores
             scores = get_health_scores()
             healthy = [p for p, s in scores.items() if s.get("is_healthy")]
-            if not healthy and bot_token and admin_id and admin_id != "0":
+            if scores and not healthy and bot_token and admin_id and admin_id != "0":
                 now = asyncio.get_event_loop().time()
                 if now - last_alert_time > 1800:  # не чаще раза в 30 мин
                     last_alert_time = now
