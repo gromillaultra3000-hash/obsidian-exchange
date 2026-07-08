@@ -75,6 +75,13 @@ git push origin master
 
 ### Сессия 08.07.2026
 Выполнено:
+- Публичная оферта (адаптирована под ObsidianExchange: покупка/продажа/своп, бот
+  вместо оператора): страница /offer (templates/offer.html) + футер base.html,
+  команда /offer и кнопка в «О сервисе» в боте (_OFFER_TEXT), строка согласия в
+  register.html и dashboard_exchange.html, ссылка в Mini App (webapp.html)
+- fix: «Мои заявки»/«Профиль»/кнопка pending из меню бота были нерабочими —
+  в callback-обработчиках функции получали callback.message, у которого from_user
+  это САМ БОТ (все запросы шли по user_id бота = пусто); uid теперь передаётся явно
 - Рассылка (пост раз в 5ч): новый видеобаннер 1280×640 (генератор в скретчпаде,
   файл bot/images/post_header.mp4, file_id в .env POST_HEADER_FILE_ID), переписан
   текст compose_daily_post (846 символов, лимит caption 1024), добавлены CTA-кнопки.
