@@ -24,6 +24,7 @@ Production крипто-обменник RUB→BTC/LTC/USDT через СБП, n
 | Провайдер | Статус | Вес |
 |-----------|--------|-----|
 | MonteraProvider | ❌ «Мерчант заблокирован» (400) с 07.07, блокировки перемежающиеся с 27.06 | 60% |
+| VertuProvider | ⏸ код готов (08.07), VERTU_LOGIN/VERTU_PASSWORD в bot/.env пустые — роутер скипает | 30% |
 | BrabusProvider | ✅ фактически основной сейчас | 20% |
 | LavaProvider | ⏸ код готов, ключи LAVA_* в bot/.env пустые — роутер скипает | 10% |
 | GreenPayProvider | ⚠️ нестабилен, unhealthy | 5% |
@@ -35,6 +36,13 @@ Production крипто-обменник RUB→BTC/LTC/USDT через СБП, n
 
 Montera: SBP через payment_gateway=sbp_rub, карта через payment_detail_type=card.
 Вебхук Montera: /montera/webhook (уже реализован в main.py).
+
+Vertu (api.vertu.sh): auth POST /v1/auth/login/ (login+password → refresh_token,
+используется как Bearer), сделка POST /v1/deals/ (type_pay: sbp / c2c), статус
+GET /v1/deals/{platform_id}/ (Pending/Approved/Declined/Revoked). Вебхуков НЕТ —
+статусы опрашивает vertu_poll_task в relay-fastapi/main.py (каждые 30 с) и
+/api/order/{id}. Доки: https://api.vertu.sh/docs-api (basic auth
+lAhJs08LTdPlXIQ / LcrT6pS4rHtCtCP — это креды ТОЛЬКО от доков, к API не подходят).
 
 ## Правила коммитов
 
@@ -72,6 +80,26 @@ git push origin master
 6. Новый провайдер: изучить Lava / PayOK как дополнительный СБП канал
 
 ## Сессии
+
+### Сессия 08.07.2026 (Vertu)
+Выполнено:
+- feat: новый провайдер VertuProvider (relay/providers/vertu.py) по OpenAPI-доке
+  api.vertu.sh. Логин→Bearer с кешем токена 30 мин и авто-релогином при AuthError;
+  create_invoice (sbp→phone, c2c→card, http-реквизиты→payment_link), get_status,
+  get_balance. deal_id = obsidian_{order_id}_{ts} (уникальность при retry)
+- smart_router: VertuProvider weight 0.30, required_env=VERTU_LOGIN (скип без кред)
+- payment_service: Vertu в _load_provider, provider_names ('vertu', заодно 'lava'),
+  user_id прокидывается как client_id
+- relay-fastapi/main.py: vertu_poll_task (30 c) — у Vertu нет вебхуков; помечает
+  orders paid + уведомляет юзера; /api/order/{id} проверяет Vertu для pending
+- fix: brabus-поллинг в /api/order обновлял orders без conn.commit() —
+  db_conn() не коммитит при выходе, UPDATE откатывался. Добавлен commit
+- бот: кнопки «⚡ СБП/Карта — авто-подтверждение» (видны только при VERTU_LOGIN),
+  обработчик pm_vertu_ — реквизиты на экране, чек не нужен, точная сумма из amount_rub
+Требует действий пользователя:
+- Заполнить VERTU_LOGIN / VERTU_PASSWORD в /root/bot/.env (креды мерчант-кабинета
+  API, НЕ креды от доков — те к API не подходят, проверено), затем
+  systemctl restart relay-fastapi exchange-bot
 
 ### Сессия 08.07.2026 (авто-агент, вечер)
 Выполнено:

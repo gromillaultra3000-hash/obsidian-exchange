@@ -417,6 +417,17 @@ async def build_payment_methods_kb(order_id: int, amount: float) -> InlineKeyboa
         callback_data=f"pm_gp_card_{order_id}"
     )])
 
+    # Vertu — СБП / Карта, подтверждение автоматическое (без чека)
+    if os.getenv('VERTU_LOGIN', ''):
+        rows.append([InlineKeyboardButton(
+            text="⚡ СБП — авто-подтверждение",
+            callback_data=f"pm_vertu_sbp_{order_id}"
+        )])
+        rows.append([InlineKeyboardButton(
+            text="⚡ Карта — авто-подтверждение",
+            callback_data=f"pm_vertu_card_{order_id}"
+        )])
+
     # Brabus VietQR — QR-код для оплаты через Сбер/ВТБ, от 1 000 ₽
     if amt >= 1000:
         rows.append([InlineKeyboardButton(
@@ -2599,6 +2610,43 @@ async def process_payment_method(callback: CallbackQuery, state: FSMContext):
         await callback.answer()
         await state.clear()
         return
+
+    elif pm.startswith("pm_vertu_"):
+        # Vertu: реквизиты на экране, оплата подтверждается автоматически
+        # опросом статуса (relay: vertu_poll_task), чек не нужен
+        method = "sbp" if pm.startswith("pm_vertu_sbp_") else "card"
+        try:
+            from services.payment_service import PaymentService
+            from providers.vertu import VertuProvider
+            payment_service = PaymentService(provider=VertuProvider())
+            session = payment_service.create_session(order_id, amount, payment_method=method,
+                                                     telegram_id=callback.from_user.id)
+            if 'error' in session:
+                await reply_no_requisites(callback, order_id)
+                await callback.answer()
+                return
+            raw_session = session.get('raw') or {}
+            requisites_text = format_requisites(raw_session)
+        except Exception as e:
+            logger.error(f"Ошибка создания сессии Vertu {method}: {e}")
+            await reply_no_requisites(callback, order_id)
+            await callback.answer()
+            return
+
+        # Vertu может скорректировать сумму (копейки) — платить нужно ровно её
+        pay_amount = float(raw_session.get('amount_rub') or amount)
+        if abs(pay_amount - round(pay_amount)) > 0.004:
+            amount_str = f"{pay_amount:,.2f}"
+            exact_note = "\n⚠️ Переведите <b>точную сумму</b> — до копейки."
+        else:
+            amount_str = f"{int(round(pay_amount)):,}"
+            exact_note = ""
+        way = "по СБП" if method == "sbp" else "на карту"
+        caption = (f"🟣 ObsidianExchange\nЗаявка #{order_id}\n\n"
+                   f"Сумма: <b>{amount_str} ₽</b>\n\n"
+                   f"Переведите указанную сумму {way}:\n{requisites_text}\n{exact_note}\n"
+                   f"⏱ Реквизиты действительны <b>30 минут</b>.\n"
+                   f"✅ Оплата подтверждается автоматически — чек не требуется.").replace(",", " ")
 
     elif pm.startswith("pm_lava_"):
         # Lava: создаём инвойс, отдаём кнопку-ссылку на страницу оплаты

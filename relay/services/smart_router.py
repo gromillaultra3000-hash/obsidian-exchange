@@ -26,6 +26,13 @@ PROVIDER_CONFIG = {
         "cooldown_seconds": 180,
         "max_consecutive_fails": 3,
     },
+    "VertuProvider": {
+        "weight": 0.30,        # SBP phone + c2c requisites, статус по опросу (нет вебхуков)
+        "min_amount": 1000,
+        "cooldown_seconds": 180,
+        "max_consecutive_fails": 3,
+        "required_env": "VERTU_LOGIN",  # не выбирать, пока нет учётных данных
+    },
     "LavaProvider": {
         "weight": 0.10,        # SBP + card via hosted payment page
         "min_amount": 100,

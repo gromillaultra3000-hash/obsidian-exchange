@@ -32,6 +32,9 @@ class PaymentService:
             elif name == 'LavaProvider':
                 from providers.lava import LavaProvider
                 return LavaProvider()
+            elif name == 'VertuProvider':
+                from providers.vertu import VertuProvider
+                return VertuProvider()
             else:
                 from providers.fallback import FallbackProvider
                 return FallbackProvider()
@@ -53,7 +56,7 @@ class PaymentService:
         for attempt in range(max_retries):
             start_time = time.time()
             extra = {}
-            if self.provider.__class__.__name__ == 'MonteraProvider':
+            if self.provider.__class__.__name__ in ('MonteraProvider', 'VertuProvider'):
                 extra['user_id'] = telegram_id
             invoice = self.provider.create_invoice(order_id, amount, payment_method=payment_method, **extra)
             elapsed = time.time() - start_time
@@ -92,7 +95,9 @@ class PaymentService:
                 # Сохраняем вариант для корректного cancel при истечении заявки
                 provider_name = f'brabus:{getattr(self.provider, "variant", "tbank_deeplink")}'
             else:
-                provider_names = {'PlategaProvider': 'platega', 'GreenPayProvider': 'greenpay', 'MonteraProvider': 'montera'}
+                provider_names = {'PlategaProvider': 'platega', 'GreenPayProvider': 'greenpay',
+                                  'MonteraProvider': 'montera', 'LavaProvider': 'lava',
+                                  'VertuProvider': 'vertu'}
                 provider_name = provider_names.get(self.provider.__class__.__name__, 'platega')
 
         c.execute("INSERT INTO payment_sessions (session_token, order_id, amount, provider, status, expires_at, client_ip, user_agent, telegram_id) VALUES (?,?,?,?,'invoice_created',?,?,?,?)",

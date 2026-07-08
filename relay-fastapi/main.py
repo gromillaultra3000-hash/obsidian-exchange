@@ -70,7 +70,8 @@ async def lifespan(app):
     asyncio.create_task(_session_cleanup_loop())
     asyncio.create_task(cleanup_expired_orders())
     asyncio.create_task(health_check_task())
-    logger.info("Background tasks started: cleanup + health_check")
+    asyncio.create_task(vertu_poll_task())
+    logger.info("Background tasks started: cleanup + health_check + vertu_poll")
     yield
 
 app = FastAPI(title="ObsidianExchange Relay", version="3.0", lifespan=lifespan)
@@ -1136,11 +1137,35 @@ async def api_order(order_id: int):
                     with db_conn(5) as conn:
                         c = conn.cursor()
                         c.execute("UPDATE orders SET status='paid', updated_at=datetime('now') WHERE order_id=? AND status='pending'", (order_id,))
+                        conn.commit()
                     status = 'paid'
                     audit_log("brabus_polled_paid", f"order={order_id} inv={inv_id}")
                     logger.info(f"[brabus_poll] order {order_id} marked paid via polling")
         except Exception as e:
             logger.warning(f"[brabus_poll] order {order_id}: {e}")
+
+    # Аналогично для Vertu (вебхуков нет — только опрос)
+    if status == 'pending':
+        try:
+            with db_conn(5) as conn:
+                c = conn.cursor()
+                c.execute("""SELECT provider_invoice_id FROM payment_sessions
+                             WHERE order_id=? AND provider='vertu' AND provider_invoice_id IS NOT NULL
+                             ORDER BY created_at DESC LIMIT 1""", (order_id,))
+                sess = c.fetchone()
+            if sess:
+                from providers.vertu import VertuProvider
+                vertu_status = await asyncio.to_thread(VertuProvider().get_status, sess[0])
+                if vertu_status.get('status') == 'paid':
+                    with db_conn(5) as conn:
+                        c = conn.cursor()
+                        c.execute("UPDATE orders SET status='paid', updated_at=datetime('now') WHERE order_id=? AND status='pending'", (order_id,))
+                        conn.commit()
+                    status = 'paid'
+                    audit_log("vertu_polled_paid", f"order={order_id} inv={sess[0]}")
+                    logger.info(f"[vertu_poll] order {order_id} marked paid via /api/order")
+        except Exception as e:
+            logger.warning(f"[vertu_poll] order {order_id}: {e}")
 
     return {"status": status, "txid": txid}
 
@@ -1863,6 +1888,68 @@ async def cleanup_expired_orders():
         except Exception as e:
             logger.error(f"[cleanup] Error: {e}")
         await asyncio.sleep(600)  # каждые 10 минут
+
+
+async def vertu_poll_task():
+    """
+    Каждые 30 секунд: опрашивает статусы pending-заявок Vertu.
+    У Vertu нет вебхуков (по OpenAPI-спеке) — единственный способ узнать
+    об оплате это GET /v1/deals/{platform_id}/.
+    """
+    if not os.getenv('VERTU_LOGIN', ''):
+        logger.info("[vertu_poll] VERTU_LOGIN не задан — опрос не запускается")
+        return
+    while True:
+        try:
+            with db_conn(5) as conn:
+                c = conn.cursor()
+                c.execute("""
+                    SELECT ps.session_token, ps.provider_invoice_id, ps.order_id
+                    FROM payment_sessions ps
+                    JOIN orders o ON o.order_id = ps.order_id
+                    WHERE ps.provider='vertu'
+                      AND ps.status='invoice_created'
+                      AND ps.provider_invoice_id IS NOT NULL
+                      AND o.status='pending'
+                      AND datetime(ps.created_at) > datetime('now', '-2 hours')
+                """)
+                rows = c.fetchall()
+            if rows:
+                from providers.vertu import VertuProvider
+                provider = VertuProvider()
+                for token, inv_id, order_id in rows:
+                    try:
+                        info = await asyncio.to_thread(provider.get_status, inv_id)
+                    except Exception as e:
+                        logger.warning(f"[vertu_poll] {inv_id}: {e}")
+                        continue
+                    status = info.get('status')
+                    if status == 'paid':
+                        with db_conn(5) as conn:
+                            c = conn.cursor()
+                            c.execute("UPDATE orders SET status='paid', updated_at=datetime('now') "
+                                      "WHERE order_id=? AND status='pending'", (order_id,))
+                            c.execute("UPDATE payment_sessions SET status='paid', updated_at=datetime('now') "
+                                      "WHERE session_token=?", (token,))
+                            conn.commit()
+                            c.execute("SELECT user_id FROM orders WHERE order_id=?", (order_id,))
+                            row = c.fetchone()
+                        audit_log("vertu_polled_paid", f"order={order_id} inv={inv_id}")
+                        logger.info(f"[vertu_poll] order {order_id} marked paid")
+                        if row and row[0] and int(row[0]) > 0:
+                            notify_telegram(row[0], (
+                                f"✅ <b>Оплата подтверждена!</b>\n\n"
+                                f"Заявка <b>#{order_id}</b> принята — выплата будет произведена в ближайшее время."
+                            ))
+                    elif status == 'failed':
+                        with db_conn(5) as conn:
+                            conn.execute("UPDATE payment_sessions SET status='failed', updated_at=datetime('now') "
+                                         "WHERE session_token=?", (token,))
+                            conn.commit()
+                        audit_log("vertu_polled_failed", f"order={order_id} inv={inv_id}")
+        except Exception as e:
+            logger.error(f"[vertu_poll] Error: {e}")
+        await asyncio.sleep(30)
 
 
 async def health_check_task():
