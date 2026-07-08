@@ -83,6 +83,11 @@ git push origin master
 
 ### Сессия 08.07.2026 (Vertu)
 Выполнено:
+- fix: type_pay для Vertu — правильные коды `wt_sbp`/`wt_c2c` (по ответу поддержки
+  Vertu), а не `sbp`/`c2c` из доков. Проверено на живом API: wt_sbp создаёт сделку
+  (0084-…), старые коды и wt_c2c дают generic «Не удалось выдать сделку» (у wt_c2c
+  это, вероятно, нет свободных карт-реквизитов — уточнить у поддержки). Сервисы
+  перезапущены.
 - feat: новый провайдер VertuProvider (relay/providers/vertu.py) по OpenAPI-доке
   api.vertu.sh. Логин→Bearer с кешем токена 30 мин и авто-релогином при AuthError;
   create_invoice (sbp→phone, c2c→card, http-реквизиты→payment_link), get_status,
