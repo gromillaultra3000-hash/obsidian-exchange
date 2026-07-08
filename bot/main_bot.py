@@ -135,8 +135,48 @@ def _card_font(sz):
     return ImageFont.load_default()
 
 
+_service_status_cache = {'ts': 0.0, 'data': None}
+
+def get_service_status() -> dict:
+    """Живой статус сервиса из provider_health (кеш 60 сек).
+       ok: 'ok' | 'degraded' | 'down'; chip — короткий текст для карточки;
+       line — строка для caption. Если Montera жив, добавляет реальные диапазоны сумм."""
+    now = time.time()
+    if _service_status_cache['data'] and now - _service_status_cache['ts'] < 60:
+        return _service_status_cache['data']
+    data = {'ok': 'ok', 'chip': 'онлайн', 'line': '🟢 Сервис онлайн — платежи принимаются'}
+    try:
+        with db_conn(5) as conn:
+            rows = conn.execute("SELECT provider, is_healthy FROM provider_health").fetchall()
+        healthy = {r[0] for r in rows if r[1]}
+        real = healthy - {'FallbackProvider', 'PlategaProvider'}
+        if real:
+            if 'MonteraProvider' in real:
+                try:
+                    if '/root/relay' not in sys.path:
+                        sys.path.insert(0, '/root/relay')
+                    from providers.montera import MonteraProvider
+                    avail = MonteraProvider().check_availability(10_000, 'sbp')
+                    mn, mx = avail.get('min_available'), avail.get('max_available')
+                    if mn and mx:
+                        data['line'] = (f'🟢 Сервис онлайн · доступны суммы '
+                                        f'{mn:,}–{mx:,} ₽'.replace(',', ' '))
+                except Exception:
+                    pass
+        elif 'FallbackProvider' in healthy:
+            data = {'ok': 'degraded', 'chip': 'онлайн',
+                    'line': '🟡 Повышенная нагрузка — заявки обрабатываются чуть дольше'}
+        else:
+            data = {'ok': 'down', 'chip': 'пауза',
+                    'line': '🔴 Кратковременные технические работы — попробуйте чуть позже'}
+    except Exception as e:
+        logger.debug(f'service status failed: {e}')
+    _service_status_cache.update(ts=now, data=data)
+    return data
+
+
 def generate_rates_card(btc_rate: float, ltc_rate: float, usdt_rate: float) -> BytesIO:
-    """Карточка курсов для /start — фиолетовый стиль с карточками монет."""
+    """Карточка курсов для /start — тёмный градиент, монеты в ряд, живой статус-чип."""
     from PIL import Image, ImageDraw, ImageFilter, ImageFont
     from datetime import datetime, timezone, timedelta
 
@@ -147,110 +187,119 @@ def generate_rates_card(btc_rate: float, ltc_rate: float, usdt_rate: float) -> B
     ex_ltc  = round(EXAMPLE * (1 - comm_btc  / 100) / ltc_rate,  4) if ltc_rate  else 0
     ex_usdt = round(EXAMPLE * (1 - comm_usdt / 100) / usdt_rate, 2) if usdt_rate else 0
 
-    W, H = 820, 330
-
-    BG        = (8,   0,  18)
-    BG_CARD   = (16,  0,  36)
-    BORDER    = (80,  0, 160)
-    PURPLE    = (180, 50, 255)
-    PURP_DIM  = (100, 20, 180)
-    PURP_ICON = (24,  0,  52)
-    MUTED     = (110, 80, 160)
-    WHITE     = (245, 230, 255)
+    W, H = 1280, 640
+    BG_TOP    = (10,  2, 20)
+    BG_BOT    = (24,  6, 48)
+    CARD_FILL = (18,  5, 38, 235)
+    CARD_EDGE = (98, 40, 190)
+    PURPLE    = (168, 85, 247)
+    MUTED     = (148, 120, 190)
+    WHITE     = (246, 240, 255)
 
     def fnt(sz, bold=True):
-        fp = _CARD_FONTS[0] if bold else _CARD_FONTS[0].replace('Bold', '')
+        fp = _CARD_FONTS[0] if bold else _CARD_FONTS[0].replace('-Bold', '')
         for p in ([fp] + _CARD_FONTS):
             try: return ImageFont.truetype(p, sz)
-            except: pass
+            except Exception: pass
         return ImageFont.load_default()
 
-    img  = Image.new('RGB', (W, H), BG)
+    # Фон: вертикальный градиент + мягкие glow-пятна
+    img = Image.new('RGB', (W, H), BG_TOP)
+    grad = Image.new('L', (1, H))
+    for y in range(H):
+        grad.putpixel((0, y), int(255 * y / H))
+    grad = grad.resize((W, H))
+    img = Image.composite(Image.new('RGB', (W, H), BG_BOT), img, grad)
+
+    glow = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+    gd = ImageDraw.Draw(glow)
+    gd.ellipse([(W-560, -300), (W+240, 260)], fill=(124, 58, 237, 70))
+    gd.ellipse([(-260, H-320), (360, H+240)], fill=(168, 85, 247, 45))
+    glow = glow.filter(ImageFilter.GaussianBlur(120))
+    img = Image.alpha_composite(img.convert('RGBA'), glow)
     draw = ImageDraw.Draw(img)
 
-    for i, col in enumerate([(BORDER, 1), (PURP_DIM, 1)]):
-        draw.rounded_rectangle([(i, i), (W-1-i, H-1-i)], radius=14-i, outline=col[0], width=col[1])
+    # Шапка: логотип
+    lx, ly, d = 56, 62, 16
+    draw.polygon([(lx, ly-d), (lx+d, ly), (lx, ly+d), (lx-d, ly)], fill=PURPLE)
+    draw.polygon([(lx, ly-d+6), (lx+d-6, ly), (lx, ly+d-6), (lx-d+6, ly)], fill=(40, 8, 80))
+    draw.text((lx+32, ly-12), 'OBSIDIAN', fill=WHITE, font=fnt(28), anchor='lm')
+    draw.text((lx+32, ly+14), 'EXCHANGE', fill=MUTED, font=fnt(15), anchor='lm')
 
-    PAD   = 22
-    INNER = PAD + 2
-
-    gem_x, gem_y = INNER + 12, 20
-    draw.polygon([(gem_x, gem_y-10), (gem_x+10, gem_y), (gem_x, gem_y+10), (gem_x-10, gem_y)],
-                 fill=PURPLE)
-    draw.text((INNER + 28, gem_y - 8), 'OBSIDIAN', fill=WHITE,    font=fnt(17), anchor='lm')
-    draw.text((INNER + 28, gem_y + 9), 'EXCHANGE', fill=PURP_DIM, font=fnt(11), anchor='lm')
-
-    cx = W // 2
-    draw.text((cx, gem_y - 7), f'За {EXAMPLE:,} руб. вы получите'.replace(',', ' '),
-              fill=MUTED, font=fnt(11, False), anchor='mm')
-    draw.text((cx, gem_y + 9), f'Комиссия {comm_btc}% / USDT {comm_usdt}%',
-              fill=PURP_DIM, font=fnt(10, False), anchor='mm')
-
+    # Шапка: живой статус-чип
+    status = get_service_status()
+    chip_style = {
+        'ok':       ((20, 40, 24), (50, 120, 70),  (74, 222, 128), (180, 240, 200)),
+        'degraded': ((44, 36, 12), (140, 110, 40), (250, 200, 80), (240, 220, 160)),
+        'down':     ((48, 16, 16), (150, 60, 60),  (248, 113, 113), (250, 190, 190)),
+    }[status['ok']]
     msk = datetime.now(timezone.utc) + timedelta(hours=3)
-    draw.text((W - INNER - 18, gem_y - 7), 'Обновлено',               fill=MUTED,    font=fnt(10, False), anchor='rm')
-    draw.text((W - INNER - 18, gem_y + 9), msk.strftime('%H:%M МСК'), fill=PURP_DIM, font=fnt(11),        anchor='rm')
-    rc = W - INNER - 8
-    draw.ellipse([(rc-8, gem_y-8), (rc+8, gem_y+8)], outline=PURP_DIM, width=1)
-    draw.text((rc, gem_y), 'O', fill=PURP_DIM, font=fnt(9), anchor='mm')
+    chip_txt = f"{status['chip']}  ·  {msk.strftime('%H:%M МСК')}"
+    tw = draw.textlength(chip_txt, font=fnt(17, False))
+    cx1, cx0 = W - 48, W - 48 - int(tw) - 58
+    draw.rounded_rectangle([(cx0, ly-20), (cx1, ly+20)], radius=20,
+                           fill=chip_style[0], outline=chip_style[1], width=2)
+    draw.ellipse([(cx0+20, ly-6), (cx0+32, ly+6)], fill=chip_style[2])
+    draw.text((cx0+44, ly), chip_txt, fill=chip_style[3], font=fnt(17, False), anchor='lm')
 
-    CARD_X  = INNER
-    CARD_W  = W - INNER * 2
-    CARD_H  = 68
-    CARD_GAP = 5
-    CARD_Y0  = 46
+    # Подзаголовок
+    draw.text((56, 128), f'За {EXAMPLE:,} ₽ вы получите'.replace(',', ' '),
+              fill=WHITE, font=fnt(26), anchor='lm')
+    draw.text((56, 160), f'комиссия BTC/LTC {comm_btc}%  ·  USDT {comm_usdt}%  ·  без верификации',
+              fill=MUTED, font=fnt(16, False), anchor='lm')
 
+    # Три карточки монет в ряд
     coins = [
-        ('BTC',  'Bitcoin',  f'{ex_btc} BTC'),
-        ('LTC',  'Litecoin', f'{ex_ltc} LTC'),
-        ('USDT', 'Tether',   f'{ex_usdt} USDT'),
+        ('B', 'BTC',  'Bitcoin',  f'{ex_btc:.6f}'.rstrip('0').rstrip('.'), (247, 147, 26)),
+        ('Ł', 'LTC',  'Litecoin', f'{ex_ltc:.4f}'.rstrip('0').rstrip('.'), (165, 169, 202)),
+        ('₮', 'USDT', 'Tether',   f'{ex_usdt:.2f}',                        (38, 161, 123)),
     ]
+    GAP = 28
+    CW = (W - 56*2 - GAP*2) // 3
+    CY0, CY1 = 200, 520
+    for i, (sym, ticker, name, val, accent) in enumerate(coins):
+        x0 = 56 + i * (CW + GAP)
+        card = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+        ImageDraw.Draw(card).rounded_rectangle([(x0, CY0), (x0+CW, CY1)], radius=24,
+                                               fill=CARD_FILL, outline=CARD_EDGE, width=2)
+        img = Image.alpha_composite(img, card)
+        draw = ImageDraw.Draw(img)
 
-    for i, (ticker, name, value_str) in enumerate(coins):
-        cy0 = CARD_Y0 + i * (CARD_H + CARD_GAP)
-        cy1 = cy0 + CARD_H
+        ccx, icy = x0 + CW // 2, CY0 + 74
+        draw.ellipse([(ccx-36, icy-36), (ccx+36, icy+36)],
+                     fill=(30, 8, 62), outline=accent, width=3)
+        draw.text((ccx, icy-2), sym, fill=accent, font=fnt(34), anchor='mm')
+        draw.text((ccx, icy+66), ticker, fill=WHITE, font=fnt(30), anchor='mm')
+        draw.text((ccx, icy+96), name, fill=MUTED, font=fnt(16, False), anchor='mm')
 
-        draw.rounded_rectangle([(CARD_X, cy0), (CARD_X + CARD_W, cy1)],
-                                radius=10, fill=BG_CARD, outline=BORDER, width=1)
+        vy = CY0 + 244
+        vfont = fnt(34)
+        while draw.textlength(val, font=vfont) > CW - 40 and vfont.size > 20:
+            vfont = fnt(vfont.size - 2)
+        layer = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+        ImageDraw.Draw(layer).text((ccx, vy), val, fill=(*WHITE, 255), font=vfont, anchor='mm')
+        blur = layer.filter(ImageFilter.GaussianBlur(10))
+        gl = Image.new('RGBA', (W, H), (*PURPLE, 0))
+        gl.putalpha(blur.split()[3].point(lambda p: int(p * 0.55)))
+        img = Image.alpha_composite(img, gl)
+        img = Image.alpha_composite(img, layer)
+        draw = ImageDraw.Draw(img)
+        draw.text((ccx, vy+34), ticker, fill=MUTED, font=fnt(15, False), anchor='mm')
 
-        ico_cx = CARD_X + 36
-        ico_cy = cy0 + CARD_H // 2
-        draw.ellipse([(ico_cx-20, ico_cy-20), (ico_cx+20, ico_cy+20)],
-                     fill=PURP_ICON, outline=BORDER, width=1)
-        sym = {'BTC': 'B', 'LTC': 'L', 'USDT': 'T'}[ticker]
-        draw.text((ico_cx, ico_cy), sym, fill=PURPLE, font=fnt(16), anchor='mm')
-
-        tx = CARD_X + 72
-        draw.text((tx, ico_cy - 9),  ticker, fill=WHITE, font=fnt(18), anchor='lm')
-        draw.text((tx, ico_cy + 10), name,   fill=MUTED, font=fnt(11, False), anchor='lm')
-
-        vx = CARD_X + CARD_W - 50
-        layer = Image.new('RGBA', (W, H), (0,0,0,0))
-        ld = ImageDraw.Draw(layer)
-        ld.text((vx, ico_cy + 1), value_str, fill=WHITE, font=fnt(26), anchor='rm')
-        for rad, s in [(12, 0.4), (4, 0.7)]:
-            blur = layer.filter(ImageFilter.GaussianBlur(rad))
-            glow = Image.new('RGBA', (W, H), (*PURPLE, 0))
-            mask = blur.split()[3].point(lambda p: int(p * s))
-            glow.putalpha(mask)
-            img.paste(Image.alpha_composite(Image.new('RGBA',(W,H),(0,0,0,0)),glow).convert('RGB'), mask=mask)
-        img.paste(layer.convert('RGB'), mask=layer.split()[3])
-
-        ax = CARD_X + CARD_W - 22
-        ay = ico_cy
-        pts = [(ax-12, ay+8), (ax-6, ay+2), (ax-1, ay+5), (ax+5, ay-6), (ax+12, ay-10)]
-        for j in range(len(pts)-1):
-            draw.line([pts[j], pts[j+1]], fill=PURP_DIM, width=2)
-        draw.polygon([(ax+10, ay-14), (ax+15, ay-7), (ax+6, ay-9)], fill=PURP_DIM)
-
-    FY = CARD_Y0 + 3 * (CARD_H + CARD_GAP) + 10
-    items = [('o', 'Non-KYC'), ('z', '15 мин'), ('~', 'Своп BTC/LTC/USDT'), ('>', 'Мин. 2 000 руб.')]
-    col_w = CARD_W // len(items)
-    for j, (icon, text) in enumerate(items):
-        fx = CARD_X + j * col_w + col_w // 2
-        draw.text((fx, FY + 17), text, fill=MUTED, font=fnt(10, False), anchor='mm')
+    # Футер: чипы преимуществ
+    chips = ['Non-KYC', 'выплата ~15 мин', 'своп BTC · LTC · USDT', 'от 2 000 ₽']
+    fy = 578
+    total = sum(draw.textlength(c, font=fnt(16, False)) + 48 for c in chips) + 20 * (len(chips)-1)
+    fx = (W - total) / 2
+    for c in chips:
+        tw = draw.textlength(c, font=fnt(16, False))
+        draw.rounded_rectangle([(fx, fy-19), (fx+tw+48, fy+19)], radius=19,
+                               outline=(80, 40, 140), width=2)
+        draw.text((fx+24+tw/2, fy), c, fill=MUTED, font=fnt(16, False), anchor='mm')
+        fx += tw + 48 + 20
 
     buf = BytesIO()
-    img.save(buf, 'PNG')
+    img.convert('RGB').save(buf, 'PNG')
     buf.seek(0)
     return buf
 def build_welcome_caption(btc_rate: float, ltc_rate: float, usdt_rate: float, vip_badge=''):
@@ -266,8 +315,10 @@ def build_welcome_caption(btc_rate: float, ltc_rate: float, usdt_rate: float, vi
     ltc_str  = fmt_rate(ltc_rate)
     usdt_str = fmt_rate(usdt_rate, 2)
 
+    status = get_service_status()
     return (
-        f"🟣 <b>ObsidianExchange{badge_line}</b>\n\n"
+        f"🟣 <b>ObsidianExchange{badge_line}</b>\n"
+        f"{status['line']}\n\n"
         f"<blockquote>"
         f"₿  1 BTC  ≈  <b>{btc_str} ₽</b>\n"
         f"Ł  1 LTC  ≈  <b>{ltc_str} ₽</b>\n"
