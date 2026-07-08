@@ -8,6 +8,9 @@ logger = get_logger(__name__)
 VERTU_BASE_URL = os.getenv('VERTU_BASE_URL', 'https://api.vertu.sh').rstrip('/')
 VERTU_LOGIN = os.getenv('VERTU_LOGIN', '')
 VERTU_PASSWORD = os.getenv('VERTU_PASSWORD', '')
+# Статичный API-ключ из ЛК мерчанта — работает как Bearer напрямую,
+# без /v1/auth/login/ (проверено на /v1/balance/). Если задан — логин не нужен
+VERTU_API_KEY = os.getenv('VERTU_API_KEY', '')
 # Коды методов оплаты (payment_method.code в терминах Vertu) — могут отличаться
 # в зависимости от настроек мерчанта, поэтому переопределяемы через env
 VERTU_TYPE_SBP = os.getenv('VERTU_TYPE_SBP', 'sbp')
@@ -33,10 +36,13 @@ class VertuProvider(PaymentProvider):
         self.base_url = VERTU_BASE_URL
         self.login = VERTU_LOGIN
         self.password = VERTU_PASSWORD
+        self.api_key = VERTU_API_KEY
 
     # ── Авторизация ────────────────────────────────────────────────────────────
 
     def _get_token(self, force: bool = False):
+        if self.api_key:
+            return self.api_key
         with _token_lock:
             fresh = time.time() - _token_cache["obtained_at"] < _TOKEN_TTL
             if _token_cache["value"] and fresh and not force:
@@ -89,8 +95,8 @@ class VertuProvider(PaymentProvider):
     # ── Создание платежа ────────────────────────────────────────────────────────
 
     def create_invoice(self, order_id, amount, payment_method=None, user_id=None):
-        if not self.login or not self.password:
-            return {"error": "Vertu: не настроены VERTU_LOGIN / VERTU_PASSWORD"}
+        if not self.api_key and (not self.login or not self.password):
+            return {"error": "Vertu: не настроены VERTU_API_KEY или VERTU_LOGIN/VERTU_PASSWORD"}
 
         type_pay = VERTU_TYPE_SBP if payment_method == "sbp" else VERTU_TYPE_CARD
         payload = {
