@@ -24,7 +24,7 @@ Production крипто-обменник RUB→BTC/LTC/USDT через СБП, n
 | Провайдер | Статус | Вес |
 |-----------|--------|-----|
 | MonteraProvider | ❌ «Мерчант заблокирован» (400) с 07.07, блокировки перемежающиеся с 27.06 | 60% |
-| VertuProvider | ⏸ код готов (08.07), VERTU_LOGIN/VERTU_PASSWORD в bot/.env пустые — роутер скипает | 30% |
+| VertuProvider | ❌ auth по VERTU_API_KEY работает (balance отвечает), но сделки НЕ выдаются: «Не удалось выдать сделку» на wt_sbp и wt_c2c при любых суммах (тест 08.07 вечером; днём wt_sbp работал). Кодом не лечится — писать в поддержку Vertu (нет трейдеров? нужен депозит? баланс 0) | 30% |
 | BrabusProvider | ✅ фактически основной сейчас | 20% |
 | LavaProvider | ⏸ код готов, ключи LAVA_* в bot/.env пустые — роутер скипает | 10% |
 | GreenPayProvider | ⚠️ нестабилен, unhealthy | 5% |
@@ -95,6 +95,20 @@ git push origin master
 6. Новый провайдер: изучить Lava / PayOK как дополнительный СБП канал
 
 ## Сессии
+
+### Сессия 08.07.2026 (тест StormTrade/Vertu, статистика провайдеров)
+- StormTrade ✅: тестовые сделки SBP (телефон тест-трейдера + sberbank-link) и
+  SBP_QR (реальный qr.nspk.ru) созданы и отменены через cancel_order. Эскалация
+  в проде уже срабатывает: заявка 1463 (19:31) — Montera «Мерчант заблокирован»
+  → StormTrade выдал реквизиты.
+- Vertu ❌: VERTU_API_KEY как Bearer работает (get_balance → 0.0, не AuthError),
+  но POST /v1/deals/ отдаёт «Не удалось выдать сделку» на wt_sbp/wt_c2c при
+  3000/5000/10000 ₽. Днём wt_sbp работал → похоже, кончились трейдеры или нужен
+  депозит (баланс 0). Действие юзера: написать в поддержку Vertu.
+- Статистика payment_sessions за 7 дней: fallback 66 (2 paid), montera 28
+  (3 paid, мёртв с 07.07), brabus+deeplink+vietqr 12 (2 paid), stormtrade 2.
+  Healthy: Brabus, StormTrade, Fallback. Рабочая цепочка сейчас:
+  Brabus → эскалация StormTrade → Fallback.
 
 ### Сессия 08.07.2026 (StormTrade — убран TO_ACCOUNT)
 StormTrade написал: «Направляете перевод по номеру счёта. Нужно СБП/перевод на
