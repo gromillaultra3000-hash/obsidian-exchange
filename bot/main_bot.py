@@ -5955,65 +5955,51 @@ async def compose_daily_post() -> str:
     usdt_buy = round(usdt_rate / (1 - 0.02), 2)   if usdt_rate else 0
 
     text = (
-        f"🟣 <b>ObsidianExchange</b> — быстрый и надёжный обменник\n\n"
+        f"🟣 <b>ObsidianExchange</b> — обмен RUB ⇄ крипта за 15 минут\n"
+        f"Без верификации · всё делает бот · 24/7\n\n"
 
-        f"💱 <b>Актуальные курсы:</b>\n"
+        f"💱 <b>Курсы прямо сейчас:</b>\n"
         f"<blockquote>"
-        f"₿  BTC — от <b>{fmt(btc_buy)} ₽</b>\n"
-        f"Ł   LTC — от <b>{fmt(ltc_buy)} ₽</b>\n"
-        f"💵 USDT TRC20 — от <b>{usdt_buy:.2f} ₽</b>"
+        f"₿ BTC — от <b>{fmt(btc_buy)} ₽</b>\n"
+        f"Ł LTC — от <b>{fmt(ltc_buy)} ₽</b>\n"
+        f"₮ USDT TRC-20 — от <b>{usdt_buy:.2f} ₽</b>"
         f"</blockquote>\n\n"
 
-        f"⚡️ <b>Почему выбирают нас:</b>\n"
+        f"⚡️ <b>Как это работает:</b>\n"
         f"<blockquote expandable>"
-        f"✅ Работаем 24/7 — бот отвечает мгновенно\n"
-        f"✅ Оплата СБП, картой, Альфа-Банк, Т-Банк, VietQR\n"
-        f"✅ Минимальная сумма — от 2 000 ₽\n"
-        f"✅ Вывод на любой BTC / LTC / USDT адрес\n"
-        f"✅ Своп крипты без регистрации (BTC ⇄ LTC ⇄ USDT)"
+        f"1. Выбираешь валюту и сумму (от 2 000 ₽)\n"
+        f"2. Платишь по СБП или картой — Альфа, Т-Банк, VietQR\n"
+        f"3. Крипта уходит на твой адрес сразу после оплаты\n\n"
+        f"А ещё: своп BTC ⇄ LTC ⇄ USDT без регистрации,\n"
+        f"лимитные заявки, DCA-автопокупка, фиксация курса"
         f"</blockquote>\n\n"
 
         f"📈 <b>Комиссия BTC / LTC:</b>\n"
         f"<blockquote>"
-        f"• 2 000 – 5 000 ₽ → <b>27%</b>\n"
-        f"• 5 000 – 10 000 ₽ → <b>25%</b>\n"
-        f"• 10 000 – 20 000 ₽ → <b>23%</b>\n"
-        f"• от 20 000 ₽ → <b>19%</b>\n"
-        f"• USDT TRC20 → <b>2%</b>"
+        f"2–5к → <b>27%</b> · 5–10к → <b>25%</b> · 10–20к → <b>23%</b> · 20к+ → <b>19%</b>\n"
+        f"USDT TRC-20 → <b>2%</b>"
         f"</blockquote>\n\n"
 
-        f"🎁 <b>Реферальная программа:</b>\n"
-        f"<blockquote>"
-        f"Приглашай друзей — получай <b>10%</b> от нашей комиссии в BTC.\n"
-        f"Вывод в любое время прямо в боте!"
-        f"</blockquote>\n\n"
-
-        f"💎 <b>VIP-статусы:</b>\n"
-        f"<blockquote>"
-        f"🥈 Silver — от 30 000 ₽ → скидка <b>3%</b>\n"
-        f"🥇 Gold — от 100 000 ₽ → скидка <b>6%</b>\n"
-        f"💎 Platinum — от 300 000 ₽ → скидка <b>10%</b>"
-        f"</blockquote>\n\n"
-
-        f"🔥 Каждый 5-й обмен от 5 000 ₽ — скидка <b>1 000 ₽</b> автоматически!\n\n"
-
-        f"━━━━━━━━━━━━━━━━━━━━━\n"
-        f"👉 @Obsidian666999bot\n"
-        f"🌐 obsidian-exchange.org"
+        f"💎 VIP-скидки до <b>−10%</b> · 🎁 рефералка <b>10%</b> с нашей комиссии\n"
+        f"🔥 Каждый 5-й обмен от 5 000 ₽ — минус <b>1 000 ₽</b> автоматически"
     )
     return text
 
 
 async def _send_post_to(uid: int, text: str):
-    """Отправляет пост: анимация (стикеры OBSIDIAN+EXCHANGE) + текст как caption — одно сообщение."""
+    """Отправляет пост: видеобаннер + текст caption + кнопки — одно сообщение."""
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="💱 Начать обмен", url="https://t.me/Obsidian666999bot"),
+         InlineKeyboardButton(text="🌐 Личный кабинет", url=f"{PUBLIC_RELAY}/webapp")]
+    ])
     if POST_HEADER_FILE_ID:
         await bot.send_animation(chat_id=uid, animation=POST_HEADER_FILE_ID,
-                                 caption=text, parse_mode="HTML")
+                                 caption=text, parse_mode="HTML", reply_markup=kb)
     elif DAILY_POST_GIF:
         await bot.send_animation(chat_id=uid, animation=DAILY_POST_GIF,
-                                 caption=text, parse_mode="HTML")
+                                 caption=text, parse_mode="HTML", reply_markup=kb)
     else:
-        await bot.send_message(uid, text, parse_mode="HTML")
+        await bot.send_message(uid, text, parse_mode="HTML", reply_markup=kb)
 
 
 async def compose_announce_text() -> str:
@@ -6294,10 +6280,27 @@ async def rate_alert_scheduler():
 
 
 async def daily_post_scheduler():
-    """Рассылает пост с курсами каждые 5 часов."""
+    """Рассылает пост с курсами каждые 5 часов.
+       Метка в Redis переживает перезапуски — иначе каждый restart бота
+       рассылал пост заново через 60 секунд."""
     interval = 5 * 3600
     await asyncio.sleep(60)  # небольшая задержка после старта бота
     while True:
+        last = 0.0
+        try:
+            if _monitor_redis:
+                last = float(_monitor_redis.get("monitor:last_daily_post") or 0)
+        except Exception:
+            pass
+        wait = interval - (time.time() - last)
+        if wait > 0:
+            logger.info(f"Рассылка поста по плану через {wait/60:.0f} мин")
+            await asyncio.sleep(wait)
+        try:
+            if _monitor_redis:
+                _monitor_redis.set("monitor:last_daily_post", str(time.time()))
+        except Exception:
+            pass
         await send_daily_post()
         logger.info("Следующий пост с курсами через 5ч")
         await asyncio.sleep(interval)
