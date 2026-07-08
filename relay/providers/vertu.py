@@ -13,8 +13,8 @@ VERTU_PASSWORD = os.getenv('VERTU_PASSWORD', '')
 VERTU_API_KEY = os.getenv('VERTU_API_KEY', '')
 # Коды методов оплаты (payment_method.code в терминах Vertu) — могут отличаться
 # в зависимости от настроек мерчанта, поэтому переопределяемы через env
-VERTU_TYPE_SBP = os.getenv('VERTU_TYPE_SBP', 'sbp')
-VERTU_TYPE_CARD = os.getenv('VERTU_TYPE_CARD', 'c2c')
+VERTU_TYPE_SBP = os.getenv('VERTU_TYPE_SBP', 'wt_sbp')
+VERTU_TYPE_CARD = os.getenv('VERTU_TYPE_CARD', 'wt_c2c')
 
 # Bearer-токен (refresh_token из /v1/auth/login/) кешируется на процесс;
 # срок жизни в доке не указан — обновляем раз в 30 минут и при AuthError
@@ -126,7 +126,7 @@ class VertuProvider(PaymentProvider):
         if details.startswith("http"):
             # nspk / tpay / qr-методы отдают ссылку
             requisites["payment_link"] = details
-        elif type_pay == VERTU_TYPE_SBP or data.get("type_pay") == "sbp":
+        elif type_pay == VERTU_TYPE_SBP or data.get("type_pay") in ("sbp", "wt_sbp"):
             requisites["phone"] = details
         else:
             requisites["card_number"] = details
