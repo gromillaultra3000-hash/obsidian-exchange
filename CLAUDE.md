@@ -19,15 +19,19 @@ Production крипто-обменник RUB→BTC/LTC/USDT через СБП, n
 - Smart router: relay/services/smart_router.py
 - Деплой: git push → GitHub → сервер тянет каждые 15 мин (systemd timer)
 
-## Провайдеры оплаты (актуально на 03.07.2026)
+## Провайдеры оплаты (актуально на 08.07.2026)
 
 | Провайдер | Статус | Вес |
 |-----------|--------|-----|
-| MonteraProvider | ✅ PRIMARY | 70% |
-| BrabusProvider | ✅ SECONDARY | 20% |
-| GreenPayProvider | ⚠️ нестабилен | 10% |
-| FallbackProvider | ✅ резерв | last resort |
+| MonteraProvider | ❌ «Мерчант заблокирован» (400) с 07.07, блокировки перемежающиеся с 27.06 | 60% |
+| BrabusProvider | ✅ фактически основной сейчас | 20% |
+| LavaProvider | ⏸ код готов, ключи LAVA_* в bot/.env пустые — роутер скипает | 10% |
+| GreenPayProvider | ⚠️ нестабилен, unhealthy | 5% |
+| FallbackProvider | ✅ резерв | 5% |
 | PlategaProvider | ❌ offline | не использовать |
+
+⚠️ Montera: аккаунт мерчанта периодически блокируют на их стороне — кодом не лечится,
+нужно писать в поддержку Montera. Смотреть: `grep "Мерчант заблокирован" /root/relay/logs/relay.log`.
 
 Montera: SBP через payment_gateway=sbp_rub, карта через payment_detail_type=card.
 Вебхук Montera: /montera/webhook (уже реализован в main.py).
@@ -68,6 +72,26 @@ git push origin master
 6. Новый провайдер: изучить Lava / PayOK как дополнительный СБП канал
 
 ## Сессии
+
+### Сессия 08.07.2026
+Выполнено:
+- Закоммичен висевший diff: /postpromo шлёт буквы-стикеры media group вместо баннера
+- fix: LavaProvider добавлен в `_load_provider()` (payment_service.py) — раньше выбор
+  Lava роутером молча уходил в Fallback
+- fix: smart_router скипает провайдеров с пустым `required_env` (Lava без ключей
+  не участвует в выборе, пока LAVA_SHOP_ID не заполнен)
+- fix: TemplateResponse под starlette 1.0 (позиционный request) в 404/500/admin_analytics —
+  до фикса кастомные 404/500 сами падали с TypeError, любая несуществующая страница
+  отдавала голый 500. Проверено curl: / → 200, несуществующая → 404
+Проверено:
+- Montera вебхук (Task 1) работает end-to-end по реальному трафику: success → orders.status='paid'
+  (заявки 1393, 1403 от 04.07), video/pdf-верификация → уведомление юзеру и админу
+- Причина 30 фейлов Montera: **«Мерчант заблокирован» (400)** — блокировки с 27.06,
+  волнами (01.07×35, 02.07×14, 07.07×63, 08.07×7). Требуется писать в поддержку Montera
+Требует действий пользователя:
+- Разблокировать мерчанта в Montera (поддержка)
+- Заполнить LAVA_SHOP_ID / LAVA_SECRET_KEY / LAVA_ADDITIONAL_KEY в /root/bot/.env,
+  когда будет заведён кабинет Lava — код полностью готов (провайдер + вебхук + роутер)
 
 ### Сессия 07.07.2026
 Выполнено:
