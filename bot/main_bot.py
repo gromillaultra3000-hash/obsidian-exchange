@@ -446,14 +446,12 @@ async def build_payment_methods_kb(order_id: int, amount: float) -> InlineKeyboa
     # StormTrade — только методы, которых нет у остальных провайдеров.
     # По СБП/карте StormTrade НЕ показываем (худшая ставка) — он подключается
     # автоматически внутри PaymentService, если другие не выдали реквизиты.
+    # «Перевод по номеру счёта» (TO_ACCOUNT) убран 08.07.2026 по требованию
+    # StormTrade — направлять только СБП / перевод на карту.
     if os.getenv('STORMTRADE_API_KEY', ''):
         rows.append([InlineKeyboardButton(
             text="🔳 QR СБП — оплата по QR-коду",
             callback_data=f"pm_storm_sbpqr_{order_id}"
-        )])
-        rows.append([InlineKeyboardButton(
-            text="🏦 Перевод по номеру счёта",
-            callback_data=f"pm_storm_account_{order_id}"
         )])
 
     return InlineKeyboardMarkup(inline_keyboard=rows)
@@ -2665,9 +2663,10 @@ async def process_payment_method(callback: CallbackQuery, state: FSMContext):
     elif pm.startswith("pm_storm_"):
         # StormTrade: эксклюзивные методы (QR СБП / по номеру счёта).
         # Оплата подтверждается вебхуком /stormtrade/webhook — чек не нужен
+        # pm_storm_account_ (TO_ACCOUNT) удалён 08.07.2026 по требованию StormTrade
+        # (только СБП/карта) — старые кнопки получат «временно недоступен»
         STORM_METHOD_BY_PM = {
             "pm_storm_sbpqr_":   ("sbp_qr",  "по QR-коду СБП"),
-            "pm_storm_account_": ("account", "по номеру счёта"),
             "pm_storm_mobile_":  ("mobile",  "на счёт мобильного"),
             "pm_storm_sbp_":     ("sbp",     "по СБП"),
             "pm_storm_card_":    ("card",    "на карту"),

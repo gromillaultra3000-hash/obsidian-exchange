@@ -20,16 +20,17 @@ PUBLIC_RELAY = os.getenv('PUBLIC_RELAY', 'https://obsidian-exchange.org')
 
 # payment_method (наш код) -> paymentOption StormTrade.
 # sbp/card дублируют другие провайдеры (только для эскалации);
-# sbp_qr / account / mobile — эксклюзивные методы, которых у нас ещё нет.
+# sbp_qr / mobile — эксклюзивные методы, которых у нас ещё нет.
+# TO_ACCOUNT убран 08.07.2026 по требованию StormTrade: направлять только
+# СБП / перевод на карту, не «перевод по номеру счёта».
 METHOD_TO_OPTION = {
     "sbp":     "SBP",             # перевод по номеру телефона (СБП)
     "card":    "TO_CARD",         # перевод на карту
     "sbp_qr":  "SBP_QR",          # оплата по НСПК QR-коду
-    "account": "TO_ACCOUNT",      # перевод по номеру счёта
     "mobile":  "MOBILE_TOP_UP",   # пополнение счёта моб. телефона
 }
 # Методы, которых нет у остальных провайдеров — по ним StormTrade основной
-EXCLUSIVE_METHODS = ("sbp_qr", "account", "mobile")
+EXCLUSIVE_METHODS = ("sbp_qr", "mobile")
 
 _STATUS_MAP = {
     "new": "awaiting_payment",
@@ -67,7 +68,10 @@ class StormTradeProvider(PaymentProvider):
         if not self.api_key or not self.secret:
             return {"error": "StormTrade: не настроены STORMTRADE_API_KEY/STORMTRADE_SECRET"}
 
-        option = METHOD_TO_OPTION.get(payment_method)  # None -> любые свободные реквизиты
+        # Без paymentOption терминал выдаёт «любые свободные реквизиты» и может
+        # подсунуть TO_ACCOUNT — StormTrade просил только СБП/карту, поэтому
+        # неизвестный/пустой метод всегда маппим в SBP.
+        option = METHOD_TO_OPTION.get(payment_method) or "SBP"
         url = f"{self.base_url}/api/merchant/invoices"
         payload = {
             "type": "in",
