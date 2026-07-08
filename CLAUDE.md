@@ -36,8 +36,11 @@ StormTrade (docs.stormtrade.club): худшая ставка → НЕ участ
 роутера (`last_resort: True`). Подключается только: 1) эскалация в
 PaymentService._try_stormtrade(), когда выбранный провайдер не выдал реквизиты
 (перед FallbackProvider); 2) эксклюзивные методы, которых нет у других — QR СБП
-(SBP_QR), по номеру счёта (TO_ACCOUNT), пополнение моб. (MOBILE_TOP_UP) — кнопки
-в боте pm_storm_* (видны при заполненном STORMTRADE_API_KEY). API идентичен
+(SBP_QR), пополнение моб. (MOBILE_TOP_UP) — кнопки в боте pm_storm_* (видны при
+заполненном STORMTRADE_API_KEY). ⚠️ TO_ACCOUNT (перевод по номеру счёта) УБРАН
+08.07.2026 по требованию StormTrade («направлять только СБП/перевод на карту») —
+НЕ возвращать; пустой/неизвестный payment_method маппится в SBP (не null,
+иначе терминал сам выдаёт TO_ACCOUNT). API идентичен
 Brabus (тот же white-label Merchant Integration API: X-Identity + X-Signature
 HMAC-SHA1/Base64, POST /api/merchant/invoices со startDeal=true, deals[0].requisites,
 вебхук X-Notification-Token → /stormtrade/webhook). Скачанная дока — в git:
@@ -92,6 +95,17 @@ git push origin master
 6. Новый провайдер: изучить Lava / PayOK как дополнительный СБП канал
 
 ## Сессии
+
+### Сессия 08.07.2026 (StormTrade — убран TO_ACCOUNT)
+StormTrade написал: «Направляете перевод по номеру счёта. Нужно СБП/перевод на
+карту». Выполнено:
+- бот: удалена кнопка «🏦 Перевод по номеру счёта» и pm_storm_account_ из
+  STORM_METHOD_BY_PM (старые кнопки → «временно недоступен»)
+- stormtrade.py: account убран из METHOD_TO_OPTION/EXCLUSIVE_METHODS;
+  пустой/неизвестный payment_method → paymentOption "SBP" (раньше null =
+  «любые реквизиты», терминал мог выдать TO_ACCOUNT при эскалации)
+- В логах реальных TO_ACCOUNT-сделок не было (только наш тест sttest…,
+  без deals). Сервисы перезапущены, закоммичено (ef4ba92).
 
 ### Сессия 08.07.2026 (StormTrade)
 Выполнено:
