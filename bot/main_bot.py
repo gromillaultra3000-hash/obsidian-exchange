@@ -816,6 +816,54 @@ async def notify_workers_paid(order_id, rub_amount, address, currency):
             logger.error(f"Ошибка уведомления работника {wid}: {e}")
 
 # ---------- /start ----------
+def build_main_menu_kb() -> InlineKeyboardMarkup:
+    """Главное меню — компактное: 5 рядов. Редкие функции в подменю «⚙️ Ещё»."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="💱 Купить", callback_data="menu_exchange"),
+         InlineKeyboardButton(text="💰 Продать", callback_data="menu_sell")],
+        [InlineKeyboardButton(text="🔄 Своп", callback_data="menu_swap"),
+         InlineKeyboardButton(text="📋 Мои заявки", callback_data="menu_orders")],
+        [InlineKeyboardButton(text="👥 Пригласить и заработать", callback_data="menu_ref")],
+        [InlineKeyboardButton(text="👤 Профиль", callback_data="menu_profile"),
+         InlineKeyboardButton(text="💬 Поддержка", callback_data="menu_support")],
+        [InlineKeyboardButton(text="⚙️ Ещё", callback_data="menu_tools"),
+         InlineKeyboardButton(text="🌐 Личный кабинет", url=f"{PUBLIC_RELAY}/webapp")]
+    ])
+
+
+def build_tools_kb() -> InlineKeyboardMarkup:
+    """Подменю «⚙️ Ещё» — инструменты и информация."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="⏳ Лимитная заявка", callback_data="menu_limit"),
+         InlineKeyboardButton(text="📅 DCA-автопокупка", callback_data="menu_dca")],
+        [InlineKeyboardButton(text="🔒 Фиксация курса", callback_data="menu_ratelock"),
+         InlineKeyboardButton(text="🎁 Подарить крипту", callback_data="menu_gift")],
+        [InlineKeyboardButton(text="⭐ Отзывы", callback_data="menu_reviews"),
+         InlineKeyboardButton(text="ℹ️ О сервисе", callback_data="menu_about")],
+        [InlineKeyboardButton(text="🔙 Назад", callback_data="menu_tools_back")]
+    ])
+
+
+@router.callback_query(F.data == "menu_tools")
+async def menu_tools(callback: CallbackQuery):
+    """Разворачивает подменю на месте — клавиатура меняется без нового сообщения."""
+    try:
+        await callback.message.edit_reply_markup(reply_markup=build_tools_kb())
+    except Exception:
+        await callback.message.answer("⚙️ Дополнительные инструменты:",
+                                      reply_markup=build_tools_kb())
+    await callback.answer()
+
+
+@router.callback_query(F.data == "menu_tools_back")
+async def menu_tools_back(callback: CallbackQuery):
+    try:
+        await callback.message.edit_reply_markup(reply_markup=build_main_menu_kb())
+    except Exception:
+        pass
+    await callback.answer()
+
+
 @router.message(Command("start"))
 async def cmd_start(message: Message, state: FSMContext):
     await state.clear()
@@ -904,22 +952,7 @@ async def cmd_start(message: Message, state: FSMContext):
     usdt_rate = get_cached_rate('USDT') or 0
     vip_name_s, _ = get_user_vip(message.from_user.id)
     vip_badge_s = {'Platinum': '💎 Platinum', 'Gold': '🥇 Gold', 'Silver': '🥈 Silver'}.get(vip_name_s, '')
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="💱 Купить крипту", callback_data="menu_exchange"),
-         InlineKeyboardButton(text="💰 Продать крипту", callback_data="menu_sell")],
-        [InlineKeyboardButton(text="🔄 Своп", callback_data="menu_swap"),
-         InlineKeyboardButton(text="⏳ Лимитная заявка", callback_data="menu_limit")],
-        [InlineKeyboardButton(text="📅 DCA-автопокупка", callback_data="menu_dca"),
-         InlineKeyboardButton(text="📋 Мои заявки", callback_data="menu_orders")],
-        [InlineKeyboardButton(text="🎁 Подарить крипту", callback_data="menu_gift"),
-         InlineKeyboardButton(text="🔒 Фиксация курса", callback_data="menu_ratelock")],
-        [InlineKeyboardButton(text="👥 Пригласить и заработать", callback_data="menu_ref")],
-        [InlineKeyboardButton(text="👤 Профиль", callback_data="menu_profile"),
-         InlineKeyboardButton(text="💬 Поддержка", callback_data="menu_support")],
-        [InlineKeyboardButton(text="⭐ Отзывы", callback_data="menu_reviews"),
-         InlineKeyboardButton(text="ℹ️ О сервисе", callback_data="menu_about")],
-        [InlineKeyboardButton(text="🌐 Личный кабинет", url=f"{PUBLIC_RELAY}/webapp")]
-    ])
+    kb = build_main_menu_kb()
     try:
         card    = generate_rates_card(btc_rate, ltc_rate, usdt_rate)
         caption = build_welcome_caption(btc_rate, ltc_rate, usdt_rate, vip_badge_s)
@@ -940,22 +973,7 @@ async def back_to_menu(callback: CallbackQuery, state: FSMContext):
     usdt_rate = get_cached_rate('USDT')
     vip_name, _ = get_user_vip(callback.from_user.id)
     vip_badge = {'Platinum': '💎 Platinum', 'Gold': '🥇 Gold', 'Silver': '🥈 Silver'}.get(vip_name, '')
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="💱 Купить крипту", callback_data="menu_exchange"),
-         InlineKeyboardButton(text="💰 Продать крипту", callback_data="menu_sell")],
-        [InlineKeyboardButton(text="🔄 Своп", callback_data="menu_swap"),
-         InlineKeyboardButton(text="⏳ Лимитная заявка", callback_data="menu_limit")],
-        [InlineKeyboardButton(text="📅 DCA-автопокупка", callback_data="menu_dca"),
-         InlineKeyboardButton(text="📋 Мои заявки", callback_data="menu_orders")],
-        [InlineKeyboardButton(text="🎁 Подарить крипту", callback_data="menu_gift"),
-         InlineKeyboardButton(text="🔒 Фиксация курса", callback_data="menu_ratelock")],
-        [InlineKeyboardButton(text="👥 Пригласить и заработать", callback_data="menu_ref")],
-        [InlineKeyboardButton(text="👤 Профиль", callback_data="menu_profile"),
-         InlineKeyboardButton(text="💬 Поддержка", callback_data="menu_support")],
-        [InlineKeyboardButton(text="⭐ Отзывы", callback_data="menu_reviews"),
-         InlineKeyboardButton(text="ℹ️ О сервисе", callback_data="menu_about")],
-        [InlineKeyboardButton(text="🌐 Личный кабинет", url=f"{PUBLIC_RELAY}/webapp")]
-    ])
+    kb = build_main_menu_kb()
     try:
         card    = generate_rates_card(btc_rate, ltc_rate, usdt_rate)
         caption = build_welcome_caption(btc_rate, ltc_rate, usdt_rate, vip_badge)
