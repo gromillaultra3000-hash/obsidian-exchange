@@ -799,6 +799,10 @@ async def reviews_page(request: Request):
 async def contacts_page(request: Request):
     return templates.TemplateResponse(request, "contacts.html", site_context(request))
 
+@app.get("/offer", response_class=HTMLResponse)
+async def offer_page(request: Request):
+    return templates.TemplateResponse(request, "offer.html", site_context(request))
+
 @app.get("/widget", response_class=HTMLResponse)
 async def widget_page():
     from utils import exchange_calc
