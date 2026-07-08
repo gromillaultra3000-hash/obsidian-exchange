@@ -6,7 +6,7 @@ from pathlib import Path
 from io import BytesIO, StringIO
 from aiogram import Bot, Dispatcher, Router, F
 from aiogram.types import (Message, BufferedInputFile, InlineKeyboardMarkup, InlineKeyboardButton,
-                           CallbackQuery, FSInputFile, ContentType)
+                           CallbackQuery, FSInputFile, ContentType, InputMediaPhoto)
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -6515,12 +6515,21 @@ async def cmd_postpromo(message: Message):
     parts = message.text.split()
     preview = len(parts) > 1 and parts[1] == "preview"
     target = message.chat.id if preview else CHANNEL_ID
-    banner = pathlib.Path("/root/bot/images/promo_banner.png")
+
+    # Буквы названия вместо баннера — превью в ленте показывает "OBS..."
+    _sd = pathlib.Path("/root/bot/images/stickers")
+    _letter_seq = ["letter_O", "letter_B", "letter_S", "letter_I", "letter_D",
+                   "letter_I", "letter_A", "letter_N", "letter_EX"]
     try:
-        # Сначала баннер без caption
-        if banner.exists():
-            await bot.send_photo(target, FSInputFile(str(banner)))
-        # Затем полный текст отдельным сообщением
+        letter_media = [
+            InputMediaPhoto(media=FSInputFile(str(_sd / f"{fn}.png")))
+            for fn in _letter_seq
+            if (_sd / f"{fn}.png").exists()
+        ]
+        if letter_media:
+            await bot.send_media_group(target, letter_media)
+
+        # Полный рекламный текст отдельным сообщением
         await bot.send_message(
             target,
             _PROMO_POST_HTML,
@@ -6530,7 +6539,7 @@ async def cmd_postpromo(message: Message):
         if preview:
             await message.answer("👆 Предпросмотр выше. Для публикации: /postpromo")
         else:
-            await message.answer("✅ Пост с баннером опубликован в канале.\n🔗 Закрепи: удержи → Закрепить")
+            await message.answer("✅ Пост опубликован в канале.\n🔗 Закрепи: удержи → Закрепить")
     except Exception as e:
         await message.answer(f"❌ Ошибка: {e}")
 
