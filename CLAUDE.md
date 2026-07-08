@@ -75,6 +75,11 @@ git push origin master
 
 ### Сессия 08.07.2026
 Выполнено:
+- Редизайн виджета /start: новая PNG-карточка 1280×640 (градиент, три карточки монет
+  в ряд, статус-чип, чипы преимуществ) + `get_service_status()` — живой статус из
+  provider_health (кеш 60 с) в caption и на карточке; при живом Montera показывает
+  реальные диапазоны сумм. Эмодзи-пак ObsidanEmoji: боту tg-emoji недоступны
+  (нет Fragment-юзернейма, проверено), ID сохранены в bot/images/stickers/emoji_ids.json
 - Закоммичен висевший diff: /postpromo шлёт буквы-стикеры media group вместо баннера
 - fix: LavaProvider добавлен в `_load_provider()` (payment_service.py) — раньше выбор
   Lava роутером молча уходил в Fallback
