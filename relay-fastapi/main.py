@@ -37,6 +37,7 @@ PUBLIC_RELAY = os.getenv('PUBLIC_RELAY', 'https://obsidian-exchange.org')
 GREENPAY_API_SECRET = os.getenv('GREENPAY_API_SECRET', '')
 MONTERA_API_TOKEN = os.getenv('MONTERA_API_TOKEN', '')
 BRABUS_NOTIFICATION_TOKEN = os.getenv('BRABUS_NOTIFICATION_TOKEN', '')
+STORMTRADE_NOTIFICATION_TOKEN = os.getenv('STORMTRADE_NOTIFICATION_TOKEN', '')
 MIN_AMOUNT = float(os.getenv('MIN_AMOUNT', 2000))
 MAX_AMOUNT = float(os.getenv('MAX_AMOUNT', 500000))
 BOT_TOKEN = os.getenv('BOT_TOKEN', '')
@@ -1719,6 +1720,38 @@ async def brabus_webhook(request: Request):
     elif order_id and status in ('canceled', 'expired'):
         audit_log("brabus_webhook_cancelled", f"order={order_id} status={status}")
     audit_log("brabus_webhook_processed", f"order={order_id} status={status}")
+    return JSONResponse(status_code=200, content={})
+
+@app.post("/stormtrade/webhook")
+async def stormtrade_webhook(request: Request):
+    # StormTrade — тот же Merchant Integration API, что Brabus:
+    # токен в X-Notification-Token, тело {"notificationType": "invoice", "invoice": {...}}
+    token = request.headers.get('X-Notification-Token', '')
+    if STORMTRADE_NOTIFICATION_TOKEN and not hmac.compare_digest(token, STORMTRADE_NOTIFICATION_TOKEN):
+        raise HTTPException(status_code=401)
+    data = await request.json()
+    audit_log("stormtrade_webhook_received", str(data))
+    invoice = data.get('invoice') or data
+    internal_id = invoice.get('internalId', '') or ''
+    status = invoice.get('status')
+    order_id = None
+    if internal_id.startswith('obsidian_'):
+        order_id = internal_id.split('_', 1)[1]
+    if order_id and status in ('paid',):
+        with db_conn(5) as conn:
+            c = conn.cursor()
+            c.execute("UPDATE orders SET status='paid' WHERE order_id=? AND status='pending'", (order_id,))
+            conn.commit()
+            c.execute("SELECT user_id FROM orders WHERE order_id=?", (order_id,))
+            row = c.fetchone()
+        if row and row[0] and int(row[0]) > 0:
+            notify_telegram(row[0], (
+                f"✅ <b>Оплата подтверждена!</b>\n\n"
+                f"Заявка <b>#{order_id}</b> принята — выплата будет произведена в ближайшее время."
+            ))
+    elif order_id and status in ('canceled', 'expired'):
+        audit_log("stormtrade_webhook_cancelled", f"order={order_id} status={status}")
+    audit_log("stormtrade_webhook_processed", f"order={order_id} status={status}")
     return JSONResponse(status_code=200, content={})
 
 @app.post("/payment/callback")

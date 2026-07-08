@@ -1,0 +1,32 @@
+https://docs.stormtrade.club/api-reference/types/payment-option
+
+Справочник API
+Описание объектов API
+PaymentOption
+Содержание этой страницы
+PaymentOption
+
+Перечисление типа string которое содержит название конкретного варианта платежа.
+
+Возможные значения​
+
+Значение | Описание | 
+SBP | Система быстрых платежей (СБП). | 
+TO_CARD | Перевод на банковскую карту. | 
+TO_ACCOUNT | Перевод на банковский счет. | 
+CROSS_BORDER | Трансграничный перевод. | 
+MOBILE_TOP_UP | Пополнение счета моб.телефона. | 
+SBP_QR | Оплата по СБП QR. | 
+CLICK_UZ_QR | Оплата по Click UZ QR. | 
+TIPS | Оплата через сервис чаевых. | 
+TO_BANK_DETAILS | Перевод по банковским реквизитам. | 
+TO_PHONE_NUMBER | Перевод по номеру телефона. | 
+TG_BOT | Оплата через Telegram bot. | 
+P2C | P2C. | 
+UPI | UPI. | 
+QUASI_UPI | Quasi UPI. | 
+IMPS | IMPS. | 
+CVU | CVU. | 
+CARD_ACQUIRING | Эквайринг. | 
+MANUAL_ECOM | Ручной ecom. | 
+VIET_QR | Viet QR. |

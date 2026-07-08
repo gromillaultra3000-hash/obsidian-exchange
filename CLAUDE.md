@@ -28,8 +28,20 @@ Production крипто-обменник RUB→BTC/LTC/USDT через СБП, n
 | BrabusProvider | ✅ фактически основной сейчас | 20% |
 | LavaProvider | ⏸ код готов, ключи LAVA_* в bot/.env пустые — роутер скипает | 10% |
 | GreenPayProvider | ⚠️ нестабилен, unhealthy | 5% |
+| StormTradeProvider | ⏸ код готов (08.07), ключи STORMTRADE_* пустые | last resort, вне weighted-выбора |
 | FallbackProvider | ✅ резерв | 5% |
 | PlategaProvider | ❌ offline | не использовать |
+
+StormTrade (docs.stormtrade.club): худшая ставка → НЕ участвует в обычном выборе
+роутера (`last_resort: True`). Подключается только: 1) эскалация в
+PaymentService._try_stormtrade(), когда выбранный провайдер не выдал реквизиты
+(перед FallbackProvider); 2) эксклюзивные методы, которых нет у других — QR СБП
+(SBP_QR), по номеру счёта (TO_ACCOUNT), пополнение моб. (MOBILE_TOP_UP) — кнопки
+в боте pm_storm_* (видны при заполненном STORMTRADE_API_KEY). API идентичен
+Brabus (тот же white-label Merchant Integration API: X-Identity + X-Signature
+HMAC-SHA1/Base64, POST /api/merchant/invoices со startDeal=true, deals[0].requisites,
+вебхук X-Notification-Token → /stormtrade/webhook). Скачанная дока — в git:
+docs/stormtrade/ (48 стр. с docs.stormtrade.club, PDF у юзера был только 1-й страницей).
 
 ⚠️ Montera: аккаунт мерчанта периодически блокируют на их стороне — кодом не лечится,
 нужно писать в поддержку Montera. Смотреть: `grep "Мерчант заблокирован" /root/relay/logs/relay.log`.
@@ -80,6 +92,35 @@ git push origin master
 6. Новый провайдер: изучить Lava / PayOK как дополнительный СБП канал
 
 ## Сессии
+
+### Сессия 08.07.2026 (StormTrade)
+Выполнено:
+- feat: провайдер StormTradeProvider (relay/providers/stormtrade.py) — последний
+  резерв с худшей ставкой. API оказался идентичен Brabus (white-label Merchant
+  Integration API), провайдер по его образцу. Дока скачана с docs.stormtrade.club
+  (PDF юзера содержал только 1-ю страницу) → docs/stormtrade/ (45 стр.)
+- smart_router: StormTradeProvider с `last_resort: True` — исключён из
+  weighted-выбора choose_provider (проверено на 300 прогонах), required_env
+  STORMTRADE_API_KEY
+- payment_service: _try_stormtrade() — эскалация ПЕРЕД FallbackProvider, когда
+  выбранный провайдер после 3 ретраев не выдал реквизиты; скипается если ключей
+  нет / unhealthy / упал сам StormTrade; provider='stormtrade' в payment_sessions.
+  Работает для всех путей (бот + /dashboard/exchange), т.к. внутри create_session
+- relay-fastapi/main.py: вебхук POST /stormtrade/webhook (X-Notification-Token,
+  {"notificationType":"invoice"}) — orders.status='paid' + уведомление юзеру
+- бот: кнопки эксклюзивных методов «🔳 QR СБП» (SBP_QR) и «🏦 Перевод по номеру
+  счёта» (TO_ACCOUNT) — видны только при STORMTRADE_API_KEY; обработчик pm_storm_*
+  (поддерживает также mobile/sbp/card на будущее); format_requisites понимает 'account'.
+  По СБП/карте StormTrade в меню НЕ показывается — только автоэскалация
+- Проверено на моках: подпись HMAC-SHA1/Base64, парсинг SBP_QR (payment_link из
+  qr.nspk.ru) и TO_ACCOUNT, пустые deals → «нет реквизитов», parse_webhook,
+  все 4 ветки эскалации
+Требует действий пользователя:
+- Завести кабинет StormTrade, заполнить в /root/bot/.env: STORMTRADE_API_KEY
+  (API-key магазина), STORMTRADE_SECRET (из «Настройки» ЛК), задать свой
+  STORMTRADE_NOTIFICATION_TOKEN (любая случайная строка), уточнить реальный
+  API-домен (STORMTRADE_BASE_URL, в доке — {{domain}}), затем
+  systemctl restart relay-fastapi exchange-bot
 
 ### Сессия 08.07.2026 (Vertu)
 Выполнено:

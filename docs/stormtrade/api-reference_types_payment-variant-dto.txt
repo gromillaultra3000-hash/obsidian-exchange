@@ -1,0 +1,22 @@
+https://docs.stormtrade.club/api-reference/types/payment-variant-dto
+
+Справочник API
+Описание объектов API
+PaymentVariantDTO
+Содержание этой страницы
+PaymentVariantDTO
+
+Объект PaymentVariantDTO представляет данные о возможном варианте для оплаты инвойса.
+
+Описание полей объекта​
+
+Название | Тип | Описание | 
+method | PaymentMethod | Метод оплаты (код банка) указанный при создании | 
+option | PaymentOption | Тип оплаты указанный при создании инвойса, например, TO_CARD, SBP и т. д. | 
+
+Пример​
+
+{
+  "option": "TO_CARD",
+  "method": "sberbank"
+}

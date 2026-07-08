@@ -1,0 +1,88 @@
+https://docs.stormtrade.club/api-reference/merchant-api/deal-create
+
+Справочник API
+Merchant API
+Создание сделки
+Содержание этой страницы
+Создание сделки
+
+POST /api/merchant/invoices/{id}/start-deal
+
+URL параметры​
+
+Название | Тип | Описание | 
+id | string | ID инвойса | 
+
+Параметры запроса​
+
+Название | Тип | Описание | 
+paymentOption | PaymentOption (optional) | Тип оплаты | 
+paymentMethod | PaymentMethod (optional) | Метод оплаты (код банка) | 
+
+Пример запроса​
+
+CURL
+curl --request POST \
+--url https://{{domain}}/api/merchant/invoices/{{id}}/start-deal \
+--header 'Content-Type: application/json' \
+--header 'X-Identity: {{api_key}}' \
+--header 'X-Signature: {{sign}}' \
+-d '{
+    "paymentMethod": "PaymentMethod|null",
+    "paymentOption": "PaymentOption|null"
+}'
+
+Структура ответа​
+
+Ответ возвращается в виде массива объектов InvoiceDTO.
+
+Пример ответа​
+
+{
+  "id": "f70fe815-c61e-49bc-9e68-a96dcbaa8424",
+  "internalId": "00002",
+  "userId": "test",
+  "type": "in",
+  "status": "new",
+  "paymentMethod": null,
+  "paymentOption": null,
+  "paymentRequisites": null,
+  "sum": {
+    "amount": "205.00",
+    "currency": "RUB",
+    "subunit": 2
+  },
+  "storeId": 1,
+  "storeName": "Demo Test",
+  "receivedSumFromTaker": null,
+  "receivedSumFromMaker": null,
+  "serviceFeeSum": null,
+  "payoutSum": null,
+  "createdAt": "2024-11-15T15:18:38+00:00",
+  "expireAt": "2024-11-15T16:18:38+00:00",
+  "updatedAt": "2024-11-15T15:18:38+00:00",
+  "invoiceUrl": "http:\/\/pay.domain.com\/invoice?id=f70fe815-c61e-49bc-9e68-a96dcbaa8426",
+  "deals": [
+    {
+      "id": "476dceb6-1ffc-4ae6-8096-cd030daa7df1",
+      "type": "in",
+      "status": "transfer_waiting",
+      "paymentMethod": "sberbank",
+      "paymentOption": "TO_CARD",
+      "requisites": {
+        "requisites": "4444 4444 4444 4444",
+        "holder": "test"
+      },
+      "canceledAt": "2024-11-15T15:33:55+00:00",
+      "disputeAttachment": null,
+      "disputeReason": null,
+      "disputeReasonData": [],
+      "payment": null,
+      "rate": "100.65",
+      "isActive": true,
+      "qrCodeLink": "https:\/\/www.sberbank.com\/sms\/pbpn?requisiteNumber=4444444444444444",
+      "disputeResult": null,
+      "attachments": []
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+https://docs.stormtrade.club/api-reference/public-api/payment-methods-list
+
+Справочник API
+Public API
+Список всех методов оплаты
+Содержание этой страницы
+Список всех методов оплаты
+
+GET /api/public/payment-methods/{currency}
+
+URL параметры​
+
+Название | Тип | Описание | 
+currency | string | Валюта, пример: RUB | 
+
+Пример запроса​
+
+CURL
+curl --request GET \
+  --url https://{{domain}}/api/public/payment-methods/RUB
+
+Пример ответа​
+
+[
+  {
+    "code": "unknown",
+    "name": "unknown"
+  },
+  {
+    "code": "tinkoff",
+    "name": "Тинькофф"
+  },
+  {
+    "code": "sberbank",
+    "name": "Сбербанк"
+  },
+  {
+    "code": "alfabank",
+    "name": "Альфа-Банк"
+  }
+]

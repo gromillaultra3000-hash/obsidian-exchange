@@ -1,0 +1,22 @@
+https://docs.stormtrade.club/api-reference/types/requisites-dto
+
+Справочник API
+Описание объектов API
+RequisitesDTO
+Содержание этой страницы
+RequisitesDTO
+
+Объект RequisitesDTO используется для передачи информации о реквизитах, включая данные о счете и владельце.
+
+Описание полей объекта​
+
+Название | Тип | Описание | 
+requisites | string | Реквизиты для перевода денежных средств. | 
+holder | string | Имя владельца реквизитов. | 
+
+Пример​
+
+{
+  "requisites": "1234 5678 9012 3456",
+  "holder": "John Doe"
+}

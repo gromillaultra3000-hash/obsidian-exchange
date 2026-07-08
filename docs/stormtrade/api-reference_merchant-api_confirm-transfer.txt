@@ -1,0 +1,119 @@
+https://docs.stormtrade.club/api-reference/merchant-api/confirm-transfer
+
+Справочник API
+Merchant API
+Подтверждение перевода
+Содержание этой страницы
+Подтверждение перевода
+
+POST /api/merchant/invoices/{id}/confirm-transfer
+
+URL параметры​
+
+Название | Тип | Описание | 
+id | string | ID инвойса | 
+
+Параметры запроса​
+
+Название | Тип | Описание | 
+attachment | file | Файл чека об операции либо другого документа подтверждающего перевод, не более 10Мб | 
+
+Пример запроса​
+
+CURL
+curl --request POST \
+  --url http://{{domain}}/api/merchant/invoices/{{id}}/confirm-transfer \
+  --header 'Content-Type: multipart/form-data' \
+  --header 'X-Signature: {{sign}}' \
+  --header 'x-Identity: {{api_key}}' \
+  --form attachment=@/path/to/file
+
+Структура ответа​
+
+Ответ возвращается в виде массива объектов InvoiceDTO.
+
+Пример ответа​
+
+{
+  "id": "0a0eb051-b255-42a8-a7bc-606e1c04233e",
+  "internalId": "00002",
+  "userId": "test",
+  "type": "in",
+  "status": "new",
+  "paymentMethod": null,
+  "paymentOption": "TO_CARD",
+  "paymentRequisites": null,
+  "sum": {
+    "amount": "666.00",
+    "currency": "RUB",
+    "subunit": 2
+  },
+  "storeId": 1,
+  "storeName": "Demo Test",
+  "receivedSumFromTaker": {
+    "amount": "666.00",
+    "currency": "RUB",
+    "subunit": 2
+  },
+  "receivedSumFromMaker": {
+    "amount": "6.57907734",
+    "currency": "USDT",
+    "subunit": 8
+  },
+  "serviceFeeSum": {
+    "amount": "0.32895387",
+    "currency": "USDT",
+    "subunit": 8
+  },
+  "payoutSum": {
+    "amount": "6.25012347",
+    "currency": "USDT",
+    "subunit": 8
+  },
+  "createdAt": "2024-11-20T14:56:14+00:00",
+  "expireAt": "2024-11-20T15:56:14+00:00",
+  "updatedAt": "2024-11-20T14:57:19+00:00",
+  "invoiceUrl": "http://pay.domain.com/invoice?id=0a0eb051-b255-42a8-a7bc-606e1c04233e",
+  "deals": [
+    {
+      "id": "0a0eb051-b255-42a8-a7bc-606e1c04233e",
+      "type": "in",
+      "status": "transfer_confirmed",
+      "paymentMethod": "sberbank",
+      "paymentOption": "TO_CARD",
+      "requisites": {
+        "requisites": "4444 4444 4444 4444",
+        "holder": "test"
+      },
+      "canceledAt": "2024-11-20T15:11:14+00:00",
+      "disputeAttachment": null,
+      "disputeReason": "invalid_sum",
+      "disputeReasonData": {
+        "amount": "210"
+      },
+      "payment": {
+        "takerSum": {
+          "amount": "666.00",
+          "currency": "RUB",
+          "subunit": 2
+        },
+        "makerSum": {
+          "amount": "6.57907734",
+          "currency": "USDT",
+          "subunit": 8
+        },
+        "feeSum": {
+          "amount": "0.32895387",
+          "currency": "USDT",
+          "subunit": 8
+        },
+        "date": "2024-11-20T14:56:44+00:00"
+      },
+      "rate": "101.23",
+      "isActive": true,
+      "qrCodeLink": "https://www.sberbank.com/sms/pbpn?requisiteNumber=4444444444444444",
+      "disputeResult": null,
+      "attachments": []
+    }
+  ]
+}

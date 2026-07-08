@@ -1,0 +1,104 @@
+https://docs.stormtrade.club/api-reference/types/notifications-invoice-dto
+
+Справочник API
+Описание объектов API
+Notifications\InvoiceDTO
+Содержание этой страницы
+Notifications\InvoiceDTO
+
+Объект Notifications\InvoiceDTO представляет данные о инвойсе, включая информацию о суммах, связанных с инвойсом, его
+статусе, а также связанные данные о сделке.
+
+Описание полей объекта​
+
+Название | Тип | Описание | 
+id | string | Уникальный идентификатор инвойса. | 
+internalId | string | null | Внутренний идентификатор инвойса, если применимо. | 
+type | DirectionType | Тип инвойса. | 
+status | InvoiceStatus | Статус инвойса. | 
+sum | MoneyDTO | Сумма инвойса. | 
+storeId | integer | Идентификатор магазина, связанного с инвойсом. | 
+storeName | string | Название магазина, связанного с инвойсом. | 
+receivedSumFromTaker | MoneyDTO | null | Сумма, полученная от получателя, если применимо. | 
+receivedSumFromMaker | MoneyDTO | null | Сумма, полученная от отправителя, если применимо. | 
+serviceFeeSum | MoneyDTO | null | Комиссия за обслуживание инвойса, если применимо. | 
+payoutSum | MoneyDTO | null | Сумма выплаты, если применимо. | 
+createdAt | string | Дата и время создания инвойса в формате ISO 8601. | 
+expireAt | string | Дата и время истечения инвойса в формате ISO 8601. | 
+updatedAt | string | Дата и время последнего обновления инвойса в формате ISO 8601. | 
+deal | Notifications\DealDTO | Данные о сделке, связанной с инвойсом. | 
+
+Пример​
+
+{
+  "id": "e15e0486-c17a-4530-a259-997cbab26a0b",
+  "internalId": "405953",
+  "type": "in",
+  "status": "paid",
+  "sum": {
+    "amount": "3650.00",
+    "currency": "RUB",
+    "subunit": 2
+  },
+  "storeId": 379,
+  "storeName": "Test Store Name",
+  "receivedSumFromTaker": {
+    "amount": "3650.00",
+    "currency": "RUB",
+    "subunit": 2
+  },
+  "receivedSumFromMaker": {
+    "amount": "35.00527476",
+    "currency": "USDT",
+    "subunit": 8
+  },
+  "serviceFeeSum": {
+    "amount": "2.97544836",
+    "currency": "USDT",
+    "subunit": 8
+  },
+  "payoutSum": {
+    "amount": "32.02982640",
+    "currency": "USDT",
+    "subunit": 8
+  },
+  "rate": "104.27",
+  "createdAt": "2024-11-23T20:40:12+00:00",
+  "expireAt": "2024-11-23T21:40:12+00:00",
+  "updatedAt": "2024-11-23T20:43:07+00:00",
+  "deal": {
+    "id": "e15e0486-c17a-4530-a259-997cbab26a0b",
+    "type": "in",
+    "status": "completed",
+    "paymentMethod": "tinkoff",
+    "paymentOption": "TO_CARD",
+    "requisites": {
+      "requisites": "2234 7017 2272 7358",
+      "holder": "holder name"
+    },
+    "canceledAt": "2024-11-23T21:10:12+00:00",
+    "disputeAttachment": null,
+    "disputeReason": null,
+    "disputeReasonData": [],
+    "payment": {
+      "takerSum": {
+        "amount": "3650.00",
+        "currency": "RUB",
+        "subunit": 2
+      },
+      "makerSum": {
+        "amount": "35.00527476",
+        "currency": "USDT",
+        "subunit": 8
+      },
+      "feeSum": {
+        "amount": "2.97544836",
+        "currency": "USDT",
+        "subunit": 8
+      },
+      "date": "2024-11-23T20:43:07+00:00"
+    },
+    "attachments": [],
+    "disputeResult": null
+  }
+}

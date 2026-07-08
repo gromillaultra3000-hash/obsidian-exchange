@@ -443,6 +443,19 @@ async def build_payment_methods_kb(order_id: int, amount: float) -> InlineKeyboa
             callback_data=f"pm_lava_{order_id}"
         )])
 
+    # StormTrade — только методы, которых нет у остальных провайдеров.
+    # По СБП/карте StormTrade НЕ показываем (худшая ставка) — он подключается
+    # автоматически внутри PaymentService, если другие не выдали реквизиты.
+    if os.getenv('STORMTRADE_API_KEY', ''):
+        rows.append([InlineKeyboardButton(
+            text="🔳 QR СБП — оплата по QR-коду",
+            callback_data=f"pm_storm_sbpqr_{order_id}"
+        )])
+        rows.append([InlineKeyboardButton(
+            text="🏦 Перевод по номеру счёта",
+            callback_data=f"pm_storm_account_{order_id}"
+        )])
+
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -772,6 +785,7 @@ def format_requisites(raw):
     field_labels = [
         ('card_number', '💳 Карта'),
         ('phone', '📱 Телефон'),
+        ('account', '🏦 Счёт'),
         ('bank_name', '🏦 Банк'),
         ('bank', '🏦 Банк'),
         ('recipient', '👤 Получатель'),
@@ -2647,6 +2661,72 @@ async def process_payment_method(callback: CallbackQuery, state: FSMContext):
                    f"Переведите указанную сумму {way}:\n{requisites_text}\n{exact_note}\n"
                    f"⏱ Реквизиты действительны <b>30 минут</b>.\n"
                    f"✅ Оплата подтверждается автоматически — чек не требуется.").replace(",", " ")
+
+    elif pm.startswith("pm_storm_"):
+        # StormTrade: эксклюзивные методы (QR СБП / по номеру счёта).
+        # Оплата подтверждается вебхуком /stormtrade/webhook — чек не нужен
+        STORM_METHOD_BY_PM = {
+            "pm_storm_sbpqr_":   ("sbp_qr",  "по QR-коду СБП"),
+            "pm_storm_account_": ("account", "по номеру счёта"),
+            "pm_storm_mobile_":  ("mobile",  "на счёт мобильного"),
+            "pm_storm_sbp_":     ("sbp",     "по СБП"),
+            "pm_storm_card_":    ("card",    "на карту"),
+        }
+        entry = next(
+            (v for prefix, v in STORM_METHOD_BY_PM.items() if pm.startswith(prefix)),
+            None
+        )
+        if not entry:
+            await callback.answer("Этот способ оплаты временно недоступен.")
+            return
+        method, way = entry
+        try:
+            from services.payment_service import PaymentService
+            from providers.stormtrade import StormTradeProvider
+            payment_service = PaymentService(provider=StormTradeProvider())
+            session = payment_service.create_session(order_id, amount, payment_method=method,
+                                                     telegram_id=callback.from_user.id)
+            if 'error' in session:
+                await reply_no_requisites(callback, order_id)
+                await callback.answer()
+                return
+            raw = session.get('raw') or {}
+        except Exception as e:
+            logger.error(f"Ошибка создания сессии StormTrade {method}: {e}")
+            await reply_no_requisites(callback, order_id)
+            await callback.answer()
+            return
+
+        requisites = raw.get('requisites') or {}
+        requisites_text = format_requisites(raw)
+        payment_link = requisites.get('payment_link')
+        qr_img = raw.get('qr_image_url')
+
+        caption = (f"🟣 ObsidianExchange\nЗаявка #{order_id}\n\n"
+                   f"Сумма: <b>{int(float(amount)):,} ₽</b>\n\n"
+                   f"Переведите указанную сумму {way}:\n{requisites_text}\n\n"
+                   f"⏱ Реквизиты действительны <b>30 минут</b>.\n"
+                   f"✅ Оплата подтверждается автоматически — чек не требуется.").replace(",", " ")
+
+        kb_rows = []
+        if payment_link:
+            kb_rows.append([InlineKeyboardButton(text="🔳 Открыть QR / оплатить →", url=payment_link)])
+        kb_rows.append([InlineKeyboardButton(text="✅ Я оплатил", callback_data=f"paid_{order_id}")])
+        kb_rows.append([InlineKeyboardButton(text="🔍 Проверить статус", callback_data=f"check_{order_id}")])
+        inline_kb = InlineKeyboardMarkup(inline_keyboard=kb_rows)
+
+        if qr_img:
+            try:
+                await callback.message.answer_photo(qr_img, caption=caption, reply_markup=inline_kb, parse_mode="HTML")
+            except Exception:
+                await callback.message.answer(caption, reply_markup=inline_kb, parse_mode="HTML")
+        elif IMG_SECURITY.exists() and len(caption) <= 1024:
+            await callback.message.answer_photo(FSInputFile(IMG_SECURITY), caption=caption, reply_markup=inline_kb, parse_mode="HTML")
+        else:
+            await callback.message.answer(caption, reply_markup=inline_kb, parse_mode="HTML")
+        await callback.answer()
+        await state.clear()
+        return
 
     elif pm.startswith("pm_lava_"):
         # Lava: создаём инвойс, отдаём кнопку-ссылку на страницу оплаты

@@ -1,0 +1,103 @@
+https://docs.stormtrade.club/api-reference/merchant-api/invoice-create
+
+Справочник API
+Merchant API
+Создание инвойса
+Содержание этой страницы
+Создание инвойса
+
+POST /api/merchant/invoices
+
+Параметры запроса​
+
+Название | Тип | Описание | 
+type | DirectionType | Тип заявки: in - прием, out - выплаты | 
+amount | string | Сумма, пример: 2000.00 | 
+maxAmount | string (optional) | Максимальная сумма, используется для уникализации сумм | 
+currency | string | Валюта, пример: RUB | 
+notificationUrl | string | URL для получения уведомлений о статусе заявки | 
+notificationToken | string | Токен для валидации уведомлений | 
+internalId | string (optional) | ID заявки в системе мерчанта | 
+userId | string (optional) | ID клиента в системе мерчанта | 
+paymentOption | PaymentOption (optional) | Тип оплаты, обязателен для типа out | 
+paymentMethod | PaymentMethod (optional) | Метод оплаты (код банка), обязателен для типа out | 
+paymentRequisites | RequisitesDTO (optional) | Реквизиты на которые необходимо совершить выплату, обязателен для типа out | 
+startDeal | boolean (optional) | true если необходимо создать сделку на прием, только для типа in | 
+crossBorderCurrency | string (optional) | Валюта банка в случае трансгран перевода | 
+allowMatching | boolean (optional) | true если разрешено обрабатывать в системе матчинга | 
+matchingSettings | MatchingSettingsDTO (optional) | настройки матчинга заявки | 
+lang | string (optional) | Язык платежной страницы - ru, en, bn, uz, az, es, ko | 
+
+Пример запроса​
+
+CURL
+curl --request POST \
+--url https://{{domain}}/api/merchant/invoices \
+--header 'Content-Type: application/json' \
+--header 'X-Identity: {{api_key}}' \
+--header 'X-Signature: {{sign}}' \
+-d '{
+    "type": "in",
+    "amount": "1000",
+    "currency": "RUB",
+    "notificationUrl": "https://webhook.site/0ee5347c-c0c1-41aa-a4ca-c87173be8bf2",
+    "notificationToken": "merchant_notification_token",
+    "internalId": "00001",
+    "userId": "uid-1",
+    "paymentOption": null,
+    "paymentMethod": "sberbank",
+    "startDeal": true
+}'
+
+Структура ответа​
+
+Ответ возвращается в виде массива объектов InvoiceDTO.
+
+Пример ответа​
+
+{
+  "id": "991a0e40-8cbd-405a-80fa-c84f2e4d5c6a",
+  "internalId": "00001",
+  "userId": "uid-1",
+  "type": "in",
+  "status": "new",
+  "paymentMethod": "sberbank",
+  "paymentOption": null,
+  "paymentRequisites": null,
+  "sum": {
+    "amount": "1000.00",
+    "currency": "RUB",
+    "subunit": 2
+  },
+  "storeId": 1,
+  "storeName": "Demo Test",
+  "receivedSumFromTaker": null,
+  "receivedSumFromMaker": null,
+  "serviceFeeSum": null,
+  "payoutSum": null,
+  "createdAt": "2024-11-04T13:55:45+00:00",
+  "expireAt": "2024-11-04T14:55:45+00:00",
+  "updatedAt": "2024-11-04T13:58:34+00:00",
+  "invoiceUrl": "http:\/\/pay.doamin.com\/invoice?id=991a0e40-8cbd-405a-80fa-c84f2e4d5c6a",
+  "deals": [
+    {
+      "id": "595af0e7-261d-4451-b651-3cfeecc0755c",
+      "type": "in",
+      "status": "transfer_waiting",
+      "paymentMethod": "sberbank",
+      "paymentOption": "SBP",
+      "requisites": {
+        "requisites": "+7(996)777-99-77",
+        "holder": "holder name"
+      },
+      "canceledAt": "2024-11-04T14:25:48+00:00",
+      "disputeAttachment": null,
+      "disputeReason": null,
+      "disputeReasonData": [],
+      "payment": null,
+      "rate": "99.23",
+      "isActive": true,
+      "qrCodeLink": "https:\/\/www.sberbank.com\/sms\/pbpn?requisiteNumber=79967779977"
+    }
+  ]
+}

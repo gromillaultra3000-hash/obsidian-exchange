@@ -1,0 +1,96 @@
+https://docs.stormtrade.club/api-reference/types/notification-dto
+
+Справочник API
+Описание объектов API
+InvoiceNotificationDTO
+Содержание этой страницы
+InvoiceNotificationDTO
+
+Объект InvoiceNotificationDTO представляет структуру уведомления о инвойсе, включающего тип уведомления и связанные
+данные о самом инвойсе.
+
+Описание полей объекта​
+
+Название | Тип | Описание | 
+notificationType | string | Тип уведомления. Всегда имеет значение invoice | 
+notificationDate | string | Дата создания уведомления | 
+invoice | Notifications\InvoiceDTO | Данные об инвойсе, к которому относится уведомление. | 
+
+Пример​
+
+{
+  "notificationType": "invoice",
+  "notificationDate": "2024-11-23T20:43:07+00:00",
+  "invoice": {
+    "id": "e15e0486-c17a-4530-a259-997cbab26a0b",
+    "internalId": "405953",
+    "type": "in",
+    "status": "paid",
+    "sum": {
+      "amount": "3650.00",
+      "currency": "RUB",
+      "subunit": 2
+    },
+    "storeId": 379,
+    "storeName": "Test Store Name",
+    "receivedSumFromTaker": {
+      "amount": "3650.00",
+      "currency": "RUB",
+      "subunit": 2
+    },
+    "receivedSumFromMaker": {
+      "amount": "35.00527476",
+      "currency": "USDT",
+      "subunit": 8
+    },
+    "serviceFeeSum": {
+      "amount": "2.97544836",
+      "currency": "USDT",
+      "subunit": 8
+    },
+    "payoutSum": {
+      "amount": "32.02982640",
+      "currency": "USDT",
+      "subunit": 8
+    },
+    "rate": "104.27",
+    "createdAt": "2024-11-23T20:40:12+00:00",
+    "expireAt": "2024-11-23T21:40:12+00:00",
+    "updatedAt": "2024-11-23T20:43:07+00:00",
+    "deal": {
+      "id": "e15e0486-c17a-4530-a259-997cbab26a0b",
+      "type": "in",
+      "status": "completed",
+      "paymentMethod": "tinkoff",
+      "paymentOption": "TO_CARD",
+      "requisites": {
+        "requisites": "2234 7017 2272 7358",
+        "holder": "holder name"
+      },
+      "canceledAt": "2024-11-23T21:10:12+00:00",
+      "disputeAttachment": null,
+      "disputeReason": null,
+      "disputeReasonData": [],
+      "payment": {
+        "takerSum": {
+          "amount": "3650.00",
+          "currency": "RUB",
+          "subunit": 2
+        },
+        "makerSum": {
+          "amount": "35.00527476",
+          "currency": "USDT",
+          "subunit": 8
+        },
+        "feeSum": {
+          "amount": "2.97544836",
+          "currency": "USDT",
+          "subunit": 8
+        },
+        "date": "2024-11-23T20:43:07+00:00"
+      },
+      "attachments": [],
+      "disputeResult": null
+    }
+  }
+}

@@ -1,0 +1,72 @@
+https://docs.stormtrade.club/api-reference/merchant-api/payment-options-list
+
+Справочник API
+Merchant API
+Список доступных способов оплаты
+Содержание этой страницы
+Список доступных способов оплаты
+
+GET /api/merchant/payment-options
+
+Пример запроса​
+
+CURL
+curl --request GET \
+  --url https://{{domain}}/api/merchant/payment-options \
+  --header 'X-Identity: {{api_key}}' \
+  --header 'X-Signature: {{sign}}'
+
+Пример ответа​
+
+[
+  {
+    "code": "SBP",
+    "name": "СБП",
+    "currency": "RUB"
+  },
+  {
+    "code": "TO_CARD",
+    "name": "Перевод на карту",
+    "currency": "RUB"
+  },
+  {
+    "code": "TO_ACCOUNT",
+    "name": "Перевод по номеру счета",
+    "currency": "RUB"
+  },
+  {
+    "code": "CROSS_BORDER",
+    "name": "Трансграничный",
+    "currency": "RUB"
+  },
+  {
+    "code": "SBP_QR",
+    "name": "Оплата по нспк QR коду",
+    "currency": "RUB"
+  },
+  {
+    "code": "TO_BANK_DETAILS",
+    "name": "Перевод по реквизитам",
+    "currency": "RUB"
+  },
+  {
+    "code": "MOBILE_TOP_UP",
+    "name": "Пополнение моб. телефона",
+    "currency": "RUB"
+  },
+  {
+    "code": "TIPS",
+    "name": "Оплата через сервис чаевых",
+    "currency": "RUB"
+  },
+  {
+    "code": "VIET_QR",
+    "name": "VIET QR",
+    "currency": "RUB"
+  },
+  {
+    "code": "MANUAL_SBP_QR",
+    "name": "Ручной QR",
+    "currency": "RUB"
+  }
+]

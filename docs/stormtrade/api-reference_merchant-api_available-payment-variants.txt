@@ -1,0 +1,43 @@
+https://docs.stormtrade.club/api-reference/merchant-api/available-payment-variants
+
+Справочник API
+Merchant API
+Список доступных вариантов оплаты
+Содержание этой страницы
+Список доступных вариантов оплаты
+
+GET /api/merchant/invoices/{id}/available-payment-variants
+
+URL параметры​
+
+Название | Тип | Описание | 
+id | string | ID инвойса | 
+
+Пример запроса​
+
+CURL
+curl --request GET \
+  --url https://{{domain}}/api/merchant/invoices/{{id}}/available-payment-variants \
+  --header 'X-Identity: {{api_key}}' \
+  --header 'X-Signature: {{sign}}'
+
+Структура ответа​
+
+Ответ возвращается в виде массива объектов PaymentVariantDTO.
+
+Пример ответа​
+
+[
+  {
+    "option": "TO_CARD",
+    "method": "sberbank"
+  },
+  {
+    "option": "SBP",
+    "method": "sberbank"
+  },
+  {
+    "option": "TO_CARD",
+    "method": "tinkoff"
+  }
+]

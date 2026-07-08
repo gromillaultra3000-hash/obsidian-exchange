@@ -46,6 +46,14 @@ PROVIDER_CONFIG = {
         "cooldown_seconds": 300,
         "max_consecutive_fails": 2,
     },
+    "StormTradeProvider": {
+        "weight": 0.0,         # худшая ставка: только эскалация из PaymentService,
+        "min_amount": 1000,    # когда остальные не выдали реквизиты, и эксклюзивные
+        "cooldown_seconds": 120,  # методы (SBP_QR/TO_ACCOUNT/MOBILE_TOP_UP)
+        "max_consecutive_fails": 4,
+        "required_env": "STORMTRADE_API_KEY",
+        "last_resort": True,   # исключён из weighted-выбора choose_provider
+    },
     "FallbackProvider": {
         "weight": 0.05,        # last resort
         "min_amount": 1000,
@@ -145,6 +153,10 @@ def choose_provider(amount: float = 10000) -> Optional[str]:
     candidates = []
 
     for name, cfg in PROVIDER_CONFIG.items():
+        if cfg.get("last_resort"):
+            # невыгодные провайдеры не участвуют в обычном выборе —
+            # их подключает PaymentService, когда остальные не выдали реквизиты
+            continue
         if amount < cfg.get("min_amount", 0):
             logger.debug("Provider %s skipped: amount %.0f < min %.0f",
                          name, amount, cfg.get("min_amount", 0))

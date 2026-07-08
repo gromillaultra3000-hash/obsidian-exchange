@@ -1,0 +1,52 @@
+https://docs.stormtrade.club/api-reference/types/deal-dto
+
+Справочник API
+Описание объектов API
+DealDTO
+Содержание этой страницы
+DealDTO
+
+Объект DealDTO представляет структуру данных, описывающую сделку между пользователями и трейдером, включая статус, метод
+оплаты, реквизиты и другую информацию о сделке.
+
+Описание полей объекта​
+
+Название | Тип | Описание | 
+id | string | Уникальный идентификатор сделки. | 
+isActive | boolean | Статус активности сделки. Если true, сделка активна. Если false, сделка отменена или завершена. | 
+type | DirectionType | Тип сделки: прием или выплата. | 
+status | DealStatus | Статус сделки. | 
+paymentMethod | PaymentMethod | Метод оплаты (код банка), использованный для этой сделки (например, sberbank). | 
+paymentOption | PaymentOption | Тип оплаты, например, TO_CARD, SBP и т. д. | 
+requisites | RequisitesDTO | Реквизиты для перевода средств по сделке. | 
+canceledAt | string | Время отмены сделки (в формате ISO 8601). | 
+disputeAttachment | string | null | Прикрепленные файлы, связанные с спором по сделке, если таковой имеется. Если нет, значение равно null. | 
+disputeReason | DisputeReason | null | Причина спора по сделке (например, no_payment, invalid_sum). | 
+disputeReasonData | DisputeReasonDataDTO | Дополнительные данные, связанные с причиной спора, если они есть. | 
+payment | PaymentDTO | null | Данные о платеже, связанного с этой сделкой. Если платёж ещё не был произведен, поле будет равно null. | 
+rate | string | Курс обмена. | 
+qrCodeLink | string | null | Ссылка на QR-код для оплаты, если такой имеется. Если QR-код не доступен, значение равно null. | 
+
+Пример​
+
+{
+  "id": "c8a9d474-b35b-4961-9bf4-b049e40dbc5b",
+  "type": "in",
+  "status": "transfer_waiting",
+  "paymentMethod": "sberbank",
+  "paymentOption": "TO_CARD",
+  "requisites": {
+    "requisites": "2234 2036 5607 2495",
+    "holder": "test holder"
+  },
+  "canceledAt": "2024-11-22T10:43:00+00:00",
+  "disputeAttachment": null,
+  "disputeReason": null,
+  "disputeReasonData": [],
+  "payment": null,
+  "rate": "97.35",
+  "isActive": true,
+  "qrCodeLink": "https:\/\/www.sberbank.com\/sms\/pbpn?requisiteNumber=2234203656072495",
+  "disputeResult": null,
+  "attachments": []
+}

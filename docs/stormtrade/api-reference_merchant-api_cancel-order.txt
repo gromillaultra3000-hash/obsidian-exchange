@@ -1,0 +1,47 @@
+https://docs.stormtrade.club/api-reference/merchant-api/cancel-order
+
+Справочник API
+Merchant API
+Отмена активной сделки
+Содержание этой страницы
+Отмена активной сделки
+
+POST /api/merchant/invoices/{id}/cancel
+
+URL параметры​
+
+Название | Тип | Описание | 
+id | string | ID инвойса | 
+
+Пример запроса​
+
+CURL
+curl --request POST \
+  --url https://{{domain}}/api/merchant/invoices/{id}/cancel  \
+  --header 'Content-Type: application/json' \
+  --header 'X-Signature: {{sign}}' \
+  --header 'x-Identity: {{api_key}}' \
+
+Пример ответа​
+
+{
+	"id": "aa8f91f0-d8dc-4859-92d4-440377b0caa7",
+	"internalId": "00001",
+	"type": "in",
+	"paymentMethod": null,
+	"paymentOption": null,
+	"paymentRequisites": null,
+	"expiredAt": "2025-07-04T16:28:26+00:00",
+	"sum": {
+		"amount": "1200.00",
+		"currency": "RUB",
+		"subunit": 2
+	},
+	"status": "canceled",
+	"deals": [],
+	"successUrl": "http:\/\/success",
+	"cancelUrl": "http:\/\/fail",
+	"isSumChanged": false,
+	"flow": "DEFAULT",
+	"flowData": null
+}

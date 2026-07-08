@@ -1,0 +1,77 @@
+https://docs.stormtrade.club/api-reference/merchant-api/get-invoice-by-internal-merchant-ID
+
+Справочник API
+Merchant API
+Получение счета по внутреннему ID мерчанта
+Содержание этой страницы
+Получение счета по внутреннему ID мерчанта
+
+GET /api/merchant/invoices/internal-id/{internalId}
+
+URL параметры​
+
+Название | Тип | Описание | 
+internalId | string | ID заявки в системе мерчанта | 
+
+Пример запроса​
+
+CURL
+curl --request GET \
+--url https://{{domain}}/api/merchant/invoices/internal-id/{{id}} \
+--header 'X-Identity: {{api_key}}' \
+--header 'X-Signature: {{sign}}'
+
+Структура ответа​
+
+Ответ возвращается в виде массива объектов InvoiceDTO.
+
+Пример ответа​
+
+{
+ "id": "bafb24c9-9d8d-4d9d-b516-684d7ffd99db",
+ "internalId": "00002",
+ "userId": "test",
+ "type": "in",
+ "status": "new",
+ "paymentMethod": null,
+ "paymentOption": "TO_CARD",
+ "paymentRequisites": null,
+ "sum": {
+   "amount": "1337.00",
+   "currency": "RUB",
+   "subunit": 2
+ },
+ "storeId": 1,
+ "storeName": "Demo Test",
+ "receivedSumFromTaker": null,
+ "receivedSumFromMaker": null,
+ "serviceFeeSum": null,
+ "payoutSum": null,
+ "createdAt": "2024-11-21T15:44:28+00:00",
+ "expireAt": "2024-11-21T16:44:28+00:00",
+ "updatedAt": "2024-11-21T15:44:28+00:00",
+ "invoiceUrl": "http://pay.domain.com/invoice?id=bafb24c9-9d8d-4d9d-b516-684d7ffd99db",
+ "deals": [
+   {
+     "id": "bafb24c9-9d8d-4d9d-b516-684d7ffd99db",
+     "type": "in",
+     "status": "transfer_waiting",
+     "paymentMethod": "sberbank",
+     "paymentOption": "TO_CARD",
+     "requisites": {
+       "requisites": "4444 4444 4444 4444",
+       "holder": "test"
+     },
+     "canceledAt": "2024-11-21T15:59:30+00:00",
+     "disputeAttachment": null,
+     "disputeReason": null,
+     "disputeReasonData": [],
+     "payment": null,
+     "rate": "101.42",
+     "isActive": true,
+     "qrCodeLink": "https://www.sberbank.com/sms/pbpn?requisiteNumber=4444444444444444",
+     "disputeResult": null,
+     "attachments": []
+   }
+ ]
+}

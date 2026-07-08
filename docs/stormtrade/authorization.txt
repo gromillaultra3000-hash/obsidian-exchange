@@ -1,0 +1,78 @@
+https://docs.stormtrade.club/authorization
+
+Авторизация
+Содержание этой страницы
+Авторизация
+
+Все запросы к Merchant API должны содержать заголовки X-Identity и X-Signature.
+
+Запросы к Public API не требуют отправки дополнительных заголовков.
+
+X-Identity​
+
+Заголовок X-Identity должен содержать API-ключ магазина.
+
+X-Identity: <API-key>
+
+X-Signature​
+
+Заголовок X-Signature должен содержать строку, закодированную в формате Base64, которая подписана секретным ключом мерчанта с использованием алгоритма SHA1.
+
+Строка для подписи формируется путем конкатенации следующих элементов в следующем порядке:
+
+HTTP-метод запроса (например, GET, POST);
+
+URL запроса (например, https://{{domain}}/api/merchant/invoices);
+
+Тело запроса - если оно присутствует, для типа данных application/json
+
+Пример строки для подписи:
+
+POSThttps://{{domain}}/api/merchant/invoices{"amount":"100","currency":"RUB","type":"in"...}
+
+Запросы GET и multipart/form-data​
+
+Для типа запроса GET или типа контента multipart/form-data строка для подписи создается путем конкатенации только метода запроса и URL запроса.
+
+Пример для GET запроса:
+
+GEThttps://{{domain}}/api/merchant/accounts
+
+Пример для multipart/form-data запроса:
+
+POSThttps://{{domain}}/api/merchant/invoices/69658e0c-8aae-4849-b2fe-aa8af418ac3a/dispute
+
+Формирование подписи​
+
+Полученная строка подписывается секретным ключом secret с использованием алгоритма SHA1, а результат кодируется в Base64 и передается в заголовке X-Signature.
+
+X-Signature: <Signature>
+
+Примеры кода​
+
+PHP
+JavaScript
+Python
+function calculateSignature(string $method, string $url, string $bodyContent, string $secret): string
+{
+    $stringToSign = $method . $url . $bodyContent;
+
+    return base64_encode(hash_hmac('sha1', $stringToSign, $secret, true));
+}
+
+function calculateSignature(method, url, bodyContent, secret) {
+    const crypto = require('crypto');
+    const stringToSign = method + url + bodyContent;
+    const hash = crypto.createHmac('sha1', secret).update(stringToSign).digest('base64');
+
+    return hash;
+}
+
+import hmac
+import hashlib
+import base64
+
+def calculate_signature(method, url, body_content, secret):
+    string_to_sign = f"{method}{url}{body_content}"
+    hashed = hmac.new(secret.encode(), string_to_sign.encode(), hashlib.sha1)
+    return base64.b64encode(hashed.digest()).decode()

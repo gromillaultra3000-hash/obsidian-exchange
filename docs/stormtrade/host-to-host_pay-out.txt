@@ -1,0 +1,109 @@
+https://docs.stormtrade.club/host-to-host/pay-out
+
+Интеграция "Host-To-Host"
+Создание заявок на выплаты
+Содержание этой страницы
+Создание заявок на выплаты
+
+Для создания выплат необходимо отправить API запрос Создание инвойса
+
+POST /api/merchant/invoices
+
+с указанием обязательных параметров а также параметров:
+
+type - тип заявки out
+
+paymentOption - тип оплаты, например, TO_CARD. Полный список доступных типов оплаты можно найти здесь
+
+paymentMethod - метод оплаты, например sberbank. Полный список поддерживаемых методов можно получить через Public API здесь
+
+paymentRequisites - реквизиты на которые необходимо совершить выплату.
+
+В случае если paymentOption указан как SBP - то обязательно необходимо указать paymentMethod - код банк получателя
+
+Если в paymentOption указан TO_CARD и в paymentMethod указан unknown код банка, то код банк будет определен по BIN номера карты.
+
+Параметры запроса​
+
+Название | Тип | Описание | 
+type | DirectionType | Тип заявки - out | 
+amount | string | Сумма, пример: 2000.00 | 
+currency | string | Валюта, пример: RUB | 
+notificationUrl | string | URL для получения уведомлений о статусе заявки | 
+notificationToken | string | Токен для валидации уведомлений | 
+internalId | string (optional) | ID заявки в системе мерчанта | 
+userId | string (optional) | ID клиента в системе мерчанта | 
+paymentOption | PaymentOption | Тип оплаты | 
+paymentMethod | PaymentMethod | Метод оплаты (код банка) | 
+paymentRequisites | RequisitesDTO | Реквизиты на которые необходимо совершить выплату | 
+
+Пример запроса​
+
+CURL
+curl --request POST \
+--url https://{{domain}}/api/merchant/invoices \
+--header 'Content-Type: application/json' \
+--header 'X-Identity: {{api_key}}' \
+--header 'X-Signature: {{sign}}' \
+-d '{
+    "type": "out",
+    "amount": "1000",
+    "currency": "RUB",
+    "notificationUrl": "https://webhook.site/0ee5347c-c0c1-41aa-a4ca-c87173be8bf2",
+    "notificationToken": "merchant_notification_token",
+    "internalId": "00001",
+    "userId": "uid-1",
+    "paymentOption": "TO_CARD",
+    "paymentMethod": "sberbank",
+    "paymentRequisites": {
+        "requisites": "4444 4444 4444 4444",
+        "holder": "holder name"
+    }
+}'
+
+Пример ответа​
+
+{
+  "id": "991a0e40-8cbd-405a-80fa-c84f2e4d5c6a",
+  "internalId": "00001",
+  "userId": "uid-1",
+  "type": "out",
+  "status": "new",
+  "paymentMethod": "sberbank",
+  "paymentOption": "TO_CARD",
+  "paymentRequisites": null,
+  "sum": {
+    "amount": "1000.00",
+    "currency": "RUB",
+    "subunit": 2
+  },
+  "storeId": 1,
+  "storeName": "Demo Test",
+  "receivedSumFromTaker": null,
+  "receivedSumFromMaker": null,
+  "serviceFeeSum": null,
+  "payoutSum": null,
+  "createdAt": "2024-11-04T13:55:45+00:00",
+  "expireAt": "2024-11-04T14:55:45+00:00",
+  "updatedAt": "2024-11-04T13:58:34+00:00",
+  "deals": [
+    {
+      "id": "595af0e7-261d-4451-b651-3cfeecc0755c",
+      "type": "out",
+      "status": "new",
+      "paymentMethod": "sberbank",
+      "paymentOption": "TO_CARD",
+      "requisites": {
+        "requisites": "4444 4444 4444 4444",
+        "holder": "holder name"
+      },
+      "canceledAt": "2024-11-04T14:25:48+00:00",
+      "disputeAttachment": null,
+      "disputeReason": null,
+      "disputeReasonData": [],
+      "payment": null,
+      "rate": "99.23",
+      "isActive": true
+    }
+  ]
+}

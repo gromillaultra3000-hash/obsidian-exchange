@@ -1,0 +1,87 @@
+https://docs.stormtrade.club/api-reference/merchant-api/payment-methods-list
+
+Справочник API
+Merchant API
+Список доступных методов оплаты
+Содержание этой страницы
+Список доступных методов оплаты
+
+GET /api/merchant/payment-methods
+
+Пример запроса​
+
+CURL
+curl --request GET \
+  --url https://{{domain}}/api/merchant/payment-methods \
+  --header 'X-Identity: {{api_key}}' \
+  --header 'X-Signature: {{sign}}'
+
+Пример ответа​
+
+[
+  {
+    "code": "unknown",
+    "name": "unknown",
+    "currency": "RUB"
+  },
+  {
+    "code": "tinkoff",
+    "name": "Тинькофф",
+    "currency": "RUB"
+  },
+  {
+    "code": "sberbank",
+    "name": "Сбербанк",
+    "currency": "RUB"
+  },
+  {
+    "code": "alfabank",
+    "name": "Альфа-Банк",
+    "currency": "RUB"
+  },
+  {
+    "code": "vtb",
+    "name": "ВТБ",
+    "currency": "RUB"
+  },
+  {
+    "code": "rosselhozbank",
+    "name": "Россельхозбанк",
+    "currency": "RUB"
+  },
+  {
+    "code": "raiffeisenbank",
+    "name": "Райффайзенбанк",
+    "currency": "RUB"
+  },
+  {
+    "code": "rsb",
+    "name": "Русский Стандарт",
+    "currency": "RUB"
+  },
+  {
+    "code": "promsvyaz",
+    "name": "Промсвязьбанк",
+    "currency": "RUB"
+  },
+  {
+    "code": "gazprombank",
+    "name": "Газпромбанк",
+    "currency": "RUB"
+  },
+  {
+    "code": "bank_open",
+    "name": "Банк Открытие",
+    "currency": "RUB"
+  },
+  {
+    "code": "ubrib",
+    "name": "Банк УБРиР",
+    "currency": "RUB"
+  },
+  {
+    "code": "mkb",
+    "name": "Московский кредитный банк",
+    "currency": "RUB"
+  }
+]

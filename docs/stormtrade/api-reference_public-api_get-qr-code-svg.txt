@@ -1,0 +1,20 @@
+https://docs.stormtrade.club/api-reference/public-api/get-qr-code-svg
+
+Справочник API
+Public API
+Получение SVG изображения QR кода
+Содержание этой страницы
+Получение SVG изображения QR кода
+
+GET /api/public/invoices/{id}/qr-code
+
+URL параметры​
+
+Название | Тип | Описание | 
+id | string | ID счета | 
+
+Пример запроса​
+
+CURL
+curl --request GET \
+  --url https://{{domain}}/api/public/invoices/3dbf4e92-ae60-4136-a7d6-bace925572dd1731483682/qr-code

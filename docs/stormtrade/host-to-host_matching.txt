@@ -1,0 +1,52 @@
+https://docs.stormtrade.club/host-to-host/matching
+
+Интеграция "Host-To-Host"
+Матчинг
+Содержание этой страницы
+Матчинг
+
+Для обработки заявок в системе матчинга, необходимо создать заявку на прием/выплаты стандартным способом, где в запросе создания инвойса
+
+POST /api/merchant/invoices
+
+указавается дополнительный параметр:
+
+allowMatching - флаг указывающий что заявку разрешено обрабатывать через систему матчинга
+
+matchingSettings - настройки матчинга заявки по выплатам
+
+см. API Создание инвойса
+
+В случае выплат - реквизиты заявки будут использоваться в выдачи на прием.
+
+В случае заявки на прием, после совершения перевода денежных средств пользователю нужно будет отправить файл подтверждающий перевод.
+Для этого мерчанту необходимо отправить API запрос Подтверждение перевода где передать файл в поле attachment
+
+Пример запроса создания выплаты​
+
+CURL
+curl --request POST \
+--url https://{{domain}}/api/merchant/invoices \
+--header 'Content-Type: application/json' \
+--header 'X-Identity: {{api_key}}' \
+--header 'X-Signature: {{sign}}' \
+-d '{
+    "type": "in",
+    "amount": "20000",
+    "currency": "RUB",
+    "notificationUrl": "https://webhook.site/0ee5347c-c0c1-41aa-a4ca-c87173be8bf2",
+    "notificationToken": "merchant_notification_token",
+    "internalId": "00001",
+    "userId": "uid-1",
+    "paymentOption": "TO_CARD",
+    "paymentRequisites": {
+        "requisites": "4627 1001 0165 4724"
+    },
+    "paymentMethod": "sberbank",
+    "allowMatching": true,
+    "matchingSettings": {
+        "maxAmount": "23000",
+        "minPartAmount": "1000",
+        "maxPartAmount": "5000"
+    }
+}'

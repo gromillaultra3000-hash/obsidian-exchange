@@ -1,0 +1,142 @@
+https://docs.stormtrade.club/host-to-host/crossborder
+
+Интеграция "Host-To-Host"
+Трансграничный перевод
+Содержание этой страницы
+Трансграничный перевод
+
+Прямой запрос реквизитов банка осуществляется через создание запроса к API
+
+POST /api/merchant/invoices
+
+Обязательные параметры для трансграничного направления:​
+
+type — тип запроса: in
+
+crossBorderCurrency — валюта перевода, например: TJS
+
+currency — валюта магазина: RUB
+
+paymentOption — только CROSS_BORDER для данного типа платежей
+
+paymentMethod — код банка, например: dcbank. Полный список поддерживаемых банков доступен через Public API.
+
+startDeal — true означает, что в рамках запроса обязательно нужно создать сделку с трейдером. Банковские реквизиты по созданной сделке будут возвращены в ответе.
+
+Если paymentMethod передан как null — будет возвращён первый доступный вариант реквизитов.
+
+Реквизиты для перевода возвращаются в массиве deals в ответе. В нём может быть либо один элемент, либо пустой массив.
+
+Если deals пуст, значит в данный момент нет доступных реквизитов.
+
+Параметры запроса​
+
+Название | Тип | Описание | 
+type | DirectionType | Тип направления — in | 
+amount | string | Сумма, например: 1011 | 
+currency | string | Валюта магазина, например: RUB | 
+notificationUrl | string | URL для получения уведомлений об изменении статуса инвойса | 
+notificationToken | string | Токен для валидации уведомлений | 
+internalId | string | ID в системе мерчанта | 
+userId | string | ID клиента в системе мерчанта | 
+paymentOption | string | Всегда CROSS_BORDER | 
+paymentMethod | string (optional) | Код банка, напримерdcbank | 
+crossBorderCurrency | string | Валюта трансграничного перевода, например: TJS | 
+crossBorderRequisiteType | string | Тип реквизита: PHONEили CARD | 
+successUrl | string | URL для редиректа при успешной оплате, например: http://success | 
+cancelUrl | string | URL для редиректа при отмене оплаты, например: http://fail | 
+startDeal | boolean | true для этого типа запроса | 
+
+Пример запроса​
+
+CURL
+curl --request POST \
+--url https://{{domain}}/api/merchant/invoices \
+--header 'Content-Type: application/json' \
+--header 'X-Identity: {{api_key}}' \
+--header 'X-Signature: {{sign}}' \
+-d '{
+"internalId": "00001",
+"type": "in",
+"paymentOption": "CROSS_BORDER",
+"paymentMethod": "dcbank",
+"crossBorderCurrency": "TJS",
+"crossBorderRequisiteType": "PHONE",
+"userId": "0001",
+"amount": "1011",
+"currency": "RUB",
+"notificationUrl": "https://webhook.site/0ee5387c-c0c1-41aa-a4ca-c87173be8bf",
+"successUrl": "http://success",
+"cancelUrl": "http://fail",
+"strictlySingleTransfer": true,
+"notificationToken": "test_token",
+"startDeal": true
+}'
+
+Пример ответа​
+
+{
+  "id": "425ee282-e2f3-4fc5-9644-02ddf0a0bbe0",
+  "internalId": "00001",
+  "userId": "0001",
+  "type": "in",
+  "status": "new",
+  "paymentMethod": null,
+  "paymentOption": "CROSS_BORDER",
+  "paymentRequisites": null,
+  "sum": {
+    "amount": "1011.00",
+    "currency": "RUB",
+    "subunit": 2
+  },
+  "storeId": 444,
+  "storeName": "СrossB_TEST",
+  "receivedSumFromTaker": {
+    "amount": "1011.00",
+    "currency": "RUB",
+    "subunit": 2
+  },
+  "receivedSumFromMaker": {
+    "amount": "11.58075601",
+    "currency": "USDT",
+    "subunit": 8
+  },
+  "serviceFeeSum": {
+    "amount": "1.15807561",
+    "currency": "USDT",
+    "subunit": 8
+  },
+  "payoutSum": {
+    "amount": "10.42268040",
+    "currency": "USDT",
+    "subunit": 8
+  },
+  "createdAt": "2025-04-07T13:57:02+00:00",
+  "expireAt": "2025-04-07T14:57:02+00:00",
+  "updatedAt": "2025-04-07T13:57:02+00:00",
+  "invoiceUrl": "https:\/\/go-pay.club\/invoice?id=425ee282-e2f3-4fc5-9644-02ddf0a0bbe",
+  "crossBorderCurrency": "TJS",
+  "deals": [
+    {
+      "id": "425ee282-e2f3-4fc5-9644-02ddf0a0bbe0",
+      "type": "in",
+      "status": "transfer_waiting",
+      "paymentMethod": "dcbank",
+      "paymentOption": "CROSS_BORDER",
+      "requisites": {
+        "requisites": "5678 4829 4678 2390",
+        "holder": "test"
+      },
+      "canceledAt": "2025-04-07T14:12:02+00:00",
+      "disputeAttachment": null,
+      "disputeReason": null,
+      "disputeReasonData": [],
+      "payment": null,
+      "rate": "87.30",
+      "isActive": true,
+      "qrCodeLink": "https:\/\/www.sberbank.com\/sms\/pbpn?requisiteNumber=5678482946782390",
+      "disputeResult": null,
+      "attachments": []
+    }
+  ]
+}

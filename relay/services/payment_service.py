@@ -35,6 +35,9 @@ class PaymentService:
             elif name == 'VertuProvider':
                 from providers.vertu import VertuProvider
                 return VertuProvider()
+            elif name == 'StormTradeProvider':
+                from providers.stormtrade import StormTradeProvider
+                return StormTradeProvider()
             else:
                 from providers.fallback import FallbackProvider
                 return FallbackProvider()
@@ -42,6 +45,42 @@ class PaymentService:
             logger.warning(f"Failed to load {name}: {e}, using Fallback")
             from providers.fallback import FallbackProvider
             return FallbackProvider()
+
+    def _try_stormtrade(self, order_id, amount, payment_method, telegram_id, invoice):
+        """
+        Последний резерв перед FallbackProvider: StormTrade — самая невыгодная
+        ставка, поэтому вызывается только когда выбранный провайдер не выдал
+        реквизиты. Возвращает (invoice, storm_used).
+        """
+        if self.provider.__class__.__name__ == 'StormTradeProvider':
+            return invoice, False
+        if not os.getenv('STORMTRADE_API_KEY', ''):
+            return invoice, False
+        health = get_health_scores().get('StormTradeProvider')
+        if health and not health.get('is_healthy', True):
+            logger.info("StormTrade эскалация пропущена: провайдер unhealthy/cooldown")
+            return invoice, False
+
+        try:
+            from providers.stormtrade import StormTradeProvider
+            storm = StormTradeProvider()
+        except Exception as e:
+            logger.warning(f"StormTrade не загрузился: {e}")
+            return invoice, False
+
+        logger.warning(f"Эскалация order {order_id} на StormTrade (последний резерв, "
+                       f"невыгодная ставка): {invoice.get('error')}")
+        start_time = time.time()
+        storm_invoice = storm.create_invoice(order_id, amount,
+                                             payment_method=payment_method,
+                                             user_id=telegram_id)
+        record_outcome('StormTradeProvider', 'error' not in storm_invoice,
+                       time.time() - start_time)
+        if 'error' in storm_invoice:
+            logger.warning(f"StormTrade тоже не выдал реквизиты для order {order_id}: "
+                           f"{storm_invoice['error']}")
+            return invoice, False
+        return storm_invoice, True
 
     def create_session(self, order_id, amount, client_ip=None, user_agent=None, telegram_id=None, payment_method=None):
         token = generate_session_token()
@@ -56,7 +95,7 @@ class PaymentService:
         for attempt in range(max_retries):
             start_time = time.time()
             extra = {}
-            if self.provider.__class__.__name__ in ('MonteraProvider', 'VertuProvider'):
+            if self.provider.__class__.__name__ in ('MonteraProvider', 'VertuProvider', 'StormTradeProvider'):
                 extra['user_id'] = telegram_id
             invoice = self.provider.create_invoice(order_id, amount, payment_method=payment_method, **extra)
             elapsed = time.time() - start_time
@@ -79,6 +118,28 @@ class PaymentService:
         c = conn.cursor()
 
         if 'error' in invoice:
+            # Эскалация на StormTrade (худшая ставка — только когда остальные
+            # не выдали реквизиты), затем уже FallbackProvider
+            invoice, storm_used = self._try_stormtrade(order_id, amount, payment_method,
+                                                       telegram_id, invoice)
+            if storm_used and 'error' not in invoice:
+                c.execute("INSERT INTO payment_sessions (session_token, order_id, amount, provider, status, expires_at, client_ip, user_agent, telegram_id) VALUES (?,?,?,?,'invoice_created',?,?,?,?)",
+                          (token, order_id, amount, 'stormtrade', expires_at, client_ip, user_agent, telegram_id))
+                c.execute("UPDATE payment_sessions SET provider_invoice_id=?, qr_payload=?, provider_payload=?, updated_at=datetime('now') WHERE session_token=?",
+                          (invoice.get('invoice_id'), invoice.get('qr_payload'), str(invoice.get('raw', {})), token))
+                conn.commit()
+                conn.close()
+                logger.info(f"Session {token} created for order {order_id} via StormTrade (last resort)")
+                return {
+                    "session_token": token,
+                    "invoice_id": invoice.get('invoice_id'),
+                    "qr_payload": invoice.get('qr_payload'),
+                    "banks": invoice.get('banks', []),
+                    "amount": amount,
+                    "raw": invoice.get('raw', {})
+                }
+
+        if 'error' in invoice:
             logger.warning(f"Основной провайдер {self.provider.__class__.__name__} недоступен: {invoice['error']}. Пробуем fallback.")
             fallback = FallbackProvider()
             invoice = fallback.create_invoice(order_id, amount, payment_method=payment_method)
@@ -97,7 +158,7 @@ class PaymentService:
             else:
                 provider_names = {'PlategaProvider': 'platega', 'GreenPayProvider': 'greenpay',
                                   'MonteraProvider': 'montera', 'LavaProvider': 'lava',
-                                  'VertuProvider': 'vertu'}
+                                  'VertuProvider': 'vertu', 'StormTradeProvider': 'stormtrade'}
                 provider_name = provider_names.get(self.provider.__class__.__name__, 'platega')
 
         c.execute("INSERT INTO payment_sessions (session_token, order_id, amount, provider, status, expires_at, client_ip, user_agent, telegram_id) VALUES (?,?,?,?,'invoice_created',?,?,?,?)",

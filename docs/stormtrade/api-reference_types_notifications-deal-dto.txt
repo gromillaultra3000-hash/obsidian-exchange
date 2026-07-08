@@ -1,0 +1,65 @@
+https://docs.stormtrade.club/api-reference/types/notifications-deal-dto
+
+Справочник API
+Описание объектов API
+Notifications\DealDTO
+Содержание этой страницы
+Notifications\DealDTO
+
+Объект Notifications\DealDTO представляет данные о сделке, включая информацию о статусе сделки, методах оплаты,
+реквизитах, а также данные, связанные с возможными спорами и результатами платежа.
+
+Описание полей объекта​
+
+Название | Тип | Описание | 
+id | string | Уникальный идентификатор сделки. | 
+type | DirectionType | Направление платежа (входящий или исходящий). | 
+status | DealStatus | Статус сделки. | 
+paymentMethod | PaymentMethod | Метод оплаты, использованный для сделки. | 
+paymentOption | PaymentOption | Вариант платежа, используемый для сделки. | 
+requisites | RequisitesDTO | Реквизиты для проведения платежа по сделке. | 
+canceledAt | string | Дата и время отмены сделки в формате ISO 8601. | 
+disputeAttachment | string | null | Ссылка на прикрепленный файл с документами для разрешения спора, если применимо. | 
+disputeReason | DisputeReason | null | Причина спора, если применимо. | 
+disputeReasonData | DisputeReasonDataDTO | Дополнительные данные по причине спора. | 
+payment | Notifications\PaymentDTO | null | Данные о платеже, если применимо. | 
+attachments | string[] | Список ссылок на прикрепленные файлы. | 
+disputeResult | DisputeResult | null | Результат спора, если применимо. | 
+
+Пример​
+
+{
+  "id": "e15e0486-c17a-4530-a259-997cbab26a0b",
+  "type": "in",
+  "status": "completed",
+  "paymentMethod": "tinkoff",
+  "paymentOption": "TO_CARD",
+  "requisites": {
+    "requisites": "2231 7017 2272 7358",
+    "holder": "holder name"
+  },
+  "canceledAt": "2024-11-23T21:10:12+00:00",
+  "disputeAttachment": null,
+  "disputeReason": null,
+  "disputeReasonData": [],
+  "payment": {
+    "takerSum": {
+      "amount": "3650.00",
+      "currency": "RUB",
+      "subunit": 2
+    },
+    "makerSum": {
+      "amount": "35.00527476",
+      "currency": "USDT",
+      "subunit": 8
+    },
+    "feeSum": {
+      "amount": "2.97544836",
+      "currency": "USDT",
+      "subunit": 8
+    },
+    "date": "2024-11-23T20:43:07+00:00"
+  },
+  "attachments": [],
+  "disputeResult": null
+}

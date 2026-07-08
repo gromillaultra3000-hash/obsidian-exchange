@@ -1,0 +1,39 @@
+https://docs.stormtrade.club/api-reference/types/notifications-payment-dto
+
+Справочник API
+Описание объектов API
+Notifications\PaymentDTO
+Содержание этой страницы
+Notifications\PaymentDTO
+
+Объект Notifications\PaymentDTO представляет данные о платеже, включая информацию о суммах, связанных с платёжной
+операцией.
+
+Описание полей объекта​
+
+Название | Тип | Описание | 
+date | string | Дата и время совершения платежа в формате ISO 8601. | 
+takerSum | MoneyDTO | Сумма, отправленная/полученная в валюте инвойса. | 
+makerSum | MoneyDTO | Сумма, полученная/отправленная магазином мерчанта. | 
+feeSum | MoneyDTO | Комиссия, взятая за проведение платежа. | 
+
+Пример​
+
+{
+  "takerSum": {
+    "amount": "3650.00",
+    "currency": "RUB",
+    "subunit": 2
+  },
+  "makerSum": {
+    "amount": "35.00527476",
+    "currency": "USDT",
+    "subunit": 8
+  },
+  "feeSum": {
+    "amount": "2.97544836",
+    "currency": "USDT",
+    "subunit": 8
+  },
+  "date": "2024-11-23T20:43:07+00:00"
+}

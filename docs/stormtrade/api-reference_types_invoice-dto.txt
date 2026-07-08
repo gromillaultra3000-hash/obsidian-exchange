@@ -1,0 +1,84 @@
+https://docs.stormtrade.club/api-reference/types/invoice-dto
+
+Справочник API
+Описание объектов API
+InvoiceDTO
+Содержание этой страницы
+InvoiceDTO
+
+Объект InvoiceDTO представляет структуру данных, описывающую инвойс, включая информацию о пользователе, платеже,
+комиссионных сборах и сделках, связанных с инвойсом.
+
+Описание полей объекта​
+
+Название | Тип | Описание | 
+id | string | Уникальный идентификатор инвойса. | 
+internalId | string | null | Идентификатор инвойса в системе мерчанта. Если не установлен, поле равно null. | 
+userId | string | null | Идентификатор клиента мерчанта. Если не указан, поле равно null. | 
+type | DirectionType | Тип инвойса: прием или выплата. | 
+status | InvoiceStatus | Статус инвойса. | 
+paymentMethod | PaymentMethod | null | Метод оплаты (код банка) указанный при создании | 
+paymentOption | PaymentOption | null | Тип оплаты указанный при создании инвойса, например, TO_CARD, SBP и т. д. | 
+paymentRequisites | RequisitesDTO | null | Указанные реквизиты для оплаты инвойса для выплаты (out). Для типа in всегда null | 
+sum | MoneyDTO | Сумма инвойса указанная при создании. | 
+storeId | number | Идентификатор магазина, которому принадлежит инвойс. | 
+storeName | string | Название магазина, которому принадлежит инвойс. | 
+receivedSumFromTaker | MoneyDTO | Актуальная сумма инвойса, может отличаться от значения sum если использовалась уникализации сумм либо были споры с изменением суммы | 
+receivedSumFromMaker | MoneyDTO | Актуальная полученная/отправленая сумма мерчантом (обычно в USDT) | 
+serviceFeeSum | MoneyDTO | null | Комиссия. | 
+payoutSum | MoneyDTO | null | Сумма выплаты, если применимо. | 
+createdAt | string | Время создания инвойса в формате ISO 8601. | 
+expireAt | string | Время истечения срока действия инвойса в формате ISO 8601. | 
+updatedAt | string | Время последнего обновления инвойса в формате ISO 8601. | 
+deals | DealDTO[] | Массив сделок, связанных с этим инвойсом. | 
+
+Пример​
+
+{
+  "id": "c8a9d474-b35b-4961-9bf4-b049e40dbc5b",
+  "internalId": "test-id",
+  "userId": "test-uid",
+  "type": "in",
+  "status": "new",
+  "paymentMethod": null,
+  "paymentOption": null,
+  "paymentRequisites": null,
+  "sum": {
+    "amount": "120.00",
+    "currency": "RUB",
+    "subunit": 2
+  },
+  "storeId": 7,
+  "storeName": "Test Store",
+  "receivedSumFromTaker": null,
+  "receivedSumFromMaker": null,
+  "serviceFeeSum": null,
+  "payoutSum": null,
+  "createdAt": "2024-11-22T10:38:52+00:00",
+  "expireAt": "2024-11-22T11:38:52+00:00",
+  "updatedAt": "2024-11-22T10:38:52+00:00",
+  "invoiceUrl": "https:\/\/{{domain}}\/invoice?id=c8a9d474-b35b-4961-9bf4-b049e40dbc5b",
+  "deals": [
+    {
+      "id": "c8a9d474-b35b-4961-9bf4-b049e40dbc5b",
+      "type": "in",
+      "status": "transfer_waiting",
+      "paymentMethod": "sberbank",
+      "paymentOption": "TO_CARD",
+      "requisites": {
+        "requisites": "2234 2036 5607 2495",
+        "holder": "test holder"
+      },
+      "canceledAt": "2024-11-22T10:43:00+00:00",
+      "disputeAttachment": null,
+      "disputeReason": null,
+      "disputeReasonData": [],
+      "payment": null,
+      "rate": "97.35",
+      "isActive": true,
+      "qrCodeLink": "https:\/\/www.sberbank.com\/sms\/pbpn?requisiteNumber=2234203656072495",
+      "disputeResult": null,
+      "attachments": []
+    }
+  ]
+}

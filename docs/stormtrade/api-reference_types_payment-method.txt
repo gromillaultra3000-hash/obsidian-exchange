@@ -1,0 +1,18 @@
+https://docs.stormtrade.club/api-reference/types/payment-method
+
+Справочник API
+Описание объектов API
+PaymentMethod
+Содержание этой страницы
+PaymentMethod
+
+Перечисление типа string которое содержит код платежного метода (банка).
+
+Возможные значения​
+
+Значение | Описание | 
+tinkoff | Т-Банк | 
+sberbank | Сбербанк | 
+alfabank | Альфа-Банк | 
+
+Полный список возможных значений можно получить здесь

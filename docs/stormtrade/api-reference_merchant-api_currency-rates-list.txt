@@ -1,0 +1,30 @@
+https://docs.stormtrade.club/api-reference/merchant-api/currency-rates-list
+
+Справочник API
+Merchant API
+Список валютных курсов
+Содержание этой страницы
+Список валютных курсов
+
+GET /api/merchant/currency-rates/current
+
+Пример запроса​
+
+CURL
+curl --request GET \
+--url https://{{domain}}/api/merchant/currency-rates/current \
+--header 'X-Identity: {{api_key}}' \
+--header 'X-Signature: {{sign}}'
+
+Пример ответа​
+
+{
+    "in": {
+        "pair": "USDT/RUB",
+        "rate": "102.05"
+    },
+    "out": {
+        "pair": "USDT/RUB",
+        "rate": "102.05"
+    }
+}
