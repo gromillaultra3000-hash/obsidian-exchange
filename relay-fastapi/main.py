@@ -1793,7 +1793,7 @@ async def analytics_page(request: Request):
     email = web_user.get("email", "")
     if str(tg_id) != str(ADMIN_ID) and "admin" not in email:
         raise HTTPException(status_code=403, detail="Доступ запрещён")
-    return templates.TemplateResponse("admin_analytics.html", {"request": request})
+    return templates.TemplateResponse(request, "admin_analytics.html")
 
 
 # ── Фоновые задачи ──
@@ -1921,11 +1921,11 @@ async def system_status():
 # --- Обработчики ошибок ---
 @app.exception_handler(404)
 async def not_found_handler(request: Request, exc):
-    return templates.TemplateResponse("404.html", {"request": request}, status_code=404)
+    return templates.TemplateResponse(request, "404.html", status_code=404)
 
 @app.exception_handler(500)
 async def server_error_handler(request: Request, exc):
-    return templates.TemplateResponse("500.html", {"request": request}, status_code=500)
+    return templates.TemplateResponse(request, "500.html", status_code=500)
 
 
 # --- Запуск ---

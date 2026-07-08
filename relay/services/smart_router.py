@@ -2,6 +2,7 @@
 Intelligent payment provider router with health-based scoring and auto-failover.
 Tracks success/failure per provider and routes to the healthiest available one.
 """
+import os
 import sqlite3
 import random
 import logging
@@ -30,6 +31,7 @@ PROVIDER_CONFIG = {
         "min_amount": 100,
         "cooldown_seconds": 180,
         "max_consecutive_fails": 3,
+        "required_env": "LAVA_SHOP_ID",  # не выбирать, пока нет учётных данных
     },
     "GreenPayProvider": {
         "weight": 0.05,        # legacy backup (frequently unavailable)
@@ -139,6 +141,10 @@ def choose_provider(amount: float = 10000) -> Optional[str]:
         if amount < cfg.get("min_amount", 0):
             logger.debug("Provider %s skipped: amount %.0f < min %.0f",
                          name, amount, cfg.get("min_amount", 0))
+            continue
+        required_env = cfg.get("required_env")
+        if required_env and not os.getenv(required_env, ""):
+            logger.debug("Provider %s skipped: env %s not set", name, required_env)
             continue
         info = scores.get(name, {"is_healthy": True, "health_score": 0.5})
         if not info.get("is_healthy", True):

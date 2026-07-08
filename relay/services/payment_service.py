@@ -29,6 +29,9 @@ class PaymentService:
             elif name == 'GreenPayProvider':
                 from providers.greenpay import GreenPayProvider
                 return GreenPayProvider()
+            elif name == 'LavaProvider':
+                from providers.lava import LavaProvider
+                return LavaProvider()
             else:
                 from providers.fallback import FallbackProvider
                 return FallbackProvider()
