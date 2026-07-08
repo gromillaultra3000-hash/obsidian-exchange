@@ -75,6 +75,11 @@ git push origin master
 
 ### Сессия 08.07.2026
 Выполнено:
+- Рассылка (пост раз в 5ч): новый видеобаннер 1280×640 (генератор в скретчпаде,
+  файл bot/images/post_header.mp4, file_id в .env POST_HEADER_FILE_ID), переписан
+  текст compose_daily_post (846 символов, лимит caption 1024), добавлены CTA-кнопки.
+  FIX: рассылка уходила через 60с после КАЖДОГО рестарта бота (21 шт за 3 дня) —
+  теперь Redis-метка monitor:last_daily_post (db=1) держит интервал 5ч через рестарты
 - Второй админ (8983681949, ADMIN_ID_2 в bot/.env): ADMIN_IDS + is_admin() +
   notify_admins() в боте, notify_admins_tg() в relay. Все админ-команды и
   уведомления/алерты — обоим; /removeworker (удаление) — только главный ADMIN_ID.
