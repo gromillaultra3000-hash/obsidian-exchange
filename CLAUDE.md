@@ -109,6 +109,24 @@ git push origin master
 
 ## Сессии
 
+### Сессия 09.07.2026 (кастом-эмодзи через юзербот)
+Выполнено:
+- feat: bot/emoji_userbot.py (Telethon 1.44 в bot/venv) — премиум-аккаунт
+  редактирует посты бота в CHANNEL_ID и накладывает custom_emoji entities поверх
+  fallback-строки 🔮💜💎⚡🌑⚡🟣✨💫 (O B S I D I A N EX из emoji_ids.json),
+  текст и bold/blockquote сохраняются. Команды: login / edit <id> / watch.
+  Оффсеты UTF-16 проверены юнит-тестом. systemd emoji-userbot.service создан,
+  НЕ включён (нужен login)
+- _PROMO_POST_HTML: первой строкой бренд-строка фолбэков (шапка для наложения)
+Требует действий пользователя:
+- my.telegram.org с ПРЕМИУМ-аккаунта (второй админ) → API development tools →
+  TG_API_ID/TG_API_HASH в bot/.env; премиум-аккаунт должен быть админом канала
+  с правом редактирования сообщений
+- `! /root/bot/venv/bin/python3 /root/bot/emoji_userbot.py login` (телефон+код),
+  затем `systemctl enable --now emoji-userbot`
+- Проверка: /postpromo в канал → юзербот в течение секунды заменит шапку на
+  анимированные буквы. Разово: emoji_userbot.py edit <msg_id>
+
 ### Сессия 09.07.2026 (новый провайдер XPayConnect)
 Выполнено:
 - feat: провайдер XPayConnectProvider (relay/providers/xpayconnect.py) по доке
