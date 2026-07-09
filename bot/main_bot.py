@@ -6761,7 +6761,8 @@ async def feature_broadcast_scheduler():
         await asyncio.sleep(600)  # проверяем каждые 10 минут
 
 
-_PROMO_POST_HTML = """🟣 <b>ObsidianExchange</b> — крипто-обменник нового поколения
+_PROMO_POST_HTML = """🔮💜💎⚡🌑⚡🟣✨💫
+<b>ObsidianExchange</b> — крипто-обменник нового поколения
 
 Без паспорта · Без ожидания · Бот работает сам круглосуточно
 
