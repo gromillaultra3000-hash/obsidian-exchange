@@ -3686,7 +3686,8 @@ class SupportTicketState(StatesGroup):
     message = State()
     reply   = State()   # для ответа от админа
 
-@router.callback_query(F.data == "menu_support")
+# ОТКЛЮЧЁН: тикеты вынесены в отдельный support-бот (@ObsidianSupBot). Активен
+# menu_support выше (редирект на support-бот). Ниже — легаси внутрибот-тикеты.
 async def menu_support_new(callback: CallbackQuery, state: FSMContext):
     uid = callback.from_user.id
     # Показываем открытые тикеты юзера
@@ -4113,8 +4114,8 @@ async def admin_stats_refresh(callback: CallbackQuery):
     if not is_admin(callback.from_user.id):
         return
     await callback.message.delete()
-    await cmd_stats(callback.message.__class__.__new__(callback.message.__class__))
-    # Простой подход — переиспользуем через новое сообщение
+    # Сводка считается инлайн ниже (раньше здесь был битый вызов cmd_stats с
+    # пустым Message — ломал refresh; убран)
     with db_conn(5) as conn:
         c = conn.cursor()
         c.execute("""SELECT COUNT(*), COALESCE(SUM(rub_amount),0)
@@ -5107,7 +5108,7 @@ async def cmd_limits(message: Message):
         f"Комиссия: 27% (до 5000 RUB), 23% (5000-15000 RUB), 19% (от 15000 RUB) для BTC/LTC; 2% для USDT"
     )
 
-@router.message(Command("stats"))
+# ОТКЛЁН дубликат: /stats обслуживает cmd_stats выше. Тело оставлено как легаси.
 async def cmd_stats(message: Message):
     if not is_admin(message.from_user.id): return
     with db_conn(10) as conn:
@@ -5441,7 +5442,7 @@ async def lo_confirm(callback: CallbackQuery, state: FSMContext):
     await state.clear()
     await callback.answer()
 
-@router.message(Command("limits"))
+# (снят дубль /limits — команду обслуживает cmd_limits выше; здесь только колбэк lo_list)
 @router.callback_query(F.data == "lo_list")
 async def lo_list(update, state: FSMContext = None):
     msg = update if isinstance(update, Message) else update.message
@@ -5896,7 +5897,7 @@ async def ssl_healthcheck():
         await asyncio.sleep(86400)  # раз в сутки
 
 
-@router.message(Command("broadcast"))
+# ОТКЛЁН дубликат: /broadcast обслуживает cmd_broadcast (FSM) выше.
 async def cmd_broadcast(message: Message):
     if not is_admin(message.from_user.id): return
     text = message.text.partition(' ')[2]
@@ -6038,7 +6039,8 @@ async def handle_webapp(message: Message, state: FSMContext):
     await message.answer(caption, reply_markup=inline_kb, parse_mode="HTML")
 
 
-@router.message(Command("history"))
+# (снят дубль /history — команду обслуживает простая cmd_history выше; эта
+# пагинированная версия остаётся для колбэка hist_ пагинации)
 async def cmd_history(message: Message, page: int = 1):
     try:
         if len(message.text.split()) > 1:
@@ -6074,7 +6076,7 @@ async def pagination(callback: CallbackQuery):
     await callback.answer()
 
 
-@router.message(Command("order"))
+# ОТКЛЁН дубликат: /order обслуживает cmd_order_card выше (карточка для операторов).
 async def cmd_order(message: Message):
     if not is_admin(message.from_user.id):
         return
@@ -6231,7 +6233,7 @@ async def cmd_testpost(message: Message):
     await message.answer("✅ Готово! Для запуска рассылки всем: /broadcast")
 
 
-@router.message(Command("broadcast"))
+# ОТКЛЁН дубликат: /broadcast обслуживает cmd_broadcast (FSM) выше.
 async def cmd_broadcast(message: Message):
     """Запускает немедленную рассылку всем пользователям (только для админа)."""
     if not is_admin(message.from_user.id):
