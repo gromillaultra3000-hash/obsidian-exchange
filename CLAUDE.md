@@ -19,7 +19,7 @@ Production крипто-обменник RUB→BTC/LTC/USDT через СБП, n
 - Smart router: relay/services/smart_router.py
 - Деплой: git push → GitHub → сервер тянет каждые 15 мин (systemd timer)
 
-## Провайдеры оплаты (актуально на 08.07.2026)
+## Провайдеры оплаты (актуально на 09.07.2026)
 
 | Провайдер | Статус | Вес |
 |-----------|--------|-----|
@@ -31,6 +31,7 @@ Production крипто-обменник RUB→BTC/LTC/USDT через СБП, n
 | StormTradeProvider | ✅ активен (ключи заполнены 08.07, API api.stormtrade.club подтверждён живым тестом) | last resort, вне weighted-выбора |
 | FallbackProvider | ✅ резерв | 5% |
 | PlategaProvider | ❌ offline | не использовать |
+| XPayConnectProvider | ⏸ код готов, ключ работает (balance 200), но у мерчанта Obsidian НЕ включён ни один платёжный метод (createOrder → 403 «Payment type … is not allowed», allowed=[]) — писать администратору XPay | 40% (сейчас unhealthy вручную) |
 
 StormTrade (docs.stormtrade.club): худшая ставка → НЕ участвует в обычном выборе
 роутера (`last_resort: True`). Подключается только: 1) эскалация в
@@ -58,6 +59,18 @@ GET /v1/deals/{platform_id}/ (Pending/Approved/Declined/Revoked). Вебхуко
 статусы опрашивает vertu_poll_task в relay-fastapi/main.py (каждые 30 с) и
 /api/order/{id}. Доки: https://api.vertu.sh/docs-api (basic auth
 lAhJs08LTdPlXIQ / LcrT6pS4rHtCtCP — это креды ТОЛЬКО от доков, к API не подходят).
+
+XPayConnect (docs.xpayconnect.io, API api.xpayconnect.io): подпись каждого запроса —
+заголовки client-api-key (ключ) + x-api-key (SHA-256 от `<KEY>|<тело без пробелов>`,
+для GET тело пустое). Создание: POST /merchant/createOrder (type: sim=СБП, card=карта,
+any=любой), реквизиты сразу в ответе (payment_details), финальная сумма может быть
+СДВИНУТА уникализацией — платить ровно payment_details.amount (провайдер кладёт её в
+raw.amount_rub). Статус: GET /merchant/order/{id}. Вебхук /xpay/webhook — только при
+success, подпись x-api-key от сырого тела. Cancel-эндпоинта НЕТ. Ключи XPAY_* в
+bot/.env. Кнопки в боте pm_xpay_* включаются переменной XPAY_BUTTONS=1 — НЕ включать,
+пока XPay не активирует методы. Когда активируют: XPAY_BUTTONS=1, restart, и
+`python3 -c "import sys;sys.path.insert(0,'/root/relay');from services.smart_router import reset_provider;reset_provider('XPayConnectProvider')"`.
+Скачанная дока — в git: docs/xpayconnect/.
 
 ## Правила коммитов
 
@@ -95,6 +108,32 @@ git push origin master
 6. Новый провайдер: изучить Lava / PayOK как дополнительный СБП канал
 
 ## Сессии
+
+### Сессия 09.07.2026 (новый провайдер XPayConnect)
+Выполнено:
+- feat: провайдер XPayConnectProvider (relay/providers/xpayconnect.py) по доке
+  docs.xpayconnect.io (скачана в docs/xpayconnect/, 14 стр.). Подпись SHA-256
+  `<KEY>|<тело>`; тело отправляется ровно той же компактной JSON-строкой, что
+  подписана (data=, не json= — иначе подпись не совпадёт). order_id с timestamp
+  (retry не ловит 409 ORDER_ALREADY_EXISTS). Финальная сумма после уникализации
+  берётся из payment_details.amount → raw.amount_rub
+- smart_router: weight 0.40, required_env XPAY_API_KEY
+- payment_service: _load_provider, provider='xpay', user_id→client_id
+- relay-fastapi/main.py: вебхук POST /xpay/webhook (подпись x-api-key от сырого
+  тела, приходит только при success) — orders paid + уведомление юзеру.
+  Проверено curl: неподписанный запрос → 401
+- бот: кнопки «🚀 СБП/Карта — мгновенное подтверждение» (pm_xpay_*) — спрятаны
+  за XPAY_BUTTONS=1 (см. ниже почему)
+- Ключи в bot/.env: XPAY_API_KEY, XPAY_MERCHANT_ID=Obsidian. Сервисы перезапущены
+- Мок-тесты: парсинг sim/card/nspk, ошибки, parse_webhook, подпись, роутер (300
+  прогонов выбирает XPay) — всё ОК
+Живой тест: auth работает (balance 200: 0.00 RUB, payoutEnabled=false), но
+createOrder на sim/card/any → 403 «Payment type … is not allowed for this
+merchant», allowed=[] — у мерчанта не включён НИ ОДИН метод. Провайдер помечен
+unhealthy вручную (роутер скипает; авто-восстановится при первом успехе).
+Действие юзера: написать администратору XPayConnect — включить методы sim/card
+мерчанту Obsidian. После включения: XPAY_BUTTONS=1 в bot/.env,
+systemctl restart relay-fastapi exchange-bot, reset_provider('XPayConnectProvider').
 
 ### Сессия 08.07.2026 (ночь — разбор Vertu «Не удалось выдать сделку»)
 Полная диагностика, код НЕ виноват:

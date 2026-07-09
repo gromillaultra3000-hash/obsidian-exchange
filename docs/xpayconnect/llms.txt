@@ -1,0 +1,19 @@
+# XPayConnect Docs
+
+## Documentation
+
+- [XPayConnect API](https://docs.xpayconnect.io/readme.md): API документация для интеграции с платёжной платформой XPayConnect
+- [Описание протокола](https://docs.xpayconnect.io/concepts/protocol.md): Формат запросов и ответов API XPayConnect
+- [Авторизация](https://docs.xpayconnect.io/concepts/auth.md): Подпись запросов к API через SHA-256
+- [Вебхуки](https://docs.xpayconnect.io/concepts/webhooks.md): Получение уведомлений о статусах ордеров
+- [Создание ордера (PAYIN-FIAT)](https://docs.xpayconnect.io/orders/create.md): Создаёт новый фиатный ордер (карта, СБП, переводы) и возвращает реквизиты для оплаты
+- [Создание ордера (PAYIN-CRYPTO)](https://docs.xpayconnect.io/orders/create-crypto.md): Создаёт ордер на оплату криптовалютой (USDT, BTC, LTC, ETH, BNB, TON) и возвращает адрес кошелька
+- [Загрузка чека](https://docs.xpayconnect.io/orders/receipt-upload.md): Загрузка чека (PDF, JPEG, PNG) для подтверждения оплаты по методам card\_pdf и sbp\_pdf
+- [Создание выплаты (PAYOUT)](https://docs.xpayconnect.io/orders/payout.md): Создаёт новую выплату в системе и возвращает информацию о ней
+- [Информация об ордере](https://docs.xpayconnect.io/orders/info.md): Возвращает информацию об ордере по его идентификатору
+- [Список ордеров](https://docs.xpayconnect.io/orders/list.md): Возвращает список ордеров мерчанта с пагинацией и фильтрацией
+- [Пул реквизитов](https://docs.xpayconnect.io/orders/requisite-pool.md): Получение пула свободных реквизитов и создание ордера по выбранному реквизиту
+- [Баланс](https://docs.xpayconnect.io/finance/balance.md): Возвращает текущий баланс мерчанта
+- [Коды ошибок](https://docs.xpayconnect.io/reference/error-codes.md): Коды ошибок API и их описания
+- [Валюты](https://docs.xpayconnect.io/reference/currencies.md): Поддерживаемые валюты для ордеров в XPayConnect
+- [Платёжные методы](https://docs.xpayconnect.io/reference/payment-methods.md): Полный список платёжных методов — фиатных и крипто

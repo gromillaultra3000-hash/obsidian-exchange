@@ -33,6 +33,13 @@ PROVIDER_CONFIG = {
         "max_consecutive_fails": 3,
         "required_env": "VERTU_LOGIN",  # не выбирать, пока нет учётных данных
     },
+    "XPayConnectProvider": {
+        "weight": 0.40,        # карта/СБП РФ, вебхук + уникализация суммы (docs.xpayconnect.io)
+        "min_amount": 1000,
+        "cooldown_seconds": 180,
+        "max_consecutive_fails": 3,
+        "required_env": "XPAY_API_KEY",  # не выбирать, пока нет учётных данных
+    },
     "LavaProvider": {
         "weight": 0.10,        # SBP + card via hosted payment page
         "min_amount": 100,

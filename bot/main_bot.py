@@ -428,6 +428,19 @@ async def build_payment_methods_kb(order_id: int, amount: float) -> InlineKeyboa
             callback_data=f"pm_vertu_card_{order_id}"
         )])
 
+    # XPayConnect — СБП / Карта, подтверждение автоматическое вебхуком (без чека).
+    # XPAY_BUTTONS=1 ставить только когда XPay включит методы мерчанту
+    # (на 09.07.2026 allowed=[] — любой createOrder отдаёт 403)
+    if os.getenv('XPAY_API_KEY', '') and os.getenv('XPAY_BUTTONS', '') == '1':
+        rows.append([InlineKeyboardButton(
+            text="🚀 СБП — мгновенное подтверждение",
+            callback_data=f"pm_xpay_sbp_{order_id}"
+        )])
+        rows.append([InlineKeyboardButton(
+            text="🚀 Карта — мгновенное подтверждение",
+            callback_data=f"pm_xpay_card_{order_id}"
+        )])
+
     # Brabus VietQR — QR-код для оплаты через Сбер/ВТБ, от 1 000 ₽
     if amt >= 1000:
         rows.append([InlineKeyboardButton(
@@ -2650,6 +2663,43 @@ async def process_payment_method(callback: CallbackQuery, state: FSMContext):
         if abs(pay_amount - round(pay_amount)) > 0.004:
             amount_str = f"{pay_amount:,.2f}"
             exact_note = "\n⚠️ Переведите <b>точную сумму</b> — до копейки."
+        else:
+            amount_str = f"{int(round(pay_amount)):,}"
+            exact_note = ""
+        way = "по СБП" if method == "sbp" else "на карту"
+        caption = (f"🟣 ObsidianExchange\nЗаявка #{order_id}\n\n"
+                   f"Сумма: <b>{amount_str} ₽</b>\n\n"
+                   f"Переведите указанную сумму {way}:\n{requisites_text}\n{exact_note}\n"
+                   f"⏱ Реквизиты действительны <b>30 минут</b>.\n"
+                   f"✅ Оплата подтверждается автоматически — чек не требуется.").replace(",", " ")
+
+    elif pm.startswith("pm_xpay_"):
+        # XPayConnect: реквизиты на экране, оплата подтверждается автоматически
+        # вебхуком /xpay/webhook, чек не нужен
+        method = "sbp" if pm.startswith("pm_xpay_sbp_") else "card"
+        try:
+            from services.payment_service import PaymentService
+            from providers.xpayconnect import XPayConnectProvider
+            payment_service = PaymentService(provider=XPayConnectProvider())
+            session = payment_service.create_session(order_id, amount, payment_method=method,
+                                                     telegram_id=callback.from_user.id)
+            if 'error' in session:
+                await reply_no_requisites(callback, order_id)
+                await callback.answer()
+                return
+            raw_session = session.get('raw') or {}
+            requisites_text = format_requisites(raw_session)
+        except Exception as e:
+            logger.error(f"Ошибка создания сессии XPay {method}: {e}")
+            await reply_no_requisites(callback, order_id)
+            await callback.answer()
+            return
+
+        # XPay может сдвинуть сумму для уникализации — платить нужно ровно её
+        pay_amount = float(raw_session.get('amount_rub') or amount)
+        if abs(pay_amount - float(amount)) > 0.004:
+            amount_str = f"{pay_amount:,.0f}" if pay_amount == int(pay_amount) else f"{pay_amount:,.2f}"
+            exact_note = "\n⚠️ Переведите <b>точную сумму</b> — она изменена для автоматического зачисления."
         else:
             amount_str = f"{int(round(pay_amount)):,}"
             exact_note = ""

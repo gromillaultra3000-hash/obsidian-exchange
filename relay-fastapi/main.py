@@ -38,6 +38,7 @@ GREENPAY_API_SECRET = os.getenv('GREENPAY_API_SECRET', '')
 MONTERA_API_TOKEN = os.getenv('MONTERA_API_TOKEN', '')
 BRABUS_NOTIFICATION_TOKEN = os.getenv('BRABUS_NOTIFICATION_TOKEN', '')
 STORMTRADE_NOTIFICATION_TOKEN = os.getenv('STORMTRADE_NOTIFICATION_TOKEN', '')
+XPAY_API_KEY = os.getenv('XPAY_API_KEY', '')
 MIN_AMOUNT = float(os.getenv('MIN_AMOUNT', 2000))
 MAX_AMOUNT = float(os.getenv('MAX_AMOUNT', 500000))
 BOT_TOKEN = os.getenv('BOT_TOKEN', '')
@@ -1752,6 +1753,43 @@ async def stormtrade_webhook(request: Request):
     elif order_id and status in ('canceled', 'expired'):
         audit_log("stormtrade_webhook_cancelled", f"order={order_id} status={status}")
     audit_log("stormtrade_webhook_processed", f"order={order_id} status={status}")
+    return JSONResponse(status_code=200, content={})
+
+@app.post("/xpay/webhook")
+async def xpay_webhook(request: Request):
+    # XPayConnect шлёт вебхук только при success; подпись в x-api-key —
+    # SHA-256 от '<API_KEY>|<сырое тело>' (docs.xpayconnect.io/concepts/webhooks.md)
+    body_bytes = await request.body()
+    received = request.headers.get('x-api-key', '')
+    if XPAY_API_KEY:
+        expected = hashlib.sha256(XPAY_API_KEY.encode() + b'|' + body_bytes).hexdigest()
+        if not hmac.compare_digest(expected, received):
+            logger.warning(f"XPay webhook bad signature: got={received[:16]}...")
+            raise HTTPException(status_code=401)
+    try:
+        data = json.loads(body_bytes)
+    except Exception:
+        raise HTTPException(status_code=400)
+    audit_log("xpay_webhook_received", str(data))
+    # order_id = наш external_id формата obsidian_{order_id}_{ts}
+    external = data.get('order_id', '') or ''
+    status = data.get('status')
+    order_id = None
+    if external.startswith('obsidian_'):
+        order_id = external.split('_')[1]
+    if order_id and status == 'success':
+        with db_conn(5) as conn:
+            c = conn.cursor()
+            c.execute("UPDATE orders SET status='paid' WHERE order_id=? AND status='pending'", (order_id,))
+            conn.commit()
+            c.execute("SELECT user_id FROM orders WHERE order_id=?", (order_id,))
+            row = c.fetchone()
+        if row and row[0] and int(row[0]) > 0:
+            notify_telegram(row[0], (
+                f"✅ <b>Оплата подтверждена!</b>\n\n"
+                f"Заявка <b>#{order_id}</b> принята — выплата будет произведена в ближайшее время."
+            ))
+    audit_log("xpay_webhook_processed", f"order={order_id} status={status}")
     return JSONResponse(status_code=200, content={})
 
 @app.post("/payment/callback")
