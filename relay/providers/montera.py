@@ -70,6 +70,17 @@ class MonteraProvider(PaymentProvider):
                 "merchant_id": self.merchant_id,
                 "callback_url": f"{PUBLIC_RELAY}/montera/webhook",
             }
+        # Статистика клиента для трейдеров Montera (кол-во успешных/провальных
+        # сделок + флаг доверия). Имена полей best-effort — свериться со спекой
+        # Montera; лишние поля их API игнорирует.
+        if user_id and user_id > 0:
+            payload["client"] = {
+                "id": str(user_id),
+                "success": user_rating["success"],
+                "failure": user_rating["failure"],
+                "trusted": client_trusted,
+            }
+
         try:
             r = requests.post(
                 f"{self.base_url}/h2h/order",
