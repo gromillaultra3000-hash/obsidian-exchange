@@ -107,7 +107,36 @@ git push origin master
 5. CI/CD через GitHub Actions (py_compile + smoke test на каждый push)
 6. Новый провайдер: изучить Lava / PayOK как дополнительный СБП канал
 
+## Роли в боте
+
+- **Админы** (ADMIN_ID, ADMIN_ID_2 в bot/.env) — всё; удаление воркеров/операторов — только главный.
+- **Операторы** (таблица `operators` в exchange.db) — сотрудники обработки заявок и поддержки.
+  Управление: /addoperator ID [username], /deloperator ID (только главный админ), /operators.
+  Могут: /op (панель), /order ID (карточка заявки + payment_sessions для разбора с трейдерами
+  провайдера), /pending, /tickets + /reply_ID, /finduser, /msg, подтверждать оплату
+  (admin_confirm_ + /confirm КОД — админам приходит уведомление, действие пишется в admin_log).
+  НЕ могут: /stats, /report, /broadcast, промокоды, курсы, блокировки, /force_payout,
+  управление workers/operators. Уведомления (новая заявка, «я оплатил», чеки, тикеты)
+  приходят через notify_staff() = админы + операторы.
+- **Работники** (таблица `workers`) — только ручная отправка крипты (/worker, worker_send_).
+- Support-бот (`/root/support_bot/support_bot.py`, systemd support-bot, НЕ в git до 09.07) —
+  обращения пересылаются всем (админы + операторы из exchange.db, кеш 60 c), ответ — реплаем,
+  маппинг в support.db (staff_messages).
+
 ## Сессии
+
+### Сессия 09.07.2026 (роль «оператор»)
+Выполнено:
+- feat: роль оператора в main_bot.py — см. раздел «Роли в боте» выше. Таблица operators
+  создаётся в init_db(). Аудит действий — в существующий admin_log (log_staff_action).
+- support_bot/support_bot.py: мультисотрудниковый режим (было: только один ADMIN_ID),
+  ADMIN_ID_2 добавлен в /root/support_bot/.env, медиа от клиентов теперь тоже пересылаются.
+- fix: /reply_N без текста уводил админа в состояние создания тикета — следующее сообщение
+  создавало НОВЫЙ тикет вместо ответа клиенту. Теперь ticket_enter_message проверяет
+  admin_reply_tid.
+- fix: кнопка «✉️ Написать клиенту» (admin_msg_) была нерабочей (ставила state-data без
+  состояния) — теперь подсказывает команду /msg ID.
+- ⚠️ bot/support_bot.py — легаси, сервисом НЕ используется; живой support-бот в /root/support_bot/.
 
 ### Сессия 09.07.2026 (кастом-эмодзи через юзербот)
 Выполнено:

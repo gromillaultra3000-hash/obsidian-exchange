@@ -74,6 +74,46 @@ def get_active_workers() -> list[int]:
 
 def is_worker(user_id: int) -> bool:
     return user_id in get_active_workers()
+
+# ---------- ОПЕРАТОРЫ ----------
+# Оператор — сотрудник поддержки/обработки заявок. Может: подтверждать оплату,
+# отвечать в тикеты, смотреть заявки и карточки клиентов, писать клиентам,
+# смотреть данные платёжной сессии для разбора с трейдерами провайдера.
+# НЕ может: статистика/выручка, рассылки, промокоды, курсы, блокировки,
+# управление работниками/операторами, force_payout.
+
+def get_active_operators() -> list[int]:
+    """Возвращает список user_id всех активных операторов из БД."""
+    try:
+        with db_conn(5) as conn:
+            c = conn.cursor()
+            c.execute("SELECT user_id FROM operators WHERE is_active=1")
+            return [row[0] for row in c.fetchall()]
+    except Exception:
+        return []
+
+def is_operator(user_id: int) -> bool:
+    return user_id in get_active_operators()
+
+def is_staff(user_id: int) -> bool:
+    """Админ или оператор — доступ к обработке заявок и поддержке."""
+    return is_admin(user_id) or is_operator(user_id)
+
+def staff_ids() -> set[int]:
+    """ID всех, кто обрабатывает заявки/поддержку: админы + активные операторы."""
+    return ADMIN_IDS | set(get_active_operators())
+
+def log_staff_action(uid: int, action: str, target_id=None, details=None):
+    """Аудит действий операторов/админов в admin_log; ошибки не роняют вызов."""
+    try:
+        with db_conn(5) as conn:
+            conn.execute(
+                "INSERT INTO admin_log (admin_id, action, target_id, details) VALUES (?,?,?,?)",
+                (uid, action, target_id, details)
+            )
+            conn.commit()
+    except Exception as e:
+        logger.debug(f"log_staff_action: {e}")
 REFERRAL_BONUS_PERCENT = float(os.getenv('REFERRAL_BONUS_PERCENT', 10))
 REFERRAL_DUST_BTC = 0.00002
 REVIEWS_CHANNEL_ID = os.getenv('REVIEWS_CHANNEL_ID', '@ObsidianReviews')
@@ -531,6 +571,14 @@ async def notify_admins(text, **kwargs):
             await bot.send_message(_aid, text, **kwargs)
         except Exception as _e:
             logger.debug(f"notify_admins: не доставлено {_aid}: {_e}")
+
+async def notify_staff(text, **kwargs):
+    """Отправляет сообщение всем админам и активным операторам; ошибки не роняют вызов."""
+    for _sid in staff_ids():
+        try:
+            await bot.send_message(_sid, text, **kwargs)
+        except Exception as _e:
+            logger.debug(f"notify_staff: не доставлено {_sid}: {_e}")
 try:
     _redis = Redis(host='localhost', port=6379, db=1, decode_responses=False)
     storage = RedisStorage(_redis)
@@ -622,6 +670,9 @@ def init_db():
             last_seen TEXT DEFAULT (datetime('now')),
             broadcast_enabled INTEGER DEFAULT 1
         )''')
+        c.execute('''CREATE TABLE IF NOT EXISTS operators (
+            user_id INTEGER PRIMARY KEY, username TEXT, added_by INTEGER,
+            added_at TEXT DEFAULT (datetime('now')), is_active INTEGER DEFAULT 1)''')
         c.execute('''CREATE TABLE IF NOT EXISTS rate_subscriptions (
             user_id INTEGER PRIMARY KEY,
             enabled INTEGER DEFAULT 1,
@@ -827,7 +878,7 @@ async def notify_admin(order_id, user_id, rub_amount, address, currency):
     try:
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="✅ Подтвердить оплату", callback_data=f"admin_confirm_{order_id}")]])
-        await notify_admins( text, reply_markup=kb, disable_notification=False, parse_mode="HTML")
+        await notify_staff( text, reply_markup=kb, disable_notification=False, parse_mode="HTML")
     except Exception as e:
         logger.error(f"Ошибка уведомления админа: {e}")
     if rub_amount >= HIGH_AMOUNT:
@@ -1938,7 +1989,7 @@ async def inline_paid(callback: CallbackQuery):
                 f"⚠️ Проверьте поступление средств перед подтверждением.")
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="✅ Подтвердить оплату", callback_data=f"admin_confirm_{order_id}")]])
-        await notify_admins( text, reply_markup=kb, disable_notification=False, parse_mode="HTML")
+        await notify_staff( text, reply_markup=kb, disable_notification=False, parse_mode="HTML")
         msg_text = f"⏳ <b>Ожидаем подтверждение</b>\n\nИнформация об оплате заявки <b>#{order_id}</b> передана оператору. Обычно это занимает 5–15 минут."
         await callback.message.edit_caption(caption=msg_text, parse_mode="HTML") if callback.message.photo else await callback.message.edit_text(msg_text, parse_mode="HTML")
         await callback.answer("Отправлено на проверку")
@@ -1981,7 +2032,7 @@ pending_large_payouts = {}  # {order_id: {code, amount, address, currency, times
 
 @router.callback_query(F.data.startswith("admin_confirm_"))
 async def admin_confirm_2fa(callback: CallbackQuery):
-    if not is_admin(callback.from_user.id):
+    if not is_staff(callback.from_user.id):
         await callback.answer("⛔ Нет прав доступа.", show_alert=True)
         return
     import random
@@ -1993,7 +2044,7 @@ async def admin_confirm_2fa(callback: CallbackQuery):
 
 @router.message(Command("confirm"))
 async def confirm_payout(message: Message):
-    if not is_admin(message.from_user.id): return
+    if not is_staff(message.from_user.id): return
     try:
         code = message.text.split()[1]
         action = pending_admin_action.get(message.from_user.id)
@@ -2005,6 +2056,12 @@ async def confirm_payout(message: Message):
             async with session.post(f"{RELAY_SITE}/payment/callback", data={"order_id": order_id, "key": RELAY_SECRET}) as resp:
                 if resp.status == 200:
                     await message.answer(f"✅ Платёж по заявке #{order_id} подтверждён.")
+                    log_staff_action(message.from_user.id, "confirm_order", order_id)
+                    if not is_admin(message.from_user.id):
+                        await notify_admins(
+                            f"👷 Оператор @{message.from_user.username or message.from_user.id} "
+                            f"подтвердил оплату заявки <b>#{order_id}</b>",
+                            parse_mode="HTML")
                 else:
                     await message.answer("Ошибка подтверждения.")
         del pending_admin_action[message.from_user.id]
@@ -2861,7 +2918,7 @@ async def process_receipt_upload(message: Message, state: FSMContext):
             await message.answer(
                 "✅ Чек отправлен на проверку! Как только оплата подтвердится, мы автоматически вышлем вашу криптовалюту.",
             )
-            await notify_admins( f"🧾 Получен чек для заявки #{order_id} (Brabus invoice {invoice_id})")
+            await notify_staff( f"🧾 Получен чек для заявки #{order_id} (Brabus invoice {invoice_id})")
         else:
             await message.answer(f"❌ Не удалось отправить чек: {result.get('error', 'неизвестная ошибка')}\nПопробуйте ещё раз или обратитесь в поддержку.")
     except Exception as e:
@@ -2915,7 +2972,7 @@ async def process_montera_receipt_upload(message: Message, state: FSMContext):
                 _or = _oc.execute("SELECT rub_amount, username FROM orders WHERE order_id=?", (order_id,)).fetchone()
             _amt = f"{int(_or[0]):,} ₽".replace(",", " ") if _or else "?"
             _uname = f"@{_or[1]}" if (_or and _or[1]) else str(message.from_user.id)
-            await notify_admins(
+            await notify_staff(
                 f"🧾 <b>Получен PDF-чек</b> — заявка <b>#{order_id}</b>\n"
                 f"👤 {_uname} · 💸 {_amt}\n"
                 f"📄 {doc.file_name or 'receipt.pdf'}",
@@ -2964,7 +3021,7 @@ async def process_montera_video_verification(message: Message, state: FSMContext
                 _or2 = _oc2.execute("SELECT rub_amount, username FROM orders WHERE order_id=?", (order_id,)).fetchone()
             _amt2 = f"{int(_or2[0]):,} ₽".replace(",", " ") if _or2 else "?"
             _uname2 = f"@{_or2[1]}" if (_or2 and _or2[1]) else str(message.from_user.id)
-            await notify_admins(
+            await notify_staff(
                 f"🎥 <b>Получено видео-подтверждение</b> — заявка <b>#{order_id}</b>\n"
                 f"👤 {_uname2} · 💸 {_amt2}",
                 parse_mode="HTML")
@@ -3023,7 +3080,7 @@ async def process_montera_pdf_verification(message: Message, state: FSMContext):
                 _or3 = _oc3.execute("SELECT rub_amount, username FROM orders WHERE order_id=?", (order_id,)).fetchone()
             _amt3 = f"{int(_or3[0]):,} ₽".replace(",", " ") if _or3 else "?"
             _uname3 = f"@{_or3[1]}" if (_or3 and _or3[1]) else str(message.from_user.id)
-            await notify_admins(
+            await notify_staff(
                 f"📄 <b>Получен PDF-чек верификации</b> — заявка <b>#{order_id}</b>\n"
                 f"👤 {_uname3} · 💸 {_amt3}",
                 parse_mode="HTML")
@@ -3119,6 +3176,175 @@ async def cmd_workers_list(message: Message):
         status = "✅" if active else "❌"
         text += f"{status} <code>{uid}</code> @{uname or '—'} (добавлен {added[:10]})\n"
     await message.answer(text, parse_mode="HTML")
+
+# ══════════════════════════════════════════════════════════════════
+# ОПЕРАТОРЫ — управление (админ) и рабочая панель
+# ══════════════════════════════════════════════════════════════════
+
+_OPERATOR_WELCOME = (
+    "🟣 <b>Добро пожаловать в команду ObsidianExchange!</b>\n\n"
+    "Вы добавлены как <b>оператор</b>. Ваши инструменты:\n\n"
+    "📋 /op — рабочая панель (заявки на проверке, открытые тикеты)\n"
+    "🔎 /order ID — карточка заявки + данные платёжной сессии (провайдер, "
+    "invoice) для разбора с трейдерами\n"
+    "🔄 /pending — оплаченные заявки, ожидающие выплаты\n"
+    "🎫 /tickets — открытые обращения · ответ: /reply_ID текст\n"
+    "👤 /finduser ID|@username — карточка клиента\n"
+    "✉️ /msg USER_ID текст — написать клиенту от имени бота\n\n"
+    "Уведомления о новых заявках, оплатах, чеках и тикетах будут приходить "
+    "автоматически. Подтверждение оплаты — кнопкой под уведомлением "
+    "(код придёт сюда, ввести: /confirm КОД).\n\n"
+    "⚠️ Подтверждайте оплату только после реальной проверки поступления средств."
+)
+
+@router.message(Command("addoperator"))
+async def cmd_addoperator(message: Message):
+    if not is_admin(message.from_user.id):
+        return
+    parts = message.text.split()
+    if len(parts) < 2:
+        await message.answer("Формат: /addoperator <telegram_id> [username]")
+        return
+    try:
+        oid = int(parts[1])
+        oname = parts[2].lstrip('@') if len(parts) > 2 else None
+        with db_conn(5) as conn:
+            conn.execute(
+                "INSERT INTO operators (user_id, username, added_by) VALUES (?,?,?) "
+                "ON CONFLICT(user_id) DO UPDATE SET is_active=1, username=excluded.username",
+                (oid, oname, message.from_user.id)
+            )
+            conn.commit()
+        log_staff_action(message.from_user.id, "add_operator", oid, oname)
+        await message.answer(f"✅ Оператор {oid} (@{oname or '—'}) добавлен.")
+        try:
+            await bot.send_message(oid, _OPERATOR_WELCOME, parse_mode="HTML")
+        except Exception:
+            await message.answer("ℹ️ Приветствие не доставлено — оператор должен сначала нажать Start у бота.")
+    except ValueError:
+        await message.answer("❌ Неверный формат ID")
+
+@router.message(Command("deloperator"))
+async def cmd_deloperator(message: Message):
+    # Удаление — только главный админ (как /removeworker)
+    if message.from_user.id != ADMIN_ID:
+        return
+    parts = message.text.split()
+    if len(parts) < 2:
+        await message.answer("Формат: /deloperator <telegram_id>")
+        return
+    try:
+        oid = int(parts[1])
+        with db_conn(5) as conn:
+            conn.execute("UPDATE operators SET is_active=0 WHERE user_id=?", (oid,))
+            conn.commit()
+        log_staff_action(message.from_user.id, "del_operator", oid)
+        await message.answer(f"✅ Оператор {oid} деактивирован.")
+    except ValueError:
+        await message.answer("❌ Неверный формат ID")
+
+@router.message(Command("operators"))
+async def cmd_operators_list(message: Message):
+    if not is_admin(message.from_user.id):
+        return
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        c.execute("SELECT user_id, username, added_at, is_active FROM operators ORDER BY added_at DESC")
+        rows = c.fetchall()
+    if not rows:
+        await message.answer("Операторов нет. /addoperator <id>")
+        return
+    text = "🎧 <b>Операторы:</b>\n\n"
+    for uid, uname, added, active in rows:
+        status = "✅" if active else "❌"
+        text += f"{status} <code>{uid}</code> @{uname or '—'} (добавлен {added[:10]})\n"
+    await message.answer(text, parse_mode="HTML")
+
+@router.message(Command("op"))
+async def cmd_operator_panel(message: Message):
+    """Рабочая панель оператора: заявки в работе + открытые тикеты."""
+    if not is_staff(message.from_user.id):
+        return
+    with db_conn(10) as conn:
+        c = conn.cursor()
+        c.execute("""SELECT order_id, username, user_id, rub_amount, currency, created_at
+                     FROM orders WHERE status='pending'
+                     ORDER BY created_at DESC LIMIT 10""")
+        pending = c.fetchall()
+        paid_cnt = c.execute("SELECT COUNT(*) FROM orders WHERE status='paid'").fetchone()[0]
+        c.execute("""SELECT id, username, user_id, subject, updated_at
+                     FROM support_tickets WHERE status='open'
+                     ORDER BY updated_at ASC LIMIT 10""")
+        tickets = c.fetchall()
+    text = "🎧 <b>Панель оператора</b>\n\n"
+    if pending:
+        text += f"⏳ <b>Ожидают оплаты/проверки ({len(pending)}):</b>\n"
+        for oid, uname, uid, amt, cur, created in pending:
+            text += f"  #{oid} @{uname or uid} · {int(amt):,} ₽ → {cur} · {created[11:16]} · /order {oid}\n".replace(",", " ")
+        text += "\n"
+    else:
+        text += "⏳ Нет заявок, ожидающих оплаты.\n\n"
+    text += f"🔄 Оплачено, ждут выплаты: <b>{paid_cnt}</b> (/pending)\n\n"
+    if tickets:
+        text += f"🎫 <b>Открытые тикеты ({len(tickets)}):</b>\n"
+        for tid, uname, uid, subj, upd in tickets:
+            text += f"  #{tid} @{uname or uid} — {(subj or 'Без темы')[:30]} · /reply_{tid}\n"
+    else:
+        text += "🎫 Открытых тикетов нет."
+    await message.answer(text[:4000], parse_mode="HTML")
+
+@router.message(Command("order"))
+async def cmd_order_card(message: Message):
+    """/order ID — карточка заявки + платёжная сессия (для разбора с трейдерами провайдера)."""
+    if not is_staff(message.from_user.id):
+        return
+    parts = message.text.split()
+    if len(parts) < 2 or not parts[1].isdigit():
+        await message.answer("Формат: /order ID")
+        return
+    oid = int(parts[1])
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        c.execute("""SELECT user_id, username, rub_amount, currency, crypto_address,
+                            status, created_at, updated_at, paid_btc_tx
+                     FROM orders WHERE order_id=?""", (oid,))
+        row = c.fetchone()
+        sessions = c.execute(
+            """SELECT provider, provider_invoice_id, amount, status, created_at
+               FROM payment_sessions WHERE order_id=? ORDER BY id DESC LIMIT 3""",
+            (oid,)).fetchall()
+    if not row:
+        await message.answer(f"❌ Заявка #{oid} не найдена.")
+        return
+    uid, uname, amt, cur, addr, status, created, updated, tx = row
+    STATUS_ICON = {"pending": "⏳", "paid": "🔄", "sent": "✅", "failed": "❌", "cancelled": "🚫"}
+    amt_fmt = f"{int(amt):,}".replace(",", " ")
+    tx_line = f"\n🔗 TX: <code>{tx}</code>" if tx else ""
+    text = (
+        f"{STATUS_ICON.get(status, '❔')} <b>Заявка #{oid}</b> — {status}\n\n"
+        f"<blockquote>"
+        f"👤 @{uname or '—'} · ID <code>{uid}</code>\n"
+        f"💸 {amt_fmt} ₽ → {cur}\n"
+        f"📬 <code>{addr}</code>\n"
+        f"🕐 Создана: {created[:16]} · Обновлена: {(updated or '—')[:16]}"
+        f"{tx_line}"
+        f"</blockquote>\n"
+    )
+    if sessions:
+        text += "\n💳 <b>Платёжные сессии</b> (для разбора с трейдером):\n"
+        for prov, inv, s_amt, s_status, s_created in sessions:
+            text += (f"  • <b>{prov}</b> · invoice <code>{inv or '—'}</code>\n"
+                     f"    сумма {s_amt or amt:.2f} ₽ · {s_status} · {s_created[:16]}\n")
+    else:
+        text += "\n💳 Платёжных сессий нет (реквизиты не выдавались)."
+    kb_rows = []
+    if status == 'pending':
+        kb_rows.append([InlineKeyboardButton(text="✅ Подтвердить оплату",
+                                             callback_data=f"admin_confirm_{oid}")])
+    kb_rows.append([InlineKeyboardButton(text="✉️ Написать клиенту",
+                                         callback_data=f"admin_msg_{uid}")])
+    await message.answer(text[:4000], parse_mode="HTML",
+                         reply_markup=InlineKeyboardMarkup(inline_keyboard=kb_rows))
 
 # --- Панель работника ---
 
@@ -3491,6 +3717,13 @@ async def ticket_enter_subject(message: Message, state: FSMContext):
 @router.message(SupportTicketState.message)
 async def ticket_enter_message(message: Message, state: FSMContext):
     data = await state.get_data()
+    # /reply_N без текста ведёт сюда же: у стаффа в data лежит admin_reply_tid —
+    # это ответ в тикет, а не создание нового
+    reply_tid = data.get("admin_reply_tid")
+    if reply_tid and is_staff(message.from_user.id):
+        await state.clear()
+        await _send_admin_reply(reply_tid, message.text or message.caption or "[медиа]", message)
+        return
     subj = data.get("ticket_subject", "Без темы")
     uid  = message.from_user.id
     uname = message.from_user.username or str(uid)
@@ -3512,7 +3745,7 @@ async def ticket_enter_message(message: Message, state: FSMContext):
     media_info = ""
     if message.photo:
         fid = message.photo[-1].file_id
-        for _aid in ADMIN_IDS:
+        for _aid in staff_ids():
             try:
                 await bot.send_photo(_aid, fid,
                     caption=f"🎫 <b>Тикет #{tid}</b> от @{uname} ({uid})\n<b>{subj}</b>\n\n{text_body}\n\n"
@@ -3523,7 +3756,7 @@ async def ticket_enter_message(message: Message, state: FSMContext):
         media_info = " + фото"
     elif message.document:
         fid = message.document.file_id
-        for _aid in ADMIN_IDS:
+        for _aid in staff_ids():
             try:
                 await bot.send_document(_aid, fid,
                     caption=f"🎫 <b>Тикет #{tid}</b> от @{uname} ({uid})\n<b>{subj}</b>\n\n{text_body}\n\n"
@@ -3533,7 +3766,7 @@ async def ticket_enter_message(message: Message, state: FSMContext):
                 pass
         media_info = " + документ"
     else:
-        await notify_admins(
+        await notify_staff(
             f"🎫 <b>Тикет #{tid}</b> от @{uname} ({uid})\n"
             f"<b>{subj}</b>\n\n{text_body}\n\n/reply_{tid}",
             parse_mode="HTML"
@@ -3608,7 +3841,7 @@ async def ticket_reply_message(message: Message, state: FSMContext):
         conn.execute("UPDATE support_tickets SET status='open', updated_at=datetime('now') WHERE id=?", (tid,))
         conn.commit()
     await message.answer(f"✅ Сообщение добавлено в тикет #{tid}.")
-    await notify_admins(
+    await notify_staff(
         f"🔔 <b>Новое сообщение в тикет #{tid}</b>\nОт @{uname} ({uid})\n<b>{subj}</b>\n\n{text_body}\n\n/reply_{tid}",
         parse_mode="HTML"
     )
@@ -3617,7 +3850,7 @@ async def ticket_reply_message(message: Message, state: FSMContext):
 
 # ── Ответ от администратора ──────────────────────────────────────
 
-@router.message(lambda m: is_admin(m.from_user.id) and m.text and m.text.startswith("/reply_"))
+@router.message(lambda m: is_staff(m.from_user.id) and m.text and m.text.startswith("/reply_"))
 async def admin_reply_ticket(message: Message, state: FSMContext):
     parts = message.text.split(None, 1)
     try:
@@ -3637,8 +3870,8 @@ async def admin_reply_ticket(message: Message, state: FSMContext):
 
 @router.message(Command("tickets"))
 async def cmd_tickets(message: Message):
-    """Список открытых тикетов для администратора."""
-    if not is_admin(message.from_user.id):
+    """Список открытых тикетов для администратора/оператора."""
+    if not is_staff(message.from_user.id):
         return
     with db_conn(5) as conn:
         c = conn.cursor()
@@ -3917,6 +4150,7 @@ async def _send_admin_reply(tid: int, reply_text: str, admin_message):
             ]])
         )
         await admin_message.answer(f"✅ Ответ отправлен клиенту (тикет #{tid})")
+        log_staff_action(admin_message.from_user.id, "reply_ticket", tid)
     except Exception as e:
         await admin_message.answer(f"❌ Не удалось отправить: {e}")
 
@@ -3928,7 +4162,7 @@ async def _send_admin_reply(tid: int, reply_text: str, admin_message):
 @router.message(Command("finduser"))
 async def cmd_finduser(message: Message):
     """/finduser ID или /finduser @username — полная карточка клиента."""
-    if not is_admin(message.from_user.id):
+    if not is_staff(message.from_user.id):
         return
     parts = message.text.split(None, 1)
     if len(parts) < 2:
@@ -3988,18 +4222,20 @@ async def cmd_finduser(message: Message):
     for oid, st, amt, cur, dt in last3:
         text += f"  {STATUS_ICON.get(st,'?')} #{oid} · {int(amt):,} ₽ → {cur} · {dt[:10]}\n".replace(",", " ")
 
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="✉️ Написать клиенту", callback_data=f"admin_msg_{uid}")],
-        [InlineKeyboardButton(text="🚫 Заблокировать" if not blocked else "✅ Разблокировать",
-                              callback_data=f"admin_{'block' if not blocked else 'unblock'}_{uid}")],
-    ])
-    await message.answer(text, parse_mode="HTML", reply_markup=kb)
+    kb_rows = [[InlineKeyboardButton(text="✉️ Написать клиенту", callback_data=f"admin_msg_{uid}")]]
+    if is_admin(message.from_user.id):
+        # Блокировка — только админам
+        kb_rows.append([InlineKeyboardButton(
+            text="🚫 Заблокировать" if not blocked else "✅ Разблокировать",
+            callback_data=f"admin_{'block' if not blocked else 'unblock'}_{uid}")])
+    await message.answer(text, parse_mode="HTML", reply_markup=InlineKeyboardMarkup(inline_keyboard=kb_rows))
 
 
 @router.message(Command("pending"))
 async def cmd_pending(message: Message, uid: int = None):
     """/pending — заявки которые оплачены но ещё не выплачены."""
-    if not is_admin(uid or message.from_user.id):
+    caller = uid or message.from_user.id
+    if not is_staff(caller):
         return
     with db_conn(5) as conn:
         c = conn.cursor()
@@ -4011,19 +4247,20 @@ async def cmd_pending(message: Message, uid: int = None):
     if not rows:
         await message.answer("✅ Нет оплаченных заявок, ожидающих выплаты.")
         return
+    show_force = is_admin(caller)  # force_payout — только админам
     text = f"🔄 <b>Ожидают выплаты ({len(rows)}):</b>\n\n"
     for oid, uid, uname, amt, cur, addr, upd in rows:
         addr_s = f"{addr[:8]}…{addr[-4:]}" if addr else "—"
         text += (f"<b>#{oid}</b> @{uname or uid} · {int(amt):,} ₽ → {cur}\n"
                  f"  📬 <code>{addr_s}</code> · {upd[:16]}\n"
-                 f"  /force_payout {oid}\n\n").replace(",", " ")
+                 + (f"  /force_payout {oid}\n\n" if show_force else f"  /order {oid}\n\n")).replace(",", " ")
     await message.answer(text, parse_mode="HTML")
 
 
 @router.message(Command("msg"))
 async def cmd_msg(message: Message, state: FSMContext):
     """/msg USER_ID текст — отправить сообщение клиенту от имени бота."""
-    if not is_admin(message.from_user.id):
+    if not is_staff(message.from_user.id):
         return
     parts = message.text.split(None, 2)
     if len(parts) < 3:
@@ -4042,18 +4279,19 @@ async def cmd_msg(message: Message, state: FSMContext):
             parse_mode="HTML"
         )
         await message.answer(f"✅ Отправлено пользователю {target_id}")
+        log_staff_action(message.from_user.id, "msg_user", target_id, text[:200])
     except Exception as e:
         await message.answer(f"❌ Ошибка: {e}")
 
 
 @router.callback_query(F.data.startswith("admin_msg_"))
 async def admin_msg_callback(callback: CallbackQuery, state: FSMContext):
-    if not is_admin(callback.from_user.id):
+    if not is_staff(callback.from_user.id):
         return
     target_id = int(callback.data.split("_")[2])
-    await state.update_data(admin_msg_target=target_id)
-    await callback.message.answer(f"✉️ Введите текст для клиента {target_id}:")
-    # Используем простое состояние через data
+    await callback.message.answer(
+        f"✉️ Чтобы написать клиенту, отправьте:\n<code>/msg {target_id} текст сообщения</code>",
+        parse_mode="HTML")
     await callback.answer()
 
 
