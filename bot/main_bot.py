@@ -438,24 +438,46 @@ async def montera_precheck(callback, amount, payment_method=None, order_id=None)
     return False
 
 
-async def build_payment_methods_kb(order_id: int, amount: float) -> InlineKeyboardMarkup:
+def user_success_count(user_id: int) -> int:
+    """Число успешно проведённых (оплаченных/завершённых) заявок пользователя.
+    Совпадает с определением 'success' в рейтинге, который шлём Montera."""
+    if not user_id or user_id < 0:
+        return 0
+    try:
+        with db_conn(3) as conn:
+            row = conn.execute(
+                "SELECT COUNT(*) FROM orders WHERE user_id=? "
+                "AND status IN ('paid','sent','completed')",
+                (user_id,)
+            ).fetchone()
+        return int(row[0] or 0)
+    except Exception as e:
+        logger.warning(f"user_success_count({user_id}): {e}")
+        return 0
+
+
+async def build_payment_methods_kb(order_id: int, amount: float, user_id: int = None) -> InlineKeyboardMarkup:
     """Клавиатура способов оплаты — показывает только методы, реально доступные для данной суммы."""
     import sys
     sys.path.insert(0, '/root/relay')
     rows = []
     amt = float(amount)
 
-    # Montera СБП — всегда показываем, API сам определяет наличие трейдера
-    rows.append([InlineKeyboardButton(
-        text="📱 СБП — по номеру телефона",
-        callback_data=f"pm_montera_sbp_{order_id}"
-    )])
-
-    # Montera Карта — всегда показываем
-    rows.append([InlineKeyboardButton(
-        text="💳 Карта — реквизиты на экране",
-        callback_data=f"pm_gp_card_{order_id}"
-    )])
+    # Montera показываем ТОЛЬКО клиентам с ≥1 успешно оплаченной сделкой —
+    # требование трейдеров Montera (доверенные/повторные клиенты). Новичкам
+    # Montera недоступна, для них работают Vertu / Storm QR / VietQR.
+    montera_allowed = user_success_count(user_id) >= 1
+    if montera_allowed:
+        # Montera СБП — API сам определяет наличие трейдера
+        rows.append([InlineKeyboardButton(
+            text="📱 СБП — по номеру телефона",
+            callback_data=f"pm_montera_sbp_{order_id}"
+        )])
+        # Montera Карта
+        rows.append([InlineKeyboardButton(
+            text="💳 Карта — реквизиты на экране",
+            callback_data=f"pm_gp_card_{order_id}"
+        )])
 
     # Vertu — СБП / Карта, подтверждение автоматическое (без чека)
     if os.getenv('VERTU_LOGIN', ''):
@@ -2414,7 +2436,7 @@ async def process_address(message: Message, state: FSMContext):
         f"Выберите удобный способ оплаты 👇"
     )
     await send_sticker_safe(message.chat.id, STICKER_WAIT)
-    inline_kb = await build_payment_methods_kb(order_id, amount)
+    inline_kb = await build_payment_methods_kb(order_id, amount, message.from_user.id)
     if IMG_15MIN.exists():
         await message.answer_photo(FSInputFile(IMG_15MIN), caption=text, reply_markup=inline_kb, parse_mode="HTML")
     else:
@@ -2430,6 +2452,13 @@ async def process_payment_method(callback: CallbackQuery, state: FSMContext):
 
     import sys
     sys.path.insert(0, '/root/relay')
+
+    # Montera — только доверенным клиентам (≥1 успешная сделка). Защита от
+    # подделки callback_data: кнопок у новичков нет, но callback можно скопировать.
+    if (pm.startswith("pm_montera_sbp_") or pm.startswith("pm_gp_")) \
+            and user_success_count(callback.from_user.id) < 1:
+        await callback.answer("Этот способ доступен после первой успешной сделки.", show_alert=True)
+        return
 
     if pm.startswith("pm_montera_sbp_"):
         try:

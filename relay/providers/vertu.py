@@ -100,9 +100,11 @@ class VertuProvider(PaymentProvider):
 
         type_pay = VERTU_TYPE_SBP if payment_method == "sbp" else VERTU_TYPE_CARD
         payload = {
-            # timestamp в deal_id — чтобы retry в PaymentService не упирался
-            # в дубль ID на стороне Vertu
-            "deal_id": f"obsidian_{order_id}_{int(time.time())}",
+            # Vertu свёл идентификатор к одному формату: поле называется
+            # platform_id (раньше deal_id) — тем же ключом крепится чек и
+            # опрашивается статус GET /v1/deals/{platform_id}/. timestamp —
+            # чтобы retry в PaymentService не упирался в дубль ID на стороне Vertu
+            "platform_id": f"obsidian_{order_id}_{int(time.time())}",
             "amount": float(amount),
             "type_pay": type_pay,
         }
