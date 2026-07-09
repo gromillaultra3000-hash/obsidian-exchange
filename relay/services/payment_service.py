@@ -9,6 +9,30 @@ from services.smart_router import choose_provider, record_outcome, get_health_sc
 DB_PATH = os.getenv('DB_PATH', '/root/exchange.db')
 logger = get_logger(__name__)
 
+
+def _user_has_success(telegram_id) -> bool:
+    """≥1 успешно оплаченной заявки — то же определение, что в боте
+    (build_payment_methods_kb). Montera выдаём только таким клиентам —
+    требование трейдеров Montera. Гарантирует единую логику для бота и сайта."""
+    if not telegram_id:
+        return False
+    try:
+        tid = int(telegram_id)
+    except (TypeError, ValueError):
+        return False
+    if tid < 0:  # web-only пользователь (нет привязки Telegram) — не доверенный
+        return False
+    try:
+        conn = sqlite3.connect(DB_PATH, timeout=5)
+        n = conn.execute(
+            "SELECT COUNT(*) FROM orders WHERE user_id=? AND status IN ('paid','sent','completed')",
+            (tid,)
+        ).fetchone()[0]
+        conn.close()
+        return int(n or 0) >= 1
+    except Exception:
+        return False
+
 class PaymentService:
     def __init__(self, provider=None, amount=None):
         if provider is None:
@@ -95,7 +119,17 @@ class PaymentService:
         max_retries = 3
         invoice = None
         last_error = None
+        # Montera — только клиентам с ≥1 успешной сделкой (консистентно с ботом).
+        # Для новых клиентов пропускаем Montera → эскалация на другой провайдер,
+        # реквизиты всё равно выдаются (StormTrade/Fallback).
+        montera_blocked = (self.provider.__class__.__name__ == 'MonteraProvider'
+                           and not _user_has_success(telegram_id))
+        if montera_blocked:
+            logger.info(f"Montera пропущена для order {order_id}: клиент без успешных сделок")
         for attempt in range(max_retries):
+            if montera_blocked:
+                invoice = {"error": "Montera доступна только клиентам с успешной сделкой"}
+                break
             start_time = time.time()
             extra = {}
             if self.provider.__class__.__name__ in ('MonteraProvider', 'VertuProvider', 'StormTradeProvider', 'XPayConnectProvider'):

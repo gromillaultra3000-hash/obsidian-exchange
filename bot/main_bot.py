@@ -918,11 +918,19 @@ async def notify_workers_paid(order_id, rub_amount, address, currency):
         [InlineKeyboardButton(text="💸 Отправить и указать TX", callback_data=f"worker_send_{order_id}")]
     ])
     workers = get_active_workers()
-    for wid in workers:
-        try:
-            await bot.send_message(wid, text, reply_markup=kb, parse_mode="HTML")
-        except Exception as e:
-            logger.error(f"Ошибка уведомления работника {wid}: {e}")
+    if workers:
+        for wid in workers:
+            try:
+                await bot.send_message(wid, text, reply_markup=kb, parse_mode="HTML")
+            except Exception as e:
+                logger.error(f"Ошибка уведомления работника {wid}: {e}")
+    else:
+        # Нет активных воркеров — заявка не должна зависнуть: уведомляем админов,
+        # они могут отправить крипту и отметить командой /force_payout ORDER_ID TXID
+        admin_text = (text + f"\n\n⚠️ <b>Нет активных воркеров.</b>\n"
+                      f"Отправьте крипту вручную и отметьте:\n"
+                      f"<code>/force_payout {order_id} TXID</code>")
+        await notify_admins(admin_text, parse_mode="HTML")
 
 # ---------- /start ----------
 def build_main_menu_kb() -> InlineKeyboardMarkup:
@@ -2327,17 +2335,9 @@ async def admin_payout_menu(callback: CallbackQuery):
     await callback.message.edit_text("Введите команду /force_payout ORDER_ID")
     await callback.answer()
 
-@router.message(Command("force_payout"))
-async def force_payout(message: Message):
-    if not is_admin(message.from_user.id): return
-    try:
-        order_id = int(message.text.split()[1])
-        fake_tx = f"manual_{int(time.time())}"
-        with db_conn(10) as conn:
-            conn.execute("UPDATE orders SET status='sent', paid_btc_tx=?, updated_at=CURRENT_TIMESTAMP WHERE order_id=?", (fake_tx, order_id))
-            conn.commit()
-        await message.answer(f"Ручная выплата по заявке #{order_id} выполнена, txid: {fake_tx}")
-    except: await message.answer("Использование: /force_payout ORDER_ID")
+# /force_payout реализован ниже (cmd_force_payout) — с поддержкой TXID,
+# уведомлением клиента и запросом оценки. Старый заглушечный обработчик убран,
+# т.к. он затенял полноценный (aiogram берёт первый совпавший handler).
 
 @router.callback_query(F.data == "admin_block_menu")
 async def admin_block_menu(callback: CallbackQuery):
