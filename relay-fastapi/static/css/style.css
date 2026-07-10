@@ -773,6 +773,9 @@ table.dash-table tr:last-child td { border-bottom: none; }
     .dash-sidebar { position: static; }
     .dash-nav { flex-direction: row; flex-wrap: wrap; }
     .dash-nav a, .dash-logout { width: auto; flex: 1 1 auto; text-align: center; }
+    /* Широкие таблицы (до 7 колонок) скроллятся внутри себя, а не ломают страницу */
+    table.dash-table { display: block; overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; }
+    table.dash-table th, table.dash-table td { padding: 10px 12px; font-size: 13px; }
 }
 
 /* ═══ TICKER ═══ */
