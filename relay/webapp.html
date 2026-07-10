@@ -723,19 +723,37 @@
             document.getElementById('ref-link').textContent = refLink;
             document.getElementById('ref-stats').innerHTML = '<div class="skeleton-line"></div><div class="skeleton-line" style="width:50%"></div>';
             fetch(`/api/referral_stats?user_id=${userId}`, { headers: { 'X-Telegram-Init-Data': tg.initData || '' } }).then(r=>r.json()).then(data => {
+                const cell = (v, lbl) => `<div style="flex:1;min-width:88px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:12px;text-align:center">
+                    <div style="font-size:20px;font-weight:800;color:#a78bfa">${v}</div>
+                    <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-top:2px">${lbl}</div></div>`;
+                const btc = Number(data.total_bonus_btc || 0);
+                const rub = data.bonus_rub != null ? ` · ≈ ${Number(data.bonus_rub).toLocaleString('ru')} ₽` : '';
                 document.getElementById('ref-stats').innerHTML = `
-                    <p>👥 Приглашено: <strong>${data.referrals || 0}</strong></p>
-                    <p>💸 Заработано: <strong>${data.total_bonus_btc || 0} BTC</strong></p>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+                        ${cell(data.referrals || 0, 'Приглашено')}
+                        ${cell(data.active || 0, 'Активных')}
+                        ${cell(btc.toFixed(6), 'BTC заработано')}
+                    </div>
+                    <div style="font-size:13px;color:#e2e8f0;text-align:center;margin-bottom:6px">💰 Начислено: <strong>${btc.toFixed(8)} BTC</strong>${rub}</div>
+                    <div style="font-size:12px;color:var(--muted);text-align:center">Вы получаете <strong>${data.bonus_percent || 10}%</strong> от комиссии сервиса с каждого обмена приглашённого — пожизненно.</div>
                 `;
             }).catch(() => {
-                document.getElementById('ref-stats').innerHTML = '<p>Статистика недоступна</p>';
+                document.getElementById('ref-stats').innerHTML = '<p style="text-align:center;color:var(--muted)">Статистика недоступна</p>';
             });
         }
 
-        function copyRefLink() { navigator.clipboard.writeText(document.getElementById('ref-link').textContent); tg.HapticFeedback.notificationOccurred('success'); alert('Ссылка скопирована'); }
+        function copyRefLink() {
+            navigator.clipboard.writeText(document.getElementById('ref-link').textContent);
+            if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+            tg.showAlert ? tg.showAlert('Ссылка скопирована') : alert('Ссылка скопирована');
+        }
 
         function withdrawRefBonus() {
-            tg.sendData(JSON.stringify({ action:'withdraw_ref_bonus' }));
+            // Вывод бонуса требует FSM-ввода BTC-адреса — это делается в боте
+            const msg = 'Вывод реферального бонуса в BTC — в боте:\nменю → 👥 Пригласить и заработать → 💸 Вывести бонус.';
+            if (tg.showPopup) { tg.showPopup({ title: 'Вывод бонуса', message: msg, buttons: [{ type: 'ok' }] }); }
+            else if (tg.showAlert) { tg.showAlert(msg); }
+            else { alert(msg); }
         }
 
         function saveAddress() {

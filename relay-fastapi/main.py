@@ -41,6 +41,7 @@ STORMTRADE_NOTIFICATION_TOKEN = os.getenv('STORMTRADE_NOTIFICATION_TOKEN', '')
 XPAY_API_KEY = os.getenv('XPAY_API_KEY', '')
 MIN_AMOUNT = float(os.getenv('MIN_AMOUNT', 2000))
 MAX_AMOUNT = float(os.getenv('MAX_AMOUNT', 500000))
+REFERRAL_BONUS_PERCENT = float(os.getenv('REFERRAL_BONUS_PERCENT', 10))
 BOT_TOKEN = os.getenv('BOT_TOKEN', '')
 ADMIN_ID = int(os.getenv('ADMIN_ID', '0') or '0')
 ADMIN_ID_2 = int(os.getenv('ADMIN_ID_2', '0') or '0')  # второй админ (полные права, кроме удаления)
@@ -1297,15 +1298,26 @@ async def api_history(request: Request):
 
 @app.get("/api/referral_stats")
 async def api_referral(request: Request):
+    from utils import exchange_calc
     user = verify_init_data(request.headers.get('X-Telegram-Init-Data', ''))
     if not user:
         raise HTTPException(status_code=403, detail="Откройте приложение через бота Telegram.")
     uid = int(user['id'])
     with db_conn(5) as conn:
         c = conn.cursor()
-        c.execute("SELECT COUNT(*), SUM(total_bonus_btc) FROM referrals WHERE referrer_id=?", (uid,))
-        row = c.fetchone()
-    return {"referrals": row[0] or 0, "total_bonus_btc": row[1] or 0}
+        c.execute("SELECT COUNT(*), COALESCE(SUM(total_bonus_btc),0) FROM referrals WHERE referrer_id=?", (uid,))
+        cnt, bonus_btc = c.fetchone()
+        # Активные — приглашённые, совершившие хотя бы один выполненный обмен
+        c.execute("""SELECT COUNT(DISTINCT r.referred_id) FROM referrals r
+                     JOIN orders o ON o.user_id = r.referred_id AND o.status = 'sent'
+                     WHERE r.referrer_id = ?""", (uid,))
+        active = c.fetchone()[0]
+    btc_rate = exchange_calc.get_cached_rate('BTC') or 0
+    bonus_btc = round(bonus_btc or 0, 8)
+    bonus_rub = round(bonus_btc * btc_rate) if btc_rate else None
+    return {"referrals": cnt or 0, "active": active or 0,
+            "total_bonus_btc": bonus_btc, "bonus_rub": bonus_rub,
+            "bonus_percent": REFERRAL_BONUS_PERCENT}
 
 @app.get("/api/order/{order_id}")
 async def api_order(order_id: int, request: Request):
