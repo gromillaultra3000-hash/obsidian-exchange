@@ -125,6 +125,31 @@ git push origin master
 
 ## Сессии
 
+### Сессия 10.07.2026 (miniapp-заявки, безопасность, UX, ретеншн)
+Главный баг: Mini App висел на «заявка создаётся…» — открывался url-кнопкой, а не
+web_app → tg.initData пуст, tg.sendData() молча не работал. Выполнено (5 коммитов):
+- fix(069cfae): создание заявки через **POST /api/create_order** (auth по подписи
+  initData, helper verify_init_data), кнопка «Личный кабинет» в главном меню →
+  web_app=WebAppInfo. tg.sendData НЕ использовать (см. [[project-miniapp-order-flow]]).
+- feat/security(d2d6ad0): in-app трекинг оплаты (таймер 15 мин, поллинг статуса,
+  haptic); rate-limit /api/create_order (5/10мин на юзера + 60/мин глобально →429);
+  144 файла main_bot*-бэкапов → backups/bot_legacy_20260710, паттерны в .gitignore.
+- security(dffb829): закрыт **IDOR на /api/order/{id}** — статус/txid только
+  владельцу (initData ИЛИ ?token=session_token), иначе 404; идемпотентность заявок
+  (повтор те же параметры за 90с → та же заявка); session_token в логах усечён,
+  адрес в bot.log маскируется.
+- feat(9c7ec38): **QR СБП прямо в Mini App** (create_order отдаёт qr_image data-URI
+  из qr_payload + pay_amount); explorer-ссылка на txid при sent; /api/stats/public
+  обогащён (exchanges_total, volume_24h/total) → trust-strip на вкладке обмена.
+- feat(f935243): explorer_url() в боте — кнопка «🔍 Транзакция в блокчейне» в
+  уведомлениях о выплате (worker_send + force_payout); /api/history отдаёт txid;
+  история в miniapp: pending открывает оплату внутри Telegram, sent → explorer.
+- infra (НЕ в git, прод /etc/nginx): в regex вебхуков добавлены lava|stormtrade|xpay
+  (были без rate-limit, падали в location / ). Бэкап:
+  /root/backups/nginx_obsidian-exchange.org.bak_20260710. Проверено: 429 после burst.
+Требует юзера: протестировать miniapp-флоу в реальном Telegram (меню → Личный
+кабинет → создать заявку → QR/трекинг).
+
 ### Сессия 09.07.2026 (роль «оператор»)
 Выполнено:
 - feat: роль оператора в main_bot.py — см. раздел «Роли в боте» выше. Таблица operators
