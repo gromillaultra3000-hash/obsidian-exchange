@@ -199,6 +199,21 @@
 
         <!-- Обмен -->
         <div class="panel active" id="panel-exchange">
+            <!-- Trust-strip: живые честные метрики из БД -->
+            <div id="trust-strip" style="display:none;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px">
+              <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:10px;text-align:center">
+                <div id="ts-today" style="font-size:18px;font-weight:800;color:#a78bfa">—</div>
+                <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">обменов сегодня</div>
+              </div>
+              <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:10px;text-align:center">
+                <div id="ts-vol24" style="font-size:18px;font-weight:800;color:#a78bfa">—</div>
+                <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">объём 24ч</div>
+              </div>
+              <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:10px;text-align:center">
+                <div id="ts-total" style="font-size:18px;font-weight:800;color:#a78bfa">—</div>
+                <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">сделок всего</div>
+              </div>
+            </div>
             <div class="input-group">
                 <label>Валюта</label>
                 <select id="currency" onchange="calculateFee(); updateAddressPlaceholder()">
@@ -251,6 +266,11 @@
                 <span id="pay-timer" style="font-variant-numeric:tabular-nums;font-weight:700;color:#a78bfa;font-size:15px">15:00</span>
               </div>
               <div id="pay-card-status" style="font-size:13px;color:#94a3b8;margin-bottom:12px">Курс зафиксирован. Нажмите «Оплатить», реквизиты откроются внутри Telegram.</div>
+              <div id="pay-qr-wrap" style="display:none;text-align:center;margin-bottom:12px">
+                <div style="font-size:12px;color:#94a3b8;margin-bottom:6px">Отсканируйте QR в приложении банка (СБП)</div>
+                <img id="pay-qr" alt="QR СБП" style="width:200px;height:200px;background:#fff;border-radius:14px;padding:8px">
+                <div id="pay-amount-line" style="margin-top:8px;font-size:14px;color:#e2e8f0"></div>
+              </div>
               <button class="btn" id="pay-open-btn" style="margin-bottom:8px">💳 Оплатить</button>
               <button class="btn" id="pay-check-btn" style="background:rgba(255,255,255,.06)">🔄 Проверить статус</button>
             </div>
@@ -468,6 +488,27 @@
         loadRates();
         setInterval(loadRates, 30000); // обновляем раз в 30с
 
+        // Trust-strip: честные метрики сервиса
+        function fmtRub(n) {
+            n = Number(n) || 0;
+            if (n >= 1e6) return (n / 1e6).toFixed(n >= 1e7 ? 0 : 1) + ' млн ₽';
+            if (n >= 1e3) return Math.round(n / 1e3) + 'к ₽';
+            return Math.round(n) + ' ₽';
+        }
+        async function loadTrust() {
+            try {
+                const r = await fetch('/api/stats/public');
+                if (!r.ok) return;
+                const d = await r.json();
+                document.getElementById('ts-today').textContent = d.exchanges_today ?? 0;
+                document.getElementById('ts-vol24').textContent = fmtRub(d.volume_24h);
+                document.getElementById('ts-total').textContent = d.exchanges_total ?? 0;
+                document.getElementById('trust-strip').style.display = 'grid';
+            } catch(e) {}
+        }
+        loadTrust();
+        setInterval(loadTrust, 60000);
+
         function calculateFee() {
             const amount = parseFloat(document.getElementById('amount').value) || 0;
             const currency = document.getElementById('currency').value;
@@ -525,7 +566,7 @@
                 }
                 resultEl.innerHTML = '';
                 if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
-                startOrderTracking(data.order_id, data.payment_url, currency);
+                startOrderTracking(data.order_id, data.payment_url, currency, data.qr_image, data.pay_amount);
                 setTimeout(() => { btn.disabled = false; }, 3000);
             } catch (e) {
                 resultEl.innerHTML = '❌ ' + (e.message || 'Ошибка сети. Попробуйте ещё раз.');
@@ -541,7 +582,8 @@
             if (_orderPoll) { clearInterval(_orderPoll); _orderPoll = null; }
             if (_orderTimer) { clearInterval(_orderTimer); _orderTimer = null; }
         }
-        function startOrderTracking(orderId, payUrl, currency) {
+        const EXPLORER = { BTC: 'https://mempool.space/tx/', LTC: 'https://blockchair.com/litecoin/transaction/', USDT: 'https://tronscan.org/#/transaction/' };
+        function startOrderTracking(orderId, payUrl, currency, qrImage, payAmount) {
             stopOrderTracking();
             const card = document.getElementById('pay-card');
             const title = document.getElementById('pay-card-title');
@@ -550,9 +592,20 @@
             const openBtn = document.getElementById('pay-open-btn');
             const checkBtn = document.getElementById('pay-check-btn');
             const steps = document.getElementById('exchange-steps');
+            const qrWrap = document.getElementById('pay-qr-wrap');
             card.style.display = 'block';
             title.textContent = `Заявка #${orderId}`;
-            statusEl.textContent = 'Курс зафиксирован на 15 минут. Нажмите «Оплатить».';
+            // Показ QR СБП прямо в приложении, если провайдер вернул payload
+            if (qrImage) {
+                document.getElementById('pay-qr').src = qrImage;
+                if (payAmount) document.getElementById('pay-amount-line').innerHTML =
+                    `К оплате: <strong>${Number(payAmount).toLocaleString('ru')} ₽</strong>`;
+                qrWrap.style.display = 'block';
+                statusEl.textContent = 'Отсканируйте QR или нажмите «Оплатить». Курс зафиксирован на 15 минут.';
+                openBtn.textContent = '💳 Открыть в приложении банка';
+            } else {
+                statusEl.textContent = 'Курс зафиксирован на 15 минут. Нажмите «Оплатить».';
+            }
             const openPay = () => { if (payUrl) { tg.openLink ? tg.openLink(payUrl) : (window.location.href = payUrl); } };
             openBtn.onclick = openPay;
 
@@ -572,13 +625,17 @@
                 }
             }, 1000);
 
-            const applyStatus = (st) => {
+            const applyStatus = (st, txid) => {
                 if (st === 'paid' || st === 'sent') {
                     stopOrderTracking();
+                    if (qrWrap) qrWrap.style.display = 'none';
                     timerEl.textContent = st === 'sent' ? '🚀' : '✅';
                     title.textContent = st === 'sent' ? `Заявка #${orderId} — выплачена` : `Заявка #${orderId} — оплачена`;
+                    const txLink = (st === 'sent' && txid && EXPLORER[currency])
+                        ? `<br><a href="#" onclick="tg.openLink('${EXPLORER[currency]}${txid}');return false" style="color:#a78bfa">🔗 Транзакция в блокчейне</a>`
+                        : '';
                     statusEl.innerHTML = st === 'sent'
-                        ? `🚀 Крипта отправлена на ваш адрес. Спасибо!`
+                        ? `🚀 Крипта отправлена на ваш адрес. Спасибо!${txLink}`
                         : `✅ Оплата получена! Готовим выплату ${currency}. Уведомим в чате.`;
                     openBtn.style.display = 'none';
                     checkBtn.textContent = '🔄 Обновить';
@@ -592,7 +649,7 @@
             const poll = async () => {
                 try {
                     const r = await fetch(`/api/order/${orderId}`, { headers: { 'X-Telegram-Init-Data': tg.initData || '' } });
-                    if (r.ok) { const d = await r.json(); applyStatus(d.status); }
+                    if (r.ok) { const d = await r.json(); applyStatus(d.status, d.txid); }
                 } catch (e) {}
             };
             checkBtn.onclick = poll;

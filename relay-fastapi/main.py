@@ -524,6 +524,8 @@ async def api_create_order(request: Request):
     crypto_amount = round(amount / rate, 8) if rate else 0
 
     payment_url = f"{PUBLIC_RELAY}/pay/{order_id}"
+    qr_image = None
+    pay_amount = amount
     try:
         from services.payment_service import PaymentService
         payment_service = PaymentService(amount=amount)
@@ -533,6 +535,19 @@ async def api_create_order(request: Request):
         )
         if 'session_token' in session:
             payment_url = f"{PUBLIC_RELAY}/pay/{session['session_token']}"
+        # Реальная сумма к оплате может быть сдвинута уникализацией провайдера
+        raw = session.get('raw') or {}
+        try:
+            pay_amount = float(raw.get('amount_rub') or session.get('amount') or amount)
+        except (TypeError, ValueError):
+            pass
+        # Сканируемый СБП/НСПК QR — рендерим прямо в Mini App (без прыжка в браузер)
+        qr_payload = session.get('qr_payload')
+        if qr_payload:
+            import base64 as _b64
+            _qr = qrcode.make(qr_payload)
+            _bio = BytesIO(); _qr.save(_bio, "PNG"); _bio.seek(0)
+            qr_image = "data:image/png;base64," + _b64.b64encode(_bio.read()).decode()
     except Exception as e:
         logger.error(f"Не удалось создать payment session (miniapp) для заявки {order_id}: {e}")
 
@@ -561,7 +576,8 @@ async def api_create_order(request: Request):
         logger.error(f"miniapp notify user failed: {e}")
 
     return {"ok": True, "order_id": order_id, "payment_url": payment_url,
-            "crypto_amount": crypto_amount, "currency": currency}
+            "crypto_amount": crypto_amount, "currency": currency,
+            "qr_image": qr_image, "pay_amount": pay_amount}
 
 @app.get("/dashboard/orders", response_class=HTMLResponse)
 async def dashboard_orders_page(request: Request):
@@ -1224,7 +1240,12 @@ async def api_stats_public():
         c = conn.cursor()
         c.execute("SELECT COUNT(*) FROM orders WHERE date(created_at)=? AND status='sent'", (datetime.now().strftime("%Y-%m-%d"),))
         sent_today = c.fetchone()[0]
-    return {"exchanges_today": sent_today}
+        c.execute("SELECT COUNT(*), COALESCE(SUM(rub_amount),0) FROM orders WHERE status='sent'")
+        total_cnt, total_vol = c.fetchone()
+        c.execute("SELECT COALESCE(SUM(rub_amount),0) FROM orders WHERE status='sent' AND created_at > datetime('now','-1 day')")
+        vol_24h = c.fetchone()[0]
+    return {"exchanges_today": sent_today, "exchanges_total": total_cnt,
+            "volume_24h": vol_24h, "volume_total": total_vol}
 
 @app.get("/webapp", response_class=HTMLResponse)
 async def webapp():
