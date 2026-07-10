@@ -489,18 +489,44 @@
         // Инициализируем при загрузке
         updateAddressPlaceholder();
 
-        document.getElementById('create-order').addEventListener('click', () => {
+        document.getElementById('create-order').addEventListener('click', async () => {
+            const btn = document.getElementById('create-order');
+            const resultEl = document.getElementById('exchange-result');
             const currency = document.getElementById('currency').value;
             const amount = document.getElementById('amount').value;
             const address = document.getElementById('address').value.trim();
             const payMethod = document.querySelector('input[name="pay_method"]:checked')?.value || 'sbp';
-            if (!amount || amount < 2000 || amount > 500000) { document.getElementById('exchange-result').textContent = 'Сумма от 2 000 до 500 000 ₽'; return; }
-            if (!address) { document.getElementById('exchange-result').textContent = 'Введите адрес кошелька'; return; }
+            if (!amount || amount < 2000 || amount > 500000) { resultEl.textContent = 'Сумма от 2 000 до 500 000 ₽'; return; }
+            if (!address) { resultEl.textContent = 'Введите адрес кошелька'; return; }
             localStorage.setItem('lastAddress_' + currency, address);
-            tg.sendData(JSON.stringify({ currency, amount: parseFloat(amount), address, pay_method: payMethod }));
-            document.getElementById('exchange-result').innerHTML = '🚀 Заявка создаётся…';
+
+            resultEl.innerHTML = '🚀 Заявка создаётся…';
             document.getElementById('exchange-steps').style.display = 'flex';
-            document.getElementById('create-order').disabled = true;
+            btn.disabled = true;
+            try {
+                const res = await fetch('/api/create_order', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': tg.initData || '' },
+                    body: JSON.stringify({ currency, amount: parseFloat(amount), address, pay_method: payMethod })
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok || !data.ok) {
+                    throw new Error(data.detail || 'Не удалось создать заявку. Попробуйте ещё раз.');
+                }
+                resultEl.innerHTML = `✅ Заявка #${data.order_id} создана! Открываем оплату…`;
+                if (data.payment_url) {
+                    // Открываем экран оплаты внутри Telegram
+                    if (tg.openLink) { tg.openLink(data.payment_url); }
+                    else { window.location.href = data.payment_url; }
+                }
+                if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+                setTimeout(() => { btn.disabled = false; }, 3000);
+            } catch (e) {
+                resultEl.innerHTML = '❌ ' + (e.message || 'Ошибка сети. Попробуйте ещё раз.');
+                document.getElementById('exchange-steps').style.display = 'none';
+                if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
+                btn.disabled = false;
+            }
         });
 
         async function loadHistory() {

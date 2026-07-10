@@ -135,8 +135,9 @@ def audit_log(event, details=""):
     except Exception as e:
         logger.error(f"Audit log error: {e}")
 
-def verify_admin_init_data(init_data: str):
-    """Проверяет подпись Telegram WebApp initData и что user.id == ADMIN_ID."""
+def verify_init_data(init_data: str, max_age: int = 86400):
+    """Проверяет HMAC-подпись Telegram WebApp initData.
+    Возвращает dict user при валидной подписи и свежем auth_date, иначе None."""
     if not init_data or not BOT_TOKEN:
         return None
     try:
@@ -149,12 +150,26 @@ def verify_admin_init_data(init_data: str):
         computed_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
         if not hmac.compare_digest(computed_hash, received_hash):
             return None
+        # защита от протухшего/переигранного initData
+        try:
+            auth_date = int(parsed.get('auth_date', '0'))
+            if max_age and auth_date and (time.time() - auth_date) > max_age:
+                return None
+        except ValueError:
+            pass
         user = json.loads(parsed.get('user', '{}'))
-        if user.get('id') not in ADMIN_IDS:
+        if not user.get('id'):
             return None
         return user
     except Exception:
         return None
+
+def verify_admin_init_data(init_data: str):
+    """Проверяет подпись Telegram WebApp initData и что user.id ∈ ADMIN_IDS."""
+    user = verify_init_data(init_data)
+    if not user or user.get('id') not in ADMIN_IDS:
+        return None
+    return user
 
 def require_admin(request: Request):
     init_data = request.headers.get('X-Telegram-Init-Data', '')
@@ -414,6 +429,91 @@ async def dashboard_exchange_submit(
         logger.error(f"Не удалось создать payment session для заявки {order_id} (сайт): {e}")
 
     return RedirectResponse(f"/pay/{order_id}", status_code=302)
+
+@app.post("/api/create_order")
+async def api_create_order(request: Request):
+    """Создание заявки из Telegram Mini App.
+    Аутентификация — подпись initData (X-Telegram-Init-Data), а НЕ tg.sendData
+    (последний работает только из reply-keyboard web_app-кнопки). Возвращает
+    payment_url, чтобы Mini App сразу открыл экран оплаты."""
+    from utils import exchange_calc
+    user = verify_init_data(request.headers.get('X-Telegram-Init-Data', ''))
+    if not user:
+        raise HTTPException(status_code=403, detail="Откройте приложение через бота Telegram.")
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Некорректный запрос.")
+
+    currency = str(body.get('currency', '')).upper().strip()
+    address = str(body.get('address', '')).strip()
+    pay_method = body.get('pay_method') or body.get('payment_method') or 'sbp'
+    pay_method = pay_method if pay_method in ('sbp', 'card') else 'sbp'
+    try:
+        amount = float(body.get('amount', 0))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Некорректная сумма.")
+
+    if currency not in ('BTC', 'LTC', 'USDT'):
+        raise HTTPException(status_code=400, detail="Неподдерживаемая валюта.")
+    if amount < MIN_AMOUNT or amount > MAX_AMOUNT:
+        raise HTTPException(status_code=400, detail=f"Сумма должна быть от {MIN_AMOUNT:.0f} до {MAX_AMOUNT:.0f} ₽.")
+    if not exchange_calc.validate_crypto_address(address, currency):
+        raise HTTPException(status_code=400, detail="Некорректный адрес кошелька.")
+
+    tg_id = int(user['id'])
+    username = user.get('username') or ''
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        c.execute(
+            "INSERT INTO orders (user_id, username, currency, rub_amount, crypto_address, status) VALUES (?,?,?,?,?,'pending')",
+            (tg_id, username, currency, amount, address),
+        )
+        conn.commit()
+        order_id = c.lastrowid
+
+    rate = exchange_calc.get_rate_with_markup(currency, amount)
+    crypto_amount = round(amount / rate, 8) if rate else 0
+
+    payment_url = f"{PUBLIC_RELAY}/pay/{order_id}"
+    try:
+        from services.payment_service import PaymentService
+        payment_service = PaymentService(amount=amount)
+        session = payment_service.create_session(
+            order_id, amount, client_ip=request.client.host,
+            telegram_id=tg_id, payment_method=pay_method,
+        )
+        if 'session_token' in session:
+            payment_url = f"{PUBLIC_RELAY}/pay/{session['session_token']}"
+    except Exception as e:
+        logger.error(f"Не удалось создать payment session (miniapp) для заявки {order_id}: {e}")
+
+    if ADMIN_ID:
+        notify_admins_tg(
+            f"🆕 Новая заявка #{order_id} (Mini App)\n"
+            f"Клиент: {tg_id} @{username}\n"
+            f"Сумма: {amount:g} RUB ≈ {crypto_amount} {currency}\n"
+            f"Адрес: {address}"
+        )
+    audit_log("miniapp_order_created", f"order_id={order_id} user_id={tg_id}")
+
+    # Дублируем заявку в личку клиенту с кнопками оплаты/статуса
+    try:
+        notify_telegram(tg_id, (
+            f"🟣 <b>ObsidianExchange</b>\n"
+            f"✅ Заявка #{order_id} создана!\n"
+            f"⏳ Курс зафиксирован на 15 минут\n\n"
+            f"Сумма: {amount:g} RUB\nВалюта: {currency}\n\n"
+            f"<a href=\"{payment_url}\">Оплатить</a>"
+        ), reply_markup={"inline_keyboard": [
+            [{"text": "✅ Я оплатил", "callback_data": f"paid_{order_id}"}],
+            [{"text": "🔍 Проверить статус", "callback_data": f"check_{order_id}"}],
+        ]})
+    except Exception as e:
+        logger.error(f"miniapp notify user failed: {e}")
+
+    return {"ok": True, "order_id": order_id, "payment_url": payment_url,
+            "crypto_amount": crypto_amount, "currency": currency}
 
 @app.get("/dashboard/orders", response_class=HTMLResponse)
 async def dashboard_orders_page(request: Request):

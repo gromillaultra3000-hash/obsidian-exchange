@@ -6,7 +6,7 @@ from pathlib import Path
 from io import BytesIO, StringIO
 from aiogram import Bot, Dispatcher, Router, F
 from aiogram.types import (Message, BufferedInputFile, InlineKeyboardMarkup, InlineKeyboardButton,
-                           CallbackQuery, FSInputFile, ContentType, InputMediaPhoto)
+                           CallbackQuery, FSInputFile, ContentType, InputMediaPhoto, WebAppInfo)
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -944,7 +944,7 @@ def build_main_menu_kb() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="👤 Профиль", callback_data="menu_profile"),
          InlineKeyboardButton(text="💬 Поддержка", callback_data="menu_support")],
         [InlineKeyboardButton(text="⚙️ Ещё", callback_data="menu_tools"),
-         InlineKeyboardButton(text="🌐 Личный кабинет", url=f"{PUBLIC_RELAY}/webapp")]
+         InlineKeyboardButton(text="🌐 Личный кабинет", web_app=WebAppInfo(url=f"{PUBLIC_RELAY}/webapp"))]
     ])
 
 
