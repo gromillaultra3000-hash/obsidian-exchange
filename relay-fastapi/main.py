@@ -430,6 +430,33 @@ async def dashboard_exchange_submit(
 
     return RedirectResponse(f"/pay/{order_id}", status_code=302)
 
+# Анти-спам создания заявок из Mini App: скользящее окно на пользователя + глобально.
+from collections import deque as _deque
+_order_rate = {}                 # tg_id -> deque[timestamps]
+_ORDER_RATE_MAX = 5              # не более 5 заявок
+_ORDER_RATE_WINDOW = 600         # за 10 минут на пользователя
+_order_rate_global = _deque()    # общий поток
+_ORDER_RATE_GLOBAL_MAX = 60      # не более 60 заявок/мин на весь сервис
+
+def _check_order_rate(tg_id: int) -> bool:
+    now = time.time()
+    g = _order_rate_global
+    while g and now - g[0] > 60:
+        g.popleft()
+    if len(g) >= _ORDER_RATE_GLOBAL_MAX:
+        return False
+    dq = _order_rate.setdefault(tg_id, _deque())
+    while dq and now - dq[0] > _ORDER_RATE_WINDOW:
+        dq.popleft()
+    if len(dq) >= _ORDER_RATE_MAX:
+        return False
+    dq.append(now)
+    g.append(now)
+    if len(_order_rate) > 5000:   # защита от роста словаря
+        for k in [k for k, v in _order_rate.items() if not v or now - v[-1] > _ORDER_RATE_WINDOW][:2000]:
+            _order_rate.pop(k, None)
+    return True
+
 @app.post("/api/create_order")
 async def api_create_order(request: Request):
     """Создание заявки из Telegram Mini App.
@@ -463,6 +490,9 @@ async def api_create_order(request: Request):
 
     tg_id = int(user['id'])
     username = user.get('username') or ''
+    if not _check_order_rate(tg_id):
+        logger.warning(f"[create_order] rate limit hit user={tg_id}")
+        raise HTTPException(status_code=429, detail="Слишком много заявок подряд. Подождите пару минут.")
     with db_conn(5) as conn:
         c = conn.cursor()
         c.execute(

@@ -244,6 +244,16 @@
               <div class="ex-step">📤 Выплата крипты</div>
             </div>
             <div class="result" id="exchange-result"></div>
+            <!-- Карточка отслеживания оплаты (in-app) -->
+            <div id="pay-card" style="display:none;margin-top:14px;padding:16px;background:rgba(124,58,237,.08);border:1.5px solid rgba(124,58,237,.35);border-radius:16px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+                <strong id="pay-card-title" style="font-size:15px;color:#e2e8f0">Заявка создана</strong>
+                <span id="pay-timer" style="font-variant-numeric:tabular-nums;font-weight:700;color:#a78bfa;font-size:15px">15:00</span>
+              </div>
+              <div id="pay-card-status" style="font-size:13px;color:#94a3b8;margin-bottom:12px">Курс зафиксирован. Нажмите «Оплатить», реквизиты откроются внутри Telegram.</div>
+              <button class="btn" id="pay-open-btn" style="margin-bottom:8px">💳 Оплатить</button>
+              <button class="btn" id="pay-check-btn" style="background:rgba(255,255,255,.06)">🔄 Проверить статус</button>
+            </div>
         </div>
 
         <div class="panel" id="panel-history"><div id="history-list"></div></div>
@@ -513,13 +523,9 @@
                 if (!res.ok || !data.ok) {
                     throw new Error(data.detail || 'Не удалось создать заявку. Попробуйте ещё раз.');
                 }
-                resultEl.innerHTML = `✅ Заявка #${data.order_id} создана! Открываем оплату…`;
-                if (data.payment_url) {
-                    // Открываем экран оплаты внутри Telegram
-                    if (tg.openLink) { tg.openLink(data.payment_url); }
-                    else { window.location.href = data.payment_url; }
-                }
+                resultEl.innerHTML = '';
                 if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+                startOrderTracking(data.order_id, data.payment_url, currency);
                 setTimeout(() => { btn.disabled = false; }, 3000);
             } catch (e) {
                 resultEl.innerHTML = '❌ ' + (e.message || 'Ошибка сети. Попробуйте ещё раз.');
@@ -528,6 +534,72 @@
                 btn.disabled = false;
             }
         });
+
+        // --- Отслеживание оплаты заявки внутри Mini App ---
+        let _orderPoll = null, _orderTimer = null;
+        function stopOrderTracking() {
+            if (_orderPoll) { clearInterval(_orderPoll); _orderPoll = null; }
+            if (_orderTimer) { clearInterval(_orderTimer); _orderTimer = null; }
+        }
+        function startOrderTracking(orderId, payUrl, currency) {
+            stopOrderTracking();
+            const card = document.getElementById('pay-card');
+            const title = document.getElementById('pay-card-title');
+            const statusEl = document.getElementById('pay-card-status');
+            const timerEl = document.getElementById('pay-timer');
+            const openBtn = document.getElementById('pay-open-btn');
+            const checkBtn = document.getElementById('pay-check-btn');
+            const steps = document.getElementById('exchange-steps');
+            card.style.display = 'block';
+            title.textContent = `Заявка #${orderId}`;
+            statusEl.textContent = 'Курс зафиксирован на 15 минут. Нажмите «Оплатить».';
+            const openPay = () => { if (payUrl) { tg.openLink ? tg.openLink(payUrl) : (window.location.href = payUrl); } };
+            openBtn.onclick = openPay;
+
+            // 15-минутный обратный отсчёт
+            let left = 15 * 60;
+            timerEl.style.color = '#a78bfa';
+            _orderTimer = setInterval(() => {
+                left--;
+                const m = String(Math.floor(left / 60)).padStart(2, '0');
+                const s = String(left % 60).padStart(2, '0');
+                timerEl.textContent = `${m}:${s}`;
+                if (left <= 60) timerEl.style.color = '#f87171';
+                if (left <= 0) {
+                    stopOrderTracking();
+                    timerEl.textContent = '00:00';
+                    statusEl.innerHTML = '⌛ Время фиксации курса истекло. Создайте новую заявку.';
+                }
+            }, 1000);
+
+            const applyStatus = (st) => {
+                if (st === 'paid' || st === 'sent') {
+                    stopOrderTracking();
+                    timerEl.textContent = st === 'sent' ? '🚀' : '✅';
+                    title.textContent = st === 'sent' ? `Заявка #${orderId} — выплачена` : `Заявка #${orderId} — оплачена`;
+                    statusEl.innerHTML = st === 'sent'
+                        ? `🚀 Крипта отправлена на ваш адрес. Спасибо!`
+                        : `✅ Оплата получена! Готовим выплату ${currency}. Уведомим в чате.`;
+                    openBtn.style.display = 'none';
+                    checkBtn.textContent = '🔄 Обновить';
+                    if (steps) steps.innerHTML = st === 'sent'
+                        ? '<div class="ex-step done">✓ Заявка создана</div><div class="ex-step done">✓ Оплачено</div><div class="ex-step done">✓ Крипта отправлена</div>'
+                        : '<div class="ex-step done">✓ Заявка создана</div><div class="ex-step done">✓ Оплачено</div><div class="ex-step active">📤 Выплата крипты</div>';
+                    if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+                    loadHistory();
+                }
+            };
+            const poll = async () => {
+                try {
+                    const r = await fetch(`/api/order/${orderId}`);
+                    if (r.ok) { const d = await r.json(); applyStatus(d.status); }
+                } catch (e) {}
+            };
+            checkBtn.onclick = poll;
+            _orderPoll = setInterval(poll, 5000);
+            poll();
+            openPay(); // сразу открываем реквизиты
+        }
 
         async function loadHistory() {
             const list = document.getElementById('history-list');

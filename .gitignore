@@ -71,3 +71,26 @@ crypto-news-aggregator/
 # Swap files & temp
 *.swp
 *.swo
+
+# Backup/legacy артефакты (не запускать/не коммитить)
+backups/
+*.db.bak*
+*.db.backup*
+*.broken/
+*.broken_*/
+main_bot*.backup*
+main_bot*.py.*
+main_bot_*.py
+main_bot.stable_*.py
+*.backup_*
+*.py.bak
+*.py.auto*
+*.py.crash*
+*.py.broken*
+*.py.gold
+*.py.clean
+*.py.fixed
+*.py.before_*
+*.stable_*.py
+*_gold_*.py
+relay-fastapi/main_bot.py
