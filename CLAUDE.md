@@ -147,8 +147,17 @@ web_app → tg.initData пуст, tg.sendData() молча не работал. 
 - infra (НЕ в git, прод /etc/nginx): в regex вебхуков добавлены lava|stormtrade|xpay
   (были без rate-limit, падали в location / ). Бэкап:
   /root/backups/nginx_obsidian-exchange.org.bak_20260710. Проверено: 429 после burst.
-Требует юзера: протестировать miniapp-флоу в реальном Telegram (меню → Личный
-кабинет → создать заявку → QR/трекинг).
+- feat(bf09260): abandoned_order_reminder() — одноразовое напоминание о неоплаченной
+  заявке (окно 8-13 мин), кнопка «Оплатить». Гарантия однократности через
+  sent_notifications(event='pay_reminder').
+- test(d5f0918): tests/test_routes.py — контракт-тест (критичные роуты + маппинг
+  fetch() webapp), подключён в CI. Ловит «фронт дёргает несуществующий роут».
+- feat(f8943e3): курируемые резервы — таблица reserves, бот /setreserve CUR AMOUNT
+  и /reserves (админ), GET /api/reserves (+RUB-эквивалент), блок «🏦 Резервы» в
+  miniapp (скрыт пока пусто). НЕ сырой баланс — задаётся вручную (OPSEC).
+Требует юзера: 1) протестировать miniapp-флоу в реальном Telegram (меню → Личный
+кабинет → создать заявку → QR/трекинг); 2) задать резервы: /setreserve BTC 1.5
+(иначе блок резервов скрыт).
 
 ### Сессия 09.07.2026 (роль «оператор»)
 Выполнено:
