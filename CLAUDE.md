@@ -155,6 +155,17 @@ web_app → tg.initData пуст, tg.sendData() молча не работал. 
 - feat(f8943e3): курируемые резервы — таблица reserves, бот /setreserve CUR AMOUNT
   и /reserves (админ), GET /api/reserves (+RUB-эквивалент), блок «🏦 Резервы» в
   miniapp (скрыт пока пусто). НЕ сырой баланс — задаётся вручную (OPSEC).
+- security(c502de4): РЕВЬЮ диффа нашло IDOR — /api/history и /api/referral_stats
+  брали user_id из query без auth (утечка чужой истории + session_token = обход
+  IDOR-фикса /api/order). Теперь требуют подписанный initData, id из подписи.
+- fix mobile(52c909a): широкие .dash-table скроллятся внутри себя ≤720px (viewport
+  наследуется из base.html везде, body overflow-x:hidden, инпуты 16px — ост. в норме).
+- security+fix бот(aa53f4b): РЕГРЕССИЯ — IDOR-фикс /api/order сломал колбэк check_
+  (бот зовёт ?key=RELAY_SECRET) → восстановлен server-to-server ключ (compare_digest
+  со SECRET_KEY, грузится из bot/.env). Проверка владения в inline_paid/inline_check
+  (только владелец/админ). Глобальный @dp.errors() — нет «молчаливых» сбоев.
+  Аудит авторизации колбэков: admin_confirm_(is_staff+2FA), worker_send_(is_worker),
+  cancel_order_(владение) — уже были ОК.
 Требует юзера: 1) протестировать miniapp-флоу в реальном Telegram (меню → Личный
 кабинет → создать заявку → QR/трекинг); 2) задать резервы: /setreserve BTC 1.5
 (иначе блок резервов скрыт).
