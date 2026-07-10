@@ -7505,6 +7505,14 @@ async def main():
         ])
     except Exception as e:
         logger.warning(f"set_my_commands: {e}")
+    # Постоянная Menu Button у поля ввода → открывает Mini App одним тапом
+    try:
+        from aiogram.types import MenuButtonWebApp, WebAppInfo as _WAI
+        await bot.set_chat_menu_button(
+            menu_button=MenuButtonWebApp(text="🟣 Обменять", web_app=_WAI(url=f"{PUBLIC_RELAY}/webapp"))
+        )
+    except Exception as e:
+        logger.warning(f"set_chat_menu_button: {e}")
     logger.info("Бот запущен")
     await dp.start_polling(bot)
 
