@@ -490,6 +490,24 @@ async def api_create_order(request: Request):
 
     tg_id = int(user['id'])
     username = user.get('username') or ''
+
+    # Идемпотентность: повторный тап/ретрай с теми же параметрами за 90 с
+    # возвращает уже созданную заявку, а не плодит дубли (и не жжёт rate-limit).
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        c.execute("""
+            SELECT o.order_id, ps.session_token FROM orders o
+            LEFT JOIN payment_sessions ps ON ps.order_id=o.order_id AND ps.status NOT IN ('failed','expired')
+            WHERE o.user_id=? AND o.currency=? AND o.rub_amount=? AND o.crypto_address=?
+              AND o.status='pending' AND o.created_at > datetime('now','-90 seconds')
+            ORDER BY o.created_at DESC LIMIT 1
+        """, (tg_id, currency, amount, address))
+        dup = c.fetchone()
+    if dup:
+        dup_url = f"{PUBLIC_RELAY}/pay/{dup[1]}" if dup[1] else f"{PUBLIC_RELAY}/pay/{dup[0]}"
+        return {"ok": True, "order_id": dup[0], "payment_url": dup_url,
+                "currency": currency, "duplicate": True}
+
     if not _check_order_rate(tg_id):
         logger.warning(f"[create_order] rate limit hit user={tg_id}")
         raise HTTPException(status_code=429, detail="Слишком много заявок подряд. Подождите пару минут.")
@@ -1242,14 +1260,30 @@ async def api_referral(user_id: int):
     return {"referrals": row[0] or 0, "total_bonus_btc": row[1] or 0}
 
 @app.get("/api/order/{order_id}")
-async def api_order(order_id: int):
+async def api_order(order_id: int, request: Request):
     with db_conn(5) as conn:
         c = conn.cursor()
-        c.execute("SELECT status, paid_btc_tx FROM orders WHERE order_id=?", (order_id,))
+        c.execute("SELECT status, paid_btc_tx, user_id FROM orders WHERE order_id=?", (order_id,))
         row = c.fetchone()
     if not row:
         raise HTTPException(status_code=404)
-    status, txid = row[0], row[1]
+    status, txid, owner_id = row[0], row[1], row[2]
+
+    # Защита от IDOR/энумерации: статус заявки виден только владельцу.
+    # Доказательство владения — подпись initData Mini App ИЛИ session_token заявки
+    # (для web /pay). Иначе 404 (не раскрываем существование заявки).
+    user = verify_init_data(request.headers.get('X-Telegram-Init-Data', ''))
+    authorized = bool(user and owner_id is not None and int(user['id']) == int(owner_id))
+    if not authorized:
+        token = request.query_params.get('token', '')
+        if token:
+            with db_conn(5) as conn:
+                c = conn.cursor()
+                c.execute("SELECT 1 FROM payment_sessions WHERE order_id=? AND session_token=? LIMIT 1",
+                          (order_id, token))
+                authorized = c.fetchone() is not None
+    if not authorized:
+        raise HTTPException(status_code=404)
 
     # Если заявка ещё pending — проверяем Brabus напрямую на случай пропущенного вебхука
     if status == 'pending':

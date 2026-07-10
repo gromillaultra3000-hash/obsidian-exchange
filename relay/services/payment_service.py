@@ -166,7 +166,7 @@ class PaymentService:
                           (invoice.get('invoice_id'), invoice.get('qr_payload'), str(invoice.get('raw', {})), token))
                 conn.commit()
                 conn.close()
-                logger.info(f"Session {token} created for order {order_id} via StormTrade (last resort)")
+                logger.info(f"Session {token[:8]}… created for order {order_id} via StormTrade (last resort)")
                 return {
                     "session_token": token,
                     "invoice_id": invoice.get('invoice_id'),
@@ -206,7 +206,7 @@ class PaymentService:
         conn.commit()
         conn.close()
 
-        logger.info(f"Session {token} created for order {order_id}")
+        logger.info(f"Session {token[:8]}… created for order {order_id}")
         return {
             "session_token": token,
             "invoice_id": invoice.get('invoice_id'),

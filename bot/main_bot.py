@@ -6127,7 +6127,8 @@ def process_payout(order_id, rub_amount, client_address, currency='BTC'):
         return None
     try:
         txid = send_crypto(currency, client_address, amount)
-        logger.info(f"Выплата #{order_id} выполнена: {amount} {currency} -> {client_address}, txid={txid}")
+        _addr_mask = f"{client_address[:6]}…{client_address[-4:]}" if client_address and len(client_address) > 12 else "***"
+        logger.info(f"Выплата #{order_id} выполнена: {amount} {currency} -> {_addr_mask}, txid={txid}")
         return txid
     except Exception as e:
         logger.exception(f"Ошибка выплаты #{order_id}: {e}")
