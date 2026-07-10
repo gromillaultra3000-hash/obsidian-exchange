@@ -214,6 +214,11 @@
                 <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">сделок всего</div>
               </div>
             </div>
+            <!-- Курируемые резервы -->
+            <div id="reserves-box" style="display:none;margin-bottom:16px;padding:10px 12px;background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.2);border-radius:12px">
+              <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">🏦 Резервы в наличии</div>
+              <div id="reserves-row" style="display:flex;flex-wrap:wrap;gap:12px;font-size:14px;font-weight:700;color:#e2e8f0"></div>
+            </div>
             <div class="input-group">
                 <label>Валюта</label>
                 <select id="currency" onchange="calculateFee(); updateAddressPlaceholder()">
@@ -508,6 +513,24 @@
         }
         loadTrust();
         setInterval(loadTrust, 60000);
+
+        // Курируемые резервы
+        async function loadReserves() {
+            try {
+                const r = await fetch('/api/reserves');
+                if (!r.ok) return;
+                const d = await r.json();
+                const list = (d.reserves || []).filter(x => x.amount > 0);
+                if (!list.length) return;
+                const ICON = { BTC: '₿', LTC: 'Ł', USDT: '💵' };
+                document.getElementById('reserves-row').innerHTML = list.map(x =>
+                    `<span>${ICON[x.currency] || ''} ${Number(x.amount).toLocaleString('ru', {maximumFractionDigits: 4})} ${x.currency}</span>`
+                ).join('');
+                document.getElementById('reserves-box').style.display = 'block';
+            } catch(e) {}
+        }
+        loadReserves();
+        setInterval(loadReserves, 120000);
 
         function calculateFee() {
             const amount = parseFloat(document.getElementById('amount').value) || 0;

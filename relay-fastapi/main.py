@@ -1247,6 +1247,22 @@ async def api_stats_public():
     return {"exchanges_today": sent_today, "exchanges_total": total_cnt,
             "volume_24h": vol_24h, "volume_total": total_vol}
 
+@app.get("/api/reserves")
+async def api_reserves():
+    """Курируемые резервы (задаются админом через /setreserve), НЕ баланс кошелька."""
+    from utils import exchange_calc
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        c.execute("""CREATE TABLE IF NOT EXISTS reserves (
+            currency TEXT PRIMARY KEY, amount REAL NOT NULL DEFAULT 0,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP)""")
+        rows = c.execute("SELECT currency, amount FROM reserves WHERE amount > 0 ORDER BY currency").fetchall()
+    out = []
+    for cur, amt in rows:
+        rate = exchange_calc.get_cached_rate(cur) or 0
+        out.append({"currency": cur, "amount": amt, "rub_value": round(amt * rate) if rate else None})
+    return {"reserves": out}
+
 @app.get("/webapp", response_class=HTMLResponse)
 async def webapp():
     try:

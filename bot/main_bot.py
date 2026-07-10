@@ -657,6 +657,10 @@ def init_db():
             referrer_id INTEGER, referred_id INTEGER, bonus_paid INTEGER DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, total_bonus_btc REAL DEFAULT 0,
             PRIMARY KEY (referrer_id, referred_id))''')
+        # Курируемые резервы (задаются админом вручную, НЕ сырой баланс кошелька)
+        c.execute('''CREATE TABLE IF NOT EXISTS reserves (
+            currency TEXT PRIMARY KEY, amount REAL NOT NULL DEFAULT 0,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP)''')
         c.execute('''CREATE TABLE IF NOT EXISTS blocked_users (
             user_id INTEGER PRIMARY KEY, reason TEXT, blocked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
         c.execute('''CREATE TABLE IF NOT EXISTS admin_log (
@@ -5104,6 +5108,49 @@ async def cmd_setrate(message: Message):
         await message.answer(f"✅ Курс {coin} установлен: {new_rate:,.2f} RUB")
     except Exception as e:
         await message.answer("Ошибка. Формат: /setrate BTC 6500000")
+
+@router.message(Command("setreserve"))
+async def cmd_setreserve(message: Message):
+    """/setreserve BTC 1.5 — курируемый резерв (админ). 0 = скрыть монету."""
+    if not is_admin(message.from_user.id): return
+    try:
+        parts = message.text.split()
+        if len(parts) != 3:
+            await message.answer("Формат: /setreserve BTC 1.5\n(0 — скрыть монету из витрины)")
+            return
+        coin = parts[1].upper()
+        if coin not in ('BTC', 'LTC', 'USDT'):
+            await message.answer("Допустимые валюты: BTC, LTC, USDT")
+            return
+        amount = float(parts[2])
+        if amount < 0:
+            await message.answer("Сумма не может быть отрицательной.")
+            return
+        with db_conn(10) as conn:
+            conn.execute(
+                "INSERT INTO reserves (currency, amount, updated_at) VALUES (?,?,CURRENT_TIMESTAMP) "
+                "ON CONFLICT(currency) DO UPDATE SET amount=excluded.amount, updated_at=CURRENT_TIMESTAMP",
+                (coin, amount)
+            )
+            conn.commit()
+        await message.answer(f"✅ Резерв {coin} установлен: {amount:g}")
+    except Exception:
+        await message.answer("Ошибка. Формат: /setreserve BTC 1.5")
+
+@router.message(Command("reserves"))
+async def cmd_reserves(message: Message):
+    """/reserves — показать текущие курируемые резервы (админ)."""
+    if not is_admin(message.from_user.id): return
+    with db_conn(5) as conn:
+        rows = conn.execute("SELECT currency, amount, updated_at FROM reserves ORDER BY currency").fetchall()
+    if not rows:
+        await message.answer("Резервы не заданы. Установить: /setreserve BTC 1.5")
+        return
+    ICON = {"BTC": "₿", "LTC": "Ł", "USDT": "💵"}
+    text = "🏦 <b>Курируемые резервы</b>\n\n" + "\n".join(
+        f"{ICON.get(c,'')} {c}: <b>{a:g}</b>  <i>({u[:16]})</i>" for c, a, u in rows
+    ) + "\n\nИзменить: /setreserve BTC 1.5"
+    await message.answer(text, parse_mode="HTML")
 
 @router.message(Command("limits"))
 async def cmd_limits(message: Message):
