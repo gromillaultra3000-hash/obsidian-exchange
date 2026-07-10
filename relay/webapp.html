@@ -672,8 +672,13 @@
                     const emoji = { pending:'⏳', paid:'✅', sent:'🚀' }[o.status] || '⚡';
                     const label = statusLabels[o.status] || o.status;
                     const cls = statusClass[o.status] || '';
-                    const payBtn = (o.status === 'pending' && o.session_token)
-                        ? `<a href="/pay/${o.session_token}" class="btn-pay">💳 Оплатить</a>` : '';
+                    let action = '';
+                    if (o.status === 'pending' && o.session_token) {
+                        const purl = `${location.origin}/pay/${o.session_token}`;
+                        action = `<a href="#" class="btn-pay" onclick="tg.openLink('${purl}');return false">💳 Оплатить</a>`;
+                    } else if (o.status === 'sent' && o.txid && EXPLORER[o.currency]) {
+                        action = `<a href="#" class="btn-pay" style="background:rgba(124,58,237,.15)" onclick="tg.openLink('${EXPLORER[o.currency]}${o.txid}');return false">🔍 Транзакция</a>`;
+                    }
                     html += `<div class="history-item ${cls}">
                         <span class="h-icon">${emoji}</span>
                         <div class="h-title">#${o.order_id} — ${o.currency}</div>
@@ -682,7 +687,7 @@
                             <small>${o.created}</small>
                             <span class="status">${label}</span>
                         </div>
-                        ${payBtn}
+                        ${action}
                     </div>`;
                 });
                 list.innerHTML = html;

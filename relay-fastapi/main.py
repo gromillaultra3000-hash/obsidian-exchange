@@ -1262,7 +1262,7 @@ async def api_history(user_id: int):
         c = conn.cursor()
         c.execute("""
             SELECT o.order_id, o.rub_amount, o.currency, o.status, o.created_at,
-                   ps.session_token
+                   ps.session_token, o.paid_btc_tx
             FROM orders o
             LEFT JOIN payment_sessions ps ON ps.order_id = o.order_id
                 AND ps.status NOT IN ('failed','expired')
@@ -1270,7 +1270,8 @@ async def api_history(user_id: int):
             ORDER BY o.created_at DESC LIMIT 30
         """, (user_id,))
         rows = c.fetchall()
-    return [{"order_id": r[0], "amount": r[1], "currency": r[2], "status": r[3], "created": r[4], "session_token": r[5]} for r in rows]
+    return [{"order_id": r[0], "amount": r[1], "currency": r[2], "status": r[3],
+             "created": r[4], "session_token": r[5], "txid": r[6]} for r in rows]
 
 @app.get("/api/referral_stats")
 async def api_referral(user_id: int):

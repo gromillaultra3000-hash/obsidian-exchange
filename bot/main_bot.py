@@ -3473,13 +3473,16 @@ async def worker_enter_tx(message: Message, state: FSMContext):
     )
     try:
         await send_sticker_safe(user_id, STICKER_SUCCESS)
+        _exp = explorer_url(currency, tx)
+        _kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔍 Транзакция в блокчейне", url=_exp)]]) if _exp else None
         await bot.send_message(
             user_id,
             f"🚀 <b>Заявка #{order_id} выполнена!</b>\n\n"
             f"Криптовалюта отправлена на ваш адрес.\n"
             f"TXID: <code>{tx}</code>\n\n"
             f"Спасибо за обмен в ObsidianExchange! 🟣",
-            parse_mode="HTML"
+            parse_mode="HTML",
+            reply_markup=_kb
         )
     except Exception:
         pass
@@ -3984,13 +3987,18 @@ async def cmd_force_payout(message: Message):
         if txid:
             text += f"\n\n🔗 TXID: <code>{txid}</code>"
         text += "\n\n<b>Оцените качество обслуживания:</b>"
-        rate_kb = InlineKeyboardMarkup(inline_keyboard=[[
+        _rows = []
+        _exp = explorer_url(currency, txid)
+        if _exp:
+            _rows.append([InlineKeyboardButton(text="🔍 Транзакция в блокчейне", url=_exp)])
+        _rows.append([
             InlineKeyboardButton(text="😞 1", callback_data=f"rate_{oid}_1"),
             InlineKeyboardButton(text="😐 2", callback_data=f"rate_{oid}_2"),
             InlineKeyboardButton(text="🙂 3", callback_data=f"rate_{oid}_3"),
             InlineKeyboardButton(text="😊 4", callback_data=f"rate_{oid}_4"),
             InlineKeyboardButton(text="🤩 5", callback_data=f"rate_{oid}_5"),
-        ]])
+        ])
+        rate_kb = InlineKeyboardMarkup(inline_keyboard=_rows)
         await bot.send_message(user_id, text, parse_mode="HTML", reply_markup=rate_kb)
     except Exception as e:
         await message.answer(f"⚠️ Не удалось уведомить клиента {user_id}: {e}")
@@ -6108,6 +6116,16 @@ async def cmd_order(message: Message):
 
 
 PAYOUT_WALLETS = {'BTC': 'PayoutWallet', 'LTC': 'PayoutLTC'}
+
+def explorer_url(currency, tx):
+    """Ссылка на транзакцию в блокчейн-эксплорере по валюте."""
+    if not tx:
+        return None
+    return {
+        'BTC': f"https://mempool.space/tx/{tx}",
+        'LTC': f"https://blockchair.com/litecoin/transaction/{tx}",
+        'USDT': f"https://tronscan.org/#/transaction/{tx}",
+    }.get((currency or 'BTC').upper())
 
 def send_crypto(currency, address, amount):
     """Отправляет amount монет currency на address из горячего кошелька. Возвращает txid."""
