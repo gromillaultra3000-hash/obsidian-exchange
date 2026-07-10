@@ -1322,6 +1322,11 @@ async def api_order(order_id: int, request: Request):
     # (для web /pay). Иначе 404 (не раскрываем существование заявки).
     user = verify_init_data(request.headers.get('X-Telegram-Init-Data', ''))
     authorized = bool(user and owner_id is not None and int(user['id']) == int(owner_id))
+    # Внутренний server-to-server ключ (бот → /api/order?key=RELAY_SECRET)
+    if not authorized:
+        key = request.query_params.get('key', '')
+        if key and SECRET_KEY and SECRET_KEY != 'fallback' and hmac.compare_digest(key, SECRET_KEY):
+            authorized = True
     if not authorized:
         token = request.query_params.get('token', '')
         if token:

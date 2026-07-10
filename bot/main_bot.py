@@ -612,6 +612,22 @@ dp = Dispatcher(storage=storage)
 router = Router()
 dp.include_router(router)
 
+@dp.errors()
+async def global_error_handler(event) -> bool:
+    """Глобальный перехват необработанных ошибок в хендлерах: логируем и мягко
+    отвечаем пользователю, чтобы не было «молчаливого» сбоя (78 message + 61 callback)."""
+    exc = getattr(event, "exception", None)
+    upd = getattr(event, "update", None)
+    logger.exception(f"Необработанная ошибка в хендлере: {exc}")
+    try:
+        if getattr(upd, "callback_query", None):
+            await upd.callback_query.answer("⚠️ Произошла ошибка, попробуйте ещё раз.", show_alert=True)
+        elif getattr(upd, "message", None):
+            await upd.message.answer("⚠️ Произошла ошибка при обработке. Попробуйте ещё раз или напишите в поддержку.")
+    except Exception:
+        pass
+    return True  # ошибка обработана — polling продолжает работу
+
 # ---------- FSM ----------
 class Exchange(StatesGroup):
     currency = State()
@@ -2010,6 +2026,11 @@ async def inline_paid(callback: CallbackQuery):
             await callback.answer("❌ Заявка не найдена", show_alert=True)
             return
         order_user_id, rub_amount, address, currency, status = row
+        # Проверка владения: сообщить об оплате может только владелец заявки
+        # (защита от крафтнутого paid_<чужой id> — спам операторам/подмена).
+        if order_user_id != callback.from_user.id and not is_admin(callback.from_user.id):
+            await callback.answer("Это не ваша заявка", show_alert=True)
+            return
         if status != 'pending':
             await callback.answer("ℹ️ Эта заявка уже обработана", show_alert=True)
             return
@@ -2035,6 +2056,15 @@ async def inline_paid(callback: CallbackQuery):
 async def inline_check_payment(callback: CallbackQuery):
     try:
         order_id = int(callback.data.split("_")[1])
+        # Проверка владения: статус заявки виден только её владельцу
+        with db_conn(5) as conn:
+            _r = conn.execute("SELECT user_id FROM orders WHERE order_id=?", (order_id,)).fetchone()
+        if not _r:
+            await callback.answer("❌ Заявка не найдена", show_alert=True)
+            return
+        if _r[0] != callback.from_user.id and not is_admin(callback.from_user.id):
+            await callback.answer("Это не ваша заявка", show_alert=True)
+            return
         async with aiohttp.ClientSession() as session:
             async with session.get(f"{RELAY_SITE}/api/order/{order_id}",
                                    params={"key": RELAY_SECRET}) as resp:
