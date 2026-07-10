@@ -968,6 +968,31 @@ def build_main_menu_kb() -> InlineKeyboardMarkup:
     ])
 
 
+def _fmt_rate_compact(r) -> str:
+    """4 850 000 → '4.85М ₽', 93 → '93 ₽'."""
+    if not r:
+        return ''
+    if r >= 1_000_000:
+        return f"{r/1_000_000:.2f}М ₽"
+    if r >= 100_000:
+        return f"{r/1000:.0f}к ₽"
+    if r >= 1_000:
+        return f"{r/1000:.1f}к ₽"
+    return f"{r:.0f} ₽"
+
+def build_currency_kb(prefix: str, back_cb: str = "back_to_menu") -> InlineKeyboardMarkup:
+    """Клавиатура выбора монеты с живым курсом на кнопках. prefix: 'cur_' | 'sell_cur_'."""
+    rates = {c: get_cached_rate(c) or 0 for c in ('BTC', 'LTC', 'USDT')}
+    def lbl(icon, code):
+        rt = _fmt_rate_compact(rates[code])
+        return f"{icon} {code}" + (f"  ·  {rt}" if rt else "")
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=lbl("₿", "BTC"), callback_data=f"{prefix}BTC")],
+        [InlineKeyboardButton(text=lbl("Ł", "LTC"), callback_data=f"{prefix}LTC")],
+        [InlineKeyboardButton(text=lbl("💵", "USDT"), callback_data=f"{prefix}USDT")],
+        [InlineKeyboardButton(text="🔙 Назад в меню", callback_data=back_cb)]
+    ])
+
 def build_tools_kb() -> InlineKeyboardMarkup:
     """Подменю «⚙️ Ещё» — инструменты и информация."""
     return InlineKeyboardMarkup(inline_keyboard=[
@@ -1127,12 +1152,7 @@ async def menu_exchange(callback: CallbackQuery, state: FSMContext):
     if is_user_blocked(callback.from_user.id):
         await callback.answer("⛔ Вы превысили лимит заявок или заблокированы.", show_alert=True)
         return
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="₿ BTC", callback_data="cur_BTC")],
-        [InlineKeyboardButton(text="Ł LTC", callback_data="cur_LTC")],
-        [InlineKeyboardButton(text="💵 USDT (TRC20)", callback_data="cur_USDT")],
-        [InlineKeyboardButton(text="🔙 Назад в меню", callback_data="back_to_menu")]
-    ])
+    kb = build_currency_kb("cur_")
     if IMG_CURRENCIES.exists():
         await callback.message.answer_photo(FSInputFile(IMG_CURRENCIES), caption="🟣 <b>Купить криптовалюту</b>\n\nВыберите монету, которую хотите получить:", reply_markup=kb, parse_mode="HTML")
     else:
@@ -1508,12 +1528,7 @@ async def menu_sell(callback: CallbackQuery, state: FSMContext):
     if is_user_blocked(callback.from_user.id):
         await callback.answer("⛔ Вы превысили лимит заявок или заблокированы.", show_alert=True)
         return
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="₿ Bitcoin (BTC)", callback_data="sell_cur_BTC")],
-        [InlineKeyboardButton(text="Ł Litecoin (LTC)", callback_data="sell_cur_LTC")],
-        [InlineKeyboardButton(text="💵 USDT (TRC20)", callback_data="sell_cur_USDT")],
-        [InlineKeyboardButton(text="🔙 Назад в меню", callback_data="back_to_menu")]
-    ])
+    kb = build_currency_kb("sell_cur_")
     await callback.message.answer(
         "💰 <b>Продажа крипты → RUB</b>\n\n"
         "<blockquote>Отправьте нам монеты на указанный адрес — мы переведём рубли по СБП на ваш номер телефона в течение 30–60 минут.\n\n💱 Курс: рыночный за вычетом комиссии\n~19–27% для BTC/LTC · ~2% для USDT</blockquote>\n\n"
