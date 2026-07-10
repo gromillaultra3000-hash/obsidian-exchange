@@ -1912,9 +1912,21 @@ async def process_currency(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data == "amtmode_rub")
 async def amtmode_rub(callback: CallbackQuery, state: FSMContext):
+    # Пресеты в пределах лимитов + ручной ввод
+    presets = [p for p in (5000, 10000, 25000, 50000) if MIN_AMOUNT <= p <= MAX_AMOUNT]
+    preset_rows = []
+    for i in range(0, len(presets), 2):
+        preset_rows.append([
+            InlineKeyboardButton(text=f"{p//1000}к ₽", callback_data=f"amtpreset_{p}")
+            for p in presets[i:i+2]
+        ])
+    kb = InlineKeyboardMarkup(inline_keyboard=preset_rows + [
+        [InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_menu")]
+    ])
     await callback.message.answer(
-        f"💵 <b>Введите сумму в рублях</b>\n\n<blockquote>Минимум: {int(MIN_AMOUNT):,} ₽\nМаксимум: {int(MAX_AMOUNT):,} ₽</blockquote>".replace(",", " "),
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_menu")]]),
+        f"💵 <b>Введите сумму в рублях</b> или выберите быстрый вариант ниже\n\n"
+        f"<blockquote>Минимум: {int(MIN_AMOUNT):,} ₽\nМаксимум: {int(MAX_AMOUNT):,} ₽</blockquote>".replace(",", " "),
+        reply_markup=kb,
         parse_mode="HTML"
     )
     await state.set_state(Exchange.amount)
@@ -1932,6 +1944,45 @@ async def amtmode_crypto(callback: CallbackQuery, state: FSMContext):
     await state.set_state(Exchange.crypto_amount)
     await callback.answer()
 
+async def _finalize_rub_amount(dst: Message, state: FSMContext, user_id: int, amount: float):
+    """Общий путь после выбора суммы в RUB (ввод числом ИЛИ пресет-кнопкой):
+    юбилейная скидка → сохранить сумму → капча. dst — объект с .answer()."""
+    # Скидка 1000 ₽ за каждый 5-й обмен от 5000 ₽
+    if check_fifth_exchange_discount(user_id, amount):
+        amount = max(amount - 1000, MIN_AMOUNT)
+        await dst.answer(
+            f"🎰 <b>Поздравляем!</b> Это ваш юбилейный обмен — скидка <b>1 000 ₽</b> применена!\n"
+            f"💵 К оплате: <b>{amount:,.0f} ₽</b>",
+            parse_mode="HTML"
+        )
+    await state.update_data(amount=amount)
+    a, b, correct = generate_captcha()
+    await state.update_data(captcha_correct=correct)
+    await dst.answer(
+        f"🛡 <b>Защита от роботов</b>\n\nСколько будет <b>{a} + {b}</b>?",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_menu")]]),
+        parse_mode="HTML"
+    )
+    await state.set_state(Exchange.captcha)
+
+@router.callback_query(F.data.startswith("amtpreset_"))
+async def amtpreset(callback: CallbackQuery, state: FSMContext):
+    """Пресет-кнопка суммы на экране ввода RUB — ведёт в тот же шаг, что и ручной ввод."""
+    try:
+        amount = float(callback.data.split("_")[1])
+    except (IndexError, ValueError):
+        await callback.answer("Ошибка", show_alert=True)
+        return
+    data = await state.get_data()
+    if 'currency' not in data:
+        await callback.answer("Начните обмен заново.", show_alert=True)
+        return
+    if amount < MIN_AMOUNT or amount > MAX_AMOUNT:
+        await callback.answer("Сумма вне лимитов.", show_alert=True)
+        return
+    await callback.answer(f"{int(amount):,} ₽".replace(",", " "))
+    await _finalize_rub_amount(callback.message, state, callback.from_user.id, amount)
+
 @router.message(Exchange.amount)
 async def process_amount(message: Message, state: FSMContext):
     try:
@@ -1942,23 +1993,7 @@ async def process_amount(message: Message, state: FSMContext):
     if amount < MIN_AMOUNT or amount > MAX_AMOUNT:
         await message.answer(f"❌ Сумма должна быть от {MIN_AMOUNT} до {MAX_AMOUNT} RUB.")
         return
-    # Скидка 1000 ₽ за каждый 5-й обмен от 5000 ₽
-    if check_fifth_exchange_discount(message.from_user.id, amount):
-        amount = max(amount - 1000, MIN_AMOUNT)
-        await message.answer(
-            f"🎰 <b>Поздравляем!</b> Это ваш юбилейный обмен — скидка <b>1 000 ₽</b> применена!\n"
-            f"💵 К оплате: <b>{amount:,.0f} ₽</b>",
-            parse_mode="HTML"
-        )
-    await state.update_data(amount=amount)
-    a, b, correct = generate_captcha()
-    await state.update_data(captcha_correct=correct)
-    await message.answer(
-        f"🛡 <b>Защита от роботов</b>\n\nСколько будет <b>{a} + {b}</b>?",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_menu")]]),
-        parse_mode="HTML"
-    )
-    await state.set_state(Exchange.captcha)
+    await _finalize_rub_amount(message, state, message.from_user.id, amount)
 
 @router.message(Exchange.crypto_amount)
 async def process_crypto_amount(message: Message, state: FSMContext):
