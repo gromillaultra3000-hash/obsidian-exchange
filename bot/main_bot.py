@@ -7303,6 +7303,63 @@ async def montera_receipt_reminder():
         await asyncio.sleep(60)
 
 
+async def abandoned_order_reminder():
+    """Мягкое одноразовое напоминание клиенту, создавшему заявку, но не оплатившему
+    в окне фиксации курса (~8–13 мин после создания). Восстановление конверсии.
+    Гарантия однократности — sent_notifications(event='pay_reminder')."""
+    await asyncio.sleep(120)  # даём боту прогреться после старта
+    while True:
+        try:
+            import datetime as _dt
+            now = _dt.datetime.utcnow()
+            window_from = (now - _dt.timedelta(minutes=13)).strftime("%Y-%m-%d %H:%M:%S")
+            window_to   = (now - _dt.timedelta(minutes=8)).strftime("%Y-%m-%d %H:%M:%S")
+            with db_conn(5) as conn:
+                c = conn.cursor()
+                c.execute("""
+                    SELECT o.order_id, o.user_id, o.rub_amount, o.currency,
+                           (SELECT ps.session_token FROM payment_sessions ps
+                            WHERE ps.order_id=o.order_id AND ps.status NOT IN ('failed','expired')
+                            ORDER BY ps.id DESC LIMIT 1) AS token
+                    FROM orders o
+                    WHERE o.status='pending'
+                      AND o.user_id > 0
+                      AND o.created_at BETWEEN ? AND ?
+                      AND NOT EXISTS (
+                          SELECT 1 FROM sent_notifications sn
+                          WHERE sn.order_id = o.order_id AND sn.event = 'pay_reminder'
+                      )
+                """, (window_from, window_to))
+                rows = c.fetchall()
+
+            for oid, uid, rub, currency, token in rows:
+                try:
+                    kb = None
+                    if token:
+                        kb = InlineKeyboardMarkup(inline_keyboard=[[
+                            InlineKeyboardButton(text="💳 Оплатить сейчас", url=f"{PUBLIC_RELAY}/pay/{token}")
+                        ]])
+                    amt = f"{int(rub):,}".replace(",", " ")
+                    await bot.send_message(
+                        uid,
+                        f"⏳ <b>Заявка #{oid} ждёт оплаты</b>\n\n"
+                        f"{amt} ₽ → {currency}. Курс ещё зафиксирован, но скоро истечёт.\n"
+                        f"Оплатите, чтобы получить крипту по текущему курсу. 🟣",
+                        parse_mode="HTML", reply_markup=kb
+                    )
+                except Exception:
+                    pass
+                with db_conn(5) as conn:
+                    conn.execute(
+                        "INSERT OR IGNORE INTO sent_notifications (order_id, event) VALUES (?, 'pay_reminder')",
+                        (oid,)
+                    )
+                    conn.commit()
+        except Exception as e:
+            logger.error(f"abandoned_order_reminder error: {e}")
+        await asyncio.sleep(60)
+
+
 # ── Стоп-таймер: UUID сообщения для Montera-оператора при задержке чека ──────
 # Если клиент явно оплатил, но не успевает прислать чек — форвардни это сообщение
 # в чат Montera чтобы остановить таймер.
@@ -7348,6 +7405,7 @@ async def main():
     asyncio.create_task(daily_post_scheduler())
     asyncio.create_task(rate_alert_scheduler())
     asyncio.create_task(montera_receipt_reminder())
+    asyncio.create_task(abandoned_order_reminder())
     asyncio.create_task(limit_order_watcher())
     asyncio.create_task(recall_inactive_users())
     asyncio.create_task(dca_runner())
