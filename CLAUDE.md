@@ -166,6 +166,15 @@ web_app → tg.initData пуст, tg.sendData() молча не работал. 
   (только владелец/админ). Глобальный @dp.errors() — нет «молчаливых» сбоев.
   Аудит авторизации колбэков: admin_confirm_(is_staff+2FA), worker_send_(is_worker),
   cancel_order_(владение) — уже были ОК.
+UX-полировка бота/miniapp (db86da2, fdaa654, ca54dd4, dffa6dd):
+- Menu Button у поля ввода → Mini App одним тапом (set_chat_menu_button MenuButtonWebApp)
+- живой курс на кнопках выбора монеты (build_currency_kb, покупка+продажа)
+- пресеты суммы 5к/10к/25к/50к на вводе RUB (_finalize_rub_amount, amtpreset_)
+- реф-аналитика в miniapp: /api/referral_stats + active/bonus_rub/bonus_percent,
+  стат-грид; withdrawRefBonus больше не через сломанный tg.sendData (шлёт в бота)
+- РЕШЕНО НЕ делать in-place swap выбора монеты: menu_exchange — общая точка входа
+  из 8+ сообщений (уведомления, завершение заявки, тарифы), edit_reply_markup
+  испортил бы их клавиатуры. Паттерн «новое сообщение» здесь правильный.
 Требует юзера: 1) протестировать miniapp-флоу в реальном Telegram (меню → Личный
 кабинет → создать заявку → QR/трекинг); 2) задать резервы: /setreserve BTC 1.5
 (иначе блок резервов скрыт).
