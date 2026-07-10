@@ -1273,7 +1273,13 @@ async def webapp():
 
 # --- API эндпоинты ---
 @app.get("/api/history")
-async def api_history(user_id: int):
+async def api_history(request: Request):
+    # Авторизация обязательна: user_id берём из ПОДПИСАННОГО initData, а не из
+    # query-параметра (иначе IDOR — чужая история + утечка session_token).
+    user = verify_init_data(request.headers.get('X-Telegram-Init-Data', ''))
+    if not user:
+        raise HTTPException(status_code=403, detail="Откройте приложение через бота Telegram.")
+    uid = int(user['id'])
     with db_conn(5) as conn:
         c = conn.cursor()
         c.execute("""
@@ -1284,16 +1290,20 @@ async def api_history(user_id: int):
                 AND ps.status NOT IN ('failed','expired')
             WHERE o.user_id=?
             ORDER BY o.created_at DESC LIMIT 30
-        """, (user_id,))
+        """, (uid,))
         rows = c.fetchall()
     return [{"order_id": r[0], "amount": r[1], "currency": r[2], "status": r[3],
              "created": r[4], "session_token": r[5], "txid": r[6]} for r in rows]
 
 @app.get("/api/referral_stats")
-async def api_referral(user_id: int):
+async def api_referral(request: Request):
+    user = verify_init_data(request.headers.get('X-Telegram-Init-Data', ''))
+    if not user:
+        raise HTTPException(status_code=403, detail="Откройте приложение через бота Telegram.")
+    uid = int(user['id'])
     with db_conn(5) as conn:
         c = conn.cursor()
-        c.execute("SELECT COUNT(*), SUM(total_bonus_btc) FROM referrals WHERE referrer_id=?", (user_id,))
+        c.execute("SELECT COUNT(*), SUM(total_bonus_btc) FROM referrals WHERE referrer_id=?", (uid,))
         row = c.fetchone()
     return {"referrals": row[0] or 0, "total_bonus_btc": row[1] or 0}
 

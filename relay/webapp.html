@@ -685,7 +685,7 @@
             const list = document.getElementById('history-list');
             list.innerHTML = '<div class="skeleton-line"></div><div class="skeleton-line"></div><div class="skeleton-line" style="width:60%"></div>';
             try {
-                const res = await fetch(`/api/history?user_id=${userId}`);
+                const res = await fetch(`/api/history?user_id=${userId}`, { headers: { 'X-Telegram-Init-Data': tg.initData || '' } });
                 const orders = await res.json();
                 if (!orders.length) { list.innerHTML = '<div class="history-item">У вас пока нет заявок.</div>'; return; }
                 const statusLabels = { pending: 'Ожидание', paid: 'Оплачено', sent: 'Отправлено' };
@@ -722,7 +722,7 @@
             const refLink = `https://t.me/${botUsername}?start=ref_${userId}`;
             document.getElementById('ref-link').textContent = refLink;
             document.getElementById('ref-stats').innerHTML = '<div class="skeleton-line"></div><div class="skeleton-line" style="width:50%"></div>';
-            fetch(`/api/referral_stats?user_id=${userId}`).then(r=>r.json()).then(data => {
+            fetch(`/api/referral_stats?user_id=${userId}`, { headers: { 'X-Telegram-Init-Data': tg.initData || '' } }).then(r=>r.json()).then(data => {
                 document.getElementById('ref-stats').innerHTML = `
                     <p>👥 Приглашено: <strong>${data.referrals || 0}</strong></p>
                     <p>💸 Заработано: <strong>${data.total_bonus_btc || 0} BTC</strong></p>
@@ -767,7 +767,7 @@
         ];
         async function loadProfile() {
             try {
-                const res = await fetch(`/api/history?user_id=${userId}`);
+                const res = await fetch(`/api/history?user_id=${userId}`, { headers: { 'X-Telegram-Init-Data': tg.initData || '' } });
                 const orders = await res.json();
                 const completed = orders.filter(o => o.status === 'paid' || o.status === 'sent');
                 const volume = completed.reduce((s, o) => s + (parseFloat(o.amount) || 0), 0);
