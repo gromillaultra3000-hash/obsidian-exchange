@@ -51,6 +51,13 @@ class MonteraProvider(PaymentProvider):
         }
 
     def create_invoice(self, order_id, amount, payment_method=None, user_id=None):
+        # user_id может прийти строкой (initData/JSON) — приводим к int, иначе
+        # сравнения user_id > 0 / < 0 ниже и в _get_user_rating падают TypeError
+        # («'<' not supported between str and int»).
+        try:
+            user_id = int(user_id) if user_id is not None else 0
+        except (TypeError, ValueError):
+            user_id = 0
         user_rating, client_trusted = _get_user_rating(user_id)
 
         if payment_method == "sbp":
