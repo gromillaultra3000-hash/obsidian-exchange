@@ -99,12 +99,14 @@ class VertuProvider(PaymentProvider):
             return {"error": "Vertu: не настроены VERTU_API_KEY или VERTU_LOGIN/VERTU_PASSWORD"}
 
         type_pay = VERTU_TYPE_SBP if payment_method == "sbp" else VERTU_TYPE_CARD
+        # POST /v1/deals/ ТРЕБУЕТ поле deal_id (иначе HTTP 422 "deal_id: Field
+        # required"). Коммит 7743de9 переименовал его в platform_id — это ломало
+        # ВСЕ сделки Vertu с 10.07 (проверено живым API: platform_id-only → 422,
+        # deal_id-only → доходит до подбора трейдера). platform_id в ЗАПРОСЕ
+        # игнорируется; свой platform_id для GET-статуса Vertu возвращает в
+        # ОТВЕТЕ. timestamp — чтобы retry в PaymentService не упирался в дубль ID.
         payload = {
-            # Vertu свёл идентификатор к одному формату: поле называется
-            # platform_id (раньше deal_id) — тем же ключом крепится чек и
-            # опрашивается статус GET /v1/deals/{platform_id}/. timestamp —
-            # чтобы retry в PaymentService не упирался в дубль ID на стороне Vertu
-            "platform_id": f"obsidian_{order_id}_{int(time.time())}",
+            "deal_id": f"obsidian_{order_id}_{int(time.time())}",
             "amount": float(amount),
             "type_pay": type_pay,
         }
