@@ -83,11 +83,12 @@ class PaymentService:
             return invoice, False
         if not os.getenv('STORMTRADE_API_KEY', ''):
             return invoice, False
-        health = get_health_scores().get('StormTradeProvider')
-        if health and not health.get('is_healthy', True):
-            logger.info("StormTrade эскалация пропущена: провайдер unhealthy/cooldown")
-            return invoice, False
-
+        # НЕ гейтим эскалацию по is_healthy: StormTrade исключён из weighted-выбора
+        # (last_resort), поэтому единственный живой запрос к нему идёт отсюда. Если
+        # пропускать эскалацию при is_healthy=0, провайдер никогда не получит запрос →
+        # никогда не запишет успех → навсегда останется unhealthy (self-heal deadlock,
+        # словили 10-11.07). Это последний резерв перед Fallback — пытаемся всегда,
+        # исход запишет сам вызов create_invoice ниже.
         try:
             from providers.stormtrade import StormTradeProvider
             storm = StormTradeProvider()
@@ -101,7 +102,14 @@ class PaymentService:
         storm_invoice = storm.create_invoice(order_id, amount,
                                              payment_method=payment_method,
                                              user_id=telegram_id)
-        record_outcome('StormTradeProvider', 'error' not in storm_invoice,
+        # «Нет свободных реквизитов» = у last-resort нет свободного трейдера под сумму
+        # в моменте (API ответил штатно) — это НЕ падение провайдера, здоровье не
+        # штрафуем. Иначе штатное для резерва состояние копит failed_count и уводит
+        # его в is_healthy=0 (при снятом гейте выше это уже не блокирует, но и
+        # дашборд не должен врать). Реальные ошибки (auth/сеть/HTTP5xx) — штрафуем.
+        err = storm_invoice.get('error') or ''
+        no_trader = 'реквизит' in err.lower()
+        record_outcome('StormTradeProvider', ('error' not in storm_invoice) or no_trader,
                        time.time() - start_time)
         if 'error' in storm_invoice:
             logger.warning(f"StormTrade тоже не выдал реквизиты для order {order_id}: "
