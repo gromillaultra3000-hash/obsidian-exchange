@@ -4201,6 +4201,96 @@ async def cmd_stats(message: Message):
     await message.answer(text, parse_mode="HTML", reply_markup=kb)
 
 
+_PROV_STATUS_EMOJI = {'READY': '🟢', 'NO_TRADERS': '🟡', 'NETWORK': '🟠',
+                      'DEGRADED': '🟠', 'BLOCKED': '🔴', 'AUTH_ERROR': '🔴'}
+_PROV_SHORT = {'MonteraProvider': 'montera', 'BrabusProvider': 'brabus',
+               'VertuProvider': 'vertu', 'XPayConnectProvider': 'xpay',
+               'LavaProvider': 'lava', 'GreenPayProvider': 'greenpay',
+               'StormTradeProvider': 'stormtrade', 'FallbackProvider': 'fallback',
+               'PlategaProvider': 'platega'}
+
+
+def build_providers_report():
+    """Отчёт о здоровье платёжных провайдеров: структурированный статус + причина
+    (blocker) из provider_health, попытки за час, kill-switch DISABLED_PROVIDERS."""
+    disabled = {p.strip().lower() for p in os.getenv('DISABLED_PROVIDERS', '').split(',')
+                if p.strip()}
+    with db_conn(5) as conn:
+        rows = conn.execute(
+            "SELECT provider, is_healthy, failed_count, COALESCE(status,''), "
+            "COALESCE(blocker,''), last_checked FROM provider_health ORDER BY provider"
+        ).fetchall()
+        try:
+            since = (datetime.now() - timedelta(hours=1)).isoformat()
+            att = dict(conn.execute(
+                "SELECT provider, COUNT(*) FROM provider_attempts WHERE ts>=? GROUP BY provider",
+                (since,)).fetchall())
+        except sqlite3.OperationalError:
+            att = {}
+    lines, kb_rows = [], []
+    for name, healthy, fails, status, blocker, _last in rows:
+        short = _PROV_SHORT.get(name, name)
+        if short in disabled:
+            lines.append(f"⚫️ <b>{short}</b> — выключен (DISABLED_PROVIDERS)")
+            continue
+        emoji = _PROV_STATUS_EMOJI.get(status, '🟢' if healthy else '🔴')
+        state = 'здоров' if healthy else f'нездоров, фейлов подряд: {fails}'
+        line = f"{emoji} <b>{short}</b> — {state}"
+        n = att.get(name, 0)
+        budget = os.getenv(f'BUDGET_{short.upper()}', '')
+        if n or budget:
+            line += f" · попыток/час: {n}" + (f"/{budget}" if budget else "")
+        lines.append(line)
+        if blocker and not healthy:
+            lines.append(f"    └ {blocker[:120]}")
+        if not healthy:
+            kb_rows.append([InlineKeyboardButton(text=f"♻️ Сбросить {short}",
+                                                 callback_data=f"admrstprov_{name}")])
+    kb_rows.append([InlineKeyboardButton(text="🔄 Обновить",
+                                         callback_data="admin_providers_refresh")])
+    text = "🧭 <b>Платёжные провайдеры</b>\n\n" + "\n".join(lines)
+    return text, InlineKeyboardMarkup(inline_keyboard=kb_rows)
+
+
+@router.message(Command("providers"))
+async def cmd_providers(message: Message):
+    """/providers — здоровье платёжных провайдеров с причинами (админ)."""
+    if not is_admin(message.from_user.id):
+        return
+    text, kb = build_providers_report()
+    await message.answer(text, parse_mode="HTML", reply_markup=kb)
+
+
+@router.callback_query(F.data == "admin_providers_refresh")
+async def admin_providers_refresh(callback: CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        return
+    text, kb = build_providers_report()
+    try:
+        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
+    except Exception:
+        pass  # текст не изменился — Telegram кидает Bad Request, это ок
+    await callback.answer("Обновлено")
+
+
+@router.callback_query(F.data.startswith("admrstprov_"))
+async def admin_reset_provider_cb(callback: CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        return
+    name = callback.data[len("admrstprov_"):]
+    with db_conn(5) as conn:
+        conn.execute("UPDATE provider_health SET failed_count=0, is_healthy=1, "
+                     "status='READY', blocker='' WHERE provider=?", (name,))
+        conn.commit()
+    log_staff_action(callback.from_user.id, 'reset_provider', details=name)
+    text, kb = build_providers_report()
+    try:
+        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
+    except Exception:
+        pass
+    await callback.answer(f"{_PROV_SHORT.get(name, name)} сброшен в healthy")
+
+
 @router.callback_query(F.data == "admin_stats_refresh")
 async def admin_stats_refresh(callback: CallbackQuery):
     if not is_admin(callback.from_user.id):

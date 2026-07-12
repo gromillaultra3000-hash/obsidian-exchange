@@ -2084,11 +2084,13 @@ async def analytics_data(request: Request):
     )
     by_status = qry("SELECT status, COUNT(*) as cnt FROM orders GROUP BY status")
     by_provider = qry(
-        "SELECT provider, is_healthy, failed_count, avg_response_time FROM provider_health"
+        "SELECT provider, is_healthy, failed_count, avg_response_time, "
+        "COALESCE(status,'') AS status, COALESCE(blocker,'') AS blocker "
+        "FROM provider_health"
     )
     recent = qry("""
         SELECT o.order_id, o.currency, o.rub_amount, o.status, o.created_at, o.username,
-               (SELECT ps.provider FROM payment_sessions ps WHERE ps.order_id=o.order_id ORDER BY ps.session_id DESC LIMIT 1) as provider
+               (SELECT ps.provider FROM payment_sessions ps WHERE ps.order_id=o.order_id ORDER BY ps.id DESC LIMIT 1) as provider
         FROM orders o ORDER BY o.order_id DESC LIMIT 20
     """)
     totals_row = qry("""

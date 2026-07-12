@@ -4,7 +4,9 @@ from providers.fallback import FallbackProvider
 from utils.tokens import generate_session_token
 from utils.logger import get_logger
 from services.state_machine import PaymentStateMachine
-from services.smart_router import choose_provider, record_outcome, get_health_scores
+from services.smart_router import (choose_provider, record_outcome, get_health_scores,
+                                   get_escalation_chain, CLASS_BY_SHORT, PROVIDER_CONFIG,
+                                   is_provider_disabled)
 
 DB_PATH = os.getenv('DB_PATH', '/root/exchange.db')
 logger = get_logger(__name__)
@@ -73,49 +75,58 @@ class PaymentService:
             from providers.fallback import FallbackProvider
             return FallbackProvider()
 
-    def _try_stormtrade(self, order_id, amount, payment_method, telegram_id, invoice):
+    def _escalate(self, order_id, amount, payment_method, telegram_id, invoice):
         """
-        Последний резерв перед FallbackProvider: StormTrade — самая невыгодная
-        ставка, поэтому вызывается только когда выбранный провайдер не выдал
-        реквизиты. Возвращает (invoice, storm_used).
-        """
-        if self.provider.__class__.__name__ == 'StormTradeProvider':
-            return invoice, False
-        if not os.getenv('STORMTRADE_API_KEY', ''):
-            return invoice, False
-        # НЕ гейтим эскалацию по is_healthy: StormTrade исключён из weighted-выбора
-        # (last_resort), поэтому единственный живой запрос к нему идёт отсюда. Если
-        # пропускать эскалацию при is_healthy=0, провайдер никогда не получит запрос →
-        # никогда не запишет успех → навсегда останется unhealthy (self-heal deadlock,
-        # словили 10-11.07). Это последний резерв перед Fallback — пытаемся всегда,
-        # исход запишет сам вызов create_invoice ниже.
-        try:
-            from providers.stormtrade import StormTradeProvider
-            storm = StormTradeProvider()
-        except Exception as e:
-            logger.warning(f"StormTrade не загрузился: {e}")
-            return invoice, False
+        Эскалация, когда выбранный провайдер после ретраев не выдал реквизиты.
+        Цепочка конфигурируется через ESCALATION_CHAIN (default: stormtrade,fallback)
+        — короткие имена из smart_router.CLASS_BY_SHORT. Возвращает
+        (invoice, provider_name | None) — provider_name короткое имя для payment_sessions.
 
-        logger.warning(f"Эскалация order {order_id} на StormTrade (последний резерв, "
-                       f"невыгодная ставка): {invoice.get('error')}")
-        start_time = time.time()
-        storm_invoice = storm.create_invoice(order_id, amount,
-                                             payment_method=payment_method,
-                                             user_id=telegram_id)
-        # «Нет свободных реквизитов» = у last-resort нет свободного трейдера под сумму
-        # в моменте (API ответил штатно) — это НЕ падение провайдера, здоровье не
-        # штрафуем. Иначе штатное для резерва состояние копит failed_count и уводит
-        # его в is_healthy=0 (при снятом гейте выше это уже не блокирует, но и
-        # дашборд не должен врать). Реальные ошибки (auth/сеть/HTTP5xx) — штрафуем.
-        err = storm_invoice.get('error') or ''
-        no_trader = 'реквизит' in err.lower()
-        record_outcome('StormTradeProvider', ('error' not in storm_invoice) or no_trader,
-                       time.time() - start_time)
-        if 'error' in storm_invoice:
-            logger.warning(f"StormTrade тоже не выдал реквизиты для order {order_id}: "
-                           f"{storm_invoice['error']}")
-            return invoice, False
-        return storm_invoice, True
+        НЕ гейтим по is_healthy: last-resort провайдеры (StormTrade) исключены из
+        weighted-выбора, единственный живой запрос к ним идёт отсюда. Гейт по
+        is_healthy = self-heal deadlock (словили 10-11.07): unhealthy никогда не
+        получит запрос → никогда не запишет успех. Пытаемся всегда, исход пишет
+        record_outcome ниже.
+        """
+        current_class = self.provider.__class__.__name__
+        for short in get_escalation_chain():
+            cls_name = CLASS_BY_SHORT.get(short)
+            if not cls_name or cls_name == current_class:
+                continue
+            if is_provider_disabled(cls_name):
+                continue
+            required_env = PROVIDER_CONFIG.get(cls_name, {}).get('required_env')
+            if required_env and not os.getenv(required_env, ''):
+                continue
+            provider = self._load_provider(cls_name)
+            if provider.__class__.__name__ != cls_name and cls_name != 'FallbackProvider':
+                # _load_provider упал и вернул Fallback вместо запрошенного — не
+                # записываем исход чужому имени, идём дальше по цепочке
+                continue
+
+            logger.warning(f"Эскалация order {order_id} на {short}: {invoice.get('error')}")
+            start_time = time.time()
+            extra = {}
+            if cls_name in ('MonteraProvider', 'VertuProvider', 'StormTradeProvider',
+                            'XPayConnectProvider'):
+                extra['user_id'] = telegram_id
+            next_invoice = provider.create_invoice(order_id, amount,
+                                                   payment_method=payment_method, **extra)
+            # «Нет свободных реквизитов» = нет трейдера под сумму в моменте (API
+            # ответил штатно) — НЕ падение провайдера, здоровье не штрафуем, иначе
+            # штатное для резерва состояние копит failed_count и врёт на дашборде.
+            # Реальные ошибки (auth/сеть/HTTP5xx) — штрафуем.
+            err = next_invoice.get('error') or ''
+            no_trader = 'реквизит' in err.lower()
+            record_outcome(cls_name, ('error' not in next_invoice) or no_trader,
+                           time.time() - start_time, error=err or None)
+            if 'error' in next_invoice:
+                logger.warning(f"{short} тоже не выдал реквизиты для order {order_id}: {err}")
+                continue
+            if cls_name == 'BrabusProvider':
+                short = f"brabus:{getattr(provider, 'variant', 'tbank_deeplink')}"
+            return next_invoice, short
+        return invoice, None
 
     def create_session(self, order_id, amount, client_ip=None, user_agent=None, telegram_id=None, payment_method=None):
         token = generate_session_token()
@@ -147,7 +158,8 @@ class PaymentService:
 
             # Обновляем метрики здоровья провайдера через smart_router
             success = 'error' not in invoice
-            record_outcome(self.provider.__class__.__name__, success, elapsed)
+            record_outcome(self.provider.__class__.__name__, success, elapsed,
+                           error=invoice.get('error'))
 
             if 'error' not in invoice:
                 break
@@ -163,39 +175,19 @@ class PaymentService:
         c = conn.cursor()
 
         if 'error' in invoice:
-            # Эскалация на StormTrade (худшая ставка — только когда остальные
-            # не выдали реквизиты), затем уже FallbackProvider
-            invoice, storm_used = self._try_stormtrade(order_id, amount, payment_method,
-                                                       telegram_id, invoice)
-            if storm_used and 'error' not in invoice:
-                c.execute("INSERT INTO payment_sessions (session_token, order_id, amount, provider, status, expires_at, client_ip, user_agent, telegram_id) VALUES (?,?,?,?,'invoice_created',?,?,?,?)",
-                          (token, order_id, amount, 'stormtrade', expires_at, client_ip, user_agent, telegram_id))
-                c.execute("UPDATE payment_sessions SET provider_invoice_id=?, qr_payload=?, provider_payload=?, updated_at=datetime('now') WHERE session_token=?",
-                          (invoice.get('invoice_id'), invoice.get('qr_payload'), str(invoice.get('raw', {})), token))
-                conn.commit()
-                conn.close()
-                logger.info(f"Session {token[:8]}… created for order {order_id} via StormTrade (last resort)")
-                return {
-                    "session_token": token,
-                    "invoice_id": invoice.get('invoice_id'),
-                    "qr_payload": invoice.get('qr_payload'),
-                    "banks": invoice.get('banks', []),
-                    "amount": amount,
-                    "raw": invoice.get('raw', {})
-                }
-
-        if 'error' in invoice:
-            logger.warning(f"Основной провайдер {self.provider.__class__.__name__} недоступен: {invoice['error']}. Пробуем fallback.")
-            fallback = FallbackProvider()
-            invoice = fallback.create_invoice(order_id, amount, payment_method=payment_method)
-            if 'error' in invoice:
-                logger.error(f"Fallback также не сработал: {invoice['error']}")
+            # Цепочка эскалации (ESCALATION_CHAIN, default stormtrade→fallback) —
+            # только когда выбранный провайдер после ретраев не выдал реквизиты
+            invoice, provider_name = self._escalate(order_id, amount, payment_method,
+                                                    telegram_id, invoice)
+            if provider_name is None or 'error' in invoice:
+                logger.error(f"Вся цепочка эскалации не выдала реквизиты для order {order_id}: "
+                             f"{invoice.get('error')}")
                 c.execute("INSERT INTO payment_sessions (session_token, order_id, amount, provider, status) VALUES (?,?,?,?,'failed')",
                           (token, order_id, amount, 'fallback'))
                 conn.commit()
                 conn.close()
                 return {"error": "All providers failed"}
-            provider_name = 'fallback'
+            logger.info(f"Order {order_id}: реквизиты выданы эскалацией через {provider_name}")
         else:
             if self.provider.__class__.__name__ == 'BrabusProvider':
                 # Сохраняем вариант для корректного cancel при истечении заявки

@@ -1,17 +1,41 @@
 """
 Intelligent payment provider router with health-based scoring and auto-failover.
 Tracks success/failure per provider and routes to the healthiest available one.
+
+Provider intelligence (паттерн Lumi, 12.07.2026):
+- структурированный статус (READY/NO_TRADERS/BLOCKED/AUTH_ERROR/NETWORK/DEGRADED)
+  + человекочитаемая причина blocker в provider_health — здоровье (is_healthy)
+  считается как раньше, классификация только для дашбордов/алертов;
+- бюджет-лимиты: BUDGET_<SHORT>=N в env (напр. BUDGET_MONTERA=30) — максимум
+  попыток create_invoice в час, при превышении провайдер выпадает из выбора;
+- конфигурируемая цепочка эскалации: ESCALATION_CHAIN=stormtrade,fallback (default).
 """
 import os
 import sqlite3
 import random
 import logging
-from typing import Optional, Dict
-from datetime import datetime
+from typing import Optional, Dict, List, Tuple
+from datetime import datetime, timedelta
 from pathlib import Path
 
 DB_PATH = Path("/root/exchange.db")
 logger = logging.getLogger(__name__)
+
+# короткое имя (env/БД payment_sessions) ↔ имя класса провайдера
+SHORT_NAMES = {
+    "MonteraProvider": "montera",
+    "BrabusProvider": "brabus",
+    "VertuProvider": "vertu",
+    "XPayConnectProvider": "xpay",
+    "LavaProvider": "lava",
+    "GreenPayProvider": "greenpay",
+    "StormTradeProvider": "stormtrade",
+    "FallbackProvider": "fallback",
+    "PlategaProvider": "platega",
+}
+CLASS_BY_SHORT = {v: k for k, v in SHORT_NAMES.items()}
+
+ESCALATION_CHAIN_DEFAULT = "stormtrade,fallback"
 
 PROVIDER_CONFIG = {
     "MonteraProvider": {
@@ -76,10 +100,113 @@ def _db():
     return conn
 
 
-def record_outcome(provider: str, success: bool, response_time: float = 0.0):
-    """Call after each payment attempt to update health metrics."""
+_schema_ready = False
+
+def _ensure_schema():
+    """Однократная миграция: status/blocker в provider_health + журнал попыток
+    для бюджет-лимитов. Идемпотентно, ошибки не валят платёжный путь."""
+    global _schema_ready
+    if _schema_ready:
+        return
+    try:
+        with _db() as conn:
+            cols = {r[1] for r in conn.execute("PRAGMA table_info(provider_health)")}
+            if "status" not in cols:
+                conn.execute("ALTER TABLE provider_health ADD COLUMN status TEXT DEFAULT ''")
+            if "blocker" not in cols:
+                conn.execute("ALTER TABLE provider_health ADD COLUMN blocker TEXT DEFAULT ''")
+            conn.execute("CREATE TABLE IF NOT EXISTS provider_attempts ("
+                         "provider TEXT NOT NULL, ts TEXT NOT NULL)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_provider_attempts "
+                         "ON provider_attempts(provider, ts)")
+            conn.commit()
+        _schema_ready = True
+    except Exception as e:
+        logger.warning("smart_router schema migration failed: %s", e)
+
+
+def classify_error(error: Optional[str]) -> Tuple[str, str]:
+    """Классифицирует ошибку провайдера в структурированный статус + причину.
+    Только метаданные для дашбордов/алертов — на подсчёт здоровья не влияет."""
+    if not error:
+        return "READY", ""
+    low = str(error).lower()
+    short = str(error)[:200]
+    if "мерчант заблокирован" in low or ("merchant" in low and "block" in low):
+        return "BLOCKED", "Мерчант заблокирован на стороне провайдера — писать в их поддержку"
+    if any(m in low for m in ("unauthorized", "api key", "apikey", "auth", "подпис",
+                              "401", "403", "invalid token", "credentials")):
+        return "AUTH_ERROR", short
+    if any(m in low for m in ("реквизит", "не удалось выдать сделку", "подходящие",
+                              "no available", "not found for amount", "нет свободных")):
+        return "NO_TRADERS", short
+    if any(m in low for m in ("timeout", "timed out", "connection", "network",
+                              "dns", "unreachable", "read time")):
+        return "NETWORK", short
+    return "DEGRADED", short
+
+
+def _disabled_providers() -> set:
+    """Явный kill-switch: DISABLED_PROVIDERS=xpay,platega (короткие имена) —
+    провайдер полностью исключается из выбора, probation и эскалации. Надёжнее,
+    чем ручной is_healthy=0: тот снимается первым же успешным create_invoice
+    (для XPay-песочницы «успех» = фейковые реквизиты клиенту)."""
+    raw = os.getenv("DISABLED_PROVIDERS", "")
+    return {p.strip().lower() for p in raw.split(",") if p.strip()}
+
+
+def is_provider_disabled(provider: str) -> bool:
+    short = SHORT_NAMES.get(provider, provider).split(":")[0].lower()
+    return short in _disabled_providers()
+
+
+def _budget_for(provider: str) -> Optional[int]:
+    """Бюджет попыток в час из env BUDGET_<SHORT> (напр. BUDGET_MONTERA=30).
+    Нет переменной / невалидна → без лимита."""
+    short = SHORT_NAMES.get(provider, provider).split(":")[0]
+    raw = os.getenv(f"BUDGET_{short.upper()}", "")
+    try:
+        val = int(raw)
+        return val if val > 0 else None
+    except (TypeError, ValueError):
+        return None
+
+
+def attempts_last_hour(provider: str) -> int:
+    _ensure_schema()
+    try:
+        since = (datetime.now() - timedelta(hours=1)).isoformat()
+        with _db() as conn:
+            row = conn.execute(
+                "SELECT COUNT(*) FROM provider_attempts WHERE provider=? AND ts>=?",
+                (provider, since)).fetchone()
+        return int(row[0] or 0)
+    except Exception:
+        return 0
+
+
+def get_escalation_chain() -> List[str]:
+    """Цепочка эскалации (короткие имена), когда выбранный провайдер не выдал
+    реквизиты. Конфигурируется через ESCALATION_CHAIN, неизвестные имена отбрасываются."""
+    raw = os.getenv("ESCALATION_CHAIN", ESCALATION_CHAIN_DEFAULT)
+    chain = []
+    for part in raw.split(","):
+        short = part.strip().lower()
+        if short in CLASS_BY_SHORT and short not in chain:
+            chain.append(short)
+        elif short:
+            logger.warning("ESCALATION_CHAIN: неизвестный провайдер '%s' пропущен", short)
+    return chain or ["stormtrade", "fallback"]
+
+
+def record_outcome(provider: str, success: bool, response_time: float = 0.0,
+                   error: Optional[str] = None):
+    """Call after each payment attempt to update health metrics.
+    error — текст ошибки провайдера для классификации статуса (метаданные)."""
     cfg = PROVIDER_CONFIG.get(provider, {})
     max_fails = cfg.get("max_consecutive_fails", 3)
+    _ensure_schema()
+    status, blocker = ("READY", "") if success else classify_error(error)
 
     with _db() as conn:
         row = conn.execute(
@@ -100,24 +227,37 @@ def record_outcome(provider: str, success: bool, response_time: float = 0.0):
 
             conn.execute(
                 """UPDATE provider_health
-                   SET avg_response_time=?, failed_count=?, last_checked=?, is_healthy=?
+                   SET avg_response_time=?, failed_count=?, last_checked=?, is_healthy=?,
+                       status=?, blocker=?
                    WHERE provider=?""",
-                (new_avg, new_fails, now, healthy, provider)
+                (new_avg, new_fails, now, healthy, status, blocker, provider)
             )
         else:
             healthy = 1 if success else 0
             conn.execute(
                 """INSERT INTO provider_health
-                   (provider, avg_response_time, failed_count, last_checked, is_healthy)
-                   VALUES (?, ?, ?, ?, ?)""",
-                (provider, round(response_time, 3), 0 if success else 1, now, healthy)
+                   (provider, avg_response_time, failed_count, last_checked, is_healthy,
+                    status, blocker)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                (provider, round(response_time, 3), 0 if success else 1, now, healthy,
+                 status, blocker)
             )
+
+        # журнал попыток для бюджет-лимитов (+ чистка старше 2 часов)
+        try:
+            conn.execute("INSERT INTO provider_attempts (provider, ts) VALUES (?, ?)",
+                         (provider, now))
+            conn.execute("DELETE FROM provider_attempts WHERE ts < ?",
+                         ((datetime.now() - timedelta(hours=2)).isoformat(),))
+        except Exception as e:
+            logger.debug("provider_attempts write failed: %s", e)
 
         conn.commit()
 
 
 def get_health_scores() -> Dict[str, dict]:
     """Return health score (0..1) and status for each provider."""
+    _ensure_schema()
     scores = {}
     with _db() as conn:
         rows = conn.execute("SELECT * FROM provider_health").fetchall()
@@ -139,13 +279,26 @@ def get_health_scores() -> Dict[str, dict]:
                     pass
 
             health_score = max(0.0, 1.0 - (fails / max(max_fails, 1))) if is_healthy else 0.0
+            keys = r.keys()
+            budget = _budget_for(name)
+            attempts = attempts_last_hour(name)
             scores[name] = {
                 "is_healthy": is_healthy and not in_cooldown,
+                # cooldown истёк, но провайдер всё ещё unhealthy → кандидат на
+                # пробный запрос (self-heal: иначе без успеха он unhealthy навсегда)
+                "probation": (not is_healthy) and (not in_cooldown),
+                "disabled": is_provider_disabled(name),
                 "in_cooldown": in_cooldown,
                 "failed_count": fails,
                 "health_score": health_score,
                 "avg_response_time": r["avg_response_time"] or 0,
                 "last_checked": last,
+                "status": (r["status"] if "status" in keys else "") or
+                          ("READY" if is_healthy else "DEGRADED"),
+                "blocker": (r["blocker"] if "blocker" in keys else "") or "",
+                "attempts_last_hour": attempts,
+                "budget_per_hour": budget,
+                "budget_exceeded": bool(budget is not None and attempts >= budget),
             }
     return scores
 
@@ -172,12 +325,31 @@ def choose_provider(amount: float = 10000) -> Optional[str]:
         if required_env and not os.getenv(required_env, ""):
             logger.debug("Provider %s skipped: env %s not set", name, required_env)
             continue
-        info = scores.get(name, {"is_healthy": True, "health_score": 0.5})
-        if not info.get("is_healthy", True):
-            logger.debug("Provider %s skipped: not healthy (fails=%d, cooldown=%s)",
-                         name, info.get("failed_count", 0), info.get("in_cooldown"))
+        if is_provider_disabled(name):
+            logger.debug("Provider %s skipped: DISABLED_PROVIDERS", name)
             continue
-        weight = cfg["weight"] * max(info.get("health_score", 0.5), 0.1)
+        info = scores.get(name, {"is_healthy": True, "health_score": 0.5})
+        probation = False
+        if not info.get("is_healthy", True):
+            if not info.get("probation"):
+                logger.debug("Provider %s skipped: not healthy (fails=%d, cooldown=%s)",
+                             name, info.get("failed_count", 0), info.get("in_cooldown"))
+                continue
+            # cooldown истёк — даём редкий пробный запрос (вес ×0.05): успех
+            # вернёт провайдера в ротацию, фейл — обратно в cooldown. Без этого
+            # weighted-провайдер после max_fails оставался unhealthy навсегда
+            # (self-heal deadlock, как у StormTrade до 348184c).
+            probation = True
+        budget = _budget_for(name)
+        if budget is not None and attempts_last_hour(name) >= budget:
+            logger.info("Provider %s skipped: часовой бюджет исчерпан (%d/%d попыток)",
+                        name, attempts_last_hour(name), budget)
+            continue
+        if probation:
+            weight = cfg["weight"] * 0.05
+            logger.info("Provider %s: probation-кандидат (cooldown истёк, вес ×0.05)", name)
+        else:
+            weight = cfg["weight"] * max(info.get("health_score", 0.5), 0.1)
         candidates.append((name, weight))
 
     if not candidates:
@@ -195,9 +367,11 @@ def choose_provider(amount: float = 10000) -> Optional[str]:
 
 def reset_provider(provider: str):
     """Manually re-enable a provider (e.g. after maintenance)."""
+    _ensure_schema()
     with _db() as conn:
         conn.execute(
-            "UPDATE provider_health SET failed_count=0, is_healthy=1 WHERE provider=?",
+            "UPDATE provider_health SET failed_count=0, is_healthy=1, "
+            "status='READY', blocker='' WHERE provider=?",
             (provider,)
         )
         conn.commit()
