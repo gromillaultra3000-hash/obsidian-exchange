@@ -125,6 +125,39 @@ git push origin master
 
 ## Сессии
 
+### Сессия 12.07.2026 (Lumi: сервис + provider intelligence в роутере + мост в Kairos)
+Развёрнут Lumi v1.7.0 (/root/lumi, systemd `lumi`, 127.0.0.1:8010, 203 теста зелёные) —
+третий проект от того же знакомого: fail-closed ИИ-ассистент по коду. Его паттерны
+интегрированы в обменник (9b088cf), работает на всех поверхностях, т.к. внутри
+smart_router/PaymentService (бот + сайт + mini app — один путь create_session):
+- **Статусы+blocker**: provider_health получил колонки status
+  (READY/NO_TRADERS/BLOCKED/AUTH_ERROR/NETWORK/DEGRADED) + blocker (человекочитаемая
+  причина, напр. «Мерчант заблокирован — писать в поддержку»). classify_error() в
+  smart_router; на подсчёт здоровья НЕ влияет, только видимость. Миграция идемпотентна.
+- **Probation self-heal**: unhealthy-провайдер с истёкшим cooldown получает редкий
+  пробный запрос (вес ×0.05) — закрыт deadlock «weighted-провайдер unhealthy навсегда»
+  (Brabus утром 12.07 завис так на 3 разовых сетевых фейлах; сброшен).
+- **Kill-switch DISABLED_PROVIDERS** (bot/.env: platega,greenpay,xpay) — полное
+  исключение из выбора/probation/эскалации. ⚠️ Критично для XPay-песочницы: раньше её
+  держал вне ротации только ручной is_healthy=0, который снялся бы первым же «успешным»
+  create_invoice с фейковыми реквизитами. Когда XPay переключат на прод — убрать xpay
+  из DISABLED_PROVIDERS (+XPAY_BUTTONS=1).
+- **Бюджет-лимиты** BUDGET_<SHORT>=N (попыток/час, журнал provider_attempts, чистка 2ч),
+  по умолчанию выключены.
+- **ESCALATION_CHAIN** (default stormtrade,fallback) — эскалация обобщена
+  (_try_stormtrade → _escalate), поведение по умолчанию идентично прежнему;
+  «нет реквизитов» не штрафует health ни для кого в цепочке.
+- Поверхности: бот — команда /providers (статусы+причины, кнопки ♻️ сброс с аудитом
+  в admin_log, 🔄 обновить; админы); admin analytics — status/blocker в providers
+  (+fix легаси-500: ps.session_id → ps.id, эндпоинт /admin/analytics/data был сломан);
+  mini app — статус-чип из /api/system-status (webapp.html).
+- Проверено: py_compile, tests/test_routes.py (66 роутов), симуляция 300/2000 прогонов
+  (kill-switch исключает, probation ~5%, бюджет отсекает), сервисы перезапущены, живой
+  /api/system-status operational.
+KAIROS: комитет получил Lumi-«мозг» (advisory, fail-closed) — голоса → POST
+/conflict/resolve → combinedVerdict. LUMI_URL в kairos.service (НЕ в .env — его
+переписывает _sync_env). Детали в памяти project-kairos / project-lumi.
+
 ### Сессия 11.07.2026 (вечер-2 — живой прогон ВСЕХ провайдеров + фиксы)
 После рестарта relay-fastapi (код-фикс StormTrade загружен, healthy при старте:
 Brabus/Fallback/StormTrade) прогнал живой create_invoice по всем провайдерам
