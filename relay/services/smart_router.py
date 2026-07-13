@@ -143,12 +143,24 @@ def classify_error(error: Optional[str]) -> Tuple[str, str]:
                               "401", "403", "invalid token", "credentials")):
         return "AUTH_ERROR", short
     if any(m in low for m in ("реквизит", "не удалось выдать сделку", "подходящие",
-                              "no available", "not found for amount", "нет свободных")):
+                              "no available", "not found for amount", "нет свободных",
+                              "попробуйте другой способ", "нет трейдер", "нет доступн",
+                              "не найден", "requisit", "no trader", "not available",
+                              "нет подходящ", "сделку не")):
         return "NO_TRADERS", short
     if any(m in low for m in ("timeout", "timed out", "connection", "network",
                               "dns", "unreachable", "read time")):
         return "NETWORK", short
     return "DEGRADED", short
+
+
+def is_no_trader_error(error: Optional[str]) -> bool:
+    """True, если ошибка провайдера = «нет трейдера/реквизита под сумму в моменте»
+    (API ответил штатно). Такое НЕ должно штрафовать здоровье провайдера — иначе
+    провайдер с временно занятыми трейдерами (напр. Vertu на мелких суммах) копит
+    failed_count и выпадает из выбора целиком, хотя на др. суммах реквизиты есть.
+    Единый источник классификации для payment_service (основной путь + эскалация)."""
+    return classify_error(error)[0] == "NO_TRADERS"
 
 
 def _disabled_providers() -> set:

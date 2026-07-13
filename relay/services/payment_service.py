@@ -6,7 +6,7 @@ from utils.logger import get_logger
 from services.state_machine import PaymentStateMachine
 from services.smart_router import (choose_provider, record_outcome, get_health_scores,
                                    get_escalation_chain, CLASS_BY_SHORT, PROVIDER_CONFIG,
-                                   is_provider_disabled)
+                                   is_provider_disabled, is_no_trader_error)
 
 DB_PATH = os.getenv('DB_PATH', '/root/exchange.db')
 logger = get_logger(__name__)
@@ -117,7 +117,7 @@ class PaymentService:
             # штатное для резерва состояние копит failed_count и врёт на дашборде.
             # Реальные ошибки (auth/сеть/HTTP5xx) — штрафуем.
             err = next_invoice.get('error') or ''
-            no_trader = 'реквизит' in err.lower()
+            no_trader = is_no_trader_error(err)
             record_outcome(cls_name, ('error' not in next_invoice) or no_trader,
                            time.time() - start_time, error=err or None)
             if 'error' in next_invoice:
@@ -156,15 +156,26 @@ class PaymentService:
             invoice = self.provider.create_invoice(order_id, amount, payment_method=payment_method, **extra)
             elapsed = time.time() - start_time
 
-            # Обновляем метрики здоровья провайдера через smart_router
-            success = 'error' not in invoice
-            record_outcome(self.provider.__class__.__name__, success, elapsed,
-                           error=invoice.get('error'))
+            # Обновляем метрики здоровья провайдера через smart_router.
+            # «Нет трейдера под сумму в моменте» (API ответил штатно, напр. Vertu
+            # «Не удалось выдать сделку» на суммах без свободного трейдера) — НЕ
+            # падение провайдера: не штрафуем здоровье, иначе провайдер выпадает из
+            # выбора целиком, хотя на других суммах реквизиты есть.
+            err = invoice.get('error') or ''
+            is_error = 'error' in invoice
+            no_trader = is_error and is_no_trader_error(err)
+            record_outcome(self.provider.__class__.__name__,
+                           (not is_error) or no_trader, elapsed,
+                           error=err or None)
 
-            if 'error' not in invoice:
+            if not is_error:
                 break
-            last_error = invoice['error']
+            last_error = err
             logger.warning(f"Попытка {attempt+1}/{max_retries} для order {order_id} не удалась: {last_error}")
+            # нет трейдера в моменте ретраем не лечится (доступность не изменится за
+            # секунды) — сразу к эскалации, не задерживая клиента
+            if no_trader:
+                break
             if attempt < max_retries - 1:
                 time.sleep(2.5)  # пауза перед повторной попыткой
         
