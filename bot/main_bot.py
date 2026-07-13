@@ -482,23 +482,12 @@ async def build_payment_methods_kb(order_id: int, amount: float, user_id: int = 
     rows = []
     amt = float(amount)
 
-    # Montera показываем ТОЛЬКО клиентам с ≥1 успешно оплаченной сделкой —
-    # требование трейдеров Montera (доверенные/повторные клиенты). Новичкам
-    # Montera недоступна, для них работают Vertu / Storm QR / VietQR.
-    montera_allowed = user_success_count(user_id) >= 1
-    if montera_allowed:
-        # Montera СБП — API сам определяет наличие трейдера
-        rows.append([InlineKeyboardButton(
-            text="📱 СБП — по номеру телефона",
-            callback_data=f"pm_montera_sbp_{order_id}"
-        )])
-        # Montera Карта
-        rows.append([InlineKeyboardButton(
-            text="💳 Карта — реквизиты на экране",
-            callback_data=f"pm_gp_card_{order_id}"
-        )])
+    # Порядок кнопок = порядок ВЫГОДЫ для нас (лучшее → худшее):
+    # Vertu → XPay → Montera → Brabus. StormTrade (худшая ставка) — только
+    # эксклюзивные методы ниже + авто-эскалация. Тот же порядок в авто-роутере
+    # (smart_router profit_weight) и в эскалации (get_escalation_chain).
 
-    # Vertu — СБП / Карта, подтверждение автоматическое (без чека)
+    # 1) Vertu — самый выгодный. СБП / Карта, авто-подтверждение (без чека)
     if os.getenv('VERTU_LOGIN', ''):
         rows.append([InlineKeyboardButton(
             text="⚡ СБП — авто-подтверждение",
@@ -509,9 +498,8 @@ async def build_payment_methods_kb(order_id: int, amount: float, user_id: int = 
             callback_data=f"pm_vertu_card_{order_id}"
         )])
 
-    # XPayConnect — СБП / Карта, подтверждение автоматическое вебхуком (без чека).
-    # XPAY_BUTTONS=1 ставить только когда XPay включит методы мерчанту
-    # (на 09.07.2026 allowed=[] — любой createOrder отдаёт 403)
+    # 2) XPayConnect — побанковые переводы, авто-подтверждение вебхуком (без чека).
+    # XPAY_BUTTONS=1 ставить только когда XPay переведёт мерчант в прод
     if os.getenv('XPAY_API_KEY', '') and os.getenv('XPAY_BUTTONS', '') == '1':
         # мерчант obsidian_sng_mono — побанковые переводы: клиент выбирает свой
         # банк → пикер (pm_xpaybank_ → pm_xpayb_<код>_)
@@ -520,7 +508,20 @@ async def build_payment_methods_kb(order_id: int, amount: float, user_id: int = 
             callback_data=f"pm_xpaybank_{order_id}"
         )])
 
-    # Brabus VietQR — QR-код для оплаты через Сбер/ВТБ, от 1 000 ₽
+    # 3) Montera — показываем ТОЛЬКО клиентам с ≥1 успешно оплаченной сделкой
+    # (требование трейдеров Montera — доверенные/повторные клиенты).
+    montera_allowed = user_success_count(user_id) >= 1
+    if montera_allowed:
+        rows.append([InlineKeyboardButton(
+            text="📱 СБП — по номеру телефона",
+            callback_data=f"pm_montera_sbp_{order_id}"
+        )])
+        rows.append([InlineKeyboardButton(
+            text="💳 Карта — реквизиты на экране",
+            callback_data=f"pm_gp_card_{order_id}"
+        )])
+
+    # 4) Brabus VietQR — QR-код для оплаты через Сбер/ВТБ, от 1 000 ₽
     if amt >= 1000:
         rows.append([InlineKeyboardButton(
             text="📷 QR-код (Сбер / ВТБ)",

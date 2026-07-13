@@ -35,7 +35,37 @@ SHORT_NAMES = {
 }
 CLASS_BY_SHORT = {v: k for k, v in SHORT_NAMES.items()}
 
-ESCALATION_CHAIN_DEFAULT = "stormtrade,fallback"
+# Порядок ВЫГОДЫ для нас (лучшее → худшее), задан оператором. Управляет и
+# авто-выбором (profit_weight), и порядком эскалации (get_escalation_chain), и
+# порядком кнопок в боте. Переопределяется env PROVIDER_PROFIT_ORDER (короткие имена).
+PROVIDER_PROFIT_ORDER_DEFAULT = "vertu,xpay,montera,brabus,stormtrade,fallback,lava,greenpay,platega"
+
+# эскалация по умолчанию = порядок выгоды: при «нет трейдера» у выбранного
+# каскадим к СЛЕДУЮЩЕМУ выгодному, а не сразу к худшему. Заканчивается fallback
+# (гарантированные реквизиты). Переопределяется env ESCALATION_CHAIN.
+ESCALATION_CHAIN_DEFAULT = PROVIDER_PROFIT_ORDER_DEFAULT
+
+
+def get_profit_order() -> List[str]:
+    """Список коротких имён провайдеров в порядке выгоды (индекс 0 = самый выгодный)."""
+    raw = os.getenv("PROVIDER_PROFIT_ORDER", PROVIDER_PROFIT_ORDER_DEFAULT)
+    order = []
+    for p in raw.split(","):
+        s = p.strip().lower()
+        if s in CLASS_BY_SHORT and s not in order:
+            order.append(s)
+    return order or PROVIDER_PROFIT_ORDER_DEFAULT.split(",")
+
+
+def profit_weight(provider_class: str) -> float:
+    """Вес по выгоде: самый выгодный провайдер получает наибольший (квадратичная
+    шкала — явный приоритет выгодных при сохранении шанса у остальных).
+    Неизвестные/невыгодные — минимальный вес."""
+    order = get_profit_order()
+    short = SHORT_NAMES.get(provider_class, provider_class).split(":")[0].lower()
+    n = len(order)
+    rank = order.index(short) if short in order else n
+    return float(max(1, (n - rank)) ** 2)
 
 PROVIDER_CONFIG = {
     "MonteraProvider": {
@@ -408,17 +438,21 @@ def choose_provider(amount: float = 10000) -> Optional[str]:
             logger.info("Provider %s skipped: часовой бюджет исчерпан (%d/%d попыток)",
                         name, attempts_last_hour(name), budget)
             continue
+        # базовый вес = ВЫГОДА для нас (profit_weight): самый выгодный провайдер
+        # получает наибольший приоритет в авто-выборе (порядок задан оператором
+        # через PROVIDER_PROFIT_ORDER)
+        base = profit_weight(name)
         if probation:
-            weight = cfg["weight"] * 0.05
-            logger.info("Provider %s: probation-кандидат (cooldown истёк, вес ×0.05)", name)
+            weight = base * 0.03
+            logger.info("Provider %s: probation-кандидат (cooldown истёк, вес ×0.03)", name)
         else:
             # reliability = здоровье + скользящий success-rate + латентность
-            # (паттерн Lumi): быстрый и стабильно выдающий провайдер получает
-            # больший вес, чем формально «здоровый», но медленный/мигающий.
+            # (паттерн Lumi): среди выгодных предпочитаем быстрого и стабильно
+            # выдающего; медленный/мигающий получает меньше даже при высокой выгоде.
             rel = info.get("reliability")
             if rel is None:
                 rel = info.get("health_score", 0.5)
-            weight = cfg["weight"] * max(rel, 0.1)
+            weight = base * max(rel, 0.1)
         candidates.append((name, weight))
 
     if not candidates:
