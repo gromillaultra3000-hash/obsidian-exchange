@@ -31,7 +31,7 @@ Production крипто-обменник RUB→BTC/LTC/USDT через СБП, n
 | StormTradeProvider | ✅ активен (auth OK, API отвечает штатно 11.07). 11.07 исправлен self-heal deadlock: эскалация гейтилась по is_healthy=0, а провайдер получает живой запрос ТОЛЬКО через эскалацию → навсегда оставался unhealthy (весь резерв был отключён 10-11.07). Фикс 348184c: last-resort пытаемся всегда; «нет свободных реквизитов» больше не штрафует health. Флаг сброшен | last resort, вне weighted-выбора |
 | FallbackProvider | ✅ резерв | 5% |
 | PlategaProvider | ❌ offline | не использовать |
-| XPayConnectProvider | ⚠️ ПЕСОЧНИЦА (проверено 11.07 вечер): методы включили — createOrder больше НЕ 403, sim/card отдают реквизиты, НО тестовые (`0000000000000000`, recipient «Test Name», банк Альфа) → платить нельзя. Кнопки держать выключенными (XPAY_BUTTONS не ставить), пока XPay не переключит мерчанта на ПРОД. Писать администратору XPay | 40% (кнопки off) |
+| XPayConnectProvider | ⚠️ ПЕСОЧНИЦА (перепроверено ЖИВЬЁМ 13.07): sim/card по-прежнему отдают тестовые реквизиты (`0000000000000000`, recipient «Test Name», банк Альфа) → платить нельзя. Доки+тест подтвердили: у XPay ОДИН base URL и НЕТ параметра окружения — выход из песочницы = переключение мерчанта на стороне XPay (кодом не делается), писать администратору XPay. 13.07 добавлен fail-closed страж (6deb80c): тестовые реквизиты → error, роутер эскалирует, клиент фейк НЕ увидит (XPAY_ALLOW_TEST_REQUISITES=1 для отладки). Кнопки держать off (XPAY_BUTTONS не ставить), xpay в DISABLED_PROVIDERS — пока XPay не подтвердит прод | 40% (кнопки off) |
 
 StormTrade (docs.stormtrade.club): худшая ставка → НЕ участвует в обычном выборе
 роутера (`last_resort: True`). Подключается только: 1) эскалация в
@@ -124,6 +124,31 @@ git push origin master
   маппинг в support.db (staff_messages).
 
 ## Сессии
+
+### Сессия 13.07.2026 (reliability-скоринг + слой доверия к оплате + страж XPay + VPN)
+Продолжение переноса паттернов Lumi в обменник + две задачи от юзера.
+- **VPN (Xray Reality)**: жалоба «нет интернета». Диагностика — сервер 100% исправен
+  (user4 живьём гонял трафик без ошибок, пара ключей совпадает, порт/UFW/сеть ок).
+  Причина клиентская: в ссылке терялся `flow=xtls-rprx-vision` (Vision) → хендшейк
+  проходит, данные рвутся. Пересобрал корректные vless-ссылки всем 4 юзерам + QR.
+  Заработало. Ключи/pbk/sid — в памяти [[project-vpn-xray-reality]].
+- **feat(trust) 7ae05ee — reliability-скоринг + публичный слой доверия** (уникальная
+  фишка, выбор юзера — публичный агрегат). Движок smart_router: reliability_score =
+  0.55·здоровье + 0.25·скользящий success-rate(1ч) + 0.20·латентность (адаптация Lumi
+  provider_intelligence). Раньше выбор игнорировал avg_response_time, здоровье бинарное
+  с амнезией → мигающий/медленный провайдер = «идеально здоров». provider_attempts.success
+  добавлен для success-rate (нет данных → нейтрально). choose_provider взвешивает по
+  reliability. get_trust_metrics() — OPSEC-безопасный агрегат БЕЗ имён провайдеров:
+  число живых маршрутов, ~время до реквизитов, надёжность выдачи P=1-Π(1-rel_i) с полом
+  90%. Поверхности (общий источник): /api/system-status (блок trust); mini app
+  webapp.html + сайт index.html — виджет «⚡ Умный роутинг оплаты»; бот — строка в /start
+  caption + reliability в /providers (админ). Проверено живьём: 3 маршрута, ~1с, 99%.
+- **feat(xpay) 6deb80c — вывод XPay из песочницы**: доки (docs.xpayconnect.io) + живой
+  тест → у XPay ОДИН base URL, НЕТ параметра окружения, «выход из песочницы» = действие
+  мерчанта на стороне XPay. Мерчант Obsidian всё ещё в песочнице (sbp/card → 0000…,
+  «Test Name», Альфа). Добавлен fail-closed страж тестовых реквизитов (см. таблицу
+  провайдеров). Активация в прод после подтверждения XPay: XPAY_BUTTONS=1 + убрать xpay
+  из DISABLED_PROVIDERS + restart relay-fastapi exchange-bot + reset_provider('XPayConnectProvider').
 
 ### Сессия 12.07.2026 (Lumi: сервис + provider intelligence в роутере + мост в Kairos)
 Развёрнут Lumi v1.7.0 (/root/lumi, systemd `lumi`, 127.0.0.1:8010, 203 теста зелёные) —
