@@ -117,6 +117,11 @@ def _ensure_schema():
                 conn.execute("ALTER TABLE provider_health ADD COLUMN blocker TEXT DEFAULT ''")
             conn.execute("CREATE TABLE IF NOT EXISTS provider_attempts ("
                          "provider TEXT NOT NULL, ts TEXT NOT NULL)")
+            acols = {r[1] for r in conn.execute("PRAGMA table_info(provider_attempts)")}
+            if "success" not in acols:
+                # исход попытки для скользящего success-rate (reliability-скоринг).
+                # DEFAULT 1 — старые строки (только бюджет) не искажают статистику.
+                conn.execute("ALTER TABLE provider_attempts ADD COLUMN success INTEGER DEFAULT 1")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_provider_attempts "
                          "ON provider_attempts(provider, ts)")
             conn.commit()
@@ -185,6 +190,46 @@ def attempts_last_hour(provider: str) -> int:
         return 0
 
 
+def success_rate_last_hour(provider: str) -> Optional[float]:
+    """Доля успешных попыток за последний час (скользящий success-rate).
+    None, если попыток слишком мало (<3) — тогда провайдер не штрафуется за
+    отсутствие данных (нейтральный вклад в reliability)."""
+    _ensure_schema()
+    try:
+        since = (datetime.now() - timedelta(hours=1)).isoformat()
+        with _db() as conn:
+            row = conn.execute(
+                "SELECT COUNT(*) n, COALESCE(SUM(success),0) ok "
+                "FROM provider_attempts WHERE provider=? AND ts>=?",
+                (provider, since)).fetchone()
+        n = int(row["n"] or 0)
+        if n < 3:
+            return None
+        return max(0.0, min(1.0, float(row["ok"]) / n))
+    except Exception:
+        return None
+
+
+def latency_factor(avg_seconds: float) -> float:
+    """Латентность → множитель 0.15..1.0 (быстрее = выше). avg_response_time у нас
+    в секундах (0.2..1.5 в норме). Плавно штрафует медленных, не обнуляя их."""
+    try:
+        return max(0.15, 1.0 - min(float(avg_seconds) / 8.0, 0.85))
+    except (TypeError, ValueError):
+        return 1.0
+
+
+def reliability_score(health_score: float, sr_hour: Optional[float],
+                      avg_seconds: float) -> float:
+    """Композит надёжности (паттерн Lumi reliability_score, адаптирован):
+    здоровье + скользящий success-rate + латентность. Провайдер без свежих
+    данных (sr_hour=None) не наказывается — его success-компонент нейтрален."""
+    sr = 1.0 if sr_hour is None else sr_hour
+    lf = latency_factor(avg_seconds)
+    value = 0.55 * health_score + 0.25 * sr + 0.20 * lf
+    return round(max(0.0, min(1.0, value)), 4)
+
+
 def get_escalation_chain() -> List[str]:
     """Цепочка эскалации (короткие имена), когда выбранный провайдер не выдал
     реквизиты. Конфигурируется через ESCALATION_CHAIN, неизвестные имена отбрасываются."""
@@ -243,10 +288,10 @@ def record_outcome(provider: str, success: bool, response_time: float = 0.0,
                  status, blocker)
             )
 
-        # журнал попыток для бюджет-лимитов (+ чистка старше 2 часов)
+        # журнал попыток для бюджет-лимитов + скользящего success-rate (+ чистка >2ч)
         try:
-            conn.execute("INSERT INTO provider_attempts (provider, ts) VALUES (?, ?)",
-                         (provider, now))
+            conn.execute("INSERT INTO provider_attempts (provider, ts, success) VALUES (?, ?, ?)",
+                         (provider, now, 1 if success else 0))
             conn.execute("DELETE FROM provider_attempts WHERE ts < ?",
                          ((datetime.now() - timedelta(hours=2)).isoformat(),))
         except Exception as e:
@@ -282,6 +327,9 @@ def get_health_scores() -> Dict[str, dict]:
             keys = r.keys()
             budget = _budget_for(name)
             attempts = attempts_last_hour(name)
+            avg_rt = r["avg_response_time"] or 0
+            sr_hour = success_rate_last_hour(name)
+            reliability = reliability_score(health_score, sr_hour, avg_rt) if is_healthy else 0.0
             scores[name] = {
                 "is_healthy": is_healthy and not in_cooldown,
                 # cooldown истёк, но провайдер всё ещё unhealthy → кандидат на
@@ -291,7 +339,10 @@ def get_health_scores() -> Dict[str, dict]:
                 "in_cooldown": in_cooldown,
                 "failed_count": fails,
                 "health_score": health_score,
-                "avg_response_time": r["avg_response_time"] or 0,
+                "reliability": reliability,
+                "success_rate_1h": sr_hour,
+                "latency_factor": round(latency_factor(avg_rt), 3),
+                "avg_response_time": avg_rt,
                 "last_checked": last,
                 "status": (r["status"] if "status" in keys else "") or
                           ("READY" if is_healthy else "DEGRADED"),
@@ -349,7 +400,13 @@ def choose_provider(amount: float = 10000) -> Optional[str]:
             weight = cfg["weight"] * 0.05
             logger.info("Provider %s: probation-кандидат (cooldown истёк, вес ×0.05)", name)
         else:
-            weight = cfg["weight"] * max(info.get("health_score", 0.5), 0.1)
+            # reliability = здоровье + скользящий success-rate + латентность
+            # (паттерн Lumi): быстрый и стабильно выдающий провайдер получает
+            # больший вес, чем формально «здоровый», но медленный/мигающий.
+            rel = info.get("reliability")
+            if rel is None:
+                rel = info.get("health_score", 0.5)
+            weight = cfg["weight"] * max(rel, 0.1)
         candidates.append((name, weight))
 
     if not candidates:
@@ -363,6 +420,58 @@ def choose_provider(amount: float = 10000) -> Optional[str]:
         if r <= 0:
             return name
     return candidates[0][0]
+
+
+def get_trust_metrics() -> Dict[str, object]:
+    """Публичный OPSEC-безопасный агрегат для «слоя доверия к оплате».
+    БЕЗ имён провайдеров: только число живых независимых маршрутов, среднее
+    время до реквизитов и производный показатель надёжности выдачи.
+
+    Надёжность считается от избыточности маршрутов (эскалация гарантирует
+    реквизиты, пока жив хотя бы один маршрут) и их reliability — это устойчиво
+    при малом трафике, в отличие от шумной доли оплат по истории заявок."""
+    scores = get_health_scores()
+    live = []  # (name, reliability, avg_rt) — только штатные маршруты выбора
+    for name, cfg in PROVIDER_CONFIG.items():
+        if cfg.get("last_resort"):
+            continue
+        required_env = cfg.get("required_env")
+        if required_env and not os.getenv(required_env, ""):
+            continue
+        if is_provider_disabled(name):
+            continue
+        info = scores.get(name, {})
+        if info.get("is_healthy"):
+            live.append((name, info.get("reliability") or info.get("health_score", 0.5),
+                         info.get("avg_response_time") or 0))
+
+    active_routes = len(live)
+    rts = [rt for _, _, rt in live if rt and rt > 0]
+    avg_seconds = round(sum(rts) / len(rts), 2) if rts else 0.0
+    avg_rel = (sum(r for _, r, _ in live) / active_routes) if active_routes else 0.0
+
+    # P(хотя бы один маршрут выдаст реквизиты) ≈ 1 - Π(1 - reliability_i).
+    # Пол 0.90 при ≥1 живом маршруте — чтобы показатель не пугал шумом на малой
+    # выборке; 0 маршрутов → деградация (0%).
+    fail_all = 1.0
+    for _, r, _ in live:
+        fail_all *= (1.0 - max(0.0, min(1.0, r)))
+    reliability_pct = 0 if active_routes == 0 else max(90, round((1.0 - fail_all) * 100))
+    reliability_pct = min(reliability_pct, 99)
+
+    if active_routes == 0:
+        label = "ограничена"
+    elif active_routes >= 3 and avg_rel >= 0.8:
+        label = "стабильна"
+    else:
+        label = "работает"
+
+    return {
+        "active_routes": active_routes,
+        "avg_requisite_seconds": avg_seconds,
+        "reliability_pct": reliability_pct,
+        "status_label": label,
+    }
 
 
 def reset_provider(provider: str):

@@ -200,7 +200,12 @@
         <!-- Обмен -->
         <div class="panel active" id="panel-exchange">
             <!-- Живой статус платёжной системы из /api/system-status -->
-            <div id="sys-status" style="display:none;align-items:center;gap:6px;margin-bottom:10px;padding:6px 10px;border-radius:10px;font-size:11px;font-weight:600"></div>
+            <div id="sys-status" style="display:none;align-items:center;gap:6px;margin-bottom:6px;padding:6px 10px;border-radius:10px;font-size:11px;font-weight:600"></div>
+            <!-- Слой доверия к оплате: умный роутинг (агрегат, без имён провайдеров) -->
+            <div id="pay-trust" style="display:none;margin-bottom:10px;padding:8px 10px;border-radius:10px;background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.18)">
+              <div style="font-size:10px;color:#a78bfa;font-weight:700;letter-spacing:.03em;margin-bottom:3px">⚡ УМНЫЙ РОУТИНГ ОПЛАТЫ</div>
+              <div id="pay-trust-body" style="font-size:11px;color:#cbd5e1;line-height:1.5"></div>
+            </div>
             <!-- Trust-strip: живые честные метрики из БД -->
             <div id="trust-strip" style="display:none;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px">
               <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:10px;text-align:center">
@@ -535,6 +540,19 @@
                     el.textContent = '🟡 Повышенная нагрузка — заявки обрабатываются чуть дольше';
                 }
                 el.style.display = 'flex';
+
+                // Слой доверия: агрегат умного роутинга (без имён провайдеров)
+                const t = d.trust;
+                if (t && t.active_routes > 0) {
+                    const sec = t.avg_requisite_seconds > 0
+                        ? `~${t.avg_requisite_seconds < 1 ? '1' : Math.round(t.avg_requisite_seconds)} с`
+                        : 'мгновенно';
+                    document.getElementById('pay-trust-body').innerHTML =
+                        `Платёж распределяется между <b>${t.active_routes}</b> независимыми маршрутами · ` +
+                        `реквизиты за <b>${sec}</b> · надёжность выдачи <b>${t.reliability_pct}%</b>` +
+                        `<div style="font-size:9px;color:var(--muted);margin-top:2px">если один канал занят — система автоматически берёт следующий</div>`;
+                    document.getElementById('pay-trust').style.display = 'block';
+                }
             } catch(e) {}
         }
         loadSysStatus();

@@ -78,6 +78,12 @@
 
             <div class="widget-rate-info" id="widget-rate-info"></div>
 
+            <!-- Слой доверия к оплате: умный роутинг (агрегат, без имён провайдеров) -->
+            <div id="pay-trust" style="display:none;margin:10px 0;padding:9px 11px;border-radius:12px;background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.2)">
+                <div style="font-size:10px;color:#a78bfa;font-weight:700;letter-spacing:.03em;margin-bottom:3px">⚡ УМНЫЙ РОУТИНГ ОПЛАТЫ</div>
+                <div id="pay-trust-body" style="font-size:12px;color:#cbd5e1;line-height:1.5"></div>
+            </div>
+
             <div class="widget-actions">
                 {% if web_user %}
                 <a href="/dashboard/exchange" class="btn btn-primary btn-block">Обменять →</a>
@@ -218,4 +224,31 @@
   </div>
 </section>
 
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Слой доверия к оплате: живой агрегат умного роутинга (без имён провайдеров)
+(function () {
+  async function loadPayTrust() {
+    try {
+      const r = await fetch('/api/system-status');
+      if (!r.ok) return;
+      const d = await r.json();
+      const t = d.trust;
+      if (!t || !t.active_routes) return;
+      const sec = t.avg_requisite_seconds > 0
+        ? '~' + (t.avg_requisite_seconds < 1 ? '1' : Math.round(t.avg_requisite_seconds)) + ' с'
+        : 'мгновенно';
+      document.getElementById('pay-trust-body').innerHTML =
+        'Платёж распределяется между <b>' + t.active_routes + '</b> независимыми маршрутами · ' +
+        'реквизиты за <b>' + sec + '</b> · надёжность выдачи <b>' + t.reliability_pct + '%</b>' +
+        '<div style="font-size:10px;color:var(--muted, #94a3b8);margin-top:3px">если один канал занят — система автоматически берёт следующий</div>';
+      document.getElementById('pay-trust').style.display = 'block';
+    } catch (e) {}
+  }
+  loadPayTrust();
+  setInterval(loadPayTrust, 60000);
+})();
+</script>
 {% endblock %}

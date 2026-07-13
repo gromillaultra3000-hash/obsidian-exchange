@@ -2291,12 +2291,15 @@ async def health_check_task():
 async def system_status():
     """Публичный endpoint: статус системы для мониторинга."""
     try:
-        from services.smart_router import get_health_scores
+        from services.smart_router import get_health_scores, get_trust_metrics
         scores = get_health_scores()
         healthy_count = sum(1 for s in scores.values() if s.get("is_healthy"))
+        trust = get_trust_metrics()
     except Exception:
         scores = {}
         healthy_count = 0
+        trust = {"active_routes": 0, "avg_requisite_seconds": 0,
+                 "reliability_pct": 0, "status_label": "ограничена"}
 
     with db_conn(5) as conn:
         c = conn.cursor()
@@ -2312,6 +2315,8 @@ async def system_status():
     return {
         "status": "operational" if healthy_count > 0 else "degraded",
         "providers_healthy": healthy_count,
+        # публичный «слой доверия к оплате» — агрегат без имён провайдеров
+        "trust": trust,
         "today": {
             "total": stats[0], "pending": stats[1],
             "completed": stats[2], "expired": stats[3]

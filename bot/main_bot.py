@@ -214,6 +214,23 @@ def get_service_status() -> dict:
         else:
             data = {'ok': 'down', 'chip': 'пауза',
                     'line': '🔴 Кратковременные технические работы — попробуйте чуть позже'}
+
+        # Слой доверия к оплате: агрегат умного роутинга (без имён провайдеров),
+        # тот же источник, что на сайте и в mini app
+        if data['ok'] != 'down':
+            try:
+                if '/root/relay' not in sys.path:
+                    sys.path.insert(0, '/root/relay')
+                from services.smart_router import get_trust_metrics
+                t = get_trust_metrics()
+                if t.get('active_routes'):
+                    sec = t['avg_requisite_seconds']
+                    sec_txt = f"~{1 if sec < 1 else round(sec)} с" if sec else "мгновенно"
+                    data['trust'] = t
+                    data['routing'] = (f"⚡ Умный роутинг: {t['active_routes']} маршрута · "
+                                       f"реквизиты за {sec_txt} · надёжность {t['reliability_pct']}%")
+            except Exception:
+                pass
     except Exception as e:
         logger.debug(f'service status failed: {e}')
     _service_status_cache.update(ts=now, data=data)
@@ -361,9 +378,11 @@ def build_welcome_caption(btc_rate: float, ltc_rate: float, usdt_rate: float, vi
     usdt_str = fmt_rate(usdt_rate, 2)
 
     status = get_service_status()
+    routing_line = f"{status['routing']}\n" if status.get('routing') else ""
     return (
         f"🟣 <b>ObsidianExchange{badge_line}</b>\n"
-        f"{status['line']}\n\n"
+        f"{status['line']}\n"
+        f"{routing_line}\n"
         f"<blockquote>"
         f"₿  1 BTC  ≈  <b>{btc_str} ₽</b>\n"
         f"Ł  1 LTC  ≈  <b>{ltc_str} ₽</b>\n"
@@ -4215,6 +4234,16 @@ def build_providers_report():
     (blocker) из provider_health, попытки за час, kill-switch DISABLED_PROVIDERS."""
     disabled = {p.strip().lower() for p in os.getenv('DISABLED_PROVIDERS', '').split(',')
                 if p.strip()}
+    # reliability-скоринг + агрегат «слоя доверия» (тот же источник, что сайт/mini app)
+    rel_scores, trust = {}, {}
+    try:
+        if '/root/relay' not in sys.path:
+            sys.path.insert(0, '/root/relay')
+        from services.smart_router import get_health_scores, get_trust_metrics
+        rel_scores = get_health_scores()
+        trust = get_trust_metrics()
+    except Exception:
+        pass
     with db_conn(5) as conn:
         rows = conn.execute(
             "SELECT provider, is_healthy, failed_count, COALESCE(status,''), "
@@ -4236,6 +4265,11 @@ def build_providers_report():
         emoji = _PROV_STATUS_EMOJI.get(status, '🟢' if healthy else '🔴')
         state = 'здоров' if healthy else f'нездоров, фейлов подряд: {fails}'
         line = f"{emoji} <b>{short}</b> — {state}"
+        rs = rel_scores.get(name) or {}
+        if healthy and rs.get('reliability') is not None:
+            rt = rs.get('avg_response_time') or 0
+            line += (f" · надёжность {round(rs['reliability'] * 100)}%"
+                     + (f" · {rt:.1f}с" if rt else ""))
         n = att.get(name, 0)
         budget = os.getenv(f'BUDGET_{short.upper()}', '')
         if n or budget:
@@ -4248,7 +4282,11 @@ def build_providers_report():
                                                  callback_data=f"admrstprov_{name}")])
     kb_rows.append([InlineKeyboardButton(text="🔄 Обновить",
                                          callback_data="admin_providers_refresh")])
-    text = "🧭 <b>Платёжные провайдеры</b>\n\n" + "\n".join(lines)
+    header = "🧭 <b>Платёжные провайдеры</b>\n"
+    if trust.get('active_routes'):
+        header += (f"⚡ Умный роутинг: {trust['active_routes']} маршрута · "
+                   f"надёжность {trust['reliability_pct']}% · {trust['status_label']}\n")
+    text = header + "\n" + "\n".join(lines)
     return text, InlineKeyboardMarkup(inline_keyboard=kb_rows)
 
 
