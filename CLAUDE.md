@@ -31,7 +31,7 @@ Production крипто-обменник RUB→BTC/LTC/USDT через СБП, n
 | StormTradeProvider | ✅ активен (auth OK, API отвечает штатно 11.07). 11.07 исправлен self-heal deadlock: эскалация гейтилась по is_healthy=0, а провайдер получает живой запрос ТОЛЬКО через эскалацию → навсегда оставался unhealthy (весь резерв был отключён 10-11.07). Фикс 348184c: last-resort пытаемся всегда; «нет свободных реквизитов» больше не штрафует health. Флаг сброшен | last resort, вне weighted-выбора |
 | FallbackProvider | ✅ резерв | 5% |
 | PlategaProvider | ❌ offline | не использовать |
-| XPayConnectProvider | ⚠️ ПЕСОЧНИЦА (перепроверено ЖИВЬЁМ 13.07): sim/card по-прежнему отдают тестовые реквизиты (`0000000000000000`, recipient «Test Name», банк Альфа) → платить нельзя. Доки+тест подтвердили: у XPay ОДИН base URL и НЕТ параметра окружения — выход из песочницы = переключение мерчанта на стороне XPay (кодом не делается), писать администратору XPay. 13.07 добавлен fail-closed страж (6deb80c): тестовые реквизиты → error, роутер эскалирует, клиент фейк НЕ увидит (XPAY_ALLOW_TEST_REQUISITES=1 для отладки). Кнопки держать off (XPAY_BUTTONS не ставить), xpay в DISABLED_PROVIDERS — пока XPay не подтвердит прод | 40% (кнопки off) |
+| XPayConnectProvider | ⚠️ ПЕСОЧНИЦА, НОВЫЙ МЕРЧАНТ (13.07 вечер): креды сменены на мерчант `obsidian_sng_mono` (bot/.env XPAY_MERCHANT_ID+XPAY_API_KEY). auth OK (balance 0.0), НО реквизиты всё ещё тестовые (`0000…`/«Test Name») → мерчант в песочнице XPay, нужен перевод в прод на их стороне. ⚠️ Методы сменились: НЕ sim/card/any (теперь 403), а ПОБАНКОВЫЕ переводы «строго между клиентами банка» (allowed: sber/tbank/alfa/vtb/yumoney/gasprom/uralsib/mts), реквизит=карта+держатель. Провайдер+бот адаптированы (091787a): XPAY_BANKS, bank-picker в боте (pm_xpaybank_→pm_xpayb_<код>_). fail-closed страж (6deb80c) тестовые реквизиты блокирует. Кнопки off (XPAY_BUTTONS не ставить), xpay в DISABLED_PROVIDERS — до подтверждения прода XPay | (кнопки off) |
 
 StormTrade (docs.stormtrade.club): худшая ставка → НЕ участвует в обычном выборе
 роутера (`last_resort: True`). Подключается только: 1) эскалация в
@@ -158,6 +158,13 @@ git push origin master
   ⚠️ Побочно: /confirm оператора больше НЕ авто-платит ≤5000 — уходит к работнику.
   Клиентские действия (я оплатил/PDF/видео) статус не ставили и раньше. Детали в памяти
   project-obsidian-exchange-status.
+- **feat(xpay) 091787a — новый мерчант obsidian_sng_mono + bank-picker**: юзер дал новые
+  креды XPay. Живьём: auth OK, но реквизиты ещё тестовые (мерчант в песочнице XPay).
+  Методы сменились на ПОБАНКОВЫЕ переводы (sber/tbank/alfa/vtb/yumoney/gasprom/uralsib/
+  mts — «строго между клиентами банка», реквизит=карта). sim/card теперь 403. Провайдер:
+  XPAY_BANKS + приём кода банка как type. Бот: пикер банков (выбор клиентом — выбор юзера).
+  Кнопки off до подтверждения прода XPay. Активация: XPAY_BUTTONS=1 + убрать xpay из
+  DISABLED_PROVIDERS + restart + reset_provider('XPayConnectProvider').
 
 ### Сессия 12.07.2026 (Lumi: сервис + provider intelligence в роутере + мост в Kairos)
 Развёрнут Lumi v1.7.0 (/root/lumi, systemd `lumi`, 127.0.0.1:8010, 203 теста зелёные) —
