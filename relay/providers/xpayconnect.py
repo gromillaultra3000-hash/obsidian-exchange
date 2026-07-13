@@ -16,6 +16,23 @@ XPAY_TYPE_SBP = os.getenv('XPAY_TYPE_SBP', 'sim')
 XPAY_TYPE_CARD = os.getenv('XPAY_TYPE_CARD', 'card')
 XPAY_TYPE_DEFAULT = os.getenv('XPAY_TYPE_DEFAULT', 'any')
 
+# Побанковые методы мерчанта obsidian_sng_mono: «Перевод строго между клиентами
+# <банка>» (docs.xpayconnect.io/reference/payment-methods) — отправитель и получатель
+# в одном банке, реквизит = номер карты + держатель. Код банка передаётся как type
+# напрямую. Порядок = порядок кнопок в боте. Легко расширять из allowed-списка XPay.
+XPAY_BANKS = {
+    "sber": "Сбербанк",
+    "tbank": "Т-Банк",
+    "alfa": "Альфа-Банк",
+    "vtb": "ВТБ",
+    "yumoney": "ЮMoney",
+    "gasprom": "Газпромбанк",
+    "uralsib": "Уралсиб",
+    "mts": "МТС Банк",
+}
+# коды type, передаваемые провайдеру «как есть» (банки + прямые методы)
+XPAY_DIRECT_TYPES = set(XPAY_BANKS) | {"sim", "card", "any", "nspk"}
+
 # Fail-closed страж песочницы: мерчант в тестовом режиме XPay отдаёт заведомо
 # фейковые реквизиты (card/phone из одних нулей, получатель «Test Name»). Пока
 # XPay не переключит мерчанта на ПРОД, такие реквизиты НЕЛЬЗЯ показывать клиенту —
@@ -95,7 +112,9 @@ class XPayConnectProvider(PaymentProvider):
         if not self.api_key or not self.merchant_id:
             return {"error": "XPay: не настроены XPAY_API_KEY / XPAY_MERCHANT_ID"}
 
-        if payment_method == "sbp":
+        if payment_method in XPAY_DIRECT_TYPES:
+            pay_type = payment_method          # код банка/метода напрямую (bank-picker)
+        elif payment_method == "sbp":
             pay_type = XPAY_TYPE_SBP
         elif payment_method == "card":
             pay_type = XPAY_TYPE_CARD

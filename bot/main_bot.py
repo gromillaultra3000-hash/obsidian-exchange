@@ -513,13 +513,11 @@ async def build_payment_methods_kb(order_id: int, amount: float, user_id: int = 
     # XPAY_BUTTONS=1 ставить только когда XPay включит методы мерчанту
     # (на 09.07.2026 allowed=[] — любой createOrder отдаёт 403)
     if os.getenv('XPAY_API_KEY', '') and os.getenv('XPAY_BUTTONS', '') == '1':
+        # мерчант obsidian_sng_mono — побанковые переводы: клиент выбирает свой
+        # банк → пикер (pm_xpaybank_ → pm_xpayb_<код>_)
         rows.append([InlineKeyboardButton(
-            text="🚀 СБП — мгновенное подтверждение",
-            callback_data=f"pm_xpay_sbp_{order_id}"
-        )])
-        rows.append([InlineKeyboardButton(
-            text="🚀 Карта — мгновенное подтверждение",
-            callback_data=f"pm_xpay_card_{order_id}"
+            text="🚀 Перевод по банку — мгновенное подтверждение",
+            callback_data=f"pm_xpaybank_{order_id}"
         )])
 
     # Brabus VietQR — QR-код для оплаты через Сбер/ВТБ, от 1 000 ₽
@@ -2556,6 +2554,39 @@ async def process_payment_method(callback: CallbackQuery, state: FSMContext):
     import sys
     sys.path.insert(0, '/root/relay')
 
+    # XPay bank-picker: показать список банков (мерчант obsidian_sng_mono —
+    # побанковые переводы, клиент платит из своего банка)
+    if pm.startswith("pm_xpaybank_"):
+        try:
+            from providers.xpayconnect import XPAY_BANKS
+        except Exception:
+            XPAY_BANKS = {}
+        brows, buf = [], []
+        for code, title in XPAY_BANKS.items():
+            buf.append(InlineKeyboardButton(text=title, callback_data=f"pm_xpayb_{code}_{order_id}"))
+            if len(buf) == 2:
+                brows.append(buf); buf = []
+        if buf:
+            brows.append(buf)
+        brows.append([InlineKeyboardButton(text="⬅️ Назад", callback_data=f"pm_back_{order_id}")])
+        try:
+            await callback.message.edit_reply_markup(
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=brows))
+        except Exception:
+            pass
+        await callback.answer("Выберите ваш банк")
+        return
+
+    # Назад из пикера банков → полная клавиатура способов оплаты
+    if pm.startswith("pm_back_"):
+        try:
+            await callback.message.edit_reply_markup(
+                reply_markup=await build_payment_methods_kb(order_id, amount, callback.from_user.id))
+        except Exception:
+            pass
+        await callback.answer()
+        return
+
     # Montera — только доверенным клиентам (≥1 успешная сделка). Защита от
     # подделки callback_data: кнопок у новичков нет, но callback можно скопировать.
     if (pm.startswith("pm_montera_sbp_") or pm.startswith("pm_gp_")) \
@@ -2862,10 +2893,20 @@ async def process_payment_method(callback: CallbackQuery, state: FSMContext):
                    f"⏱ Реквизиты действительны <b>30 минут</b>.\n"
                    f"✅ Оплата подтверждается автоматически — чек не требуется.").replace(",", " ")
 
-    elif pm.startswith("pm_xpay_"):
+    elif pm.startswith("pm_xpayb_") or pm.startswith("pm_xpay_"):
         # XPayConnect: реквизиты на экране, оплата подтверждается автоматически
         # вебхуком /xpay/webhook, чек не нужен
-        method = "sbp" if pm.startswith("pm_xpay_sbp_") else "card"
+        try:
+            from providers.xpayconnect import XPAY_BANKS
+        except Exception:
+            XPAY_BANKS = {}
+        if pm.startswith("pm_xpayb_"):
+            # pm_xpayb_<код банка>_<order_id> — побанковый перевод (bank-picker)
+            method = pm.split("_")[2]
+            bank_title = XPAY_BANKS.get(method, method)
+        else:
+            method = "sbp" if pm.startswith("pm_xpay_sbp_") else "card"
+            bank_title = None
         try:
             from services.payment_service import PaymentService
             from providers.xpayconnect import XPayConnectProvider
@@ -2892,7 +2933,10 @@ async def process_payment_method(callback: CallbackQuery, state: FSMContext):
         else:
             amount_str = f"{int(round(pay_amount)):,}"
             exact_note = ""
-        way = "по СБП" if method == "sbp" else "на карту"
+        if bank_title:
+            way = f"на карту {bank_title} (перевод из приложения {bank_title})"
+        else:
+            way = "по СБП" if method == "sbp" else "на карту"
         caption = (f"🟣 ObsidianExchange\nЗаявка #{order_id}\n\n"
                    f"Сумма: <b>{amount_str} ₽</b>\n\n"
                    f"Переведите указанную сумму {way}:\n{requisites_text}\n{exact_note}\n"
