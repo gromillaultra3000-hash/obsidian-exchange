@@ -5933,8 +5933,43 @@ async def auto_check_payments():
                 """)
                 paid_orders = c.fetchall()
 
+            # fail-closed перепроверка расчёта у провайдера перед выплатой
+            import sys as _sys
+            if '/root/relay' not in _sys.path:
+                _sys.path.insert(0, '/root/relay')
+            try:
+                from services.payout_guard import verify_payment_settled
+            except Exception as _e:
+                verify_payment_settled = None
+                logger.error(f"payout_guard недоступен: {_e}")
+
             for order_id, user_id, rub_amount, address, currency in paid_orders:
-                # Маркируем сразу — предотвращает двойную обработку
+                # НЕЗАВИСИМАЯ перепроверка: флаг status='paid' сам по себе НЕ повод
+                # отдавать крипту. Спрашиваем первоисточник (provider.get_status).
+                verdict = (verify_payment_settled(order_id) if verify_payment_settled
+                           else {"verdict": "manual", "warn": False, "detail": "guard недоступен"})
+                v = verdict.get("verdict")
+
+                if v == "hold":
+                    # трейдер запросил видео/PDF-подтверждение и ещё не закрыл —
+                    # держим, крипту НЕ отправляем, перепроверим в след. цикле
+                    with db_conn(5) as conn:
+                        already = conn.execute(
+                            "SELECT 1 FROM sent_notifications WHERE order_id=? AND event='payout_held'",
+                            (order_id,)).fetchone()
+                    if not already:
+                        with db_conn(5) as conn:
+                            conn.execute("INSERT OR IGNORE INTO sent_notifications (order_id, event) "
+                                         "VALUES (?, 'payout_held')", (order_id,))
+                            conn.commit()
+                        await notify_staff(
+                            f"⏸ <b>Выплата удержана — заявка #{order_id}</b>\n\n"
+                            f"{verdict.get('detail','')}\n\n"
+                            f"Крипта НЕ отправлена: ждём подтверждения трейдера.",
+                            parse_mode="HTML")
+                    continue
+
+                # confirmed / manual — терминальное решение, метим чтобы не зациклить
                 with db_conn(5) as conn:
                     conn.execute(
                         "INSERT OR IGNORE INTO sent_notifications (order_id, event) VALUES (?, 'payout_triggered')",
@@ -5942,6 +5977,20 @@ async def auto_check_payments():
                     )
                     conn.commit()
 
+                if v == "manual":
+                    # авто-подтверждения от провайдера нет → к работнику вручную,
+                    # авто-выплату НЕ делаем даже для сумм ≤ AUTO_PAYOUT_LIMIT
+                    if verdict.get("warn"):
+                        await notify_admins(
+                            f"⚠️ <b>Заявка #{order_id}: провайдер НЕ подтверждает оплату</b>\n\n"
+                            f"{verdict.get('detail','')}\n\n"
+                            f"Крипта НЕ отправлена авто — проверьте поступление ПЕРЕД ручной отправкой.",
+                            parse_mode="HTML")
+                    logger.info(f"[payout_guard] order {order_id} → ручной разбор: {verdict.get('detail')}")
+                    await notify_workers_paid(order_id, rub_amount, address, currency)
+                    continue
+
+                # v == 'confirmed' — провайдер live-подтвердил расчёт
                 # Уведомляем клиента: начинаем обработку
                 try:
                     cur_emoji = {'BTC': '₿', 'LTC': 'Ł', 'USDT': '💵 USDT'}.get(currency, currency)
