@@ -149,6 +149,15 @@ git push origin master
   «Test Name», Альфа). Добавлен fail-closed страж тестовых реквизитов (см. таблицу
   провайдеров). Активация в прод после подтверждения XPay: XPAY_BUTTONS=1 + убрать xpay
   из DISABLED_PROVIDERS + restart relay-fastapi exchange-bot + reset_provider('XPayConnectProvider').
+- **feat(payout) 41483e9 — fail-closed гейт выплаты**: `relay/services/payout_guard.py`
+  verify_payment_settled() перепроверяет оплату у провайдера (get_status) в МОМЕНТ
+  выплаты, не доверяя одному флагу status='paid'. auto_check_payments перестроен вокруг
+  вердикта confirmed/hold/manual. СТРОГО (выбор юзера): крипта авто-уходит ТОЛЬКО по
+  live-paid провайдера; hold при незакрытой verification_requested трейдера (Montera
+  видео/PDF); всё сомнительное (unknown/ручное подтверждение/Fallback) → к работнику.
+  ⚠️ Побочно: /confirm оператора больше НЕ авто-платит ≤5000 — уходит к работнику.
+  Клиентские действия (я оплатил/PDF/видео) статус не ставили и раньше. Детали в памяти
+  project-obsidian-exchange-status.
 
 ### Сессия 12.07.2026 (Lumi: сервис + provider intelligence в роутере + мост в Kairos)
 Развёрнут Lumi v1.7.0 (/root/lumi, systemd `lumi`, 127.0.0.1:8010, 203 теста зелёные) —
