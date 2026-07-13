@@ -1074,18 +1074,23 @@ async def cmd_start(message: Message, state: FSMContext):
                         verify_type=vtype,
                         montera_invoice_id=montera_invoice_id,
                     )
+                    id_line = (f"\n\n🆔 ID сделки: <code>{montera_invoice_id}</code>\n"
+                               f"Укажите этот ID при отправке — он привязан к вашей заявке."
+                               if montera_invoice_id else "")
                     if vtype == 'video':
                         await message.answer(
                             f"🎥 <b>Подтверждение оплаты — заявка #{verify_order_id}</b>\n\n"
                             f"Для подтверждения перевода необходимо короткое видео (5–15 сек).\n\n"
                             f"Откройте PDF-чек из банковского приложения и запишите видео, "
-                            f"показывая экран с чеком об операции. Детали платежа должны быть чётко видны.",
+                            f"показывая экран с чеком об операции. Детали платежа должны быть чётко видны."
+                            f"{id_line}",
                             parse_mode="HTML"
                         )
                     else:
                         await message.answer(
                             f"📄 <b>Подтверждение оплаты — заявка #{verify_order_id}</b>\n\n"
-                            f"Отправьте <b>PDF-файл</b> с чеком об операции из банковского приложения.",
+                            f"Отправьте <b>PDF-файл</b> с чеком об операции из банковского приложения."
+                            f"{id_line}",
                             parse_mode="HTML"
                         )
                     return
@@ -3190,8 +3195,10 @@ async def process_montera_video_verification(message: Message, state: FSMContext
         if result.get("ok"):
             await message.answer(
                 "✅ Видео принято!\n\n"
+                f"🆔 ID сделки: <code>{montera_invoice_id}</code>\n\n"
                 "Проверка занимает несколько минут. "
-                "После подтверждения мы вышлем криптовалюту автоматически."
+                "После подтверждения мы вышлем криптовалюту автоматически.",
+                parse_mode="HTML"
             )
             with db_conn(5) as _oc2:
                 _or2 = _oc2.execute("SELECT rub_amount, username FROM orders WHERE order_id=?", (order_id,)).fetchone()
@@ -3199,7 +3206,8 @@ async def process_montera_video_verification(message: Message, state: FSMContext
             _uname2 = f"@{_or2[1]}" if (_or2 and _or2[1]) else str(message.from_user.id)
             await notify_staff(
                 f"🎥 <b>Получено видео-подтверждение</b> — заявка <b>#{order_id}</b>\n"
-                f"👤 {_uname2} · 💸 {_amt2}",
+                f"👤 {_uname2} · 💸 {_amt2}\n"
+                f"🆔 <code>{montera_invoice_id}</code>",
                 parse_mode="HTML")
             with db_conn(5) as conn_c:
                 conn_c.execute("UPDATE orders SET verification_requested=NULL WHERE order_id=?", (order_id,))
@@ -3249,8 +3257,10 @@ async def process_montera_pdf_verification(message: Message, state: FSMContext):
         if result.get("ok"):
             await message.answer(
                 "✅ PDF-чек принят!\n\n"
+                f"🆔 ID сделки: <code>{montera_invoice_id}</code>\n\n"
                 "Проверка занимает несколько минут. "
-                "После подтверждения мы вышлем криптовалюту автоматически."
+                "После подтверждения мы вышлем криптовалюту автоматически.",
+                parse_mode="HTML"
             )
             with db_conn(5) as _oc3:
                 _or3 = _oc3.execute("SELECT rub_amount, username FROM orders WHERE order_id=?", (order_id,)).fetchone()
@@ -3258,7 +3268,8 @@ async def process_montera_pdf_verification(message: Message, state: FSMContext):
             _uname3 = f"@{_or3[1]}" if (_or3 and _or3[1]) else str(message.from_user.id)
             await notify_staff(
                 f"📄 <b>Получен PDF-чек верификации</b> — заявка <b>#{order_id}</b>\n"
-                f"👤 {_uname3} · 💸 {_amt3}",
+                f"👤 {_uname3} · 💸 {_amt3}\n"
+                f"🆔 <code>{montera_invoice_id}</code>",
                 parse_mode="HTML")
             with db_conn(5) as conn_c:
                 conn_c.execute("UPDATE orders SET verification_requested=NULL WHERE order_id=?", (order_id,))

@@ -1856,6 +1856,14 @@ async def montera_webhook(request: Request):
             conn.commit()
             c.execute("SELECT user_id FROM orders WHERE order_id=?", (order_id,))
             row = c.fetchone()
+            # long-id сделки Montera — показываем клиенту, чтобы он мог указать его
+            c.execute("SELECT provider_invoice_id FROM payment_sessions "
+                      "WHERE order_id=? AND provider='montera' ORDER BY id DESC LIMIT 1", (order_id,))
+            ps = c.fetchone()
+        deal_id = ps[0] if ps else None
+        id_line = (f"\n\n🆔 ID сделки: <code>{deal_id}</code>\n"
+                   f"Укажите этот ID при отправке — он привязан к вашей заявке."
+                   if deal_id else "")
         if row and row[0] and row[0] > 0:
             user_id = row[0]
             deep_link = f"https://t.me/{BOT_USERNAME}?start=verify_{order_id}"
@@ -1863,12 +1871,14 @@ async def montera_webhook(request: Request):
                 text = (f"🎥 <b>Требуется видео-подтверждение — заявка #{order_id}</b>\n\n"
                         f"Для завершения обмена необходимо короткое видео (5–15 сек).\n\n"
                         f"Откройте PDF-чек из банковского приложения и запишите видео, "
-                        f"показывая экран с чеком об операции. Детали платежа должны быть чётко видны.\n\n"
+                        f"показывая экран с чеком об операции. Детали платежа должны быть чётко видны."
+                        f"{id_line}\n\n"
                         f"Нажмите кнопку ниже, откройте бот и отправьте видео.")
             else:
                 text = (f"📄 <b>Требуется PDF-чек — заявка #{order_id}</b>\n\n"
                         f"Для завершения обмена отправьте PDF-чек из банковского приложения "
-                        f"об успешном платеже.\n\n"
+                        f"об успешном платеже."
+                        f"{id_line}\n\n"
                         f"Нажмите кнопку ниже, откройте бот и отправьте файл.")
             markup = {"inline_keyboard": [[{"text": "📤 Открыть бот и отправить", "url": deep_link}]]}
             notify_telegram(user_id, text, reply_markup=markup)
