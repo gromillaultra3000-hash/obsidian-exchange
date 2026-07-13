@@ -16,6 +16,25 @@ XPAY_TYPE_SBP = os.getenv('XPAY_TYPE_SBP', 'sim')
 XPAY_TYPE_CARD = os.getenv('XPAY_TYPE_CARD', 'card')
 XPAY_TYPE_DEFAULT = os.getenv('XPAY_TYPE_DEFAULT', 'any')
 
+# Fail-closed страж песочницы: мерчант в тестовом режиме XPay отдаёт заведомо
+# фейковые реквизиты (card/phone из одних нулей, получатель «Test Name»). Пока
+# XPay не переключит мерчанта на ПРОД, такие реквизиты НЕЛЬЗЯ показывать клиенту —
+# считаем это ошибкой, роутер уходит на реальный маршрут. Снять страж не нужно:
+# на реальных реквизитах он не срабатывает. Отключается XPAY_ALLOW_TEST_REQUISITES=1
+# (только для отладки в песочнице).
+_XPAY_TEST_HOLDERS = {"test name", "test", "тест"}
+
+def _looks_like_test_requisite(address: str, holder: str) -> bool:
+    if os.getenv("XPAY_ALLOW_TEST_REQUISITES", "") == "1":
+        return False
+    digits = "".join(ch for ch in str(address) if ch.isdigit())
+    # все одинаковые цифры (0000…, 1111…) при длине ≥8 = явный тест-паттерн
+    if len(digits) >= 8 and len(set(digits)) == 1:
+        return True
+    if str(holder).strip().lower() in _XPAY_TEST_HOLDERS:
+        return True
+    return False
+
 # Статусы XPayConnect: pending / success / error
 _STATUS_MAP = {
     "pending": "awaiting_payment",
@@ -111,6 +130,16 @@ class XPayConnectProvider(PaymentProvider):
         details = data.get("payment_details") or {}
         address = details.get("address") or ""
         det_type = details.get("type") or pay_type
+
+        # Fail-closed: тестовые реквизиты песочницы НЕ должны дойти до клиента
+        if _looks_like_test_requisite(address, details.get("holder_name") or ""):
+            logger.error(
+                "XPay вернул ТЕСТОВЫЕ реквизиты (мерчант в песочнице): "
+                "address=%s holder=%s bank=%s — отклоняю, роутер уйдёт на реальный маршрут",
+                address, details.get("holder_name"), details.get("bank"))
+            return {"error": "XPay: мерчант в песочнице (тестовые реквизиты) — "
+                             "переключить на прод у поддержки XPay"}
+
         requisites = {}
         if address.startswith("http"):
             # nspk / qr-методы отдают ссылку
