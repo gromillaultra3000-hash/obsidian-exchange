@@ -547,12 +547,25 @@ async def api_create_order(request: Request):
         # Реальная сумма к оплате может быть сдвинута уникализацией провайдера
         raw = session.get('raw') or {}
         requisites = raw.get('requisites') or None
+        # Нормализация (та же, что на /pay): дубль получатель==телефон/карта убираем,
+        # банк-фолбэк СБП/Карта, ссылочные методы (XPay) → payment_link
+        if isinstance(requisites, dict):
+            _ph = (requisites.get('phone') or '').strip()
+            _cd = (requisites.get('card_number') or '').strip()
+            _rc = (requisites.get('recipient') or '').strip()
+            if _rc and (_ph or _cd) and _rc.replace(' ', '') == (_ph or _cd).replace(' ', ''):
+                requisites['recipient'] = ''
+            if not (requisites.get('bank_name') or '').strip():
+                requisites['bank_name'] = 'СБП' if _ph else ('Карта' if _cd else '')
+            _pl = str(requisites.get('payment_link') or '')
+            requisites['payment_link'] = _pl if _pl.startswith('http') else ''
         try:
             pay_amount = float(raw.get('amount_rub') or session.get('amount') or amount)
         except (TypeError, ValueError):
             pass
-        # Сканируемый СБП/НСПК QR — рендерим прямо в Mini App (без прыжка в браузер)
-        qr_payload = session.get('qr_payload')
+        # Сканируемый СБП/НСПК QR — рендерим прямо в Mini App (без прыжка в браузер).
+        # Для ссылочных методов (XPay) QR строим из payment_link.
+        qr_payload = session.get('qr_payload') or (requisites or {}).get('payment_link')
         if qr_payload:
             import base64 as _b64
             _qr = qrcode.make(qr_payload)
@@ -1334,11 +1347,11 @@ async def api_referral(request: Request):
 async def api_order(order_id: int, request: Request):
     with db_conn(5) as conn:
         c = conn.cursor()
-        c.execute("SELECT status, paid_btc_tx, user_id FROM orders WHERE order_id=?", (order_id,))
+        c.execute("SELECT status, paid_btc_tx, user_id, verification_requested FROM orders WHERE order_id=?", (order_id,))
         row = c.fetchone()
     if not row:
         raise HTTPException(status_code=404)
-    status, txid, owner_id = row[0], row[1], row[2]
+    status, txid, owner_id, verification = row[0], row[1], row[2], (row[3] or '')
 
     # Защита от IDOR/энумерации: статус заявки виден только владельцу.
     # Доказательство владения — подпись initData Mini App ИЛИ session_token заявки
@@ -1409,7 +1422,7 @@ async def api_order(order_id: int, request: Request):
         except Exception as e:
             logger.warning(f"[vertu_poll] order {order_id}: {e}")
 
-    return {"status": status, "txid": txid}
+    return {"status": status, "txid": txid, "verification": verification}
 
 # --- Админ-вкладка Mini App ---
 @app.get("/api/admin/stats")
@@ -1800,7 +1813,8 @@ async function poll(){{
   try {{
     const r = await fetch(`/api/order/${{C.orderId}}?token=${{encodeURIComponent(C.token)}}`);
     if (r.ok) {{ const d=await r.json();
-      if (d.status && d.status!==C.status) {{ C.status=d.status; C.txid=d.txid||C.txid;
+      if ((d.status && d.status!==C.status) || ((d.verification||'')!==(C.verification||''))) {{
+        C.status=d.status||C.status; C.verification=d.verification||''; C.txid=d.txid||C.txid;
         if(C.txid&&C.currency){{const E={{BTC:'https://mempool.space/tx/',LTC:'https://blockchair.com/litecoin/transaction/',USDT:'https://tronscan.org/#/transaction/'}};C.txUrl=(E[C.currency]||'')+C.txid;}}
         if(_timer)clearInterval(_timer); render(); }}
     }}

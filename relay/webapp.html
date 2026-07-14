@@ -272,7 +272,7 @@
             </div>
             <div class="result" id="exchange-result"></div>
             <!-- Карточка отслеживания оплаты (in-app) -->
-            <div id="pay-card" style="display:none;margin-top:14px;padding:16px;background:rgba(124,58,237,.08);border:1.5px solid rgba(124,58,237,.35);border-radius:16px">
+            <div id="pay-card" style="display:none;margin-top:14px;padding:18px;background:rgba(255,255,255,.038);border:1px solid rgba(139,92,246,.28);border-radius:20px;backdrop-filter:blur(20px)">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
                 <strong id="pay-card-title" style="font-size:15px;color:#e2e8f0">Заявка создана</strong>
                 <span id="pay-timer" style="font-variant-numeric:tabular-nums;font-weight:700;color:#a78bfa;font-size:15px">15:00</span>
@@ -677,23 +677,36 @@
             }
             // Текстовые реквизиты прямо в приложении (телефон/карта/банк/получатель)
             const reqEl = document.getElementById('pay-req');
+            const payLink = (requisites && requisites.payment_link) || '';
             if (reqEl) {
+                const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+                const row = (lbl, val, strong) => `<div style="display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.05)"><span style="color:#8b8b93;font-size:12px">${lbl}</span><span style="font-weight:${strong?700:600};text-align:right${strong?';color:#4ade80':''}">${val}</span></div>`;
                 if (requisites && (requisites.phone || requisites.card_number)) {
                     const detail = requisites.phone || requisites.card_number;
                     const lbl = requisites.phone ? 'Телефон (СБП)' : 'Номер карты';
-                    const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
                     let h = '';
-                    if (payAmount) h += `<div style="display:flex;justify-content:space-between;padding:4px 0"><span style="color:#94a3b8;font-size:12px">Сумма</span><span style="font-weight:700;color:#4ade80">${Number(payAmount).toLocaleString('ru')} ₽</span></div>`;
-                    if (requisites.bank_name) h += `<div style="display:flex;justify-content:space-between;padding:4px 0"><span style="color:#94a3b8;font-size:12px">Банк</span><span style="font-weight:600">${esc(requisites.bank_name)}</span></div>`;
-                    if (requisites.recipient) h += `<div style="display:flex;justify-content:space-between;padding:4px 0"><span style="color:#94a3b8;font-size:12px">Получатель</span><span style="font-weight:600;text-align:right">${esc(requisites.recipient)}</span></div>`;
-                    h += `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0 2px"><span style="color:#94a3b8;font-size:12px">${lbl}</span><span><b style="font-size:16px;letter-spacing:.5px">${esc(detail)}</b> <button onclick="navigator.clipboard.writeText('${esc(detail)}');this.textContent='✓'" style="margin-left:6px;padding:3px 8px;font-size:11px;border:1px solid rgba(168,85,247,.4);background:rgba(168,85,247,.15);color:#e9d5ff;border-radius:8px">📋</button></span></div>`;
+                    if (payAmount) h += row('Сумма — точно', `${Number(payAmount).toLocaleString('ru')} ₽`, true);
+                    if (requisites.bank_name) h += row('Банк', esc(requisites.bank_name));
+                    if (requisites.recipient) h += row('Получатель', esc(requisites.recipient));
+                    h += `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0 2px"><span style="color:#8b8b93;font-size:12px">${lbl}</span><span><b style="font-size:16px;letter-spacing:.5px">${esc(detail)}</b> <button onclick="navigator.clipboard.writeText('${esc(detail)}');this.textContent='✓'" style="margin-left:6px;padding:3px 9px;font-size:11px;border:1px solid rgba(168,85,247,.35);background:rgba(168,85,247,.12);color:#e9d5ff;border-radius:8px">📋</button></span></div>`;
+                    reqEl.innerHTML = h;
+                    reqEl.style.display = 'block';
+                } else if (payLink) {
+                    // Ссылочный метод (XPay): клиент платит по защищённой странице банка
+                    let h = '';
+                    if (payAmount) h += row('Сумма — точно', `${Number(payAmount).toLocaleString('ru')} ₽`, true);
+                    h += `<div style="padding:8px 0 2px;color:#8b8b93;font-size:12px;text-align:center">Оплата по защищённой странице — отсканируйте QR или нажмите кнопку ниже</div>`;
                     reqEl.innerHTML = h;
                     reqEl.style.display = 'block';
                 } else {
                     reqEl.style.display = 'none';
                 }
             }
-            const openPay = () => { if (payUrl) { tg.openLink ? tg.openLink(payUrl) : (window.location.href = payUrl); } };
+            const openPay = () => {
+                const url = payLink || payUrl;
+                if (url) { tg.openLink ? tg.openLink(url) : (window.location.href = url); }
+            };
+            if (payLink) openBtn.textContent = '🔗 Открыть страницу оплаты';
             openBtn.onclick = openPay;
 
             // 15-минутный обратный отсчёт
@@ -706,13 +719,36 @@
                 timerEl.textContent = `${m}:${s}`;
                 if (left <= 60) timerEl.style.color = '#f87171';
                 if (left <= 0) {
-                    stopOrderTracking();
+                    // Таймер гасим, но поллинг статуса ещё живёт: оплата «на флажке» отобразится
+                    if (_orderTimer) { clearInterval(_orderTimer); _orderTimer = null; }
                     timerEl.textContent = '00:00';
-                    statusEl.innerHTML = '⌛ Время фиксации курса истекло. Создайте новую заявку.';
+                    if (qrWrap) qrWrap.style.display = 'none';
+                    const _rq = document.getElementById('pay-req'); if (_rq) _rq.style.display = 'none';
+                    openBtn.style.display = 'none';
+                    statusEl.innerHTML = '⌛ Время фиксации курса истекло. Средства не переводите — создайте новую заявку.';
                 }
             }, 1000);
 
-            const applyStatus = (st, txid) => {
+            let _verifShown = false;
+            const applyStatus = (st, txid, verification) => {
+                if (st === 'pending' && verification && !_verifShown) {
+                    // Трейдер запросил подтверждение (Montera PDF/видео) — направляем в чат с ботом
+                    _verifShown = true;
+                    statusEl.innerHTML = `📋 Трейдер запросил ${verification === 'video' ? 'видео-подтверждение' : 'PDF-чек'}. Откройте чат с ботом — там инструкция и ID сделки.`;
+                    if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('warning');
+                }
+                if (st === 'expired' || st === 'failed') {
+                    stopOrderTracking();
+                    if (qrWrap) qrWrap.style.display = 'none';
+                    const _rq = document.getElementById('pay-req'); if (_rq) _rq.style.display = 'none';
+                    timerEl.textContent = '—';
+                    title.textContent = `Заявка #${orderId} — истекла`;
+                    statusEl.innerHTML = '⌛ Заявка истекла. Средства не переводите — создайте новую заявку с актуальным курсом.';
+                    openBtn.style.display = 'none';
+                    if (steps) steps.style.display = 'none';
+                    loadHistory();
+                    return;
+                }
                 if (st === 'paid' || st === 'sent') {
                     stopOrderTracking();
                     if (qrWrap) qrWrap.style.display = 'none';
@@ -737,13 +773,15 @@
             const poll = async () => {
                 try {
                     const r = await fetch(`/api/order/${orderId}`, { headers: { 'X-Telegram-Init-Data': tg.initData || '' } });
-                    if (r.ok) { const d = await r.json(); applyStatus(d.status, d.txid); }
+                    if (r.ok) { const d = await r.json(); applyStatus(d.status, d.txid, d.verification); }
                 } catch (e) {}
             };
             checkBtn.onclick = poll;
             _orderPoll = setInterval(poll, 5000);
             poll();
-            openPay(); // сразу открываем реквизиты
+            // Авто-прыжок наружу только если показать внутри нечего (нет ни реквизитов, ни QR, ни ссылки)
+            const hasInApp = qrImage || payLink || (requisites && (requisites.phone || requisites.card_number));
+            if (!hasInApp) openPay();
         }
 
         async function loadHistory() {
