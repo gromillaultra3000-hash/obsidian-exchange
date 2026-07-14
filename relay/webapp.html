@@ -283,6 +283,8 @@
                 <img id="pay-qr" alt="QR СБП" style="width:200px;height:200px;background:#fff;border-radius:14px;padding:8px">
                 <div id="pay-amount-line" style="margin-top:8px;font-size:14px;color:#e2e8f0"></div>
               </div>
+              <!-- Текстовые реквизиты (телефон/карта/банк/получатель) прямо в приложении -->
+              <div id="pay-req" style="display:none;text-align:left;margin-bottom:12px;padding:10px 12px;background:rgba(255,255,255,.04);border:1px solid rgba(124,58,237,.25);border-radius:12px"></div>
               <button class="btn" id="pay-open-btn" style="margin-bottom:8px">💳 Оплатить</button>
               <button class="btn" id="pay-check-btn" style="background:rgba(255,255,255,.06)">🔄 Проверить статус</button>
             </div>
@@ -633,7 +635,7 @@
                 }
                 resultEl.innerHTML = '';
                 if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
-                startOrderTracking(data.order_id, data.payment_url, currency, data.qr_image, data.pay_amount);
+                startOrderTracking(data.order_id, data.payment_url, currency, data.qr_image, data.pay_amount, data.requisites);
                 setTimeout(() => { btn.disabled = false; }, 3000);
             } catch (e) {
                 resultEl.innerHTML = '❌ ' + (e.message || 'Ошибка сети. Попробуйте ещё раз.');
@@ -650,7 +652,7 @@
             if (_orderTimer) { clearInterval(_orderTimer); _orderTimer = null; }
         }
         const EXPLORER = { BTC: 'https://mempool.space/tx/', LTC: 'https://blockchair.com/litecoin/transaction/', USDT: 'https://tronscan.org/#/transaction/' };
-        function startOrderTracking(orderId, payUrl, currency, qrImage, payAmount) {
+        function startOrderTracking(orderId, payUrl, currency, qrImage, payAmount, requisites) {
             stopOrderTracking();
             const card = document.getElementById('pay-card');
             const title = document.getElementById('pay-card-title');
@@ -671,7 +673,25 @@
                 statusEl.textContent = 'Отсканируйте QR или нажмите «Оплатить». Курс зафиксирован на 15 минут.';
                 openBtn.textContent = '💳 Открыть в приложении банка';
             } else {
-                statusEl.textContent = 'Курс зафиксирован на 15 минут. Нажмите «Оплатить».';
+                statusEl.textContent = 'Курс зафиксирован на 15 минут. Переведите точную сумму по реквизитам:';
+            }
+            // Текстовые реквизиты прямо в приложении (телефон/карта/банк/получатель)
+            const reqEl = document.getElementById('pay-req');
+            if (reqEl) {
+                if (requisites && (requisites.phone || requisites.card_number)) {
+                    const detail = requisites.phone || requisites.card_number;
+                    const lbl = requisites.phone ? 'Телефон (СБП)' : 'Номер карты';
+                    const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+                    let h = '';
+                    if (payAmount) h += `<div style="display:flex;justify-content:space-between;padding:4px 0"><span style="color:#94a3b8;font-size:12px">Сумма</span><span style="font-weight:700;color:#4ade80">${Number(payAmount).toLocaleString('ru')} ₽</span></div>`;
+                    if (requisites.bank_name) h += `<div style="display:flex;justify-content:space-between;padding:4px 0"><span style="color:#94a3b8;font-size:12px">Банк</span><span style="font-weight:600">${esc(requisites.bank_name)}</span></div>`;
+                    if (requisites.recipient) h += `<div style="display:flex;justify-content:space-between;padding:4px 0"><span style="color:#94a3b8;font-size:12px">Получатель</span><span style="font-weight:600;text-align:right">${esc(requisites.recipient)}</span></div>`;
+                    h += `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0 2px"><span style="color:#94a3b8;font-size:12px">${lbl}</span><span><b style="font-size:16px;letter-spacing:.5px">${esc(detail)}</b> <button onclick="navigator.clipboard.writeText('${esc(detail)}');this.textContent='✓'" style="margin-left:6px;padding:3px 8px;font-size:11px;border:1px solid rgba(168,85,247,.4);background:rgba(168,85,247,.15);color:#e9d5ff;border-radius:8px">📋</button></span></div>`;
+                    reqEl.innerHTML = h;
+                    reqEl.style.display = 'block';
+                } else {
+                    reqEl.style.display = 'none';
+                }
             }
             const openPay = () => { if (payUrl) { tg.openLink ? tg.openLink(payUrl) : (window.location.href = payUrl); } };
             openBtn.onclick = openPay;
@@ -696,6 +716,7 @@
                 if (st === 'paid' || st === 'sent') {
                     stopOrderTracking();
                     if (qrWrap) qrWrap.style.display = 'none';
+                    const _rq = document.getElementById('pay-req'); if (_rq) _rq.style.display = 'none';
                     timerEl.textContent = st === 'sent' ? '🚀' : '✅';
                     title.textContent = st === 'sent' ? `Заявка #${orderId} — выплачена` : `Заявка #${orderId} — оплачена`;
                     const txLink = (st === 'sent' && txid && EXPLORER[currency])

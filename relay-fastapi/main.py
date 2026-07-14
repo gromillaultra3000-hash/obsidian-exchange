@@ -527,6 +527,7 @@ async def api_create_order(request: Request):
     payment_url = f"{PUBLIC_RELAY}/pay/{order_id}"
     qr_image = None
     pay_amount = amount
+    requisites = None
     try:
         from services.payment_service import PaymentService
         payment_service = PaymentService(amount=amount)
@@ -538,6 +539,7 @@ async def api_create_order(request: Request):
             payment_url = f"{PUBLIC_RELAY}/pay/{session['session_token']}"
         # Реальная сумма к оплате может быть сдвинута уникализацией провайдера
         raw = session.get('raw') or {}
+        requisites = raw.get('requisites') or None
         try:
             pay_amount = float(raw.get('amount_rub') or session.get('amount') or amount)
         except (TypeError, ValueError):
@@ -578,7 +580,9 @@ async def api_create_order(request: Request):
 
     return {"ok": True, "order_id": order_id, "payment_url": payment_url,
             "crypto_amount": crypto_amount, "currency": currency,
-            "qr_image": qr_image, "pay_amount": pay_amount}
+            "qr_image": qr_image, "pay_amount": pay_amount,
+            # текстовые реквизиты для показа прямо в Mini App (телефон/карта/банк/получатель)
+            "requisites": requisites}
 
 @app.get("/dashboard/orders", response_class=HTMLResponse)
 async def dashboard_orders_page(request: Request):
@@ -1582,15 +1586,75 @@ async def pay(token: str, request: Request):
         session = payment_service.get_session(token)
         if not session:
             raise HTTPException(status_code=404)
+        import ast, base64, html as _html
         amount = session['amount']
         order_id = session['order_id']
-        platega_url = session.get('qr_payload', 'https://obsidian-exchange.org/error')
-        
-        qr = qrcode.make(platega_url)
-        bio = BytesIO(); qr.save(bio, "PNG"); bio.seek(0)
-        import base64
-        qr_base64 = base64.b64encode(bio.read()).decode()
-        
+
+        # Реквизиты хранятся в provider_payload (repr-строка raw от провайдера).
+        # Современные провайдеры (Montera/Vertu/Brabus) отдают телефон/карту
+        # ТЕКСТОМ, а не ссылку — их и надо показать (баг: старая вёрстка рендерила
+        # только QR из пустого qr_payload → страница «без реквизитов»).
+        raw = {}
+        pp = session.get('provider_payload')
+        if pp:
+            try:
+                raw = ast.literal_eval(pp) if isinstance(pp, str) else (pp or {})
+            except Exception:
+                raw = {}
+        req = (raw.get('requisites') or {}) if isinstance(raw, dict) else {}
+
+        try:
+            pay_amount = float(raw.get('amount_rub') or amount)
+        except (TypeError, ValueError):
+            pay_amount = float(amount)
+        amount_disp = (f"{int(pay_amount):,}".replace(",", " ") if pay_amount == int(pay_amount)
+                       else f"{pay_amount:,.2f}".replace(",", " "))
+
+        qr_payload = session.get('qr_payload') or req.get('payment_link')
+        status = session.get('status')
+
+        def esc(v):
+            return _html.escape(str(v)) if v else ""
+
+        # строки реквизитов
+        rows_html = ""
+        if req.get('bank_name'):
+            rows_html += f'<div class="req-row"><span class="req-k">Банк</span><span class="req-v">{esc(req["bank_name"])}</span></div>'
+        if req.get('recipient'):
+            rows_html += f'<div class="req-row"><span class="req-k">Получатель</span><span class="req-v">{esc(req["recipient"])}</span></div>'
+        detail_val = req.get('phone') or req.get('card_number') or ''
+        detail_lbl = 'Телефон (СБП)' if req.get('phone') else ('Номер карты' if req.get('card_number') else '')
+        if detail_val:
+            rows_html += (f'<div class="req-row req-main"><span class="req-k">{esc(detail_lbl)}</span>'
+                          f'<span class="req-v"><b id="rq">{esc(detail_val)}</b>'
+                          f'<button class="copy" onclick="cp(\'{esc(detail_val)}\')">Копировать</button></span></div>')
+
+        # QR только если реальная ссылка (СБП QR / nspk), иначе — текстовые реквизиты
+        qr_html = ""
+        if qr_payload and str(qr_payload).startswith("http"):
+            qr = qrcode.make(qr_payload)
+            bio = BytesIO(); qr.save(bio, "PNG"); bio.seek(0)
+            qr_b64 = base64.b64encode(bio.read()).decode()
+            qr_html = (f'<div class="qr"><img src="data:image/png;base64,{qr_b64}" width="200" alt="QR">'
+                       f'<div class="scan-overlay"></div></div>'
+                       f'<a class="bank-btn" href="{esc(qr_payload)}">Открыть в приложении банка</a>')
+
+        if not rows_html and not qr_html:
+            # реквизиты не сформированы (edge) — не показываем битую страницу
+            rows_html = ('<div class="req-row"><span class="req-v">Реквизиты формируются. '
+                         'Вернитесь в бота и нажмите «Проверить» через несколько секунд.</span></div>')
+
+        if status in ('paid', 'sent'):
+            body_html = ('<div class="amount">Оплата получена ✅</div>'
+                         '<p class="info-text">Заявка обрабатывается — криптовалюта будет отправлена в ближайшее время.</p>')
+        else:
+            body_html = (f'<div class="amount">{amount_disp} ₽</div>'
+                         f'<p class="pay-hint">Переведите <b>точную сумму</b> по реквизитам ниже:</p>'
+                         f'<div class="req-card">{rows_html}</div>'
+                         f'{qr_html}'
+                         f'<p class="info-text">✅ Оплата подтверждается автоматически. '
+                         f'Если требуется — нажмите «Я оплатил» в боте.</p>')
+
         # Здесь должен быть киберпанк-шаблон (позже заменим)
         html = f"""<!DOCTYPE html>
 <html lang="ru">
@@ -1619,6 +1683,15 @@ async def pay(token: str, request: Request):
         .bank-btn::before {{ content: ""; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent); transition: left 0.5s; }}
         .bank-btn:hover::before {{ left: 100%; }}
         .info-text {{ color: #999; font-size: 14px; margin-top: 20px; }}
+        .pay-hint {{ color: #cbd5e1; font-size: 14px; margin: 6px 0 14px; }}
+        .req-card {{ text-align: left; background: rgba(168,85,247,.06); border: 1px solid rgba(168,85,247,.22); border-radius: 18px; padding: 14px 16px; margin: 10px 0; }}
+        .req-row {{ display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,.06); }}
+        .req-row:last-child {{ border-bottom: none; }}
+        .req-k {{ color: #94a3b8; font-size: 13px; flex-shrink: 0; }}
+        .req-v {{ color: #f3f3f3; font-size: 15px; font-weight: 600; text-align: right; word-break: break-all; }}
+        .req-main .req-v b {{ font-size: 18px; letter-spacing: .5px; }}
+        .copy {{ display: inline-block; margin-left: 8px; padding: 5px 10px; font-size: 12px; border: 1px solid rgba(168,85,247,.35); background: rgba(168,85,247,.15); color: #e9d5ff; border-radius: 10px; cursor: pointer; }}
+        .copy:active {{ transform: scale(.95); }}
     </style>
 </head>
 <body>
@@ -1626,12 +1699,13 @@ async def pay(token: str, request: Request):
     <div class="container">
         <h1>⚫ ObsidianExchange</h1>
         <p>Заказ #{order_id}</p>
-        <div class="amount">{amount} RUB</div>
-        <p>📲 Отсканируйте QR-код для оплаты через СБП</p>
-        <div class="qr"><img src="data:image/png;base64,{qr_base64}" width="220" alt="QR-код"><div class="scan-overlay"></div></div>
-        <a class="bank-btn" href="{platega_url}">Оплатить через СБП</a>
-        <p class="info-text">После оплаты нажмите «Я оплатил» в боте</p>
+        {body_html}
     </div>
+    <script>
+      function cp(t){{ navigator.clipboard.writeText(t).then(function(){{
+        var b=event.target; var o=b.textContent; b.textContent='Скопировано'; setTimeout(function(){{b.textContent=o;}},1500);
+      }}); }}
+    </script>
 </body>
 </html>"""
         return html
