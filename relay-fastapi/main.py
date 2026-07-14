@@ -1357,6 +1357,56 @@ async def api_rates():
     _rates_cache["ts"] = time.time()
     return result
 
+_rates_xml_cache = {"xml": None, "ts": 0.0}
+
+@app.get("/rates.xml")
+async def rates_xml_export():
+    """Экспорт курсов в XML-формате BestChange — стандарт, который принимают
+    агрегаторы обменников (kurs.expert, exnode, телеграм-каталоги и пр.).
+    Покупка: курс тарифа от 15 000 ₽ (19%) для BTC/LTC — поэтому minamount 15000,
+    чтобы котировка была честной для всего заявленного диапазона; USDT — 2% от 2000.
+    Продажа: только монеты с заполненным SELL_*_ADDRESS. Резервы — из курируемой
+    таблицы reserves (/setreserve в боте), пока пусто — отдаём 0."""
+    if _rates_xml_cache["xml"] and time.time() - _rates_xml_cache["ts"] < 60:
+        return Response(content=_rates_xml_cache["xml"], media_type="application/xml")
+    with db_conn(5) as conn:
+        try:
+            reserves = dict(conn.execute("SELECT currency, amount FROM reserves").fetchall())
+        except Exception:
+            reserves = {}
+    coin_codes = {"BTC": "BTC", "LTC": "LTC", "USDT": "USDTTRC20"}
+    items = []
+    for coin, code in coin_codes.items():
+        try:
+            rate = exchange_calc.get_rate_with_markup(coin, 20000)
+        except Exception:
+            continue
+        if not rate:
+            continue
+        res = reserves.get(coin, 0) or 0
+        minamt = 2000 if coin == "USDT" else 15000
+        for src in ("SBPRUB", "CARDRUB"):
+            items.append(
+                f"<item><from>{src}</from><to>{code}</to>"
+                f"<in>{rate:.2f}</in><out>1</out><amount>{res:g}</amount>"
+                f"<minamount>{minamt} RUB</minamount>"
+                f"<maxamount>{int(MAX_AMOUNT)} RUB</maxamount></item>")
+    rub_reserve = reserves.get("RUB", 0) or 0
+    for coin, code in coin_codes.items():
+        if not SELL_ADDRESSES.get(coin):
+            continue
+        try:
+            sell = exchange_calc.get_sell_rate(coin)
+        except Exception:
+            continue
+        items.append(
+            f"<item><from>{code}</from><to>SBPRUB</to>"
+            f"<in>1</in><out>{sell:.2f}</out><amount>{rub_reserve:g}</amount></item>")
+    xml = '<?xml version="1.0" encoding="UTF-8"?><rates>' + "".join(items) + "</rates>"
+    _rates_xml_cache["xml"] = xml
+    _rates_xml_cache["ts"] = time.time()
+    return Response(content=xml, media_type="application/xml")
+
 @app.get("/api/stats/public")
 async def api_stats_public():
     with db_conn(5) as conn:
