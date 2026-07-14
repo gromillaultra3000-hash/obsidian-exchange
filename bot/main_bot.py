@@ -4355,6 +4355,54 @@ async def cmd_providers(message: Message):
     await message.answer(text, parse_mode="HTML", reply_markup=kb)
 
 
+@router.message(Command("payout_status"))
+async def cmd_payout_status(message: Message):
+    """/payout_status — состояние circuit-breaker выплат (админ)."""
+    if not is_admin(message.from_user.id):
+        return
+    import sys
+    sys.path.insert(0, '/root/relay')
+    from services import payout_circuit
+    s = payout_circuit.status()
+    head = "🛑 <b>ЗАМОРОЖЕНЫ</b>" if s["frozen"] else "🟢 <b>Активны</b>"
+    reason = f"\nПричина: {s['frozen_reason']}" if (s["frozen"] and s["frozen_reason"]) else ""
+    await message.answer(
+        f"💸 <b>Авто-выплаты: {head}</b>{reason}\n\n"
+        f"<blockquote>"
+        f"За 24ч: <b>{s['sum_24h']:,.0f} ₽</b> / потолок {s['daily_cap']:,.0f} ₽\n"
+        f"Выплат за 24ч: {s['count_24h']} · за час: {s['count_1h']} / лимит {s['hourly_max']}\n"
+        f"Повтор адреса: макс {s['addr_repeat_max']}× / 24ч"
+        f"</blockquote>\n\n"
+        f"{'Снять стоп-кран: /unfreeze_payouts' if s['frozen'] else 'Ручная заморозка: /freeze_payouts'}".replace(",", " "),
+        parse_mode="HTML")
+
+
+@router.message(Command("freeze_payouts"))
+async def cmd_freeze_payouts(message: Message):
+    """/freeze_payouts — вручную заморозить авто-выплаты (админ)."""
+    if not is_admin(message.from_user.id):
+        return
+    import sys
+    sys.path.insert(0, '/root/relay')
+    from services import payout_circuit
+    payout_circuit.freeze(f"ручная заморозка админом {message.from_user.id}")
+    log_staff_action(message.from_user.id, "freeze_payouts", 0)
+    await notify_admins("🛑 <b>Авто-выплаты заморожены вручную.</b>\nВсё уходит в ручной разбор. Снять: /unfreeze_payouts", parse_mode="HTML")
+
+
+@router.message(Command("unfreeze_payouts"))
+async def cmd_unfreeze_payouts(message: Message):
+    """/unfreeze_payouts — снять стоп-кран выплат (только главный админ)."""
+    if message.from_user.id != ADMIN_ID:
+        return await message.answer("Снять стоп-кран может только главный админ.")
+    import sys
+    sys.path.insert(0, '/root/relay')
+    from services import payout_circuit
+    payout_circuit.unfreeze()
+    log_staff_action(message.from_user.id, "unfreeze_payouts", 0)
+    await notify_admins("🟢 <b>Стоп-кран выплат снят.</b> Авто-выплаты возобновлены.", parse_mode="HTML")
+
+
 @router.callback_query(F.data == "admin_providers_refresh")
 async def admin_providers_refresh(callback: CallbackQuery):
     if not is_admin(callback.from_user.id):
@@ -5998,6 +6046,11 @@ async def auto_check_payments():
             except Exception as _e:
                 verify_payment_settled = None
                 logger.error(f"payout_guard недоступен: {_e}")
+            try:
+                from services import payout_circuit
+            except Exception as _e:
+                payout_circuit = None
+                logger.error(f"payout_circuit недоступен: {_e}")
 
             for order_id, user_id, rub_amount, address, currency in paid_orders:
                 # НЕЗАВИСИМАЯ перепроверка: флаг status='paid' сам по себе НЕ повод
@@ -6059,6 +6112,33 @@ async def auto_check_payments():
                     )
                 except Exception:
                     pass
+
+                # Circuit-breaker: защита горячего кошелька от аномального оттока
+                # (суточный потолок / скорость / повтор адреса). Проверяем ПЕРЕД
+                # авто-отправкой; при аномалии — стоп-кран + всё в ручной разбор.
+                if payout_circuit:
+                    try:
+                        cb = payout_circuit.check_payout_allowed(order_id, rub_amount, address, currency)
+                    except Exception as _e:
+                        logger.error(f"payout_circuit check failed: {_e}")
+                        cb = {"action": "ok"}
+                    if cb.get("action") == "freeze":
+                        payout_circuit.freeze(cb.get("reason", ""))
+                        await notify_admins(
+                            f"🛑 <b>СТОП-КРАН ВЫПЛАТ сработал</b>\n\n{cb.get('reason','')}\n\n"
+                            f"Авто-выплаты ЗАМОРОЖЕНЫ, всё уходит в ручной разбор.\n"
+                            f"Заявка #{order_id} — к работнику.\n"
+                            f"Снять: /unfreeze_payouts",
+                            parse_mode="HTML")
+                        await notify_workers_paid(order_id, rub_amount, address, currency)
+                        continue
+                    if cb.get("action") == "manual":
+                        await notify_admins(
+                            f"⚠️ <b>Заявка #{order_id}: выплата на ручной разбор</b>\n\n"
+                            f"{cb.get('reason','')}",
+                            parse_mode="HTML")
+                        await notify_workers_paid(order_id, rub_amount, address, currency)
+                        continue
 
                 if rub_amount <= AUTO_PAYOUT_LIMIT:
                     # Малая заявка — пробуем авто-выплату
