@@ -7845,6 +7845,75 @@ async def abandoned_order_reminder():
         await asyncio.sleep(60)
 
 
+async def winback_promo_task():
+    """Win-back неоплативших: заявка истекла, клиент НИ РАЗУ не платил →
+    одноразовый персональный промокод (скидка из нашей маржи, не трогает курс).
+    Максимум ОДИН промо на клиента за всё время (никакого спама).
+    Включается WINBACK_PROMO_PERCENT=N в bot/.env (0/пусто = выключено).
+    Однократность — sent_notifications(event='winback_promo') на заявке-триггере."""
+    disc = float(os.getenv('WINBACK_PROMO_PERCENT', '0') or 0)
+    if disc <= 0:
+        logger.info("winback: выключен (WINBACK_PROMO_PERCENT не задан в bot/.env)")
+        return
+    valid_h = int(os.getenv('WINBACK_PROMO_HOURS', '72') or 72)
+    await asyncio.sleep(300)  # прогрев после старта
+    while True:
+        try:
+            with db_conn(5) as conn:
+                c = conn.cursor()
+                # По одному на клиента: свежеистёкшие (1-48ч) заявки юзеров без
+                # единой оплаты и без уже выданного win-back промо
+                c.execute("""
+                    SELECT MAX(o.order_id), o.user_id
+                    FROM orders o
+                    WHERE o.status='expired' AND o.user_id > 0
+                      AND datetime(o.updated_at) BETWEEN datetime('now','-48 hours')
+                                                     AND datetime('now','-1 hour')
+                      AND NOT EXISTS (SELECT 1 FROM orders p
+                                      WHERE p.user_id=o.user_id AND p.status IN ('paid','sent'))
+                      AND NOT EXISTS (SELECT 1 FROM sent_notifications sn
+                                      JOIN orders o2 ON o2.order_id=sn.order_id
+                                      WHERE o2.user_id=o.user_id AND sn.event='winback_promo')
+                      AND o.user_id NOT IN (SELECT user_id FROM blocked_users)
+                    GROUP BY o.user_id
+                    LIMIT 20
+                """)
+                rows = c.fetchall()
+
+            for oid, uid in rows:
+                code = f"BACK{int(disc)}-{os.urandom(3).hex().upper()}"
+                with db_conn(5) as conn:
+                    c = conn.cursor()
+                    c.execute("""INSERT INTO promo_codes
+                        (code, discount_percent, max_uses, valid_until, is_active)
+                        VALUES (?,?,1,datetime('now', ?),1)""",
+                        (code, disc, f'+{valid_h} hours'))
+                    code_id = c.lastrowid
+                    # помечаем ДО отправки — двойной промо хуже, чем потерянный
+                    c.execute("INSERT OR IGNORE INTO sent_notifications (order_id, event) "
+                              "VALUES (?, 'winback_promo')", (oid,))
+                    conn.commit()
+                _active_promos[uid] = (code_id, disc)  # скидка сразу активна
+                try:
+                    kb = InlineKeyboardMarkup(inline_keyboard=[
+                        [InlineKeyboardButton(text="💱 Создать заявку со скидкой",
+                                              callback_data="menu_exchange")]])
+                    await bot.send_message(
+                        uid,
+                        f"🎁 <b>Персональная скидка −{disc:g}% на обмен</b>\n\n"
+                        f"Ваша заявка истекла, и мы хотим предложить условия лучше: "
+                        f"скидка <b>уже активирована</b> — просто создайте новую заявку "
+                        f"в течение {valid_h} часов.\n\n"
+                        f"Промокод на всякий случай: <code>/promo {code}</code>",
+                        parse_mode="HTML", reply_markup=kb)
+                    logger.info(f"winback: промо {code} → user {uid} (order {oid})")
+                except Exception:
+                    pass  # клиент заблокировал бота — промо просто сгорит
+        except Exception as e:
+            logger.error(f"winback_promo_task error: {e}")
+        await asyncio.sleep(1800)  # каждые 30 минут
+
+
 # ── Стоп-таймер: UUID сообщения для Montera-оператора при задержке чека ──────
 # Если клиент явно оплатил, но не успевает прислать чек — форвардни это сообщение
 # в чат Montera чтобы остановить таймер.
@@ -7891,6 +7960,7 @@ async def main():
     asyncio.create_task(rate_alert_scheduler())
     asyncio.create_task(montera_receipt_reminder())
     asyncio.create_task(abandoned_order_reminder())
+    asyncio.create_task(winback_promo_task())
     asyncio.create_task(limit_order_watcher())
     asyncio.create_task(recall_inactive_users())
     asyncio.create_task(dca_runner())
