@@ -100,12 +100,14 @@ git push origin master
 
 ## Приоритеты следующих задач
 
-1. Проверить что Montera вебхук корректно обновляет статус заявок (end-to-end тест)
-2. Добавить Montera в nginx rate-limit блок если отсутствует
-3. Мониторинг: алерт в Telegram если все провайдеры упали одновременно
-4. Реферальная аналитика в /dashboard/referral
-5. CI/CD через GitHub Actions (py_compile + smoke test на каждый push)
-6. Новый провайдер: изучить Lava / PayOK как дополнительный СБП канал
+1. ✅ Montera вебхук — подтверждён живым трафиком (3× POST 200 OK 13-14.07)
+2. ✅ Montera в nginx rate-limit — уже в regex вебхуков
+3. ✅ Алерт «все провайдеры упали» — health_check_task
+4. ✅ Реферальная аналитика /dashboard/referral
+5. ✅ CI/CD GitHub Actions
+6. Новый провайдер Lava (код готов, ждёт ключи юзера) / PayOK (изучить)
+7. От юзера: SELL_USDT_ADDRESS (USDT-продажа скрыта), LAVA_* ключи,
+   BACKUP_OFFSITE_RSYNC (опц.), решение по XPAY_TYPE_DEFAULT (сейчас tbank)
 
 ## Роли в боте
 
