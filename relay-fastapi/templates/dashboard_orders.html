@@ -16,9 +16,16 @@
                 <td>#{{ o.order_id }}</td>
                 <td>{{ o.currency }}</td>
                 <td>{{ '%.2f'|format(o.rub_amount) }}</td>
-                <td><span class="status-badge status-{{ o.status }}">{{ o.status }}</span></td>
+                <td><span class="status-badge status-{{ o.status }}">{{ {'pending':'Ожидает оплаты','paid':'Оплачена','sent':'Выплачена','expired':'Истекла','failed':'Отменена'}.get(o.status, o.status) }}</span></td>
                 <td>{{ o.created_at }}</td>
-                <td><a href="/dashboard/exchange?repeat={{ o.order_id }}&currency={{ o.currency }}&amount={{ o.rub_amount|int }}&address={{ o.crypto_address }}" class="btn btn-secondary" style="padding:4px 10px;font-size:12px;">🔁 Повторить</a></td>
+                <td style="white-space:nowrap;">
+                    {% if o.status == 'pending' and o.session_token %}
+                    <a href="/pay/{{ o.session_token }}" class="btn" style="padding:4px 10px;font-size:12px;margin-right:6px;">💳 Оплатить</a>
+                    {% elif o.tx_url %}
+                    <a href="{{ o.tx_url }}" target="_blank" rel="noopener" style="margin-right:6px;font-size:12px;">🔍 Транзакция</a>
+                    {% endif %}
+                    <a href="/dashboard/exchange?repeat={{ o.order_id }}&currency={{ o.currency }}&amount={{ o.rub_amount|int }}&address={{ o.crypto_address }}" class="btn btn-secondary" style="padding:4px 10px;font-size:12px;">🔁 Повторить</a>
+                </td>
             </tr>
             {% endfor %}
         </tbody>

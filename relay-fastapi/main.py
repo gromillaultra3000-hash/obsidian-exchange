@@ -212,14 +212,23 @@ def get_user_orders(web_user, limit=20):
     with db_conn(5) as conn:
         c = conn.cursor()
         c.execute("""
-            SELECT order_id, currency, rub_amount, status, created_at
-            FROM orders
-            WHERE web_user_id = ? OR (? IS NOT NULL AND user_id = ?)
-            ORDER BY created_at DESC LIMIT ?
+            SELECT o.order_id, o.currency, o.rub_amount, o.status, o.created_at,
+                   o.crypto_address, o.paid_btc_tx,
+                   (SELECT ps.session_token FROM payment_sessions ps
+                     WHERE ps.order_id=o.order_id AND ps.session_token IS NOT NULL
+                       AND ps.status NOT IN ('failed','expired')
+                     ORDER BY ps.created_at DESC LIMIT 1) AS session_token
+            FROM orders o
+            WHERE o.web_user_id = ? OR (? IS NOT NULL AND o.user_id = ?)
+            ORDER BY o.created_at DESC LIMIT ?
         """, (web_user['id'], web_user['telegram_id'], web_user['telegram_id'], limit))
         rows = c.fetchall()
+    EXPLORER = {'BTC': 'https://mempool.space/tx/', 'LTC': 'https://blockchair.com/litecoin/transaction/',
+                'USDT': 'https://tronscan.org/#/transaction/'}
     return [
-        {"order_id": r[0], "currency": r[1], "rub_amount": r[2], "status": r[3], "created_at": r[4]}
+        {"order_id": r[0], "currency": r[1], "rub_amount": r[2], "status": r[3], "created_at": r[4],
+         "crypto_address": r[5] or '', "txid": r[6] or '', "session_token": r[7] or '',
+         "tx_url": (EXPLORER.get(r[1], '') + r[6]) if (r[6] and r[3] == 'sent') else ''}
         for r in rows
     ]
 
@@ -1547,54 +1556,67 @@ async def pay(token: str, request: Request):
     client_ip = request.client.host
     audit_log("payment_page_opened", f"token={token} ip={client_ip}")
     
-    # Проверяем, является ли token числом (старый формат)
+    # Числовой токен (легаси /pay/{order_id}) — сюда сайт падает, если payment
+    # session не создалась. Пробуем найти живую сессию заявки и уйти на неё;
+    # иначе — честная страница статуса в фирменном стиле (без фейкового QR).
     if token.isdigit():
         order_id = int(token)
         with db_conn(5) as conn:
             c = conn.cursor()
-            c.execute("SELECT rub_amount, paid_btc_tx FROM orders WHERE order_id=?", (order_id,))
+            c.execute("SELECT rub_amount, status FROM orders WHERE order_id=?", (order_id,))
             row = c.fetchone()
+            c.execute("""SELECT session_token FROM payment_sessions
+                         WHERE order_id=? AND session_token IS NOT NULL
+                           AND status NOT IN ('failed','expired')
+                         ORDER BY created_at DESC LIMIT 1""", (order_id,))
+            sess = c.fetchone()
         if not row:
             raise HTTPException(status_code=404)
-        
-        amount, platega_url = row
-        if not platega_url:
-            platega_url = "https://obsidian-exchange.org/error"
-        
-        qr = qrcode.make(platega_url)
-        bio = BytesIO(); qr.save(bio, "PNG"); bio.seek(0)
-        import base64
-        qr_base64 = base64.b64encode(bio.read()).decode()
-        
-        # Старая вёрстка (зелёная) — позже заменим на киберпанк
+        if sess and sess[0]:
+            return RedirectResponse(f"/pay/{sess[0]}", status_code=302)
+
+        amount, o_status = row
+        _titles = {'pending': ('Реквизиты готовятся', 'Платёжный маршрут ещё не выдал реквизиты. Откройте бота — там появится кнопка оплаты, или создайте заявку заново.'),
+                   'paid': ('Оплата получена', 'Готовим выплату криптовалюты. Уведомим в Telegram.'),
+                   'sent': ('Криптовалюта отправлена', 'Сделка завершена. Спасибо, что выбрали нас!'),
+                   'expired': ('Заявка истекла', 'Средства не переводите — создайте новую заявку с актуальным курсом.')}
+        _t, _d = _titles.get(o_status or 'pending', _titles['pending'])
         html = f"""<!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Оплата заказа #{order_id} | ObsidianExchange</title>
-    <style>
-        body {{ font-family: Arial, sans-serif; background: #0a0a0a; color: #e0e0e0; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }}
-        .container {{ text-align: center; background: #141414; padding: 40px; border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.6); max-width: 400px; width: 90%; }}
-        h1 {{ color: #2a7d2a; font-size: 24px; }}
-        .amount {{ font-size: 28px; font-weight: 700; color: #2a7d2a; margin: 20px 0; }}
-        .qr {{ margin: 20px auto; }}
-        .qr img {{ border-radius: 15px; }}
-        .btn {{ display: inline-block; padding: 14px 30px; background: #2a7d2a; color: #fff; text-decoration: none; border-radius: 10px; font-size: 18px; margin-top: 20px; }}
-        .btn:hover {{ background: #236923; }}
-        p {{ color: #999; font-size: 14px; margin-top: 15px; }}
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Заявка #{order_id} · ObsidianExchange</title>
+<style>
+  :root {{ --bg:#050507; --card:rgba(255,255,255,.038); --line:rgba(255,255,255,.09);
+           --txt:#f5f5f7; --muted:#8b8b93; --purple:#8b5cf6; --purple2:#a855f7; }}
+  * {{ margin:0; padding:0; box-sizing:border-box; }}
+  body {{ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',Roboto,sans-serif;
+    background:radial-gradient(120% 60% at 50% -10%,rgba(139,92,246,.16),transparent 60%),var(--bg);
+    color:var(--txt); min-height:100vh; display:flex; justify-content:center; align-items:center;
+    padding:24px 18px; line-height:1.45; -webkit-font-smoothing:antialiased; text-align:center; }}
+  .card {{ width:100%; max-width:400px; background:var(--card); border:1px solid var(--line);
+    border-radius:28px; padding:34px 26px; backdrop-filter:blur(30px); }}
+  .brand {{ display:flex; align-items:center; gap:8px; justify-content:center; margin-bottom:24px; }}
+  .brand .dot {{ width:9px; height:9px; border-radius:50%; background:linear-gradient(135deg,var(--purple),var(--purple2)); box-shadow:0 0 12px rgba(139,92,246,.7); }}
+  .brand span {{ font-size:14px; font-weight:600; letter-spacing:.3px; color:#e7e7ea; }}
+  .num {{ font-size:13px; color:var(--muted); margin-bottom:6px; }}
+  h1 {{ font-size:21px; font-weight:700; margin-bottom:10px; }}
+  .amt {{ font-size:15px; color:#c4b5fd; margin-bottom:14px; }}
+  p {{ font-size:14px; color:var(--muted); margin-bottom:26px; }}
+  .btn {{ display:block; padding:15px; border-radius:16px; font-size:15px; font-weight:600;
+    text-decoration:none; color:#fff; background:linear-gradient(135deg,var(--purple),var(--purple2)); }}
+</style>
 </head>
 <body>
-    <div class="container">
-        <h1>⚫ ObsidianExchange</h1>
-        <p>Заказ #{order_id}</p>
-        <div class="amount">{amount} RUB</div>
-        <p>📲 Отсканируйте QR-код в приложении вашего банка для оплаты через СБП</p>
-        <div class="qr"><img src="data:image/png;base64,{qr_base64}" width="250" alt="QR-код оплаты"></div>
-        <a class="btn" href="{platega_url}" target="_blank">Открыть в приложении банка</a>
-        <p>После оплаты нажмите «Я оплатил» в боте</p>
-    </div>
+  <div class="card">
+    <div class="brand"><div class="dot"></div><span>ObsidianExchange</span></div>
+    <div class="num">Заявка #{order_id}</div>
+    <h1>{_t}</h1>
+    <div class="amt">{amount:g} ₽</div>
+    <p>{_d}</p>
+    <a class="btn" href="https://t.me/Obsidian666999bot">Открыть бота</a>
+  </div>
 </body>
 </html>"""
         return html
