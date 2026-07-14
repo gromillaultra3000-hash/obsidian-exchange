@@ -24,6 +24,14 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
                     handlers=[log_handler, logging.StreamHandler(sys.stdout)])
 logger = logging.getLogger(__name__)
 
+# Централизованная редакция секретов в логах (ключи/токены/карты/телефоны/адреса)
+try:
+    sys.path.insert(0, '/root/relay')
+    from utils.log_redaction import install_redaction
+    install_redaction()
+except Exception as _e:
+    logger.warning(f"log_redaction не подключён: {_e}")
+
 # ---------- ЗАГРУЗКА .env ----------
 def load_env():
     env_path = Path(__file__).parent / '.env'

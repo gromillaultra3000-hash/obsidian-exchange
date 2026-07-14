@@ -84,6 +84,13 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+# Централизованная редакция секретов в логах (ключи/токены/карты/телефоны/адреса)
+try:
+    from utils.log_redaction import install_redaction
+    install_redaction()
+except Exception as _e:
+    logger.warning(f"log_redaction не подключён: {_e}")
+
 
 from contextlib import contextmanager, asynccontextmanager
 
