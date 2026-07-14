@@ -910,7 +910,17 @@ def format_requisites(raw):
     """Пытается собрать читаемые реквизиты из ответа GreenPay /requisites/request/."""
     if not isinstance(raw, dict):
         return f"Реквизиты: {raw}"
-    requisites = raw.get('requisites') or raw
+    requisites = dict(raw.get('requisites') or raw)
+    # Нормализация (та же, что на /pay и в Mini App):
+    # получатель == телефон/карта → дубль, не показываем; банк-фолбэк СБП/Карта
+    _ph = str(requisites.get('phone') or '').strip()
+    _cd = str(requisites.get('card_number') or '').strip()
+    _rc = str(requisites.get('recipient') or '').strip()
+    if _rc and (_ph or _cd) and _rc.replace(' ', '') == (_ph or _cd).replace(' ', ''):
+        requisites['recipient'] = ''
+    if not str(requisites.get('bank_name') or '').strip() and not str(requisites.get('bank') or '').strip():
+        if _ph or _cd:
+            requisites['bank_name'] = 'СБП' if _ph else 'Карта'
     lines = []
     field_labels = [
         ('card_number', '💳 Карта'),
@@ -923,9 +933,11 @@ def format_requisites(raw):
         ('payment_link', '🔗 Ссылка'),
         ('qr_data', '📲 QR-данные'),
     ]
+    seen_labels = set()
     for key, label in field_labels:
         value = requisites.get(key)
-        if value:
+        if value and label not in seen_labels:
+            seen_labels.add(label)
             lines.append(f"{label}: <code>{value}</code>")
     if lines:
         return "\n".join(lines)

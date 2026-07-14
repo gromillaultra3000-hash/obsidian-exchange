@@ -2384,6 +2384,38 @@ async def cleanup_expired_orders():
                 conn.commit()
                 if expired > 0:
                     logger.info(f"[cleanup] Expired {expired} abandoned pending orders")
+                    # Замыкаем жизненный цикл для клиента: одноразовое уведомление
+                    # об истечении (однократность — sent_notifications, как pay_reminder)
+                    try:
+                        with db_conn(5) as conn3:
+                            c3 = conn3.cursor()
+                            c3.execute("""
+                                SELECT o.order_id, o.user_id, o.currency, o.rub_amount
+                                FROM orders o
+                                WHERE o.status='expired' AND o.user_id > 0
+                                  AND datetime(o.updated_at) > datetime('now', '-15 minutes')
+                                  AND NOT EXISTS (SELECT 1 FROM sent_notifications sn
+                                                  WHERE sn.order_id=o.order_id AND sn.event='order_expired')
+                            """)
+                            to_notify = c3.fetchall()
+                            for _oid, _uid, _cur, _amt in to_notify:
+                                c3.execute("INSERT OR IGNORE INTO sent_notifications (order_id, event) "
+                                           "VALUES (?, 'order_expired')", (_oid,))
+                            conn3.commit()
+                        for _oid, _uid, _cur, _amt in to_notify:
+                            try:
+                                notify_telegram(_uid, (
+                                    f"⌛ <b>Заявка #{_oid} истекла</b>\n\n"
+                                    f"{_amt:g} ₽ → {_cur}. Курс больше не действует — "
+                                    f"средства по старым реквизитам не переводите.\n"
+                                    f"Создайте новую заявку, это займёт минуту."
+                                ), reply_markup={"inline_keyboard": [
+                                    [{"text": "🔄 Создать новую заявку", "callback_data": "menu_exchange"}],
+                                ]})
+                            except Exception as ne:
+                                logger.warning(f"[cleanup] notify expired order {_oid}: {ne}")
+                    except Exception as e:
+                        logger.error(f"[cleanup] expired-notify loop error: {e}")
                     # Отменяем Brabus-инвойсы для истёкших заявок (защита от зависших сделок)
                     try:
                         with db_conn(5) as conn2:
