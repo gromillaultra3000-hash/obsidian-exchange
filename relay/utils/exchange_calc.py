@@ -70,6 +70,16 @@ def get_rate_with_markup(coin, amount=None):
     return get_cached_rate(coin) / (1 - commission / 100)
 
 
+def get_sell_rate(coin):
+    """Курс ПОКУПКИ крипты у клиента (продажа → RUB): рынок минус комиссия.
+    Та же логика, что в боте (menu_sell): ~19% BTC/LTC, ~2% USDT."""
+    if coin == "USDT":
+        commission = float(os.getenv("USDT_COMMISSION_PERCENT", 2))
+    else:
+        commission = get_commission_percent(50000)
+    return round(get_cached_rate(coin) * (1 - commission / 100), 2)
+
+
 def validate_crypto_address(addr, currency):
     if currency == "BTC":
         return any(re.match(p, addr) for p in [r'^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$', r'^bc1[ac-hj-np-z02-9]{39,59}$'])

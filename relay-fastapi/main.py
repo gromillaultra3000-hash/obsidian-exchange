@@ -447,6 +447,95 @@ async def dashboard_exchange_submit(
 
     return RedirectResponse(f"/pay/{order_id}", status_code=302)
 
+# --- Продажа крипты → RUB на сайте (зеркало бот-флоу menu_sell) ---
+SELL_ADDRESSES = {c: os.getenv(f'SELL_{c}_ADDRESS', '').strip() for c in ('BTC', 'LTC', 'USDT')}
+SELL_MIN = {'BTC': 0.0005, 'LTC': 0.5, 'USDT': 50}
+SELL_LABELS = {'BTC': '₿ Bitcoin', 'LTC': 'Ł Litecoin', 'USDT': '💵 USDT (TRC20)'}
+
+def _sell_context():
+    coins, sell_js = [], {}
+    for code, addr in SELL_ADDRESSES.items():
+        if not addr:
+            continue  # монета без адреса — продажа недоступна
+        rate = exchange_calc.get_sell_rate(code)
+        coins.append({"code": code, "label": SELL_LABELS[code], "rate": rate})
+        sell_js[code] = {"rate": rate, "min": SELL_MIN[code]}
+    return coins, json.dumps(sell_js)
+
+@app.get("/dashboard/sell", response_class=HTMLResponse)
+async def dashboard_sell_page(request: Request):
+    web_user = auth.get_web_user(request)
+    if not web_user:
+        return RedirectResponse("/login", status_code=302)
+    coins, sell_js = _sell_context()
+    return templates.TemplateResponse(request, "dashboard_sell.html", site_context(
+        request, active="sell", sell_coins=coins, sell_js=sell_js,
+    ))
+
+@app.post("/dashboard/sell", response_class=HTMLResponse)
+async def dashboard_sell_submit(
+    request: Request,
+    csrf_token: str = Form(...),
+    currency: str = Form(...),
+    amount: float = Form(...),
+    sbp_phone: str = Form(...),
+):
+    web_user = auth.get_web_user(request)
+    if not web_user:
+        return RedirectResponse("/login", status_code=302)
+    if not auth.verify_csrf(web_user, csrf_token):
+        raise HTTPException(status_code=403, detail="invalid csrf")
+
+    currency = currency.upper().strip()
+    phone = sbp_phone.strip().replace(' ', '').replace('-', '').lstrip('+')
+    receive_addr = SELL_ADDRESSES.get(currency, '')
+    coins, sell_js = _sell_context()
+    error = None
+    if not receive_addr:
+        error = "Продажа этой монеты временно недоступна."
+    elif amount < SELL_MIN.get(currency, 0.001):
+        error = f"Минимальная сумма: {SELL_MIN.get(currency)} {currency}."
+    elif not re.match(r'^7\d{10}$', phone):
+        error = "Неверный формат телефона. Пример: 79001234567."
+    if error:
+        return templates.TemplateResponse(request, "dashboard_sell.html", site_context(
+            request, active="sell", sell_coins=coins, sell_js=sell_js, error=error,
+            form={"currency": currency, "amount": amount, "sbp_phone": sbp_phone},
+        ), status_code=400)
+
+    sell_rate = exchange_calc.get_sell_rate(currency)
+    rub_amount = round(amount * sell_rate, 2)
+    user_id = web_user['telegram_id'] if web_user['telegram_id'] else -web_user['id']
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        c.execute("""INSERT INTO sell_orders
+            (user_id, currency, crypto_amount, rub_amount, sbp_phone, receive_address, status, created_at, updated_at)
+            VALUES (?,?,?,?,?,?,'pending',datetime('now'),datetime('now'))""",
+            (user_id, currency, amount, rub_amount, phone, receive_addr))
+        conn.commit()
+        sell_id = c.lastrowid
+
+    audit_log("web_sell_created", f"sell_id={sell_id} web_user_id={web_user['id']}")
+    # Кнопки sell_confirm_/sell_reject_ обрабатывает бот — те же, что для бот-заявок
+    notify_admins_tg(
+        f"💰 <b>Новая заявка на ПРОДАЖУ #{sell_id}</b> (сайт)\n"
+        f"👤 Аккаунт: {web_user['email']}\n"
+        f"💸 Продаёт: {amount:g} {currency}\n"
+        f"📬 На наш адрес: <code>{receive_addr}</code>\n"
+        f"💵 Выплатить: {rub_amount:,.2f} RUB\n"
+        f"📱 СБП: {phone}\n\n"
+        f"После получения монет нажмите «Выплатить».",
+        reply_markup={"inline_keyboard": [
+            [{"text": "✅ Выплатить (подтвердить)", "callback_data": f"sell_confirm_{sell_id}"}],
+            [{"text": "❌ Отклонить", "callback_data": f"sell_reject_{sell_id}"}],
+        ]})
+
+    return templates.TemplateResponse(request, "dashboard_sell.html", site_context(
+        request, active="sell", sell_coins=coins, sell_js=sell_js,
+        created={"id": sell_id, "currency": currency, "amount": f"{amount:g}",
+                 "rub": rub_amount, "phone": phone, "address": receive_addr},
+    ))
+
 # Анти-спам создания заявок из Mini App: скользящее окно на пользователя + глобально.
 from collections import deque as _deque
 _order_rate = {}                 # tg_id -> deque[timestamps]

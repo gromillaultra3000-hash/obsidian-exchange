@@ -1,0 +1,63 @@
+{% extends "dashboard_base.html" %}
+{% block title %}Продать крипту | ObsidianExchange{% endblock %}
+{% block dashboard_content %}
+<h1>💰 Продажа крипты → RUB</h1>
+
+{% if created %}
+<div class="dash-card">
+    <h2>✅ Заявка на продажу #{{ created.id }} принята</h2>
+    <p style="margin:12px 0;">Отправьте <strong>{{ created.amount }} {{ created.currency }}</strong> на наш адрес:</p>
+    <div class="fee-box" style="word-break:break-all;font-family:monospace;font-size:14px;" id="recv-addr">{{ created.address }}</div>
+    <button class="btn btn-secondary" style="margin-top:10px;" onclick="navigator.clipboard.writeText(document.getElementById('recv-addr').textContent.trim());this.textContent='✓ Скопировано'">📋 Скопировать адрес</button>
+    <p style="margin-top:16px;">💵 Выплата: <strong>≈ {{ '%.2f'|format(created.rub) }} ₽</strong> на СБП <strong>{{ created.phone }}</strong></p>
+    <p style="opacity:.7;font-size:13px;margin-top:8px;">После подтверждения транзакции в сети рубли поступят в течение 30–60 минут. Статус — в разделе <a href="/dashboard/orders">История</a>.</p>
+</div>
+{% else %}
+<div class="dash-card">
+    {% if error %}<div class="error-msg">{{ error }}</div>{% endif %}
+    <form method="post" action="/dashboard/sell">
+        <input type="hidden" name="csrf_token" value="{{ web_user.csrf_token }}">
+        <div class="input-group">
+            <label>Монета</label>
+            <select id="sell-currency" name="currency" onchange="calcSell()">
+                {% for c in sell_coins %}
+                <option value="{{ c.code }}" {{ 'selected' if form and form.currency == c.code }}>{{ c.label }} — курс {{ '{:,.2f}'.format(c.rate).replace(',', ' ') }} ₽</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="input-group">
+            <label>Количество</label>
+            <input type="number" id="sell-amount" name="amount" step="any" min="0"
+                   placeholder="например 0.01" value="{{ form.amount if form else '' }}"
+                   oninput="calcSell()" required>
+            <div style="font-size:12px;opacity:.6;margin-top:4px;" id="sell-min"></div>
+        </div>
+        <div class="fee-box" id="sell-calc">💵 Вы получите: <strong>—</strong></div>
+        <div class="input-group">
+            <label>Телефон для выплаты по СБП</label>
+            <input type="text" name="sbp_phone" placeholder="79001234567" pattern="\+?7\d{10}"
+                   value="{{ form.sbp_phone if form else '' }}" required>
+        </div>
+        <button class="btn btn-primary btn-block" type="submit">💰 Создать заявку на продажу</button>
+        <p style="margin-top:10px;font-size:12px;opacity:.6;">Создавая заявку, вы принимаете условия <a href="/offer" target="_blank">пользовательского соглашения</a>.</p>
+    </form>
+</div>
+
+<div class="dash-card">
+    <p>После создания заявки вы получите адрес для перевода монет. Выплата рублей по СБП — в течение 30–60 минут после подтверждения транзакции в сети. Курс: рыночный за вычетом комиссии (~19% BTC/LTC, ~2% USDT).</p>
+</div>
+
+<script>
+const SELL = {{ sell_js|safe }};
+function calcSell() {
+    const cur = document.getElementById('sell-currency').value;
+    const amt = parseFloat(document.getElementById('sell-amount').value) || 0;
+    const info = SELL[cur] || {rate: 0, min: 0};
+    document.getElementById('sell-min').textContent = 'Минимум: ' + info.min + ' ' + cur;
+    document.getElementById('sell-calc').innerHTML =
+        '💵 Вы получите: <strong>' + (amt > 0 ? (amt * info.rate).toLocaleString('ru', {maximumFractionDigits: 2}) + ' ₽' : '—') + '</strong>';
+}
+calcSell();
+</script>
+{% endif %}
+{% endblock %}
