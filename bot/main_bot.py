@@ -6964,6 +6964,8 @@ def check_fifth_exchange_discount(user_id: int, rub_amount: float) -> bool:
 # ========== ЕЖЕДНЕВНЫЙ ПОСТ В КАНАЛ ==========
 
 async def compose_daily_post() -> str:
+    """USDT-first: 2% — входной продукт (конвертит в 4 раза лучше BTC),
+    BTC/LTC вторым экраном, резервы — сигнал доверия."""
     btc_rate  = get_cached_rate('BTC')  or 0
     ltc_rate  = get_cached_rate('LTC')  or 0
     usdt_rate = get_cached_rate('USDT') or 0
@@ -6971,37 +6973,47 @@ async def compose_daily_post() -> str:
     def fmt(val):
         return f"{int(val):,}".replace(",", " ") if val else "—"
 
-    btc_buy  = int(round(btc_rate  / (1 - 0.27))) if btc_rate  else 0
-    ltc_buy  = int(round(ltc_rate  / (1 - 0.27))) if ltc_rate  else 0
+    # «от» = лучший тариф (19% на 15к+), не худший — честно и привлекательно
+    btc_buy  = int(round(btc_rate  / (1 - 0.19))) if btc_rate  else 0
+    ltc_buy  = int(round(ltc_rate  / (1 - 0.19))) if ltc_rate  else 0
     usdt_buy = round(usdt_rate / (1 - 0.02), 2)   if usdt_rate else 0
+    usdt_10k = round(10000 / usdt_buy, 1) if usdt_buy else 0
+
+    # Курируемые резервы (reserves) — доверие; строка скрыта, пока не заданы
+    res_line = ""
+    try:
+        with db_conn(5) as conn:
+            rows = dict(conn.execute(
+                "SELECT currency, amount FROM reserves WHERE amount > 0").fetchall())
+        rub_total = (rows.get('RUB', 0) + rows.get('BTC', 0) * btc_rate
+                     + rows.get('LTC', 0) * ltc_rate + rows.get('USDT', 0) * usdt_rate)
+        if rub_total >= 500000:
+            res_line = (f"🏦 Резервы: <b>{fmt(rows.get('USDT', 0))} ₮ · "
+                        f"{rows.get('BTC', 0):g} ₿ · {rows.get('LTC', 0):g} Ł</b>"
+                        f" — суммарно ~<b>{fmt(rub_total)} ₽</b>\n")
+    except Exception:
+        pass
 
     text = (
-        f"🟣 <b>ObsidianExchange</b> — обмен RUB ⇄ крипта за 15 минут\n"
-        f"Без верификации · всё делает бот · 24/7\n\n"
+        f"🟣 <b>ObsidianExchange</b> — крипта за рубли по СБП · без верификации · 24/7\n\n"
 
-        f"💱 <b>Курсы прямо сейчас:</b>\n"
+        f"₮ <b>USDT TRC-20 — комиссия всего 2%</b>\n"
         f"<blockquote>"
-        f"₿ BTC — от <b>{fmt(btc_buy)} ₽</b>\n"
-        f"Ł LTC — от <b>{fmt(ltc_buy)} ₽</b>\n"
-        f"₮ USDT TRC-20 — от <b>{usdt_buy:.2f} ₽</b>"
+        f"Курс сейчас: <b>{usdt_buy:.2f} ₽</b> за 1 USDT\n"
+        f"10 000 ₽ → <b>~{usdt_10k:g} USDT</b> на твой адрес\n"
+        f"Оплата по СБП, зачисление сразу после перевода"
         f"</blockquote>\n\n"
 
-        f"⚡️ <b>Как это работает:</b>\n"
-        f"<blockquote expandable>"
-        f"1. Выбираешь валюту и сумму (от 2 000 ₽)\n"
-        f"2. Платишь по СБП или картой — Альфа, Т-Банк, VietQR\n"
-        f"3. Крипта уходит на твой адрес сразу после оплаты\n\n"
-        f"А ещё: своп BTC ⇄ LTC ⇄ USDT без регистрации,\n"
-        f"лимитные заявки, DCA-автопокупка, фиксация курса"
-        f"</blockquote>\n\n"
-
-        f"📈 <b>Комиссия BTC / LTC:</b>\n"
+        f"₿ Нужны BTC или LTC?\n"
         f"<blockquote>"
-        f"2–5к → <b>27%</b> · 5–10к → <b>25%</b> · 10–20к → <b>23%</b> · 20к+ → <b>19%</b>\n"
-        f"USDT TRC-20 → <b>2%</b>"
+        f"BTC от <b>{fmt(btc_buy)} ₽ </b>· LTC от <b>{fmt(ltc_buy)} ₽</b>\n"
+        f"Своп BTC ⇄ LTC ⇄ USDT · лимитки · DCA — без регистрации"
         f"</blockquote>\n\n"
 
-        f"💎 VIP-скидки до <b>−10%</b> · 🎁 рефералка <b>10%</b> с нашей комиссии\n"
+        f"⚡️ Сумма от 2 000 ₽ → СБП или карта → крипта на твоём адресе. ~15 минут.\n\n"
+
+        f"{res_line}"
+        f"💎 VIP до <b>−10%</b> · 🎁 рефералка <b>10%</b> с нашей комиссии\n"
         f"🔥 Каждый 5-й обмен от 5 000 ₽ — минус <b>1 000 ₽</b> автоматически"
     )
     return text

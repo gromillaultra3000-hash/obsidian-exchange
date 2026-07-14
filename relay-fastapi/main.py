@@ -1432,7 +1432,13 @@ async def api_reserves():
         rows = c.execute("SELECT currency, amount FROM reserves WHERE amount > 0 ORDER BY currency").fetchall()
     out = []
     for cur, amt in rows:
-        rate = exchange_calc.get_cached_rate(cur) or 0
+        if cur == 'RUB':
+            rate = 1
+        else:
+            try:
+                rate = exchange_calc.get_cached_rate(cur) or 0
+            except Exception:
+                rate = 0
         out.append({"currency": cur, "amount": amt, "rub_value": round(amt * rate) if rate else None})
     return {"reserves": out}
 
