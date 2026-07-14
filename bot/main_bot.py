@@ -4155,6 +4155,14 @@ async def cmd_force_payout(message: Message):
             )
         conn.commit()
 
+    # Заявка выполнена — начисляем реф-бонус и VIP-объём (как в worker_send и
+    # авто-выплате; повторное начисление исключено гейтом status=='sent' выше)
+    try:
+        await credit_referral_bonus(oid, user_id, rub)
+        await update_user_vip_volume(user_id, rub)
+    except Exception as e:
+        logger.warning(f"force_payout {oid}: реф/VIP начисление не удалось: {e}")
+
     amt_fmt = f"{int(rub):,}".replace(",", " ")
     CUR_ICON = {"BTC": "₿", "LTC": "Ł", "USDT": "💵"}
     await message.answer(
@@ -6237,6 +6245,11 @@ async def auto_check_usdt():
                                 await bot.send_message(user_id, f"✅ Выплата USDT #{order_id} выполнена!\nTXID: <code>{payout_id}</code>", parse_mode="HTML")
                             except:
                                 pass
+                            try:
+                                await credit_referral_bonus(order_id, user_id, rub_amount)
+                                await update_user_vip_volume(user_id, rub_amount)
+                            except Exception as e:
+                                logger.warning(f"usdt payout {order_id}: реф/VIP начисление: {e}")
         except Exception as e:
             logger.error(f"Ошибка проверки USDT: {e}")
         await asyncio.sleep(60)
@@ -6430,6 +6443,11 @@ async def cmd_approve(message: Message):
                 try:
                     await bot.send_message(user_id[0], f"✅ Выплата #{order_id} выполнена после подтверждения!\nTXID: <code>{payout_id}</code>", parse_mode="HTML")
                 except: pass
+                try:
+                    await credit_referral_bonus(order_id, user_id[0], action['amount'])
+                    await update_user_vip_volume(user_id[0], action['amount'])
+                except Exception as e:
+                    logger.warning(f"large payout {order_id}: реф/VIP начисление: {e}")
             await message.answer(f"✅ Крупная выплата #{order_id} одобрена. TXID: <code>{payout_id}</code>", parse_mode="HTML")
         else:
             await message.answer(f"❌ Ошибка выполнения выплаты #{order_id}")
