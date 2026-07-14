@@ -501,11 +501,11 @@ async def build_payment_methods_kb(order_id: int, amount: float, user_id: int = 
     # 2) XPayConnect — побанковые переводы, авто-подтверждение вебхуком (без чека).
     # XPAY_BUTTONS=1 ставить только когда XPay переведёт мерчант в прод
     if os.getenv('XPAY_API_KEY', '') and os.getenv('XPAY_BUTTONS', '') == '1':
-        # мерчант obsidian_sng_mono — побанковые переводы: клиент выбирает свой
-        # банк → пикер (pm_xpaybank_ → pm_xpayb_<код>_)
+        # мерчант obsidian_sng_mono — ссылочный флоу: одна кнопка → страница оплаты
+        # (СБП/карта/QR на стороне XPay), авто-подтверждение вебхуком
         rows.append([InlineKeyboardButton(
-            text="🚀 Перевод по банку — мгновенное подтверждение",
-            callback_data=f"pm_xpaybank_{order_id}"
+            text="🚀 Быстрая оплата (СБП / QR)",
+            callback_data=f"pm_xpay_link_{order_id}"
         )])
 
     # 3) Montera — показываем ТОЛЬКО клиентам с ≥1 успешно оплаченной сделкой
@@ -2899,55 +2899,62 @@ async def process_payment_method(callback: CallbackQuery, state: FSMContext):
                    f"⏱ Реквизиты действительны <b>30 минут</b>.\n"
                    f"✅ Оплата подтверждается автоматически — чек не требуется.").replace(",", " ")
 
-    elif pm.startswith("pm_xpayb_") or pm.startswith("pm_xpay_"):
-        # XPayConnect: реквизиты на экране, оплата подтверждается автоматически
-        # вебхуком /xpay/webhook, чек не нужен
-        try:
-            from providers.xpayconnect import XPAY_BANKS
-        except Exception:
-            XPAY_BANKS = {}
+    elif pm.startswith("pm_xpay_link_") or pm.startswith("pm_xpayb_") or pm.startswith("pm_xpay_"):
+        # XPayConnect (мерчант СНГ obsidian_sng_mono): отдаёт ПЛАТЁЖНУЮ ССЫЛКУ,
+        # оплата подтверждается автоматически вебхуком /xpay/webhook (чек не нужен).
+        # pm_xpay_link_ / pm_xpay_* → дефолтный рельс (XPAY_TYPE_DEFAULT);
+        # pm_xpayb_<код>_ → явный рельс (легаси-пикер, сейчас не показывается).
         if pm.startswith("pm_xpayb_"):
-            # pm_xpayb_<код банка>_<order_id> — побанковый перевод (bank-picker)
             method = pm.split("_")[2]
-            bank_title = XPAY_BANKS.get(method, method)
         else:
-            method = "sbp" if pm.startswith("pm_xpay_sbp_") else "card"
-            bank_title = None
+            method = None  # → XPAY_TYPE_DEFAULT
         try:
             from services.payment_service import PaymentService
             from providers.xpayconnect import XPayConnectProvider
-            payment_service = PaymentService(provider=XPayConnectProvider())
-            session = payment_service.create_session(order_id, amount, payment_method=method,
-                                                     telegram_id=callback.from_user.id)
+            session = PaymentService(provider=XPayConnectProvider()).create_session(
+                order_id, amount, payment_method=method, telegram_id=callback.from_user.id)
             if 'error' in session:
-                await reply_no_requisites(callback, order_id)
-                await callback.answer()
-                return
+                await reply_no_requisites(callback, order_id); await callback.answer(); return
             raw_session = session.get('raw') or {}
-            requisites_text = format_requisites(raw_session)
         except Exception as e:
-            logger.error(f"Ошибка создания сессии XPay {method}: {e}")
-            await reply_no_requisites(callback, order_id)
-            await callback.answer()
-            return
+            logger.error(f"Ошибка создания сессии XPay: {e}")
+            await reply_no_requisites(callback, order_id); await callback.answer(); return
 
-        # XPay может сдвинуть сумму для уникализации — платить нужно ровно её
+        req = raw_session.get('requisites') or {}
+        pay_link = req.get('payment_link') or session.get('qr_payload')
         pay_amount = float(raw_session.get('amount_rub') or amount)
-        if abs(pay_amount - float(amount)) > 0.004:
-            amount_str = f"{pay_amount:,.0f}" if pay_amount == int(pay_amount) else f"{pay_amount:,.2f}"
-            exact_note = "\n⚠️ Переведите <b>точную сумму</b> — она изменена для автоматического зачисления."
+        amount_str = (f"{int(pay_amount):,}" if pay_amount == int(pay_amount)
+                      else f"{pay_amount:,.2f}")
+
+        if pay_link:
+            caption = (f"🟣 ObsidianExchange\nЗаявка #{order_id}\n\n"
+                       f"Сумма: <b>{amount_str} ₽</b>\n\n"
+                       f"Нажмите кнопку — откроется страница оплаты. Оплатите <b>точную сумму</b> "
+                       f"удобным способом (СБП / карта / QR).\n\n"
+                       f"⏱ Ссылка действительна <b>30 минут</b>.\n"
+                       f"✅ Оплата подтверждается автоматически — чек не требуется.").replace(",", " ")
+            inline_kb = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="💳 Перейти к оплате →", url=pay_link)],
+                [InlineKeyboardButton(text="✅ Я оплатил", callback_data=f"paid_{order_id}")],
+                [InlineKeyboardButton(text="🔍 Проверить статус", callback_data=f"check_{order_id}")]])
         else:
-            amount_str = f"{int(round(pay_amount)):,}"
-            exact_note = ""
-        if bank_title:
-            way = f"на карту {bank_title} (перевод из приложения {bank_title})"
+            requisites_text = format_requisites(raw_session)
+            caption = (f"🟣 ObsidianExchange\nЗаявка #{order_id}\n\n"
+                       f"Сумма: <b>{amount_str} ₽</b>\n\n"
+                       f"Оплатите по реквизитам:\n{requisites_text}\n\n"
+                       f"⏱ 30 минут. ✅ Подтверждается автоматически.").replace(",", " ")
+            inline_kb = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="✅ Я оплатил", callback_data=f"paid_{order_id}")],
+                [InlineKeyboardButton(text="🔍 Проверить статус", callback_data=f"check_{order_id}")]])
+
+        if IMG_SECURITY.exists() and len(caption) <= 1024:
+            await callback.message.answer_photo(FSInputFile(IMG_SECURITY), caption=caption,
+                                                reply_markup=inline_kb, parse_mode="HTML")
         else:
-            way = "по СБП" if method == "sbp" else "на карту"
-        caption = (f"🟣 ObsidianExchange\nЗаявка #{order_id}\n\n"
-                   f"Сумма: <b>{amount_str} ₽</b>\n\n"
-                   f"Переведите указанную сумму {way}:\n{requisites_text}\n{exact_note}\n"
-                   f"⏱ Реквизиты действительны <b>30 минут</b>.\n"
-                   f"✅ Оплата подтверждается автоматически — чек не требуется.").replace(",", " ")
+            await callback.message.answer(caption, reply_markup=inline_kb, parse_mode="HTML")
+        await callback.answer()
+        await state.clear()
+        return
 
     elif pm.startswith("pm_storm_"):
         # StormTrade: эксклюзивные методы (QR СБП / по номеру счёта).
