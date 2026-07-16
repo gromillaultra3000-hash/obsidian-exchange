@@ -79,9 +79,9 @@
             <div class="widget-rate-info" id="widget-rate-info"></div>
 
             <!-- Слой доверия к оплате: умный роутинг (агрегат, без имён провайдеров) -->
-            <div id="pay-trust" style="display:none;margin:10px 0;padding:9px 11px;border-radius:12px;background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.2)">
-                <div style="font-size:10px;color:#a78bfa;font-weight:700;letter-spacing:.03em;margin-bottom:3px">⚡ УМНЫЙ РОУТИНГ ОПЛАТЫ</div>
-                <div id="pay-trust-body" style="font-size:12px;color:#cbd5e1;line-height:1.5"></div>
+            <div id="pay-trust" style="display:none;margin:10px 0;padding:9px 11px;border-radius:12px;background:rgba(168,85,247,.06);border:1px solid rgba(168,85,247,.2)">
+                <div style="font-size:10px;color:#C084FC;font-weight:700;letter-spacing:.03em;margin-bottom:3px">⚡ УМНЫЙ РОУТИНГ ОПЛАТЫ</div>
+                <div id="pay-trust-body" style="font-size:12px;color:#D8C7FF;line-height:1.5"></div>
             </div>
 
             <div class="widget-actions">
@@ -243,7 +243,7 @@
       document.getElementById('pay-trust-body').innerHTML =
         'Платёж распределяется между <b>' + t.active_routes + '</b> независимыми маршрутами · ' +
         'реквизиты за <b>' + sec + '</b> · надёжность выдачи <b>' + t.reliability_pct + '%</b>' +
-        '<div style="font-size:10px;color:var(--muted, #94a3b8);margin-top:3px">если один канал занят — система автоматически берёт следующий</div>';
+        '<div style="font-size:10px;color:var(--muted, #a99cc9);margin-top:3px">если один канал занят — система автоматически берёт следующий</div>';
       document.getElementById('pay-trust').style.display = 'block';
     } catch (e) {}
   }

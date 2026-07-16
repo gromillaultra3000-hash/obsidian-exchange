@@ -2,13 +2,13 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>ObsidianExchange</title>
     <style>
-        :root { --bg: #050507; --card: #0f0f14; --input: #151520; --border: rgba(168,85,247,.18); --border-strong: rgba(168,85,247,.35); --purple: #8b5cf6; --purple-2: #a855f7; --green: #00ff9d; --text: #f3f3f3; --muted: #8b8ba3; --radius: 22px; }
+        :root { --bg: #050008; --card: #120820; --input: #151520; --border: rgba(192,132,252,.18); --border-strong: rgba(192,132,252,.4); --purple: #8b5cf6; --purple-2: #a855f7; --purple-3: #C084FC; --green: #00ff9d; --text: #F5F3FF; --muted: #a99cc9; --radius: 22px; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html { -webkit-tap-highlight-color: transparent; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: radial-gradient(circle at top, rgba(139,92,246,.25), transparent 45%), linear-gradient(180deg,#050507,#09090f); color: var(--text); min-height: 100dvh; padding: 0; position: relative; overflow-x: hidden; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: radial-gradient(circle at 12% 6%, rgba(168,85,247,.22), transparent 40%), radial-gradient(circle at 88% 2%, rgba(192,132,252,.12), transparent 30%), linear-gradient(180deg,#0f031a 0%,#07050d 55%,#050008 100%); background-attachment: fixed; color: var(--text); min-height: 100dvh; padding: 0; position: relative; overflow-x: hidden; }
 
         .matrix-bg { position: fixed; inset: 0; background-image: linear-gradient(rgba(168,85,247,.06) 1px, transparent 1px), linear-gradient(90deg, rgba(168,85,247,.04) 1px, transparent 1px); background-size: 40px 40px; pointer-events: none; z-index: 0; mask-image: radial-gradient(circle at top, rgba(0,0,0,.9), transparent 70%); }
 
@@ -47,13 +47,14 @@
           overflow:hidden; margin-bottom:16px;
         }
         .tab {
-          padding:10px 2px 8px; text-align:center;
+          padding:9px 2px; min-height:52px; text-align:center;
           background:none; border:none; border-right:1px solid var(--border);
-          cursor:pointer; font-size:9px; font-weight:700;
-          transition:all .2s; color:var(--muted);
-          display:flex; flex-direction:column; align-items:center; gap:3px;
+          cursor:pointer; font-size:11px; font-weight:700;
+          transition:background .2s,color .2s; color:var(--muted);
+          display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
           -webkit-tap-highlight-color: transparent;
         }
+        .tab:focus-visible { outline:2px solid var(--purple-3); outline-offset:-2px; }
         .tab:last-child { border-right:none; }
         .tab .tab-icon { font-size:19px; display:block; transition:transform .15s, filter .15s; }
         .tab.active { background:rgba(124,58,237,.14); color:var(--purple-2); }
@@ -188,13 +189,13 @@
         </div>
 
         <!-- Вкладки — иконка + подпись -->
-        <div class="tabs">
-          <div class="tab active" data-tab="exchange"><span class="tab-icon">💎</span>Обмен</div>
-          <div class="tab" data-tab="history"><span class="tab-icon">📋</span>История</div>
-          <div class="tab" data-tab="referral"><span class="tab-icon">👥</span>Рефералы</div>
-          <div class="tab" data-tab="profile"><span class="tab-icon">👤</span>Профиль</div>
-          <div class="tab" data-tab="faq"><span class="tab-icon">❓</span>FAQ</div>
-          <div class="tab" data-tab="admin" id="admin-tab" style="display:none"><span class="tab-icon">⚙️</span>Admin</div>
+        <div class="tabs" role="tablist" aria-label="Разделы">
+          <div class="tab active" data-tab="exchange" role="tab" tabindex="0" aria-selected="true"><span class="tab-icon">💎</span>Обмен</div>
+          <div class="tab" data-tab="history" role="tab" tabindex="0" aria-selected="false"><span class="tab-icon">📋</span>История</div>
+          <div class="tab" data-tab="referral" role="tab" tabindex="0" aria-selected="false"><span class="tab-icon">👥</span>Рефералы</div>
+          <div class="tab" data-tab="profile" role="tab" tabindex="0" aria-selected="false"><span class="tab-icon">👤</span>Профиль</div>
+          <div class="tab" data-tab="faq" role="tab" tabindex="0" aria-selected="false"><span class="tab-icon">❓</span>FAQ</div>
+          <div class="tab" data-tab="admin" id="admin-tab" role="tab" tabindex="0" aria-selected="false" style="display:none"><span class="tab-icon">⚙️</span>Admin</div>
         </div>
 
         <!-- Обмен -->
@@ -203,27 +204,27 @@
             <div id="sys-status" style="display:none;align-items:center;gap:6px;margin-bottom:6px;padding:6px 10px;border-radius:10px;font-size:11px;font-weight:600"></div>
             <!-- Слой доверия к оплате: умный роутинг (агрегат, без имён провайдеров) -->
             <div id="pay-trust" style="display:none;margin-bottom:10px;padding:8px 10px;border-radius:10px;background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.18)">
-              <div style="font-size:10px;color:#a78bfa;font-weight:700;letter-spacing:.03em;margin-bottom:3px">⚡ УМНЫЙ РОУТИНГ ОПЛАТЫ</div>
+              <div style="font-size:11px;color:#a78bfa;font-weight:700;letter-spacing:.03em;margin-bottom:3px">⚡ УМНЫЙ РОУТИНГ ОПЛАТЫ</div>
               <div id="pay-trust-body" style="font-size:11px;color:#cbd5e1;line-height:1.5"></div>
             </div>
             <!-- Trust-strip: живые честные метрики из БД -->
             <div id="trust-strip" style="display:none;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px">
               <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:10px;text-align:center">
                 <div id="ts-today" style="font-size:18px;font-weight:800;color:#a78bfa">—</div>
-                <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">обменов сегодня</div>
+                <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">обменов сегодня</div>
               </div>
               <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:10px;text-align:center">
                 <div id="ts-vol24" style="font-size:18px;font-weight:800;color:#a78bfa">—</div>
-                <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">объём 24ч</div>
+                <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">объём 24ч</div>
               </div>
               <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:10px;text-align:center">
                 <div id="ts-total" style="font-size:18px;font-weight:800;color:#a78bfa">—</div>
-                <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">сделок всего</div>
+                <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">сделок всего</div>
               </div>
             </div>
             <!-- Курируемые резервы -->
             <div id="reserves-box" style="display:none;margin-bottom:16px;padding:10px 12px;background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.2);border-radius:12px">
-              <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">🏦 Резервы в наличии</div>
+              <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">🏦 Резервы в наличии</div>
               <div id="reserves-row" style="display:flex;flex-wrap:wrap;gap:12px;font-size:14px;font-weight:700;color:#e2e8f0"></div>
             </div>
             <div class="input-group">
@@ -315,11 +316,11 @@
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
               <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:12px;text-align:center">
-                <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Заявок</div>
+                <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Заявок</div>
                 <div style="font-size:20px;font-weight:800" id="profile-orders-count">—</div>
               </div>
               <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:12px;text-align:center">
-                <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Оборот</div>
+                <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Оборот</div>
                 <div style="font-size:16px;font-weight:800;color:var(--green)" id="profile-volume">—</div>
               </div>
             </div>
@@ -359,12 +360,8 @@
                 <input type="text" id="ai-input" placeholder="Ваш вопрос об обмене…" style="flex:1;padding:10px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(124,58,237,.25);border-radius:12px;color:#f1f5f9;font-size:14px;font-family:inherit;outline:none">
                 <button onclick="sendAiQuestion()" style="padding:10px 16px;background:linear-gradient(90deg,#7c3aed,#6d28d9);border:none;border-radius:12px;color:#fff;font-weight:700;font-size:16px;cursor:pointer">→</button>
               </div>
-              <div style="margin-top:6px;font-size:10px;color:#475569;text-align:center">qwen2 · локальный AI · данные не передаются</div>
+              <div style="margin-top:6px;font-size:11px;color:var(--muted);text-align:center">qwen2 · локальный AI · данные не передаются</div>
             </div>
-        </div>
-
-        <!-- AI Support Panel removed (merged into FAQ) -->
-          <div style="margin-top:8px;font-size:11px;color:#64748b;text-align:center">Powered by Ollama qwen2:1.5b · локальный AI без передачи данных</div>
         </div>
 
         <div class="panel" id="panel-admin">
@@ -392,6 +389,13 @@
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
+        // Обсидиановая шапка/фон Telegram под бренд (контент тему не подстраивает — тёмная фирменная)
+        try {
+            tg.setHeaderColor && tg.setHeaderColor('#0f031a');
+            tg.setBackgroundColor && tg.setBackgroundColor('#07050d');
+            tg.setBottomBarColor && tg.setBottomBarColor('#050008');
+            tg.ready && tg.ready();
+        } catch (e) {}
 
         // Загружаем последний использованный адрес из localStorage
         const lastAddress = localStorage.getItem('lastAddress');
@@ -552,7 +556,7 @@
                     document.getElementById('pay-trust-body').innerHTML =
                         `Платёж распределяется между <b>${t.active_routes}</b> независимыми маршрутами · ` +
                         `реквизиты за <b>${sec}</b> · надёжность выдачи <b>${t.reliability_pct}%</b>` +
-                        `<div style="font-size:9px;color:var(--muted);margin-top:2px">если один канал занят — система автоматически берёт следующий</div>`;
+                        `<div style="font-size:11px;color:var(--muted);margin-top:2px">если один канал занят — система автоматически берёт следующий</div>`;
                     document.getElementById('pay-trust').style.display = 'block';
                 }
             } catch(e) {}
@@ -828,7 +832,7 @@
             fetch(`/api/referral_stats?user_id=${userId}`, { headers: { 'X-Telegram-Init-Data': tg.initData || '' } }).then(r=>r.json()).then(data => {
                 const cell = (v, lbl) => `<div style="flex:1;min-width:88px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:12px;text-align:center">
                     <div style="font-size:20px;font-weight:800;color:#a78bfa">${v}</div>
-                    <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-top:2px">${lbl}</div></div>`;
+                    <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-top:2px">${lbl}</div></div>`;
                 const btc = Number(data.total_bonus_btc || 0);
                 const rub = data.bonus_rub != null ? ` · ≈ ${Number(data.bonus_rub).toLocaleString('ru')} ₽` : '';
                 document.getElementById('ref-stats').innerHTML = `
@@ -867,15 +871,20 @@
         }
 
         document.querySelectorAll('.tab').forEach(tab => {
-            tab.addEventListener('click', () => {
-                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            const activate = () => {
+                document.querySelectorAll('.tab').forEach(t => { t.classList.remove('active'); t.setAttribute('aria-selected','false'); });
                 tab.classList.add('active');
+                tab.setAttribute('aria-selected','true');
                 document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
                 document.getElementById(`panel-${tab.dataset.tab}`).classList.add('active');
                 if (tab.dataset.tab === 'history') loadHistory();
                 if (tab.dataset.tab === 'referral') loadReferral();
                 if (tab.dataset.tab === 'profile') loadProfile();
                 if (tab.dataset.tab === 'admin') loadAdmin();
+            };
+            tab.addEventListener('click', activate);
+            tab.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(); }
             });
         });
 
