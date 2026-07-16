@@ -36,16 +36,25 @@ html { scroll-behavior: smooth; }
 
 body {
     font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-    background:
-        radial-gradient(circle at 12% 8%, rgba(168,85,247,.14), transparent 26%),
-        radial-gradient(circle at 88% 4%, rgba(192,132,252,.09), transparent 24%),
-        linear-gradient(180deg, #0f031a 0%, #07050d 60%, #050008 100%);
-    background-attachment: fixed;
+    background: #07050d;
     color: var(--text-primary);
     min-height: 100vh;
     line-height: 1.6;
     position: relative;
     overflow-x: hidden;
+}
+/* Фирменный обсидиановый фон — отдельный фиксированный слой (надёжно на мобильных,
+   не даёт белых провалов при full-page, в отличие от background-attachment:fixed) */
+body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+        radial-gradient(circle at 12% 8%, rgba(168,85,247,.16), transparent 30%),
+        radial-gradient(circle at 88% 4%, rgba(192,132,252,.10), transparent 26%),
+        linear-gradient(180deg, #0f031a 0%, #07050d 55%, #050008 100%);
 }
 
 /* Фоновая сетка */
