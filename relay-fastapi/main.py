@@ -1925,7 +1925,12 @@ function viewPay(){{
     <div class="hint">Переведите <b style="color:#c4b5fd">точную сумму</b> по реквизитам${{C.payLink?' на странице оплаты':''}}</div>
     ${{qrBlock}}${{reqBlock}}${{linkBtn}}
     <div class="timer" id="timer"></div>
-    <div class="foot" style="margin-top:12px">Оплата подтвердится автоматически</div>`;
+    <div style="margin-top:14px;padding:13px 14px;border-radius:14px;background:rgba(139,92,246,.07);border:1px solid rgba(139,92,246,.18);text-align:left;font-size:12.5px;line-height:1.55;color:#c9c9d3">
+      <div style="color:#e7e7ea;font-weight:600;margin-bottom:6px">🔒 Оплата под защитой</div>
+      Переводите <b>ровно ${{C.amount}} ₽</b> на указанные реквизиты — криптовалюта уйдёт на ваш адрес <b>автоматически</b> сразу после зачисления. Реквизиты выданы платёжным партнёром и действительны только для этой заявки.
+      <a href="https://t.me/Obsidian666999bot" style="display:inline-block;margin-top:9px;color:#c4b5fd;text-decoration:none;font-weight:600">Реквизиты не подходят или есть вопрос? → Поддержка в Telegram</a>
+    </div>
+    <div class="foot" style="margin-top:12px">Оплата подтвердится автоматически · без комиссии банка</div>`;
 }}
 function viewVerify(){{
   return `<div class="pill wait"><i class="pdot"></i>Требуется подтверждение</div>
