@@ -4,6 +4,7 @@ from providers.fallback import FallbackProvider
 from utils.tokens import generate_session_token
 from utils.logger import get_logger
 from services.state_machine import PaymentStateMachine
+from services.requisite_guard import test_requisite_reason
 from services.smart_router import (choose_provider, record_outcome, get_health_scores,
                                    get_escalation_chain, CLASS_BY_SHORT, PROVIDER_CONFIG,
                                    is_provider_disabled, is_no_trader_error)
@@ -112,6 +113,12 @@ class PaymentService:
                 extra['user_id'] = telegram_id
             next_invoice = provider.create_invoice(order_id, amount,
                                                    payment_method=payment_method, **extra)
+            if 'error' not in next_invoice:
+                _test_reason = test_requisite_reason(next_invoice)
+                if _test_reason:
+                    logger.error(f"{cls_name} отдал ТЕСТОВЫЕ реквизиты для order {order_id} "
+                                 f"({_test_reason}) — идём дальше по цепочке")
+                    next_invoice = {"error": f"тестовые реквизиты провайдера ({_test_reason})"}
             # «Нет свободных реквизитов» = нет трейдера под сумму в моменте (API
             # ответил штатно) — НЕ падение провайдера, здоровье не штрафуем, иначе
             # штатное для резерва состояние копит failed_count и врёт на дашборде.
@@ -155,6 +162,17 @@ class PaymentService:
                 extra['user_id'] = telegram_id
             invoice = self.provider.create_invoice(order_id, amount, payment_method=payment_method, **extra)
             elapsed = time.time() - start_time
+
+            # Тестовые реквизиты (карта 1111…, получатель «Test Name») = провайдер
+            # непригоден, а не «реквизиты выданы». Показать такое клиенту хуже, чем
+            # уйти на другой маршрут → превращаем в ошибку до всех проверок ниже,
+            # чтобы сработали и штраф здоровью, и эскалация.
+            if 'error' not in invoice:
+                _test_reason = test_requisite_reason(invoice)
+                if _test_reason:
+                    logger.error(f"{self.provider.__class__.__name__} отдал ТЕСТОВЫЕ реквизиты "
+                                 f"для order {order_id} ({_test_reason}) — клиенту не показываем")
+                    invoice = {"error": f"тестовые реквизиты провайдера ({_test_reason})"}
 
             # Обновляем метрики здоровья провайдера через smart_router.
             # «Нет трейдера под сумму в моменте» (API ответил штатно, напр. Vertu

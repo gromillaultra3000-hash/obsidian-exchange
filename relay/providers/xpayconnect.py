@@ -30,8 +30,14 @@ XPAY_BANKS = {
     "uralsib": "Уралсиб",
     "mts": "МТС Банк",
 }
-# коды type, передаваемые провайдеру «как есть» (банки + прямые методы)
-XPAY_DIRECT_TYPES = set(XPAY_BANKS) | {"sim", "card", "any", "nspk"}
+# Коды type, передаваемые провайдеру «как есть» — ТОЛЬКО коды банков (bank-picker
+# в боте шлёт pm_xpay_sber → 'sber'). Обобщённые 'card'/'sim'/'any'/'nspk' сюда
+# НЕ входят: мерчант их не принимает (403 «Payment type "card" is not allowed»,
+# allowed=[sber,alfa,vtb,tbank,…]), и они обязаны пройти через маппинг
+# XPAY_TYPE_* ниже. Пока они были в этом множестве, первая же ветка отдавала их
+# провайдеру дословно, а XPAY_TYPE_CARD=tbank из .env оставался мёртвым кодом —
+# карточный метод XPay гарантированно падал в 403 (order 99955020, 16.07).
+XPAY_DIRECT_TYPES = set(XPAY_BANKS)
 
 # Fail-closed страж песочницы: мерчант в тестовом режиме XPay отдаёт заведомо
 # фейковые реквизиты (card/phone из одних нулей, получатель «Test Name»). Пока
