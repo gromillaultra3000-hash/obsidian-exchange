@@ -1814,6 +1814,11 @@ async def pay(token: str, request: Request):
         if recipient and detail_val and recipient.replace(' ', '') == detail_val.replace(' ', ''):
             recipient = ''  # получатель = телефон/карта → дубль, не показываем
         bank = (req.get('bank_name') or '').strip() or ('СБП' if phone else ('Карта' if card else ''))
+        # «Карта получателя»/«Карта» — это плейсхолдер, а не банк. Выдумывать банк по
+        # BIN не будем (мислейбл разрушает доверие сильнее пустоты) → убираем
+        # бессмысленную строку «Банк»; перевод по номеру карты работает в любом банке.
+        if card and not phone and bank in ('Карта', 'Карта получателя', 'Перевод на карту'):
+            bank = ''
         _link = req.get('payment_link') or session.get('qr_payload') or ''
         pay_link = _link if str(_link).startswith('http') else ''
 
@@ -1924,6 +1929,11 @@ function viewPay(){{
       <button class="cp" onclick="cp('${{C.amount.replace(/\\u202f/g,'')}}',this)">⧉</button></div>
     <div class="hint">Переведите <b style="color:#c4b5fd">точную сумму</b> по реквизитам${{C.payLink?' на странице оплаты':''}}</div>
     ${{qrBlock}}${{reqBlock}}${{linkBtn}}
+    ${{C.payLink?'':`<div style="margin-top:12px;display:grid;gap:5px;text-align:left;font-size:12px;color:#a9a9b3">
+      <div><b style="color:#c4b5fd">1.</b> Скопируйте сумму и ${{C.detailLbl?esc(C.detailLbl).toLowerCase():'реквизиты'}}</div>
+      <div><b style="color:#c4b5fd">2.</b> Переведите ровно ${{C.amount}} ₽ в приложении вашего банка</div>
+      <div><b style="color:#c4b5fd">3.</b> Дождитесь — крипта придёт автоматически, чек не нужен</div>
+    </div>`}}
     <div class="timer" id="timer"></div>
     <div style="margin-top:14px;padding:13px 14px;border-radius:14px;background:rgba(139,92,246,.07);border:1px solid rgba(139,92,246,.18);text-align:left;font-size:12.5px;line-height:1.55;color:#c9c9d3">
       <div style="color:#e7e7ea;font-weight:600;margin-bottom:6px">🔒 Оплата под защитой</div>
