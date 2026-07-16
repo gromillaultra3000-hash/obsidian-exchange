@@ -17,6 +17,7 @@ import qrcode
 from bitcoinlib.wallets import Wallet, wallet_delete
 from tronpy import Tron
 from tronpy.keys import PrivateKey
+from sell_guard import verify_sell_deposit, describe_verdict
 
 # ---------- ЛОГИРОВАНИЕ ----------
 log_handler = RotatingFileHandler('/root/bot/bot.log', maxBytes=10*1024*1024, backupCount=5)
@@ -1702,28 +1703,35 @@ async def process_sell_phone(message: Message, state: FSMContext):
             f"📬 На наш адрес: <code>{receive_addr}</code>\n"
             f"💵 Выплатить: {rub_amount:,.2f} RUB\n"
             f"📱 СБП: {phone}\n\n"
-            f"После получения монет нажмите «Выплатить».",
+            f"Нажмите «Выплатить» — бот сам проверит приход монет в блокчейне "
+            f"и не даст выплатить рубли, пока депозит не подтверждён.",
             reply_markup=kb_admin,
             parse_mode="HTML"
         )
     except Exception as e:
         logger.error(f"Ошибка уведомления админа о продаже: {e}")
 
-@router.callback_query(F.data.startswith("sell_confirm_"))
-async def sell_confirm(callback: CallbackQuery):
-    if not is_admin(callback.from_user.id):
-        await callback.answer("⛔ Нет прав", show_alert=True)
-        return
-    sell_id = int(callback.data.split("_")[2])
+# Разделитель между карточкой заявки и блоком проверки — чтобы при повторных
+# проверках карточка не обрастала слоями старых вердиктов.
+_SELL_CHECK_MARKER = "\n\n───── проверка блокчейна ─────\n"
+
+
+def _sell_card_base(text: str) -> str:
+    return (text or "").split(_SELL_CHECK_MARKER)[0]
+
+
+async def _do_sell_payout(callback: CallbackQuery, sell_id: int, txid=None, forced_by=None):
+    """Помечает заявку выплаченной и уведомляет клиента.
+    Звать ТОЛЬКО после гейта (verify_sell_deposit) либо осознанного обхода."""
     with db_conn(10) as conn:
         c = conn.cursor()
-        c.execute("SELECT user_id, currency, crypto_amount, rub_amount, sbp_phone, status FROM sell_orders WHERE id=?", (sell_id,))
+        c.execute("SELECT user_id, rub_amount, sbp_phone, status FROM sell_orders WHERE id=?", (sell_id,))
         row = c.fetchone()
         if not row:
             conn.close()
             await callback.answer("❌ Заявка не найдена", show_alert=True)
             return
-        user_id, currency, crypto_amount, rub_amount, sbp_phone, status = row
+        user_id, rub_amount, sbp_phone, status = row
         if status == 'paid':
             conn.close()
             await callback.answer("✅ Уже выплачено", show_alert=True)
@@ -1733,10 +1741,15 @@ async def sell_confirm(callback: CallbackQuery):
 
     await update_user_vip_volume(user_id, rub_amount)
 
-    await callback.message.edit_text(
-        callback.message.text + f"\n\n✅ <b>Выплачено</b> {rub_amount:,.2f} RUB на {sbp_phone}",
-        parse_mode="HTML"
-    )
+    tail = f"\n\n✅ <b>Выплачено</b> {rub_amount:,.2f} RUB на {sbp_phone}"
+    if forced_by:
+        tail += f"\n🔓 <b>Проверка блокчейна ОБОЙДЕНА</b> — решение админа {forced_by}"
+    elif txid:
+        tail += f"\n🔗 Депозит: <code>{txid}</code>"
+    try:
+        await callback.message.edit_text(_sell_card_base(callback.message.text) + tail, parse_mode="HTML")
+    except Exception:
+        pass
     await callback.answer("✅ Отмечено как выплачено")
     await send_sticker_safe(user_id, STICKER_SUCCESS)
     try:
@@ -1748,6 +1761,69 @@ async def sell_confirm(callback: CallbackQuery):
         )
     except Exception:
         pass
+
+
+@router.callback_query(F.data.startswith("sell_confirm_"))
+async def sell_confirm(callback: CallbackQuery):
+    """Fail-closed: рубли уходят только если монеты РЕАЛЬНО подтверждены в сети."""
+    if not is_admin(callback.from_user.id):
+        await callback.answer("⛔ Нет прав", show_alert=True)
+        return
+    sell_id = int(callback.data.split("_")[2])
+    with db_conn(10) as conn:
+        c = conn.cursor()
+        c.execute("SELECT currency, status FROM sell_orders WHERE id=?", (sell_id,))
+        row = c.fetchone()
+    if not row:
+        await callback.answer("❌ Заявка не найдена", show_alert=True)
+        return
+    currency, status = row
+    if status == 'paid':
+        await callback.answer("✅ Уже выплачено", show_alert=True)
+        return
+
+    await callback.answer("🔍 Проверяю блокчейн…")
+    loop = asyncio.get_running_loop()
+    res = await loop.run_in_executor(None, verify_sell_deposit, sell_id)
+
+    if res['verdict'] == 'confirmed':
+        await _do_sell_payout(callback, sell_id, txid=res.get('txid'))
+        return
+
+    # Не подтверждено → НЕ платим. Показываем причину и даём перепроверить.
+    kb_rows = [[InlineKeyboardButton(text="🔄 Проверить снова", callback_data=f"sell_confirm_{sell_id}")]]
+    if callback.from_user.id == ADMIN_ID:  # обход — только главный админ, с аудитом
+        kb_rows.append([InlineKeyboardButton(text="🔓 Выплатить без проверки", callback_data=f"sell_force_{sell_id}")])
+    kb_rows.append([InlineKeyboardButton(text="❌ Отклонить", callback_data=f"sell_reject_{sell_id}")])
+
+    try:
+        await callback.message.edit_text(
+            _sell_card_base(callback.message.text) + _SELL_CHECK_MARKER
+            + describe_verdict(res, currency)
+            + "\n\n<b>Выплата заблокирована.</b> Не переводите рубли, пока монеты не подтверждены.",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=kb_rows),
+            parse_mode="HTML"
+        )
+    except Exception:
+        pass
+    logger.warning(f"sell_guard: выплата #{sell_id} заблокирована ({res['verdict']}): {res['reason']}")
+
+
+@router.callback_query(F.data.startswith("sell_force_"))
+async def sell_force(callback: CallbackQuery):
+    """Осознанный обход гейта. Только главный админ, обязательно в admin_log."""
+    if callback.from_user.id != ADMIN_ID:
+        await callback.answer("⛔ Обойти проверку может только главный админ", show_alert=True)
+        return
+    sell_id = int(callback.data.split("_")[2])
+    log_staff_action(callback.from_user.id, "sell_payout_force", target_id=sell_id,
+                     details="выплата продажи без подтверждения блокчейна")
+    await _do_sell_payout(callback, sell_id, forced_by=callback.from_user.id)
+    await notify_admins(
+        f"🔓 <b>Внимание:</b> выплата по продаже #{sell_id} проведена <b>в обход</b> "
+        f"проверки блокчейна (админ {callback.from_user.id}).",
+        parse_mode="HTML"
+    )
 
 @router.callback_query(F.data.startswith("sell_reject_"))
 async def sell_reject(callback: CallbackQuery):
