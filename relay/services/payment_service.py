@@ -223,7 +223,10 @@ class PaymentService:
                 hint = shortfall_message(amount, payment_method)
                 if hint:
                     logger.info(f"Order {order_id}: сумма {amount} выше живой ёмкости — подсказка клиенту")
-                return {"error": hint or "All providers failed"}
+                # client_hint=True — текст написан ДЛЯ клиента и его можно показать
+                # как есть. Без флага вызывающий не отличит его от сырой ошибки
+                # провайдера («Не удалось выдать сделку»), которую показывать нельзя.
+                return {"error": hint or "All providers failed", "client_hint": bool(hint)}
             logger.info(f"Order {order_id}: реквизиты выданы эскалацией через {provider_name}")
         else:
             if self.provider.__class__.__name__ == 'BrabusProvider':

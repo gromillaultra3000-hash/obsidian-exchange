@@ -2784,7 +2784,7 @@ async def process_payment_method(callback: CallbackQuery, state: FSMContext):
             session = payment_service.create_session(order_id, amount, payment_method="card",
                                                      telegram_id=callback.from_user.id)
             if 'error' in session:
-                await reply_no_requisites(callback, order_id)
+                await reply_no_requisites(callback, order_id, detail=session["error"] if session.get("client_hint") else "")
                 return
             raw_session = session.get('raw') or {}
             requisites_text = format_requisites(raw_session)
@@ -2824,7 +2824,7 @@ async def process_payment_method(callback: CallbackQuery, state: FSMContext):
             session = payment_service.create_session(order_id, amount, payment_method="card",
                                                      telegram_id=callback.from_user.id)
             if 'error' in session:
-                await reply_no_requisites(callback, order_id)
+                await reply_no_requisites(callback, order_id, detail=session["error"] if session.get("client_hint") else "")
                 await callback.answer()
                 return
             raw_session = session.get('raw') or {}
@@ -2893,7 +2893,7 @@ async def process_payment_method(callback: CallbackQuery, state: FSMContext):
             payment_service = PaymentService(provider=provider)
             session = payment_service.create_session(order_id, amount, payment_method=pmethod)
             if 'error' in session:
-                await reply_no_requisites(callback, order_id)
+                await reply_no_requisites(callback, order_id, detail=session["error"] if session.get("client_hint") else "")
                 await callback.answer()
                 return
             raw = session.get('raw') or {}
@@ -2969,7 +2969,7 @@ async def process_payment_method(callback: CallbackQuery, state: FSMContext):
             session = payment_service.create_session(order_id, amount, payment_method=method,
                                                      telegram_id=callback.from_user.id)
             if 'error' in session:
-                await reply_no_requisites(callback, order_id)
+                await reply_no_requisites(callback, order_id, detail=session["error"] if session.get("client_hint") else "")
                 await callback.answer()
                 return
             raw_session = session.get('raw') or {}
@@ -3010,7 +3010,7 @@ async def process_payment_method(callback: CallbackQuery, state: FSMContext):
             session = PaymentService(provider=XPayConnectProvider()).create_session(
                 order_id, amount, payment_method=method, telegram_id=callback.from_user.id)
             if 'error' in session:
-                await reply_no_requisites(callback, order_id); await callback.answer(); return
+                await reply_no_requisites(callback, order_id, detail=session["error"] if session.get("client_hint") else ""); await callback.answer(); return
             raw_session = session.get('raw') or {}
         except Exception as e:
             logger.error(f"Ошибка создания сессии XPay: {e}")
@@ -3078,7 +3078,7 @@ async def process_payment_method(callback: CallbackQuery, state: FSMContext):
             session = payment_service.create_session(order_id, amount, payment_method=method,
                                                      telegram_id=callback.from_user.id)
             if 'error' in session:
-                await reply_no_requisites(callback, order_id)
+                await reply_no_requisites(callback, order_id, detail=session["error"] if session.get("client_hint") else "")
                 await callback.answer()
                 return
             raw = session.get('raw') or {}
