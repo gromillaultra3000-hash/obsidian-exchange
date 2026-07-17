@@ -5,6 +5,7 @@ from utils.tokens import generate_session_token
 from utils.logger import get_logger
 from services.state_machine import PaymentStateMachine
 from services.requisite_guard import test_requisite_reason
+from services.capacity import shortfall_message
 from services.smart_router import (choose_provider, record_outcome, get_health_scores,
                                    get_escalation_chain, CLASS_BY_SHORT, PROVIDER_CONFIG,
                                    is_provider_disabled, is_no_trader_error)
@@ -215,7 +216,14 @@ class PaymentService:
                           (token, order_id, amount, 'fallback'))
                 conn.commit()
                 conn.close()
-                return {"error": "All providers failed"}
+                # «All providers failed» клиенту ничего не объясняет: он не знает,
+                # что дело в сумме, и уходит. Если живые лимиты трейдеров говорят,
+                # что сумма выше потолка — называем потолок. Если лимиты неизвестны
+                # (или сумма проходит) — не выдумываем причину.
+                hint = shortfall_message(amount, payment_method)
+                if hint:
+                    logger.info(f"Order {order_id}: сумма {amount} выше живой ёмкости — подсказка клиенту")
+                return {"error": hint or "All providers failed"}
             logger.info(f"Order {order_id}: реквизиты выданы эскалацией через {provider_name}")
         else:
             if self.provider.__class__.__name__ == 'BrabusProvider':

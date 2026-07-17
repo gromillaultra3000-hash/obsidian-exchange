@@ -40,6 +40,36 @@ CLASS_BY_SHORT = {v: k for k, v in SHORT_NAMES.items()}
 # порядком кнопок в боте. Переопределяется env PROVIDER_PROFIT_ORDER (короткие имена).
 PROVIDER_PROFIT_ORDER_DEFAULT = "vertu,xpay,montera,brabus,stormtrade,fallback,lava,greenpay,platega"
 
+# Провайдеры, фактически выдающие РОССИЙСКИЕ реквизиты (проверено по живым
+# payment_sessions 13-16.07: vertu → Сбербанк 2202…, montera → Сбер/Т-Банк/Альфа,
+# stormtrade → СБП + QR НСПК). Остальные на рублёвом потоке отдают зарубежное:
+# brabus/fallback → карты 9762… (Humo, Узбекистан), xpay → ссылки на «Душанбе сити».
+#
+# Зачем тир: порядок выгоды (PROVIDER_PROFIT_ORDER) ставит xpay вторым, brabus
+# четвёртым — по марже это верно, но клиент-россиянин зарубежную карту просто не
+# оплачивает. За 4 дня выдано 16 зарубежных реквизитов против 2 российских при
+# нулевой конверсии. Страна важнее маржи: маржа с неоплаченной заявки = 0.
+#
+# Тир доминирует над выгодой, но ВНУТРИ тира порядок выгоды сохраняется.
+# Зарубежные не выключены — они запасной вариант, когда РФ-маршрутов нет
+# (решение оператора 16.07.2026). PREFER_RU_REQUISITES=0 — вернуть старое
+# поведение; RU_PROVIDERS — переопределить состав тира.
+RU_PROVIDERS_DEFAULT = "vertu,montera,stormtrade"
+
+
+def get_ru_providers() -> set:
+    raw = os.getenv("RU_PROVIDERS", RU_PROVIDERS_DEFAULT)
+    return {p.strip().lower() for p in raw.split(",") if p.strip().lower() in CLASS_BY_SHORT}
+
+
+def is_ru_provider(provider_class: str) -> bool:
+    short = SHORT_NAMES.get(provider_class, provider_class).split(":")[0].lower()
+    return short in get_ru_providers()
+
+
+def prefer_ru_enabled() -> bool:
+    return os.getenv("PREFER_RU_REQUISITES", "1") != "0"
+
 # эскалация по умолчанию = порядок выгоды: при «нет трейдера» у выбранного
 # каскадим к СЛЕДУЮЩЕМУ выгодному, а не сразу к худшему. Заканчивается fallback
 # (гарантированные реквизиты). Переопределяется env ESCALATION_CHAIN.
@@ -283,6 +313,11 @@ def get_escalation_chain() -> List[str]:
             chain.append(short)
         elif short:
             logger.warning("ESCALATION_CHAIN: неизвестный провайдер '%s' пропущен", short)
+    # РФ-маршруты пробуем раньше зарубежных; внутри каждой группы порядок
+    # (= выгода) сохраняется. Зарубежные остаются в хвосте как запасной вариант.
+    if prefer_ru_enabled():
+        ru = get_ru_providers()
+        chain = [c for c in chain if c in ru] + [c for c in chain if c not in ru]
     return chain or ["stormtrade", "fallback"]
 
 
@@ -454,6 +489,17 @@ def choose_provider(amount: float = 10000) -> Optional[str]:
                 rel = info.get("health_score", 0.5)
             weight = base * max(rel, 0.1)
         candidates.append((name, weight))
+
+    # Тир РФ: если доступен хоть один провайдер с российскими реквизитами —
+    # выбираем только среди них. Зарубежные подключатся эскалацией, когда РФ
+    # не выдадут (клиент-россиянин зарубежную карту не оплачивает).
+    if prefer_ru_enabled() and candidates:
+        ru_candidates = [(n, w) for n, w in candidates if is_ru_provider(n)]
+        if ru_candidates:
+            candidates = ru_candidates
+        else:
+            logger.warning("Нет доступных РФ-провайдеров для amount=%.0f — выбираем "
+                           "среди зарубежных (запасной вариант)", amount)
 
     if not candidates:
         logger.warning("No healthy providers available for amount=%.0f, using FallbackProvider", amount)

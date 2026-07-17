@@ -1353,6 +1353,17 @@ async def api_rates():
     ltc  = exchange_calc.get_cached_rate("LTC")  or 0
     usdt = exchange_calc.get_cached_rate("USDT") or 0
     result = {"BTC": btc, "LTC": ltc, "USDT": usdt, "ts": int(time.time())}
+    # Живой потолок сети трейдеров. MAX_AMOUNT=500 000 — витринная константа, а
+    # реальные слоты держатся в разы ниже; заявка выше потолка гарантированно
+    # упирается в «нет реквизитов». Отдаём фронту, чтобы показывать правду.
+    # Неизвестен → не отдаём поле вовсе (фронт останется на MAX_AMOUNT).
+    try:
+        from services.capacity import overall_max
+        _cap = overall_max()
+        if _cap:
+            result["max_available"] = min(int(_cap), int(MAX_AMOUNT))
+    except Exception:
+        pass
     _rates_cache["data"] = result
     _rates_cache["ts"] = time.time()
     return result
@@ -1822,6 +1833,16 @@ async def pay(token: str, request: Request):
         _link = req.get('payment_link') or session.get('qr_payload') or ''
         pay_link = _link if str(_link).startswith('http') else ''
 
+        # Зарубежный реквизит (карта Humo/Uzcard, ссылка на банк СНГ) — запасной
+        # маршрут, когда российских нет. Прятать его нельзя, но и молчать нечестно:
+        # человек видит незнакомый банк и справедливо настораживается. Объясняем
+        # прямо, вместо того чтобы он гадал, не мошенники ли мы.
+        try:
+            from services.requisite_origin import classify_requisites, FOREIGN
+            req_foreign = classify_requisites(req, pay_link) == FOREIGN
+        except Exception:
+            req_foreign = False
+
         # QR data-URI (для ссылочных методов)
         qr_uri = ''
         if pay_link:
@@ -1841,6 +1862,7 @@ async def pay(token: str, request: Request):
             "detailVal": detail_val, "detailLbl": detail_lbl,
             "payLink": pay_link, "qr": qr_uri, "expiresAt": expires_at,
             "txid": txid or "", "txUrl": tx_url, "verification": verification,
+            "foreign": req_foreign,
         }
         cfg_json = _json.dumps(cfg, ensure_ascii=False)
 
@@ -1929,6 +1951,10 @@ function viewPay(){{
       <button class="cp" onclick="cp('${{C.amount.replace(/\\u202f/g,'')}}',this)">⧉</button></div>
     <div class="hint">Переведите <b style="color:#c4b5fd">точную сумму</b> по реквизитам${{C.payLink?' на странице оплаты':''}}</div>
     ${{qrBlock}}${{reqBlock}}${{linkBtn}}
+    ${{C.foreign?`<div style="margin-top:12px;padding:11px 13px;border-radius:12px;background:rgba(234,179,8,.07);border:1px solid rgba(234,179,8,.22);text-align:left;font-size:12px;line-height:1.5;color:#d9d2b8">
+      <b style="color:#fde68a">Реквизиты зарубежного партнёра</b><br>
+      Российских реквизитов сейчас нет в наличии, поэтому платёж идёт через партнёра из СНГ. Перевод проходит как обычный — из вашего банка, в рублях. Ваш банк может запросить подтверждение или взять комиссию за перевод.
+    </div>`:''}}
     ${{C.payLink?'':`<div style="margin-top:12px;display:grid;gap:5px;text-align:left;font-size:12px;color:#a9a9b3">
       <div><b style="color:#c4b5fd">1.</b> Скопируйте сумму и ${{C.detailLbl?esc(C.detailLbl).toLowerCase():'реквизиты'}}</div>
       <div><b style="color:#c4b5fd">2.</b> Переведите ровно ${{C.amount}} ₽ в приложении вашего банка</div>
