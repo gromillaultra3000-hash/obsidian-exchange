@@ -2518,6 +2518,14 @@ async def analytics_data(request: Request):
     except Exception as e:
         smart_router_status = {"error": str(e)}
 
+    # Advisory: конверсия провайдеров по фактическим исходам (LUMI outcome-learning).
+    # ТОЛЬКО наблюдение — на маршрутизацию не влияет.
+    try:
+        from services.conversion_intel import provider_conversion
+        conversion = provider_conversion(30)
+    except Exception as e:
+        conversion = {"error": str(e), "providers": [], "summary": {}}
+
     return {
         "daily": daily,
         "hourly": hourly,
@@ -2527,6 +2535,7 @@ async def analytics_data(request: Request):
         "recent": recent,
         "totals": totals_row[0] if totals_row else {},
         "smart_router": smart_router_status,
+        "conversion": conversion,
     }
 
 

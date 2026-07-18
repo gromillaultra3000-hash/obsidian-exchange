@@ -215,6 +215,14 @@ tbody tr:hover td{background:rgba(124,58,237,.04)}
 
   <div class="gap"></div>
 
+  <div class="sec-label">Конверсия провайдеров · 30 дней <span style="font-weight:400;color:var(--t3);font-size:11px">(advisory — на маршрутизацию НЕ влияет)</span></div>
+  <div class="card">
+    <div class="card-head"><span class="card-title">За какие реквизиты реально платят</span><span id="conv-sum" style="font-size:11px;color:var(--t3)"></span></div>
+    <div id="conv-list"></div>
+  </div>
+
+  <div class="gap"></div>
+
   <!-- AI insights -->
   <div class="sec-label">AI-инсайты</div>
   <div class="insights-grid" id="insights-grid">
@@ -300,6 +308,8 @@ function render(d, days) {
   const pb = document.getElementById('k-prov-b');
   pb.textContent = (5-healthy) + ' offline';
   pb.className = 'badge ' + (healthy>0 ? (healthy>1?'b-ok':'b-warn') : 'b-crit');
+
+  renderConversion(d.conversion);
 
   // Charts
   const daily = (d.daily||[]).slice(-days);
@@ -449,6 +459,34 @@ function renderProviders(list) {
       </div>
     </div>`;
   }).join('');
+}
+
+// ── Конверсия провайдеров (advisory, LUMI outcome-learning) ──
+function renderConversion(c) {
+  c = c || {}; const list = c.providers || []; const s = c.summary || {};
+  const sum = document.getElementById('conv-sum');
+  if (sum) sum.textContent = list.length
+    ? `общая ${s.overall_conversion_pct||0}% · оплат ${s.total_paid||0} из ${s.total_shown||0} показов`
+    : 'нет данных';
+  const chip = (v) => ({
+    converts:     '<span class="pc pc-ok">● платят</span>',
+    zero:         '<span class="pc pc-crit">✗ 0 оплат</span>',
+    insufficient: '<span class="pc pc-off">— мало данных</span>',
+  }[v] || '');
+  const color = (v) => v==='converts' ? 'var(--ok)' : v==='zero' ? 'var(--t3)' : 'var(--warn)';
+  const el = document.getElementById('conv-list');
+  if (!el) return;
+  el.innerHTML = list.map(p => `<div class="prov-row">
+      <div class="prov-strip" style="background:${color(p.verdict)}"></div>
+      <div class="prov-info">
+        <div class="prov-name">${p.provider} ${chip(p.verdict)}</div>
+        <div class="prov-stat">${p.shown} показов · ${p.paid} оплат</div>
+      </div>
+      <div class="prov-score">
+        <div class="prov-num" style="color:${color(p.verdict)}">${p.conversion_pct}%</div>
+        <div style="font-size:9px;color:var(--t3)">конверсия</div>
+      </div>
+    </div>`).join('') || '<div style="color:var(--t3);font-size:12px">нет данных за период</div>';
 }
 
 // ── AI Insights ──

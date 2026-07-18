@@ -3,6 +3,7 @@ from pathlib import Path
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from aiogram.filters import Command
+from secret_guard import contains_secret, secret_reason
 
 env_path = Path('/root/support_bot/.env')
 if env_path.exists():
@@ -146,6 +147,19 @@ async def reply_to_user(message: Message):
 async def forward_to_staff(message: Message):
     staff = get_staff_ids()
     if message.from_user.id in staff:
+        return
+    # Fail-closed по приватным данным: не пересылаем и не сохраняем сообщения с секретами.
+    _blob = message.text or message.caption or ""
+    _reason = secret_reason(_blob)
+    if _reason:
+        print(f"secret_guard: заблокировано сообщение от {message.from_user.id} ({_reason})")
+        await message.answer(
+            "🔒 В сообщении обнаружены приватные данные (приватный ключ, seed-фраза или пароль).\n\n"
+            "Мы НЕ передали его в поддержку и не сохранили — ради вашей безопасности. "
+            "Никогда и никому не отправляйте seed-фразу и приватные ключи: у кого они есть — "
+            "у того полный доступ к вашим средствам. Поддержке они НИКОГДА не нужны.\n\n"
+            "Опишите проблему без секретных данных — и мы поможем."
+        )
         return
     header = (f"Сообщение от @{message.from_user.username or 'нет юзернейма'} "
               f"(ID {message.from_user.id}):"
