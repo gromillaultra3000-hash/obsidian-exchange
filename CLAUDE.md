@@ -612,3 +612,40 @@ Montera webhook.
 - SEO Open Graph + Twitter Card в base.html
 - /api/rates: 60-секундный кеш на уровне FastAPI
 - dashboard/exchange: поле выбора СБП/Карта → передаётся в PaymentService
+
+### Сессия 19.07.2026 (критический баг конверсии + VPN + безопасность)
+- **fix(critical)**: `polling_service` (в легаси `relay/app.py`, сервис `exchange-relay`)
+  убивал payment_sessions по жёстко зашитым 900 с, игнорируя `expires_at` (30 мин).
+  Клиент терял кнопку «я оплатил» на половине срока → оплата уходила трейдеру,
+  провайдер её не видел (`client_paid_at=null`), сделка истекала. За 30 дней так
+  убито **260 сессий из 426**; 327 заявок expired на 5.55 млн ₽ против 14 оплаченных.
+  Живой случай: order 99955052 (Montera, 4000 ₽, СБП ПСБ) — клиент оплатил в мёртвом
+  окне. Экспирация теперь только по `expires_at`, `updated_at` пишется.
+- **fix(UX)**: `core/requisites.py` — детектор плейсхолдеров в имени получателя.
+  Montera вернула `recipient='...'`, клиенту рендерилось «Получатель: ...».
+  Подключено в бот/`/pay`/Mini App. ⚠️ «Клиент 1» НЕ фильтруем — у Vertu это
+  настоящее имя трейдера.
+- **feat(alert)**: `core/conversion_watch.py` + `conversion_watch_task` (30 мин) +
+  бот `/conversion` (админ). Симптомы: `no_payments` (выдач ≥8, оплат 0),
+  `early_expiry` (сессия закрыта раньше `expires_at` = регрессия бага выше).
+- **feat(money)**: `core/money.py` (Decimal, копейки) + сверка суммы в `payout_guard`.
+  Страж доверял только статусу `paid`; вебхуки ставят paid по одному
+  `status=='success'` — недоплата ушла бы в авто-выплату. Допуск
+  `PAYOUT_AMOUNT_TOLERANCE_RUB=2` (XPay сдвигает сумму). НЕ fail-closed на «суммы
+  в raw нет» — у части провайдеров её нет. Сплошную миграцию REAL→minor units
+  решено НЕ делать (сравнений «на равенство» в коде нет, риск > выгоды).
+- **feat(wallet)**: живой баланс горячего кошелька в admin-аналитике.
+  ⚠️ OPSEC: из ПУБЛИЧНОГО `/api/reserves` убран — адрес/баланс только админу.
+- **security**: `/admin/analytics/data` не проверял авторизацию (отдавал аналитику
+  кому угодно) — закрыт admin-гейтом. GitHub-токен вынесен из `deploy.sh` и remote
+  URL в `/root/.git-credentials` (600, в .gitignore); в историю коммитов не попадал.
+  ⚠️ Юзеру: отозвать старый токен на github.com/settings/tokens.
+- **infra**: `exchange-relay` (легаси `relay/app.py` на порту 5000) выключен и
+  disabled — nginx туда не ходил, запросов с 17.07 ноль, единственным эффектом был
+  тот самый убийца сессий. Юнит сохранён в `/root/backups/`.
+- **VPN**: `obsidianbtc.org` перестал резолвиться (A-запись апекса удалена в
+  Cloudflare) → CF-фронт мёртв; сервер 1 (8443) не принимает подключений вовсе.
+  Поднят прямой Reality-вход на 443 второго сервера (188.93.233.143, `cerberus`),
+  без зависимости от DNS/CF. ⚠️ dest `www.microsoft.com` НЕ работает для Reality
+  (рвёт хендшейк) — используется `www.nvidia.com`. Сторож `xray-watchdog.timer`
+  (3 мин). Замер через туннель: 331 Мбит/с. SSH-ключ на cerberus установлен.
