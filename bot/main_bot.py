@@ -4488,6 +4488,49 @@ async def cmd_payout_status(message: Message):
         parse_mode="HTML")
 
 
+@router.message(Command("wallet"))
+async def cmd_wallet(message: Message):
+    """/wallet — горячий кошелёк TRON: адрес и баланс (только главный админ, read-only).
+
+    Разлочка и отправка НЕ в боте — только через CLI (relay/wallet/cli.py), чтобы
+    приватный ключ и пароль не проходили через телеграм-поток."""
+    if message.from_user.id != ADMIN_ID:
+        return
+    import sys
+    if '/root/relay' not in sys.path:
+        sys.path.insert(0, '/root/relay')
+    try:
+        from wallet.tron_wallet import tron_status, tron_balance
+    except Exception as e:
+        await message.answer(f"👛 Модуль кошелька недоступен: {type(e).__name__}")
+        return
+    st = tron_status()
+    if not st.get("configured"):
+        await message.answer(
+            "👛 <b>Горячий кошелёк TRON</b>\n\nЕщё не создан.\n"
+            "Создать на сервере:\n<code>python3 /root/relay/wallet/cli.py create</code>",
+            parse_mode="HTML")
+        return
+    try:
+        bal = await asyncio.to_thread(tron_balance)
+    except Exception as e:
+        bal = {"status": "WAIT", "reason": type(e).__name__}
+    trx = bal.get("balanceTrx", 0.0)
+    usdt = next((t.get("balance") for t in bal.get("tokens", []) if t.get("symbol") == "USDT"), None)
+    usdt_s = f"{usdt:,.2f}".replace(",", " ") if isinstance(usdt, (int, float)) else "—"
+    lock = "🔓 разлочен" if st.get("unlocked") else "🔒 заблокирован"
+    await message.answer(
+        f"👛 <b>Горячий кошелёк TRON</b> ({lock})\n\n"
+        f"<blockquote>"
+        f"Адрес: <code>{st.get('address','')}</code>\n"
+        f"USDT-TRC20: <b>{usdt_s}</b>\n"
+        f"TRX (на комиссию): <b>{trx:,.2f}</b>".replace(",", " ") + "\n"
+        f"Статус сети: {bal.get('status','?')}"
+        f"</blockquote>\n\n"
+        f"Отправка/разлочка — только на сервере: <code>python3 /root/relay/wallet/cli.py</code>",
+        parse_mode="HTML")
+
+
 @router.message(Command("freeze_payouts"))
 async def cmd_freeze_payouts(message: Message):
     """/freeze_payouts — вручную заморозить авто-выплаты (админ)."""
