@@ -1451,7 +1451,12 @@ async def api_reserves():
             except Exception:
                 rate = 0
         out.append({"currency": cur, "amount": amt, "rub_value": round(amt * rate) if rate else None})
-    return {"reserves": out}
+    try:
+        from wallet.reserve import hot_wallet_reserve
+        hot = hot_wallet_reserve()
+    except Exception as e:
+        hot = {"error": type(e).__name__}
+    return {"reserves": out, "hot_wallet": hot}
 
 @app.get("/webapp", response_class=HTMLResponse)
 async def webapp():
