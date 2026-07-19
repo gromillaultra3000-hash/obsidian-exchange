@@ -103,3 +103,6 @@ relay-fastapi/main_bot.py
 wallet_data/
 *.vault.json
 *-wallet-backup.json
+
+# Креды git (chmod 600) — НИКОГДА не коммитить
+.git-credentials
