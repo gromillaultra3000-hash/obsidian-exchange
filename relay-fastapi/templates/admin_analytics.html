@@ -223,6 +223,14 @@ tbody tr:hover td{background:rgba(124,58,237,.04)}
 
   <div class="gap"></div>
 
+  <div class="sec-label">Паттерны сбоев провайдеров <span style="font-weight:400;color:var(--t3);font-size:11px">(association, не причинность · из лога)</span></div>
+  <div class="card">
+    <div class="card-head"><span class="card-title">Что чаще всего мешает выдать реквизиты</span><span id="fail-sum" style="font-size:11px;color:var(--t3)"></span></div>
+    <div id="fail-list"></div>
+  </div>
+
+  <div class="gap"></div>
+
   <!-- AI insights -->
   <div class="sec-label">AI-инсайты</div>
   <div class="insights-grid" id="insights-grid">
@@ -310,6 +318,7 @@ function render(d, days) {
   pb.className = 'badge ' + (healthy>0 ? (healthy>1?'b-ok':'b-warn') : 'b-crit');
 
   renderConversion(d.conversion, d.evidence);
+  renderFailures(d.failures);
 
   // Charts
   const daily = (d.daily||[]).slice(-days);
@@ -493,6 +502,27 @@ function renderConversion(c, ev) {
         <div style="font-size:9px;color:var(--t3)">конверсия</div>
       </div>
     </div>`).join('') || '<div style="color:var(--t3);font-size:12px">нет данных за период</div>';
+}
+
+// ── Паттерны сбоев провайдеров ──
+function renderFailures(f) {
+  f = f || {}; const list = f.patterns || [];
+  const sum = document.getElementById('fail-sum');
+  if (sum) sum.textContent = list.length ? `всего отказов в окне: ${f.total_failures||0}` : 'нет данных';
+  const sev = (s) => s==='high' ? '#f87171' : s==='medium' ? 'var(--warn)' : 'var(--t3)';
+  const el = document.getElementById('fail-list');
+  if (!el) return;
+  el.innerHTML = list.map(p => `<div class="prov-row">
+      <div class="prov-strip" style="background:${sev(p.severity)}"></div>
+      <div class="prov-info">
+        <div class="prov-name">${p.provider} — ${p.reason}</div>
+        <div class="prov-stat">severity ${p.severity} · confidence ${p.confidence} · ${p.note||''}</div>
+      </div>
+      <div class="prov-score">
+        <div class="prov-num" style="color:${sev(p.severity)}">${p.count}×</div>
+        <div style="font-size:9px;color:var(--t3)">повторов</div>
+      </div>
+    </div>`).join('') || '<div style="color:var(--t3);font-size:12px">нет данных</div>';
 }
 
 // ── AI Insights ──

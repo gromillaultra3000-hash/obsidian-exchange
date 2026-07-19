@@ -2533,6 +2533,13 @@ async def analytics_data(request: Request):
     except Exception as e:
         evidence = {"error": str(e)}
 
+    # Recurring-failure паттерны провайдеров (LUMI PatternEngine) из лога payment_service.
+    try:
+        from services.failure_patterns import provider_failure_patterns
+        failures = provider_failure_patterns()
+    except Exception as e:
+        failures = {"error": str(e), "patterns": []}
+
     return {
         "daily": daily,
         "hourly": hourly,
@@ -2544,6 +2551,7 @@ async def analytics_data(request: Request):
         "smart_router": smart_router_status,
         "conversion": conversion,
         "evidence": evidence,
+        "failures": failures,
     }
 
 
