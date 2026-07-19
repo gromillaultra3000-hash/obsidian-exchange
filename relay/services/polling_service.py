@@ -12,27 +12,34 @@ def start_polling_service():
                 c = conn.cursor()
                 
                 # Выбираем сессии, ожидающие оплаты
-                c.execute("SELECT session_token, provider_invoice_id, created_at FROM payment_sessions WHERE status IN ('invoice_created', 'awaiting_payment')")
+                c.execute("SELECT session_token, provider_invoice_id, created_at, expires_at FROM payment_sessions WHERE status IN ('invoice_created', 'awaiting_payment')")
                 rows = c.fetchall()
                 conn.close()
-                
+
                 now = datetime.now()
-                for token, invoice_id, created_str in rows:
+                for token, invoice_id, created_str, expires_str in rows:
                     if not created_str:
                         continue
                     created = datetime.strptime(created_str, '%Y-%m-%d %H:%M:%S')
-                    age_seconds = (now - created).total_seconds()
-                    
-                    # Приоритетная очередь: первые 3 минуты — каждые 10 секунд
-                    if age_seconds <= 180:
-                        interval = 10
-                    elif age_seconds <= 900:  # 15 минут
-                        interval = 30
+
+                    # Экспирация — ТОЛЬКО по собственному expires_at сессии.
+                    # Раньше здесь стоял жёсткий порог 900 с: сессия с окном 30 мин
+                    # убивалась на 15-й минуте, у клиента пропадала кнопка «я оплатил»,
+                    # и оплата уходила трейдеру без подтверждения провайдеру.
+                    if expires_str:
+                        try:
+                            expires = datetime.strptime(expires_str, '%Y-%m-%d %H:%M:%S')
+                        except ValueError:
+                            expires = created + timedelta(minutes=30)
                     else:
-                        # Экспирация — помечаем как expired
+                        expires = created + timedelta(minutes=30)
+
+                    if now >= expires:
                         conn = sqlite3.connect(DB_PATH, timeout=5)
                         c = conn.cursor()
-                        c.execute("UPDATE payment_sessions SET status='expired' WHERE session_token=?", (token,))
+                        c.execute(
+                            "UPDATE payment_sessions SET status='expired', "
+                            "updated_at=datetime('now') WHERE session_token=?", (token,))
                         conn.commit()
                         conn.close()
                         continue

@@ -653,6 +653,13 @@ async def api_create_order(request: Request):
             _rc = (requisites.get('recipient') or '').strip()
             if _rc and (_ph or _cd) and _rc.replace(' ', '') == (_ph or _cd).replace(' ', ''):
                 requisites['recipient'] = ''
+            try:
+                from core.requisites import is_placeholder_name as _is_ph
+                for _k in ('recipient', 'holder_name'):
+                    if _is_ph(requisites.get(_k)):
+                        requisites[_k] = ''
+            except Exception:
+                pass
             if not (requisites.get('bank_name') or '').strip():
                 requisites['bank_name'] = 'СБП' if _ph else ('Карта' if _cd else '')
             _pl = str(requisites.get('payment_link') or '')
@@ -1826,6 +1833,12 @@ async def pay(token: str, request: Request):
         recipient = (req.get('recipient') or '').strip()
         if recipient and detail_val and recipient.replace(' ', '') == detail_val.replace(' ', ''):
             recipient = ''  # получатель = телефон/карта → дубль, не показываем
+        try:
+            from core.requisites import is_placeholder_name as _is_ph
+            if _is_ph(recipient):
+                recipient = ''  # '...', 'Test Name' и пр. — хуже пустоты
+        except Exception:
+            pass
         bank = (req.get('bank_name') or '').strip() or ('СБП' if phone else ('Карта' if card else ''))
         # «Карта получателя»/«Карта» — это плейсхолдер, а не банк. Выдумывать банк по
         # BIN не будем (мислейбл разрушает доверие сильнее пустоты) → убираем
