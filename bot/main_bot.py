@@ -455,12 +455,23 @@ async def montera_precheck(callback, amount, payment_method=None, order_id=None)
         # Вообще нет активных трейдеров
         detail = f"По {method_label} сейчас нет свободных реквизитов — трейдеры временно недоступны."
     else:
-        # Трейдеры есть, но не под нашу сумму
+        # Трейдеры есть, но не под нашу сумму. Сырой список диапазонов заставлял
+        # клиента считать самому — и он уходил. Называем конкретную рабочую сумму.
         ranges_str = _montera_limits_text(avail)
         detail = (
             f"Ваша сумма <b>{int(amount):,} ₽</b> не входит ни в один доступный диапазон.\n"
             f"{ranges_str}".replace(",", " ")
         )
+        try:
+            import sys as _s
+            if '/root/relay' not in _s.path:
+                _s.path.insert(0, '/root/relay')
+            from core.amount_suggest import suggest_text
+            hint = suggest_text(slots, amount)
+            if hint:
+                detail += f"\n\n💡 {hint}"
+        except Exception:
+            pass  # подсказка необязательна — не ломаем ответ клиенту
 
     await reply_no_requisites(callback, order_id, detail)
     return False
