@@ -4507,6 +4507,43 @@ async def cmd_conversion(message: Message):
         await message.answer(f"Ошибка: {type(e).__name__}: {e}")
 
 
+@router.message(Command("shadow"))
+async def cmd_shadow(message: Message):
+    """/shadow — сходятся ли решения стража с ручными (режим наблюдения, админ)."""
+    if not is_admin(message.from_user.id):
+        return
+    try:
+        import sys as _s
+        if '/root/relay' not in _s.path:
+            _s.path.insert(0, '/root/relay')
+        from core.shadow_payout import summary
+        s = await asyncio.to_thread(summary, 14)
+        if s.get("error"):
+            await message.answer(f"Ошибка: {s['error']}")
+            return
+        decided = s["total"] - s["pending"]
+        acc = f"{s['agree'] / decided * 100:.0f}%" if decided else "—"
+        risky = s["would_pay_but_human_didnt"]
+        mark = "🔴" if risky else ("🟢" if decided >= 10 else "🟡")
+        txt = [
+            "🔬 <b>Страж выплат: режим наблюдения</b>",
+            "<i>Вердикты пишутся в журнал, деньги не двигаются.</i>\n",
+            f"<blockquote>Заявок в журнале: <b>{s['total']}</b> (за 14 дней)",
+            f"Решено: {decided} · ждут отправки: {s['pending']}",
+            f"{mark} Совпало с ручным решением: <b>{s['agree']}</b> ({acc})</blockquote>\n",
+            f"🔴 Автомат заплатил бы, а человек нет: <b>{risky}</b>",
+            "   <i>— это опасные случаи, разбирать в первую очередь</i>" if risky else "",
+            f"🟡 Автомат отказал бы, а человек отправил: <b>{s['human_paid_but_guard_refused']}</b>",
+            "   <i>— избыточная строгость, деньгам не вредит</i>",
+            f"\nПо вердиктам: {s['by_verdict']}",
+        ]
+        if decided < 10:
+            txt.append("\n⚠️ <i>Решений мало — выводы делать рано.</i>")
+        await message.answer("\n".join(x for x in txt if x), parse_mode="HTML")
+    except Exception as e:
+        await message.answer(f"Ошибка: {type(e).__name__}: {e}")
+
+
 @router.message(Command("payout_status"))
 async def cmd_payout_status(message: Message):
     """/payout_status — состояние circuit-breaker выплат (админ)."""

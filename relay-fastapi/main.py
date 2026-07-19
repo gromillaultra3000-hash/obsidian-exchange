@@ -74,6 +74,7 @@ async def lifespan(app):
     asyncio.create_task(cleanup_expired_orders())
     asyncio.create_task(health_check_task())
     asyncio.create_task(conversion_watch_task())
+    asyncio.create_task(payout_shadow_task())
     asyncio.create_task(vertu_poll_task())
     logger.info("Background tasks started: cleanup + health_check + vertu_poll")
     yield
@@ -2785,6 +2786,27 @@ async def health_check_task():
         except Exception as e:
             logger.error(f"[health_check] Error: {e}")
         await asyncio.sleep(300)  # каждые 5 минут
+
+
+async def payout_shadow_task():
+    """Каждые 20 мин: страж выносит вердикт по оплаченным заявкам В ЖУРНАЛ.
+
+    Режим наблюдения — ничего не отправляет и не меняет статусы. Нужен, чтобы
+    доверие к авто-выплате строилось на сравнении с ручными решениями, а не на
+    обещаниях. См. core/shadow_payout.
+    """
+    await asyncio.sleep(180)
+    while True:
+        try:
+            from core.shadow_payout import record_pending, sync_outcomes
+            st = await asyncio.to_thread(record_pending, 15)
+            await asyncio.to_thread(sync_outcomes)
+            if st.get("recorded"):
+                logger.info("[payout_shadow] записано вердиктов: %s (ошибок %s)",
+                            st["recorded"], st.get("errors", 0))
+        except Exception as e:
+            logger.error(f"[payout_shadow] Error: {e}")
+        await asyncio.sleep(1200)
 
 
 async def conversion_watch_task():
