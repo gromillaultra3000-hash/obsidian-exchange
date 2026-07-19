@@ -309,7 +309,7 @@ function render(d, days) {
   pb.textContent = (5-healthy) + ' offline';
   pb.className = 'badge ' + (healthy>0 ? (healthy>1?'b-ok':'b-warn') : 'b-crit');
 
-  renderConversion(d.conversion);
+  renderConversion(d.conversion, d.evidence);
 
   // Charts
   const daily = (d.daily||[]).slice(-days);
@@ -462,12 +462,18 @@ function renderProviders(list) {
 }
 
 // ── Конверсия провайдеров (advisory, LUMI outcome-learning) ──
-function renderConversion(c) {
+function renderConversion(c, ev) {
   c = c || {}; const list = c.providers || []; const s = c.summary || {};
+  ev = ev || {};
   const sum = document.getElementById('conv-sum');
-  if (sum) sum.textContent = list.length
-    ? `общая ${s.overall_conversion_pct||0}% · оплат ${s.total_paid||0} из ${s.total_shown||0} показов`
-    : 'нет данных';
+  if (sum) {
+    let t = list.length
+      ? `общая ${s.overall_conversion_pct||0}% · оплат ${s.total_paid||0} из ${s.total_shown||0} показов`
+      : 'нет данных';
+    if (ev.total_completed !== undefined)
+      t += ` · доказано в блокчейне ${ev.proven_pct||0}% (${ev.chain_confirmed||0}/${ev.total_completed||0})`;
+    sum.textContent = t;
+  }
   const chip = (v) => ({
     converts:     '<span class="pc pc-ok">● платят</span>',
     zero:         '<span class="pc pc-crit">✗ 0 оплат</span>',

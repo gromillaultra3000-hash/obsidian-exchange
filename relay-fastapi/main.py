@@ -2526,6 +2526,13 @@ async def analytics_data(request: Request):
     except Exception as e:
         conversion = {"error": str(e), "providers": [], "summary": {}}
 
+    # Evidence: доля завершённых заявок с доказательством (LUMI «заявлено≠доказано»).
+    try:
+        from services.evidence import evidence_summary
+        evidence = evidence_summary(30)
+    except Exception as e:
+        evidence = {"error": str(e)}
+
     return {
         "daily": daily,
         "hourly": hourly,
@@ -2536,6 +2543,7 @@ async def analytics_data(request: Request):
         "totals": totals_row[0] if totals_row else {},
         "smart_router": smart_router_status,
         "conversion": conversion,
+        "evidence": evidence,
     }
 
 
