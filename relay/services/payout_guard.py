@@ -20,6 +20,7 @@ Fail-closed гейт выплаты: перед авто-отправкой кр
 auto_check_payments, существующие гарантии (status='paid' ставит только вебхук/
 ручное подтверждение) не ослабляются.
 """
+import os
 import sqlite3
 import logging
 from pathlib import Path
@@ -81,6 +82,43 @@ def _load_provider(cls_name):
     return None
 
 
+def _amount_mismatch(order_id, raw):
+    """Строка-причина, если провайдер отдал сумму МЕНЬШЕ ожидаемой, иначе None.
+
+    Осознанно НЕ fail-closed по «сумму не видно»: у части провайдеров суммы в raw
+    нет, и жёсткая блокировка остановила бы все выплаты. Понижаем вердикт только
+    при положительном свидетельстве недоплаты. Переплату не трогаем — это не риск
+    для нас (и бывает от уникализации суммы провайдером).
+    """
+    try:
+        from core.money import extract_amount, amounts_match, to_minor
+    except Exception:
+        return None
+    paid = extract_amount(raw)
+    if paid is None:
+        return None
+    try:
+        with _db() as conn:
+            row = conn.execute("SELECT rub_amount FROM orders WHERE order_id=?",
+                               (order_id,)).fetchone()
+        expected = row["rub_amount"] if row else None
+    except Exception as e:
+        logger.warning("payout_guard: чтение rub_amount order=%s: %s", order_id, e)
+        return None
+    if expected is None:
+        return None
+    try:
+        tol = float(os.getenv("PAYOUT_AMOUNT_TOLERANCE_RUB", "2") or 2)
+    except ValueError:
+        tol = 2.0
+    if amounts_match(expected, paid, tol) is False:
+        mp, me = to_minor(paid), to_minor(expected)
+        if mp is not None and me is not None and mp < me:
+            return (f"провайдер подтвердил {paid:.2f} ₽ при ожидаемых {float(expected):.2f} ₽ "
+                    f"(недоплата {(me - mp) / 100:.2f} ₽) — проверить вручную")
+    return None
+
+
 def verify_payment_settled(order_id) -> dict:
     """Независимая перепроверка расчёта по заявке. См. модульный docstring."""
     # 1) сессии оплаты заявки (эскалация могла создать несколько)
@@ -105,13 +143,22 @@ def verify_payment_settled(order_id) -> dict:
         if not prov or not hasattr(prov, "get_status"):
             continue
         checked_any = True
+        raw = {}
         try:
-            st = str((prov.get_status(inv_id) or {}).get("status", "unknown")).lower()
+            _resp = prov.get_status(inv_id) or {}
+            st = str(_resp.get("status", "unknown")).lower()
+            raw = _resp.get("raw") or {}
         except Exception as e:
             logger.warning("payout_guard: get_status %s inv=%s order=%s: %s",
                            cls, inv_id, order_id, e)
             st = "unknown"
         if st in _PAID:
+            # Сверка СУММЫ: статус 'paid' сам по себе не говорит, сколько реально
+            # заплатили. Недоплату ловим здесь и уводим на ручную проверку.
+            mismatch = _amount_mismatch(order_id, raw)
+            if mismatch:
+                return {"verdict": "manual", "warn": True,
+                        "provider": provider, "detail": mismatch}
             # ГЛАВНОЕ подтверждение: провайдер отдаёт 'paid' только когда трейдер
             # закрыл сделку на своей стороне (включая видео/PDF, если запрашивал).
             # Это перекрывает зависший флаг verification_requested — платёж реально
