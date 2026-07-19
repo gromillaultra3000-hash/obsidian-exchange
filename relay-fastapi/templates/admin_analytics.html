@@ -231,6 +231,14 @@ tbody tr:hover td{background:rgba(124,58,237,.04)}
 
   <div class="gap"></div>
 
+  <div class="sec-label">Горячий кошелёк <span style="font-weight:400;color:var(--t3);font-size:11px">(живой баланс · read-only)</span></div>
+  <div class="card">
+    <div class="card-head"><span class="card-title">Резерв на отправку крипты</span></div>
+    <div id="hotwallet-body"></div>
+  </div>
+
+  <div class="gap"></div>
+
   <!-- AI insights -->
   <div class="sec-label">AI-инсайты</div>
   <div class="insights-grid" id="insights-grid">
@@ -319,6 +327,7 @@ function render(d, days) {
 
   renderConversion(d.conversion, d.evidence);
   renderFailures(d.failures);
+  renderHotWallet(d.hot_wallet);
 
   // Charts
   const daily = (d.daily||[]).slice(-days);
@@ -523,6 +532,27 @@ function renderFailures(f) {
         <div style="font-size:9px;color:var(--t3)">повторов</div>
       </div>
     </div>`).join('') || '<div style="color:var(--t3);font-size:12px">нет данных</div>';
+}
+
+function renderHotWallet(h) {
+  const el = document.getElementById('hotwallet-body');
+  if (!el) return;
+  h = h || {};
+  if (h.error) { el.innerHTML = `<div style="color:var(--t3);font-size:12px">недоступен: ${h.error}</div>`; return; }
+  if (!h.configured) { el.innerHTML = `<div style="color:var(--t3);font-size:12px">горячий кошелёк не создан (CLI: wallet/cli.py create)</div>`; return; }
+  const usdt = (h.USDT==null) ? '—' : Number(h.USDT).toLocaleString('ru',{maximumFractionDigits:2});
+  const trx = (h.TRX==null) ? '—' : Number(h.TRX).toLocaleString('ru',{maximumFractionDigits:2});
+  el.innerHTML = `<div class="prov-row">
+      <div class="prov-strip" style="background:var(--acc)"></div>
+      <div class="prov-info">
+        <div class="prov-name">TRON · ${h.status||'—'}</div>
+        <div class="prov-stat" style="font-family:monospace;font-size:11px">${h.address||'—'}</div>
+      </div>
+      <div class="prov-score">
+        <div class="prov-num" style="color:var(--ok)">${usdt}</div>
+        <div style="font-size:9px;color:var(--t3)">USDT · ${trx} TRX</div>
+      </div>
+    </div>`;
 }
 
 // ── AI Insights ──

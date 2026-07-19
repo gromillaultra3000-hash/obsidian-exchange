@@ -1451,12 +1451,9 @@ async def api_reserves():
             except Exception:
                 rate = 0
         out.append({"currency": cur, "amount": amt, "rub_value": round(amt * rate) if rate else None})
-    try:
-        from wallet.reserve import hot_wallet_reserve
-        hot = hot_wallet_reserve()
-    except Exception as e:
-        hot = {"error": type(e).__name__}
-    return {"reserves": out, "hot_wallet": hot}
+    # hot_wallet НЕ отдаём здесь: публичный эндпоинт. Живой баланс/адрес кошелька —
+    # только в админ-поверхности (analytics_data, бот /wallet). OPSEC: без сырого баланса.
+    return {"reserves": out}
 
 @app.get("/webapp", response_class=HTMLResponse)
 async def webapp():
@@ -2475,7 +2472,15 @@ async def api_ai_ask(request: Request):
 
 @app.get("/admin/analytics/data")
 async def analytics_data(request: Request):
-    """Real-time analytics data for admin dashboard."""
+    """Real-time analytics data for admin dashboard. Только для админа (web-сессия)."""
+    from auth import get_web_user
+    web_user = get_web_user(request)
+    if not web_user:
+        raise HTTPException(status_code=401, detail="Требуется вход")
+    tg_id = web_user.get("telegram_id")
+    email = web_user.get("email", "")
+    if str(tg_id) not in {str(a) for a in ADMIN_IDS} and "admin" not in email:
+        raise HTTPException(status_code=403, detail="Доступ запрещён")
     import sqlite3 as _sq
 
     def qry(sql, params=()):
@@ -2545,6 +2550,13 @@ async def analytics_data(request: Request):
     except Exception as e:
         failures = {"error": str(e), "patterns": []}
 
+    # Живой баланс горячего кошелька (read-only). Только здесь — эндпоинт admin-gated.
+    try:
+        from wallet.reserve import hot_wallet_reserve
+        hot_wallet = hot_wallet_reserve()
+    except Exception as e:
+        hot_wallet = {"error": type(e).__name__}
+
     return {
         "daily": daily,
         "hourly": hourly,
@@ -2557,6 +2569,7 @@ async def analytics_data(request: Request):
         "conversion": conversion,
         "evidence": evidence,
         "failures": failures,
+        "hot_wallet": hot_wallet,
     }
 
 
