@@ -912,28 +912,17 @@ def format_requisites(raw):
     if not isinstance(raw, dict):
         return f"Реквизиты: {raw}"
     requisites = dict(raw.get('requisites') or raw)
-    # Нормализация (та же, что на /pay и в Mini App):
-    # получатель == телефон/карта → дубль, не показываем; банк-фолбэк СБП/Карта
-    _ph = str(requisites.get('phone') or '').strip()
-    _cd = str(requisites.get('card_number') or '').strip()
-    _rc = str(requisites.get('recipient') or '').strip()
-    if _rc and (_ph or _cd) and _rc.replace(' ', '') == (_ph or _cd).replace(' ', ''):
-        requisites['recipient'] = ''
-    # Плейсхолдеры провайдеров ('...', '-', 'Test Name') хуже пустоты: клиент видит
-    # «Получатель: ...» и бросает перевод. Лучше не показывать поле вовсе.
+    # Единая нормализация (core.requisites) — общая для бота, /pay и Mini App:
+    # ссылка в поле номера → payment_link, плейсхолдеры и дубли убираются,
+    # «Карта получателя» не выдаётся за банк.
     try:
         import sys as _s
         if '/root/relay' not in _s.path:
             _s.path.insert(0, '/root/relay')
-        from core.requisites import is_placeholder_name as _is_ph
-        for _k in ('recipient', 'holder_name'):
-            if _is_ph(requisites.get(_k)):
-                requisites[_k] = ''
+        from core.requisites import normalize_requisites as _norm
+        requisites = _norm(requisites)
     except Exception:
         pass  # нормализация — украшение, не ломаем выдачу реквизитов
-    if not str(requisites.get('bank_name') or '').strip() and not str(requisites.get('bank') or '').strip():
-        if _ph or _cd:
-            requisites['bank_name'] = 'СБП' if _ph else 'Карта'
     lines = []
     field_labels = [
         ('card_number', '💳 Карта'),

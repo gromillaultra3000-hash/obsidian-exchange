@@ -650,20 +650,11 @@ async def api_create_order(request: Request):
         # Нормализация (та же, что на /pay): дубль получатель==телефон/карта убираем,
         # банк-фолбэк СБП/Карта, ссылочные методы (XPay) → payment_link
         if isinstance(requisites, dict):
-            _ph = (requisites.get('phone') or '').strip()
-            _cd = (requisites.get('card_number') or '').strip()
-            _rc = (requisites.get('recipient') or '').strip()
-            if _rc and (_ph or _cd) and _rc.replace(' ', '') == (_ph or _cd).replace(' ', ''):
-                requisites['recipient'] = ''
             try:
-                from core.requisites import is_placeholder_name as _is_ph
-                for _k in ('recipient', 'holder_name'):
-                    if _is_ph(requisites.get(_k)):
-                        requisites[_k] = ''
+                from core.requisites import normalize_requisites as _norm
+                requisites = _norm(requisites)
             except Exception:
                 pass
-            if not (requisites.get('bank_name') or '').strip():
-                requisites['bank_name'] = 'СБП' if _ph else ('Карта' if _cd else '')
             _pl = str(requisites.get('payment_link') or '')
             requisites['payment_link'] = _pl if _pl.startswith('http') else ''
         try:
@@ -1827,24 +1818,23 @@ async def pay(token: str, request: Request):
         def esc(v):
             return _html.escape(str(v)) if v else ""
 
-        # --- нормализация реквизитов (фикс «нет банка/получателя», дубль телефона) ---
+        # --- нормализация реквизитов: единый источник core.requisites ---
+        # Ключевое: ссылку, положенную провайдером в card_number (Brabus
+        # tbank_deeplink), переносим в payment_link — иначе клиент видит
+        # «Номер карты: https://…» и уходит (за 30 дней 30 показов, 0 оплат).
+        try:
+            from core.requisites import normalize_requisites as _norm
+            req = _norm(req)
+        except Exception:
+            pass
         phone = (req.get('phone') or '').strip()
         card = (req.get('card_number') or '').strip()
         detail_val = phone or card
         detail_lbl = 'Телефон (СБП)' if phone else ('Номер карты' if card else '')
         recipient = (req.get('recipient') or '').strip()
-        if recipient and detail_val and recipient.replace(' ', '') == detail_val.replace(' ', ''):
-            recipient = ''  # получатель = телефон/карта → дубль, не показываем
-        try:
-            from core.requisites import is_placeholder_name as _is_ph
-            if _is_ph(recipient):
-                recipient = ''  # '...', 'Test Name' и пр. — хуже пустоты
-        except Exception:
-            pass
-        bank = (req.get('bank_name') or '').strip() or ('СБП' if phone else ('Карта' if card else ''))
-        # «Карта получателя»/«Карта» — это плейсхолдер, а не банк. Выдумывать банк по
-        # BIN не будем (мислейбл разрушает доверие сильнее пустоты) → убираем
-        # бессмысленную строку «Банк»; перевод по номеру карты работает в любом банке.
+        bank = (req.get('bank_name') or '').strip()
+        # Перевод по номеру карты работает в любом банке — строка «Банк» здесь
+        # только мешает; выдумывать банк по BIN не будем (мислейбл хуже пустоты).
         if card and not phone and bank in ('Карта', 'Карта получателя', 'Перевод на карту'):
             bank = ''
         _link = req.get('payment_link') or session.get('qr_payload') or ''
