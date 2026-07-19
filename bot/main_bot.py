@@ -6227,29 +6227,34 @@ async def auto_check_payments():
                 # Circuit-breaker: защита горячего кошелька от аномального оттока
                 # (суточный потолок / скорость / повтор адреса). Проверяем ПЕРЕД
                 # авто-отправкой; при аномалии — стоп-кран + всё в ручной разбор.
+                # FAIL-CLOSED: если страж недоступен (None) или упал с ошибкой —
+                # авто-выплату НЕ делаем, заявка уходит в ручной разбор (не 'ok'!).
                 if payout_circuit:
                     try:
                         cb = payout_circuit.check_payout_allowed(order_id, rub_amount, address, currency)
                     except Exception as _e:
                         logger.error(f"payout_circuit check failed: {_e}")
-                        cb = {"action": "ok"}
-                    if cb.get("action") == "freeze":
+                        cb = {"action": "manual", "reason": "страж выплат упал с ошибкой — авто-выплата запрещена (fail-closed)"}
+                else:
+                    cb = {"action": "manual", "reason": "страж выплат недоступен — авто-выплата запрещена (fail-closed)"}
+                if cb.get("action") == "freeze":
+                    if payout_circuit:
                         payout_circuit.freeze(cb.get("reason", ""))
-                        await notify_admins(
-                            f"🛑 <b>СТОП-КРАН ВЫПЛАТ сработал</b>\n\n{cb.get('reason','')}\n\n"
-                            f"Авто-выплаты ЗАМОРОЖЕНЫ, всё уходит в ручной разбор.\n"
-                            f"Заявка #{order_id} — к работнику.\n"
-                            f"Снять: /unfreeze_payouts",
-                            parse_mode="HTML")
-                        await notify_workers_paid(order_id, rub_amount, address, currency)
-                        continue
-                    if cb.get("action") == "manual":
-                        await notify_admins(
-                            f"⚠️ <b>Заявка #{order_id}: выплата на ручной разбор</b>\n\n"
-                            f"{cb.get('reason','')}",
-                            parse_mode="HTML")
-                        await notify_workers_paid(order_id, rub_amount, address, currency)
-                        continue
+                    await notify_admins(
+                        f"🛑 <b>СТОП-КРАН ВЫПЛАТ сработал</b>\n\n{cb.get('reason','')}\n\n"
+                        f"Авто-выплаты ЗАМОРОЖЕНЫ, всё уходит в ручной разбор.\n"
+                        f"Заявка #{order_id} — к работнику.\n"
+                        f"Снять: /unfreeze_payouts",
+                        parse_mode="HTML")
+                    await notify_workers_paid(order_id, rub_amount, address, currency)
+                    continue
+                if cb.get("action") == "manual":
+                    await notify_admins(
+                        f"⚠️ <b>Заявка #{order_id}: выплата на ручной разбор</b>\n\n"
+                        f"{cb.get('reason','')}",
+                        parse_mode="HTML")
+                    await notify_workers_paid(order_id, rub_amount, address, currency)
+                    continue
 
                 if rub_amount <= AUTO_PAYOUT_LIMIT:
                     # Малая заявка — пробуем авто-выплату
