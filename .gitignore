@@ -94,3 +94,12 @@ main_bot.stable_*.py
 *.stable_*.py
 *_gold_*.py
 relay-fastapi/main_bot.py
+
+# backup encryption key (никогда не коммитить)
+.backup_key
+*.enc
+
+# Горячий кошелёк — ключи НИКОГДА в git
+wallet_data/
+*.vault.json
+*-wallet-backup.json
