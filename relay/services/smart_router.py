@@ -118,7 +118,12 @@ PROVIDER_CONFIG = {
         "required_env": "VERTU_LOGIN",  # не выбирать, пока нет учётных данных
     },
     "XPayConnectProvider": {
-        "weight": 0.40,        # карта/СБП РФ, вебхук + уникализация суммы (docs.xpayconnect.io)
+        # ⚠️ "weight" НИКЕМ НЕ ЧИТАЕТСЯ (проверено 19.07.2026) — реальный вес даёт
+        # profit_weight() по PROVIDER_PROFIT_ORDER, а очередь запасных — ESCALATION_CHAIN.
+        # Менять здесь цифру бесполезно. XPay понижен через ESCALATION_CHAIN в bot/.env
+        # (21 показ, 0 оплат за 30 дней: мерчант СНГ отдаёт ссылку на банки Душанбе,
+        # российский клиент такое не оплачивает). Канал НЕ отключён — стоит в хвосте.
+        "weight": 0.40,        # историческое значение, на выбор не влияет
         "min_amount": 1000,
         "cooldown_seconds": 180,
         "max_consecutive_fails": 3,
