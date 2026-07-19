@@ -4478,6 +4478,35 @@ async def cmd_providers(message: Message):
     await message.answer(text, parse_mode="HTML", reply_markup=kb)
 
 
+@router.message(Command("conversion"))
+async def cmd_conversion(message: Message):
+    """/conversion — доходят ли клиенты до оплаты (админ)."""
+    if not is_admin(message.from_user.id):
+        return
+    try:
+        import sys as _s
+        if '/root/relay' not in _s.path:
+            _s.path.insert(0, '/root/relay')
+        from core.conversion_watch import check_conversion
+        lines = ["📊 <b>Конверсия оплат</b>\n"]
+        for h, label in ((3, "3 часа"), (24, "сутки"), (72, "3 суток")):
+            r = check_conversion(h)
+            if r.get("error"):
+                lines.append(f"<b>{label}</b>: ошибка — {r['error']}")
+                continue
+            issued, paid = r["issued"], r["paid"]
+            pct = f"{paid / issued * 100:.0f}%" if issued else "—"
+            mark = "🔴" if (issued >= 8 and paid == 0) else ("🟡" if issued and not paid else "🟢")
+            lines.append(f"{mark} <b>{label}</b>: выдано {issued} → оплачено {paid} ({pct})")
+            if r["early_expiry"]:
+                lines.append(f"   ⚠️ ранних экспираций: {r['early_expiry']}")
+        lines.append("\n<i>Ранняя экспирация = сессия закрылась до своего срока "
+                     "(баг 19.07, клиент терял кнопку «я оплатил»).</i>")
+        await message.answer("\n".join(lines), parse_mode="HTML")
+    except Exception as e:
+        await message.answer(f"Ошибка: {type(e).__name__}: {e}")
+
+
 @router.message(Command("payout_status"))
 async def cmd_payout_status(message: Message):
     """/payout_status — состояние circuit-breaker выплат (админ)."""

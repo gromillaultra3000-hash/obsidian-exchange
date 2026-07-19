@@ -73,6 +73,7 @@ async def lifespan(app):
     asyncio.create_task(_session_cleanup_loop())
     asyncio.create_task(cleanup_expired_orders())
     asyncio.create_task(health_check_task())
+    asyncio.create_task(conversion_watch_task())
     asyncio.create_task(vertu_poll_task())
     logger.info("Background tasks started: cleanup + health_check + vertu_poll")
     yield
@@ -2784,6 +2785,39 @@ async def health_check_task():
         except Exception as e:
             logger.error(f"[health_check] Error: {e}")
         await asyncio.sleep(300)  # каждые 5 минут
+
+
+async def conversion_watch_task():
+    """Каждые 30 мин: ловит «реквизиты выдаём, а оплат нет» и ранние экспирации.
+
+    Тихий сбой (всё работает, но деньги не доходят) месяц оставался незамеченным —
+    см. core/conversion_watch. Алерт по каждому типу не чаще раза в 6 часов.
+    """
+    import httpx
+    last_sent = {}
+    await asyncio.sleep(120)  # дать сервису прогреться после старта
+    while True:
+        try:
+            from core.conversion_watch import check_conversion, format_alert
+            res = check_conversion()
+            msg = format_alert(res)
+            if msg and BOT_TOKEN:
+                kinds = ",".join(sorted(a["kind"] for a in res["alerts"]))
+                now = asyncio.get_event_loop().time()
+                if now - last_sent.get(kinds, 0) > 21600:  # 6 часов на тип
+                    last_sent[kinds] = now
+                    async with httpx.AsyncClient(timeout=10) as client:
+                        for _aid in ADMIN_IDS:
+                            await client.post(
+                                f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
+                                json={"chat_id": _aid, "text": msg, "parse_mode": "HTML"})
+                    logger.warning("[conversion_watch] алерт отправлен: %s", kinds)
+            else:
+                logger.info("[conversion_watch] выдано=%s оплачено=%s ранних=%s",
+                            res.get("issued"), res.get("paid"), res.get("early_expiry"))
+        except Exception as e:
+            logger.error(f"[conversion_watch] Error: {e}")
+        await asyncio.sleep(1800)
 
 
 @app.get("/api/system-status")
