@@ -42,7 +42,23 @@ def main():
         elif cmd == "preview" and len(sys.argv) >= 5:
             print(json.dumps(w.preview_tron_send(sys.argv[2], sys.argv[3], float(sys.argv[4])), ensure_ascii=False, indent=2))
         elif cmd == "send" and len(sys.argv) >= 6:
-            print(json.dumps(w.send_tron_asset(sys.argv[2], sys.argv[3], float(sys.argv[4]), sys.argv[5]), ensure_ascii=False, indent=2))
+            idem = sys.argv[6] if len(sys.argv) >= 7 else ""
+            print(json.dumps(w.send_tron_asset(sys.argv[2], sys.argv[3], float(sys.argv[4]), sys.argv[5], idempotency_key=idem), ensure_ascii=False, indent=2))
+        elif cmd == "backup":
+            # проверка восстановимости: бэкап расшифровывается паролем и даёт тот же адрес
+            import json as _j
+            from pathlib import Path as _P
+            bp = w.TRON_BACKUP_PATH
+            if not _P(bp).exists():
+                print("Бэкап не найден:", bp); return 1
+            pw = _pw("Пароль для проверки бэкапа: ")
+            try:
+                key_hex = w._decrypt_secret(_j.loads(_P(bp).read_text("utf-8")), pw)
+                addr = w._priv(key_hex).public_key.to_base58check_address()
+                print(f"✅ Бэкап валиден. Файл: {bp}\nАдрес из бэкапа: {addr}\n"
+                      f"Скопируйте файл в надёжное место (он зашифрован вашим паролем).")
+            except Exception:
+                print("❌ Пароль не подходит к бэкапу или файл повреждён"); return 1
         else:
             print(__doc__); return 2
     except Exception as e:

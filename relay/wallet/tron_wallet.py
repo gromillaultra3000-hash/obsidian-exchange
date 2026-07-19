@@ -39,7 +39,15 @@ TRON_VAULT_PATH = SECURE_DIR / "tron-wallet-vault.json"
 TRON_META_PATH = SECURE_DIR / "tron-wallet-meta.json"
 TRON_BACKUP_PATH = DATA / "backups" / "obsidian-tron-wallet-backup.json"
 TRON_HISTORY_PATH = DATA / "tron_wallet_history.jsonl"
+TRON_SENDS_PATH = SECURE_DIR / "tron-sends.json"   # идемпотентный журнал отправок
+TRON_PREVIEWS_PATH = SECURE_DIR / "tron-previews.json"  # персист previews (переживают рестарт)
 _AAD = b"OBSIDIAN-TRON-V1"
+
+# Доп. предохранитель: жёсткий потолок одной отправки (fail-closed). Настраивается env.
+MAX_SEND = {
+    "USDT": float(os.getenv("WALLET_MAX_SEND_USDT", "100000")),
+    "TRX": float(os.getenv("WALLET_MAX_SEND_TRX", "100000")),
+}
 
 _TRON_PREVIEWS: Dict[str, Dict[str, Any]] = {}
 _LOCK = threading.RLock()
@@ -271,6 +279,17 @@ def tron_history(limit: int = 100) -> Dict[str, Any]:
     return {"entries": rows, "count": len(rows)}
 
 
+def _load_sends() -> Dict[str, Any]:
+    try:
+        return json.loads(TRON_SENDS_PATH.read_text("utf-8"))
+    except Exception:
+        return {}
+
+
+def _save_sends(obj: Dict[str, Any]) -> None:
+    _atomic_write(TRON_SENDS_PATH, json.dumps(obj, ensure_ascii=False, indent=2), secret=True)
+
+
 def _is_valid_address(address: str) -> bool:
     try:
         from tronpy.keys import to_hex_address  # type: ignore
@@ -289,6 +308,9 @@ def preview_tron_send(asset: str, to_address: str, amount: float) -> Dict[str, A
     symbol = str(asset).upper().strip()
     if symbol != "TRX" and symbol not in TRC20_TOKENS:
         raise ValueError("asset_not_supported_on_tron")
+    cap = MAX_SEND.get(symbol)
+    if cap is not None and float(amount) > cap:
+        raise ValueError(f"amount_exceeds_max_send_{symbol}:{cap}")
     if not _is_valid_address(str(to_address)):
         raise ValueError("invalid_tron_destination_address")
     balance = tron_balance()
@@ -312,17 +334,40 @@ def preview_tron_send(asset: str, to_address: str, amount: float) -> Dict[str, A
         "amount": float(amount), "warning": fee_note, "createdAt": _now(),
     }
     _TRON_PREVIEWS[preview_id] = row
+    try:  # персист: preview переживёт рестарт процесса в пределах своего окна 120с
+        with _LOCK:
+            _atomic_write(TRON_PREVIEWS_PATH, json.dumps(_TRON_PREVIEWS, ensure_ascii=False), secret=True)
+    except Exception:
+        pass
     return row
 
 
-def send_tron_asset(asset: str, to_address: str, amount: float, preview_id: str = "") -> Dict[str, Any]:
+def send_tron_asset(asset: str, to_address: str, amount: float, preview_id: str = "",
+                    idempotency_key: str = "") -> Dict[str, Any]:
     _expire()
     if not _UNLOCKED_KEY:
         raise PermissionError("tron_signer_locked")
     if amount <= 0:
         raise ValueError("amount_must_be_positive")
     symbol = str(asset).upper().strip()
+    cap = MAX_SEND.get(symbol)
+    if cap is not None and float(amount) > cap:
+        raise ValueError(f"amount_exceeds_max_send_{symbol}:{cap}")
+    # Идемпотентность: один логический перевод не должен уйти дважды (рестарт/повтор задания).
+    if idempotency_key:
+        with _LOCK:
+            sends = _load_sends()
+            prev = sends.get(idempotency_key)
+            if prev and prev.get("txHash"):
+                return {**prev, "idempotent": True}          # уже отправлено — возвращаем тот же tx
+            if prev and prev.get("status") == "broadcasting":
+                raise PermissionError("send_in_progress_for_key")  # не подписываем второй раз
     preview = _TRON_PREVIEWS.get(preview_id or "")
+    if not preview:  # fallback: preview мог быть создан до рестарта
+        try:
+            preview = json.loads(TRON_PREVIEWS_PATH.read_text("utf-8")).get(preview_id or "")
+        except Exception:
+            preview = None
     if not preview:
         raise PermissionError("fresh_transfer_preview_required")
     if time.time() > float(preview.get("expiresAt") or 0):
@@ -331,6 +376,15 @@ def send_tron_asset(asset: str, to_address: str, amount: float, preview_id: str 
     if str(preview.get("to")) != str(to_address) or str(preview.get("asset")) != symbol or abs(float(preview.get("amount") or 0) - float(amount)) > 1e-12:
         raise PermissionError("transfer_preview_mismatch")
     _TRON_PREVIEWS.pop(preview_id, None)
+    # Атомарно помечаем «broadcasting» ДО отправки — повтор с тем же ключом не подпишет второй раз.
+    if idempotency_key:
+        with _LOCK:
+            sends = _load_sends()
+            if sends.get(idempotency_key, {}).get("txHash"):
+                return {**sends[idempotency_key], "idempotent": True}
+            sends[idempotency_key] = {"status": "broadcasting", "asset": symbol,
+                                      "to": str(to_address), "amount": float(amount), "startedAt": _now()}
+            _save_sends(sends)
     client, rpc = _client()
     priv = _priv(_UNLOCKED_KEY)
     sender = tron_address()
@@ -357,6 +411,13 @@ def send_tron_asset(asset: str, to_address: str, amount: float, preview_id: str 
         "rpc": rpc, "timestamp": _now(),
     }
     _append_history(row)
+    # Фиксируем результат в идемпотентном журнале: tx уже в сети — повтор с тем же ключом
+    # вернёт этот же результат, а не подпишет второй перевод (даже если статус FAILED).
+    if idempotency_key:
+        with _LOCK:
+            sends = _load_sends()
+            sends[idempotency_key] = {**row, "idempotencyKey": idempotency_key}
+            _save_sends(sends)
     if row["status"] == "FAILED":
         raise RuntimeError(f"tron_transaction_failed:{receipt_status}")
     return row
