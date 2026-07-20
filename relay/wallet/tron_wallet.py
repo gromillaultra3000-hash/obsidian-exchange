@@ -23,6 +23,7 @@ import secrets
 import stat
 import threading
 import time
+import base58
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
@@ -321,6 +322,38 @@ def _is_valid_address(address: str) -> bool:
         return False
 
 
+def _estimate_trc20_fee_trx(to_address: str, symbol: str, amount: float):
+    """Оценка комиссии перевода TRC-20 в TRX, или None если оценить не удалось.
+
+    Считаем constant-call'ом (ничего не отправляет) и умножаем energy на цену сети.
+    Замер 20.07.2026: адрес без USDT — 13.03 TRX, адрес с USDT — 6.43 TRX.
+    Разница вдвое, поэтому фиксированную константу брать нельзя.
+
+    None означает «оценить не смогли» и НЕ блокирует отправку: недоступность
+    оценки не должна останавливать выплату, у которой средств достаточно.
+    """
+    try:
+        import requests
+        cfg = TRC20_TOKENS[symbol]
+        raw = int(round(float(amount) * (10 ** int(cfg["decimals"]))))
+        to_hex = base58.b58decode_check(str(to_address)).hex()[2:]
+        param = to_hex.rjust(64, "0") + format(raw, "x").rjust(64, "0")
+        r = requests.post("https://api.trongrid.io/wallet/triggerconstantcontract",
+                          json={"owner_address": tron_address(),
+                                "contract_address": cfg["contract"],
+                                "function_selector": "transfer(address,uint256)",
+                                "parameter": param, "visible": True}, timeout=12)
+        energy = int((r.json() or {}).get("energy_used") or 0)
+        if energy <= 0:
+            return None
+        p = requests.get("https://api.trongrid.io/wallet/getchainparameters", timeout=12)
+        price = next((int(x.get("value")) for x in (p.json() or {}).get("chainParameter", [])
+                      if x.get("key") == "getEnergyFee"), 100)
+        return round(energy * price / 1e6, 2)
+    except Exception:
+        return None
+
+
 def preview_tron_send(asset: str, to_address: str, amount: float) -> Dict[str, Any]:
     _expire()
     if not _UNLOCKED_KEY:
@@ -348,12 +381,26 @@ def preview_tron_send(asset: str, to_address: str, amount: float) -> Dict[str, A
             raise ValueError("insufficient_token_balance")
         if float(balance.get("balanceTrx") or 0.0) <= 0:
             raise ValueError("insufficient_trx_for_energy_fee")
-        fee_note = "Перевод TRC-20 сжигает TRX за energy. Держите хотя бы 25-30 TRX на счету."
+        fee_note = "Перевод TRC-20 сжигает TRX за energy."
+    # Оценка комиссии ДО подписания. Без неё нехватка TRX всплывала бы уже в сети:
+    # транзакция срывается, а часть комиссии сгорает. Стоимость сильно зависит от
+    # получателя: адресу без USDT нужно завести баланс — это вдвое дороже.
+    fee_trx = None
+    if symbol != "TRX":
+        fee_trx = _estimate_trc20_fee_trx(str(to_address), symbol, float(amount))
+        if fee_trx is not None:
+            have = float(balance.get("balanceTrx") or 0.0)
+            fee_note = (f"Комиссия сети ≈ {fee_trx:.2f} TRX (energy). "
+                        f"На счету {have:.2f} TRX.")
+            if have < fee_trx:
+                raise ValueError(
+                    f"insufficient_trx_for_fee: нужно ≈{fee_trx:.2f} TRX, есть {have:.2f}")
     preview_id = secrets.token_urlsafe(18)
     row = {
         "previewId": preview_id, "expiresAt": time.time() + 120, "expiresInSec": 120,
         "network": NETWORK_ID, "asset": symbol, "from": tron_address(), "to": str(to_address),
         "amount": float(amount), "warning": fee_note, "createdAt": _now(),
+        "estimatedFeeTrx": fee_trx,
     }
     _TRON_PREVIEWS[preview_id] = row
     try:  # персист: preview переживёт рестарт процесса в пределах своего окна 120с
