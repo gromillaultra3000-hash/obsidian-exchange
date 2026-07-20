@@ -3,8 +3,17 @@
 аргументы, чтобы не светился в history/ps). Отправка требует unlock + preview.
 
 Команды:
-  status | address | balance | create | import | unlock | lock
-  preview <asset> <to> <amount> | send <asset> <to> <amount> <preview_id>
+  status | address | balance | backup            — пароль не нужны
+  create | import | unlock                       — проверка/создание ключа
+  transfer <asset> <to> <amount>                 — ⭐ весь путь в одном шаге
+  preview <asset> <to> <amount>
+  send <asset> <to> <amount> <preview_id>
+
+⚠️ Разблокировка ключа живёт в памяти процесса, а каждый запуск CLI — отдельный
+процесс. Поэтому `unlock` НЕ разблокирует последующие команды: preview/send/transfer
+спрашивают пароль сами. Для отправки используйте `transfer` — он проводит
+пароль → превью → подтверждение → отправку за один запуск, и превью (120 с)
+гарантированно не истечёт между шагами.
 """
 import sys, getpass, json, os
 from pathlib import Path
@@ -65,14 +74,38 @@ def main():
             pw = _pw("Пароль для шифрования: ")
             print(json.dumps(w.import_tron_wallet(key, pw), ensure_ascii=False, indent=2))
         elif cmd == "unlock":
-            print(json.dumps(w.unlock_tron_wallet(_pw()), ensure_ascii=False, indent=2))
+            # Разблокировка живёт в ПАМЯТИ ПРОЦЕССА, а каждая команда CLI — свой
+            # процесс. Поэтому отдельный unlock ничего не даёт следующей команде:
+            # preview/send спрашивают пароль сами. Оставлено только для проверки пароля.
+            r = w.unlock_tron_wallet(_pw())
+            print(json.dumps(r, ensure_ascii=False, indent=2))
+            print("\nПароль верный. Отдельная разблокировка НЕ сохраняется между\n"
+                  "командами (каждая команда — отдельный процесс), поэтому\n"
+                  "preview и send запросят пароль сами.")
         elif cmd == "lock":
             print(json.dumps(w.lock_tron_wallet(), ensure_ascii=False, indent=2))
         elif cmd == "preview" and len(sys.argv) >= 5:
-            print(json.dumps(w.preview_tron_send(sys.argv[2], sys.argv[3], float(sys.argv[4])), ensure_ascii=False, indent=2))
+            w.unlock_tron_wallet(_pw())   # ключ живёт только внутри этого процесса
+            print(json.dumps(w.preview_tron_send(sys.argv[2], sys.argv[3], float(sys.argv[4])),
+                             ensure_ascii=False, indent=2))
         elif cmd == "send" and len(sys.argv) >= 6:
             idem = sys.argv[6] if len(sys.argv) >= 7 else ""
-            print(json.dumps(w.send_tron_asset(sys.argv[2], sys.argv[3], float(sys.argv[4]), sys.argv[5], idempotency_key=idem), ensure_ascii=False, indent=2))
+            w.unlock_tron_wallet(_pw())
+            print(json.dumps(w.send_tron_asset(sys.argv[2], sys.argv[3], float(sys.argv[4]),
+                                               sys.argv[5], idempotency_key=idem),
+                             ensure_ascii=False, indent=2))
+        elif cmd == "transfer" and len(sys.argv) >= 5:
+            # Весь путь в ОДНОМ процессе: пароль → превью → подтверждение → отправка.
+            # Превью живёт 120 с, а между отдельными командами человек не успевал.
+            asset, to, amount = sys.argv[2], sys.argv[3], float(sys.argv[4])
+            w.unlock_tron_wallet(_pw())
+            prev = w.preview_tron_send(asset, to, amount)
+            print(json.dumps(prev, ensure_ascii=False, indent=2))
+            print(f"\nОтправить {amount} {asset.upper()} на {to}?")
+            if input("Введите ДА для подтверждения: ").strip().upper() not in ("ДА", "YES"):
+                print("Отменено."); return 1
+            print(json.dumps(w.send_tron_asset(asset, to, amount, prev["previewId"]),
+                             ensure_ascii=False, indent=2))
         elif cmd == "backup":
             # проверка восстановимости: бэкап расшифровывается паролем и даёт тот же адрес
             import json as _j
