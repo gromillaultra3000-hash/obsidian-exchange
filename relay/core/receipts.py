@@ -92,8 +92,11 @@ def _vertu(sess, file_bytes, filename, content_type):
 
 def _brabus(sess, file_bytes, filename, content_type):
     from providers.brabus import BrabusProvider
-    return BrabusProvider(variant="with_receipt").confirm_transfer(
-        sess["invoice_id"], file_bytes, filename)
+    # Вариант (=API-ключ), которым создавали инвойс, — если он записан в сессии.
+    # Иначе перебираем ключи: инвойс виден только «своему» ключу.
+    hint = (sess["raw"] or {}).get("variant") or ""
+    return BrabusProvider.confirm_transfer_any(
+        sess["invoice_id"], file_bytes, filename, variant_hint=hint)
 
 
 def _stormtrade(sess, file_bytes, filename, content_type):
@@ -102,18 +105,85 @@ def _stormtrade(sess, file_bytes, filename, content_type):
         sess["invoice_id"], file_bytes, filename)
 
 
+def _xpay(sess, file_bytes, filename, content_type):
+    from providers.xpayconnect import XPayConnectProvider
+    # XPay принимает как свой internal_id, так и наш external_id
+    return XPayConnectProvider().upload_receipt(sess["invoice_id"], file_bytes, filename)
+
+
 _ROUTES = {
     "montera": _montera,
     "vertu": _vertu,
     "brabus": _brabus,
     "fallback": _brabus,      # FallbackProvider — это Brabus в другом варианте
     "stormtrade": _stormtrade,
+    "xpay": _xpay,
 }
 
 # У этих провайдеров канала приёма чека в API нет вовсе (проверено по докам).
 # Держим списком отдельно от _ROUTES, чтобы отличать «не поддерживает» от
 # «забыли реализовать» — второе должно быть заметно в логах.
-_NO_CHANNEL = {"xpay", "greenpay", "lava", "platega"}
+# greenpay/lava/platega сейчас не в ротации (нет ключей / offline); если их
+# будут включать — сначала сверить доку на канал чека, тест это потребует.
+_NO_CHANNEL = {"greenpay", "lava", "platega"}
+
+
+# ── Спор: последняя инстанция, когда чек отправлен, а сделку не подтвердили ───
+
+def _dispute_stormtrade(sess, file_bytes, filename, reason, amount):
+    from providers.stormtrade import StormTradeProvider
+    deal_id = (sess["raw"] or {}).get("deal_id") or sess["invoice_id"]
+    return StormTradeProvider().open_dispute(
+        sess["invoice_id"], deal_id, file_bytes, reason, amount, filename)
+
+
+def _dispute_brabus(sess, file_bytes, filename, reason, amount):
+    from providers.brabus import BrabusProvider
+    raw = sess["raw"] or {}
+    deal_id = raw.get("deal_id") or sess["invoice_id"]
+    return BrabusProvider.open_dispute_any(
+        sess["invoice_id"], deal_id, file_bytes, reason, amount, filename,
+        variant_hint=raw.get("variant") or "")
+
+
+_DISPUTES = {
+    "stormtrade": _dispute_stormtrade,
+    "brabus": _dispute_brabus,
+    "fallback": _dispute_brabus,
+}
+
+
+def dispute_available(order_id) -> bool:
+    sess = find_session(order_id)
+    return bool(sess and sess["provider"] in _DISPUTES and sess["invoice_id"])
+
+
+def open_dispute(order_id, file_bytes: bytes, filename: str = "receipt.pdf",
+                 reason: str = "no_payment", amount=None) -> dict:
+    """Оспорить неподтверждённую оплату у провайдера.
+
+    Только для провайдеров, у которых спор есть в API. У Montera/Vertu/XPay
+    его нет — там эскалация идёт через поддержку, и об этом надо говорить
+    прямо, а не делать вид, что спор открыт.
+    """
+    sess = find_session(order_id)
+    if not sess:
+        return {"ok": False, "reason": "no_session", "error": "нет платёжной сессии"}
+    handler = _DISPUTES.get(sess["provider"])
+    if not handler:
+        return {"ok": False, "provider": sess["provider"], "reason": "unsupported",
+                "error": f"{sess['provider']}: спор через API не поддерживается, "
+                         f"эскалация только через поддержку провайдера"}
+    try:
+        res = handler(sess, file_bytes, filename, reason, amount) or {}
+    except Exception as e:
+        logger.error("dispute: order=%s %s: %s", order_id, sess["provider"], e)
+        return {"ok": False, "provider": sess["provider"], "reason": "exception",
+                "error": f"{type(e).__name__}: {e}"}
+    logger.info("dispute: order=%s provider=%s ok=%s", order_id, sess["provider"],
+                bool(res.get("ok")))
+    return {"ok": bool(res.get("ok")), "provider": sess["provider"],
+            "error": res.get("error"), "raw": res.get("raw")}
 
 
 def channel_available(order_id) -> bool:

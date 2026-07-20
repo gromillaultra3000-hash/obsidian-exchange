@@ -112,6 +112,43 @@ class XPayConnectProvider(PaymentProvider):
             logger.error(f"XPay GET {path} failed: {e}")
             return None
 
+    def upload_receipt(self, order_id, file_bytes: bytes,
+                       filename: str = "receipt.pdf") -> dict:
+        """Загружает чек оплаты (POST /merchant/receipt/upload, multipart).
+
+        orderId — наш external_id ЛИБО internal_id ордера XPay. Тело не JSON,
+        поэтому подпись считается от пустого тела, как для GET.
+        Принимаются PDF/JPEG/PNG до 5 МБ.
+        """
+        if not order_id:
+            return {"ok": False, "error": "нет orderId"}
+        if len(file_bytes) > 5 * 1024 * 1024:
+            return {"ok": False, "error": "Файл больше 5 МБ — XPay его не примет"}
+        try:
+            r = requests.post(
+                f"{self.base_url}/merchant/receipt/upload",
+                data={"orderId": str(order_id)},
+                files={"receipt": (filename, file_bytes)},
+                headers={
+                    "client-api-key": self.api_key,
+                    "x-api-key": sign_body(self.api_key, ""),
+                },
+                timeout=PROVIDER_TIMEOUT,
+            )
+        except Exception as e:
+            logger.error(f"XPay receipt upload failed: {e}")
+            return {"ok": False, "error": str(e)}
+        try:
+            data = r.json()
+        except Exception:
+            data = {}
+        if r.status_code in (200, 201) and data.get("success", True):
+            logger.info("XPay receipt upload %s: чек принят", order_id)
+            return {"ok": True, "raw": data}
+        err = data.get("message") or data.get("error") or f"HTTP {r.status_code}: {r.text[:200]}"
+        logger.warning("XPay receipt upload %s: %s", order_id, err)
+        return {"ok": False, "error": str(err)}
+
     # ── Создание платежа (PAYIN-FIAT) ───────────────────────────────────────────
 
     def create_invoice(self, order_id, amount, payment_method=None, user_id=None):

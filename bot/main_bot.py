@@ -3271,8 +3271,7 @@ async def process_payment_method(callback: CallbackQuery, state: FSMContext):
 async def process_receipt_upload(message: Message, state: FSMContext):
     data = await state.get_data()
     order_id = data.get("order_id")
-    invoice_id = data.get("brabus_invoice_id")
-    if not invoice_id:
+    if not order_id:
         await message.answer("⚠️ Не найдена заявка для подтверждения. Обратитесь в поддержку.")
         return
     try:
@@ -3281,14 +3280,15 @@ async def process_receipt_upload(message: Message, state: FSMContext):
         file_bytes = await bot.download_file(file.file_path)
         import sys
         sys.path.insert(0, '/root/relay')
-        from providers.brabus import BrabusProvider
-        provider = BrabusProvider(variant="with_receipt")
-        result = provider.confirm_transfer(invoice_id, file_bytes.read())
+        from core.receipts import send_receipt
+        # Маршрут по провайдеру сессии; для Brabus ключ подбирается по инвойсу
+        # (варианты живут на разных ключах — жёсткий 'with_receipt' терял файл)
+        result = send_receipt(order_id, file_bytes.read(), "receipt.jpg", "image/jpeg")
         if result.get('ok'):
             await message.answer(
                 "✅ Чек отправлен на проверку! Как только оплата подтвердится, мы автоматически вышлем вашу криптовалюту.",
             )
-            await notify_staff( f"🧾 Получен чек для заявки #{order_id} (Brabus invoice {invoice_id})")
+            await notify_staff( f"🧾 Получен чек для заявки #{order_id} ({result.get('provider')})")
         else:
             await message.answer(f"❌ Не удалось отправить чек: {result.get('error', 'неизвестная ошибка')}\nПопробуйте ещё раз или обратитесь в поддержку.")
     except Exception as e:

@@ -336,6 +336,101 @@ class BrabusProvider(PaymentProvider):
             logger.error(f"Brabus[{self.variant}] confirm_transfer failed: {e}")
             return {"ok": False, "error": str(e)}
 
+    @classmethod
+    def confirm_transfer_any(cls, invoice_id: str, file_bytes: bytes,
+                             filename="receipt.pdf", variant_hint: str = "") -> dict:
+        """Отправляет чек, подбирая ключ, которым был создан инвойс.
+
+        ⚠️ Варианты Brabus живут на РАЗНЫХ API-ключах (BRABUS_KEY_TBANK_DEEPLINK,
+        BRABUS_KEY_WITH_RECEIPT и т.д.). Инвойс, созданный одним ключом, не виден
+        другому: жёстко зашитый variant='with_receipt' означал бы, что чек по
+        обычной заявке (tbank_deeplink) уходит в никуда — ровно тот отказ, из-за
+        которого теряются деньги. Логика та же, что у cancel_any.
+        """
+        if not invoice_id:
+            return {"ok": False, "error": "Нет invoice_id"}
+        order = ([variant_hint] if variant_hint else []) + \
+                [v for v in _CANCEL_PRIORITY if v != variant_hint]
+        last = "ни один ключ Brabus не подошёл"
+        for variant in order:
+            try:
+                p = cls(variant=variant)
+            except Exception:
+                continue
+            if not p.api_key:
+                continue
+            res = p.confirm_transfer(invoice_id, file_bytes, filename)
+            if res.get("ok"):
+                logger.info(f"Brabus: чек по {invoice_id} принят ключом '{variant}'")
+                return res
+            last = res.get("error", last)
+        logger.warning(f"Brabus: чек по {invoice_id} не принят ни одним ключом: {last}")
+        return {"ok": False, "error": last}
+
+    @classmethod
+    def open_dispute_any(cls, invoice_id: str, deal_id: str, file_bytes: bytes,
+                         reason: str = "no_payment", amount=None,
+                         filename: str = "receipt.pdf", variant_hint: str = "") -> dict:
+        """Открывает спор, подбирая ключ инвойса (см. confirm_transfer_any)."""
+        if not invoice_id:
+            return {"ok": False, "error": "Нет invoice_id"}
+        order = ([variant_hint] if variant_hint else []) + \
+                [v for v in _CANCEL_PRIORITY if v != variant_hint]
+        last = "ни один ключ Brabus не подошёл"
+        for variant in order:
+            try:
+                p = cls(variant=variant)
+            except Exception:
+                continue
+            if not p.api_key:
+                continue
+            res = p.open_dispute(invoice_id, deal_id, file_bytes, reason, amount, filename)
+            if res.get("ok"):
+                return res
+            last = res.get("error", last)
+        return {"ok": False, "error": last}
+
+    def open_dispute(self, invoice_id: str, deal_id: str, file_bytes: bytes,
+                     reason: str = "no_payment", amount=None,
+                     filename: str = "receipt.pdf") -> dict:
+        """Открывает спор по сделке (POST .../dispute).
+
+        Brabus и StormTrade — один и тот же white-label Merchant Integration API,
+        эндпоинт документирован у StormTrade (docs/stormtrade/open-dispute).
+        Нужен, когда клиент заплатил и приложил чек, а сделка всё равно не
+        подтверждается: без спора она просто истечёт, деньги останутся у трейдера.
+
+        reason: no_payment — платёж не зачли; invalid_sum — спорная сумма
+        (тогда обязателен amount).
+        """
+        if not invoice_id or not deal_id:
+            return {"ok": False, "error": "нужны invoice_id и deal_id"}
+        if reason not in ("no_payment", "invalid_sum"):
+            return {"ok": False, "error": f"неизвестная причина спора: {reason}"}
+        if reason == "invalid_sum" and amount is None:
+            return {"ok": False, "error": "для invalid_sum обязателен amount"}
+        if len(file_bytes) > 10 * 1024 * 1024:
+            return {"ok": False, "error": "Файл больше 10 МБ"}
+
+        url = f"{BRABUS_BASE_URL}/api/merchant/invoices/{invoice_id}/dispute"
+        form = {"dealId": str(deal_id), "disputeReason": reason}
+        if reason == "invalid_sum":
+            form["disputeReasonData[amount]"] = str(amount)
+        try:
+            r = requests.post(url, headers=self._headers_multipart(url), data=form,
+                              files={"attachment": (filename, file_bytes)},
+                              timeout=PROVIDER_TIMEOUT)
+            if r.status_code in (200, 201):
+                logger.info(f"Brabus[{self.variant}] dispute {invoice_id} открыт ({reason})")
+                try:
+                    return {"ok": True, "raw": r.json()}
+                except Exception:
+                    return {"ok": True, "raw": {}}
+            return {"ok": False, "error": f"HTTP {r.status_code}: {r.text[:200]}"}
+        except Exception as e:
+            logger.error(f"Brabus[{self.variant}] open_dispute failed: {e}")
+            return {"ok": False, "error": str(e)}
+
     # ── Список доступных вариантов оплаты (Сценарий Б) ────────────────────────
 
     def get_available_variants(self, invoice_id: str) -> list:

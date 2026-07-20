@@ -232,6 +232,51 @@ class StormTradeProvider(PaymentProvider):
             logger.error(f"StormTrade confirm_transfer failed: {e}")
             return {"ok": False, "error": str(e)}
 
+    def open_dispute(self, invoice_id: str, deal_id: str, file_bytes: bytes,
+                     reason: str = "no_payment", amount=None,
+                     filename: str = "receipt.pdf") -> dict:
+        """Открывает спор по сделке (POST .../dispute).
+
+        По доке: «клиент произвёл оплату и подтвердил перевод, но система не
+        подтверждает сделку» — последняя инстанция, когда confirm_transfer не
+        помог. Без неё оплаченная, но не подтверждённая сделка просто истекала,
+        и деньги оставались у трейдера.
+
+        reason: no_payment — платёж не зачли; invalid_sum — спорная сумма
+        (тогда обязателен amount).
+        """
+        if not invoice_id or not deal_id:
+            return {"ok": False, "error": "нужны invoice_id и deal_id"}
+        if reason not in ("no_payment", "invalid_sum"):
+            return {"ok": False, "error": f"неизвестная причина спора: {reason}"}
+        if reason == "invalid_sum" and amount is None:
+            return {"ok": False, "error": "для invalid_sum обязателен amount"}
+        if len(file_bytes) > 10 * 1024 * 1024:
+            return {"ok": False, "error": "Файл больше 10 МБ"}
+
+        url = f"{self.base_url}/api/merchant/invoices/{invoice_id}/dispute"
+        headers = self._headers("POST", url)
+        headers.pop("Content-Type", None)   # границу multipart проставит requests
+        form = {"dealId": str(deal_id), "disputeReason": reason}
+        if reason == "invalid_sum":
+            form["disputeReasonData[amount]"] = str(amount)
+        try:
+            r = requests.post(url, headers=headers, data=form,
+                              files={"attachment": (filename, file_bytes)},
+                              timeout=PROVIDER_TIMEOUT)
+            if r.status_code in (200, 201):
+                logger.info("StormTrade dispute %s открыт (%s)", invoice_id, reason)
+                try:
+                    return {"ok": True, "raw": r.json()}
+                except Exception:
+                    return {"ok": True, "raw": {}}
+            logger.warning("StormTrade dispute %s: HTTP %s %s",
+                           invoice_id, r.status_code, r.text[:200])
+            return {"ok": False, "error": f"HTTP {r.status_code}: {r.text[:200]}"}
+        except Exception as e:
+            logger.error(f"StormTrade open_dispute failed: {e}")
+            return {"ok": False, "error": str(e)}
+
     def get_payment_options(self) -> list:
         """GET /api/merchant/payment-options -> [{code, name, currency}] или []."""
         url = f"{self.base_url}/api/merchant/payment-options"
