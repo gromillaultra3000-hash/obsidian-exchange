@@ -657,6 +657,11 @@
             if (_orderTimer) { clearInterval(_orderTimer); _orderTimer = null; }
         }
         const EXPLORER = { BTC: 'https://mempool.space/tx/', LTC: 'https://blockchair.com/litecoin/transaction/', USDT: 'https://tronscan.org/#/transaction/' };
+        // В txid исторически попадали ссылки на оплату Platega и пометки 'manual'.
+        // Склейка давала битый адрес эксплорера — кнопка вела в никуда, но выглядела
+        // как доказательство отправки. Показываем ссылку только для настоящего хеша.
+        const isTxid = (t) => !!t && /^(0x)?[0-9a-fA-F]{64}$/.test(String(t).trim());
+        const txLinkOf = (cur, t) => (isTxid(t) && EXPLORER[cur]) ? EXPLORER[cur] + String(t).trim() : null;
         function startOrderTracking(orderId, payUrl, currency, qrImage, payAmount, requisites) {
             stopOrderTracking();
             const card = document.getElementById('pay-card');
@@ -760,8 +765,9 @@
                     const _rq = document.getElementById('pay-req'); if (_rq) _rq.style.display = 'none';
                     timerEl.textContent = st === 'sent' ? '🚀' : '✅';
                     title.textContent = st === 'sent' ? `Заявка #${orderId} — выплачена` : `Заявка #${orderId} — оплачена`;
-                    const txLink = (st === 'sent' && txid && EXPLORER[currency])
-                        ? `<br><a href="#" onclick="tg.openLink('${EXPLORER[currency]}${txid}');return false" style="color:#a78bfa">🔗 Транзакция в блокчейне</a>`
+                    const _tu = (st === 'sent') ? txLinkOf(currency, txid) : null;
+                    const txLink = _tu
+                        ? `<br><a href="#" onclick="tg.openLink('${_tu}');return false" style="color:#a78bfa">🔗 Транзакция в блокчейне</a>`
                         : '';
                     statusEl.innerHTML = st === 'sent'
                         ? `🚀 Крипта отправлена на ваш адрес. Спасибо!${txLink}`
@@ -807,8 +813,8 @@
                     if (o.status === 'pending' && o.session_token) {
                         const purl = `${location.origin}/pay/${o.session_token}`;
                         action = `<a href="#" class="btn-pay" onclick="tg.openLink('${purl}');return false">💳 Оплатить</a>`;
-                    } else if (o.status === 'sent' && o.txid && EXPLORER[o.currency]) {
-                        action = `<a href="#" class="btn-pay" style="background:rgba(124,58,237,.15)" onclick="tg.openLink('${EXPLORER[o.currency]}${o.txid}');return false">🔍 Транзакция</a>`;
+                    } else if (o.status === 'sent' && txLinkOf(o.currency, o.txid)) {
+                        action = `<a href="#" class="btn-pay" style="background:rgba(124,58,237,.15)" onclick="tg.openLink('${txLinkOf(o.currency, o.txid)}');return false">🔍 Транзакция</a>`;
                     }
                     html += `<div class="history-item ${cls}">
                         <span class="h-icon">${emoji}</span>

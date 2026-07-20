@@ -1857,9 +1857,13 @@ async def pay(token: str, request: Request):
             qr_uri = "data:image/png;base64," + base64.b64encode(_b.read()).decode()
 
         expires_at = session.get('expires_at') or ''
-        EXPLORER = {'BTC': 'https://mempool.space/tx/', 'LTC': 'https://blockchair.com/litecoin/transaction/',
-                    'USDT': 'https://tronscan.org/#/transaction/'}
-        tx_url = (EXPLORER.get(currency, '') + txid) if (txid and currency) else ''
+        # Ссылка строится ТОЛЬКО из настоящего хеша: в paid_btc_tx лежат ссылки
+        # Platega и пометки 'manual' — склейка давала битый адрес эксплорера.
+        try:
+            from core.txid import explorer_url as _eu
+            tx_url = _eu(currency, txid) or ''
+        except Exception:
+            tx_url = ''
 
         # данные для клиентского рендера состояний
         cfg = {

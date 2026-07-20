@@ -6805,14 +6805,20 @@ async def cmd_order(message: Message):
 PAYOUT_WALLETS = {'BTC': 'PayoutWallet', 'LTC': 'PayoutLTC'}
 
 def explorer_url(currency, tx):
-    """Ссылка на транзакцию в блокчейн-эксплорере по валюте."""
-    if not tx:
-        return None
-    return {
-        'BTC': f"https://mempool.space/tx/{tx}",
-        'LTC': f"https://blockchair.com/litecoin/transaction/{tx}",
-        'USDT': f"https://tronscan.org/#/transaction/{tx}",
-    }.get((currency or 'BTC').upper())
+    """Ссылка на транзакцию в блокчейн-эксплорере — или None.
+
+    Раньше склеивала что угодно: в paid_btc_tx лежат ссылки Platega (96 заявок)
+    и пометки 'manual', и клиент получал кнопку «Транзакция в блокчейне»,
+    ведущую в никуда. Сломанное доказательство хуже отсутствия доказательства.
+    """
+    try:
+        import sys as _s
+        if '/root/relay' not in _s.path:
+            _s.path.insert(0, '/root/relay')
+        from core.txid import explorer_url as _eu
+        return _eu(currency, tx)
+    except Exception:
+        return None  # не смогли проверить — кнопку не показываем
 
 def send_crypto(currency, address, amount):
     """Отправляет amount монет currency на address из горячего кошелька. Возвращает txid."""
