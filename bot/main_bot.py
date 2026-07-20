@@ -658,6 +658,26 @@ async def notify_staff(text, **kwargs):
             await bot.send_message(_sid, text, **kwargs)
         except Exception as _e:
             logger.debug(f"notify_staff: не доставлено {_sid}: {_e}")
+
+
+async def notify_staff_file(file_id: str, caption: str, kind: str = "document"):
+    """Пересылает САМ ФАЙЛ чека всем админам и операторам.
+
+    Раньше персоналу уходил только текст «получен PDF-чек» — файла в ЛС не было.
+    А доказательство почти всегда нужно живьём: у провайдеров есть чат диспутов,
+    куда оператор кладёт чек руками, и без файла на руках спор не открыть.
+    Шлём всегда, независимо от того, приняло ли API провайдера загрузку.
+    """
+    for _sid in staff_ids():
+        try:
+            if kind == "video":
+                await bot.send_video(_sid, file_id, caption=caption, parse_mode="HTML")
+            elif kind == "photo":
+                await bot.send_photo(_sid, file_id, caption=caption, parse_mode="HTML")
+            else:
+                await bot.send_document(_sid, file_id, caption=caption, parse_mode="HTML")
+        except Exception as _e:
+            logger.warning(f"notify_staff_file: не доставлен чек {_sid}: {_e}")
 try:
     _redis = Redis(host='localhost', port=6379, db=1, decode_responses=False)
     storage = RedisStorage(_redis)
@@ -3284,6 +3304,11 @@ async def process_receipt_upload(message: Message, state: FSMContext):
         # Маршрут по провайдеру сессии; для Brabus ключ подбирается по инвойсу
         # (варианты живут на разных ключах — жёсткий 'with_receipt' терял файл)
         result = send_receipt(order_id, file_bytes.read(), "receipt.jpg", "image/jpeg")
+        await notify_staff_file(
+            photo.file_id,
+            f"🧾 <b>Чек (фото) — заявка #{order_id}</b>\n"
+            f"🏦 {result.get('provider') or '?'} · "
+            f"{'✅ API принял' if result.get('ok') else '⚠️ API не принял'}", kind="photo")
         if result.get('ok'):
             await message.answer(
                 "✅ Чек отправлен на проверку! Как только оплата подтвердится, мы автоматически вышлем вашу криптовалюту.",
@@ -3323,6 +3348,20 @@ async def process_montera_receipt_upload(message: Message, state: FSMContext):
         from core.receipts import send_receipt
         result = send_receipt(order_id, file_bytes, doc.file_name or "receipt.pdf",
                               "application/pdf")
+
+        # Файл персоналу — ВСЕГДА: он нужен для чата диспутов у провайдера,
+        # даже когда API загрузку приняло
+        with db_conn(5) as _fc:
+            _fr = _fc.execute("SELECT rub_amount, username FROM orders WHERE order_id=?",
+                              (order_id,)).fetchone()
+        _famt = f"{int(_fr[0]):,} ₽".replace(",", " ") if _fr else "?"
+        _funame = f"@{_fr[1]}" if (_fr and _fr[1]) else str(message.from_user.id)
+        await notify_staff_file(
+            doc.file_id,
+            f"🧾 <b>Чек — заявка #{order_id}</b>\n"
+            f"👤 {_funame} · 💸 {_famt}\n"
+            f"🏦 Провайдер: <b>{result.get('provider') or '?'}</b>\n"
+            f"{'✅ API принял' if result.get('ok') else '⚠️ API не принял: ' + str(result.get('error'))[:120]}")
 
         if not result.get("ok") and result.get("reason") in ("unsupported", "unknown_provider", "no_session"):
             # Канала у провайдера нет. Не врём «принято» — отдаём чек операторам,
@@ -3393,6 +3432,12 @@ async def process_montera_video_verification(message: Message, state: FSMContext
         # Маршрутизация по провайдеру заявки, а не жёстко в Montera
         result = send_receipt(order_id, file_bytes, filename, "video/mp4")
         montera_invoice_id = montera_invoice_id or "—"
+        await notify_staff_file(
+            video.file_id,
+            f"🎥 <b>Видео верификации — заявка #{order_id}</b>\n"
+            f"🏦 {result.get('provider') or '?'} · "
+            f"{'✅ API принял' if result.get('ok') else '⚠️ API не принял'}\n"
+            f"🆔 <code>{montera_invoice_id}</code>", kind="video")
         if result.get("ok"):
             await message.answer(
                 "✅ Видео принято!\n\n"
@@ -3457,6 +3502,12 @@ async def process_montera_pdf_verification(message: Message, state: FSMContext):
         # Маршрутизация по провайдеру заявки, а не жёстко в Montera
         result = send_receipt(order_id, file_bytes, filename, "application/pdf")
         montera_invoice_id = montera_invoice_id or "—"
+        await notify_staff_file(
+            doc.file_id,
+            f"📄 <b>PDF верификации — заявка #{order_id}</b>\n"
+            f"🏦 {result.get('provider') or '?'} · "
+            f"{'✅ API принял' if result.get('ok') else '⚠️ API не принял'}\n"
+            f"🆔 <code>{montera_invoice_id}</code>")
         if result.get("ok"):
             await message.answer(
                 "✅ PDF-чек принят!\n\n"
