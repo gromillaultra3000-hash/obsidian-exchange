@@ -7,11 +7,40 @@
   preview <asset> <to> <amount> | send <asset> <to> <amount> <preview_id>
 """
 import sys, getpass, json, os
+from pathlib import Path
 sys.path.insert(0, "/root/relay")
 from wallet import tron_wallet as w
 
 
 def _pw(prompt="Пароль кошелька: "):
+    """Пароль только из настоящего терминала или из файла с правами 600.
+
+    В обёртках без TTY (например, `!` в Claude Code) getpass не может скрыть ввод
+    и пароль отобразился бы на экране и в логах — поэтому там мы отказываемся
+    работать, а не понижаем защиту молча.
+    """
+    pf = os.environ.get("WALLET_PASSWORD_FILE")
+    if pf:
+        p = Path(pf)
+        if not p.exists():
+            raise SystemExit(f"Файл пароля не найден: {pf}")
+        mode = p.stat().st_mode & 0o777
+        if mode & 0o077:
+            raise SystemExit(
+                f"Файл пароля {pf} доступен посторонним (права {mode:o}).\n"
+                f"Исправьте: chmod 600 {pf}")
+        return p.read_text("utf-8").strip()
+
+    if not sys.stdin.isatty():
+        raise SystemExit(
+            "Нет терминала — ввести пароль скрытно невозможно.\n\n"
+            "Вариант 1 (рекомендую): выполните команду в обычной SSH-сессии.\n"
+            "Вариант 2: положите пароль в файл и укажите его:\n"
+            "    nano /root/.wallet_pw       # вписать пароль одной строкой\n"
+            "    chmod 600 /root/.wallet_pw\n"
+            "    WALLET_PASSWORD_FILE=/root/.wallet_pw \\\n"
+            "        /root/bot/venv/bin/python3 /root/relay/wallet/cli.py create\n"
+            "    shred -u /root/.wallet_pw   # удалить сразу после\n")
     return getpass.getpass(prompt)
 
 
