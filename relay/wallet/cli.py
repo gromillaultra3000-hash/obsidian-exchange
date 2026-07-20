@@ -104,7 +104,16 @@ def main():
             print(f"\nОтправить {amount} {asset.upper()} на {to}?")
             if input("Введите ДА для подтверждения: ").strip().upper() not in ("ДА", "YES"):
                 print("Отменено."); return 1
-            print(json.dumps(w.send_tron_asset(asset, to, amount, prev["previewId"]),
+            # Защита от случайного повторного запуска: без ключа идемпотентности
+            # журнал не ведётся вовсе, и вторая такая же команда ушла бы в сеть.
+            # Ключ привязан к 10-минутному окну: дубль по ошибке отсекается,
+            # намеренный повтор той же суммы позже — разрешён.
+            import hashlib as _h, time as _t
+            idem = _h.sha256(
+                f"{asset.upper()}|{to}|{amount}|{int(_t.time() // 600)}".encode()
+            ).hexdigest()[:32]
+            print(json.dumps(w.send_tron_asset(asset, to, amount, prev["previewId"],
+                                               idempotency_key=idem),
                              ensure_ascii=False, indent=2))
         elif cmd == "backup":
             # проверка восстановимости: бэкап расшифровывается паролем и даёт тот же адрес
