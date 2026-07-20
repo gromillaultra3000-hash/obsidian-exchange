@@ -4507,6 +4507,26 @@ async def cmd_conversion(message: Message):
         await message.answer(f"Ошибка: {type(e).__name__}: {e}")
 
 
+@router.message(Command("reconcile"))
+async def cmd_reconcile(message: Message):
+    """/reconcile — сверка блокчейна с заявками (админ)."""
+    if not is_admin(message.from_user.id):
+        return
+    await message.answer("⛓ Сверяю цепочку с заявками…")
+    try:
+        import sys as _s
+        if '/root/relay' not in _s.path:
+            _s.path.insert(0, '/root/relay')
+        from core.chain_reconcile import reconcile, format_report
+        r = await asyncio.to_thread(reconcile, 30)
+        txt = format_report(r)
+        if r.get("ignored"):
+            txt += f"\n\n<i>Пропущено известных не-заявочных переводов: {r['ignored']}</i>"
+        await message.answer(txt, parse_mode="HTML")
+    except Exception as e:
+        await message.answer(f"Ошибка сверки: {type(e).__name__}: {e}")
+
+
 @router.message(Command("shadow"))
 async def cmd_shadow(message: Message):
     """/shadow — сходятся ли решения стража с ручными (режим наблюдения, админ)."""
