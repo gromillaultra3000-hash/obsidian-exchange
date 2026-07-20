@@ -120,13 +120,38 @@ def _priv(key_hex: str):
 
 
 def _client():
+    """Клиент TRON. Порядок: свой ключ TronGrid → узел без ключей → запасные.
+
+    ⚠️ Голый Tron() использовать НЕЛЬЗЯ: tronpy подставляет собственные общие
+    DEFAULT_API_KEYS, они давно исчерпаны, и broadcast падает с 401 Unauthorized.
+    Чтение при этом иногда проходит — из-за чего баланс показывался, а отправка
+    срывалась. Задать TRONGRID_API_KEY (бесплатный на trongrid.io) — предпочтительно:
+    у публичных узлов свои лимиты.
+    """
     from tronpy import Tron  # type: ignore
-    try:
-        client = Tron()  # публичный trongrid endpoint
-        client.get_latest_block_number()
-        return client, "trongrid-public"
-    except Exception as exc:
-        raise ConnectionError(f"tron_rpc_unavailable:{type(exc).__name__}")
+    from tronpy.providers import HTTPProvider  # type: ignore
+
+    attempts = []
+    key = os.getenv("TRONGRID_API_KEY", "").strip()
+    if key:
+        attempts.append(("trongrid-key",
+                         lambda: Tron(HTTPProvider("https://api.trongrid.io/", api_key=key))))
+    # Узлы БЕЗ "trongrid" в адресе: tronpy не станет слать ключи вовсе.
+    # tronstack первым — проверено живьём; publicnode отдаёт ответ другой формы
+    # (tronpy падает с KeyError 'block'), держим последним как крайний запас.
+    for uri, tag in (("https://api.tronstack.io", "tronstack"),
+                     ("https://tron-rpc.publicnode.com", "publicnode")):
+        attempts.append((tag, lambda u=uri: Tron(HTTPProvider(u))))
+
+    last = None
+    for tag, make in attempts:
+        try:
+            client = make()
+            client.get_latest_block_number()
+            return client, tag
+        except Exception as exc:
+            last = exc
+    raise ConnectionError(f"tron_rpc_unavailable:{type(last).__name__}")
 
 
 def create_tron_wallet(password: str, *, overwrite: bool = False) -> Dict[str, Any]:
