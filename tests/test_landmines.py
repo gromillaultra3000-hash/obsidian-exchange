@@ -156,9 +156,41 @@ def check_session_expiry_uses_expires_at():
                  f"числом. Срок задаёт expires_at сессии, а не константа.")
 
 
+def check_every_provider_has_receipt_verdict():
+    """Каждый провайдер должен быть либо в _ROUTES, либо в _NO_CHANNEL.
+
+    20.07.2026 заявка на 30 000 ₽ ушла в Declined: клиент заплатил через Vertu,
+    а канала доставки чека у Vertu не было — эндпоинт /v1/wt_receipts/ в API
+    существовал, но реализован не был. Пропуск был незаметен, потому что нигде
+    не требовалось явно ответить на вопрос «а чем мы доказываем оплату у этого
+    провайдера». Теперь новый провайдер обязан ответить — хотя бы «нечем».
+    """
+    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    sys.path.insert(0, os.path.join(base, "relay"))
+    try:
+        from core.receipts import _ROUTES, _NO_CHANNEL
+        from services.smart_router import PROVIDER_CONFIG
+    except Exception as e:
+        fail("чеки", f"не удалось загрузить маршрутизатор чеков: {type(e).__name__}: {e}")
+        return
+
+    known = set(_ROUTES) | set(_NO_CHANNEL)
+    for cls_name in PROVIDER_CONFIG:
+        # BrabusProvider -> brabus, XPayConnectProvider -> xpay(connect)
+        short = cls_name.replace("Provider", "").lower()
+        if short in known or any(k in short or short in k for k in known):
+            continue
+        fail("чеки",
+             f"{cls_name}: не определено, как доставить провайдеру чек об оплате. "
+             f"Добавьте обработчик в core/receipts.py _ROUTES либо, если API "
+             f"такого не умеет, внесите в _NO_CHANNEL — тогда чек уйдёт оператору "
+             f"вручную, а клиенту не скажут ложное «принято».")
+
+
 def main():
     for fn in (check_no_diverging_duplicates, check_config_keys_are_read,
-               check_no_fail_open_in_guards, check_session_expiry_uses_expires_at):
+               check_no_fail_open_in_guards, check_session_expiry_uses_expires_at,
+               check_every_provider_has_receipt_verdict):
         try:
             fn()
         except Exception as e:

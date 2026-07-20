@@ -198,6 +198,40 @@ class StormTradeProvider(PaymentProvider):
 
     # ── Доступные способы оплаты терминала (для сверки эксклюзивных методов) ───
 
+    def confirm_transfer(self, invoice_id: str, file_bytes: bytes,
+                         filename: str = "receipt.pdf") -> dict:
+        """Прикрепляет чек об операции к инвойсу (POST .../confirm-transfer).
+
+        Канал существовал с начала интеграции (та же white-label API, что у
+        Brabus), но реализован не был — доказать оплату у StormTrade было нечем.
+        Для multipart подпись считается без тела, как и в остальных запросах.
+        """
+        if not invoice_id:
+            return {"ok": False, "error": "Нет invoice_id"}
+        if len(file_bytes) > 10 * 1024 * 1024:
+            return {"ok": False, "error": "Файл больше 10 МБ — StormTrade его не примет"}
+        url = f"{self.base_url}/api/merchant/invoices/{invoice_id}/confirm-transfer"
+        headers = self._headers("POST", url)
+        # requests сам проставит multipart-границу; свой Content-Type её сломает
+        headers.pop("Content-Type", None)
+        try:
+            r = requests.post(url, headers=headers,
+                              files={"attachment": (filename, file_bytes)},
+                              timeout=PROVIDER_TIMEOUT)
+            if r.status_code in (200, 201):
+                try:
+                    raw = r.json()
+                except Exception:
+                    raw = {}
+                logger.info("StormTrade confirm_transfer %s: чек принят", invoice_id)
+                return {"ok": True, "raw": raw}
+            logger.warning("StormTrade confirm_transfer %s: HTTP %s %s",
+                           invoice_id, r.status_code, r.text[:200])
+            return {"ok": False, "error": f"HTTP {r.status_code}: {r.text[:200]}"}
+        except Exception as e:
+            logger.error(f"StormTrade confirm_transfer failed: {e}")
+            return {"ok": False, "error": str(e)}
+
     def get_payment_options(self) -> list:
         """GET /api/merchant/payment-options -> [{code, name, currency}] или []."""
         url = f"{self.base_url}/api/merchant/payment-options"

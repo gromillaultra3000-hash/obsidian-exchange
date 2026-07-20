@@ -2245,12 +2245,66 @@ async def inline_paid(callback: CallbackQuery):
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="✅ Подтвердить оплату", callback_data=f"admin_confirm_{order_id}")]])
         await notify_staff( text, reply_markup=kb, disable_notification=False, parse_mode="HTML")
-        msg_text = f"⏳ <b>Ожидаем подтверждение</b>\n\nИнформация об оплате заявки <b>#{order_id}</b> передана оператору. Обычно это занимает 5–15 минут."
-        await callback.message.edit_caption(caption=msg_text, parse_mode="HTML") if callback.message.photo else await callback.message.edit_text(msg_text, parse_mode="HTML")
+        msg_text = (f"⏳ <b>Ожидаем подтверждение</b>\n\nИнформация об оплате заявки "
+                    f"<b>#{order_id}</b> передана оператору. Обычно это занимает 5–15 минут.")
+        # Чек — самое сильное доказательство оплаты. Раньше предложить его было
+        # негде: трейдер запрашивал подтверждение только через вебхук Montera,
+        # а у Vertu вебхуков нет вовсе — заявка молча уходила в Declined.
+        user_kb = None
+        try:
+            import sys
+            sys.path.insert(0, '/root/relay')
+            from core.receipts import channel_available
+            if channel_available(order_id):
+                msg_text += ("\n\n📄 Ускорить проверку: приложите PDF-чек из банковского "
+                             "приложения — он уйдёт напрямую платёжному партнёру.")
+                user_kb = InlineKeyboardMarkup(inline_keyboard=[[
+                    InlineKeyboardButton(text="📄 Отправить чек",
+                                         callback_data=f"sendreceipt_{order_id}")]])
+        except Exception as _e:
+            logger.warning(f"channel_available для #{order_id}: {_e}")
+        if callback.message.photo:
+            await callback.message.edit_caption(caption=msg_text, parse_mode="HTML",
+                                                reply_markup=user_kb)
+        else:
+            await callback.message.edit_text(msg_text, parse_mode="HTML",
+                                             reply_markup=user_kb)
         await callback.answer("Отправлено на проверку")
     except Exception as e:
         logger.exception("Ошибка в inline_paid")
         await callback.answer("Ошибка при обновлении статуса", show_alert=True)
+
+@router.callback_query(F.data.startswith("sendreceipt_"))
+async def inline_send_receipt(callback: CallbackQuery, state: FSMContext):
+    """Клиент сам прикладывает чек — без запроса трейдера.
+
+    У Vertu вебхуков нет, запросить подтверждение он не может в принципе,
+    поэтому инициатива должна быть доступна клиенту в любой момент.
+    """
+    try:
+        order_id = int(callback.data.split("_")[1])
+        with db_conn(5) as conn:
+            row = conn.execute("SELECT user_id, status FROM orders WHERE order_id=?",
+                               (order_id,)).fetchone()
+        if not row:
+            await callback.answer("❌ Заявка не найдена", show_alert=True)
+            return
+        if row[0] != callback.from_user.id and not is_admin(callback.from_user.id):
+            await callback.answer("Это не ваша заявка", show_alert=True)
+            return
+        await state.set_state(Exchange.receipt_upload)
+        await state.update_data(order_id=order_id)
+        await callback.message.answer(
+            f"📄 <b>Чек по заявке #{order_id}</b>\n\n"
+            f"Отправьте сюда <b>PDF-чек</b> из банковского приложения об успешном "
+            f"переводе. Он уйдёт платёжному партнёру как доказательство оплаты.\n\n"
+            f"<blockquote>Именно PDF, а не скриншот — скриншоты партнёры не принимают.</blockquote>",
+            parse_mode="HTML")
+        await callback.answer()
+    except Exception:
+        logger.exception("Ошибка в inline_send_receipt")
+        await callback.answer("Ошибка. Напишите в поддержку.", show_alert=True)
+
 
 @router.callback_query(F.data.startswith("check_"))
 async def inline_check_payment(callback: CallbackQuery):
@@ -3246,14 +3300,11 @@ async def process_receipt_upload(message: Message, state: FSMContext):
 
 @router.message(Exchange.receipt_upload, F.document)
 async def process_montera_receipt_upload(message: Message, state: FSMContext):
-    """Принимает PDF-чек для подтверждения оплаты через Montera."""
+    """Принимает PDF-чек и отдаёт его провайдеру, через которого шла оплата."""
     data = await state.get_data()
     order_id = data.get("order_id")
-    receipt_url = data.get("montera_receipt_url")
-
-    # Если нет receipt_url — это не Montera, игнорируем документ
-    if not receipt_url:
-        await message.answer("⚠️ Для этого способа оплаты документ не требуется. Ожидайте подтверждения автоматически.")
+    if not order_id:
+        await message.answer("⚠️ Не удалось определить заявку. Напишите оператору: " + SUPPORT_BOT)
         return
 
     doc = message.document
@@ -3269,15 +3320,28 @@ async def process_montera_receipt_upload(message: Message, state: FSMContext):
 
         import sys
         sys.path.insert(0, '/root/relay')
-        from providers.montera import MonteraProvider
-        result = MonteraProvider().upload_receipt(receipt_url, file_bytes, doc.file_name or "receipt.pdf")
+        from core.receipts import send_receipt
+        result = send_receipt(order_id, file_bytes, doc.file_name or "receipt.pdf",
+                              "application/pdf")
+
+        if not result.get("ok") and result.get("reason") in ("unsupported", "unknown_provider", "no_session"):
+            # Канала у провайдера нет. Не врём «принято» — отдаём чек операторам,
+            # иначе клиент спокоен, а доказательство никуда не ушло.
+            await message.answer(
+                "📄 Чек получен. По этому способу оплаты подтверждение проверяет "
+                "оператор — он свяжется с вами в ближайшее время.")
+            try:
+                await bot.send_document(
+                    ADMIN_ID, doc.file_id,
+                    caption=f"🧾 Чек по заявке #{order_id} — у провайдера "
+                            f"<b>{result.get('provider') or '?'}</b> нет приёма чеков, "
+                            f"нужна ручная передача.", parse_mode="HTML")
+            except Exception as _e:
+                logger.error(f"Не удалось переслать чек админу: {_e}")
+            await state.clear()
+            return
 
         if result.get("ok"):
-            import datetime as _dt
-            with db_conn(5) as _c:
-                _c.execute("UPDATE orders SET receipt_sent_at=? WHERE order_id=?",
-                           (_dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"), order_id))
-                _c.commit()
             await message.answer(
                 "✅ Чек принят!\n\n"
                 "Проверка занимает несколько минут. Как только оплата будет подтверждена — "
@@ -3312,7 +3376,7 @@ async def process_montera_video_verification(message: Message, state: FSMContext
     data = await state.get_data()
     order_id = data.get("verify_order_id")
     montera_invoice_id = data.get("montera_invoice_id")
-    if not montera_invoice_id:
+    if not order_id:
         await message.answer(
             "⚠️ Не удалось найти заявку. Напишите оператору: " + SUPPORT_BOT
         )
@@ -3324,9 +3388,11 @@ async def process_montera_video_verification(message: Message, state: FSMContext
         file_bytes = file_bytes_io.read()
         import sys
         sys.path.insert(0, '/root/relay')
-        from providers.montera import MonteraProvider
+        from core.receipts import send_receipt
         filename = f"verification_{order_id}.mp4"
-        result = MonteraProvider().upload_additional_info(montera_invoice_id, file_bytes, filename, "video/mp4")
+        # Маршрутизация по провайдеру заявки, а не жёстко в Montera
+        result = send_receipt(order_id, file_bytes, filename, "video/mp4")
+        montera_invoice_id = montera_invoice_id or "—"
         if result.get("ok"):
             await message.answer(
                 "✅ Видео принято!\n\n"
@@ -3368,7 +3434,7 @@ async def process_montera_pdf_verification(message: Message, state: FSMContext):
     data = await state.get_data()
     order_id = data.get("verify_order_id")
     montera_invoice_id = data.get("montera_invoice_id")
-    if not montera_invoice_id:
+    if not order_id:
         await message.answer(
             "⚠️ Не удалось найти заявку. Напишите оператору: " + SUPPORT_BOT
         )
@@ -3386,9 +3452,11 @@ async def process_montera_pdf_verification(message: Message, state: FSMContext):
         file_bytes = file_bytes_io.read()
         import sys
         sys.path.insert(0, '/root/relay')
-        from providers.montera import MonteraProvider
+        from core.receipts import send_receipt
         filename = doc.file_name or f"verification_{order_id}.pdf"
-        result = MonteraProvider().upload_additional_info(montera_invoice_id, file_bytes, filename, "application/pdf")
+        # Маршрутизация по провайдеру заявки, а не жёстко в Montera
+        result = send_receipt(order_id, file_bytes, filename, "application/pdf")
+        montera_invoice_id = montera_invoice_id or "—"
         if result.get("ok"):
             await message.answer(
                 "✅ PDF-чек принят!\n\n"
