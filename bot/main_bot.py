@@ -447,16 +447,16 @@ async def montera_precheck(callback, amount, payment_method=None, order_id=None)
         return True
 
     slots = avail.get("slots") or []
-    mn = avail.get("min_available")
-    mx = avail.get("max_available")
     method_label = "СБП" if payment_method == "sbp" else "карте"
+    suggested = []
 
     if not slots:
-        # Вообще нет активных трейдеров
+        # Вообще нет активных трейдеров — подсказывать сумму бессмысленно
         detail = f"По {method_label} сейчас нет свободных реквизитов — трейдеры временно недоступны."
     else:
         # Трейдеры есть, но не под нашу сумму. Сырой список диапазонов заставлял
-        # клиента считать самому — и он уходил. Называем конкретную рабочую сумму.
+        # клиента считать самому — и он уходил. Называем конкретную рабочую сумму
+        # и даём кнопки: на этом шаге за 30 дней умерло 52 заявки (635 045 ₽).
         ranges_str = _montera_limits_text(avail)
         detail = (
             f"Ваша сумма <b>{int(amount):,} ₽</b> не входит ни в один доступный диапазон.\n"
@@ -466,14 +466,15 @@ async def montera_precheck(callback, amount, payment_method=None, order_id=None)
             import sys as _s
             if '/root/relay' not in _s.path:
                 _s.path.insert(0, '/root/relay')
-            from core.amount_suggest import suggest_text
+            from core.amount_suggest import suggest_text, suggest_amounts
             hint = suggest_text(slots, amount)
             if hint:
                 detail += f"\n\n💡 {hint}"
+            suggested = suggest_amounts(slots, amount)
         except Exception:
-            pass  # подсказка необязательна — не ломаем ответ клиенту
+            suggested = []  # подсказка необязательна — не ломаем ответ клиенту
 
-    await reply_no_requisites(callback, order_id, detail)
+    await reply_no_requisites(callback, order_id, detail, suggested_amounts=suggested)
     return False
 
 
@@ -570,20 +571,38 @@ async def build_payment_methods_kb(order_id: int, amount: float, user_id: int = 
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-async def reply_no_requisites(message_or_callback, order_id=None, detail: str = ""):
-    """Отправляет сообщение об ошибке выдачи реквизитов с контактом оператора."""
+async def reply_no_requisites(message_or_callback, order_id=None, detail: str = "",
+                              suggested_amounts=None):
+    """Сообщение о неудачной выдаче реквизитов.
+
+    suggested_amounts — суммы, которые пройдут прямо сейчас. Показываем кнопками:
+    заставлять клиента начинать обмен заново значило терять его (52 заявки за
+    30 дней умирали ровно здесь).
+    """
     order_part = f"(Заявка #{order_id}) " if order_id else ""
     extra = f"\n\n{detail}" if detail else ""
+    # Слоты провайдера бывают ниже нашего минимума (Montera отдаёт от ~1350 ₽,
+    # у нас MIN_AMOUNT=2000) — такая кнопка показалась бы и тут же отказала.
+    suggested = [int(a) for a in (suggested_amounts or [])
+                 if MIN_AMOUNT <= float(a) <= MAX_AMOUNT][:3]
+    tail = ("Выберите сумму ниже — пересчитаем заявку, адрес и способ оплаты "
+            "вводить заново не нужно.\n\n" if (suggested and order_id)
+            else "Попробуйте другой способ оплаты или немного позже.\n\n")
     text = (
         f"⚠️ {order_part}Автоматическая выдача реквизитов временно недоступна.{extra}\n\n"
-        f"Попробуйте другой способ оплаты или немного позже.\n\n"
+        f"{tail}"
         f"💬 <b>Обмен также можно провести через оператора</b> — напишите нам, "
         f"и мы обработаем вашу заявку вручную в течение нескольких минут:\n"
         f"👤 {SUPPORT_BOT}"
     )
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="💬 Написать оператору", url=f"https://t.me/{SUPPORT_BOT.lstrip('@')}")]
-    ])
+    rows = []
+    if suggested and order_id:
+        rows.append([InlineKeyboardButton(
+            text=f"💱 {a:,} ₽".replace(",", " "),
+            callback_data=f"retryamt_{order_id}_{a}") for a in suggested])
+    rows.append([InlineKeyboardButton(text="💬 Написать оператору",
+                                      url=f"https://t.me/{SUPPORT_BOT.lstrip('@')}")])
+    kb = InlineKeyboardMarkup(inline_keyboard=rows)
     target = message_or_callback.message if hasattr(message_or_callback, 'message') else message_or_callback
     await target.answer(text, reply_markup=kb, parse_mode="HTML")
 
@@ -4505,6 +4524,57 @@ async def cmd_conversion(message: Message):
         await message.answer("\n".join(lines), parse_mode="HTML")
     except Exception as e:
         await message.answer(f"Ошибка: {type(e).__name__}: {e}")
+
+
+@router.callback_query(F.data.startswith("retryamt_"))
+async def retry_with_amount(callback: CallbackQuery, state: FSMContext):
+    """Пересчитать ПЕНДИНГОВУЮ заявку на сумму, под которую есть трейдер.
+
+    Заявку НЕ создаём заново: клиент уже прошёл капчу и ввёл адрес, повторный
+    прогон FSM привёл бы к дублю. Меняем сумму у существующей заявки и заново
+    показываем выбор способа оплаты.
+    """
+    try:
+        _, oid_s, amt_s = callback.data.split("_", 2)
+        order_id, new_amount = int(oid_s), float(amt_s)
+    except (ValueError, IndexError):
+        await callback.answer("Некорректная кнопка", show_alert=True)
+        return
+
+    uid = callback.from_user.id
+    with db_conn(5) as conn:
+        row = conn.execute(
+            "SELECT user_id, status, currency, rub_amount FROM orders WHERE order_id=?",
+            (order_id,)).fetchone()
+    if not row:
+        await callback.answer("Заявка не найдена", show_alert=True); return
+    owner, status, currency, old_amount = row[0], row[1], row[2], row[3]
+    # Владение и статус: чужую или уже оплаченную заявку трогать нельзя.
+    if int(owner or 0) != int(uid) and not is_admin(uid):
+        await callback.answer("Это не ваша заявка", show_alert=True); return
+    if status != 'pending':
+        await callback.answer(f"Заявку нельзя изменить (статус: {status})", show_alert=True); return
+    if not (MIN_AMOUNT <= new_amount <= MAX_AMOUNT):
+        await callback.answer("Сумма вне допустимых пределов", show_alert=True); return
+
+    with db_conn(5) as conn:
+        conn.execute("UPDATE orders SET rub_amount=?, updated_at=datetime('now') "
+                     "WHERE order_id=? AND status='pending'", (new_amount, order_id))
+        conn.commit()
+    await state.update_data(amount=new_amount, order_id=order_id)
+    log_staff_action(uid, "order_amount_changed",
+                     f"order={order_id} {old_amount}→{new_amount}") if is_admin(uid) else None
+
+    rate = get_rate_with_markup(currency, new_amount)
+    crypto_amount = round(new_amount / rate, 8) if rate else 0
+    await callback.message.answer(
+        f"✅ <b>Заявка #{order_id} пересчитана</b>\n\n"
+        f"<blockquote>Сумма: <b>{new_amount:,.0f} ₽</b>\n"
+        f"Получите: <b>{crypto_amount} {currency}</b></blockquote>\n\n"
+        f"Выберите способ оплаты:".replace(",", " "),
+        parse_mode="HTML",
+        reply_markup=await build_payment_methods_kb(order_id, new_amount, uid))
+    await callback.answer("Сумма изменена")
 
 
 @router.message(Command("reconcile"))
