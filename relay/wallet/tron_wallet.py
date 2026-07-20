@@ -68,14 +68,21 @@ def _now() -> str:
 
 
 def _atomic_write(path: Path, text: str, secret: bool = False) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
+    # Каталог кошелька — только владельцу (0700). mkdir по умолчанию даёт 0755:
+    # сам ключ лежит под 600, но каталог не должен даже перечисляться посторонними.
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    try:
+        os.chmod(path.parent, 0o700)  # если каталог уже был создан с 0755
+    except Exception:
+        pass
     tmp = path.with_suffix(path.suffix + ".tmp")
     tmp.write_text(text, encoding="utf-8")
-    if secret:
-        try:
-            os.chmod(tmp, stat.S_IRUSR | stat.S_IWUSR)  # 600
-        except Exception:
-            pass
+    # 600 ставим ВСЕМУ, что пишет кошелёк: даже мета-файл выдаёт адрес и пути,
+    # а это подсказка для того, кто уже оказался на машине.
+    try:
+        os.chmod(tmp, stat.S_IRUSR | stat.S_IWUSR)  # 600
+    except Exception:
+        pass
     os.replace(tmp, path)
 
 
@@ -232,12 +239,27 @@ def tron_balance() -> Dict[str, Any]:
             activated = False
         tokens = []
         for symbol, cfg in TRC20_TOKENS.items():
-            try:
-                contract = client.get_contract(cfg["contract"])
-                raw = int(contract.functions.balanceOf(address))
-                tokens.append({"symbol": symbol, "contract": cfg["contract"], "balance": raw / (10 ** int(cfg["decimals"])), "raw": str(raw), "decimals": int(cfg["decimals"])})
-            except Exception as exc:
-                tokens.append({"symbol": symbol, "contract": cfg["contract"], "status": "ERROR", "error": f"{type(exc).__name__}"[:160]})
+            # Публичный TronGrid режет по лимиту: живой замер дал 2 отказа из 5.
+            # Без ретраев «сбой чтения» выглядит как «на балансе ноль» — а это
+            # ровно та ошибка, из-за которой можно ошибочно решить, что средств нет.
+            last_exc = None
+            for attempt in range(3):
+                try:
+                    contract = client.get_contract(cfg["contract"])
+                    raw = int(contract.functions.balanceOf(address))
+                    tokens.append({"symbol": symbol, "contract": cfg["contract"],
+                                   "balance": raw / (10 ** int(cfg["decimals"])),
+                                   "raw": str(raw), "decimals": int(cfg["decimals"])})
+                    break
+                except Exception as exc:
+                    last_exc = exc
+                    if attempt < 2:
+                        time.sleep(0.7 * (attempt + 1))
+            else:
+                # Ни одна попытка не удалась — честно говорим ERROR, а НЕ balance=0.
+                tokens.append({"symbol": symbol, "contract": cfg["contract"],
+                               "status": "ERROR",
+                               "error": f"{type(last_exc).__name__}"[:160]})
         return {"status": "OK" if activated else "UNFUNDED", "address": address, "balanceTrx": trx, "activated": activated, "tokens": tokens, "rpc": rpc}
     except Exception as exc:
         return {"status": "WAIT", "address": address, "balanceTrx": 0.0, "tokens": [], "reason": f"{type(exc).__name__}"[:240]}
