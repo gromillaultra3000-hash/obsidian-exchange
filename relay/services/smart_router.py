@@ -204,6 +204,13 @@ def classify_error(error: Optional[str]) -> Tuple[str, str]:
     short = str(error)[:200]
     if "мерчант заблокирован" in low or ("merchant" in low and "block" in low):
         return "BLOCKED", "Мерчант заблокирован на стороне провайдера — писать в их поддержку"
+    # Vertu: недокументированный ActiveError. Проверено живьём 21.07.2026 —
+    # приходит даже на заведомо несуществующий type_pay, то есть срабатывает
+    # ДО подбора трейдера и до валидации метода. Это гейт уровня аккаунта,
+    # а не «нет реквизитов»: код не лечит, нужна их поддержка.
+    if "activeerror" in low:
+        return "BLOCKED", ("Мерчант неактивен на стороне Vertu (ActiveError) — "
+                           "код не поможет, писать в их поддержку")
     if any(m in low for m in ("unauthorized", "api key", "apikey", "auth", "подпис",
                               "401", "403", "invalid token", "credentials")):
         return "AUTH_ERROR", short
