@@ -74,6 +74,7 @@ async def lifespan(app):
     asyncio.create_task(cleanup_expired_orders())
     asyncio.create_task(health_check_task())
     asyncio.create_task(conversion_watch_task())
+    asyncio.create_task(dispute_watch_task())
     asyncio.create_task(payout_shadow_task())
     asyncio.create_task(vertu_poll_task())
     logger.info("Background tasks started: cleanup + health_check + vertu_poll")
@@ -2801,6 +2802,33 @@ async def payout_shadow_task():
         except Exception as e:
             logger.error(f"[payout_shadow] Error: {e}")
         await asyncio.sleep(1200)
+
+
+async def dispute_watch_task():
+    """Каждые 5 мин: открывает спор по оплате, которую провайдер не подтвердил.
+
+    Клиент прислал чек, деньги ушли, а сделка не подтверждается — раньше такая
+    заявка просто истекала. Теперь по ней автоматически открывается апелляция с
+    этим же чеком (документированный путь, см. core/dispute_watch).
+    Каждое действие уходит персоналу: автомат работает на виду, а не молча.
+    """
+    import httpx
+    await asyncio.sleep(180)   # дать сервису прогреться
+    while True:
+        try:
+            from core.dispute_watch import run_once, format_report
+            results = await asyncio.get_event_loop().run_in_executor(None, run_once)
+            msg = format_report(results)
+            if msg and BOT_TOKEN:
+                async with httpx.AsyncClient(timeout=15) as client:
+                    for _aid in ADMIN_IDS:
+                        await client.post(
+                            f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
+                            json={"chat_id": _aid, "text": msg, "parse_mode": "HTML"})
+                logger.warning("[dispute_watch] обработано заявок: %s", len(results))
+        except Exception as e:
+            logger.error(f"[dispute_watch] Error: {e}")
+        await asyncio.sleep(300)
 
 
 async def conversion_watch_task():

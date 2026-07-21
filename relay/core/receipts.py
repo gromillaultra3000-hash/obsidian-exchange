@@ -199,6 +199,10 @@ def send_receipt(order_id, file_bytes: bytes, filename: str = "receipt.pdf",
     reason='unsupported' — у провайдера нет приёма чеков: чек нужно передать
     оператору руками, и клиенту нельзя говорить «принято».
     """
+    # Сохраняем ДО отправки: файл нужен для спора независимо от того,
+    # примет ли его API провайдера прямо сейчас
+    store_receipt(order_id, file_bytes, filename, content_type)
+
     sess = find_session(order_id)
     if not sess:
         return {"ok": False, "provider": None, "reason": "no_session",
@@ -230,6 +234,56 @@ def send_receipt(order_id, file_bytes: bytes, filename: str = "receipt.pdf",
         _mark_sent(order_id)
     return {"ok": ok, "provider": provider, "reason": None if ok else "rejected",
             "error": None if ok else res.get("error"), "raw": res.get("raw")}
+
+
+RECEIPT_DIR = os.getenv("RECEIPT_DIR", "/root/receipts")
+
+
+def store_receipt(order_id, file_bytes: bytes, filename: str, content_type: str) -> str | None:
+    """Кладёт чек на диск, чтобы позже приложить его к спору.
+
+    Без этого спор автоматом не открыть: файл жил только в памяти обработчика
+    бота и в Telegram, а к моменту, когда становится ясно, что оплату не
+    подтвердили, повторно просить его у клиента поздно и унизительно.
+    """
+    try:
+        from pathlib import Path
+        d = Path(RECEIPT_DIR)
+        d.mkdir(parents=True, exist_ok=True)
+        os.chmod(d, 0o700)          # чеки — персональные данные клиента
+        ext = ".pdf" if content_type == PDF else (
+            ".mp4" if "video" in content_type else ".jpg")
+        p = d / f"{order_id}{ext}"
+        p.write_bytes(file_bytes)
+        os.chmod(p, 0o600)
+        with _db() as conn:
+            conn.execute("""CREATE TABLE IF NOT EXISTS order_receipts (
+                order_id INTEGER PRIMARY KEY, path TEXT, filename TEXT,
+                content_type TEXT, created_at TEXT DEFAULT (datetime('now')),
+                dispute_opened_at TEXT)""")
+            conn.execute("INSERT OR REPLACE INTO order_receipts "
+                         "(order_id, path, filename, content_type) VALUES (?,?,?,?)",
+                         (order_id, str(p), filename, content_type))
+            conn.commit()
+        return str(p)
+    except Exception as e:
+        logger.warning("receipts: сохранение чека order=%s: %s", order_id, e)
+        return None
+
+
+def load_receipt(order_id):
+    """Возвращает (bytes, filename, content_type) сохранённого чека или None."""
+    try:
+        with _db() as conn:
+            row = conn.execute("SELECT path, filename, content_type FROM order_receipts "
+                               "WHERE order_id=?", (order_id,)).fetchone()
+        if not row:
+            return None
+        with open(row["path"], "rb") as f:
+            return f.read(), row["filename"], row["content_type"]
+    except Exception as e:
+        logger.warning("receipts: чтение чека order=%s: %s", order_id, e)
+        return None
 
 
 def _mark_sent(order_id):
