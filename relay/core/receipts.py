@@ -208,6 +208,20 @@ def open_dispute(order_id, file_bytes: bytes, filename: str = "receipt.pdf",
             "error": res.get("error"), "raw": res.get("raw")}
 
 
+# Провайдеры, которым чек отдаём ТОЛЬКО в PDF. Строже, чем требуют их API
+# (Vertu — действительно только PDF; XPay формально берёт и JPEG/PNG, Montera —
+# ещё и фото/видео), но это осознанное правило: PDF — единственный формат,
+# который трейдер принимает без спора. 22.07.2026 два чека-фото не дошли ни до
+# Vertu, ни до XPay, клиент остался без подтверждения (99955079, 99955082).
+PDF_REQUIRED = {"montera", "vertu", "xpay"}
+
+
+def requires_pdf(order_id) -> bool:
+    """Нужен ли по этой заявке именно PDF (а фото — бесполезно)."""
+    sess = find_session(order_id)
+    return bool(sess and sess["provider"] in PDF_REQUIRED)
+
+
 def channel_available(order_id) -> bool:
     sess = find_session(order_id)
     return bool(sess and sess["provider"] in _ROUTES and sess["invoice_id"])

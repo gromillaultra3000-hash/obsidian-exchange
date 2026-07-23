@@ -2318,7 +2318,10 @@ async def inline_send_receipt(callback: CallbackQuery, state: FSMContext):
             f"📄 <b>Чек по заявке #{order_id}</b>\n\n"
             f"Отправьте сюда <b>PDF-чек</b> из банковского приложения об успешном "
             f"переводе. Он уйдёт платёжному партнёру как доказательство оплаты.\n\n"
-            f"<blockquote>Именно PDF, а не скриншот — скриншоты партнёры не принимают.</blockquote>",
+            f"<blockquote><b>Обязательно PDF.</b> Фото и скриншоты партнёр не "
+            f"принимает — подтвердить оплату ими нельзя.\n\n"
+            f"Где взять: банковское приложение → эта операция → «Чек» / "
+            f"«Квитанция» → <b>Сохранить в PDF</b>.</blockquote>",
             parse_mode="HTML")
         await callback.answer()
     except Exception:
@@ -3300,10 +3303,34 @@ async def process_receipt_upload(message: Message, state: FSMContext):
         file_bytes = await bot.download_file(file.file_path)
         import sys
         sys.path.insert(0, '/root/relay')
-        from core.receipts import send_receipt
+        from core.receipts import send_receipt, requires_pdf, store_receipt
+        raw_photo = file_bytes.read()
+
+        # Montera/XPay/Vertu принимают как доказательство только PDF. Раньше мы
+        # всё равно дёргали API и возвращали клиенту сырую ошибку партнёра —
+        # человек не понимал, что от него хотят, и присылал скриншот снова.
+        if requires_pdf(order_id):
+            store_receipt(order_id, raw_photo, "receipt.jpg", "image/jpeg")
+            await notify_staff_file(
+                photo.file_id,
+                f"🧾 <b>Фото вместо PDF — заявка #{order_id}</b>\n"
+                f"⚠️ Партнёру не отправлено, клиента попросили прислать PDF",
+                kind="photo")
+            await message.answer(
+                "📄 <b>Нужен именно PDF-чек</b>\n\n"
+                "Фото и скриншоты платёжный партнёр не принимает — подтвердить "
+                "оплату ими нельзя.\n\n"
+                "<blockquote>В банковском приложении откройте эту операцию → "
+                "«Чек» / «Квитанция» → <b>Сохранить в PDF</b> → пришлите файл "
+                "сюда.</blockquote>\n\n"
+                "Фото мы сохранили — оператор его увидит.",
+                parse_mode="HTML")
+            await state.clear()
+            return
+
         # Маршрут по провайдеру сессии; для Brabus ключ подбирается по инвойсу
         # (варианты живут на разных ключах — жёсткий 'with_receipt' терял файл)
-        result = send_receipt(order_id, file_bytes.read(), "receipt.jpg", "image/jpeg")
+        result = send_receipt(order_id, raw_photo, "receipt.jpg", "image/jpeg")
         await notify_staff_file(
             photo.file_id,
             f"🧾 <b>Чек (фото) — заявка #{order_id}</b>\n"
