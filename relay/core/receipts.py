@@ -84,7 +84,13 @@ def _montera(sess, file_bytes, filename, content_type):
 def _vertu(sess, file_bytes, filename, content_type):
     from providers.vertu import VertuProvider
     if content_type != PDF:
-        return {"ok": False, "error": "Vertu принимает только PDF-чек"}
+        # Текст уходит клиенту как есть — он должен понять, что делать дальше.
+        # Прежнее «Vertu принимает только PDF-чек» звучало как отказ системы,
+        # клиент не догадывался переслать PDF (22.07, order 99955079).
+        return {"ok": False,
+                "error": "Нужен PDF-чек из банковского приложения — фото и "
+                         "скриншоты платёжный партнёр не принимает. "
+                         "Откройте операцию в банке → «Сохранить чек в PDF»."}
     # platform_id (0084-…), а не наш deal_id — именно он ключ сделки у Vertu
     pid = (sess["raw"] or {}).get("platform_id") or sess["invoice_id"]
     return VertuProvider().upload_receipt(pid, file_bytes, filename)
@@ -105,8 +111,24 @@ def _stormtrade(sess, file_bytes, filename, content_type):
         sess["invoice_id"], file_bytes, filename)
 
 
+# У XPay приём чека привязан к методу оплаты, а не к ордеру: по доке
+# /merchant/receipt/upload обслуживает ТОЛЬКО card_pdf и sbp_pdf. Для прочих
+# методов (у нас это tbank/sber/… — ссылочные трансграничные рельсы) эндпоинт
+# отвечает «Only PDF, JPEG or PNG files are allowed» — сообщение уводит в
+# сторону файла, хотя дело в методе (22.07, order 99955082: файл был корректным
+# JPEG). Не дёргаем впустую и сразу говорим правду оператору.
+_XPAY_RECEIPT_METHODS = {"card_pdf", "sbp_pdf"}
+
+
 def _xpay(sess, file_bytes, filename, content_type):
     from providers.xpayconnect import XPayConnectProvider
+    method = ((sess["raw"] or {}).get("payment_details") or {}).get("type") or ""
+    method = str(method).lower()
+    if method and method not in _XPAY_RECEIPT_METHODS:
+        return {"ok": False,
+                "error": f"XPay принимает чеки только по методам card_pdf/sbp_pdf, "
+                         f"а заявка создана методом «{method}» — чек нужно "
+                         f"передать оператору вручную"}
     # XPay принимает как свой internal_id, так и наш external_id
     return XPayConnectProvider().upload_receipt(sess["invoice_id"], file_bytes, filename)
 
