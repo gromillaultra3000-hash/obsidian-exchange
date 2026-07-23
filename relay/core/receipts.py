@@ -71,14 +71,26 @@ def find_session(order_id) -> dict | None:
 # ── каналы провайдеров ────────────────────────────────────────────────────────
 
 def _montera(sess, file_bytes, filename, content_type):
-    from providers.montera import MonteraProvider
-    p = MonteraProvider()
-    # Видео и повторное доказательство идут через additional-info; первичный
-    # PDF-чек — на одноразовый receipt_upload_url, если Montera его выдала.
-    url = (sess["raw"] or {}).get("receipt_upload_url")
+    """У Montera рабочего API-канала приёма чека НЕТ (проверено 23.07.2026).
+
+    Маршрут /h2h/order/{id}/additional-info отвечает 404 «route could not be
+    found» — и на обычных заявках, и на тех, где трейдер сам запрашивал
+    верификацию. Это ошибка роутинга, а не состояния сделки. Второй путь
+    (receipt_upload_url) не работал никогда: такого поля у Montera нет, мы
+    читали несуществующий ключ и всегда получали None.
+
+    Пока Montera не даст верный эндпоинт, честный исход — отдать чек оператору,
+    а не делать вид, что доказательство ушло партнёру.
+    """
+    url = (sess["raw"] or {}).get("client_receipt_url") \
+        or (sess["raw"] or {}).get("receipt_upload_url")
     if content_type == PDF and url:
-        return p.upload_receipt(url, file_bytes, filename)
-    return p.upload_additional_info(sess["invoice_id"], file_bytes, filename, content_type)
+        # Ссылка появляется, только если Montera сама её выдала — пробуем.
+        from providers.montera import MonteraProvider
+        return MonteraProvider().upload_receipt(url, file_bytes, filename)
+    return {"ok": False, "reason": "unsupported",
+            "error": "Montera не принимает чеки через API — файл сохранён, "
+                     "оператору нужно приложить его в кабинете Montera"}
 
 
 def _vertu(sess, file_bytes, filename, content_type):
@@ -125,7 +137,7 @@ def _xpay(sess, file_bytes, filename, content_type):
     method = ((sess["raw"] or {}).get("payment_details") or {}).get("type") or ""
     method = str(method).lower()
     if method and method not in _XPAY_RECEIPT_METHODS:
-        return {"ok": False,
+        return {"ok": False, "reason": "unsupported",
                 "error": f"XPay принимает чеки только по методам card_pdf/sbp_pdf, "
                          f"а заявка создана методом «{method}» — чек нужно "
                          f"передать оператору вручную"}
@@ -268,7 +280,11 @@ def send_receipt(order_id, file_bytes: bytes, filename: str = "receipt.pdf",
                 "" if ok else res.get("error", ""))
     if ok:
         _mark_sent(order_id)
-    return {"ok": ok, "provider": provider, "reason": None if ok else "rejected",
+    # Обработчик может сам объяснить характер отказа: 'unsupported' значит
+    # «канала нет», и бот тогда мягко переводит клиента на оператора вместо
+    # показа технической ошибки партнёра.
+    return {"ok": ok, "provider": provider,
+            "reason": None if ok else (res.get("reason") or "rejected"),
             "error": None if ok else res.get("error"), "raw": res.get("raw")}
 
 

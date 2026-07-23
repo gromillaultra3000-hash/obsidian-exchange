@@ -119,6 +119,13 @@ class MonteraProvider(PaymentProvider):
 
             raw = dict(inner)
             raw["requisites"] = requisites
+            # Montera НЕ отдаёт поля receipt_upload_url — его в API нет вовсе
+            # (проверено по 120 живым вебхукам 23.07.2026). Настоящее имя —
+            # client_receipt_url: страница чека клиента на стороне Montera
+            # (https://montera.one/orders/<n>/receipt), появляется после того,
+            # как клиент приложил чек у них. Читали несуществующий ключ, поэтому
+            # значение всегда было None и PDF-путь не включался ни разу.
+            raw["client_receipt_url"] = inner.get("client_receipt_url")
             raw["receipt_upload_url"] = inner.get("receipt_upload_url")
             return {
                 "invoice_id": inner.get("order_id"),
