@@ -22,6 +22,8 @@ import os
 import sqlite3
 import sys
 
+import requests
+
 if "/root/relay" not in sys.path:
     sys.path.insert(0, "/root/relay")
 
@@ -93,6 +95,39 @@ def _montera(sess, file_bytes, filename, content_type):
                      "оператору нужно приложить его в кабинете Montera"}
 
 
+# Группа споров Vertu: их бот принимает PDF-чек и привязывает его к сделке по ID
+# в подписи. У Vertu НЕТ API-канала спора, а штатный /v1/wt_receipts/ иногда
+# принимает чек, но не проталкивает трейдеру (external_sync_success=false) —
+# группа это подстраховывает, поэтому дублируем в неё каждый PDF-чек Vertu.
+VERTU_DISPUTE_CHAT_ID = os.getenv("VERTU_DISPUTE_CHAT_ID", "-5527649225")
+
+
+def _send_to_vertu_dispute_chat(pid, deal_id, file_bytes, filename) -> dict:
+    """Шлёт PDF-чек в Telegram-группу споров Vertu нашим @Obsidian666999bot."""
+    token = os.getenv("BOT_TOKEN", "")
+    if not token:
+        return {"ok": False, "error": "BOT_TOKEN не задан — дубль в группу споров невозможен"}
+    caption = f"🧾 Чек оплаты Vertu\nСделка: {pid}"
+    if deal_id and deal_id != pid:
+        caption += f"\ndeal_id: {deal_id}"
+    try:
+        r = requests.post(
+            f"https://api.telegram.org/bot{token}/sendDocument",
+            data={"chat_id": VERTU_DISPUTE_CHAT_ID, "caption": caption},
+            files={"document": (filename, file_bytes, PDF)},
+            timeout=30,
+        )
+        ok = r.status_code == 200 and (r.json() or {}).get("ok")
+        if not ok:
+            logger.warning("receipts: чек не ушёл в группу споров Vertu: %s %s",
+                           r.status_code, r.text[:200])
+        return {"ok": bool(ok),
+                "error": None if ok else f"TG {r.status_code}: {r.text[:150]}"}
+    except Exception as e:
+        logger.warning("receipts: отправка в группу споров Vertu: %s", e)
+        return {"ok": False, "error": str(e)}
+
+
 def _vertu(sess, file_bytes, filename, content_type):
     from providers.vertu import VertuProvider
     if content_type != PDF:
@@ -103,9 +138,22 @@ def _vertu(sess, file_bytes, filename, content_type):
                 "error": "Нужен PDF-чек из банковского приложения — фото и "
                          "скриншоты платёжный партнёр не принимает. "
                          "Откройте операцию в банке → «Сохранить чек в PDF»."}
+    raw = sess["raw"] or {}
     # platform_id (0084-…), а не наш deal_id — именно он ключ сделки у Vertu
-    pid = (sess["raw"] or {}).get("platform_id") or sess["invoice_id"]
-    return VertuProvider().upload_receipt(pid, file_bytes, filename)
+    pid = raw.get("platform_id") or sess["invoice_id"]
+    deal_id = raw.get("deal_id")
+    # 1. Штатный API-канал.
+    api_res = VertuProvider().upload_receipt(pid, file_bytes, filename) or {}
+    # 2. Всегда дублируем в группу споров Vertu.
+    chat_res = _send_to_vertu_dispute_chat(pid, deal_id, file_bytes, filename)
+    # Успех — если чек достиг стороны Vertu ЛЮБЫМ путём: API протолкнул трейдеру
+    # ИЛИ файл лёг в их группу споров. Иначе — честный отказ, без «принято».
+    if api_res.get("ok") or chat_res.get("ok"):
+        return {"ok": True, "raw": {"api": api_res, "chat": chat_res}}
+    return {"ok": False,
+            "error": api_res.get("error") or chat_res.get("error")
+                     or "Vertu: чек не доставлен ни по API, ни в группу споров",
+            "raw": {"api": api_res, "chat": chat_res}}
 
 
 def _brabus(sess, file_bytes, filename, content_type):
