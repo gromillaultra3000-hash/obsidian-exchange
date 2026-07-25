@@ -4934,6 +4934,32 @@ async def cmd_wallet(message: Message):
         f"</blockquote>\n\n"
         f"Отправка/разлочка — только на сервере: <code>python3 /root/relay/wallet/cli.py</code>",
         parse_mode="HTML")
+    # BTC/LTC (secure-контур) — отдельным сообщением, read-only
+    try:
+        from wallet import btc_wallet as _bw
+    except Exception:
+        return
+    lines = []
+    for coin in ("BTC", "LTC"):
+        cst = _bw.status(coin)
+        if not cst.get("configured"):
+            lines.append(f"• <b>{coin}</b>: secure-вольт не создан — "
+                         f"<code>python3 /root/relay/wallet/btc_cli.py import {coin.lower()}</code>")
+            continue
+        try:
+            cb = await asyncio.to_thread(_bw.balance, coin)
+        except Exception as e:
+            cb = {"status": "WAIT", "reason": type(e).__name__}
+        lk = "🔓" if cst.get("unlocked") else "🔒"
+        amt = cb.get("balance")
+        amt_s = f"{amt:.8f}".rstrip("0").rstrip(".") if isinstance(amt, (int, float)) else "—"
+        lines.append(
+            f"• <b>{coin}</b> {lk} <code>{cst.get('primaryAddress','')}</code>\n"
+            f"  баланс: <b>{amt_s}</b> ({cb.get('status','?')}, адр.: {cst.get('addresses',0)})")
+    await message.answer(
+        "👛 <b>Горячий кошелёк BTC/LTC</b> (secure-контур)\n\n" + "\n".join(lines) +
+        "\n\nОтправка — только на сервере: <code>python3 /root/relay/wallet/btc_cli.py transfer btc &lt;адрес&gt; &lt;сумма&gt;</code>",
+        parse_mode="HTML")
 
 
 @router.message(Command("freeze_payouts"))
