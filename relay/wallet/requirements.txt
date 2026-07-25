@@ -1,0 +1,9 @@
+# Зависимости secure-контура кошельков ObsidianExchange.
+# Ставить в bot/venv (там исполняется send_crypto бота):
+#   /root/bot/venv/bin/pip install -r relay/wallet/requirements.txt
+#
+# BTC/LTC — bitcoinlib (уже установлен).
+# EVM (ETH + ERC-20 USDT):
+eth-account>=0.13,<1
+requests>=2.31
+# cryptography — уже есть (шифр-вольт AES-GCM/PBKDF2).
