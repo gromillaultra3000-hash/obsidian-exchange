@@ -118,6 +118,25 @@ def main():
             idem = _h.sha256(f"{coin}|{to}|{amount}|{int(_t.time()//600)}".encode()).hexdigest()[:32]
             print(json.dumps(w.send(coin, to, amount, prev["previewId"], idempotency_key=idem),
                              ensure_ascii=False, indent=2))
+        elif cmd == "harden":
+            coin = _coin(sys.argv)
+            print(f"ФАЗА 3 для {coin}: убрать приватный ключ из bitcoinlib.sqlite\n"
+                  f"(легаси-кошелёк → watch-only). Единственная копия сида останется\n"
+                  f"в шифр-вольте. ПЕРЕД этим убедись: (1) пароль РОТИРОВАН после утечки,\n"
+                  f"(2) шифр-бэкап скопирован ВНЕ сервера.\n"
+                  f"Проверки идут ДО удаления — при несходстве легаси не тронут.")
+            if input("Продолжить? Введите ДА: ").strip().upper() not in ("ДА", "YES"):
+                print("Отменено."); return 1
+            pw = _pw("Пароль вольта (для проверки перед удалением): ")
+            res = w.to_watch_only(coin, pw)
+            print(json.dumps(res, ensure_ascii=False, indent=2))
+            if res.get("watchOnly") and not res.get("privateKeyPresent") and res.get("addressesMatch"):
+                print("\n✅ Готово: приватный ключ удалён из bitcoinlib.sqlite, адреса сходятся,\n"
+                      "   баланс читается (watch-only). Отправка идёт через вольт.")
+            elif res.get("alreadyWatchOnly"):
+                print("\nℹ️ Уже watch-only — приватного ключа в bitcoinlib.sqlite нет.")
+            else:
+                print("\n⚠️ Проверь вывод: что-то не сошлось.")
         elif cmd == "backup":
             coin = _coin(sys.argv)
             bp = w._backup_path(coin)

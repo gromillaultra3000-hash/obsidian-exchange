@@ -265,6 +265,59 @@ def import_wallet(coin: str, master_xprv: str, password: str, *, overwrite: bool
         return _persist_vault(coin, zprv, password, addrs[0] if addrs else "", addrs, imported=True)
 
 
+def to_watch_only(coin: str, password: str) -> Dict[str, Any]:
+    """Фаза 3: убирает ПРИВАТНЫЙ ключ из легаси bitcoinlib-кошелька.
+
+    Легаси HD-кошелёк (PayoutWallet/PayoutLTC) пересоздаётся как WATCH-ONLY из
+    account-xpub: баланс/адреса читаются как раньше, но приватного ключа на диске
+    (bitcoinlib.sqlite) больше нет — единственная копия сида остаётся в шифр-вольте.
+
+    Максимально оборонительно: НЕ удаляем легаси, пока не доказано, что вольт И его
+    бэкап расшифровываются паролем в ТОТ ЖЕ сид, а его xpub совпадает с легаси. Если
+    любая проверка не сходится — аборт без изменений.
+    """
+    from bitcoinlib.wallets import Wallet, wallet_delete_if_exists  # type: ignore
+    cfg = _coin(coin)
+    coin = coin.upper()
+    with _LOCK:
+        # 1. вольт расшифровывается паролем → сид
+        if not _vault_path(coin).exists():
+            raise FileNotFoundError(f"{coin.lower()}_vault_not_found")
+        zprv = _decrypt_secret(json.loads(_vault_path(coin).read_text("utf-8")), password, cfg["aad"])
+        # 2. бэкап расшифровывается тем же паролем в ТОТ ЖЕ сид
+        if not _backup_path(coin).exists():
+            raise FileNotFoundError(f"{coin.lower()}_backup_not_found")
+        zprv_bak = _decrypt_secret(json.loads(_backup_path(coin).read_text("utf-8")), password, cfg["aad"])
+        if zprv_bak != zprv:
+            raise ValueError("vault_backup_mismatch — аборт, легаси не тронут")
+        # 3. xpub из сида вольта == xpub легаси-кошелька (тот же кошелёк)
+        w, cleanup = _ephemeral_wallet(coin, zprv)
+        try:
+            xpub_vault = str(w.public_master().wif)
+        finally:
+            cleanup()
+        legacy = Wallet(cfg["legacy"])
+        xpub_legacy = str(legacy.public_master().wif)
+        if xpub_vault != xpub_legacy:
+            raise ValueError("vault_xpub_mismatch_legacy — аборт, легаси не тронут")
+        already_watch = not bool(getattr(legacy.main_key, "key_private", None))
+        if already_watch:
+            return {"ok": True, "coin": coin, "alreadyWatchOnly": True, "xpub": xpub_legacy[:16] + "…"}
+        legacy_addrs = legacy.addresslist()
+        # 4. всё сошлось — пересоздаём как watch-only из xpub
+        wallet_delete_if_exists(cfg["legacy"], force=True)
+        wo = Wallet.create(cfg["legacy"], keys=xpub_legacy, network=cfg["network"],
+                           witness_type="segwit", purpose=84)
+        # догоняем то же число ключей и сверяем адреса
+        for _ in range(max(0, len(legacy_addrs) - len(wo.addresslist()))):
+            wo.new_key()
+        has_priv = bool(getattr(wo.main_key, "key_private", None))
+        addrs_ok = wo.addresslist()[:len(legacy_addrs)] == legacy_addrs
+        return {"ok": True, "coin": coin, "watchOnly": True,
+                "privateKeyPresent": has_priv, "addressesMatch": addrs_ok,
+                "addresses": len(wo.addresslist())}
+
+
 def _persist_vault(coin: str, zprv: str, password: str, primary: str, addrs: list,
                    *, imported: bool) -> Dict[str, Any]:
     """Шифрует мастер-ключ в вольт + бэкап, проверяет восстановимость, пишет мету."""
