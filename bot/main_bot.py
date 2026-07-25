@@ -883,42 +883,49 @@ def get_commission_percent(amount_rub, user_id: int = None):
         if promo:
             base = max(1, base - promo[1])
     return base
+# Источники курса по монете. Новая монета = одна строка здесь.
+#   cg      — id на coingecko (vs_currencies=rub);
+#   binance — символ к USDT (умножаем на USDTRUB); None = сам котируется в RUB (USDT);
+#   fallback— аварийная цена в RUB, если оба источника недоступны.
+# USDT любой сети (TRC20/ERC20) котируется одинаково — это тот же tether.
+_COIN_SOURCES = {
+    "BTC": {"cg": "bitcoin",  "binance": "BTCUSDT", "fallback": 6500000},
+    "LTC": {"cg": "litecoin", "binance": "LTCUSDT", "fallback": 4000},
+    "USDT": {"cg": "tether",  "binance": None,      "fallback": 85},
+    "ETH": {"cg": "ethereum", "binance": "ETHUSDT", "fallback": 250000},
+}
+_RATE_CACHE = {}  # module-level, живёт между вызовами: {coin: {"rate", "ts"}}
+
+
+def _rate_coin_key(coin):
+    """Нормализуем код к базовой монете для курса (USDT-ERC20/USDT-TRC20 → USDT)."""
+    c = str(coin).upper()
+    return "USDT" if c.startswith("USDT") else c
+
+
 def get_cached_rate(coin):
     import time, requests
-    _btc_cache = {"rate": 0, "ts": 0}
-    _ltc_cache = {"rate": 0, "ts": 0}
-    _usdt_cache = {"rate": 0, "ts": 0}
-    cache = _btc_cache if coin == "BTC" else (_ltc_cache if coin == "LTC" else _usdt_cache)
+    key = _rate_coin_key(coin)
+    src = _COIN_SOURCES.get(key, _COIN_SOURCES["USDT"])
+    cache = _RATE_CACHE.setdefault(key, {"rate": 0, "ts": 0})
     now = time.time()
     if cache["rate"] and (now - cache["ts"]) < 600:
         return cache["rate"]
-    try:
-        if coin == "BTC":
-            r = requests.get("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=rub", timeout=8)
-            rate = r.json()["bitcoin"]["rub"]
-        elif coin == "LTC":
-            r = requests.get("https://api.coingecko.com/api/v3/simple/price?ids=litecoin&vs_currencies=rub", timeout=8)
-            rate = r.json()["litecoin"]["rub"]
-        else:
-            r = requests.get("https://api.coingecko.com/api/v3/simple/price?ids=tether&vs_currencies=rub", timeout=8)
-            rate = r.json()["tether"]["rub"]
-    except:
-        try:
-            if coin == "BTC":
-                r1 = requests.get("https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT")
-                r2 = requests.get("https://api.binance.com/api/v3/ticker/price?symbol=USDTRUB")
-                rate = float(r1.json()["price"]) * float(r2.json()["price"])
-            elif coin == "LTC":
-                r1 = requests.get("https://api.binance.com/api/v3/ticker/price?symbol=LTCUSDT")
+    rate = None
+    try:  # coingecko → RUB напрямую
+        r = requests.get(f"https://api.coingecko.com/api/v3/simple/price?ids={src['cg']}&vs_currencies=rub", timeout=8)
+        rate = r.json()[src["cg"]]["rub"]
+    except Exception:
+        try:  # binance: <COIN>USDT × USDTRUB (для USDT — просто USDTRUB)
+            if src["binance"]:
+                r1 = requests.get(f"https://api.binance.com/api/v3/ticker/price?symbol={src['binance']}")
                 r2 = requests.get("https://api.binance.com/api/v3/ticker/price?symbol=USDTRUB")
                 rate = float(r1.json()["price"]) * float(r2.json()["price"])
             else:
                 r = requests.get("https://api.binance.com/api/v3/ticker/price?symbol=USDTRUB")
                 rate = float(r.json()["price"])
-        except:
-            if coin == "BTC": return cache.get("rate", 6500000)
-            elif coin == "LTC": return cache.get("rate", 4000)
-            else: return cache.get("rate", 85)
+        except Exception:
+            return cache.get("rate") or src["fallback"]
     cache["rate"] = rate
     cache["ts"] = now
     return rate
@@ -932,7 +939,7 @@ def get_rate_with_markup(coin, amount=None):
     _usdt_override = os.getenv('USDT_COMMISSION_PERCENT')
     if amount is None:
         commission = 23
-    elif coin == 'USDT' and _usdt_override:
+    elif _rate_coin_key(coin) == 'USDT' and _usdt_override:
         commission = float(_usdt_override)
     else:
         commission = get_commission_percent(amount)
