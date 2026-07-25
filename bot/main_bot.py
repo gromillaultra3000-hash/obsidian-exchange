@@ -4898,11 +4898,20 @@ async def cmd_payout_status(message: Message):
         parse_mode="HTML")
 
 
+def _fmt_asset_amount(v) -> str:
+    if not isinstance(v, (int, float)):
+        return "—"
+    if abs(v) >= 1000:
+        return f"{v:,.2f}".replace(",", " ")
+    return f"{v:.8f}".rstrip("0").rstrip(".") or "0"
+
+
 @router.message(Command("wallet"))
 async def cmd_wallet(message: Message):
-    """/wallet — горячий кошелёк TRON: адрес и баланс (только главный админ, read-only).
+    """/wallet — единый мультичейн-обзор горячих кошельков (главный админ, read-only).
 
-    Разлочка и отправка НЕ в боте — только через CLI (relay/wallet/cli.py), чтобы
+    Все сети рендерятся из wallet.registry (BTC/LTC/TRON/EVM; TON/XMR — по мере
+    добавления адаптеров). Разлочка и отправка НЕ в боте — только через CLI, чтобы
     приватный ключ и пароль не проходили через телеграм-поток."""
     if message.from_user.id != ADMIN_ID:
         return
@@ -4910,61 +4919,49 @@ async def cmd_wallet(message: Message):
     if '/root/relay' not in sys.path:
         sys.path.insert(0, '/root/relay')
     try:
-        from wallet.tron_wallet import tron_status, tron_balance
+        from wallet import registry
     except Exception as e:
-        await message.answer(f"👛 Модуль кошелька недоступен: {type(e).__name__}")
-        return
-    st = tron_status()
-    if not st.get("configured"):
-        await message.answer(
-            "👛 <b>Горячий кошелёк TRON</b>\n\nЕщё не создан.\n"
-            "Создать на сервере:\n<code>python3 /root/relay/wallet/cli.py create</code>",
-            parse_mode="HTML")
+        await message.answer(f"👛 Реестр кошельков недоступен: {type(e).__name__}")
         return
     try:
-        bal = await asyncio.to_thread(tron_balance)
+        rows = await asyncio.to_thread(registry.overview, True)
     except Exception as e:
-        bal = {"status": "WAIT", "reason": type(e).__name__}
-    trx = bal.get("balanceTrx", 0.0)
-    usdt = next((t.get("balance") for t in bal.get("tokens", []) if t.get("symbol") == "USDT"), None)
-    usdt_s = f"{usdt:,.2f}".replace(",", " ") if isinstance(usdt, (int, float)) else "—"
-    lock = "🔓 разлочен" if st.get("unlocked") else "🔒 заблокирован"
-    await message.answer(
-        f"👛 <b>Горячий кошелёк TRON</b> ({lock})\n\n"
-        f"<blockquote>"
-        f"Адрес: <code>{st.get('address','')}</code>\n"
-        f"USDT-TRC20: <b>{usdt_s}</b>\n"
-        f"TRX (на комиссию): <b>{trx:,.2f}</b>".replace(",", " ") + "\n"
-        f"Статус сети: {bal.get('status','?')}"
-        f"</blockquote>\n\n"
-        f"Отправка/разлочка — только на сервере: <code>python3 /root/relay/wallet/cli.py</code>",
-        parse_mode="HTML")
-    # BTC/LTC (secure-контур) — отдельным сообщением, read-only
-    try:
-        from wallet import btc_wallet as _bw
-    except Exception:
+        await message.answer(f"👛 Ошибка обзора кошельков: {type(e).__name__}")
         return
-    lines = []
-    for coin in ("BTC", "LTC"):
-        cst = _bw.status(coin)
-        if not cst.get("configured"):
-            lines.append(f"• <b>{coin}</b>: secure-вольт не создан — "
-                         f"<code>python3 /root/relay/wallet/btc_cli.py import {coin.lower()}</code>")
+
+    # CLI создания/отправки по сетям
+    create_hint = {
+        "BTC": "python3 /root/relay/wallet/btc_cli.py import btc",
+        "LTC": "python3 /root/relay/wallet/btc_cli.py import ltc",
+        "TRON": "python3 /root/relay/wallet/cli.py create",
+        "EVM": "python3 /root/relay/wallet/evm_cli.py create",
+    }
+    blocks = ["👛 <b>Горячие кошельки</b> (единый мультичейн-обзор, read-only)\n"]
+    for r in rows:
+        chain = r.get("chain", "?")
+        label = r.get("label", chain)
+        if not r.get("configured"):
+            blocks.append(
+                f"▫️ <b>{label}</b> — не создан\n"
+                f"   <code>{create_hint.get(chain, '')}</code>")
             continue
-        try:
-            cb = await asyncio.to_thread(_bw.balance, coin)
-        except Exception as e:
-            cb = {"status": "WAIT", "reason": type(e).__name__}
-        lk = "🔓" if cst.get("unlocked") else "🔒"
-        amt = cb.get("balance")
-        amt_s = f"{amt:.8f}".rstrip("0").rstrip(".") if isinstance(amt, (int, float)) else "—"
-        lines.append(
-            f"• <b>{coin}</b> {lk} <code>{cst.get('primaryAddress','')}</code>\n"
-            f"  баланс: <b>{amt_s}</b> ({cb.get('status','?')}, адр.: {cst.get('addresses',0)})")
-    await message.answer(
-        "👛 <b>Горячий кошелёк BTC/LTC</b> (secure-контур)\n\n" + "\n".join(lines) +
-        "\n\nОтправка — только на сервере: <code>python3 /root/relay/wallet/btc_cli.py transfer btc &lt;адрес&gt; &lt;сумма&gt;</code>",
-        parse_mode="HTML")
+        lk = "🔓" if r.get("unlocked") else "🔒"
+        lines = [f"{lk} <b>{label}</b>",
+                 f"   <code>{r.get('address','')}</code>"]
+        for a in r.get("assets", []):
+            lines.append(f"   {a.get('symbol')}: <b>{_fmt_asset_amount(a.get('balance'))}</b>"
+                         f" <i>({a.get('status','?')})</i>")
+        ga = r.get("gasAsset")
+        if ga and ga.get("symbol") not in {a.get("symbol") for a in r.get("assets", [])}:
+            lines.append(f"   {ga.get('symbol')} (газ): <b>{_fmt_asset_amount(ga.get('balance'))}</b>")
+        if r.get("error"):
+            import html as _html
+            lines.append(f"   ⚠️ {_html.escape(str(r['error']))}")
+        blocks.append("\n".join(lines))
+
+    footer = ("\n<i>Отправка/разлочка — только на сервере через CLI</i>:\n"
+              "<code>btc_cli.py</code> · <code>cli.py</code> (tron) · <code>evm_cli.py</code>")
+    await message.answer("\n\n".join(blocks) + "\n" + footer, parse_mode="HTML")
 
 
 @router.message(Command("freeze_payouts"))
