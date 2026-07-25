@@ -7179,6 +7179,23 @@ async def cmd_order(message: Message):
 PAYOUT_WALLETS = {'BTC': 'PayoutWallet', 'LTC': 'PayoutLTC'}
 
 
+def _evm_routing():
+    """Ленивая загрузка чистой логики роутинга (wallet/payout_routing.py)."""
+    import sys as _s
+    if "/root/relay" not in _s.path:
+        _s.path.insert(0, "/root/relay")
+    from wallet import payout_routing as _pr
+    return _pr
+
+
+def _evm_payouts_enabled():
+    return _evm_routing().evm_payouts_enabled()
+
+
+def _evm_payout_asset(currency, network=None):
+    return _evm_routing().evm_payout_asset(currency, network)
+
+
 def _unlock_payout_wallets():
     """Разлочивает secure BTC/LTC-кошелёк при старте из WALLET_PAYOUT_PASSWORD.
 
@@ -7207,6 +7224,17 @@ def _unlock_payout_wallets():
             logger.info(f"secure {coin}-кошелёк разлочен для авто-выплат")
         except Exception as e:
             logger.error(f"разлочка secure {coin} не удалась: {type(e).__name__}: {e}")
+    # EVM (ETH/USDT-ERC20) — только если гейт включён и вольт создан
+    if _evm_payouts_enabled():
+        try:
+            from wallet import evm_wallet as _ew
+            if _ew.status().get("configured"):
+                _ew.unlock(pw)
+                logger.info("secure EVM-кошелёк разлочен для авто-выплат")
+            else:
+                logger.warning("EVM_PAYOUTS_ENABLED, но EVM-вольт не создан — разлочка пропущена")
+        except Exception as e:
+            logger.error(f"разлочка secure EVM не удалась: {type(e).__name__}: {e}")
 
 def explorer_url(currency, tx):
     """Ссылка на транзакцию в блокчейн-эксплорере — или None.
@@ -7224,7 +7252,38 @@ def explorer_url(currency, tx):
     except Exception:
         return None  # не смогли проверить — кнопку не показываем
 
-def send_crypto(currency, address, amount, idempotency_key=""):
+def _send_evm(asset, address, amount, idempotency_key):
+    """Отправка ETH/USDT-ERC20 через secure evm_wallet под фиче-гейтом. Возвращает
+    txHash. Если гейт выключен / вольт не готов — бросаем (заявка уйдёт воркеру)."""
+    if not _evm_payouts_enabled():
+        raise RuntimeError("evm_payouts_disabled")
+    if not idempotency_key:
+        raise RuntimeError("evm_payout_requires_idempotency_key")
+    import sys as _s
+    if "/root/relay" not in _s.path:
+        _s.path.insert(0, "/root/relay")
+    from wallet import evm_wallet as _ew
+    st = _ew.status()
+    if st.get("configured") and not st.get("unlocked"):
+        _pw = os.getenv("WALLET_PAYOUT_PASSWORD", "").strip()
+        if _pw:
+            try:
+                _ew.unlock(_pw)
+                st = _ew.status()
+            except Exception as e:
+                logger.error(f"just-in-time разлочка EVM: {type(e).__name__}")
+    if not (st.get("configured") and st.get("unlocked")):
+        raise RuntimeError("evm_wallet_not_ready")
+    prev = _ew.preview_send(asset, address, float(amount))
+    res = _ew.send(asset, address, float(amount), prev["previewId"], idempotency_key=idempotency_key)
+    tx = (res.get("txHash") or "").strip()
+    if not tx:
+        # без txHash нельзя считать выплату выполненной — бросаем, заявка к воркеру
+        raise RuntimeError("evm_send_no_txhash")
+    return tx
+
+
+def send_crypto(currency, address, amount, idempotency_key="", network=None):
     """Отправляет amount монет currency на address из горячего кошелька. Возвращает txid.
 
     BTC/LTC идут через SECURE-контур (relay/wallet/btc_wallet), если он настроен и
@@ -7234,8 +7293,14 @@ def send_crypto(currency, address, amount, idempotency_key=""):
     заявка уйдёт в ручную очередь. Легаси-путь остаётся fallback лишь пока secure
     не настроен/не разлочен (переходный период); после удаления плейнтекст-сида
     легаси сам упадёт → выплата корректно уходит воркеру.
+
+    ETH и USDT-ERC20 (network='ERC20') идут через secure evm_wallet под фиче-гейтом
+    EVM_PAYOUTS_ENABLED (по умолчанию ВЫКЛ).
     """
     currency = currency.upper()
+    evm_asset = _evm_payout_asset(currency, network)
+    if evm_asset:
+        return _send_evm(evm_asset, address, amount, idempotency_key)
     if currency in ("BTC", "LTC"):
         _bw = None
         try:
@@ -7270,9 +7335,15 @@ def send_crypto(currency, address, amount, idempotency_key=""):
     t = wallet.send_to(address, amount, unit=currency.lower(), fee='auto')
     return t.txid
 
-def process_payout(order_id, rub_amount, client_address, currency='BTC'):
+def process_payout(order_id, rub_amount, client_address, currency='BTC', network=None):
     currency = currency.upper()
-    if currency not in PAYOUT_WALLETS:
+    evm_asset = _evm_payout_asset(currency, network)
+    # EVM-активы (ETH/USDT-ERC20) — авто-выплата только при включённом гейте;
+    # выключен → возвращаем None (заявка уйдёт воркеру, не молча теряется).
+    if evm_asset and not _evm_payouts_enabled():
+        logger.info(f"EVM-выплата {currency}/{network} под гейтом (выкл) — #{order_id} к воркеру")
+        return None
+    if not evm_asset and currency not in PAYOUT_WALLETS:
         logger.warning(f"Автовыплата пока не поддерживает {currency}. Заказ #{order_id}")
         return None
     rate = get_rate_with_markup(currency, rub_amount)
@@ -7283,7 +7354,7 @@ def process_payout(order_id, rub_amount, client_address, currency='BTC'):
     try:
         # идемпотентность по заявке: повтор той же выплаты не уйдёт дважды
         txid = send_crypto(currency, client_address, amount,
-                           idempotency_key=f"payout_{order_id}")
+                           idempotency_key=f"payout_{order_id}", network=network)
         _addr_mask = f"{client_address[:6]}…{client_address[-4:]}" if client_address and len(client_address) > 12 else "***"
         logger.info(f"Выплата #{order_id} выполнена: {amount} {currency} -> {_addr_mask}, txid={txid}")
         return txid
@@ -7291,9 +7362,10 @@ def process_payout(order_id, rub_amount, client_address, currency='BTC'):
         logger.exception(f"Ошибка выплаты #{order_id}: {e}")
         return None
 
-async def process_payout_async(order_id, rub_amount, client_address, currency='BTC'):
+async def process_payout_async(order_id, rub_amount, client_address, currency='BTC', network=None):
     loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(None, process_payout, order_id, rub_amount, client_address, currency)
+    return await loop.run_in_executor(
+        None, process_payout, order_id, rub_amount, client_address, currency, network)
 
 
 async def credit_referral_bonus(order_id, user_id, rub_amount):
