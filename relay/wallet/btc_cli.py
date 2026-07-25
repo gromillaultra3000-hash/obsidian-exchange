@@ -78,6 +78,18 @@ def main():
             if pw != _pw("Повторите пароль: "):
                 print("Пароли не совпадают"); return 1
             print(json.dumps(w.import_from_legacy(coin, pw), ensure_ascii=False, indent=2))
+        elif cmd == "reimport":
+            coin = _coin(sys.argv)
+            print(f"РОТАЦИЯ пароля вольта {coin}: сид берётся заново из легаси-кошелька,\n"
+                  f"вольт/бэкап пере-шифровываются НОВЫМ паролем. Средства не двигаются.")
+            pw = _pw("НОВЫЙ пароль вольта (мин 10 символов): ")
+            if pw != _pw("Повторите новый пароль: "):
+                print("Пароли не совпадают"); return 1
+            print(json.dumps(w.import_from_legacy(coin, pw, overwrite=True),
+                             ensure_ascii=False, indent=2))
+            print("\n✅ Пароль сменён. Старый пароль больше не подходит к новому вольту.\n"
+                  "⚠️ Скопируй НОВЫЙ бэкап из /root/wallet_data/backups/ и уничтожь старые копии\n"
+                  "   (они расшифровываются старым, засвеченным паролем).")
         elif cmd == "import-xprv":
             coin = _coin(sys.argv)
             xprv = getpass.getpass("Мастер-ключ (zprv/xprv/Mtpv…): ")
