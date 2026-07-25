@@ -59,6 +59,15 @@ MAX_SEND: Dict[str, float] = {
     "LTC": float(os.getenv("WALLET_MAX_SEND_LTC", "1000") or 1000),
 }
 
+# Пол фидрейта (сат/vByte). bitcoinlib с авто-оценкой в спокойной сети берёт
+# ~1 сат/vB — при последующей загрузке такая выплата зависает на часы. Пол
+# гарантирует подтверждение в разумный срок; при реальной загрузке сети оценка
+# провайдера выше пола и побеждает (берём max). Настраивается env.
+MIN_FEERATE: Dict[str, float] = {
+    "BTC": float(os.getenv("WALLET_BTC_MIN_FEERATE", "4") or 4),
+    "LTC": float(os.getenv("WALLET_LTC_MIN_FEERATE", "2") or 2),
+}
+
 DEFAULT_TTL = 900
 _SAT = Decimal(10) ** 8
 
@@ -459,12 +468,18 @@ def preview_send(coin: str, to_address: str, amount: float) -> Dict[str, Any]:
     if bal.get("status") not in {"OK", "PARTIAL"}:
         raise ValueError("balance_unavailable")
     have = float(bal.get("balance") or 0.0)
-    # грубая оценка комиссии по фидрейту сети (уточняется при отправке)
+    # грубая оценка комиссии (уточняется при отправке). Учитываем пол фидрейта,
+    # чтобы preview не показывал заниженную комиссию относительно реальной отправки.
     fee_sat = None
     try:
-        feerate = int(_service(coin).estimatefee(blocks=3))  # сат/кБ
         est_vsize = 200 + 70 * 3                              # ~ 3 входа + 2 выхода
-        fee_sat = int(feerate * est_vsize / 1000)
+        feerate_vb = 1.0
+        try:
+            feerate_vb = max(int(_service(coin).estimatefee(blocks=3)) / 1000.0,
+                             MIN_FEERATE.get(coin, 1))        # сат/vByte
+        except Exception:
+            feerate_vb = MIN_FEERATE.get(coin, 1)
+        fee_sat = int(feerate_vb * est_vsize)
     except Exception:
         fee_sat = None
     need = float(amount) + (float(Decimal(fee_sat) / _SAT) if fee_sat else 0.0)
@@ -532,13 +547,34 @@ def send(coin: str, to_address: str, amount: float, preview_id: str = "",
             _save_sends(coin, sends)
 
     value_sat = int((Decimal(str(amount)) * _SAT).to_integral_value())
+    import math
     w, cleanup = _ephemeral_wallet(coin, zprv, scan=True)
     tx_id = ""
+    fee_paid = 0
     try:
-        tx = w.send_to(str(to_address), value_sat, fee=None, broadcast=True,
+        # 1) строим вхолодную (без broadcast), чтобы измерить размер и авто-оценку
+        wt = w.send_to(str(to_address), value_sat, fee=None, broadcast=False,
                        number_of_change_outputs=1)
-        tx_id = str(getattr(tx, "txid", "") or "")
-        fee_paid = int(getattr(tx, "fee", 0) or 0)
+        auto_fee = int(getattr(wt, "fee", 0) or 0)
+        try:
+            vsize = int(getattr(wt, "vsize", 0) or getattr(wt, "size", 0)
+                        or wt.estimate_size() or 0)
+        except Exception:
+            vsize = 0
+        floor = int(math.ceil(MIN_FEERATE.get(coin, 1) * vsize)) if vsize else 0
+        # 2) если авто-оценка ниже пола — пересобираем с явной комиссией = пол.
+        #    max: при загрузке сети auto_fee уже выше пола и остаётся.
+        target_fee = max(auto_fee, floor)
+        if target_fee > auto_fee:
+            wt = w.send_to(str(to_address), value_sat, fee=target_fee, broadcast=False,
+                           number_of_change_outputs=1)
+        # 3) broadcast построенной и подписанной транзакции
+        wt.send()
+        tx_id = str(getattr(wt, "txid", "") or "")
+        fee_paid = int(getattr(wt, "fee", 0) or 0)
+        send_err = getattr(wt, "error", None)
+        if not tx_id and send_err:
+            raise RuntimeError(f"broadcast_error:{send_err}")
     finally:
         cleanup()
     ok = bool(tx_id)
