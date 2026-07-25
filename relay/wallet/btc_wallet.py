@@ -463,12 +463,32 @@ def status(coin: str) -> Dict[str, Any]:
 
 
 def balance(coin: str) -> Dict[str, Any]:
-    """Агрегатный баланс по сохранённым адресам (сид НЕ нужен, read-only).
+    """Точный баланс кошелька (сид НЕ нужен, read-only).
 
-    Сбой чтения по адресу — ERROR, а НЕ ноль: «не смогли прочитать» нельзя
-    выдавать за «средств нет» (та же логика, что в TRON-кошельке).
+    Основной путь — scan легаси bitcoinlib-кошелька: он отслеживает ВСЕ
+    производные адреса, включая change-адреса от прошлых отправок (их нет в
+    meta-списке → seedless-агрегат по meta их не видит и недооценивает баланс,
+    как было с 0.00389857 BTC на change-адресе 25.07). Работает и для watch-only
+    (после Фазы 3). Fallback — агрегат по meta-адресам, если легаси недоступен.
+    Сбой чтения — status WAIT/ERROR, а НЕ ноль: «не прочитали» ≠ «средств нет».
     """
     coin = coin.upper()
+    cfg = _coin(coin)
+    # 1. точный путь: scan легаси-кошелька
+    try:
+        from bitcoinlib.wallets import Wallet, wallets_list  # type: ignore
+        if cfg["legacy"] in [w["name"] for w in wallets_list()]:
+            w = Wallet(cfg["legacy"])
+            w.scan(scan_gap_limit=5)
+            sat = int(w.balance())
+            return {"coin": coin, "primaryAddress": _meta_primary(coin),
+                    "balance": float(Decimal(sat) / _SAT), "balanceSat": sat,
+                    "status": "OK", "source": "scan",
+                    "addressCount": len(w.addresslist())}
+    except Exception as exc:
+        logger.warning("balance: scan легаси %s не удался (%s) — meta-fallback", coin, exc)
+
+    # 2. fallback: агрегат по сохранённым meta-адресам (может недооценивать change)
     addrs = _meta(coin).get("addresses") or []
     if not addrs:
         return {"coin": coin, "status": "BLOCKED", "reason": "wallet_not_created",
@@ -495,7 +515,7 @@ def balance(coin: str) -> Dict[str, Any]:
     coins = float(Decimal(total_sat) / _SAT)
     out = {"coin": coin, "primaryAddress": _meta_primary(coin),
            "balance": coins, "balanceSat": total_sat,
-           "addressCount": len(addrs)}
+           "addressCount": len(addrs), "source": "meta"}
     out["status"] = "OK" if errors == 0 else ("PARTIAL" if errors < len(addrs) else "ERROR")
     if errors:
         out["addressReadErrors"] = errors
