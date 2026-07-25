@@ -6617,7 +6617,11 @@ async def auto_check_payments():
                     SELECT o.order_id, o.user_id, o.rub_amount, o.crypto_address, o.currency
                     FROM orders o
                     WHERE o.status = 'paid'
-                      AND o.updated_at >= datetime('now', '-24 hours')
+                      -- updated_at может быть NULL (вебхук провайдера ставит
+                      -- status='paid' без него) → NULL>=… даёт NULL и заявка
+                      -- молча выпадала из авто-выплаты. COALESCE лечит: берём
+                      -- created_at как запасную точку отсчёта окна 24ч.
+                      AND COALESCE(o.updated_at, o.created_at) >= datetime('now', '-24 hours')
                       AND NOT EXISTS (
                           SELECT 1 FROM sent_notifications sn
                           WHERE sn.order_id = o.order_id AND sn.event = 'payout_triggered'
@@ -6668,13 +6672,21 @@ async def auto_check_payments():
                             parse_mode="HTML")
                     continue
 
-                # confirmed / manual — терминальное решение, метим чтобы не зациклить
+                # confirmed / manual — терминальное решение, метим чтобы не зациклить.
+                # Атомарный claim: INSERT OR IGNORE + проверка rowcount. Если маркер
+                # уже стоял (rowcount==0) — заявку застолбил другой проход/экземпляр,
+                # выплату НЕ повторяем (защита от двойной отправки крипты).
                 with db_conn(5) as conn:
-                    conn.execute(
+                    cur = conn.execute(
                         "INSERT OR IGNORE INTO sent_notifications (order_id, event) VALUES (?, 'payout_triggered')",
                         (order_id,)
                     )
                     conn.commit()
+                    claimed = cur.rowcount
+                if not claimed:
+                    logger.info(f"[payout] order {order_id}: payout_triggered уже стоит — "
+                                f"пропуск (защита от двойной выплаты)")
+                    continue
 
                 if v == "manual":
                     # авто-подтверждения от провайдера нет → к работнику вручную,
@@ -6792,7 +6804,7 @@ async def auto_check_usdt():
                     order = c.fetchone()
                     if order:
                         order_id, user_id, rub_amount, address, currency = order
-                        c.execute("UPDATE orders SET status='paid' WHERE order_id=?", (order_id,))
+                        c.execute("UPDATE orders SET status='paid', updated_at=datetime('now') WHERE order_id=?", (order_id,))
                         conn.commit()
                         # Запускаем выплату
                         payout_id = await process_payout_async(order_id, rub_amount, address, currency)

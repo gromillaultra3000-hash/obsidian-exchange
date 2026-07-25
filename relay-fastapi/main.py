@@ -2230,7 +2230,7 @@ async def greenpay_webhook(request: Request):
     if order_id and status == 'success':
         with db_conn(5) as conn:
             c = conn.cursor()
-            c.execute("UPDATE orders SET status='paid' WHERE order_id=? AND status='pending'", (order_id,))
+            c.execute("UPDATE orders SET status='paid', updated_at=datetime('now') WHERE order_id=? AND status='pending'", (order_id,))
             conn.commit()
             c.execute("SELECT user_id FROM orders WHERE order_id=?", (order_id,))
             row = c.fetchone()
@@ -2259,7 +2259,7 @@ async def montera_webhook(request: Request):
     if order_id and status == 'success':
         with db_conn(5) as conn:
             c = conn.cursor()
-            c.execute("UPDATE orders SET status='paid' WHERE order_id=? AND status='pending'", (order_id,))
+            c.execute("UPDATE orders SET status='paid', updated_at=datetime('now') WHERE order_id=? AND status='pending'", (order_id,))
             conn.commit()
 
     if order_id and requested_type in ('video', 'pdf-success'):
@@ -2331,7 +2331,7 @@ async def lava_webhook(request: Request):
     if order_id and paid:
         with db_conn(5) as conn:
             c = conn.cursor()
-            c.execute("UPDATE orders SET status='paid' WHERE order_id=? AND status='pending'", (order_id,))
+            c.execute("UPDATE orders SET status='paid', updated_at=datetime('now') WHERE order_id=? AND status='pending'", (order_id,))
             conn.commit()
             c.execute("SELECT user_id FROM orders WHERE order_id=?", (order_id,))
             row = c.fetchone()
@@ -2361,7 +2361,7 @@ async def brabus_webhook(request: Request):
     if order_id and status in ('paid',):
         with db_conn(5) as conn:
             c = conn.cursor()
-            c.execute("UPDATE orders SET status='paid' WHERE order_id=? AND status='pending'", (order_id,))
+            c.execute("UPDATE orders SET status='paid', updated_at=datetime('now') WHERE order_id=? AND status='pending'", (order_id,))
             conn.commit()
             c.execute("SELECT user_id FROM orders WHERE order_id=?", (order_id,))
             row = c.fetchone()
@@ -2393,7 +2393,7 @@ async def stormtrade_webhook(request: Request):
     if order_id and status in ('paid',):
         with db_conn(5) as conn:
             c = conn.cursor()
-            c.execute("UPDATE orders SET status='paid' WHERE order_id=? AND status='pending'", (order_id,))
+            c.execute("UPDATE orders SET status='paid', updated_at=datetime('now') WHERE order_id=? AND status='pending'", (order_id,))
             conn.commit()
             c.execute("SELECT user_id FROM orders WHERE order_id=?", (order_id,))
             row = c.fetchone()
@@ -2432,7 +2432,7 @@ async def xpay_webhook(request: Request):
     if order_id and status == 'success':
         with db_conn(5) as conn:
             c = conn.cursor()
-            c.execute("UPDATE orders SET status='paid' WHERE order_id=? AND status='pending'", (order_id,))
+            c.execute("UPDATE orders SET status='paid', updated_at=datetime('now') WHERE order_id=? AND status='pending'", (order_id,))
             conn.commit()
             c.execute("SELECT user_id FROM orders WHERE order_id=?", (order_id,))
             row = c.fetchone()
@@ -2455,7 +2455,7 @@ async def payment_callback(request: Request):
         raise HTTPException(status_code=403)
     with db_conn(5) as conn:
         c = conn.cursor()
-        c.execute("UPDATE orders SET status='paid' WHERE order_id=? AND status='pending'", (order_id,))
+        c.execute("UPDATE orders SET status='paid', updated_at=datetime('now') WHERE order_id=? AND status='pending'", (order_id,))
         conn.commit()
     return JSONResponse(status_code=200, content={})
 

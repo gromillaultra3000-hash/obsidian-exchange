@@ -30,7 +30,7 @@ class WebhookService:
             conn = sqlite3.connect(DB_PATH, timeout=5)
             c = conn.cursor()
             if status == 'paid':
-                c.execute("UPDATE orders SET status='paid' WHERE order_id=? AND status='pending'", (order_id,))
+                c.execute("UPDATE orders SET status='paid', updated_at=datetime('now') WHERE order_id=? AND status='pending'", (order_id,))
             conn.commit()
             conn.close()
 
