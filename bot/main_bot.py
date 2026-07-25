@@ -3372,9 +3372,12 @@ async def process_montera_receipt_upload(message: Message, state: FSMContext):
 
         import sys
         sys.path.insert(0, '/root/relay')
-        from core.receipts import send_receipt
+        from core.receipts import send_receipt, receipt_fraud_flags
         result = send_receipt(order_id, file_bytes, doc.file_name or "receipt.pdf",
                               "application/pdf")
+        # Слой 3: фрод-флаги (дубль-чек, серия истёкших без оплат) — оператору,
+        # чтобы не выдать крипту по фиктивному чеку. Не блокируют, только сигнал.
+        _flags = receipt_fraud_flags(order_id, file_bytes)
 
         # Файл персоналу — ВСЕГДА: он нужен для чата диспутов у провайдера,
         # даже когда API загрузку приняло
@@ -3383,12 +3386,14 @@ async def process_montera_receipt_upload(message: Message, state: FSMContext):
                               (order_id,)).fetchone()
         _famt = f"{int(_fr[0]):,} ₽".replace(",", " ") if _fr else "?"
         _funame = f"@{_fr[1]}" if (_fr and _fr[1]) else str(message.from_user.id)
+        _flag_line = ("\n" + "\n".join(_flags)) if _flags else ""
         await notify_staff_file(
             doc.file_id,
             f"🧾 <b>Чек — заявка #{order_id}</b>\n"
             f"👤 {_funame} · 💸 {_famt}\n"
             f"🏦 Провайдер: <b>{result.get('provider') or '?'}</b>\n"
-            f"{'✅ API принял' if result.get('ok') else '⚠️ API не принял: ' + str(result.get('error'))[:120]}")
+            f"{'✅ API принял' if result.get('ok') else '⚠️ API не принял: ' + str(result.get('error'))[:120]}"
+            f"{_flag_line}")
 
         if not result.get("ok") and result.get("reason") in ("unsupported", "unknown_provider", "no_session"):
             # Канала у провайдера нет. Не врём «принято» — отдаём чек операторам,
@@ -3813,6 +3818,76 @@ async def cmd_order_card(message: Message):
                                          callback_data=f"admin_msg_{uid}")])
     await message.answer(text[:4000], parse_mode="HTML",
                          reply_markup=InlineKeyboardMarkup(inline_keyboard=kb_rows))
+
+
+@router.message(Command("review"))
+async def cmd_review_queue(message: Message):
+    """/review — очередь «на проверке»: заявки с чеком (удержаны от истечения) и
+    оплаченные без отправки крипты. Здесь оператор решает: выдать или отклонить."""
+    if not is_staff(message.from_user.id):
+        return
+    import sys as _sys
+    _sys.path.insert(0, '/root/relay')
+    from core.receipts import receipt_fraud_flags
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        # Удержанные Слоем 0: pending + есть чек в order_receipts
+        held = c.execute("""
+            SELECT o.order_id, o.user_id, o.username, o.rub_amount, o.currency,
+                   o.created_at, r.content_type
+            FROM orders o JOIN order_receipts r ON r.order_id = o.order_id
+            WHERE o.status='pending' ORDER BY o.created_at DESC LIMIT 15""").fetchall()
+        # Зависшие выплаты: оплачено, крипта не ушла
+        stuck = c.execute("""
+            SELECT order_id, rub_amount, currency, updated_at FROM orders
+            WHERE status='paid' AND (paid_btc_tx IS NULL OR paid_btc_tx='')
+            ORDER BY updated_at LIMIT 15""").fetchall()
+    if not held and not stuck:
+        await message.answer("✅ Очередь пуста: заявок с чеком на проверке и "
+                             "зависших выплат нет.")
+        return
+    if stuck:
+        txt = "💸 <b>Оплачено, крипта НЕ отправлена</b> (выдать вручную):\n"
+        for oid, amt, cur, upd in stuck:
+            txt += (f"  • <b>#{oid}</b> — {int(amt):,} ₽ → {cur} · с {(upd or '—')[:16]}\n"
+                    .replace(",", " "))
+        await message.answer(txt[:4000], parse_mode="HTML")
+    for oid, uid, uname, amt, cur, created, ctype in held:
+        flags = receipt_fraud_flags(oid)
+        fmt = "PDF" if ctype == "application/pdf" else ("видео" if ctype and "video" in ctype else "фото")
+        text = (f"🧾 <b>Заявка #{oid}</b> — на проверке\n"
+                f"<blockquote>👤 @{uname or '—'} · ID <code>{uid}</code>\n"
+                f"💸 {int(amt):,} ₽ → {cur}\n".replace(",", " ")
+                + f"📄 Чек: {fmt} · создана {created[:16]}</blockquote>")
+        if flags:
+            text += "\n" + "\n".join(flags)
+        text += f"\n\n🔎 Разбор: <code>/order {oid}</code>"
+        kb = InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(text="✅ Выдать", callback_data=f"admin_confirm_{oid}"),
+            InlineKeyboardButton(text="🚫 Отклонить", callback_data=f"review_reject_{oid}"),
+        ]])
+        await message.answer(text, parse_mode="HTML", reply_markup=kb)
+
+
+@router.callback_query(lambda c: c.data and c.data.startswith("review_reject_"))
+async def cb_review_reject(callback: CallbackQuery):
+    if not is_staff(callback.from_user.id):
+        await callback.answer("Недоступно", show_alert=True)
+        return
+    oid = int(callback.data.rsplit("_", 1)[1])
+    with db_conn(5) as conn:
+        conn.execute("UPDATE orders SET status='cancelled', updated_at=datetime('now') "
+                     "WHERE order_id=? AND status='pending'", (oid,))
+        conn.commit()
+        log_staff_action(callback.from_user.id, "review_reject", str(oid),
+                         "чек отклонён оператором (не подтверждён)")
+    await callback.answer("Заявка отклонена")
+    try:
+        await callback.message.edit_text(
+            f"🚫 <b>Заявка #{oid} отклонена</b> оператором — оплата не подтверждена.",
+            parse_mode="HTML")
+    except Exception:
+        pass
 
 # --- Панель работника ---
 

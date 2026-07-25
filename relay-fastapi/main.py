@@ -2609,6 +2609,16 @@ async def cleanup_expired_orders():
         try:
             with db_conn(5) as conn:
                 c = conn.cursor()
+                # Слой 0: заявку, по которой клиент прислал чек, НИКОГДА не истекаем
+                # тихо. Это заявленная оплата — её должен закрыть вебхук/поллинг или
+                # решить оператор. Иначе реальные оплаты уходят в expired+winback, а
+                # провайдер потом не может подтвердить: у него сделка тоже истекла.
+                # store_receipt() всегда пишет строку в order_receipts (все форматы),
+                # поэтому одного этого guard достаточно для всех путей приёма чека.
+                c.execute("""CREATE TABLE IF NOT EXISTS order_receipts (
+                    order_id INTEGER PRIMARY KEY, path TEXT, filename TEXT,
+                    content_type TEXT, created_at TEXT DEFAULT (datetime('now')),
+                    dispute_opened_at TEXT)""")
                 result = c.execute("""
                     UPDATE orders SET status='expired', updated_at=datetime('now')
                     WHERE status='pending'
@@ -2618,6 +2628,7 @@ async def cleanup_expired_orders():
                         WHERE status='invoice_created'
                         AND datetime(expires_at) > datetime('now')
                     )
+                    AND order_id NOT IN (SELECT order_id FROM order_receipts)
                 """)
                 expired = result.rowcount
                 conn.commit()

@@ -17,6 +17,7 @@ Brabus частично (confirm_transfer), у остальных канала �
 """
 from __future__ import annotations
 import ast
+import hashlib
 import logging
 import os
 import sqlite3
@@ -64,7 +65,15 @@ def find_session(order_id) -> dict | None:
                 raw = ast.literal_eval(payload)
             except Exception:
                 raw = {}
-    return {"provider": (row["provider"] or "").lower(),
+    # provider в сессии бывает с вариантом через двоеточие ('brabus:vietqr',
+    # 'brabus:tbank_deeplink'). Для маршрутизации нужен базовый ключ, иначе
+    # _ROUTES/_DISPUTES.get() не находит обработчик и чек/спор молча теряется.
+    # Вариант сохраняем отдельно — он нужен Brabus, чтобы найти нужный API-ключ.
+    prov_full = (row["provider"] or "").lower()
+    prov_base, _, prov_variant = prov_full.partition(":")
+    return {"provider": prov_base,
+            "provider_full": prov_full,
+            "variant": prov_variant,
             "invoice_id": row["provider_invoice_id"],
             "status": row["status"],
             "raw": raw if isinstance(raw, dict) else {}}
@@ -86,45 +95,77 @@ def _montera(sess, file_bytes, filename, content_type):
     """
     url = (sess["raw"] or {}).get("client_receipt_url") \
         or (sess["raw"] or {}).get("receipt_upload_url")
+    api_res = {}
     if content_type == PDF and url:
         # Ссылка появляется, только если Montera сама её выдала — пробуем.
         from providers.montera import MonteraProvider
-        return MonteraProvider().upload_receipt(url, file_bytes, filename)
+        api_res = MonteraProvider().upload_receipt(url, file_bytes, filename) or {}
+        if api_res.get("ok"):
+            return {"ok": True, "raw": {"api": api_res}}
+    # API-канала нет ни для чека (receipt), ни для видео-верификации
+    # (additional-info = 404) — единственный путь к Montera это группа споров.
+    # Форвардим и PDF, и видео (трейдер иногда просит именно видео).
+    chat_res = _send_to_dispute_chat(
+        "Montera", DISPUTE_CHATS.get("montera"), sess["invoice_id"],
+        file_bytes, filename, content_type=content_type)
+    if chat_res.get("ok"):
+        return {"ok": True, "raw": {"api": api_res, "chat": chat_res}}
     return {"ok": False, "reason": "unsupported",
             "error": "Montera не принимает чеки через API — файл сохранён, "
-                     "оператору нужно приложить его в кабинете Montera"}
+                     "оператору нужно приложить его в кабинете Montera",
+            "raw": {"api": api_res, "chat": chat_res}}
 
 
-# Группа споров Vertu: их бот принимает PDF-чек и привязывает его к сделке по ID
-# в подписи. У Vertu НЕТ API-канала спора, а штатный /v1/wt_receipts/ иногда
-# принимает чек, но не проталкивает трейдеру (external_sync_success=false) —
-# группа это подстраховывает, поэтому дублируем в неё каждый PDF-чек Vertu.
-VERTU_DISPUTE_CHAT_ID = os.getenv("VERTU_DISPUTE_CHAT_ID", "-5527649225")
+# Telegram-группы споров по провайдерам: их бот/оператор принимает PDF-чек и
+# привязывает его к сделке по ID в подписи. Нужны там, где у провайдера НЕТ
+# надёжного API-канала приёма чека: Vertu (штатный /v1/wt_receipts/ иногда
+# принимает чек, но не проталкивает трейдеру, external_sync_success=false),
+# Montera (API-канала нет вовсе) и XPay по ссылочным/побанковским методам.
+# Chat ID берётся из окружения; пусто = группы нет, тогда чек держим у оператора
+# и НЕ врём клиенту «ушло провайдеру». Бот должен быть участником группы.
+DISPUTE_CHATS = {
+    "vertu": os.getenv("VERTU_DISPUTE_CHAT_ID", "-5527649225"),
+    "montera": os.getenv("MONTERA_DISPUTE_CHAT_ID", ""),
+    "xpay": os.getenv("XPAY_DISPUTE_CHAT_ID", ""),
+}
 
 
-def _send_to_vertu_dispute_chat(pid, deal_id, file_bytes, filename) -> dict:
-    """Шлёт PDF-чек в Telegram-группу споров Vertu нашим @Obsidian666999bot."""
+def _send_to_dispute_chat(provider_label, chat_id, deal_key, file_bytes, filename,
+                          extra_lines=None, content_type=PDF) -> dict:
+    """Шлёт чек/видео-верификацию в Telegram-группу споров провайдера нашим ботом.
+
+    Поддерживает PDF-чек и видео (трейдер Montera иногда просит именно видео, а
+    API-канала additional-info у Montera нет — группа единственный путь).
+    reason='no_chat' — группа для этого провайдера не настроена (это не сбой,
+    просто канала нет): вызывающий трактует как «доставить не удалось».
+    """
+    if not chat_id:
+        return {"ok": False, "reason": "no_chat",
+                "error": f"группа споров {provider_label} не настроена"}
     token = os.getenv("BOT_TOKEN", "")
     if not token:
         return {"ok": False, "error": "BOT_TOKEN не задан — дубль в группу споров невозможен"}
-    caption = f"🧾 Чек оплаты Vertu\nСделка: {pid}"
-    if deal_id and deal_id != pid:
-        caption += f"\ndeal_id: {deal_id}"
+    is_video = bool(content_type) and "video" in content_type
+    head = "🎥 Видео-верификация" if is_video else "🧾 Чек оплаты"
+    caption = f"{head} {provider_label}\nСделка: {deal_key}"
+    for ln in (extra_lines or []):
+        caption += f"\n{ln}"
+    method, field = ("sendVideo", "video") if is_video else ("sendDocument", "document")
     try:
         r = requests.post(
-            f"https://api.telegram.org/bot{token}/sendDocument",
-            data={"chat_id": VERTU_DISPUTE_CHAT_ID, "caption": caption},
-            files={"document": (filename, file_bytes, PDF)},
-            timeout=30,
+            f"https://api.telegram.org/bot{token}/{method}",
+            data={"chat_id": chat_id, "caption": caption},
+            files={field: (filename, file_bytes, content_type or PDF)},
+            timeout=90 if is_video else 30,
         )
         ok = r.status_code == 200 and (r.json() or {}).get("ok")
         if not ok:
-            logger.warning("receipts: чек не ушёл в группу споров Vertu: %s %s",
-                           r.status_code, r.text[:200])
+            logger.warning("receipts: не ушло в группу споров %s: %s %s",
+                           provider_label, r.status_code, r.text[:200])
         return {"ok": bool(ok),
                 "error": None if ok else f"TG {r.status_code}: {r.text[:150]}"}
     except Exception as e:
-        logger.warning("receipts: отправка в группу споров Vertu: %s", e)
+        logger.warning("receipts: отправка в группу споров %s: %s", provider_label, e)
         return {"ok": False, "error": str(e)}
 
 
@@ -145,7 +186,9 @@ def _vertu(sess, file_bytes, filename, content_type):
     # 1. Штатный API-канал.
     api_res = VertuProvider().upload_receipt(pid, file_bytes, filename) or {}
     # 2. Всегда дублируем в группу споров Vertu.
-    chat_res = _send_to_vertu_dispute_chat(pid, deal_id, file_bytes, filename)
+    chat_res = _send_to_dispute_chat(
+        "Vertu", DISPUTE_CHATS.get("vertu"), pid, file_bytes, filename,
+        extra_lines=[f"deal_id: {deal_id}"] if (deal_id and deal_id != pid) else None)
     # Успех — если чек достиг стороны Vertu ЛЮБЫМ путём: API протолкнул трейдеру
     # ИЛИ файл лёг в их группу споров. Иначе — честный отказ, без «принято».
     if api_res.get("ok") or chat_res.get("ok"):
@@ -160,7 +203,7 @@ def _brabus(sess, file_bytes, filename, content_type):
     from providers.brabus import BrabusProvider
     # Вариант (=API-ключ), которым создавали инвойс, — если он записан в сессии.
     # Иначе перебираем ключи: инвойс виден только «своему» ключу.
-    hint = (sess["raw"] or {}).get("variant") or ""
+    hint = (sess["raw"] or {}).get("variant") or sess.get("variant") or ""
     return BrabusProvider.confirm_transfer_any(
         sess["invoice_id"], file_bytes, filename, variant_hint=hint)
 
@@ -185,10 +228,20 @@ def _xpay(sess, file_bytes, filename, content_type):
     method = ((sess["raw"] or {}).get("payment_details") or {}).get("type") or ""
     method = str(method).lower()
     if method and method not in _XPAY_RECEIPT_METHODS:
+        # По этому методу API-приёма чека у XPay нет — пробуем группу споров,
+        # если настроена; иначе честно к оператору (заявка уже удержана Слоем 0).
+        chat_res = {}
+        if content_type == PDF:
+            chat_res = _send_to_dispute_chat(
+                "XPay", DISPUTE_CHATS.get("xpay"), sess["invoice_id"],
+                file_bytes, filename)
+            if chat_res.get("ok"):
+                return {"ok": True, "raw": {"chat": chat_res}}
         return {"ok": False, "reason": "unsupported",
                 "error": f"XPay принимает чеки только по методам card_pdf/sbp_pdf, "
                          f"а заявка создана методом «{method}» — чек нужно "
-                         f"передать оператору вручную"}
+                         f"передать оператору вручную",
+                "raw": {"chat": chat_res}}
     # XPay принимает как свой internal_id, так и наш external_id
     return XPayConnectProvider().upload_receipt(sess["invoice_id"], file_bytes, filename)
 
@@ -225,7 +278,7 @@ def _dispute_brabus(sess, file_bytes, filename, reason, amount):
     deal_id = raw.get("deal_id") or sess["invoice_id"]
     return BrabusProvider.open_dispute_any(
         sess["invoice_id"], deal_id, file_bytes, reason, amount, filename,
-        variant_hint=raw.get("variant") or "")
+        variant_hint=raw.get("variant") or sess.get("variant") or "")
 
 
 _DISPUTES = {
@@ -356,19 +409,63 @@ def store_receipt(order_id, file_bytes: bytes, filename: str, content_type: str)
         p = d / f"{order_id}{ext}"
         p.write_bytes(file_bytes)
         os.chmod(p, 0o600)
+        sha = hashlib.sha256(file_bytes).hexdigest()
         with _db() as conn:
             conn.execute("""CREATE TABLE IF NOT EXISTS order_receipts (
                 order_id INTEGER PRIMARY KEY, path TEXT, filename TEXT,
                 content_type TEXT, created_at TEXT DEFAULT (datetime('now')),
                 dispute_opened_at TEXT)""")
+            # sha256 добавлен позже — колонки может не быть в старой БД
+            if "sha256" not in [r["name"] for r in
+                                conn.execute("PRAGMA table_info(order_receipts)")]:
+                conn.execute("ALTER TABLE order_receipts ADD COLUMN sha256 TEXT")
             conn.execute("INSERT OR REPLACE INTO order_receipts "
-                         "(order_id, path, filename, content_type) VALUES (?,?,?,?)",
-                         (order_id, str(p), filename, content_type))
+                         "(order_id, path, filename, content_type, sha256) VALUES (?,?,?,?,?)",
+                         (order_id, str(p), filename, content_type, sha))
             conn.commit()
         return str(p)
     except Exception as e:
         logger.warning("receipts: сохранение чека order=%s: %s", order_id, e)
         return None
+
+
+def receipt_fraud_flags(order_id, file_bytes=None) -> list:
+    """Возвращает список предупреждений о подозрительном чеке (для оператора).
+
+    Не блокирует ничего сам — только подсвечивает риск, решение за человеком.
+    Признаки: тот же файл уже присылали по другой заявке (дубль-чек), и у
+    клиента серия истёкших заявок без единой оплаты (шаблон 8748843234:
+    заявка → старый/чужой чек → требование крипты).
+    """
+    flags = []
+    try:
+        with _db() as conn:
+            if file_bytes is not None:
+                h = hashlib.sha256(file_bytes).hexdigest()
+                try:
+                    dup = conn.execute(
+                        "SELECT order_id FROM order_receipts WHERE sha256=? AND order_id<>?",
+                        (h, order_id)).fetchall()
+                except sqlite3.OperationalError:
+                    dup = []  # колонки sha256 ещё нет (старая БД до первого чека)
+                if dup:
+                    flags.append("♻️ Этот же файл-чек уже присылали по заявкам "
+                                 + ", ".join(f"#{r['order_id']}" for r in dup[:5]))
+            row = conn.execute("SELECT user_id FROM orders WHERE order_id=?",
+                               (order_id,)).fetchone()
+            uid = row["user_id"] if row else None
+            if uid and uid > 0:
+                st = conn.execute(
+                    "SELECT SUM(status='expired') exp, "
+                    "SUM(status IN ('paid','sent')) paid FROM orders WHERE user_id=?",
+                    (uid,)).fetchone()
+                exp, paid = (st["exp"] or 0), (st["paid"] or 0)
+                if exp >= 3 and paid == 0:
+                    flags.append(f"⚠️ У клиента {exp} истёкших заявок и НИ ОДНОЙ оплаченной "
+                                 f"— повышенный риск фиктивного чека")
+    except Exception as e:
+        logger.warning("receipts: fraud-flags order=%s: %s", order_id, e)
+    return flags
 
 
 def load_receipt(order_id):
