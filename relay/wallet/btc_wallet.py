@@ -265,6 +265,50 @@ def import_wallet(coin: str, master_xprv: str, password: str, *, overwrite: bool
         return _persist_vault(coin, zprv, password, addrs[0] if addrs else "", addrs, imported=True)
 
 
+def restore_legacy(coin: str, password: str) -> Dict[str, Any]:
+    """Пересоздаёт легаси bitcoinlib-кошелёк (PayoutWallet/PayoutLTC) из сида вольта.
+
+    Нужна, если легаси-запись пропала (например, была удалена), а сид жив в вольте.
+    Средства не двигаются — восстанавливается лишь запись кошелька с тем же сидом.
+    Требует пароль вольта; сверяет, что восстановленный xpub == xpub из вольта.
+    """
+    from bitcoinlib.wallets import Wallet, wallet_delete_if_exists  # type: ignore
+    cfg = _coin(coin)
+    coin = coin.upper()
+    with _LOCK:
+        if not _vault_path(coin).exists():
+            raise FileNotFoundError(f"{coin.lower()}_vault_not_found")
+        zprv = _decrypt_secret(json.loads(_vault_path(coin).read_text("utf-8")), password, cfg["aad"])
+        # xpub, который ДОЛЖЕН получиться (из сида вольта)
+        w, cleanup = _ephemeral_wallet(coin, zprv)
+        try:
+            want_xpub = str(w.public_master().wif)
+        finally:
+            cleanup()
+        # если легаси уже есть — не трогаем, только сверяем
+        try:
+            existing = Wallet(cfg["legacy"])
+            if str(existing.public_master().wif) == want_xpub:
+                return {"ok": True, "coin": coin, "alreadyPresent": True}
+            raise ValueError("legacy_exists_with_different_xpub — вручную разберись")
+        except Exception as e:
+            if "different_xpub" in str(e):
+                raise
+            # нет такого кошелька — создаём заново из сида
+        wallet_delete_if_exists(cfg["legacy"], force=True)
+        lw = Wallet.create(cfg["legacy"], keys=zprv, network=cfg["network"],
+                           witness_type="segwit", purpose=84)
+        meta_addrs = _meta(coin).get("addresses") or []
+        for _ in range(max(0, len(meta_addrs) - len(lw.addresslist()))):
+            lw.new_key()
+        got_xpub = str(lw.public_master().wif)
+        primary_ok = (lw.addresslist()[:1] == meta_addrs[:1]) if meta_addrs else True
+        return {"ok": got_xpub == want_xpub, "coin": coin, "restored": True,
+                "xpubMatch": got_xpub == want_xpub, "primaryMatch": primary_ok,
+                "hasPrivateKey": bool(getattr(lw.main_key, "key_private", None)),
+                "addresses": len(lw.addresslist())}
+
+
 def to_watch_only(coin: str, password: str) -> Dict[str, Any]:
     """Фаза 3: убирает ПРИВАТНЫЙ ключ из легаси bitcoinlib-кошелька.
 

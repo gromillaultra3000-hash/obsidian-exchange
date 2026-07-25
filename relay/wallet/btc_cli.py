@@ -118,6 +118,17 @@ def main():
             idem = _h.sha256(f"{coin}|{to}|{amount}|{int(_t.time()//600)}".encode()).hexdigest()[:32]
             print(json.dumps(w.send(coin, to, amount, prev["previewId"], idempotency_key=idem),
                              ensure_ascii=False, indent=2))
+        elif cmd == "restore-legacy":
+            coin = _coin(sys.argv)
+            print(f"Восстановление легаси-кошелька {coin} из сида вольта "
+                  f"(средства не двигаются).")
+            pw = _pw("Пароль вольта: ")
+            res = w.restore_legacy(coin, pw)
+            print(json.dumps(res, ensure_ascii=False, indent=2))
+            if res.get("restored") and res.get("xpubMatch"):
+                print("\n✅ Легаси-кошелёк восстановлен, xpub совпал. Теперь можно reimport.")
+            elif res.get("alreadyPresent"):
+                print("\nℹ️ Легаси-кошелёк уже на месте.")
         elif cmd == "harden":
             coin = _coin(sys.argv)
             print(f"ФАЗА 3 для {coin}: убрать приватный ключ из bitcoinlib.sqlite\n"
