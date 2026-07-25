@@ -7157,6 +7157,36 @@ async def cmd_order(message: Message):
 
 PAYOUT_WALLETS = {'BTC': 'PayoutWallet', 'LTC': 'PayoutLTC'}
 
+
+def _unlock_payout_wallets():
+    """Разлочивает secure BTC/LTC-кошелёк при старте из WALLET_PAYOUT_PASSWORD.
+
+    Best-effort: нет пароля/вольта — тихо остаёмся на легаси-пути. Основная
+    разлочка для выплат — just-in-time в send_crypto (TTL истекает за сутки),
+    здесь лишь ранняя проверка пароля и корректный /wallet-статус.
+    """
+    pw = os.getenv("WALLET_PAYOUT_PASSWORD", "").strip()
+    if not pw:
+        logger.info("WALLET_PAYOUT_PASSWORD не задан — BTC/LTC на легаси-пути выплат")
+        return
+    try:
+        import sys as _s
+        if "/root/relay" not in _s.path:
+            _s.path.insert(0, "/root/relay")
+        from wallet import btc_wallet as _bw
+    except Exception as e:
+        logger.error(f"secure-кошелёк недоступен при старте: {type(e).__name__}: {e}")
+        return
+    for coin in ("BTC", "LTC"):
+        try:
+            if not _bw.status(coin).get("configured"):
+                logger.warning(f"secure {coin}-вольт не создан — разлочка пропущена")
+                continue
+            _bw.unlock(coin, pw)
+            logger.info(f"secure {coin}-кошелёк разлочен для авто-выплат")
+        except Exception as e:
+            logger.error(f"разлочка secure {coin} не удалась: {type(e).__name__}: {e}")
+
 def explorer_url(currency, tx):
     """Ссылка на транзакцию в блокчейн-эксплорере — или None.
 
@@ -7173,9 +7203,49 @@ def explorer_url(currency, tx):
     except Exception:
         return None  # не смогли проверить — кнопку не показываем
 
-def send_crypto(currency, address, amount):
-    """Отправляет amount монет currency на address из горячего кошелька. Возвращает txid."""
-    wallet = Wallet(PAYOUT_WALLETS[currency.upper()])
+def send_crypto(currency, address, amount, idempotency_key=""):
+    """Отправляет amount монет currency на address из горячего кошелька. Возвращает txid.
+
+    BTC/LTC идут через SECURE-контур (relay/wallet/btc_wallet), если он настроен и
+    разлочен (бот разлочивает при старте из WALLET_PAYOUT_PASSWORD). Ключ шифрован
+    паролем, а не лежит в плейнтексте bitcoinlib.sqlite. Если secure разлочен —
+    используем ТОЛЬКО его: ошибку НЕ глушим в легаси (иначе риск задвоить отправку),
+    заявка уйдёт в ручную очередь. Легаси-путь остаётся fallback лишь пока secure
+    не настроен/не разлочен (переходный период); после удаления плейнтекст-сида
+    легаси сам упадёт → выплата корректно уходит воркеру.
+    """
+    currency = currency.upper()
+    if currency in ("BTC", "LTC"):
+        _bw = None
+        try:
+            import sys as _s
+            if "/root/relay" not in _s.path:
+                _s.path.insert(0, "/root/relay")
+            from wallet import btc_wallet as _bw
+        except Exception as e:
+            logger.error(f"secure {currency}-кошелёк недоступен ({type(e).__name__}) — легаси")
+            _bw = None
+        if _bw is not None:
+            st = _bw.status(currency)
+            # до-разлочка just-in-time: TTL (15 мин) истекает, а бот работает
+            # сутками. Пароль в env — перед отправкой при необходимости открываем
+            # заново. Так TTL остаётся защитой для CLI-сессий, а авто-выплаты живут.
+            if st.get("configured") and not st.get("unlocked"):
+                _pw = os.getenv("WALLET_PAYOUT_PASSWORD", "").strip()
+                if _pw:
+                    try:
+                        _bw.unlock(currency, _pw)
+                        st = _bw.status(currency)
+                    except Exception as e:
+                        logger.error(f"just-in-time разлочка {currency}: {type(e).__name__}")
+            if st.get("configured") and st.get("unlocked"):
+                prev = _bw.preview_send(currency, address, float(amount))
+                res = _bw.send(currency, address, float(amount), prev["previewId"],
+                               idempotency_key=idempotency_key or "")
+                return res.get("txHash")
+            logger.warning(f"secure {currency}-кошелёк не разлочен "
+                           f"(configured={st.get('configured')}) — легаси fallback")
+    wallet = Wallet(PAYOUT_WALLETS[currency])
     t = wallet.send_to(address, amount, unit=currency.lower(), fee='auto')
     return t.txid
 
@@ -7190,7 +7260,9 @@ def process_payout(order_id, rub_amount, client_address, currency='BTC'):
         logger.error(f"Нулевая сумма выплаты для заказа #{order_id}")
         return None
     try:
-        txid = send_crypto(currency, client_address, amount)
+        # идемпотентность по заявке: повтор той же выплаты не уйдёт дважды
+        txid = send_crypto(currency, client_address, amount,
+                           idempotency_key=f"payout_{order_id}")
         _addr_mask = f"{client_address[:6]}…{client_address[-4:]}" if client_address and len(client_address) > 12 else "***"
         logger.info(f"Выплата #{order_id} выполнена: {amount} {currency} -> {_addr_mask}, txid={txid}")
         return txid
@@ -7250,7 +7322,9 @@ async def withdraw_referral_bonus(user_id):
         address = addr_row[0]
         try:
             loop = asyncio.get_running_loop()
-            txid = await loop.run_in_executor(None, send_crypto, 'BTC', address, total)
+            txid = await loop.run_in_executor(
+                None, lambda: send_crypto('BTC', address, total,
+                                          idempotency_key=f"refbonus_{user_id}"))
         except Exception as e:
             logger.exception(f"Ошибка вывода реф. бонуса для {user_id}: {e}")
             return "⚠️ Не удалось выполнить вывод. Попробуйте позже или обратитесь в поддержку."
@@ -8514,6 +8588,7 @@ async def stoptimer_cmd(message: Message):
 
 
 async def main():
+    _unlock_payout_wallets()   # secure BTC/LTC для авто-выплат (best-effort)
     asyncio.create_task(balance_monitor())
     asyncio.create_task(smart_monitor())
     asyncio.create_task(verify_backups())
