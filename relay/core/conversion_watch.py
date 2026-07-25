@@ -58,12 +58,16 @@ def check_conversion(window_hours: int | None = None) -> dict:
             # оплачено клиентом, но крипта не отправлена дольше порога — деньги у
             # нас, клиент ждёт выдачу. Окно тут НЕ применяем: зависшая выплата
             # опасна независимо от того, когда была оплата.
+            # updated_at IS NULL = древняя оплата без отметки времени: сравнение
+            # NULL <= datetime(...) даёт NULL (строка молча выпадает), поэтому такую
+            # выплату считаем ЗАВИСШЕЙ безусловно, а возраст меряем от created_at.
             out["stuck_payouts"] = [dict(r) for r in conn.execute(
                 "SELECT order_id, rub_amount, currency, "
-                "  CAST((julianday('now')-julianday(updated_at))*24*60 AS INT) age_min "
+                "  CAST((julianday('now')-julianday(COALESCE(updated_at,created_at)))*24*60 AS INT) age_min "
                 "FROM orders WHERE status='paid' "
                 "AND (paid_btc_tx IS NULL OR paid_btc_tx='') "
-                "AND updated_at <= datetime('now', ?) ORDER BY updated_at",
+                "AND (updated_at IS NULL OR updated_at <= datetime('now', ?)) "
+                "ORDER BY COALESCE(updated_at, created_at)",
                 (f"-{STUCK_PAYOUT_MIN} minutes",)).fetchall()]
     except Exception as e:
         out["error"] = f"{type(e).__name__}: {e}"
