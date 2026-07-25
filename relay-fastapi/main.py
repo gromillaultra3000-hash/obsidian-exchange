@@ -1104,7 +1104,7 @@ async def widget_page():
     ex = 10000
     btc_out  = round(ex * (1 - comm / 100) / btc,  6) if btc  else 0
     ltc_out  = round(ex * (1 - comm / 100) / ltc,  4) if ltc  else 0
-    usdt_out = round(ex * (1 - 0.02)       / usdt, 2) if usdt else 0
+    usdt_out = round(ex * (1 - comm / 100) / usdt, 2) if usdt else 0
     html = f"""<!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -1231,7 +1231,7 @@ async def widget_page():
     </div>
     <div class="header-right">
       <div class="header-label">За 10 000 ₽ вы получите</div>
-      <div class="header-amount">комиссия {comm}% / USDT 2%</div>
+      <div class="header-amount">комиссия {comm}% (BTC · LTC · USDT)</div>
     </div>
   </div>
 
@@ -1336,7 +1336,7 @@ async def api_widget_rates():
     return {
         "btc":  round(ex * (1 - comm / 100) / btc,  6) if btc  else 0,
         "ltc":  round(ex * (1 - comm / 100) / ltc,  4) if ltc  else 0,
-        "usdt": round(ex * (1 - 0.02)       / usdt, 2) if usdt else 0,
+        "usdt": round(ex * (1 - comm / 100) / usdt, 2) if usdt else 0,
         "comm_pct": comm,
         "ts": int(__import__('time').time()),
     }
@@ -1375,8 +1375,8 @@ _rates_xml_cache = {"xml": None, "ts": 0.0}
 async def rates_xml_export():
     """Экспорт курсов в XML-формате BestChange — стандарт, который принимают
     агрегаторы обменников (kurs.expert, exnode, телеграм-каталоги и пр.).
-    Покупка: курс тарифа от 15 000 ₽ (19%) для BTC/LTC — поэтому minamount 15000,
-    чтобы котировка была честной для всего заявленного диапазона; USDT — 2% от 2000.
+    Покупка: курс тарифа от 15 000 ₽ (19%) — поэтому minamount 15000 для ВСЕХ монет
+    (вкл. USDT: тариф теперь единый), чтобы котировка была честной для диапазона.
     Продажа: только монеты с заполненным SELL_*_ADDRESS. Резервы — из курируемой
     таблицы reserves (/setreserve в боте), пока пусто — отдаём 0."""
     if _rates_xml_cache["xml"] and time.time() - _rates_xml_cache["ts"] < 60:
@@ -1396,7 +1396,7 @@ async def rates_xml_export():
         if not rate:
             continue
         res = reserves.get(coin, 0) or 0
-        minamt = 2000 if coin == "USDT" else 15000
+        minamt = 15000   # единый тариф — честный minamount для всех монет, вкл. USDT
         for src in ("SBPRUB", "CARDRUB"):
             items.append(
                 f"<item><from>{src}</from><to>{code}</to>"

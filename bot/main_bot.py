@@ -253,7 +253,7 @@ def generate_rates_card(btc_rate: float, ltc_rate: float, usdt_rate: float) -> B
 
     EXAMPLE   = 10_000
     comm_btc  = get_commission_percent(EXAMPLE)
-    comm_usdt = 2
+    comm_usdt = comm_btc   # USDT теперь по той же тарифной лестнице, что BTC/LTC
     ex_btc  = round(EXAMPLE * (1 - comm_btc  / 100) / btc_rate,  6) if btc_rate  else 0
     ex_ltc  = round(EXAMPLE * (1 - comm_btc  / 100) / ltc_rate,  4) if ltc_rate  else 0
     ex_usdt = round(EXAMPLE * (1 - comm_usdt / 100) / usdt_rate, 2) if usdt_rate else 0
@@ -316,7 +316,7 @@ def generate_rates_card(btc_rate: float, ltc_rate: float, usdt_rate: float) -> B
     # Подзаголовок
     draw.text((56, 128), f'За {EXAMPLE:,} ₽ вы получите'.replace(',', ' '),
               fill=WHITE, font=fnt(26), anchor='lm')
-    draw.text((56, 160), f'комиссия BTC/LTC {comm_btc}%  ·  USDT {comm_usdt}%  ·  без верификации',
+    draw.text((56, 160), f'комиссия {comm_btc}%  ·  BTC · LTC · USDT  ·  без верификации',
               fill=MUTED, font=fnt(16, False), anchor='lm')
 
     # Три карточки монет в ряд
@@ -403,7 +403,7 @@ def build_welcome_caption(btc_rate: float, ltc_rate: float, usdt_rate: float, vi
         f"5 000 – 10 000 ₽  →  25%\n"
         f"10 000 – 20 000 ₽  →  23%\n"
         f"от 20 000 ₽  →  19%\n\n"
-        f"💵 USDT TRC20  →  2%\n\n"
+        f"💵 BTC · LTC · USDT (TRC20) — тарифы по сумме\n\n"
         f"🔒 Non-KYC · Без верификации\n"
         f"⚡ Мин. сумма 2 000 ₽"
         f"</blockquote>\n\n"
@@ -924,13 +924,18 @@ def get_cached_rate(coin):
     return rate
 
 def get_rate_with_markup(coin, amount=None):
+    # USDT по умолчанию идёт по той же тарифной лестнице, что BTC/LTC
+    # (27/25/23/19% по сумме). Раньше был фикс 2% — он уводил почти всю маржу
+    # USDT (на 10к клиент получал ~9800 ₽ обратно). Оставлен опциональный
+    # env-оверрайд USDT_COMMISSION_PERCENT для точечной настройки без правки
+    # кода; если он НЕ задан — USDT считается по сумме, как BTC/LTC.
+    _usdt_override = os.getenv('USDT_COMMISSION_PERCENT')
     if amount is None:
         commission = 23
+    elif coin == 'USDT' and _usdt_override:
+        commission = float(_usdt_override)
     else:
-        if coin == 'USDT':
-            commission = float(os.getenv('USDT_COMMISSION_PERCENT', 2))
-        else:
-            commission = get_commission_percent(amount)
+        commission = get_commission_percent(amount)
     return get_cached_rate(coin) / (1 - commission / 100)
 
 # ---------- ВАЛИДАЦИЯ АДРЕСОВ ----------
@@ -1557,7 +1562,7 @@ async def menu_about(callback: CallbackQuery):
         "💱 BTC, LTC, USDT (TRC20)\n"
         "💳 Оплата: СБП, карта, приложения банков"
         "</blockquote>\n\n"
-        "📊 Комиссия от 2% (USDT) до 19% (крупные суммы BTC/LTC)\n"
+        "📊 Комиссия 19–27% по сумме (BTC · LTC · USDT)\n"
         "🌐 obsidian-exchange.org\n\n"
         "<i>Используя сервис, вы принимаете условия пользовательского соглашения — /offer</i>",
         parse_mode="HTML",
@@ -1626,7 +1631,7 @@ async def menu_sell(callback: CallbackQuery, state: FSMContext):
     kb = build_currency_kb("sell_cur_")
     await callback.message.answer(
         "💰 <b>Продажа крипты → RUB</b>\n\n"
-        "<blockquote>Отправьте нам монеты на указанный адрес — мы переведём рубли по СБП на ваш номер телефона в течение 30–60 минут.\n\n💱 Курс: рыночный за вычетом комиссии\n~19–27% для BTC/LTC · ~2% для USDT</blockquote>\n\n"
+        "<blockquote>Отправьте нам монеты на указанный адрес — мы переведём рубли по СБП на ваш номер телефона в течение 30–60 минут.\n\n💱 Курс: рыночный за вычетом комиссии\n~19–27% по сумме (BTC · LTC · USDT)</blockquote>\n\n"
         "Выберите монету для продажи:",
         reply_markup=kb,
         parse_mode="HTML"
@@ -6057,7 +6062,7 @@ async def cmd_limits(message: Message):
         f"Мин: {MIN_AMOUNT:,.0f} RUB\n"
         f"Макс: {MAX_AMOUNT:,.0f} RUB\n"
         f"Крупная заявка: {HIGH_AMOUNT:,.0f} RUB\n"
-        f"Комиссия: 27% (до 5000 RUB), 23% (5000-15000 RUB), 19% (от 15000 RUB) для BTC/LTC; 2% для USDT"
+        f"Комиссия (BTC/LTC/USDT): 27% (до 5000), 25% (5000-9999), 23% (10000-19999), 19% (от 20000 RUB)"
     )
 
 # ОТКЛЁН дубликат: /stats обслуживает cmd_stats выше. Тело оставлено как легаси.
@@ -7599,8 +7604,9 @@ def check_fifth_exchange_discount(user_id: int, rub_amount: float) -> bool:
 # ========== ЕЖЕДНЕВНЫЙ ПОСТ В КАНАЛ ==========
 
 async def compose_daily_post() -> str:
-    """USDT-first: 2% — входной продукт (конвертит в 4 раза лучше BTC),
-    BTC/LTC вторым экраном, резервы — сигнал доверия."""
+    """Крипта за рубли по СБП, без верификации. Единый тариф 19–27% по сумме для
+    BTC/LTC/USDT (USDT-2% отменён), резервы — сигнал доверия.
+    ⚠️ Маркетинг-угол «USDT-герой» устарел — при желании обновить кампанию."""
     btc_rate  = get_cached_rate('BTC')  or 0
     ltc_rate  = get_cached_rate('LTC')  or 0
     usdt_rate = get_cached_rate('USDT') or 0
@@ -7611,7 +7617,7 @@ async def compose_daily_post() -> str:
     # «от» = лучший тариф (19% на 15к+), не худший — честно и привлекательно
     btc_buy  = int(round(btc_rate  / (1 - 0.19))) if btc_rate  else 0
     ltc_buy  = int(round(ltc_rate  / (1 - 0.19))) if ltc_rate  else 0
-    usdt_buy = round(usdt_rate / (1 - 0.02), 2)   if usdt_rate else 0
+    usdt_buy = round(usdt_rate / (1 - 0.19), 2)   if usdt_rate else 0
     usdt_10k = round(10000 / usdt_buy, 1) if usdt_buy else 0
 
     # Курируемые резервы (reserves) — доверие; строка скрыта, пока не заданы
@@ -7632,9 +7638,9 @@ async def compose_daily_post() -> str:
     text = (
         f"🟣 <b>ObsidianExchange</b> — крипта за рубли по СБП · без верификации · 24/7\n\n"
 
-        f"₮ <b>USDT TRC-20 — комиссия всего 2%</b>\n"
+        f"₮ <b>USDT TRC-20 — быстро и без верификации</b>\n"
         f"<blockquote>"
-        + (f"Курс сейчас: <b>{usdt_buy:.2f} ₽</b> за 1 USDT\n"
+        + (f"Курс от: <b>{usdt_buy:.2f} ₽</b> за 1 USDT\n"
            f"10 000 ₽ → <b>~{usdt_10k:g} USDT</b> на твой адрес\n"
            if usdt_buy else "Курс обновляется — узнай актуальный прямо в боте\n")
         + f"Оплата по СБП, зачисление сразу после перевода"
@@ -7677,7 +7683,7 @@ async def compose_announce_text() -> str:
 
     btc_buy  = int(round(btc_rate  / (1 - 0.27))) if btc_rate  else 0
     ltc_buy  = int(round(ltc_rate  / (1 - 0.27))) if ltc_rate  else 0
-    usdt_buy = round(usdt_rate / (1 - 0.02), 2)   if usdt_rate else 0
+    usdt_buy = round(usdt_rate / (1 - 0.27), 2)   if usdt_rate else 0
 
     return (
         f"🟣 <b>ObsidianExchange</b>\n\n"
@@ -7983,7 +7989,7 @@ _TARIFF_TEXT = """💎 <b>Тарифная сетка ObsidianExchange</b>
 • 5 000 — 9 999 ₽ → <b>25%</b>
 • 10 000 — 19 999 ₽ → <b>23%</b>
 • от 20 000 ₽ → <b>19%</b>
-• USDT (TRC-20) → <b>~2%</b></blockquote>
+• Тарифы едины для BTC · LTC · USDT (TRC-20)</blockquote>
 
 <blockquote><b>VIP-скидки (накопительно):</b>
 🥈 Silver — от 30 000 ₽ оборота → <b>−3%</b>

@@ -61,10 +61,13 @@ def get_cached_rate(coin):
 
 
 def get_rate_with_markup(coin, amount=None):
+    # USDT по умолчанию — тарифная лестница как BTC/LTC (было фикс 2%, уводило
+    # маржу). Опциональный env-оверрайд USDT_COMMISSION_PERCENT; не задан → тариф.
+    _usdt_override = os.getenv("USDT_COMMISSION_PERCENT")
     if amount is None:
         commission = 23
-    elif coin == "USDT":
-        commission = float(os.getenv("USDT_COMMISSION_PERCENT", 2))
+    elif coin == "USDT" and _usdt_override:
+        commission = float(_usdt_override)
     else:
         commission = get_commission_percent(amount)
     return get_cached_rate(coin) / (1 - commission / 100)
@@ -72,9 +75,11 @@ def get_rate_with_markup(coin, amount=None):
 
 def get_sell_rate(coin):
     """Курс ПОКУПКИ крипты у клиента (продажа → RUB): рынок минус комиссия.
-    Та же логика, что в боте (menu_sell): ~19% BTC/LTC, ~2% USDT."""
-    if coin == "USDT":
-        commission = float(os.getenv("USDT_COMMISSION_PERCENT", 2))
+    ~19% BTC/LTC; USDT по умолчанию тоже по тарифу (продажа USDT сейчас скрыта,
+    держим консистентно с покупкой). env USDT_COMMISSION_PERCENT — оверрайд."""
+    _usdt_override = os.getenv("USDT_COMMISSION_PERCENT")
+    if coin == "USDT" and _usdt_override:
+        commission = float(_usdt_override)
     else:
         commission = get_commission_percent(50000)
     return round(get_cached_rate(coin) * (1 - commission / 100), 2)
