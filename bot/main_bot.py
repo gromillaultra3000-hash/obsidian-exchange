@@ -4742,6 +4742,22 @@ async def cmd_conversion(message: Message):
                 lines.append(f"   ⚠️ ранних экспираций: {r['early_expiry']}")
         lines.append("\n<i>Ранняя экспирация = сессия закрылась до своего срока "
                      "(баг 19.07, клиент терял кнопку «я оплатил»).</i>")
+        # Два денежно-критичных среза — их окно внутреннее, не зависит от часов
+        snap = check_conversion(24)
+        stuck = snap.get("stuck_payouts") or []
+        undel = snap.get("undelivered_receipts") or []
+        if stuck:
+            lines.append("\n💸 <b>Оплачено, крипта НЕ выдана:</b>")
+            for p in stuck[:8]:
+                lines.append(f"   • #{p['order_id']} {p['rub_amount']:g} ₽ → "
+                             f"{p['currency']} ({p['age_min']} мин)")
+        if undel:
+            lines.append("\n🧾 <b>Чек залит, провайдеру НЕ ушёл:</b>")
+            for p in undel[:8]:
+                lines.append(f"   • #{p['order_id']} {p['rub_amount']:g} ₽ · "
+                             f"{p['provider']} ({p['age_min']} мин)")
+        if not stuck and not undel:
+            lines.append("\n✅ Зависших выплат и недоставленных чеков нет.")
         await message.answer("\n".join(lines), parse_mode="HTML")
     except Exception as e:
         await message.answer(f"Ошибка: {type(e).__name__}: {e}")

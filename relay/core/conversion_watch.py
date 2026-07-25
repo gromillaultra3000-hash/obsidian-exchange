@@ -11,6 +11,12 @@
   early_expiry  — сессии закрываются раньше своего expires_at (регрессия того бага)
   stuck_payout  — клиент оплатил (status=paid), а крипта не отправлена дольше
                   порога: деньги у нас, выдача зависла в ручной очереди
+  receipt_undelivered — клиент прислал чек (файл сохранён в order_receipts), но
+                  провайдеру он так и НЕ ушёл (receipt_sent_at пуст) дольше
+                  порога. Это ядро гарантии «чек обязательно дойдёт до трейдера»:
+                  если доставка молча сорвалась (API отказал, группа споров
+                  недоступна, у метода нет канала) — сигнал делает сбой громким,
+                  пока сделка у провайдера ещё жива и её можно подтвердить.
 
 Порог намеренно по КОЛИЧЕСТВУ выдач, а не по проценту: при 2-3 заявках ноль оплат
 статистически нормален, при 8 — уже нет.
@@ -27,6 +33,10 @@ EARLY_EXPIRY_MIN = int(os.getenv("CONV_WATCH_EARLY_EXPIRY_MIN", "3") or 3)
 # Сколько минут заявка может лежать оплаченной без отправки крипты, прежде чем
 # это считается зависшей выплатой (ручная очередь встала / воркер офлайн).
 STUCK_PAYOUT_MIN = int(os.getenv("CONV_WATCH_STUCK_PAYOUT_MIN", "45") or 45)
+# Сколько минут чек может лежать доставленным-в-никуда (файл есть, receipt_sent_at
+# пуст), прежде чем это тревога. Доставка штатно занимает секунды; 20 минут =
+# что-то сорвалось молча, а сделка у провайдера ещё может быть жива.
+RECEIPT_UNDELIVERED_MIN = int(os.getenv("CONV_WATCH_RECEIPT_UNDELIVERED_MIN", "20") or 20)
 
 
 def _db():
@@ -40,7 +50,7 @@ def check_conversion(window_hours: int | None = None) -> dict:
     h = window_hours or WINDOW_HOURS
     win = f"-{h} hours"
     out = {"window_hours": h, "alerts": [], "issued": 0, "paid": 0, "early_expiry": 0,
-           "stuck_payouts": []}
+           "stuck_payouts": [], "undelivered_receipts": []}
     try:
         with _db() as conn:
             out["issued"] = conn.execute(
@@ -69,6 +79,29 @@ def check_conversion(window_hours: int | None = None) -> dict:
                 "AND (updated_at IS NULL OR updated_at <= datetime('now', ?)) "
                 "ORDER BY COALESCE(updated_at, created_at)",
                 (f"-{STUCK_PAYOUT_MIN} minutes",)).fetchall()]
+            # Чек залит, но провайдеру НЕ ушёл (receipt_sent_at пуст) дольше
+            # порога. Только по сделкам, что ещё требуют подтверждения — по
+            # выданной крипте (sent) и отменённым оператором (cancelled) уже
+            # неважно. order_receipts/receipt_sent_at могут отсутствовать в
+            # совсем старой БД — оборачиваем отдельно, чтобы не глушить весь чек.
+            try:
+                out["undelivered_receipts"] = [dict(r) for r in conn.execute(
+                    "SELECT o.order_id, o.rub_amount, o.currency, o.status, "
+                    "  COALESCE(ps.provider,'?') provider, "
+                    "  CAST((julianday('now')-julianday(r.created_at))*24*60 AS INT) age_min "
+                    "FROM order_receipts r JOIN orders o ON o.order_id=r.order_id "
+                    "LEFT JOIN payment_sessions ps ON ps.id=("
+                    "  SELECT id FROM payment_sessions WHERE order_id=o.order_id ORDER BY id DESC LIMIT 1) "
+                    "WHERE (o.receipt_sent_at IS NULL OR o.receipt_sent_at='') "
+                    "AND o.status NOT IN ('sent','cancelled') "
+                    "AND r.created_at <= datetime('now', ?) "
+                    # только пока случай ещё actionable: сделка у провайдера жива
+                    # часы, не дни. Древние expired-жертвы уже не спасти — не нудим.
+                    "AND r.created_at >= datetime('now','-24 hours') "
+                    "ORDER BY r.created_at",
+                    (f"-{RECEIPT_UNDELIVERED_MIN} minutes",)).fetchall()]
+            except sqlite3.OperationalError:
+                out["undelivered_receipts"] = []
     except Exception as e:
         out["error"] = f"{type(e).__name__}: {e}"
         return out
@@ -94,6 +127,16 @@ def check_conversion(window_hours: int | None = None) -> dict:
             "text": (f"{len(out['stuck_payouts'])} заявок оплачено, но крипта НЕ отправлена "
                      f">{STUCK_PAYOUT_MIN} мин: {lst}. Деньги у нас — выдать вручную "
                      f"(/worker) или проверить, не завис ли авто-payout."),
+        })
+    if out["undelivered_receipts"]:
+        lst = ", ".join(f"#{p['order_id']} ({p['rub_amount']:g} ₽, {p['provider']}, "
+                        f"{p['age_min']} мин)" for p in out["undelivered_receipts"][:8])
+        out["alerts"].append({
+            "kind": "receipt_undelivered",
+            "text": (f"{len(out['undelivered_receipts'])} чеков залито клиентом, но "
+                     f"провайдеру НЕ доставлено >{RECEIPT_UNDELIVERED_MIN} мин: {lst}. "
+                     f"Передать чек трейдеру вручную в кабинете/группе провайдера, "
+                     f"ПОКА сделка на их стороне жива — иначе оплату не подтвердят."),
         })
     return out
 

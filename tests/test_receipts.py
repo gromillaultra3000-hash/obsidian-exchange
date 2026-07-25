@@ -95,6 +95,75 @@ def test_fraud():
 check("fraud-flags: дубль-файл и серия expired без оплат подсвечены", test_fraud())
 
 
+# ── Гарантия «чек дойдёт»: сторож ловит залитый, но не доставленный чек ────────
+def test_undelivered_watch():
+    tmp = tempfile.mkdtemp()
+    dbf = os.path.join(tmp, "cw.db")
+    os.environ["DB_PATH"] = dbf
+    import importlib
+    import core.conversion_watch as C
+    importlib.reload(C)
+    conn = sqlite3.connect(dbf)
+    conn.executescript("""
+        CREATE TABLE orders(order_id INT PRIMARY KEY, user_id INT, status TEXT,
+            rub_amount REAL, currency TEXT, created_at TEXT, updated_at TEXT,
+            paid_btc_tx TEXT, receipt_sent_at TEXT);
+        CREATE TABLE payment_sessions(id INTEGER PRIMARY KEY, order_id INT,
+            provider TEXT, status TEXT, created_at TEXT, expires_at TEXT, updated_at TEXT);
+        CREATE TABLE order_receipts(order_id INT PRIMARY KEY, created_at TEXT);
+        -- 1: чек 30 мин назад, не доставлен, pending → ЛОВИТСЯ
+        INSERT INTO orders VALUES(1,10,'pending',50000,'BTC',datetime('now','-1 hour'),NULL,NULL,NULL);
+        INSERT INTO payment_sessions VALUES(1,1,'xpay','invoice_created',datetime('now'),NULL,NULL);
+        INSERT INTO order_receipts VALUES(1,datetime('now','-30 minutes'));
+        -- 2: чек доставлен (receipt_sent_at есть) → НЕ ловится
+        INSERT INTO orders VALUES(2,11,'paid',4000,'BTC',datetime('now','-1 hour'),datetime('now'),NULL,datetime('now'));
+        INSERT INTO order_receipts VALUES(2,datetime('now','-40 minutes'));
+        -- 3: чек 5 мин назад (в пределах порога) → пока НЕ ловится
+        INSERT INTO orders VALUES(3,12,'pending',2000,'BTC',datetime('now'),NULL,NULL,NULL);
+        INSERT INTO order_receipts VALUES(3,datetime('now','-5 minutes'));
+        -- 4: крипта выдана (sent) → НЕ ловится
+        INSERT INTO orders VALUES(4,13,'sent',1000,'BTC',datetime('now','-2 hour'),datetime('now'),'tx',NULL);
+        INSERT INTO order_receipts VALUES(4,datetime('now','-90 minutes'));
+    """)
+    conn.commit()
+    conn.close()
+    r = C.check_conversion(24)
+    ids = sorted(p["order_id"] for p in r["undelivered_receipts"])
+    kinds = [a["kind"] for a in r["alerts"]]
+    return ids == [1] and "receipt_undelivered" in kinds
+
+
+check("сторож: залитый, но не доставленный провайдеру чек ловится (и только он)",
+      test_undelivered_watch())
+
+
+def test_stuck_null_updated():
+    tmp = tempfile.mkdtemp()
+    dbf = os.path.join(tmp, "cw2.db")
+    os.environ["DB_PATH"] = dbf
+    import importlib
+    import core.conversion_watch as C
+    importlib.reload(C)
+    conn = sqlite3.connect(dbf)
+    conn.executescript("""
+        CREATE TABLE orders(order_id INT PRIMARY KEY, user_id INT, status TEXT,
+            rub_amount REAL, currency TEXT, created_at TEXT, updated_at TEXT,
+            paid_btc_tx TEXT, receipt_sent_at TEXT);
+        CREATE TABLE payment_sessions(id INTEGER PRIMARY KEY, order_id INT,
+            provider TEXT, status TEXT, created_at TEXT, expires_at TEXT, updated_at TEXT);
+        CREATE TABLE order_receipts(order_id INT PRIMARY KEY, created_at TEXT);
+        -- оплачено давно, updated_at ПУСТ (был невидим сторожу до фикса) → ЛОВИТСЯ
+        INSERT INTO orders VALUES(1,10,'paid',2000,'USDT',datetime('now','-3 days'),NULL,NULL,NULL);
+    """)
+    conn.commit()
+    conn.close()
+    r = C.check_conversion(24)
+    return [p["order_id"] for p in r["stuck_payouts"]] == [1]
+
+
+check("сторож: зависшая выплата с updated_at=NULL теперь видна", test_stuck_null_updated())
+
+
 print()
 if failures:
     print(f"❌ Провалено: {len(failures)} — {', '.join(failures)}")
