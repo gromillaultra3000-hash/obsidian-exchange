@@ -152,6 +152,43 @@
         .faq-answer-inner { padding: 0 16px 14px; }
         .faq-item.open .faq-answer { max-height: 300px; }
         .faq-link-btn { display: block; text-align: center; margin-top: 6px; padding: 12px; border-radius: var(--radius); background: var(--input); border: 1px solid var(--border); color: #fff; text-decoration: none; font-weight: 700; font-size: 14px; }
+
+        /* ══ Обсидиановый пак — компоненты Mini App ══ */
+        /* Glass-градиент вместо плоского фона на ключевых карточках */
+        .rate-box, .chart-container, .tier-card, .history-item, .ref-item, .result, .faq-item, .fee-box {
+            background: linear-gradient(180deg, rgba(18,8,30,.86), rgba(14,6,26,.6)) !important;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 0 14px rgba(168,85,247,.07);
+            -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+        }
+        .input-group input, .input-group select { background: linear-gradient(180deg, rgba(18,8,30,.8), rgba(14,6,26,.55)); }
+        /* Шапка: brand + sub */
+        .brand-title { font-weight: 900; letter-spacing: .06em; text-transform: uppercase; line-height: .95; background: linear-gradient(180deg,#fff 0%,#f2e8ff 46%,#cfb0ff 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent; text-shadow: 0 0 12px rgba(192,132,252,.28); }
+        .brand-sub { font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--purple-3); font-size: 11px; }
+        .kicker { font-size: 10px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: var(--purple-3); }
+        /* Chips */
+        .chips { display: flex; gap: 7px; flex-wrap: wrap; justify-content: center; margin: 0 0 16px; }
+        .chip { padding: 6px 11px; border-radius: 999px; background: linear-gradient(180deg, rgba(168,85,247,.20), rgba(168,85,247,.07)); border: 1px solid rgba(192,132,252,.20); color: #f0eaff; font-size: 11px; font-weight: 700; letter-spacing: .02em; position: relative; overflow: hidden; }
+        .chip::after { content: ""; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 25%, rgba(255,255,255,.12), transparent 48%); transform: translateX(-130%); animation: oe-shine 3.8s linear infinite; }
+        @keyframes oe-shine { from { transform: translateX(-125%); } to { transform: translateX(125%); } }
+        /* Монеты-бейджи (дышащие) */
+        .coin-row { display: flex; gap: 9px; align-items: center; justify-content: center; margin-bottom: 4px; }
+        .coin-badge { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 900; color: #0a0010; box-shadow: 0 0 12px rgba(255,255,255,.10); animation: oe-coinb 2.7s ease-in-out infinite; }
+        .coin-badge.btc { background: #f7931a; } .coin-badge.ltc { background: #c0c0c0; animation-delay: .3s; } .coin-badge.usdt { background: #26a17b; animation-delay: .55s; }
+        @keyframes oe-coinb { 0%,100% { transform: scale(1); filter: brightness(1); } 50% { transform: scale(1.07); filter: brightness(1.09); } }
+        /* Кристалл (компактный, из пака) */
+        .crystal-wrap { position: relative; width: 96px; height: 96px; display: grid; place-items: center; margin: 6px auto 4px; filter: drop-shadow(0 0 16px rgba(168,85,247,.44)); animation: oe-floaty 4.6s ease-in-out infinite; }
+        .crystal-aura { position: absolute; inset: 12px; border-radius: 50%; background: radial-gradient(circle, rgba(168,85,247,.22), rgba(168,85,247,.08) 40%, transparent 72%); filter: blur(10px); animation: oe-aura 2.8s ease-in-out infinite; }
+        .crystal { width: 60px; height: 82px; position: relative; transform-style: preserve-3d; animation: oe-cryspin 8.5s ease-in-out infinite; }
+        .facet { position: absolute; inset: 0; clip-path: polygon(50% 0%,84% 18%,95% 54%,66% 100%,34% 100%,5% 54%,16% 18%); border: 1px solid rgba(220,194,255,.24); background: linear-gradient(180deg, rgba(15,8,24,.85), rgba(28,12,46,.96)); overflow: hidden; box-shadow: inset 0 0 0 1px rgba(255,255,255,.05), inset 0 -14px 28px rgba(168,85,247,.20), 0 0 22px rgba(168,85,247,.22); }
+        .facet.left { background: linear-gradient(160deg, rgba(255,255,255,.18), transparent 24%), linear-gradient(180deg, rgba(10,5,18,.9), rgba(28,12,46,.96)); transform: translateX(-2px) rotateY(-12deg); }
+        .facet.right { background: linear-gradient(200deg, rgba(255,255,255,.14), transparent 18%), linear-gradient(180deg, rgba(10,5,18,.88), rgba(24,10,40,.98)); transform: translateX(2px) rotateY(10deg); opacity: .92; }
+        .facet.core { inset: 10px 13px; clip-path: polygon(50% 0%,80% 18%,90% 56%,62% 100%,38% 100%,10% 56%,20% 18%); background: radial-gradient(circle at 50% 38%, rgba(192,132,252,.72), rgba(168,85,247,.16) 36%, transparent 66%), linear-gradient(180deg, rgba(18,8,30,.9), rgba(30,12,50,.98)); }
+        .facet::before { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent 0 38%, rgba(255,255,255,.22) 50%, transparent 62%), linear-gradient(180deg, rgba(192,132,252,.18), transparent 55%); mix-blend-mode: screen; opacity: .88; animation: oe-shimmer 2.8s ease-in-out infinite; }
+        @keyframes oe-floaty { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+        @keyframes oe-aura { 0%,100% { transform: scale(.96); opacity: .65; } 50% { transform: scale(1.05); opacity: 1; } }
+        @keyframes oe-cryspin { 0%,100% { transform: rotateY(-10deg) rotateX(0); } 25% { transform: rotateY(6deg) rotateX(2deg); } 50% { transform: rotateY(12deg) rotateX(0); } 75% { transform: rotateY(2deg) rotateX(-2deg); } }
+        @keyframes oe-shimmer { 0%,100% { opacity: .55; transform: translateX(-10%) scale(.98); } 50% { opacity: .92; transform: translateX(10%) scale(1.02); } }
+        @media (prefers-reduced-motion: reduce) { .coin-badge, .crystal, .crystal-wrap, .crystal-aura, .facet::before, .chip::after { animation: none !important; } }
     </style>
 </head>
 <body>
@@ -160,23 +197,22 @@
         <div class="oe-mist"></div>
     </div>
     <div class="container">
-        <!-- Логотип SVG -->
-        <div class="logo-wrap" style="margin-top:12px">
-          <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
-            <defs>
-              <linearGradient id="lg1" x1="0" y1="0" x2="36" y2="36" gradientUnits="userSpaceOnUse">
-                <stop offset="0%" stop-color="#a78bfa"/>
-                <stop offset="100%" stop-color="#7c3aed"/>
-              </linearGradient>
-            </defs>
-            <polygon points="18,2 34,10 34,26 18,34 2,26 2,10" fill="url(#lg1)" opacity=".15"/>
-            <polygon points="18,2 34,10 34,26 18,34 2,26 2,10" fill="none" stroke="url(#lg1)" stroke-width="1.5"/>
-            <polygon points="18,8 28,13 28,23 18,28 8,23 8,13" fill="url(#lg1)" opacity=".3"/>
-            <polygon points="18,13 24,16.5 24,23.5 18,27 12,23.5 12,16.5" fill="url(#lg1)"/>
-          </svg>
-          <span class="logo-name">ObsidianExchange</span>
+        <!-- Шапка в стиле пака: кристалл + brand + монеты -->
+        <div style="text-align:center;margin-top:14px">
+          <div class="crystal-wrap" aria-hidden="true">
+            <div class="crystal-aura"></div>
+            <div class="crystal"><div class="facet left"></div><div class="facet right"></div><div class="facet core"></div></div>
+          </div>
+          <div class="brand-title" style="font-size:25px;margin-bottom:4px">OBSIDIAN EXCHANGE</div>
+          <div class="brand-sub" style="margin-bottom:12px">Крипто-обмен без KYC</div>
+          <div class="coin-row" aria-hidden="true">
+            <span class="coin-badge btc">₿</span><span class="coin-badge ltc">Ł</span><span class="coin-badge usdt">₮</span>
+          </div>
         </div>
-        <div class="logo-sub">Обмен криптовалют без KYC</div>
+        <div class="chips" style="margin-top:14px">
+          <span class="chip">BTC</span><span class="chip">LTC</span><span class="chip">USDT</span>
+          <span class="chip">Свап</span><span class="chip">Рефы 1%</span><span class="chip">Подарки</span>
+        </div>
 
         <!-- Курсы с % изменением -->
         <div class="rates-row">
