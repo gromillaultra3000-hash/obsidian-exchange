@@ -16,7 +16,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Подсветка активного пункта
     const path = window.location.pathname.replace(/\/+$/, '') || '/';
-    document.querySelectorAll('.nav-links a[data-path]').forEach(a => {
+    // .nav-links — легаси-навбар, .navlinks — v5-навбар
+    document.querySelectorAll('.nav-links a[data-path], .navlinks a[data-path]').forEach(a => {
         if (a.dataset.path === path) a.classList.add('active');
     });
 

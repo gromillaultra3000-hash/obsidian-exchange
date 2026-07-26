@@ -4,18 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>ObsidianExchange</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
     <style>
-        :root { --bg: #050008; --card: #120820; --input: #151520; --border: rgba(192,132,252,.18); --border-strong: rgba(192,132,252,.4); --purple: #8b5cf6; --purple-2: #a855f7; --purple-3: #C084FC; --green: #00ff9d; --text: #F5F3FF; --muted: #a99cc9; --radius: 22px; }
+        /* Дизайн-система v5 (единая с сайтом): фиолет #9f67ff, мягкое стекло, Manrope/Space Grotesk */
+        :root { --bg: #05030a; --bg2:#0b0712; --card: rgba(24,14,38,.84); --input: rgba(255,255,255,.025); --line: rgba(210,178,255,.16); --line2: rgba(210,178,255,.08); --border: rgba(210,178,255,.16); --border-strong: rgba(215,180,255,.38); --purple: #9f67ff; --purple-2: #c48cff; --purple-3: #c48cff; --violet3:#7c3aed; --green: #6ee7b7; --text: #f7f3ff; --muted: #b9aaca; --radius: 20px; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html { -webkit-tap-highlight-color: transparent; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #07050d; color: var(--text); min-height: 100dvh; padding: 0; position: relative; overflow-x: hidden; }
-        body::before { content:""; position:fixed; inset:0; z-index:-1; pointer-events:none; background: radial-gradient(circle at 12% 6%, rgba(168,85,247,.22), transparent 40%), radial-gradient(circle at 88% 2%, rgba(192,132,252,.12), transparent 30%), linear-gradient(180deg,#0f031a 0%,#07050d 55%,#050008 100%); }
+        body { font-family: Manrope, Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100dvh; padding: 0; position: relative; overflow-x: hidden; }
+        body::before { content:""; position:fixed; inset:0; z-index:-1; pointer-events:none; background: radial-gradient(circle at 12% 12%, rgba(159,103,255,.17), transparent 24%), radial-gradient(circle at 86% 18%, rgba(196,140,255,.11), transparent 18%), radial-gradient(circle at 68% 78%, rgba(159,103,255,.10), transparent 25%), linear-gradient(180deg,#090510,#05030a 62%); }
 
-        .matrix-bg { position: fixed; inset: 0; background-image: linear-gradient(rgba(168,85,247,.06) 1px, transparent 1px), linear-gradient(90deg, rgba(168,85,247,.04) 1px, transparent 1px); background-size: 40px 40px; pointer-events: none; z-index: 0; mask-image: radial-gradient(circle at top, rgba(0,0,0,.9), transparent 70%); }
+        .matrix-bg { position: fixed; inset: 0; background-image: linear-gradient(rgba(159,103,255,.06) 1px, transparent 1px), linear-gradient(90deg, rgba(159,103,255,.04) 1px, transparent 1px); background-size: 40px 40px; pointer-events: none; z-index: 0; mask-image: radial-gradient(circle at top, rgba(0,0,0,.9), transparent 70%); }
         /* Ambient-слой обсидианового пака (matrix-дождь+частицы — canvas ниже; mist/scan — CSS). Декоративный, pointer-events:none. */
         .oe-bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
         .oe-bg > * { position: absolute; inset: 0; pointer-events: none; }
-        .oe-mist { background: radial-gradient(circle at 22% 20%, rgba(168,85,247,.14), transparent 32%), radial-gradient(circle at 80% 12%, rgba(192,132,252,.10), transparent 26%), radial-gradient(circle at 55% 80%, rgba(139,92,246,.10), transparent 30%); filter: blur(22px); opacity: .6; animation: oe-drift 14s ease-in-out infinite alternate; }
+        .oe-mist { background: radial-gradient(circle at 22% 20%, rgba(159,103,255,.14), transparent 32%), radial-gradient(circle at 80% 12%, rgba(196,140,255,.10), transparent 26%), radial-gradient(circle at 55% 80%, rgba(159,103,255,.10), transparent 30%); filter: blur(22px); opacity: .6; animation: oe-drift 14s ease-in-out infinite alternate; }
         @keyframes oe-drift { from { transform: translate3d(-2%,-1%,0) scale(1); } to { transform: translate3d(2%,1%,0) scale(1.05); } }
         @media (prefers-reduced-motion: reduce) { .oe-mist { animation: none; } }
 
@@ -33,7 +37,7 @@
         /* ── Курсы ── */
         .rates-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; }
         .rate-box { background: var(--input); border: 1px solid var(--border); border-radius: 16px; padding: 12px 8px; text-align: center; transition: box-shadow .25s, transform .25s; position:relative; overflow:hidden; }
-        .rate-box::before { content:''; position:absolute; inset:0; background:linear-gradient(135deg,rgba(139,92,246,.06),transparent); pointer-events:none; }
+        .rate-box::before { content:''; position:absolute; inset:0; background:linear-gradient(135deg,rgba(159,103,255,.06),transparent); pointer-events:none; }
         .rate-box:active { transform: scale(.97); }
         .rate-coin { font-weight: 700; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
         .rate-value { color: var(--green); font-weight: 800; font-size: 15px; }
@@ -64,8 +68,8 @@
         .tab:focus-visible { outline:2px solid var(--purple-3); outline-offset:-2px; }
         .tab:last-child { border-right:none; }
         .tab .tab-icon { font-size:19px; display:block; transition:transform .15s, filter .15s; }
-        .tab.active { background:rgba(124,58,237,.14); color:var(--purple-2); }
-        .tab.active .tab-icon { filter:drop-shadow(0 0 5px rgba(168,85,247,.55)); transform:scale(1.1); }
+        .tab.active { background:rgba(159,103,255,.14); color:var(--purple-2); }
+        .tab.active .tab-icon { filter:drop-shadow(0 0 5px rgba(159,103,255,.55)); transform:scale(1.1); }
 
         .panel { display: none; }
         .panel.active { display: block; animation: fadeIn 0.3s ease; }
@@ -77,7 +81,7 @@
 
         /* ── Кнопка с shimmer ── */
         .btn {
-          width: 100%; padding: 14px; background: linear-gradient(90deg, #7c3aed, #a855f7); color: #fff; border: none; border-radius: var(--radius); font-size: 16px; font-weight: 700; cursor: pointer; margin-top: 10px; box-shadow: 0 0 25px rgba(168,85,247,.3); transition: box-shadow .2s, transform .2s;
+          width: 100%; padding: 14px; background: linear-gradient(90deg, #7c3aed, #c48cff); color: #fff; border: none; border-radius: var(--radius); font-size: 16px; font-weight: 700; cursor: pointer; margin-top: 10px; box-shadow: 0 0 25px rgba(159,103,255,.3); transition: box-shadow .2s, transform .2s;
           position:relative; overflow:hidden;
         }
         .btn::after {
@@ -89,14 +93,14 @@
         .btn:active { transform: scale(0.98); }
         /* «Дыхание» свечением на главной кнопке — box-shadow (без scale, не спорит с :active) */
         .btn-breathe { animation: oe-breathe 3s ease-in-out infinite; }
-        @keyframes oe-breathe { 0%,100% { box-shadow: 0 0 25px rgba(168,85,247,.3); } 50% { box-shadow: 0 0 44px rgba(168,85,247,.6); } }
+        @keyframes oe-breathe { 0%,100% { box-shadow: 0 0 25px rgba(159,103,255,.3); } 50% { box-shadow: 0 0 44px rgba(159,103,255,.6); } }
         @media (prefers-reduced-motion: reduce) { .btn-breathe { animation: none; } }
 
         .result { margin-top: 15px; padding: 14px; background: var(--input); border: 1px solid var(--border); border-radius: var(--radius); font-size: 18px; font-weight: 700; color: var(--green); text-align: center; }
         .result:empty { display: none; }
 
         /* ── Fee box ── */
-        .fee-box { display:flex; align-items:center; justify-content:space-between; padding:10px 14px; background:rgba(124,58,237,.08); border:1px solid rgba(124,58,237,.2); border-radius:12px; margin:4px 0 14px; }
+        .fee-box { display:flex; align-items:center; justify-content:space-between; padding:10px 14px; background:rgba(159,103,255,.08); border:1px solid rgba(159,103,255,.2); border-radius:12px; margin:4px 0 14px; }
         .fee-left { font-size:12px; color:var(--muted); font-weight:600; }
         .fee-right { font-size:16px; font-weight:800; color:var(--purple-2); }
 
@@ -110,7 +114,7 @@
         .h-title { font-weight:800; font-size:15px; margin-bottom:2px; }
         .h-meta { color:var(--muted); font-size:12px; }
         .h-status-row { display:flex; align-items:center; justify-content:space-between; margin-top:8px; }
-        .history-item .status { font-size: 12px; padding: 3px 10px; border-radius: 999px; background: rgba(168,85,247,.15); color: var(--purple-2); font-weight: 700; }
+        .history-item .status { font-size: 12px; padding: 3px 10px; border-radius: 999px; background: rgba(159,103,255,.15); color: var(--purple-2); font-weight: 700; }
         .history-item small { color: var(--muted); }
         .btn-pay { display:inline-block; margin-top:10px; background:#7c3aed; color:#fff; padding:7px 16px; border-radius:10px; text-decoration:none; font-size:13px; font-weight:600; letter-spacing:.02em; }
 
@@ -128,14 +132,14 @@
         .tier-badge.gold { color:#f59e0b; }
         .tier-next { font-size:12px; color:var(--muted); }
         .tier-bar-wrap { height:6px; background:rgba(255,255,255,.06); border-radius:3px; overflow:hidden; margin-bottom:6px; }
-        .tier-bar { height:100%; background:linear-gradient(90deg,#7c3aed,#a78bfa); border-radius:3px; transition:width 1s ease; }
+        .tier-bar { height:100%; background:linear-gradient(90deg,#7c3aed,#c48cff); border-radius:3px; transition:width 1s ease; }
         .tier-labels { display:flex; justify-content:space-between; font-size:10px; color:var(--muted); }
 
         .ref-link { word-break: break-all; background: #0d0d14; border: 1px solid var(--border); padding: 12px; border-radius: 12px; margin: 10px 0; font-size: 13px; }
         .ref-stats-box { margin-top: 15px; padding: 16px; background: var(--input); border: 1px solid var(--border); border-radius: var(--radius); }
         .ref-stats-box p { margin: 6px 0; }
 
-        .skeleton-line { height: 14px; border-radius: 6px; background: linear-gradient(90deg, var(--input) 25%, rgba(168,85,247,.15) 50%, var(--input) 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; margin-bottom: 8px; }
+        .skeleton-line { height: 14px; border-radius: 6px; background: linear-gradient(90deg, var(--input) 25%, rgba(159,103,255,.15) 50%, var(--input) 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; margin-bottom: 8px; }
 
         .input-group input.valid { border-color: var(--green) !important; box-shadow: 0 0 10px rgba(0,255,157,0.3); }
         .input-group input.invalid { border-color: #ff4444 !important; box-shadow: 0 0 10px rgba(255,68,68,0.3); }
@@ -153,42 +157,33 @@
         .faq-item.open .faq-answer { max-height: 300px; }
         .faq-link-btn { display: block; text-align: center; margin-top: 6px; padding: 12px; border-radius: var(--radius); background: var(--input); border: 1px solid var(--border); color: #fff; text-decoration: none; font-weight: 700; font-size: 14px; }
 
-        /* ══ Обсидиановый пак — компоненты Mini App ══ */
-        /* Glass-градиент вместо плоского фона на ключевых карточках */
+        /* ══ Дизайн-система v5 — компоненты Mini App (единый язык с сайтом) ══ */
+        /* Glass-карточки v5 */
         .rate-box, .chart-container, .tier-card, .history-item, .ref-item, .result, .faq-item, .fee-box {
-            background: linear-gradient(180deg, rgba(18,8,30,.86), rgba(14,6,26,.6)) !important;
-            box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 0 14px rgba(168,85,247,.07);
-            -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+            background: linear-gradient(180deg, rgba(22,14,35,.82), rgba(9,6,16,.72)) !important;
+            border: 1px solid var(--line) !important;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 0 16px rgba(159,103,255,.07);
+            -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
         }
-        .input-group input, .input-group select { background: linear-gradient(180deg, rgba(18,8,30,.8), rgba(14,6,26,.55)); }
-        /* Шапка: brand + sub */
-        .brand-title { font-weight: 900; letter-spacing: .06em; text-transform: uppercase; line-height: .95; background: linear-gradient(180deg,#fff 0%,#f2e8ff 46%,#cfb0ff 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent; text-shadow: 0 0 12px rgba(192,132,252,.28); }
-        .brand-sub { font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--purple-3); font-size: 11px; }
-        .kicker { font-size: 10px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: var(--purple-3); }
-        /* Chips */
+        .input-group input, .input-group select { background: rgba(255,255,255,.025); border: 1px solid var(--line); border-radius: 16px; }
+        .input-group input:focus, .input-group select:focus { border-color: var(--border-strong); box-shadow: 0 0 0 4px rgba(159,103,255,.08); }
+        /* Шапка v5 */
+        .brand-gem { width: 42px; height: 54px; object-fit: contain; filter: drop-shadow(0 0 12px rgba(159,103,255,.42)); animation: oe-floaty 6s ease-in-out infinite; }
+        .brand-title { font-family: 'Space Grotesk', Manrope, sans-serif; font-weight: 700; letter-spacing: -.02em; text-transform: none; line-height: 1; color: #fff; }
+        .brand-title span { color: var(--purple); }
+        .brand-sub { font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); font-size: 10px; }
+        .kicker { font-size: 9px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: var(--purple-2); }
+        /* Chips v5 */
         .chips { display: flex; gap: 7px; flex-wrap: wrap; justify-content: center; margin: 0 0 16px; }
-        .chip { padding: 6px 11px; border-radius: 999px; background: linear-gradient(180deg, rgba(168,85,247,.20), rgba(168,85,247,.07)); border: 1px solid rgba(192,132,252,.20); color: #f0eaff; font-size: 11px; font-weight: 700; letter-spacing: .02em; position: relative; overflow: hidden; }
-        .chip::after { content: ""; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 25%, rgba(255,255,255,.12), transparent 48%); transform: translateX(-130%); animation: oe-shine 3.8s linear infinite; }
-        @keyframes oe-shine { from { transform: translateX(-125%); } to { transform: translateX(125%); } }
-        /* Монеты-бейджи (дышащие) */
-        .coin-row { display: flex; gap: 9px; align-items: center; justify-content: center; margin-bottom: 4px; }
-        .coin-badge { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 900; color: #0a0010; box-shadow: 0 0 12px rgba(255,255,255,.10); animation: oe-coinb 2.7s ease-in-out infinite; }
-        .coin-badge.btc { background: #f7931a; } .coin-badge.ltc { background: #c0c0c0; animation-delay: .3s; } .coin-badge.usdt { background: #26a17b; animation-delay: .55s; }
-        @keyframes oe-coinb { 0%,100% { transform: scale(1); filter: brightness(1); } 50% { transform: scale(1.07); filter: brightness(1.09); } }
-        /* Кристалл (компактный, из пака) */
-        .crystal-wrap { position: relative; width: 96px; height: 96px; display: grid; place-items: center; margin: 6px auto 4px; filter: drop-shadow(0 0 16px rgba(168,85,247,.44)); animation: oe-floaty 4.6s ease-in-out infinite; }
-        .crystal-aura { position: absolute; inset: 12px; border-radius: 50%; background: radial-gradient(circle, rgba(168,85,247,.22), rgba(168,85,247,.08) 40%, transparent 72%); filter: blur(10px); animation: oe-aura 2.8s ease-in-out infinite; }
-        .crystal { width: 60px; height: 82px; position: relative; transform-style: preserve-3d; animation: oe-cryspin 8.5s ease-in-out infinite; }
-        .facet { position: absolute; inset: 0; clip-path: polygon(50% 0%,84% 18%,95% 54%,66% 100%,34% 100%,5% 54%,16% 18%); border: 1px solid rgba(220,194,255,.24); background: linear-gradient(180deg, rgba(15,8,24,.85), rgba(28,12,46,.96)); overflow: hidden; box-shadow: inset 0 0 0 1px rgba(255,255,255,.05), inset 0 -14px 28px rgba(168,85,247,.20), 0 0 22px rgba(168,85,247,.22); }
-        .facet.left { background: linear-gradient(160deg, rgba(255,255,255,.18), transparent 24%), linear-gradient(180deg, rgba(10,5,18,.9), rgba(28,12,46,.96)); transform: translateX(-2px) rotateY(-12deg); }
-        .facet.right { background: linear-gradient(200deg, rgba(255,255,255,.14), transparent 18%), linear-gradient(180deg, rgba(10,5,18,.88), rgba(24,10,40,.98)); transform: translateX(2px) rotateY(10deg); opacity: .92; }
-        .facet.core { inset: 10px 13px; clip-path: polygon(50% 0%,80% 18%,90% 56%,62% 100%,38% 100%,10% 56%,20% 18%); background: radial-gradient(circle at 50% 38%, rgba(192,132,252,.72), rgba(168,85,247,.16) 36%, transparent 66%), linear-gradient(180deg, rgba(18,8,30,.9), rgba(30,12,50,.98)); }
-        .facet::before { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent 0 38%, rgba(255,255,255,.22) 50%, transparent 62%), linear-gradient(180deg, rgba(192,132,252,.18), transparent 55%); mix-blend-mode: screen; opacity: .88; animation: oe-shimmer 2.8s ease-in-out infinite; }
-        @keyframes oe-floaty { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
-        @keyframes oe-aura { 0%,100% { transform: scale(.96); opacity: .65; } 50% { transform: scale(1.05); opacity: 1; } }
-        @keyframes oe-cryspin { 0%,100% { transform: rotateY(-10deg) rotateX(0); } 25% { transform: rotateY(6deg) rotateX(2deg); } 50% { transform: rotateY(12deg) rotateX(0); } 75% { transform: rotateY(2deg) rotateX(-2deg); } }
-        @keyframes oe-shimmer { 0%,100% { opacity: .55; transform: translateX(-10%) scale(.98); } 50% { opacity: .92; transform: translateX(10%) scale(1.02); } }
-        @media (prefers-reduced-motion: reduce) { .coin-badge, .crystal, .crystal-wrap, .crystal-aura, .facet::before, .chip::after { animation: none !important; } }
+        .chip { padding: 7px 11px; border-radius: 999px; background: rgba(255,255,255,.025); border: 1px solid var(--line); color: #ece3f7; font-size: 11px; font-weight: 700; letter-spacing: .02em; }
+        /* Медальоны-монеты v5 (PNG) */
+        .coin-row { display: flex; gap: 14px; align-items: center; justify-content: center; margin-bottom: 4px; }
+        .coin-badge { width: 46px; height: 46px; object-fit: contain; filter: drop-shadow(0 0 12px rgba(159,103,255,.22)); animation: oe-floaty 5.5s ease-in-out infinite; }
+        .coin-badge.ltc { animation-delay: .3s; } .coin-badge.usdt { animation-delay: .6s; }
+        @keyframes oe-floaty { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+        /* Кнопка v5 */
+        .btn { background: linear-gradient(180deg, rgba(159,103,255,.30), rgba(159,103,255,.14)); border: 1px solid rgba(210,178,255,.22); box-shadow: 0 0 42px rgba(159,103,255,.20); letter-spacing: .04em; text-transform: uppercase; font-size: 13px; }
+        @media (prefers-reduced-motion: reduce) { .brand-gem, .coin-badge { animation: none !important; } }
     </style>
 </head>
 <body>
@@ -197,21 +192,20 @@
         <div class="oe-mist"></div>
     </div>
     <div class="container">
-        <!-- Шапка в стиле пака: кристалл + brand + монеты -->
-        <div style="text-align:center;margin-top:14px">
-          <div class="crystal-wrap" aria-hidden="true">
-            <div class="crystal-aura"></div>
-            <div class="crystal"><div class="facet left"></div><div class="facet right"></div><div class="facet core"></div></div>
-          </div>
-          <div class="brand-title" style="font-size:25px;margin-bottom:4px">OBSIDIAN EXCHANGE</div>
-          <div class="brand-sub" style="margin-bottom:12px">Крипто-обмен без KYC</div>
+        <!-- Шапка v5: медальон + brand + монеты -->
+        <div style="text-align:center;margin-top:16px">
+          <img class="brand-gem" src="/static/img/v5/gem.png" alt="" aria-hidden="true">
+          <div class="brand-title" style="font-size:24px;margin:8px 0 4px">Obsidian<span>Exchange</span></div>
+          <div class="brand-sub" style="margin-bottom:14px">automatic crypto exchange • без KYC</div>
           <div class="coin-row" aria-hidden="true">
-            <span class="coin-badge btc">₿</span><span class="coin-badge ltc">Ł</span><span class="coin-badge usdt">₮</span>
+            <img class="coin-badge btc" src="/static/img/v5/btc.png" alt="">
+            <img class="coin-badge ltc" src="/static/img/v5/ltc.png" alt="">
+            <img class="coin-badge usdt" src="/static/img/v5/usdt.png" alt="">
           </div>
         </div>
-        <div class="chips" style="margin-top:14px">
-          <span class="chip">BTC</span><span class="chip">LTC</span><span class="chip">USDT</span>
-          <span class="chip">Свап</span><span class="chip">Рефы 1%</span><span class="chip">Подарки</span>
+        <div class="chips" style="margin-top:16px">
+          <span class="chip">BTC</span><span class="chip">LTC</span><span class="chip">USDT TRC‑20</span>
+          <span class="chip">Swap 2%</span><span class="chip">Рефы 1%</span><span class="chip">Ваучеры</span>
         </div>
 
         <!-- Курсы с % изменением -->
@@ -253,27 +247,27 @@
             <!-- Живой статус платёжной системы из /api/system-status -->
             <div id="sys-status" style="display:none;align-items:center;gap:6px;margin-bottom:6px;padding:6px 10px;border-radius:10px;font-size:11px;font-weight:600"></div>
             <!-- Слой доверия к оплате: умный роутинг (агрегат, без имён провайдеров) -->
-            <div id="pay-trust" style="display:none;margin-bottom:10px;padding:8px 10px;border-radius:10px;background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.18)">
-              <div style="font-size:11px;color:#a78bfa;font-weight:700;letter-spacing:.03em;margin-bottom:3px">⚡ УМНЫЙ РОУТИНГ ОПЛАТЫ</div>
+            <div id="pay-trust" style="display:none;margin-bottom:10px;padding:8px 10px;border-radius:10px;background:rgba(159,103,255,.06);border:1px solid rgba(159,103,255,.18)">
+              <div style="font-size:11px;color:#c48cff;font-weight:700;letter-spacing:.03em;margin-bottom:3px">⚡ УМНЫЙ РОУТИНГ ОПЛАТЫ</div>
               <div id="pay-trust-body" style="font-size:11px;color:#cbd5e1;line-height:1.5"></div>
             </div>
             <!-- Trust-strip: живые честные метрики из БД -->
             <div id="trust-strip" style="display:none;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px">
               <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:10px;text-align:center">
-                <div id="ts-today" style="font-size:18px;font-weight:800;color:#a78bfa">—</div>
+                <div id="ts-today" style="font-size:18px;font-weight:800;color:#c48cff">—</div>
                 <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">обменов сегодня</div>
               </div>
               <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:10px;text-align:center">
-                <div id="ts-vol24" style="font-size:18px;font-weight:800;color:#a78bfa">—</div>
+                <div id="ts-vol24" style="font-size:18px;font-weight:800;color:#c48cff">—</div>
                 <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">объём 24ч</div>
               </div>
               <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:10px;text-align:center">
-                <div id="ts-total" style="font-size:18px;font-weight:800;color:#a78bfa">—</div>
+                <div id="ts-total" style="font-size:18px;font-weight:800;color:#c48cff">—</div>
                 <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">сделок всего</div>
               </div>
             </div>
             <!-- Курируемые резервы -->
-            <div id="reserves-box" style="display:none;margin-bottom:16px;padding:10px 12px;background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.2);border-radius:12px">
+            <div id="reserves-box" style="display:none;margin-bottom:16px;padding:10px 12px;background:rgba(159,103,255,.06);border:1px solid rgba(159,103,255,.2);border-radius:12px">
               <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">🏦 Резервы в наличии</div>
               <div id="reserves-row" style="display:flex;flex-wrap:wrap;gap:12px;font-size:14px;font-weight:700;color:#e2e8f0"></div>
             </div>
@@ -295,13 +289,13 @@
                 <span class="fee-left">⚡ Комиссия</span>
                 <span class="fee-right" id="fee-value">27%</span>
               </div>
-              <div id="crypto-estimate" style="margin-top:6px;font-size:12px;color:#a78bfa;font-weight:700;min-height:16px"></div>
+              <div id="crypto-estimate" style="margin-top:6px;font-size:12px;color:#c48cff;font-weight:700;min-height:16px"></div>
             </div>
             <!-- Способ оплаты -->
             <div class="input-group">
               <label>Способ оплаты</label>
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px">
-                <label style="display:flex;align-items:center;gap:8px;padding:11px 12px;background:rgba(124,58,237,.1);border:1.5px solid rgba(124,58,237,.4);border-radius:14px;cursor:pointer;font-size:13px;font-weight:600;color:#e2e8f0">
+                <label style="display:flex;align-items:center;gap:8px;padding:11px 12px;background:rgba(159,103,255,.1);border:1.5px solid rgba(159,103,255,.4);border-radius:14px;cursor:pointer;font-size:13px;font-weight:600;color:#e2e8f0">
                   <input type="radio" name="pay_method" value="sbp" checked style="accent-color:#8b5cf6"> 📱 СБП
                 </label>
                 <label style="display:flex;align-items:center;gap:8px;padding:11px 12px;background:rgba(255,255,255,.04);border:1.5px solid rgba(255,255,255,.1);border-radius:14px;cursor:pointer;font-size:13px;font-weight:600;color:#94a3b8">
@@ -323,10 +317,10 @@
             </div>
             <div class="result" id="exchange-result"></div>
             <!-- Карточка отслеживания оплаты (in-app) -->
-            <div id="pay-card" style="display:none;margin-top:14px;padding:18px;background:rgba(255,255,255,.038);border:1px solid rgba(139,92,246,.28);border-radius:20px;backdrop-filter:blur(20px)">
+            <div id="pay-card" style="display:none;margin-top:14px;padding:18px;background:rgba(255,255,255,.038);border:1px solid rgba(159,103,255,.28);border-radius:20px;backdrop-filter:blur(20px)">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
                 <strong id="pay-card-title" style="font-size:15px;color:#e2e8f0">Заявка создана</strong>
-                <span id="pay-timer" style="font-variant-numeric:tabular-nums;font-weight:700;color:#a78bfa;font-size:15px">15:00</span>
+                <span id="pay-timer" style="font-variant-numeric:tabular-nums;font-weight:700;color:#c48cff;font-size:15px">15:00</span>
               </div>
               <div id="pay-card-status" style="font-size:13px;color:#94a3b8;margin-bottom:12px">Курс зафиксирован. Нажмите «Оплатить», реквизиты откроются внутри Telegram.</div>
               <div id="pay-qr-wrap" style="display:none;text-align:center;margin-bottom:12px">
@@ -335,7 +329,7 @@
                 <div id="pay-amount-line" style="margin-top:8px;font-size:14px;color:#e2e8f0"></div>
               </div>
               <!-- Текстовые реквизиты (телефон/карта/банк/получатель) прямо в приложении -->
-              <div id="pay-req" style="display:none;text-align:left;margin-bottom:12px;padding:10px 12px;background:rgba(255,255,255,.04);border:1px solid rgba(124,58,237,.25);border-radius:12px"></div>
+              <div id="pay-req" style="display:none;text-align:left;margin-bottom:12px;padding:10px 12px;background:rgba(255,255,255,.04);border:1px solid rgba(159,103,255,.25);border-radius:12px"></div>
               <button class="btn" id="pay-open-btn" style="margin-bottom:8px">💳 Оплатить</button>
               <button class="btn" id="pay-check-btn" style="background:rgba(255,255,255,.06)">🔄 Проверить статус</button>
             </div>
@@ -407,7 +401,7 @@
               <div style="font-size:13px;font-weight:700;color:var(--purple-2);margin-bottom:10px">🤖 Спросить AI-помощника</div>
               <div id="ai-chat" style="max-height:280px;overflow-y:auto;margin-bottom:10px;display:flex;flex-direction:column;gap:8px"></div>
               <div style="display:flex;gap:8px">
-                <input type="text" id="ai-input" placeholder="Ваш вопрос об обмене…" style="flex:1;padding:10px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(124,58,237,.25);border-radius:12px;color:#f1f5f9;font-size:14px;font-family:inherit;outline:none">
+                <input type="text" id="ai-input" placeholder="Ваш вопрос об обмене…" style="flex:1;padding:10px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(159,103,255,.25);border-radius:12px;color:#f1f5f9;font-size:14px;font-family:inherit;outline:none">
                 <button onclick="sendAiQuestion()" style="padding:10px 16px;background:linear-gradient(90deg,#7c3aed,#6d28d9);border:none;border-radius:12px;color:#fff;font-weight:700;font-size:16px;cursor:pointer">→</button>
               </div>
               <div style="margin-top:6px;font-size:11px;color:var(--muted);text-align:center">qwen2 · локальный AI · данные не передаются</div>
@@ -514,7 +508,7 @@
                             label: 'BTC/RUB',
                             data: prices,
                             borderColor: '#8b5cf6',
-                            backgroundColor: 'rgba(139,92,246,0.1)',
+                            backgroundColor: 'rgba(159,103,255,0.1)',
                             tension: 0.3,
                             pointRadius: 0,
                             fill: true
@@ -747,7 +741,7 @@
                     if (payAmount) h += row('Сумма — точно', `${Number(payAmount).toLocaleString('ru')} ₽`, true);
                     if (requisites.bank_name) h += row('Банк', esc(requisites.bank_name));
                     if (requisites.recipient) h += row('Получатель', esc(requisites.recipient));
-                    h += `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0 2px"><span style="color:#8b8b93;font-size:12px">${lbl}</span><span><b style="font-size:16px;letter-spacing:.5px">${esc(detail)}</b> <button onclick="navigator.clipboard.writeText('${esc(detail)}');this.textContent='✓'" style="margin-left:6px;padding:3px 9px;font-size:11px;border:1px solid rgba(168,85,247,.35);background:rgba(168,85,247,.12);color:#e9d5ff;border-radius:8px">📋</button></span></div>`;
+                    h += `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0 2px"><span style="color:#8b8b93;font-size:12px">${lbl}</span><span><b style="font-size:16px;letter-spacing:.5px">${esc(detail)}</b> <button onclick="navigator.clipboard.writeText('${esc(detail)}');this.textContent='✓'" style="margin-left:6px;padding:3px 9px;font-size:11px;border:1px solid rgba(159,103,255,.35);background:rgba(159,103,255,.12);color:#e9d5ff;border-radius:8px">📋</button></span></div>`;
                     reqEl.innerHTML = h;
                     reqEl.style.display = 'block';
                 } else if (payLink) {
@@ -770,7 +764,7 @@
 
             // 15-минутный обратный отсчёт
             let left = 15 * 60;
-            timerEl.style.color = '#a78bfa';
+            timerEl.style.color = '#c48cff';
             _orderTimer = setInterval(() => {
                 left--;
                 const m = String(Math.floor(left / 60)).padStart(2, '0');
@@ -816,7 +810,7 @@
                     title.textContent = st === 'sent' ? `Заявка #${orderId} — выплачена` : `Заявка #${orderId} — оплачена`;
                     const _tu = (st === 'sent') ? txLinkOf(currency, txid) : null;
                     const txLink = _tu
-                        ? `<br><a href="#" onclick="tg.openLink('${_tu}');return false" style="color:#a78bfa">🔗 Транзакция в блокчейне</a>`
+                        ? `<br><a href="#" onclick="tg.openLink('${_tu}');return false" style="color:#c48cff">🔗 Транзакция в блокчейне</a>`
                         : '';
                     statusEl.innerHTML = st === 'sent'
                         ? `🚀 Крипта отправлена на ваш адрес. Спасибо!${txLink}`
@@ -863,7 +857,7 @@
                         const purl = `${location.origin}/pay/${o.session_token}`;
                         action = `<a href="#" class="btn-pay" onclick="tg.openLink('${purl}');return false">💳 Оплатить</a>`;
                     } else if (o.status === 'sent' && txLinkOf(o.currency, o.txid)) {
-                        action = `<a href="#" class="btn-pay" style="background:rgba(124,58,237,.15)" onclick="tg.openLink('${txLinkOf(o.currency, o.txid)}');return false">🔍 Транзакция</a>`;
+                        action = `<a href="#" class="btn-pay" style="background:rgba(159,103,255,.15)" onclick="tg.openLink('${txLinkOf(o.currency, o.txid)}');return false">🔍 Транзакция</a>`;
                     }
                     html += `<div class="history-item ${cls}">
                         <span class="h-icon">${emoji}</span>
@@ -887,7 +881,7 @@
             document.getElementById('ref-stats').innerHTML = '<div class="skeleton-line"></div><div class="skeleton-line" style="width:50%"></div>';
             fetch(`/api/referral_stats?user_id=${userId}`, { headers: { 'X-Telegram-Init-Data': tg.initData || '' } }).then(r=>r.json()).then(data => {
                 const cell = (v, lbl) => `<div style="flex:1;min-width:88px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:12px;text-align:center">
-                    <div style="font-size:20px;font-weight:800;color:#a78bfa">${v}</div>
+                    <div style="font-size:20px;font-weight:800;color:#c48cff">${v}</div>
                     <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-top:2px">${lbl}</div></div>`;
                 const btc = Number(data.total_bonus_btc || 0);
                 const rub = data.bonus_rub != null ? ` · ≈ ${Number(data.bonus_rub).toLocaleString('ru')} ₽` : '';
@@ -949,7 +943,7 @@
             { name: '🥉 Bronze', emoji: '🥉', min: 0,      max: 50000,  color: '#cd7f32' },
             { name: '🥈 Silver', emoji: '🥈', min: 50000,  max: 150000, color: '#94a3b8' },
             { name: '🥇 Gold',   emoji: '🥇', min: 150000, max: 500000, color: '#f59e0b' },
-            { name: '💎 Obsidian',emoji:'💎', min: 500000, max: 999999999, color: '#a855f7' },
+            { name: '💎 Obsidian',emoji:'💎', min: 500000, max: 999999999, color: '#c48cff' },
         ];
         async function loadProfile() {
             try {
@@ -1095,7 +1089,7 @@
 
           // User bubble
           const userDiv = document.createElement('div');
-          userDiv.style.cssText = 'background:rgba(124,58,237,.15);border:1px solid rgba(124,58,237,.25);border-radius:12px 12px 2px 12px;padding:10px 14px;font-size:13px;align-self:flex-end;max-width:85%';
+          userDiv.style.cssText = 'background:rgba(159,103,255,.15);border:1px solid rgba(159,103,255,.25);border-radius:12px 12px 2px 12px;padding:10px 14px;font-size:13px;align-self:flex-end;max-width:85%';
           userDiv.textContent = q;
           chat.appendChild(userDiv);
 

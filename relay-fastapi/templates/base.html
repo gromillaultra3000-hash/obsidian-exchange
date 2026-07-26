@@ -13,9 +13,48 @@
     <meta name="twitter:card" content="summary">
     <meta name="twitter:title" content="{% block tw_title %}ObsidianExchange{% endblock %}">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>◆</text></svg>">
+{% if v5 %}
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/v5.css">
+{% else %}
     <link rel="stylesheet" href="/static/css/style.css">
+{% endif %}
 </head>
 <body>
+{% if v5 %}
+    <div class="app-bg"></div><canvas id="matrix"></canvas><canvas id="particles"></canvas>
+    <div class="noise"></div>
+
+    <div class="site">
+        <nav class="nav">
+            <a class="brand" href="/">
+                <img class="brand-gem" src="/static/img/v5/gem.png" alt="" width="38" height="48">
+                <div>
+                    <div class="wordmark">Obsidian<span>Exchange</span></div>
+                    <div class="caption">automatic crypto exchange</div>
+                </div>
+            </a>
+            <div class="navlinks" id="nav-links">
+                <a href="/" data-path="/">Главная</a>
+                <a href="/rates" data-path="/rates">Курсы</a>
+                <a href="/how-it-works" data-path="/how-it-works">Как работает</a>
+                <a href="/faq" data-path="/faq">FAQ</a>
+                <a href="/contacts" data-path="/contacts">Контакты</a>
+                {% if web_user %}<a href="/dashboard" data-path="/dashboard">Кабинет</a>{% endif %}
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
+                {% if web_user %}
+                <a class="btn" href="/dashboard/exchange">Обменять</a>
+                {% else %}
+                <a class="btn ghost" href="/login">Войти</a>
+                <a class="btn" href="https://t.me/{{ bot_username }}">Telegram</a>
+                {% endif %}
+                <button class="nav-toggle" data-nav-toggle aria-label="Меню"><i data-lucide="menu" width="18"></i></button>
+            </div>
+        </nav>
+{% else %}
     <div class="oe-bg" aria-hidden="true">
         <div class="matrix-bg"></div>
         <div class="oe-mist"></div>
@@ -47,7 +86,25 @@
     </nav>
 
     <main class="wrap">
-        {% block content %}{% endblock %}
+{% endif %}
+
+    {% block content %}{% endblock %}
+
+{% if v5 %}
+        <footer class="footer">
+            <div style="margin-bottom:8px">
+                <a href="/rates">Курсы</a> · <a href="/how-it-works">Как работает</a> · <a href="/faq">FAQ</a> ·
+                <a href="/contacts">Контакты</a> · <a href="/reviews">Отзывы</a> · <a href="/offer">Оферта</a>
+            </div>
+            ObsidianExchange • единая дизайн-система для сайта, Mini App и рекламы •
+            <a href="https://t.me/{{ bot_username }}">@{{ bot_username }}</a> • © 2026 · Non-KYC crypto exchange
+        </footer>
+    </div>
+
+    <script src="/static/js/main.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+    <script src="/static/js/v5.js" defer></script>
+{% else %}
     </main>
 
     <footer class="footer">
@@ -72,6 +129,7 @@
 
     <script src="/static/js/main.js"></script>
     <script src="/static/js/ambient.js" defer></script>
+{% endif %}
     {% block scripts %}{% endblock %}
 </body>
 </html>

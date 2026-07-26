@@ -1,300 +1,174 @@
+{% set v5 = true %}
 {% extends "base.html" %}
 {% block title %}ObsidianExchange — обмен криптовалют без KYC{% endblock %}
 
 {% block content %}
 
-<!-- ══ HUD-СТРОКА ══ -->
-<div class="hud-bar" style="margin-top:16px" aria-hidden="true">
-  <div>OBSIDIAN<span>&nbsp;EXCHANGE</span></div>
-  <div>БЕЗ KYC • АВТООБМЕН • 24/7 • <span>ЛИЧНЫЙ КАБИНЕТ</span></div>
-  <div>obsidian-exchange.org • <span>TELEGRAM</span></div>
-</div>
-
-<!-- ══ TICKER ══ -->
-<div class="ticker-wrap">
-  <div class="ticker-track" id="ticker">
-    <div class="ticker-item"><span class="t-coin">₿ BTC</span><span class="t-price" id="tick-btc">загрузка…</span><span class="t-change up" id="tick-btc-ch">+2.4%</span></div>
-    <div class="ticker-dot">·</div>
-    <div class="ticker-item"><span class="t-coin">Ł LTC</span><span class="t-price" id="tick-ltc">загрузка…</span><span class="t-change down" id="tick-ltc-ch">−0.8%</span></div>
-    <div class="ticker-dot">·</div>
-    <div class="ticker-item"><span class="t-coin">₮ USDT</span><span class="t-price" id="tick-usdt">загрузка…</span><span class="t-change up" id="tick-usdt-ch">+0.1%</span></div>
-    <div class="ticker-dot">·</div>
-    <div class="ticker-item"><span class="t-coin">₿ BTC</span><span class="t-price">—</span></div>
-    <div class="ticker-dot">·</div>
-    <div class="ticker-item"><span class="t-coin">Ł LTC</span><span class="t-price">—</span></div>
-    <div class="ticker-dot">·</div>
-    <div class="ticker-item"><span class="t-coin">₮ USDT</span><span class="t-price">—</span></div>
-    <div class="ticker-dot">·</div>
-  </div>
-</div>
-
 <!-- ══ HERO ══ -->
-<section class="hero" style="position:relative;overflow:hidden">
-    <div class="hero-inner">
-        <div class="hero-glow"></div>
-        <!-- Текст + статистика -->
-        <div class="hero-text">
-            <div class="live-badge"><span class="live-dot"></span>Курсы обновляются в реальном времени</div>
-            <div class="brand-sub" style="margin-bottom:8px">Автоматический крипто-обменник</div>
-            <h1 class="brand-title" style="font-size:clamp(34px,5.5vw,58px);margin-bottom:6px">OBSIDIAN<br>EXCHANGE</h1>
-            <div class="line-cycle" aria-hidden="true">
-                <span style="animation-delay:0s">Без KYC</span>
-                <span style="animation-delay:2s">Автовыплаты</span>
-                <span style="animation-delay:4s">Крипто-свап</span>
-                <span style="animation-delay:6s">Лимитные заявки</span>
-                <span style="animation-delay:8s">DCA-автопокупка</span>
-                <span style="animation-delay:10s">Рефералка 1%</span>
-                <span style="animation-delay:12s">Крипто-подарки</span>
-                <span style="animation-delay:14s">Личный кабинет</span>
-            </div>
-            <p class="lead">
-                Покупка BTC, LTC и USDT&nbsp;(TRC20) с оплатой через СБП.<br>
-                Без KYC, без документов, автоматические выплаты.
-            </p>
-            <div class="chips" style="margin-bottom:18px">
-                <span class="chip">BTC</span>
-                <span class="chip">LTC</span>
-                <span class="chip">USDT TRC-20</span>
-                <span class="chip">Крипто-свап</span>
-                <span class="chip">Рефералка 1%</span>
-                <span class="chip">Крипто-подарки</span>
-            </div>
-            <div class="coin-row" style="margin-bottom:24px" aria-hidden="true">
-                <span class="coin-badge btc">₿</span>
-                <span class="coin-badge ltc">Ł</span>
-                <span class="coin-badge usdt">₮</span>
-                <span style="color:var(--text-secondary);font-size:13px;font-weight:600;letter-spacing:.02em">Bitcoin · Litecoin · Tether</span>
-            </div>
-            <div class="stats-bar">
-                <div class="stat-item">
-                    <span class="stat-num">{{ total_orders|default(0) }}+</span>
-                    <span class="stat-label">обменов</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-num">{{ success_rate|default('99.2') }}%</span>
-                    <span class="stat-label">успешных</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-num">&lt;&nbsp;15&nbsp;мин</span>
-                    <span class="stat-label">среднее время</span>
-                </div>
-            </div>
+<section class="hero reveal">
+    <div class="shell pad hero-copy">
+        <span class="eyebrow">без KYC • автовыплаты 24/7</span>
+        <h1 class="title">Обменяйте крипту
+            <span class="accent">быстро, безопасно и без лишних шагов</span></h1>
+        <p class="lead">Покупка BTC, LTC и USDT&nbsp;(TRC‑20) с оплатой через СБП. Живые курсы, умный роутинг оплаты и автоматические выплаты на ваш кошелёк.</p>
+        <div class="tags">
+            <span class="tag">BTC</span>
+            <span class="tag">LTC</span>
+            <span class="tag">USDT TRC‑20</span>
+            <span class="tag">Swap 2%</span>
+            <span class="tag">Рефералка 1%</span>
+            <span class="tag">Ваучеры</span>
+        </div>
+        <div class="action-row">
+            <a class="btn" href="{% if web_user %}/dashboard/exchange{% else %}https://t.me/{{ bot_username }}{% endif %}"><i data-lucide="arrow-right-left" width="16"></i>Создать заявку</a>
+            <a class="btn ghost" href="/rates">Комиссии и калькулятор</a>
+        </div>
+        <div class="metrics">
+            <div class="metric"><small>обменов</small><strong>{{ total_orders|default(0) }}+</strong></div>
+            <div class="metric"><small>успешных</small><strong>{{ success_rate|default('99.2') }}%</strong></div>
+            <div class="metric"><small>среднее время</small><strong>&lt;15м</strong></div>
+            <div class="metric"><small>работаем</small><strong>24/7</strong></div>
+        </div>
+    </div>
+
+    <!-- Функциональный виджет обмена -->
+    <div class="shell pad">
+        <div class="kicker">Быстрый обмен</div>
+        <h3 style="font-family:'Space Grotesk';margin:6px 0 16px;font-size:23px;letter-spacing:-.02em">Рубли → криптовалюта</h3>
+
+        <div class="field full">
+            <label>Отдаёте, ₽</label>
+            <input type="number" id="widget-amount" placeholder="{{ min_amount|int }}"
+                   min="{{ min_amount|int }}" max="{{ max_amount|int }}" autocomplete="off">
         </div>
 
-        <!-- Exchange Widget -->
-        <div class="exchange-widget card glass">
-            <div class="kicker" style="margin-bottom:8px">Быстрый обмен</div>
-            <div class="widget-title">◆ Рубли → криптовалюта</div>
+        <div class="mini-coins" style="margin:14px 0">
+            <button type="button" class="mini-coin currency-btn active" data-currency="BTC"><img src="/static/img/v5/btc.png" alt="">BTC</button>
+            <button type="button" class="mini-coin currency-btn" data-currency="LTC"><img src="/static/img/v5/ltc.png" alt="">LTC</button>
+            <button type="button" class="mini-coin currency-btn" data-currency="USDT"><img src="/static/img/v5/usdt.png" alt="">USDT</button>
+        </div>
 
-            <div class="widget-field">
-                <label>Отдаёте (RUB)</label>
-                <input type="number" id="widget-amount" placeholder="{{ min_amount|int }}"
-                       min="{{ min_amount|int }}" max="{{ max_amount|int }}" autocomplete="off">
-            </div>
+        <div class="field full">
+            <label>Получаете</label>
+            <div id="widget-output" style="min-height:52px;border:1px solid var(--line);border-radius:16px;background:rgba(159,103,255,.06);display:flex;align-items:center;padding:0 14px;font-family:'Space Grotesk';font-size:22px;font-weight:700;color:var(--violet2)">—</div>
+        </div>
 
-            <div class="widget-currency-select">
-                <button class="currency-btn active" data-currency="BTC">₿ BTC</button>
-                <button class="currency-btn" data-currency="LTC">Ł LTC</button>
-                <button class="currency-btn" data-currency="USDT">₮ USDT</button>
-            </div>
+        <div id="widget-rate-info" style="font-size:12px;color:var(--muted);text-align:center;margin:12px 0 4px;min-height:16px"></div>
 
-            <div class="widget-direction">
-                <span>Рубли</span>
-                <div class="arrow-badge">↓</div>
-                <span>Крипта</span>
-            </div>
+        <div id="pay-trust" style="display:none;margin:8px 0 14px" class="notice">
+            <div style="font-size:10px;color:var(--violet2);font-weight:800;letter-spacing:.08em;margin-bottom:4px">⚡ УМНЫЙ РОУТИНГ ОПЛАТЫ</div>
+            <div id="pay-trust-body" style="font-size:12px;color:#e9e1f2;line-height:1.5"></div>
+        </div>
 
-            <div class="widget-field widget-output-field">
-                <label>Получаете</label>
-                <div class="widget-output" id="widget-output">—</div>
-            </div>
+        {% if web_user %}
+        <a href="/dashboard/exchange" class="btn" style="width:100%">Обменять →</a>
+        {% else %}
+        <a href="https://t.me/{{ bot_username }}" class="btn" style="width:100%" target="_blank" rel="noopener">Обменять через Telegram →</a>
+        <a href="/register" class="btn ghost" style="width:100%;margin-top:8px">Зарегистрироваться</a>
+        {% endif %}
+    </div>
+</section>
 
-            <div class="widget-rate-info" id="widget-rate-info"></div>
-
-            <!-- Слой доверия к оплате: умный роутинг (агрегат, без имён провайдеров) -->
-            <div id="pay-trust" style="display:none;margin:10px 0;padding:9px 11px;border-radius:12px;background:rgba(168,85,247,.06);border:1px solid rgba(168,85,247,.2)">
-                <div style="font-size:10px;color:#C084FC;font-weight:700;letter-spacing:.03em;margin-bottom:3px">⚡ УМНЫЙ РОУТИНГ ОПЛАТЫ</div>
-                <div id="pay-trust-body" style="font-size:12px;color:#D8C7FF;line-height:1.5"></div>
-            </div>
-
-            <div class="widget-actions">
-                {% if web_user %}
-                <a href="/dashboard/exchange" class="btn btn-primary btn-block cta-breathe">Обменять →</a>
-                {% else %}
-                <a href="https://t.me/{{ bot_username }}" class="btn btn-primary btn-block cta-breathe" target="_blank" rel="noopener">
-                    Обменять через Telegram →
-                </a>
-                <a href="/register" class="btn btn-secondary btn-block">
-                    Зарегистрироваться
-                </a>
-                {% endif %}
-            </div>
+<!-- ══ МОНЕТЫ (живые курсы) ══ -->
+<section class="section reveal">
+    <div class="coin-grid">
+        <div class="coin-card">
+            <img src="/static/img/v5/btc.png" alt="Bitcoin">
+            <strong>Bitcoin</strong>
+            <span class="value" data-rate="bitcoin">курс…</span>
+        </div>
+        <div class="coin-card">
+            <img src="/static/img/v5/ltc.png" alt="Litecoin">
+            <strong>Litecoin</strong>
+            <span class="value" data-rate="litecoin">курс…</span>
+        </div>
+        <div class="coin-card">
+            <img src="/static/img/v5/usdt.png" alt="Tether USDT TRC-20">
+            <strong>Tether</strong>
+            <span class="value" data-rate="tether">курс…</span>
         </div>
     </div>
 </section>
 
-<!-- ══ ЭКОСИСТЕМА (кристалл + glass) ══ -->
-<section class="section">
-    <h2 class="section-title">Единая крипто-экосистема</h2>
-    <p class="section-sub">Обмен, свап, реферальная программа и подарки — в одном фирменном контуре</p>
-    <div class="showcase-grid">
-        <div class="crystal-stage" aria-hidden="true">
-            <div class="orbit o1"></div>
-            <div class="orbit o2"></div>
-            <div class="crystal-wrap" style="position:relative;top:auto;right:auto">
-                <div class="crystal-aura"></div>
-                <div class="crystal"><div class="facet left"></div><div class="facet right"></div><div class="facet core"></div></div>
-            </div>
+<!-- ══ ЭКОСИСТЕМА ══ -->
+<section class="section grid3 reveal">
+    <div class="card">
+        <div class="kicker">Основные направления</div>
+        <h2>Монеты без дешёвых иконок</h2>
+        <p>Детализированные фирменные 3D‑медальоны BTC, LTC и USDT — единый визуальный язык на сайте, в Mini App и рекламе.</p>
+    </div>
+    <div class="card">
+        <div class="kicker">Swap</div>
+        <h2>Всего 2%</h2>
+        <p>Отдельный сценарий обмена BTC, LTC и USDT между собой внутри единой экосистемы, некастодиально.</p>
+    </div>
+    <div class="card">
+        <div class="kicker">Экосистема</div>
+        <h2>Рефералка и ваучеры</h2>
+        <p>Реферальная программа 1%, крипто‑подарки и личный кабинет в общей дизайн‑системе.</p>
+    </div>
+</section>
+
+<!-- ══ КОМИССИИ + ПОЧЕМУ МЫ ══ -->
+<section class="section grid2 reveal">
+    <div class="card">
+        <div class="kicker">Комиссии</div>
+        <h2>Прогрессивная ставка</h2>
+        <div class="fee-table">
+            <div class="fee-row"><div class="fee-rate">27%</div><div class="fee-desc">до 10 000 ₽<small>минимальный диапазон обмена</small></div></div>
+            <div class="fee-row"><div class="fee-rate">25%</div><div class="fee-desc">до 30 000 ₽<small>средний диапазон обмена</small></div></div>
+            <div class="fee-row"><div class="fee-rate">23%</div><div class="fee-desc">до 100 000 ₽<small>увеличенный объём</small></div></div>
+            <div class="fee-row"><div class="fee-rate">19%</div><div class="fee-desc">от 100 000 ₽ и выше<small>крупные обмены</small></div></div>
+            <div class="fee-row"><div class="fee-rate">2%</div><div class="fee-desc">swap монет<small>BTC ↔ LTC ↔ USDT</small></div></div>
         </div>
-        <div style="display:grid;gap:16px">
-            <div class="glass" style="padding:22px 24px">
-                <div class="kicker" style="margin-bottom:12px">Что внутри</div>
-                <div class="oe-list">
-                    <div class="row"><span>⚡ Автоматический обмен 24/7</span><span class="dot">●</span></div>
-                    <div class="row"><span>₿ BTC · Ł LTC · ₮ USDT TRC-20</span><span class="dot">●</span></div>
-                    <div class="row"><span>🔒 Без KYC и документов</span><span class="dot">●</span></div>
-                    <div class="row"><span>👥 Реферальная программа 1%</span><span class="dot">●</span></div>
-                    <div class="row"><span>🎁 Крипто-подарки и ваучеры</span><span class="dot">●</span></div>
-                </div>
+    </div>
+    <div class="card">
+        <div class="kicker">Почему выбирают нас</div>
+        <h2>Чистый UX без перегруза</h2>
+        <div class="list">
+            <div class="item">
+                <div class="icon"><i data-lucide="zap" width="16"></i></div>
+                <div>Автовыплаты после подтверждения оплаты<small>Процесс построен вокруг понятных статусов заявки.</small></div>
             </div>
-            <div class="glass" style="padding:20px 24px">
-                <div class="kicker" style="margin-bottom:4px">Прогрессивная комиссия</div>
-                <div class="fee-box">
-                    <div class="fee-slide"><div class="fee-val">27%</div><div class="fee-range">от 2 000 ₽</div></div>
-                    <div class="fee-slide"><div class="fee-val">23%</div><div class="fee-range">от 30 000 ₽</div></div>
-                    <div class="fee-slide"><div class="fee-val">19%</div><div class="fee-range">от 100 000 ₽</div></div>
-                </div>
+            <div class="item">
+                <div class="icon"><i data-lucide="shield-check" width="16"></i></div>
+                <div>Без KYC и документов<small>Минимум шагов до оформления обмена.</small></div>
+            </div>
+            <div class="item">
+                <div class="icon"><i data-lucide="gift" width="16"></i></div>
+                <div>Крипто‑подарки / ваучеры<small>Отдельный продуктовый сценарий для аудитории.</small></div>
+            </div>
+            <div class="item">
+                <div class="icon"><i data-lucide="users" width="16"></i></div>
+                <div>Реферальная программа 1%<small>Статистика внутри кабинета и Mini App.</small></div>
             </div>
         </div>
     </div>
 </section>
-
-<!-- ══ КУРСЫ ══ -->
-<section class="section">
-    <h2 class="section-title">Текущие курсы</h2>
-    <p class="section-sub">Рыночные котировки, обновляются каждую минуту. Точная сумма с учётом комиссии рассчитывается в виджете выше.</p>
-    <div class="rates-grid">
-        <div class="rate-card">
-            <span class="coin-icon">₿</span>
-            <div class="coin">Bitcoin (BTC)</div>
-            <div class="value loading" data-rate="bitcoin">загрузка…</div>
-            <div class="rate-change up" id="btc-change">+2.4% за 24ч</div>
-        </div>
-        <div class="rate-card">
-            <span class="coin-icon">Ł</span>
-            <div class="coin">Litecoin (LTC)</div>
-            <div class="value loading" data-rate="litecoin">загрузка…</div>
-            <div class="rate-change down" id="ltc-change">−0.8% за 24ч</div>
-        </div>
-        <div class="rate-card">
-            <span class="coin-icon">₮</span>
-            <div class="coin">USDT TRC20</div>
-            <div class="value loading" data-rate="tether">загрузка…</div>
-            <div class="rate-change up" id="usdt-change">+0.1% за 24ч</div>
-        </div>
-    </div>
-    <div style="text-align:center;margin-top:8px;">
-        <a href="/rates" class="btn btn-secondary">Тарифы и калькулятор →</a>
-    </div>
-</section>
-
-<!-- ══ TRUST BAND ══ -->
-<div class="wrap">
-  <div class="trust-band">
-    <div class="trust-item"><div class="trust-icon">🔒</div><div class="trust-text"><strong>Без KYC</strong><span>Полная анонимность</span></div></div>
-    <div class="trust-item"><div class="trust-icon">⚡</div><div class="trust-text"><strong>До 15 минут</strong><span>Время выплаты</span></div></div>
-    <div class="trust-item"><div class="trust-icon">🛡️</div><div class="trust-text"><strong>SSL / TLS</strong><span>Шифрование данных</span></div></div>
-    <div class="trust-item"><div class="trust-icon">🕐</div><div class="trust-text"><strong>24/7</strong><span>Работаем без выходных</span></div></div>
-    <div class="trust-item"><div class="trust-icon">✅</div><div class="trust-text"><strong>{{ success_rate|default('99.2') }}% успешных</strong><span>Из {{ total_orders|default(0) }}+ обменов</span></div></div>
-  </div>
-</div>
 
 <!-- ══ КАК ЭТО РАБОТАЕТ ══ -->
-<section class="section">
-    <h2 class="section-title">Как это работает</h2>
-    <p class="section-sub">Три простых шага — и крипта у вас на кошельке</p>
-    <div class="steps-grid">
-        <div class="step-card">
-            <div class="step-num">1</div>
-            <h3>Создайте заявку</h3>
-            <p>Укажите сумму, валюту и адрес кошелька. Курс фиксируется на 15 минут.</p>
-        </div>
-        <div class="step-card">
-            <div class="step-num">2</div>
-            <h3>Оплатите через СБП</h3>
-            <p>Переведите рубли по QR-коду или реквизитам. Комиссия банка 0%.</p>
-        </div>
-        <div class="step-card">
-            <div class="step-num">3</div>
-            <h3>Получите крипту</h3>
-            <p>Выплата производится автоматически после подтверждения оплаты.</p>
-        </div>
-    </div>
-</section>
-
-<!-- ══ ПРЕИМУЩЕСТВА ══ -->
-<section class="section">
-    <h2 class="section-title">Почему ObsidianExchange</h2>
-    <div class="features-grid">
-        <div class="feature-card">
-            <span class="icon">🔒</span>
-            <h3>Без KYC</h3>
-            <p>Никаких документов и верификации — обмен анонимен от начала до конца.</p>
-        </div>
-        <div class="feature-card">
-            <span class="icon">⚡</span>
-            <h3>Автовыплаты</h3>
-            <p>Криптовалюта отправляется автоматически после подтверждения оплаты.</p>
-        </div>
-        <div class="feature-card">
-            <span class="icon">🛡️</span>
-            <h3>Безопасно</h3>
-            <p>Не храним ваши ключи. Своп проходит некастодиально — монеты не задерживаются у нас.</p>
-        </div>
-        <div class="feature-card">
-            <span class="icon">🕐</span>
-            <h3>24/7 онлайн</h3>
-            <p>Обмен работает круглосуточно без выходных. Поддержка отвечает в течение часа.</p>
-        </div>
-        <div class="feature-card">
-            <span class="icon">💳</span>
-            <h3>СБП и карта</h3>
-            <p>Оплата через СБП (0% комиссия банка) или по реквизитам карты.</p>
-        </div>
-        <div class="feature-card">
-            <span class="icon">🔄</span>
-            <h3>Крипта → Крипта</h3>
-            <p>Своп BTC↔LTC↔USDT без рублей. Комиссия ~1%, некастодиально.</p>
-        </div>
-        <div class="feature-card">
-            <span class="icon">👥</span>
-            <h3>Реферальная программа</h3>
-            <p>Приглашайте друзей и получайте бонусы в BTC за их обмены.</p>
-        </div>
-        <div class="feature-card">
-            <span class="icon">🏅</span>
-            <h3>VIP-скидки</h3>
-            <p>Silver / Gold / Platinum: чем больше оборот, тем ниже комиссия. Скидка до −10%.</p>
+<section class="section reveal">
+    <div class="card">
+        <div class="kicker">Как это работает</div>
+        <h2 style="margin-bottom:16px">Три шага до крипты</h2>
+        <div class="steps">
+            <div>
+                <div class="step-no">01</div>
+                <h3 style="font-family:'Space Grotesk';margin:6px 0">Создайте заявку</h3>
+                <p style="color:var(--muted);line-height:1.65">Укажите сумму, валюту и адрес кошелька. Курс фиксируется на 15 минут.</p>
+            </div>
+            <div>
+                <div class="step-no">02</div>
+                <h3 style="font-family:'Space Grotesk';margin:6px 0">Оплатите через СБП</h3>
+                <p style="color:var(--muted);line-height:1.65">Переведите рубли по QR или реквизитам. Комиссия банка 0%.</p>
+            </div>
+            <div>
+                <div class="step-no">03</div>
+                <h3 style="font-family:'Space Grotesk';margin:6px 0">Получите крипту</h3>
+                <p style="color:var(--muted);line-height:1.65">Выплата приходит автоматически после подтверждения оплаты.</p>
+            </div>
         </div>
     </div>
-</section>
-
-<!-- ══ CTA ══ -->
-<section class="cta-section">
-  <div class="wrap">
-    <div class="cta-box">
-      <div class="crystal-wrap hero-crystal" aria-hidden="true" style="position:relative;top:auto;right:auto;margin:0 auto 20px">
-        <div class="crystal-aura"></div>
-        <div class="crystal"><div class="facet left"></div><div class="facet right"></div><div class="facet core"></div></div>
-      </div>
-      <h2>Готовы начать обмен?</h2>
-      <p>Обмен RUB на BTC, LTC и USDT без верификации: оплата по СБП или картой, автовыплаты на ваш адрес за ~15 минут.</p>
-      <div class="cta-buttons">
-        <a href="https://t.me/{{ bot_username }}" class="btn btn-primary cta-breathe" target="_blank" rel="noopener">Обменять в Telegram →</a>
-        <a href="/register" class="btn btn-secondary">Личный кабинет</a>
-      </div>
-    </div>
-  </div>
 </section>
 
 {% endblock %}
@@ -315,8 +189,7 @@
         : 'мгновенно';
       document.getElementById('pay-trust-body').innerHTML =
         'Платёж распределяется между <b>' + t.active_routes + '</b> независимыми маршрутами · ' +
-        'реквизиты за <b>' + sec + '</b> · надёжность выдачи <b>' + t.reliability_pct + '%</b>' +
-        '<div style="font-size:10px;color:var(--muted, #a99cc9);margin-top:3px">если один канал занят — система автоматически берёт следующий</div>';
+        'реквизиты за <b>' + sec + '</b> · надёжность выдачи <b>' + t.reliability_pct + '%</b>';
       document.getElementById('pay-trust').style.display = 'block';
     } catch (e) {}
   }
