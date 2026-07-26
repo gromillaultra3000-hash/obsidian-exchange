@@ -33,6 +33,14 @@
                 Покупка BTC, LTC и USDT&nbsp;(TRC20) с оплатой через СБП.<br>
                 Без KYC, без документов, автоматические выплаты.
             </p>
+            <div class="chips" style="margin-bottom:26px">
+                <span class="chip">BTC</span>
+                <span class="chip">LTC</span>
+                <span class="chip">USDT TRC-20</span>
+                <span class="chip">Крипто-свап</span>
+                <span class="chip">Рефералка 1%</span>
+                <span class="chip">Крипто-подарки</span>
+            </div>
             <div class="stats-bar">
                 <div class="stat-item">
                     <span class="stat-num">{{ total_orders|default(0) }}+</span>
@@ -86,9 +94,9 @@
 
             <div class="widget-actions">
                 {% if web_user %}
-                <a href="/dashboard/exchange" class="btn btn-primary btn-block">Обменять →</a>
+                <a href="/dashboard/exchange" class="btn btn-primary btn-block cta-breathe">Обменять →</a>
                 {% else %}
-                <a href="https://t.me/{{ bot_username }}" class="btn btn-primary btn-block" target="_blank" rel="noopener">
+                <a href="https://t.me/{{ bot_username }}" class="btn btn-primary btn-block cta-breathe" target="_blank" rel="noopener">
                     Обменять через Telegram →
                 </a>
                 <a href="/register" class="btn btn-secondary btn-block">
@@ -214,10 +222,14 @@
 <section class="cta-section">
   <div class="wrap">
     <div class="cta-box">
+      <div class="crystal-wrap hero-crystal" aria-hidden="true" style="position:relative;top:auto;right:auto;margin:0 auto 20px">
+        <div class="crystal-aura"></div>
+        <div class="crystal"><div class="facet left"></div><div class="facet right"></div><div class="facet core"></div></div>
+      </div>
       <h2>Готовы начать обмен?</h2>
       <p>Обмен RUB на BTC, LTC и USDT без верификации: оплата по СБП или картой, автовыплаты на ваш адрес за ~15 минут.</p>
       <div class="cta-buttons">
-        <a href="https://t.me/{{ bot_username }}" class="btn btn-primary" target="_blank" rel="noopener">Обменять в Telegram →</a>
+        <a href="https://t.me/{{ bot_username }}" class="btn btn-primary cta-breathe" target="_blank" rel="noopener">Обменять в Telegram →</a>
         <a href="/register" class="btn btn-secondary">Личный кабинет</a>
       </div>
     </div>

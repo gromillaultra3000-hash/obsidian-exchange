@@ -57,7 +57,22 @@ body::before {
         linear-gradient(180deg, #0f031a 0%, #07050d 55%, #050008 100%);
 }
 
-/* Фоновая сетка */
+/* ══════════════════════════════════════
+   AMBIENT-СЛОЙ (обсидиановый пак): matrix-дождь + частицы (canvas, ambient.js)
+   + перспективная сетка / mist / scan-линия (CSS). Полностью декоративный,
+   pointer-events:none, живёт под контентом (.wrap имеет z-index:1).
+══════════════════════════════════════ */
+.oe-bg {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    overflow: hidden;
+}
+.oe-bg > * { position: absolute; inset: 0; pointer-events: none; }
+/* canvas от ambient.js подхватывают inset:0 из inline-стиля */
+
+/* Фоновая сетка (перспектива как в паке, но мягкая) */
 .matrix-bg {
     position: fixed;
     inset: 0;
@@ -69,6 +84,28 @@ body::before {
     z-index: 0;
     mask-image: radial-gradient(ellipse 80% 50% at 50% 0%, rgba(0,0,0,.9), transparent 70%);
 }
+/* Дрейфующая дымка */
+.oe-mist {
+    background:
+        radial-gradient(circle at 20% 22%, rgba(168,85,247,.14), transparent 30%),
+        radial-gradient(circle at 78% 12%, rgba(192,132,252,.10), transparent 26%),
+        radial-gradient(circle at 60% 78%, rgba(139,92,246,.10), transparent 30%);
+    filter: blur(22px);
+    opacity: .8;
+    animation: oe-drift 13s ease-in-out infinite alternate;
+}
+/* Скан-линия */
+.oe-scan {
+    top: -30%;
+    height: 26%;
+    background: linear-gradient(to bottom, transparent, rgba(192,132,252,.06), transparent);
+    filter: blur(12px);
+    opacity: .5;
+    animation: oe-scan 7s linear infinite;
+}
+@keyframes oe-drift { from { transform: translate3d(-2%,-1%,0) scale(1); } to { transform: translate3d(2%,1%,0) scale(1.05); } }
+@keyframes oe-scan { from { transform: translateY(-120%); } to { transform: translateY(520%); } }
+@media (max-width: 600px) { .oe-mist { opacity: .55; } .oe-scan { display: none; } }
 
 a { color: inherit; text-decoration: none; }
 
@@ -863,3 +900,130 @@ select:focus-visible, textarea:focus-visible,
         scroll-behavior: auto !important;
     }
 }
+
+/* ══════════════════════════════════════
+   ОБСИДИАНОВЫЙ ПАК — компоненты (chips / kicker / shine / crystal / coin)
+══════════════════════════════════════ */
+
+/* Uppercase-метка (kicker) */
+.kicker {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--accent-light);
+}
+
+/* Чипы с бегущим бликом */
+.chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip {
+    padding: 7px 12px;
+    border-radius: 999px;
+    background: linear-gradient(180deg, rgba(168,85,247,.20), rgba(168,85,247,.07));
+    border: 1px solid rgba(192,132,252,.20);
+    color: #f0eaff;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .02em;
+    position: relative;
+    overflow: hidden;
+}
+.chip::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(110deg, transparent 25%, rgba(255,255,255,.12), transparent 48%);
+    transform: translateX(-130%);
+    animation: oe-shine 3.8s linear infinite;
+}
+@keyframes oe-shine { from { transform: translateX(-125%); } to { transform: translateX(125%); } }
+
+/* Бегущий блик на главных CTA (псевдоэлемент — не конфликтует с hover-transform) */
+.btn-primary, .nav-cta { position: relative; overflow: hidden; }
+.btn-primary::after, .nav-cta::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,.14), transparent 55%);
+    transform: translateX(-130%);
+    animation: oe-shine 4.2s linear infinite;
+    pointer-events: none;
+}
+/* «Дыхание» свечением (box-shadow — без scale, не спорит с hover) */
+.cta-breathe { animation: oe-breathe 3s ease-in-out infinite; }
+@keyframes oe-breathe {
+    0%, 100% { box-shadow: 0 0 22px rgba(139,92,246,.34); }
+    50%      { box-shadow: 0 0 46px rgba(139,92,246,.6); }
+}
+
+/* Бегущий блик по rate-card на hover */
+.rate-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(110deg, transparent 35%, rgba(255,255,255,.10), transparent 60%);
+    transform: translateX(-130%);
+    transition: transform .7s ease;
+    pointer-events: none;
+}
+.rate-card:hover::after { transform: translateX(130%); }
+
+/* Монеты-бейджи */
+.coin-badge {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    display: inline-grid; place-items: center;
+    font-size: 13px; font-weight: 900;
+    color: #0a0010;
+    box-shadow: 0 0 12px rgba(255,255,255,.10);
+}
+.coin-badge.btc { background: #f7931a; }
+.coin-badge.ltc { background: #c0c0c0; }
+.coin-badge.usdt { background: #26a17b; }
+
+/* Кристалл — декоративный центр hero (aria-hidden) */
+.crystal-wrap {
+    position: relative; width: 150px; height: 150px;
+    display: grid; place-items: center;
+    filter: drop-shadow(0 0 18px rgba(168,85,247,.44));
+    animation: oe-floaty 4.6s ease-in-out infinite;
+}
+.crystal-aura {
+    position: absolute; inset: 20px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(168,85,247,.22), rgba(168,85,247,.08) 40%, transparent 72%);
+    filter: blur(12px);
+    animation: oe-aura 2.8s ease-in-out infinite;
+}
+.crystal {
+    width: 96px; height: 128px; position: relative;
+    transform-style: preserve-3d;
+    animation: oe-crystal 8.5s ease-in-out infinite;
+}
+.facet {
+    position: absolute; inset: 0;
+    clip-path: polygon(50% 0%,84% 18%,95% 54%,66% 100%,34% 100%,5% 54%,16% 18%);
+    border: 1px solid rgba(220,194,255,.24);
+    background: linear-gradient(180deg, rgba(15,8,24,.85), rgba(28,12,46,.96));
+    overflow: hidden;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.05), inset 0 -14px 28px rgba(168,85,247,.20), 0 0 22px rgba(168,85,247,.22);
+}
+.facet.left  { background: linear-gradient(160deg, rgba(255,255,255,.18), transparent 24%), linear-gradient(180deg, rgba(10,5,18,.9), rgba(28,12,46,.96)); transform: translateX(-2px) rotateY(-12deg); }
+.facet.right { background: linear-gradient(200deg, rgba(255,255,255,.14), transparent 18%), linear-gradient(180deg, rgba(10,5,18,.88), rgba(24,10,40,.98)); transform: translateX(2px) rotateY(10deg); opacity: .92; }
+.facet.core  { inset: 14px 20px; clip-path: polygon(50% 0%,80% 18%,90% 56%,62% 100%,38% 100%,10% 56%,20% 18%); background: radial-gradient(circle at 50% 38%, rgba(192,132,252,.72), rgba(168,85,247,.16) 36%, transparent 66%), linear-gradient(180deg, rgba(18,8,30,.9), rgba(30,12,50,.98)); }
+.facet::before {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(90deg, transparent 0 38%, rgba(255,255,255,.22) 50%, transparent 62%), linear-gradient(180deg, rgba(192,132,252,.18), transparent 55%);
+    mix-blend-mode: screen; opacity: .88;
+    animation: oe-shimmer 2.8s ease-in-out infinite;
+}
+@keyframes oe-floaty { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes oe-aura { 0%,100% { transform: scale(.96); opacity: .65; } 50% { transform: scale(1.05); opacity: 1; } }
+@keyframes oe-crystal { 0%,100% { transform: rotateY(-10deg) rotateX(0); } 25% { transform: rotateY(6deg) rotateX(2deg); } 50% { transform: rotateY(12deg) rotateX(0); } 75% { transform: rotateY(2deg) rotateX(-2deg); } }
+@keyframes oe-shimmer { 0%,100% { opacity: .55; transform: translateX(-10%) scale(.98); } 50% { opacity: .92; transform: translateX(10%) scale(1.02); } }
+
+/* Декоративный кристалл в hero — только на широких экранах */
+.hero-crystal {
+    position: absolute; top: 24px; right: 8px; z-index: 0;
+    opacity: .9; pointer-events: none;
+}
+@media (max-width: 980px) { .hero-crystal { display: none; } }

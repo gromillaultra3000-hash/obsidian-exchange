@@ -16,7 +16,11 @@
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
-    <div class="matrix-bg"></div>
+    <div class="oe-bg" aria-hidden="true">
+        <div class="matrix-bg"></div>
+        <div class="oe-mist"></div>
+        <div class="oe-scan"></div>
+    </div>
 
     <nav class="navbar" id="navbar">
         <div class="wrap">
@@ -67,6 +71,7 @@
     </footer>
 
     <script src="/static/js/main.js"></script>
+    <script src="/static/js/ambient.js" defer></script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

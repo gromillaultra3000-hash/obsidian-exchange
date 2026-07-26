@@ -12,6 +12,12 @@
         body::before { content:""; position:fixed; inset:0; z-index:-1; pointer-events:none; background: radial-gradient(circle at 12% 6%, rgba(168,85,247,.22), transparent 40%), radial-gradient(circle at 88% 2%, rgba(192,132,252,.12), transparent 30%), linear-gradient(180deg,#0f031a 0%,#07050d 55%,#050008 100%); }
 
         .matrix-bg { position: fixed; inset: 0; background-image: linear-gradient(rgba(168,85,247,.06) 1px, transparent 1px), linear-gradient(90deg, rgba(168,85,247,.04) 1px, transparent 1px); background-size: 40px 40px; pointer-events: none; z-index: 0; mask-image: radial-gradient(circle at top, rgba(0,0,0,.9), transparent 70%); }
+        /* Ambient-слой обсидианового пака (matrix-дождь+частицы — canvas ниже; mist/scan — CSS). Декоративный, pointer-events:none. */
+        .oe-bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+        .oe-bg > * { position: absolute; inset: 0; pointer-events: none; }
+        .oe-mist { background: radial-gradient(circle at 22% 20%, rgba(168,85,247,.14), transparent 32%), radial-gradient(circle at 80% 12%, rgba(192,132,252,.10), transparent 26%), radial-gradient(circle at 55% 80%, rgba(139,92,246,.10), transparent 30%); filter: blur(22px); opacity: .6; animation: oe-drift 14s ease-in-out infinite alternate; }
+        @keyframes oe-drift { from { transform: translate3d(-2%,-1%,0) scale(1); } to { transform: translate3d(2%,1%,0) scale(1.05); } }
+        @media (prefers-reduced-motion: reduce) { .oe-mist { animation: none; } }
 
         @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes pulse { 0%, 100% { opacity: .4; } 50% { opacity: 1; } }
@@ -81,6 +87,10 @@
         }
         .btn:hover::after { transform:translateX(100%); }
         .btn:active { transform: scale(0.98); }
+        /* «Дыхание» свечением на главной кнопке — box-shadow (без scale, не спорит с :active) */
+        .btn-breathe { animation: oe-breathe 3s ease-in-out infinite; }
+        @keyframes oe-breathe { 0%,100% { box-shadow: 0 0 25px rgba(168,85,247,.3); } 50% { box-shadow: 0 0 44px rgba(168,85,247,.6); } }
+        @media (prefers-reduced-motion: reduce) { .btn-breathe { animation: none; } }
 
         .result { margin-top: 15px; padding: 14px; background: var(--input); border: 1px solid var(--border); border-radius: var(--radius); font-size: 18px; font-weight: 700; color: var(--green); text-align: center; }
         .result:empty { display: none; }
@@ -145,7 +155,10 @@
     </style>
 </head>
 <body>
-    <div class="matrix-bg"></div>
+    <div class="oe-bg" aria-hidden="true">
+        <div class="matrix-bg"></div>
+        <div class="oe-mist"></div>
+    </div>
     <div class="container">
         <!-- Логотип SVG -->
         <div class="logo-wrap" style="margin-top:12px">
@@ -265,7 +278,7 @@
                 <input type="text" id="address" placeholder="Введите адрес кошелька" oninput="validateAddress()">
                 <div class="validation-msg" id="address-msg"></div>
             </div>
-            <button class="btn" id="create-order">🚀 Создать заявку</button>
+            <button class="btn btn-breathe" id="create-order">🚀 Создать заявку</button>
             <!-- Шаги обмена -->
             <div class="exchange-steps" id="exchange-steps" style="display:none">
               <div class="ex-step done">✓ Заявка создана</div>
@@ -1098,6 +1111,44 @@
             msg.textContent = ok ? '✓ Адрес корректен' : `✗ Неверный формат ${cur}-адреса`;
             msg.className = 'validation-msg ' + (ok ? 'valid' : 'invalid');
         }
+    </script>
+    <script>
+    /* Ambient обсидианового пака для Mini App — matrix-дождь + лёгкие частицы.
+       Изолирован от логики WebApp/оплаты. Мобиле-бюджет: DPR≤1.5, 24fps, малая плотность,
+       reduced-motion выключает, пауза на невидимой вкладке. При ошибке — тихо ничего. */
+    (function () {
+      try {
+        var host = document.querySelector('.oe-bg');
+        if (!host) return;
+        var rm = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : { matches: false };
+        var DPR = Math.min(window.devicePixelRatio || 1, 1.5);
+        var FRAME_MS = 1000 / 24;
+        var mc, pc, mx, px, m, p, W = 0, H = 0, raf = 0, last = 0, running = false;
+
+        function mk() { var c = document.createElement('canvas'); c.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none'; host.appendChild(c); return c; }
+        function kill() { stop(); if (mc) { mc.remove(); mc = null; } if (pc) { pc.remove(); pc = null; } m = p = null; }
+        function size(c) { W = Math.max(1, window.innerWidth); H = Math.max(1, window.innerHeight); c.width = Math.floor(W * DPR); c.height = Math.floor(H * DPR); var x = c.getContext('2d'); x.setTransform(DPR, 0, 0, DPR, 0, 0); return x; }
+        var CH = '01BTCUSDTLTC<>/[]{}▓▒░∆Ξ$';
+        function gl(s) { var f = (Math.sin(s) * 10000 % 1 + 1) % 1; return CH[Math.floor(f * CH.length)] || '0'; }
+
+        function initM() { if (!mc) mc = mk(); mx = size(mc); var fs = 13, cols = Math.ceil(W / fs), d = []; for (var i = 0; i < cols; i++) d.push({ y: Math.random() * -H, sp: 0.9 + Math.random() * 1.5, a: 0.05 + Math.random() * 0.09, s: Math.random() * 1000 }); mx.font = '700 ' + fs + 'px monospace'; mx.textBaseline = 'top'; m = { fs: fs, d: d }; }
+        function initP() { if (!pc) pc = mk(); px = size(pc); var n = Math.min(45, Math.max(24, Math.floor((W * H) / 26000))), it = []; for (var i = 0; i < n; i++) it.push({ x: Math.random() * W, y: Math.random() * H, r: 0.7 + Math.random() * 1.7, vx: -0.05 + Math.random() * 0.1, vy: -0.04 + Math.random() * 0.1, ph: Math.random() * 6.28, a: 0.1 + Math.random() * 0.35 }); p = { it: it }; }
+
+        function drM(t) { if (!m) return; mx.clearRect(0, 0, W, H); mx.fillStyle = 'rgba(5,0,8,0.13)'; mx.fillRect(0, 0, W, H); for (var i = 0; i < m.d.length; i++) { var d = m.d[i], x = i * m.fs; for (var j = 0; j < 7; j++) { var yy = d.y - j * (m.fs + 2); if (yy < -m.fs || yy > H + m.fs) continue; mx.fillStyle = 'rgba(186,125,255,' + Math.max(0, d.a * (1 - j / 7)) + ')'; mx.fillText(gl(d.s + j * 7 + t * 0.002), x, yy); } d.y += d.sp; if (d.y > H + 60) { d.y = -Math.random() * 160; d.sp = 0.9 + Math.random() * 1.5; d.a = 0.05 + Math.random() * 0.09; d.s = Math.random() * 1000; } } }
+        function drP(t) { if (!p) return; px.clearRect(0, 0, W, H); for (var i = 0; i < p.it.length; i++) { var o = p.it[i]; o.x += o.vx + Math.sin(t * 0.0012 + o.ph) * 0.09; o.y += o.vy + Math.cos(t * 0.001 + o.ph) * 0.06; if (o.x < -10) o.x = W + 10; if (o.x > W + 10) o.x = -10; if (o.y < -10) o.y = H + 10; if (o.y > H + 10) o.y = -10; var g = 0.65 + 0.35 * Math.sin(t * 0.002 + o.ph); px.beginPath(); px.arc(o.x, o.y, o.r * (0.9 + g * 0.5), 0, 6.28); px.fillStyle = 'rgba(205,155,255,' + (o.a * g) + ')'; px.fill(); } }
+
+        function loop(t) { if (!running) return; if (t - last < FRAME_MS) { raf = requestAnimationFrame(loop); return; } last = t; try { drM(t); drP(t); } catch (e) { kill(); return; } raf = requestAnimationFrame(loop); }
+        function start() { if (running || rm.matches) return; try { initM(); initP(); } catch (e) { kill(); return; } running = true; last = 0; raf = requestAnimationFrame(loop); }
+        function stop() { running = false; if (raf) cancelAnimationFrame(raf); raf = 0; }
+
+        var rt = 0;
+        window.addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(function () { if (running) { try { initM(); initP(); } catch (e) { kill(); } } }, 250); }, { passive: true });
+        document.addEventListener('visibilitychange', function () { if (document.hidden) stop(); else if (!rm.matches) { running = false; start(); } });
+        if (rm.addEventListener) rm.addEventListener('change', function () { if (rm.matches) kill(); else start(); });
+
+        start();
+      } catch (e) { /* ambient — необязательный слой */ }
+    })();
     </script>
 </body>
 </html>
