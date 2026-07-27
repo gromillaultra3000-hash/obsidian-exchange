@@ -2985,27 +2985,31 @@ async def conversion_watch_task():
     см. core/conversion_watch. Алерт по каждому типу не чаще раза в 6 часов.
     """
     import httpx
-    last_sent = {}
     await asyncio.sleep(120)  # дать сервису прогреться после старта
     while True:
         try:
             from core.conversion_watch import check_conversion, format_alert
+            from core.alert_throttle import should_send
             res = check_conversion()
-            msg = format_alert(res)
+            # Троттлинг — в БД, а не в памяти процесса: сервис перезапускается
+            # деплой-таймером, и словарь в корутине обнулялся вместе с ним (алерт
+            # уходил каждые 15 минут вместо раза в 6 часов). Ключ — отпечаток
+            # алерта, поэтому НОВАЯ пострадавшая заявка пробивает окно сразу.
+            fresh = [a for a in res.get("alerts", [])
+                     if should_send("conv:" + a.get("fingerprint", a["kind"]), 21600)]
+            msg = format_alert({**res, "alerts": fresh}) if fresh else ""
             if msg and BOT_TOKEN:
-                kinds = ",".join(sorted(a["kind"] for a in res["alerts"]))
-                now = asyncio.get_event_loop().time()
-                if now - last_sent.get(kinds, 0) > 21600:  # 6 часов на тип
-                    last_sent[kinds] = now
-                    async with httpx.AsyncClient(timeout=10) as client:
-                        for _aid in ADMIN_IDS:
-                            await client.post(
-                                f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
-                                json={"chat_id": _aid, "text": msg, "parse_mode": "HTML"})
-                    logger.warning("[conversion_watch] алерт отправлен: %s", kinds)
+                async with httpx.AsyncClient(timeout=10) as client:
+                    for _aid in ADMIN_IDS:
+                        await client.post(
+                            f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
+                            json={"chat_id": _aid, "text": msg, "parse_mode": "HTML"})
+                logger.warning("[conversion_watch] алерт отправлен: %s",
+                               ",".join(sorted(a["kind"] for a in fresh)))
             else:
-                logger.info("[conversion_watch] выдано=%s оплачено=%s ранних=%s",
-                            res.get("issued"), res.get("paid"), res.get("early_expiry"))
+                logger.info("[conversion_watch] выдано=%s оплачено=%s ранних=%s поводов=%s",
+                            res.get("issued"), res.get("paid"), res.get("early_expiry"),
+                            len(res.get("alerts", [])))
         except Exception as e:
             logger.error(f"[conversion_watch] Error: {e}")
         await asyncio.sleep(1800)

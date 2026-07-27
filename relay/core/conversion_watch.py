@@ -109,6 +109,7 @@ def check_conversion(window_hours: int | None = None) -> dict:
     if out["issued"] >= MIN_ISSUED and out["paid"] == 0:
         out["alerts"].append({
             "kind": "no_payments",
+            "fingerprint": "no_payments",
             "text": (f"Реквизиты выдавали {out['issued']} раз за {h} ч — оплат НЕТ ни одной. "
                      f"Проверить: доходит ли клиент до кнопки «я оплатил», живы ли сессии "
                      f"полный срок, не сломана ли страница оплаты."),
@@ -116,6 +117,7 @@ def check_conversion(window_hours: int | None = None) -> dict:
     if out["early_expiry"] >= EARLY_EXPIRY_MIN:
         out["alerts"].append({
             "kind": "early_expiry",
+            "fingerprint": "early_expiry",
             "text": (f"{out['early_expiry']} сессий закрылись РАНЬШЕ своего expires_at за {h} ч. "
                      f"Это регрессия бага от 19.07 (сессии убивались на 15-й минуте из 30)."),
         })
@@ -124,6 +126,7 @@ def check_conversion(window_hours: int | None = None) -> dict:
                         f"{p['age_min']} мин)" for p in out["stuck_payouts"][:8])
         out["alerts"].append({
             "kind": "stuck_payout",
+            "fingerprint": _fingerprint("stuck_payout", out["stuck_payouts"]),
             "text": (f"{len(out['stuck_payouts'])} заявок оплачено, но крипта НЕ отправлена "
                      f">{STUCK_PAYOUT_MIN} мин: {lst}. Деньги у нас — выдать вручную "
                      f"(/worker) или проверить, не завис ли авто-payout."),
@@ -133,12 +136,24 @@ def check_conversion(window_hours: int | None = None) -> dict:
                         f"{p['age_min']} мин)" for p in out["undelivered_receipts"][:8])
         out["alerts"].append({
             "kind": "receipt_undelivered",
+            "fingerprint": _fingerprint("receipt_undelivered", out["undelivered_receipts"]),
             "text": (f"{len(out['undelivered_receipts'])} чеков залито клиентом, но "
                      f"провайдеру НЕ доставлено >{RECEIPT_UNDELIVERED_MIN} мин: {lst}. "
                      f"Передать чек трейдеру вручную в кабинете/группе провайдера, "
                      f"ПОКА сделка на их стороне жива — иначе оплату не подтвердят."),
         })
     return out
+
+
+def _fingerprint(kind: str, rows: list) -> str:
+    """Отпечаток алерта = тип + состав пострадавших заявок.
+
+    Возраст в минутах намеренно НЕ входит: он меняется каждый прогон, и алерт
+    выглядел бы новым бесконечно. А вот появление ещё одной заявки в списке —
+    новая беда, и молчать про неё нельзя (см. core/alert_throttle).
+    """
+    ids = sorted(str(r.get("order_id")) for r in rows)
+    return f"{kind}:{','.join(ids)}"
 
 
 def format_alert(res: dict) -> str:

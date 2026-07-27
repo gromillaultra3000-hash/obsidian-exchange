@@ -187,10 +187,56 @@ def check_every_provider_has_receipt_verdict():
              f"вручную, а клиенту не скажут ложное «принято».")
 
 
+def check_alert_throttle_is_durable():
+    """Троттлинг алертов не должен жить в памяти процесса.
+
+    27.07.2026: `last_sent = {}` внутри conversion_watch_task обнулялся при
+    каждом рестарте, а деплой-таймер перезапускал relay-fastapi каждые 15 минут.
+    Правило «не чаще раза в 6 часов» превратилось в «4 раза в час»: сигнал о том,
+    что 13 947 ₽ клиентских денег не выданы, пришёл админу ~80 раз и перестал
+    читаться. Состояние алертов обязано лежать в БД (core/alert_throttle).
+    """
+    src = _read(os.path.join(ROOT, "relay-fastapi", "main.py"))
+    if not src:
+        return
+    m = re.search(r"async def conversion_watch_task\(.*?\n(?=\nasync def |\ndef |\n@)",
+                  src, re.S)
+    body = m.group(0) if m else ""
+    if re.search(r"^\s*last_sent\s*=\s*\{\}", body, re.M):
+        fail("алерты",
+             "conversion_watch_task держит троттлинг в памяти (last_sent={}). "
+             "Сервис перезапускается деплоем — окно молчания обнулится и админ "
+             "утонет в дублях. Использовать core.alert_throttle.should_send.")
+    elif "alert_throttle" not in body:
+        fail("алерты",
+             "conversion_watch_task шлёт алерты без долговечного троттлинга "
+             "(core.alert_throttle.should_send).")
+
+
+def check_deploy_restarts_only_on_change():
+    """Деплой не должен перезапускать сервисы, когда код не менялся.
+
+    Безусловный `systemctl restart` каждые 15 минут рвёт запросы клиентов в
+    полёте и обнуляет любое состояние в памяти процесса — включая троттлинг
+    алертов выше. Гейт по раскатанному реву обязателен.
+    """
+    src = _read(os.path.join(ROOT, "deploy.sh"))
+    if not src:
+        return  # скрипт вне репозитория — проверять нечего
+    if "restart relay-fastapi" not in src:
+        return
+    guarded = ".deploy_state" in src and re.search(r'if \[ "\$DEPLOYED" = "\$NEW_REV" \]', src)
+    if not guarded:
+        fail("деплой",
+             "deploy.sh перезапускает сервисы без проверки, изменился ли код. "
+             "Нужен гейт по раскатанному реву (файл состояния .deploy_state).")
+
+
 def main():
     for fn in (check_no_diverging_duplicates, check_config_keys_are_read,
                check_no_fail_open_in_guards, check_session_expiry_uses_expires_at,
-               check_every_provider_has_receipt_verdict):
+               check_every_provider_has_receipt_verdict,
+               check_alert_throttle_is_durable, check_deploy_restarts_only_on_change):
         try:
             fn()
         except Exception as e:
