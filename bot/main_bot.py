@@ -782,8 +782,18 @@ def init_db():
         c.execute("CREATE INDEX IF NOT EXISTS idx_swap_token ON swap_sessions(session_token)")
         # Мультичейн (Фаза C): сеть выплаты на заявке. NULL = каноническая сеть валюты
         # (BTC/LTC mainnet, USDT→TRC20). Идемпотентно: колонка добавляется один раз.
-        if 'network' not in [r[1] for r in c.execute("PRAGMA table_info(orders)")]:
+        _order_cols = [r[1] for r in c.execute("PRAGMA table_info(orders)")]
+        if 'network' not in _order_cols:
             c.execute("ALTER TABLE orders ADD COLUMN network TEXT")
+        # Договорённость с клиентом (что ему обещано при создании заявки).
+        # Без неё выплата считалась заново по свежему курсу, и обещание
+        # «курс действует 15 минут» не выполнялось ни для кого.
+        if 'agreed_rate' not in _order_cols:
+            c.execute("ALTER TABLE orders ADD COLUMN agreed_rate REAL")
+        if 'agreed_crypto_amount' not in _order_cols:
+            c.execute("ALTER TABLE orders ADD COLUMN agreed_crypto_amount REAL")
+        if 'agreed_at' not in _order_cols:
+            c.execute("ALTER TABLE orders ADD COLUMN agreed_at TEXT")
         c.execute('''CREATE TABLE IF NOT EXISTS bot_users (
             user_id INTEGER PRIMARY KEY,
             username TEXT,
@@ -1029,6 +1039,35 @@ async def notify_admin(order_id, user_id, rub_amount, address, currency):
     if rub_amount >= HIGH_AMOUNT:
         await notify_admins( f"⚠️ Крупная заявка #{order_id} на {rub_amount:,.0f} RUB")
 
+def net_rate_for(market_rate, commission):
+    """Курс для клиента из рыночного курса и комиссии — единый источник
+    (core.quote.effective_rate). Заменяет разъехавшуюся формулу
+    `market * (1 - c/100)`, которая обещала объём БОЛЬШЕ рыночного."""
+    try:
+        from core.quote import effective_rate
+        return effective_rate(market_rate, commission)
+    except Exception:
+        m = float(market_rate or 0)
+        return m / (1 - float(commission) / 100.0) if m > 0 and float(commission) < 100 else 0
+
+
+def get_agreed_quote(order_id):
+    """(agreed_rate, agreed_crypto_amount); NULL/NULL — заявка без договорённости.
+
+    Бросает исключение, если прочитать не удалось. Возвращать здесь (None, None)
+    было бы fail-open: временная ошибка БД неотличима от «старой заявки», и
+    выплата ушла бы по свежему курсу вместо обещанного клиенту объёма.
+    Вызывающий обязан трактовать исключение как «автоматически не платим».
+    """
+    with db_conn(5) as conn:
+        row = conn.execute(
+            "SELECT agreed_rate, agreed_crypto_amount FROM orders WHERE order_id=?",
+            (order_id,)).fetchone()
+    if not row:
+        raise RuntimeError(f"заявка #{order_id} не найдена")
+    return (row[0], row[1])
+
+
 def _direction_open(currency, network=None):
     """Открыто ли направление (валюта+сеть) прямо сейчас. Fail-closed: при сбое
     витрины пропускаем только исторические направления в их канонической сети."""
@@ -1076,10 +1115,24 @@ async def notify_workers_paid(order_id, rub_amount, address, currency, network=N
     сеть = безвозвратная потеря средств. Не полагаемся на то, что работник
     угадает сеть по формату адреса."""
     rate = get_rate_with_markup(currency, rub_amount)
-    crypto_amount = round(rub_amount / rate, 8) if rate else 0
+    market_amount = round(rub_amount / rate, 8) if rate else 0
+    # Работник должен отправить РОВНО обещанное клиенту, а не пересчёт по
+    # текущему курсу — иначе ручная выплата снова разойдётся с обещанием.
+    try:
+        _ar, agreed_amount = get_agreed_quote(order_id)
+    except Exception as e:
+        # Уведомление работнику не должно падать; он увидит рыночный расчёт и
+        # предупреждение, что обещанный объём проверить не удалось.
+        logger.error(f"Заявка #{order_id}: договорённость не прочитана для воркера: {e}")
+        agreed_amount = None
+    crypto_amount = agreed_amount if agreed_amount and agreed_amount > 0 else market_amount
     net_label = _network_label(currency, network)
+    drift = ""
+    if agreed_amount and market_amount and abs(agreed_amount - market_amount) / market_amount > 0.02:
+        drift = (f"\n<i>(по текущему курсу вышло бы {market_amount} — "
+                 f"платим обещанное при создании заявки)</i>")
     text = (f"💳 <b>Заявка #{order_id} — оплачена</b>\n\n"
-            f"Сумма: <b>{rub_amount:,.0f} RUB</b> → <code>{crypto_amount} {currency}</code>\n"
+            f"Сумма: <b>{rub_amount:,.0f} RUB</b> → <code>{crypto_amount} {currency}</code>{drift}\n"
             f"🌐 Сеть: <b>{net_label}</b>\n"
             f"Адрес: <code>{address}</code>\n\n"
             f"Необходима ручная отправка.")
@@ -2843,13 +2896,45 @@ async def process_address(message: Message, state: FSMContext):
         await message.answer(f"⛔ {limit_err}")
         return
     amount = data.get("amount")
+    # Котировку считаем ДО вставки и пишем тем же INSERT: заявка не должна ни
+    # на мгновение существовать без зафиксированной договорённости, иначе сбой
+    # между INSERT и UPDATE оставил бы её «легаси» — и выплата пересчиталась бы
+    # по свежему курсу, как раньше.
+    _lock = get_active_rate_lock(message.from_user.id, currency)
+    if _lock:
+        # Зафиксированный курс — тоже рыночный: наценку применяем той же
+        # формулой, что и везде (было умножение — давало объём выше рынка).
+        rate = net_rate_for(_lock["rate"], get_commission_percent(amount, message.from_user.id))
+    else:
+        rate = get_rate_with_markup(currency, amount)
+    crypto_amount = round(amount / rate, 8) if rate else 0
     with db_conn(10) as conn:
         cursor = conn.cursor()
-        cursor.execute("INSERT INTO orders (user_id, username, currency, rub_amount, crypto_address, status, network) VALUES (?,?,?,?,?,'pending',?)",
-                       (message.from_user.id, message.from_user.username, currency, amount, address,
-                        _canon_network(currency, network)))
-        conn.commit()
+        cursor.execute(
+            "INSERT INTO orders (user_id, username, currency, rub_amount, crypto_address, status, "
+            "network, agreed_rate, agreed_crypto_amount, agreed_at) "
+            "VALUES (?,?,?,?,?,'pending',?,?,?,CURRENT_TIMESTAMP)",
+            (message.from_user.id, message.from_user.username, currency, amount, address,
+             _canon_network(currency, network), float(rate or 0), float(crypto_amount or 0)))
         order_id = cursor.lastrowid
+        if _lock:
+            # Списание фиксации курса — в ТОЙ ЖЕ транзакции, что и заявка:
+            # иначе сбой между ними оставит уже использованный курс активным
+            # (клиент применит его повторно). Условие used=0 защищает от гонки
+            # двух параллельных заявок с одним локом.
+            used = conn.execute(
+                "UPDATE rate_locks SET used=1, order_id=? WHERE id=? AND used=0",
+                (order_id, _lock["lock_id"])).rowcount
+            if not used:
+                # Лок увели параллельно — пересчитываем по обычному курсу,
+                # чтобы не отдать зафиксированный курс дважды.
+                rate = get_rate_with_markup(currency, amount)
+                crypto_amount = round(amount / rate, 8) if rate else 0
+                conn.execute(
+                    "UPDATE orders SET agreed_rate=?, agreed_crypto_amount=? WHERE order_id=?",
+                    (float(rate or 0), float(crypto_amount or 0), order_id))
+                _lock = None
+        conn.commit()
 
     # Фиксируем промокод если был активирован
     promo = _active_promos.pop(message.from_user.id, None)
@@ -2861,18 +2946,6 @@ async def process_address(message: Message, state: FSMContext):
     await state.update_data(order_id=order_id, amount=amount, currency=currency, address=address)
     await state.set_state(Exchange.payment_method)
 
-    # Применяем фиксацию курса если есть
-    _lock = get_active_rate_lock(message.from_user.id, currency)
-    if _lock:
-        rate = _lock["rate"] * (1 - get_commission_percent(amount, message.from_user.id) / 100)
-        # Вычитаем комиссию за фиксацию из суммы (уменьшаем крипту, а не рубли)
-        with db_conn(3) as conn:
-            conn.execute("UPDATE rate_locks SET used=1, order_id=? WHERE id=?",
-                         (_lock["lock_id"], order_id))
-            conn.commit()
-    else:
-        rate = get_rate_with_markup(currency, amount)
-    crypto_amount = round(amount / rate, 8) if rate else 0
     rub_fmt3 = f"{int(float(amount)):,}".replace(",", " ")
     text = (
         f"🟣 <b>Заявка #{order_id} создана</b>\n\n"
@@ -5603,7 +5676,7 @@ async def dca_enter_address(message: Message, state: FSMContext):
     interval_label = _DCA_INTERVALS.get(str(interval), f"каждые {interval} дней")
     commission = get_commission_percent(amount, message.from_user.id)
     rate = get_cached_rate(cur)
-    net_rate = rate * (1 - commission / 100)
+    net_rate = net_rate_for(rate, commission)
     approx = round(amount / net_rate, 8) if net_rate else 0
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="✅ Запустить DCA",  callback_data="dca_confirm")],
@@ -5707,15 +5780,21 @@ async def dca_runner():
 
             for did, uid, cur, amt, addr, intv in due:
                 try:
-                    # Создаём заявку
+                    # Создаём заявку. Котировка фиксируется тем же INSERT —
+                    # на момент срабатывания расписания, со скидкой клиента.
+                    _rate = net_rate_for(get_cached_rate(cur), get_commission_percent(amt, uid))
+                    _crypto = round(amt / _rate, 8) if _rate else 0
+                    # Заявка и сдвиг расписания — ОДНА транзакция: иначе сбой
+                    # между ними оставит расписание просроченным и следующий
+                    # проход создаст дубль заявки.
                     with db_conn(5) as conn:
-                        conn.execute(
-                            "INSERT INTO orders (user_id, username, currency, rub_amount, crypto_address, status) "
-                            "VALUES (?,?,?,?,?,'pending')",
-                            (uid, f"dca_{did}", cur, amt, addr)
+                        _c = conn.execute(
+                            "INSERT INTO orders (user_id, username, currency, rub_amount, crypto_address, "
+                            "status, agreed_rate, agreed_crypto_amount, agreed_at) "
+                            "VALUES (?,?,?,?,?,'pending',?,?,CURRENT_TIMESTAMP)",
+                            (uid, f"dca_{did}", cur, amt, addr, float(_rate or 0), float(_crypto or 0))
                         )
-                        oid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
-                        # Обновляем next_run
+                        oid = _c.lastrowid
                         next_run = (_dt.datetime.utcnow() + _dt.timedelta(days=intv)).strftime("%Y-%m-%d %H:%M:%S")
                         conn.execute(
                             "UPDATE dca_schedules SET next_run=?, runs_total=runs_total+1 WHERE id=?",
@@ -5724,10 +5803,9 @@ async def dca_runner():
                         conn.commit()
 
                     icons = {'BTC': '₿', 'LTC': 'Ł', 'USDT': '💵'}
-                    commission = get_commission_percent(amt, uid)
-                    rate = get_cached_rate(cur)
-                    net_rate = rate * (1 - commission / 100)
-                    approx = round(amt / net_rate, 8) if net_rate else 0
+                    # Показываем РОВНО зафиксированный объём, а не пересчёт:
+                    # иначе сообщение разойдётся с тем, что выплатим.
+                    approx = _crypto
                     bot_username = os.getenv('BOT_USERNAME', 'Obsidian666999bot')
                     kb = InlineKeyboardMarkup(inline_keyboard=[[
                         InlineKeyboardButton(
@@ -5834,7 +5912,7 @@ async def gift_choose_currency(callback: CallbackQuery, state: FSMContext):
     min_a = int(os.getenv("MIN_AMOUNT", 2000))
     rate  = get_cached_rate(cur)
     commission = get_commission_percent(10000, callback.from_user.id)
-    net_rate = rate * (1 - commission / 100)
+    net_rate = net_rate_for(rate, commission)
     example_rub = 5000
     example_crypto = round(example_rub / net_rate, 6) if net_rate else 0
     await callback.message.answer(
@@ -5862,7 +5940,7 @@ async def gift_enter_amount(message: Message, state: FSMContext):
     cur  = data["gift_currency"]
     commission = get_commission_percent(amount, message.from_user.id)
     rate = get_cached_rate(cur)
-    net_rate = rate * (1 - commission / 100)
+    net_rate = net_rate_for(rate, commission)
     approx = round(amount / net_rate, 8) if net_rate else 0
     # Генерируем уникальный код заранее
     code = _make_gift_code()
@@ -5900,13 +5978,20 @@ async def gift_pay(callback: CallbackQuery, state: FSMContext):
     placeholder_addr = {"BTC": "1GiftPlaceholder1111111111111111111",
                         "LTC": "LGiftPlaceholder111111111111111111",
                         "USDT": "TGiftPlaceholderUSDT111111111111111"}.get(cur, "placeholder")
+    # Котировка считается до вставки и пишется тем же INSERT
+    commission = get_commission_percent(amount, uid)
+    rate = get_cached_rate(cur)
+    net_rate = net_rate_for(rate, commission)
+    approx = round(amount / net_rate, 8) if net_rate else 0
     with db_conn(5) as conn:
-        conn.execute(
-            "INSERT INTO orders (user_id, username, currency, rub_amount, crypto_address, status) "
-            "VALUES (?,?,?,?,?,'pending')",
-            (uid, f"gift_{code}", cur, amount, placeholder_addr)
+        _c = conn.execute(
+            "INSERT INTO orders (user_id, username, currency, rub_amount, crypto_address, status, "
+            "agreed_rate, agreed_crypto_amount, agreed_at) "
+            "VALUES (?,?,?,?,?,'pending',?,?,CURRENT_TIMESTAMP)",
+            (uid, f"gift_{code}", cur, amount, placeholder_addr,
+             float(net_rate or 0), float(approx or 0))
         )
-        oid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+        oid = _c.lastrowid
         conn.execute(
             "INSERT INTO gift_vouchers (sender_id, currency, rub_amount, code, order_id) VALUES (?,?,?,?,?)",
             (uid, cur, amount, code, oid)
@@ -5914,11 +5999,6 @@ async def gift_pay(callback: CallbackQuery, state: FSMContext):
         conn.commit()
     await state.update_data(order_id=oid, gift_order_id=oid)
     await state.set_state(Exchange.payment_method)
-    # Показываем выбор способа оплаты как обычно
-    commission = get_commission_percent(amount, uid)
-    rate = get_cached_rate(cur)
-    net_rate = rate * (1 - commission / 100)
-    approx = round(amount / net_rate, 8) if net_rate else 0
     await callback.message.answer(
         f"🟣 Заявка <b>#{oid}</b> создана (подарок {code})\n\n"
         f"Сумма: <b>{int(amount):,} ₽</b> → ≈ {approx:.6f} {cur}\n\n"
@@ -5985,7 +6065,7 @@ async def cmd_redeem(message: Message, state: FSMContext):
         return
     commission = get_commission_percent(amt, message.from_user.id)
     rate = get_cached_rate(cur)
-    net_rate = rate * (1 - commission / 100)
+    net_rate = net_rate_for(rate, commission)
     approx = round(amt / net_rate, 8) if net_rate else 0
     await state.update_data(redeem_gift_id=gid, redeem_currency=cur,
                             redeem_amount=amt, redeem_approx=approx)
@@ -6009,18 +6089,33 @@ async def gift_enter_recipient_address(message: Message, state: FSMContext):
         await message.answer(f"❌ Неверный {cur}-адрес. Проверьте и введите снова.")
         return
     uid = message.from_user.id
-    # Создаём заявку для получателя
+    # Подарок обещан в рублях («тебе подарили BTC на N ₽») → объём фиксируем на
+    # момент выкупа, его и выплатим. Считаем ДО вставки, чтобы записать одним
+    # INSERT (заявка не должна существовать без договорённости).
+    _commission = get_commission_percent(amt, uid)
+    _rate = net_rate_for(get_cached_rate(cur), _commission)
+    _crypto = round(amt / _rate, 8) if _rate else 0
+    # Выкуп должен быть атомарным: два параллельных /redeem одного кода иначе
+    # создадут ДВЕ оплаченные заявки и подарок уйдёт дважды. Сначала пробуем
+    # застолбить ваучер условным UPDATE, и только выигравший создаёт заявку.
     with db_conn(5) as conn:
-        conn.execute(
-            "INSERT INTO orders (user_id, username, currency, rub_amount, crypto_address, status) "
-            "VALUES (?,?,?,?,?,'paid')",
-            (uid, f"gift_redeem_{gid}", cur, amt, addr)
-        )
-        oid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
-        conn.execute(
-            "UPDATE gift_vouchers SET status='redeemed', recipient_id=?, recipient_address=?, claimed_at=datetime('now') WHERE id=?",
+        claimed = conn.execute(
+            "UPDATE gift_vouchers SET status='redeemed', recipient_id=?, recipient_address=?, "
+            "claimed_at=datetime('now') WHERE id=? AND status!='redeemed'",
             (uid, addr, gid)
+        ).rowcount
+        if not claimed:
+            conn.commit()
+            await message.answer("❌ Этот подарок уже был получен.")
+            await state.clear()
+            return
+        cur_ins = conn.execute(
+            "INSERT INTO orders (user_id, username, currency, rub_amount, crypto_address, status, "
+            "agreed_rate, agreed_crypto_amount, agreed_at) "
+            "VALUES (?,?,?,?,?,'paid',?,?,CURRENT_TIMESTAMP)",
+            (uid, f"gift_redeem_{gid}", cur, amt, addr, float(_rate or 0), float(_crypto or 0))
         )
+        oid = cur_ins.lastrowid
         conn.commit()
     await message.answer(
         f"✅ <b>Подарок принят!</b>\n\n"
@@ -6461,7 +6556,7 @@ async def lo_enter_amount(message: Message, state: FSMContext):
     cur = data["lo_currency"]
     target_rate = data["lo_rate"]
     commission = get_commission_percent(amount, message.from_user.id) + LIMIT_COMMISSION_EXTRA
-    net_rate = target_rate * (1 - commission / 100)
+    net_rate = net_rate_for(target_rate, commission)
     crypto_amount = round(amount / net_rate, 8)
     await state.update_data(lo_amount=amount, lo_crypto_approx=crypto_amount, lo_commission=commission)
     await message.answer(
@@ -6609,15 +6704,16 @@ async def limit_order_watcher():
 
                 # Создаём обычную заявку
                 commission = get_commission_percent(rub_amount, uid) + LIMIT_COMMISSION_EXTRA
-                net_rate = current * (1 - commission / 100)
+                net_rate = net_rate_for(current, commission)
                 crypto_amount = round(rub_amount / net_rate, 8)
 
                 with db_conn(5) as conn:
-                    conn.execute("""
-                        INSERT INTO orders (user_id, currency, rub_amount, crypto_address, status, username)
-                        VALUES (?, ?, ?, ?, 'pending', 'limit_order')
-                    """, (uid, cur, rub_amount, address))
-                    new_order_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+                    _c = conn.execute("""
+                        INSERT INTO orders (user_id, currency, rub_amount, crypto_address, status,
+                                            username, agreed_rate, agreed_crypto_amount, agreed_at)
+                        VALUES (?, ?, ?, ?, 'pending', 'limit_order', ?, ?, CURRENT_TIMESTAMP)
+                    """, (uid, cur, rub_amount, address, float(net_rate or 0), float(crypto_amount or 0)))
+                    new_order_id = _c.lastrowid
                     conn.execute(
                         "UPDATE limit_orders SET status='triggered', triggered_at=datetime('now'), order_id=? WHERE id=?",
                         (new_order_id, lid)
@@ -7211,11 +7307,17 @@ async def handle_webapp(message: Message, state: FSMContext):
         await message.answer(f"❌ Некорректный адрес для {currency}.")
         return
 
+    # Котировка фиксируется тем же INSERT — заявка не существует без неё
+    _rate = get_rate_with_markup(currency, amount)
+    _crypto = round(amount / _rate, 8) if _rate else 0
     with db_conn(10) as conn:
         cursor = conn.cursor()
-        cursor.execute("INSERT INTO orders (user_id, username, currency, rub_amount, crypto_address, status, network) VALUES (?,?,?,?,?,'pending',?)",
-                       (message.from_user.id, message.from_user.username, currency, amount, address,
-                        _canon_network(currency, network)))
+        cursor.execute(
+            "INSERT INTO orders (user_id, username, currency, rub_amount, crypto_address, status, "
+            "network, agreed_rate, agreed_crypto_amount, agreed_at) "
+            "VALUES (?,?,?,?,?,'pending',?,?,?,CURRENT_TIMESTAMP)",
+            (message.from_user.id, message.from_user.username, currency, amount, address,
+             _canon_network(currency, network), float(_rate or 0), float(_crypto or 0)))
         conn.commit()
         order_id = cursor.lastrowid
 
@@ -7496,11 +7598,30 @@ def process_payout(order_id, rub_amount, client_address, currency='BTC', network
     if not evm_asset and currency not in PAYOUT_WALLETS:
         logger.warning(f"Автовыплата пока не поддерживает {currency}. Заказ #{order_id}")
         return None
-    rate = get_rate_with_markup(currency, rub_amount)
-    amount = round(rub_amount / rate, 8)
+    # Платим ТО, ЧТО ОБЕЩАЛИ клиенту при создании заявки, а не пересчёт по
+    # свежему курсу: иначе обещание «курс действует 15 минут» не выполняется —
+    # при движении рынка между оплатой и выплатой клиент получал не ту цифру,
+    # которую видел, а персональные скидки (VIP/промо) терялись вовсе.
+    market_amount = round(rub_amount / get_rate_with_markup(currency, rub_amount), 8)
+    try:
+        _agreed_rate, agreed_amount = get_agreed_quote(order_id)
+        from core.quote import settle_amount
+        verdict = settle_amount(agreed_amount, market_amount)
+    except Exception as e:
+        # Не смогли достоверно узнать, что обещали → не платим автоматически
+        logger.error(f"Заявка #{order_id}: договорённость не прочитана ({e}) — к воркеру")
+        return None
+    amount = verdict["amount"]
+    if not verdict["auto_ok"]:
+        # Протухшая котировка (рынок ушёл далеко) — не платим молча ни ту, ни
+        # другую цифру: это решение человека.
+        logger.warning(f"Заявка #{order_id}: авто-выплата запрещена — {verdict['reason']}")
+        return None
     if amount <= 0:
         logger.error(f"Нулевая сумма выплаты для заказа #{order_id}")
         return None
+    logger.info(f"Заявка #{order_id}: к выплате {amount} {currency} "
+                f"(источник: {verdict['source']}, рынок сейчас {market_amount})")
     try:
         # идемпотентность по заявке: повтор той же выплаты не уйдёт дважды
         txid = send_crypto(currency, client_address, amount,

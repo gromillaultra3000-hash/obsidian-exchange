@@ -24,3 +24,5 @@ jobs:
         run: python3 tests/test_assets.py
       - name: Витрина направлений и тарифы (offerings + pricing)
         run: python3 tests/test_offerings_pricing.py
+      - name: Фиксация котировки — что обещали, то и платим (core.quote)
+        run: python3 tests/test_quote.py

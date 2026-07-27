@@ -68,27 +68,34 @@ async def _session_cleanup_loop():
             logger.warning(f"Session cleanup error: {e}")
         await asyncio.sleep(6 * 3600)
 
-def _ensure_orders_network_column():
-    """Идемпотентная миграция orders.network (Фаза C, мультичейн).
-    Дублирует ту же проверку из bot/main_bot.py::init_db — relay-fastapi
+def _ensure_orders_columns():
+    """Идемпотентные миграции таблицы orders (мультичейн + фиксация котировки).
+    Дублируют те же проверки из bot/main_bot.py::init_db — relay-fastapi
     и бот перезапускаются независимо (отдельные systemd-юниты), и если
     relay-fastapi стартует раньше бота (или после восстановления БД без
-    колонки), запись заявки упадёт с 'no column named network'. Обе
-    точки создания заявки должны сами гарантировать себе колонку."""
-    # Фейл-клоуз: если миграция не применилась, создание заявки (INSERT ... network)
-    # будет падать на КАЖДОМ запросе с невнятным 'no column named network'. Лучше
-    # уронить старт сейчас (systemd Restart=always перезапустит и это будет видно
-    # в статусе юнита), чем тихо деградировать в рантайме.
+    колонок), запись заявки упадёт с 'no column named ...'. Обе точки
+    создания заявки должны сами гарантировать себе схему.
+
+    Фейл-клоуз: если миграция не применилась, создание заявки будет падать на
+    КАЖДОМ запросе. Лучше уронить старт сейчас (systemd Restart=always
+    перезапустит, и это видно в статусе юнита), чем тихо деградировать."""
+    needed = {
+        "network": "TEXT",
+        "agreed_rate": "REAL",            # курс с наценкой, показанный клиенту
+        "agreed_crypto_amount": "REAL",   # объём, обещанный клиенту
+        "agreed_at": "TEXT",
+    }
     with db_conn(5) as conn:
         cols = [r[1] for r in conn.execute("PRAGMA table_info(orders)").fetchall()]
-        if "network" not in cols:
-            conn.execute("ALTER TABLE orders ADD COLUMN network TEXT")
-            conn.commit()
-            logger.info("Миграция: добавлена колонка orders.network")
+        for name, typ in needed.items():
+            if name not in cols:
+                conn.execute(f"ALTER TABLE orders ADD COLUMN {name} {typ}")
+                logger.info(f"Миграция: добавлена колонка orders.{name}")
+        conn.commit()
 
 @asynccontextmanager
 async def lifespan(app):
-    _ensure_orders_network_column()
+    _ensure_orders_columns()
     asyncio.create_task(_session_cleanup_loop())
     asyncio.create_task(cleanup_expired_orders())
     asyncio.create_task(health_check_task())
@@ -500,17 +507,23 @@ async def dashboard_exchange_submit(
         ), status_code=400)
 
     user_id = web_user['telegram_id'] if web_user['telegram_id'] else -web_user['id']
+    # Котировка считается ДО вставки и пишется тем же INSERT: заявка не должна
+    # существовать без зафиксированной договорённости (иначе сбой между INSERT
+    # и UPDATE вернул бы пересчёт по свежему курсу при выплате).
+    rate = exchange_calc.get_rate_with_markup(currency, amount)
+    crypto_amount = round(amount / rate, 8) if rate else 0
     with db_conn(5) as conn:
         c = conn.cursor()
         c.execute(
-            "INSERT INTO orders (user_id, username, currency, rub_amount, crypto_address, status, web_user_id, network) VALUES (?,?,?,?,?,'pending',?,?)",
-            (user_id, web_user['email'], currency, amount, address, web_user['id'], net),
+            "INSERT INTO orders (user_id, username, currency, rub_amount, crypto_address, status, "
+            "web_user_id, network, agreed_rate, agreed_crypto_amount, agreed_at) "
+            "VALUES (?,?,?,?,?,'pending',?,?,?,?,CURRENT_TIMESTAMP)",
+            (user_id, web_user['email'], currency, amount, address, web_user['id'], net,
+             float(rate or 0), float(crypto_amount or 0)),
         )
         conn.commit()
         order_id = c.lastrowid
 
-    rate = exchange_calc.get_rate_with_markup(currency, amount)
-    crypto_amount = round(amount / rate, 8) if rate else 0
     if ADMIN_ID:
         notify_admins_tg( (
             f"🆕 Новая заявка #{order_id} (сайт)\n"
@@ -710,17 +723,20 @@ async def api_create_order(request: Request):
     if not _check_order_rate(tg_id):
         logger.warning(f"[create_order] rate limit hit user={tg_id}")
         raise HTTPException(status_code=429, detail="Слишком много заявок подряд. Подождите пару минут.")
+    # Котировка — тем же INSERT, что и заявка (см. комментарий в форме кабинета)
+    rate = exchange_calc.get_rate_with_markup(currency, amount)
+    crypto_amount = round(amount / rate, 8) if rate else 0
     with db_conn(5) as conn:
         c = conn.cursor()
         c.execute(
-            "INSERT INTO orders (user_id, username, currency, rub_amount, crypto_address, status, network) VALUES (?,?,?,?,?,'pending',?)",
-            (tg_id, username, currency, amount, address, net),
+            "INSERT INTO orders (user_id, username, currency, rub_amount, crypto_address, status, "
+            "network, agreed_rate, agreed_crypto_amount, agreed_at) "
+            "VALUES (?,?,?,?,?,'pending',?,?,?,CURRENT_TIMESTAMP)",
+            (tg_id, username, currency, amount, address, net,
+             float(rate or 0), float(crypto_amount or 0)),
         )
         conn.commit()
         order_id = c.lastrowid
-
-    rate = exchange_calc.get_rate_with_markup(currency, amount)
-    crypto_amount = round(amount / rate, 8) if rate else 0
 
     payment_url = f"{PUBLIC_RELAY}/pay/{order_id}"
     qr_image = None
