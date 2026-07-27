@@ -5254,6 +5254,161 @@ async def cmd_reconcile(message: Message):
         await message.answer(f"Ошибка сверки: {type(e).__name__}: {e}")
 
 
+def _discovery():
+    """Ленивая загрузка модуля сверки выдачи (живёт в /root/relay/core)."""
+    import sys as _s
+    if '/root/relay' not in _s.path:
+        _s.path.insert(0, '/root/relay')
+    from core import payout_discovery
+    return payout_discovery
+
+
+async def _close_order_by_evidence(v) -> bool:
+    """Закрывает заявку по найденному в цепочке доказательству выплаты.
+
+    Статус меняем ТОЛЬКО с 'paid' (условный UPDATE + rowcount): если заявку
+    успели закрыть иначе, реф-бонус и VIP-объём не начисляются повторно.
+    """
+    oid, txid = v["order_id"], v["txid"]
+    with db_conn(5) as conn:
+        cur = conn.execute(
+            "UPDATE orders SET status='sent', paid_btc_tx=?, updated_at=CURRENT_TIMESTAMP "
+            "WHERE order_id=? AND status='paid' AND (paid_btc_tx IS NULL OR paid_btc_tx='')",
+            (txid, oid))
+        conn.commit()
+        if not cur.rowcount:
+            return False
+    currency, network, user_id = v["currency"], v.get("network"), v.get("user_id")
+    try:
+        await credit_referral_bonus(oid, user_id, v.get("rub_amount") or 0)
+        await update_user_vip_volume(user_id, v.get("rub_amount") or 0)
+    except Exception as e:
+        logger.warning(f"discovery {oid}: реф/VIP начисление: {e}")
+    try:
+        _exp = explorer_url(currency, txid, network)
+        _kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(
+            text="🔍 Транзакция в блокчейне", url=_exp)]]) if _exp else None
+        await bot.send_message(
+            user_id,
+            f"🚀 <b>Заявка #{oid} выполнена!</b>\n\n"
+            f"Криптовалюта отправлена на ваш адрес.\n"
+            f"TXID: <code>{txid}</code>\n\n"
+            f"Спасибо за обмен в ObsidianExchange! 🟣",
+            parse_mode="HTML", reply_markup=_kb)
+    except Exception as e:
+        logger.warning(f"discovery {oid}: клиента уведомить не удалось: {e}")
+    return True
+
+
+@router.message(Command("discover"))
+async def cmd_discover(message: Message):
+    """/discover — найти в цепочке выплаты, о которых система не знает (админ)."""
+    if not is_admin(message.from_user.id):
+        return
+    await message.answer("⛓ Ищу доказательства выдачи в блокчейне…")
+    try:
+        pd = _discovery()
+        res = await asyncio.to_thread(pd.discover, get_rate_with_markup)
+    except Exception as e:
+        await message.answer(f"Ошибка сверки: {type(e).__name__}: {e}")
+        return
+    closed = []
+    for v in res.get("close", []):
+        if await _close_order_by_evidence(v):
+            closed.append(v["order_id"])
+            log_staff_action(message.from_user.id, "discovery_close", v["order_id"],
+                             f"tx={v['txid']}")
+    txt = _discovery().format_report(res) or "✅ Расхождений нет: всё выданное учтено."
+    if closed:
+        txt += f"\n\n<b>Закрыто этим проходом:</b> {', '.join('#' + str(c) for c in closed)}"
+    await message.answer(txt, parse_mode="HTML")
+
+
+@router.message(Command("paysrc"))
+async def cmd_paysrc(message: Message):
+    """/paysrc — кошельки, из которых МЫ платим клиентам (админ).
+
+    Нужен, чтобы сверка могла закрывать заявки автоматически: перевод из
+    нашего кошелька подделать нельзя, совпадение суммы на адресе клиента —
+    можно (клиент переведёт себе сам).
+    """
+    if not is_admin(message.from_user.id):
+        return
+    pd = _discovery()
+    parts = message.text.split()
+    if len(parts) >= 4 and parts[1] == "add":
+        r = pd.add_source(parts[2], parts[3], " ".join(parts[4:]) or f"добавил {message.from_user.id}")
+        if not r.get("ok"):
+            await message.answer(f"❌ {r.get('error')}")
+            return
+        log_staff_action(message.from_user.id, "paysrc_add", None, f"{parts[2]} {parts[3]}")
+        await message.answer(f"✅ Кошелёк {parts[2]} <code>{parts[3]}</code> добавлен "
+                             f"в доверенные отправители (всего {r['total']}).",
+                             parse_mode="HTML")
+        return
+    if len(parts) >= 4 and parts[1] == "del":
+        r = pd.remove_source(parts[2], parts[3])
+        log_staff_action(message.from_user.id, "paysrc_del", None, f"{parts[2]} {parts[3]}")
+        await message.answer("✅ Удалён." if r.get("ok") else "Такого адреса в списке нет.")
+        return
+    lines = ["💼 <b>Кошельки, из которых мы платим</b>\n",
+             "<i>Свои кошельки обменника учитываются всегда — их вносить не нужно.</i>\n",
+             "⚠️ <b>Вносить только СВОИ кошельки</b>, где ключи у вас. Адрес биржи "
+             "(вывод с Binance и т.п.) вносить НЕЛЬЗЯ: с него уходят переводы "
+             "тысячам людей, и случайное совпадение суммы закроет заявку, по "
+             "которой клиент ничего не получил.\n"]
+    reg = pd._registered_sources()
+    for cur in sorted(reg):
+        for _norm_addr, meta in (reg[cur] or {}).items():
+            lines.append(f"• <b>{cur}</b> <code>{meta.get('raw', _norm_addr)}</code>"
+                         + (f" — {meta['note']}" if meta.get("note") else ""))
+    if len(lines) == 2:
+        lines.append("<i>Список пуст.</i>")
+    lines.append("\n<code>/paysrc add BTC bc1q… заметка</code>\n<code>/paysrc del BTC bc1q…</code>")
+    await message.answer("\n".join(lines), parse_mode="HTML")
+
+
+async def payout_discovery_task():
+    """Раз в 30 минут: ищет в цепочке выплаты, сделанные мимо системы.
+
+    Заявка, оплаченная клиентом и выданная из личного кошелька владельца,
+    иначе висит в 'paid' навсегда — клиент без TXID, бонусы не начислены,
+    сторож конверсии вечно бьёт тревогу.
+
+    Закрывает САМА только по переводу из кошелька, который нам принадлежит
+    (см. core/payout_discovery). Всё спорное — админам как подсказка, с
+    долговечным троттлингом: повтор той же подсказки не шлём.
+    """
+    await asyncio.sleep(180)
+    while True:
+        try:
+            pd = _discovery()
+            res = await asyncio.to_thread(pd.discover, get_rate_with_markup)
+            closed = []
+            for v in res.get("close", []):
+                if await _close_order_by_evidence(v):
+                    closed.append(v)
+                    logger.info(f"[discovery] заявка #{v['order_id']} закрыта по цепочке: "
+                                f"{v.get('amount')} {v['currency']} tx={v['txid']}")
+            if closed:
+                await notify_admins(
+                    "⛓ <b>Сверка нашла выданное мимо системы</b>\n\n"
+                    + "\n".join(f"✅ #{v['order_id']} — {v.get('amount')} {v['currency']}, "
+                                f"<code>{v['txid'][:16]}…</code>" for v in closed)
+                    + "\n\nЗаявки закрыты, клиенты уведомлены.",
+                    parse_mode="HTML")
+            if res.get("review"):
+                from core.alert_throttle import should_send
+                fp = "discovery:review:" + ",".join(
+                    sorted(str(v["order_id"]) for v in res["review"]))
+                if should_send(fp, 21600):
+                    await notify_admins(pd.format_report(
+                        {**res, "close": []}), parse_mode="HTML")
+        except Exception as e:
+            logger.error(f"payout_discovery_task: {type(e).__name__}: {e}")
+        await asyncio.sleep(1800)
+
+
 @router.message(Command("shadow"))
 async def cmd_shadow(message: Message):
     """/shadow — сходятся ли решения стража с ручными (режим наблюдения, админ)."""
@@ -9191,6 +9346,7 @@ async def main():
     asyncio.create_task(daily_report())
     # # asyncio.create_task(platega_healthcheck())
     asyncio.create_task(check_stuck_orders())
+    asyncio.create_task(payout_discovery_task())
     asyncio.create_task(website_healthcheck())
     asyncio.create_task(disk_healthcheck())
     # Меню команд (кнопка «/» у пользователей)

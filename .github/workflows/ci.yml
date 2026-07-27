@@ -32,3 +32,5 @@ jobs:
         run: python3 tests/test_wallet_registry.py
       - name: Троттлинг алертов переживает рестарт (core.alert_throttle)
         run: python3 tests/test_alert_throttle.py
+      - name: Сверка выдачи с блокчейном (core.payout_discovery)
+        run: python3 tests/test_payout_discovery.py
