@@ -26,3 +26,5 @@ jobs:
         run: python3 tests/test_offerings_pricing.py
       - name: Фиксация котировки — что обещали, то и платим (core.quote)
         run: python3 tests/test_quote.py
+      - name: Контрольные суммы адресов (BIP-350 векторы + EIP-55)
+        run: python3 tests/test_address.py

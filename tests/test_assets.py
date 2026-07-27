@@ -56,14 +56,22 @@ check("BTC bech32 валиден", A.validate_address("BTC", "bc1qar0srrr7xfkvy5
 check("BTC legacy валиден", A.validate_address("BTC", "1BoatSLRHtKNngkdXEeobR76b53LETtpyT"))
 check("LTC невалидный (BTC-адрес под LTC)", not A.validate_address("LTC", "1BoatSLRHtKNngkdXEeobR76b53LETtpyT"))
 check("USDT TRC20-адрес по умолчанию (network=None)",
-      A.validate_address("USDT", "TXYZabcdefghijklmnopqrstuvwxyzABCD"))
+      A.validate_address("USDT", "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"))
 check("USDT 0x-адрес БЕЗ network=ERC20 → отказ (не та сеть по умолчанию)",
       not A.validate_address("USDT", "0x1234567890123456789012345678901234567890"))
 check("USDT 0x-адрес С network=ERC20 → ок",
       A.validate_address("USDT", "0x1234567890123456789012345678901234567890", "ERC20"))
 check("ETH валидный 0x-адрес", A.validate_address("ETH", "0x1234567890123456789012345678901234567890"))
-check("ETH T-адрес (TRON) невалиден", not A.validate_address("ETH", "TXYZabcdefghijklmnopqrstuvwxyzABCD"))
+check("ETH T-адрес (TRON) невалиден", not A.validate_address("ETH", "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"))
 check("пустой адрес → отказ", not A.validate_address("BTC", ""))
+# Контрольная сумма: строка проходит регулярку по форме, но адресом не является.
+# Ровно этот класс ошибок раньше пропускался и крипта уходила безвозвратно.
+check("BTC с опечаткой (форма верна, сумма нет) → отказ",
+      not A.validate_address("BTC", "1BoatSLRHtKNngkdXEeobR76b53LETtpyA"))
+check("USDT-TRC20 с опечаткой → отказ",
+      not A.validate_address("USDT", "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6a"))
+check("выдуманная строка нужного вида → отказ",
+      not A.validate_address("USDT", "TXYZabcdefghijklmnopqrstuvwxyzABCD"))
 check("неизвестная валюта → отказ", not A.validate_address("DOGE", "anything"))
 check("сеть не из allowlist валюты → отказ (fail-closed)",
       not A.validate_address("USDT", "0x1234567890123456789012345678901234567890", "BSC"))

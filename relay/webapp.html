@@ -1211,7 +1211,9 @@
             input.classList.toggle('valid', ok);
             input.classList.toggle('invalid', !ok);
             const netName = net === 'ERC20' ? 'ERC-20' : (net === 'TRC20' ? 'TRC-20' : '');
-            msg.textContent = ok ? '✓ Адрес корректен'
+            // «Формат верный», а не «адрес корректен»: контрольную сумму
+            // проверяет сервер, и здесь обещать больше формы нельзя.
+            msg.textContent = ok ? '✓ Формат верный'
                                  : `✗ Неверный формат ${cur}-адреса${netName ? ' в сети ' + netName : ''}`;
             msg.className = 'validation-msg ' + (ok ? 'valid' : 'invalid');
         }

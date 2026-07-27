@@ -494,7 +494,8 @@ async def dashboard_exchange_submit(
     elif net is None or not _is_offered(currency, net):
         error = "Некорректная сеть для выбранной валюты."
     elif not exchange_calc.validate_crypto_address(address, currency, net):
-        error = "Некорректный адрес для выбранной валюты."
+        error = ("Адрес не прошёл проверку контрольной суммы — скорее всего опечатка. "
+                 "Скопируйте адрес из кошелька целиком, не набирайте вручную.")
 
     if error:
         # network возвращаем в форму: иначе после ошибки селектор сбрасывался на
@@ -697,7 +698,10 @@ async def api_create_order(request: Request):
     if net is None or not _is_offered(currency, net):
         raise HTTPException(status_code=400, detail="Некорректная сеть для выбранной валюты.")
     if not exchange_calc.validate_crypto_address(address, currency, net):
-        raise HTTPException(status_code=400, detail="Некорректный адрес кошелька.")
+        raise HTTPException(
+            status_code=400,
+            detail="Адрес не прошёл проверку контрольной суммы — скорее всего опечатка. "
+                   "Скопируйте адрес из кошелька целиком, не набирайте вручную.")
 
     tg_id = int(user['id'])
     username = user.get('username') or ''

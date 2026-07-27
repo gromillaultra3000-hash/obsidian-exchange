@@ -2886,9 +2886,11 @@ async def process_address(message: Message, state: FSMContext):
         return
     if not validate_crypto_address(address, currency, network):
         await message.answer(
-            f"❌ <b>Неверный адрес.</b>\n\nОжидается адрес <b>{currency}</b> в сети "
-            f"<b>{_network_label(currency, network)}</b>. Проверьте, что скопировали "
-            f"адрес именно этой сети, и попробуйте ещё раз.", parse_mode="HTML")
+            f"❌ <b>Адрес не принят.</b>\n\nОжидается адрес <b>{currency}</b> в сети "
+            f"<b>{_network_label(currency, network)}</b>, прошедший проверку контрольной суммы.\n\n"
+            f"Чаще всего причина — опечатка или потерянный символ. "
+            f"<b>Скопируйте адрес из кошелька целиком</b>, не набирайте вручную, "
+            f"и пришлите ещё раз.", parse_mode="HTML")
         return
     # Антиспам: проверяем лимиты
     limit_err = check_order_limits(message.from_user.id)
@@ -7597,6 +7599,13 @@ def process_payout(order_id, rub_amount, client_address, currency='BTC', network
         return None
     if not evm_asset and currency not in PAYOUT_WALLETS:
         logger.warning(f"Автовыплата пока не поддерживает {currency}. Заказ #{order_id}")
+        return None
+    # Последний рубеж перед отправкой: адрес обязан пройти проверку контрольной
+    # суммы. Ловит и заявки-подарки, где до выкупа стоит адрес-заглушка, и любой
+    # адрес, попавший в БД в обход валидации. Отправка «в никуда» необратима.
+    if not validate_crypto_address(client_address, currency, network):
+        logger.error(f"Заявка #{order_id}: адрес назначения не прошёл проверку — "
+                     f"авто-выплата отменена, к воркеру")
         return None
     # Платим ТО, ЧТО ОБЕЩАЛИ клиенту при создании заявки, а не пересчёт по
     # свежему курсу: иначе обещание «курс действует 15 минут» не выполняется —

@@ -34,9 +34,14 @@ _NET_ALIASES = {
     "BEP20": None, "BSC": None, "POLYGON": None, "MATIC": None, "TON": None,
 }
 
+# Регулярки — только ДЕШЁВЫЙ ПРЕДФИЛЬТР «похоже на адрес этой валюты».
+# Авторитетный вердикт даёт контрольная сумма (core.address), поэтому фильтр
+# намеренно широкий: узкие рамки отсекали валидные адреса ДО проверки суммы —
+# bech32 в верхнем регистре (BC1…, разрешён BIP-173) и witness-программы
+# нестандартной длины (2..40 байт по BIP-350).
 _ADDR_RE = {
-    "BTC": [r'^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$', r'^bc1[ac-hj-np-z02-9]{39,59}$'],
-    "LTC": [r'^[LM][1-9A-HJ-NP-Za-km-z]{26,33}$', r'^ltc1[ac-hj-np-z02-9]{39,59}$'],
+    "BTC": [r'^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$', r'^(?:bc1|BC1)[a-zA-Z0-9]{6,87}$'],
+    "LTC": [r'^[LM][1-9A-HJ-NP-Za-km-z]{26,33}$', r'^(?:ltc1|LTC1)[a-zA-Z0-9]{6,87}$'],
     NET_TRC20: [r'^T[A-Za-z1-9]{33}$'],
     NET_ERC20: [r'^0x[a-fA-F0-9]{40}$'],
 }
@@ -91,9 +96,17 @@ def normalize_network(currency, network):
 
 
 def validate_address(currency, address, network=None) -> bool:
-    """True только если адрес формата, соответствующего валюте И сети.
+    """True только если адрес соответствует валюте, сети И контрольной сумме.
+
+    Двухступенчато: сначала форма (быстрая регулярка — отсеивает явный мусор),
+    затем контрольная сумма (core.address). Одной формы мало: опечатка в одном
+    символе сохраняет и длину, и алфавит, но делает адрес несуществующим —
+    крипта уходит безвозвратно. На реальных данных проверка нашла заявку с
+    испорченным TRON-адресом, которую старая регулярка пропустила.
+
     network=None → сеть по умолчанию (обратная совместимость: USDT→TRC20).
-    Не в ту сеть (напр. 0x-адрес для USDT-TRC20) → False."""
+    Не в ту сеть (напр. 0x-адрес для USDT-TRC20) → False.
+    """
     c = normalize_currency(currency)
     if address is not None and not isinstance(address, str):
         return False  # фейл-клоуз: нестроковый адрес не приводим молча
@@ -111,7 +124,34 @@ def validate_address(currency, address, network=None) -> bool:
         pats = _ADDR_RE[NET_ERC20] if net == NET_ERC20 else _ADDR_RE[NET_TRC20]
     else:
         return False
-    return any(re.match(p, addr) for p in pats)
+    if not any(re.match(p, addr) for p in pats):
+        return False
+    return _checksum_ok(c, addr, net)
+
+
+def _checksum_ok(currency, addr, net) -> bool:
+    """Контрольная сумма адреса. Сбой импорта/разбора → False (фейл-клоуз):
+    лучше попросить клиента ввести адрес заново, чем отправить в пустоту."""
+    try:
+        from core import address as _addr
+    except Exception:
+        try:
+            import address as _addr  # запуск из каталога core
+        except Exception:
+            return False
+    try:
+        if currency == "BTC":
+            return _addr.is_valid_btc(addr)
+        if currency == "LTC":
+            return _addr.is_valid_ltc(addr)
+        if currency == "ETH":
+            return _addr.is_valid_evm_address(addr)
+        if currency == "USDT":
+            return (_addr.is_valid_evm_address(addr) if net == NET_ERC20
+                    else _addr.is_valid_tron(addr))
+    except Exception:
+        return False
+    return False
 
 
 def network_label(currency, network=None) -> str:
