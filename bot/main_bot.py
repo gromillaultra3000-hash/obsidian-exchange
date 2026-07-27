@@ -2566,7 +2566,6 @@ async def inline_check_payment(callback: CallbackQuery):
 
 # ---------- 2FA ----------
 pending_admin_action = {}
-pending_large_payouts = {}  # {order_id: {code, amount, address, currency, timestamp}}
 
 @router.callback_query(F.data.startswith("admin_confirm_"))
 async def admin_confirm_2fa(callback: CallbackQuery):
@@ -7639,52 +7638,23 @@ async def cmd_broadcast(message: Message):
 
 @router.message(Command("approve"))
 async def cmd_approve(message: Message):
-    if not is_admin(message.from_user.id): return
-    try:
-        parts = message.text.split()
-        if len(parts) != 3:
-            await message.answer("Использование: /approve ORDER_ID CODE")
-            return
-        order_id = int(parts[1])
-        code = parts[2]
-        action = pending_large_payouts.get(order_id)
-        if not action:
-            await message.answer("Нет ожидающей выплаты с таким ID.")
-            return
-        if time.time() - action['timestamp'] > 300:
-            await message.answer("Код истёк.")
-            del pending_large_payouts[order_id]
-            return
-        if code != action['code']:
-            await message.answer("Неверный код.")
-            return
-        # Выполняем выплату
-        payout_id = await process_payout_async(order_id, action['amount'], action['address'],
-                                               action['currency'], action.get('network'))
-        if payout_id:
-            # Обновляем статус в БД
-            with db_conn(10) as conn:
-                c = conn.cursor()
-                c.execute("UPDATE orders SET status='sent', paid_btc_tx=?, updated_at=CURRENT_TIMESTAMP WHERE order_id=?", (payout_id, order_id))
-                conn.commit()
-                c.execute("SELECT user_id FROM orders WHERE order_id=?", (order_id,))
-                user_id = c.fetchone()
-            if user_id:
-                await send_sticker_safe(user_id[0], STICKER_SUCCESS)
-                try:
-                    await bot.send_message(user_id[0], f"✅ Выплата #{order_id} выполнена после подтверждения!\nTXID: <code>{payout_id}</code>", parse_mode="HTML")
-                except: pass
-                try:
-                    await credit_referral_bonus(order_id, user_id[0], action['amount'])
-                    await update_user_vip_volume(user_id[0], action['amount'])
-                except Exception as e:
-                    logger.warning(f"large payout {order_id}: реф/VIP начисление: {e}")
-            await message.answer(f"✅ Крупная выплата #{order_id} одобрена. TXID: <code>{payout_id}</code>", parse_mode="HTML")
-        else:
-            await message.answer(f"❌ Ошибка выполнения выплаты #{order_id}")
-        del pending_large_payouts[order_id]
-    except Exception as e:
-        await message.answer("Ошибка. Проверьте формат.")
+    """Команда устарела — её путь никогда не работал.
+
+    Задумывалась как 2FA-подтверждение крупной выплаты, но словарь
+    pending_large_payouts НИКТО не наполнял: единственным ответом всегда было
+    «Нет ожидающей выплаты с таким ID». Хуже, чем отсутствие команды —
+    выглядела как страховка на крупные суммы, которой не существовало.
+    Реальный путь запуска выплаты руками — /payout ORDER_ID (предпросмотр,
+    кнопка, все проверки авто-пути повторяются перед отправкой).
+    """
+    if not is_admin(message.from_user.id):
+        return
+    await message.answer(
+        "⚠️ <b>/approve больше не используется</b>\n\n"
+        "Этот путь никогда не был подключён: подтверждать было нечего.\n"
+        "Запустить выплату по заявке: <code>/payout ORDER_ID</code>",
+        parse_mode="HTML")
+
 
 @router.message(F.content_type == ContentType.WEB_APP_DATA)
 async def handle_webapp(message: Message, state: FSMContext):

@@ -187,6 +187,30 @@ def check_every_provider_has_receipt_verdict():
              f"вручную, а клиенту не скажут ложное «принято».")
 
 
+def check_no_dead_state_machines():
+    """Состояние, которое только читают и никогда не пишут, = мёртвый путь.
+
+    27.07.2026: команда /approve обещала 2FA-подтверждение крупной выплаты, но
+    словарь pending_large_payouts никто не наполнял — единственным возможным
+    ответом было «Нет ожидающей выплаты с таким ID». Такой код опаснее
+    отсутствующего: на бумаге у крупных сумм есть страховка, в реальности её
+    нет, и это незаметно, пока не полезешь читать.
+    """
+    src = _read(os.path.join(ROOT, "bot", "main_bot.py"))
+    if not src:
+        return
+    for name in re.findall(r'^([a-z_][a-z_0-9]*)\s*=\s*\{\}\s*(?:#.*)?$', src, re.M):
+        writes = len(re.findall(rf'\b{name}\[[^\]]+\]\s*=(?!=)', src))
+        writes += len(re.findall(rf'\b{name}\.(?:setdefault|update|pop)\(', src))
+        reads = len(re.findall(rf'\b{name}\.get\(|\b{name}\[', src))
+        if writes == 0 and reads > 0:
+            fail("мёртвый путь",
+                 f"{name}: состояние читается ({reads} раз), но не записывается "
+                 f"НИКОГДА — команда/обработчик поверх него недостижим. Либо "
+                 f"подключите запись, либо уберите путь, чтобы он не выглядел "
+                 f"работающей страховкой.")
+
+
 def check_manual_payout_uses_agreed_quote():
     """Ручные пути выплаты обязаны брать объём из зафиксированной котировки.
 
@@ -264,7 +288,7 @@ def main():
                check_no_fail_open_in_guards, check_session_expiry_uses_expires_at,
                check_every_provider_has_receipt_verdict,
                check_alert_throttle_is_durable, check_deploy_restarts_only_on_change,
-               check_manual_payout_uses_agreed_quote):
+               check_manual_payout_uses_agreed_quote, check_no_dead_state_machines):
         try:
             fn()
         except Exception as e:

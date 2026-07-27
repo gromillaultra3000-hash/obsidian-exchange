@@ -52,17 +52,33 @@ _HINTS = {
 }
 
 
+def _ru(n) -> str:
+    return f"{int(n):,}".replace(",", " ")
+
+
 def tiers_for_display():
     """Лестница для витрин (сайт, Mini App, тексты бота) — один формат для всех.
-    from_rub/to_rub в рублях, to_rub=None означает «и выше»."""
+    from_rub/to_rub в рублях, to_rub=None означает «и выше».
+
+    ⚠️ Границы ПОЛУОТКРЫТЫЕ: `amount < limit`. Подпись «до 5 000 ₽» читается как
+    «включая 5 000», а на 5 000 ₽ списывается уже следующая ступень — витрина
+    расходилась с расчётом ровно на границе. Разница в пользу клиента, поэтому
+    жалоб не было и заметить это можно было только сверкой. Формулируем так,
+    чтобы подпись означала ровно то, что делает код.
+    """
     out, prev = [], 0
     for limit, pct in COMMISSION_TIERS:
+        if limit is None:
+            label = f"от {_ru(prev)} ₽ и выше"
+        elif prev == 0:
+            label = f"менее {_ru(limit)} ₽"
+        else:
+            label = f"{_ru(prev)} – {_ru(limit - 1)} ₽"
         out.append({
             "from_rub": prev,
             "to_rub": limit,
             "percent": pct,
-            "label": (f"до {limit:,} ₽".replace(",", " ") if limit
-                      else f"от {prev:,} ₽ и выше".replace(",", " ")),
+            "label": label,
             "hint": _HINTS.get(pct, ""),
         })
         prev = limit or prev

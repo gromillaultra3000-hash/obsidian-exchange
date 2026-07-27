@@ -40,6 +40,22 @@ check("мусорный вход не роняет (None → 27%)", P.commission
 check("строка не роняет", P.commission_percent("abc") == 27)
 # USDT не имеет отдельной ставки — тариф общий (фикс-2% отменены 25.07.2026)
 check("лестница не зависит от монеты (4 тира)", len(P.tiers_for_display()) == 4)
+
+# Подпись ступени обязана означать ровно то, что делает расчёт. Границы
+# ПОЛУОТКРЫТЫЕ (amount < limit): подпись «до 5 000 ₽» читалась как «включая
+# 5 000», а на 5 000 списывалась уже следующая ступень — витрина расходилась
+# с расчётом ровно на границе, в пользу клиента, поэтому жалоб не было.
+_mismatch = []
+for _t in P.tiers_for_display():
+    _lo, _hi = _t["from_rub"], _t["to_rub"]
+    _probes = [_lo, _lo + 1] + ([_hi - 1, _hi - 0.01] if _hi else [_lo + 10 ** 6])
+    for _p in _probes:
+        if P.commission_percent(_p) != _t["percent"]:
+            _mismatch.append((_p, _t["label"], _t["percent"], P.commission_percent(_p)))
+check("подпись ступени совпадает с расчётом на границах", not _mismatch)
+check("верхняя граница ступени принадлежит СЛЕДУЮЩЕЙ ступени",
+      P.commission_percent(5000) == 25 and P.commission_percent(4999) == 27
+      and P.commission_percent(10000) == 23 and P.commission_percent(20000) == 19)
 check("витринные метки заполнены",
       all(t["label"] and t["percent"] for t in P.tiers_for_display()))
 
