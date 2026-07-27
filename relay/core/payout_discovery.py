@@ -108,6 +108,16 @@ def remove_source(currency: str, address: str) -> dict:
 _LEGACY_WALLETS = {"BTC": "PayoutWallet", "LTC": "PayoutLTC"}
 
 
+# Кеш своих адресов. Список кошелька меняется только когда мы сами тратим, а
+# читается он через bitcoinlib, чей SQLite привязан к потоку-создателю: дёргать
+# его из нового потока executor'а каждые полчаса — лишняя нагрузка и лишний
+# риск. Просроченный кеш максимум отправит СВОЮ выплату человеку на
+# подтверждение (новый адрес сдачи ещё не попал в список) — направление
+# безопасное, ошибочного закрытия он вызвать не может.
+_OWN_CACHE: dict[str, tuple[float, set]] = {}
+OWN_CACHE_TTL = int(os.getenv("DISCOVERY_OWN_CACHE_TTL", "3600") or 3600)
+
+
 def _own_wallet_addresses(currency: str) -> set:
     """Все адреса наших собственных кошельков — доверенные по определению.
 
@@ -119,8 +129,12 @@ def _own_wallet_addresses(currency: str) -> set:
     выглядит чужой и заявка никогда не закроется — сбой тихий, без ошибки.
     Поэтому спрашиваем сам кошелёк (watch-only, пароль не нужен).
     """
-    out = set()
+    import time
     cur = str(currency or "").upper()
+    hit = _OWN_CACHE.get(cur)
+    if hit and (time.time() - hit[0]) < OWN_CACHE_TTL:
+        return hit[1]
+    out = set()
     try:
         import sys
         if "/root/relay" not in sys.path:
@@ -148,7 +162,12 @@ def _own_wallet_addresses(currency: str) -> set:
                 out.add(_norm(a))
     except Exception as e:
         logger.warning("payout_discovery: адрес своего кошелька %s: %s", cur, e)
-    return {a for a in out if a}
+    out = {a for a in out if a}
+    # Пустой результат НЕ кешируем: это признак сбоя, а не «своих адресов нет».
+    # Закешировать пустоту значит на час лишить сверку возможности закрывать.
+    if out:
+        _OWN_CACHE[cur] = (time.time(), out)
+    return out
 
 
 def trusted_senders(currency: str) -> set:
