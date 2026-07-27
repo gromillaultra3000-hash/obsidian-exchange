@@ -264,8 +264,11 @@ def judge(order: dict, transfers: list[dict], used_txids: set,
     hi = expected * (1 + tol / 100.0)
     for t in transfers:
         txid = t.get("txid")
-        if not txid or txid in used_txids:
-            continue          # перевод уже закреплён за другой заявкой
+        # Сравниваем нормализованно: занятые txid приходят приведёнными, и
+        # разный регистр здесь означал бы «перевод свободен» — то есть один
+        # перевод закрыл бы две заявки.
+        if not txid or _norm(txid) in {_norm(u) for u in used_txids}:
+            continue
         if not t.get("confirmed"):
             continue
         # Перевод обязан быть ПОСЛЕ оплаты заявки: приход на адрес клиента
@@ -412,6 +415,47 @@ def discover(rate_fn=None, fetch=None) -> dict:
         else:
             out["none"] += 1
     return out
+
+
+def candidates_for(order_id: int, rate_fn=None, fetch=None) -> dict:
+    """Вердикт по ОДНОЙ заявке — для подтверждения человеком.
+
+    Пересчитывается заново в момент нажатия, а не берётся из кнопки: между
+    показом отчёта и решением заявку мог закрыть кто-то другой, а перевод —
+    оказаться закреплён за соседней заявкой.
+    """
+    fetch = fetch or incoming_transfers
+    try:
+        with _db() as conn:
+            row = conn.execute(
+                "SELECT order_id, user_id, rub_amount, currency, network, "
+                "       crypto_address, agreed_crypto_amount, status, paid_btc_tx, "
+                "       CAST(strftime('%s', COALESCE(updated_at, created_at)) AS INT) paid_ts "
+                "FROM orders WHERE order_id=?", (order_id,)).fetchone()
+    except Exception as e:
+        return {"error": f"чтение заявки: {type(e).__name__}: {e}"}
+    if not row:
+        return {"error": f"заявка #{order_id} не найдена"}
+    o = dict(row)
+    if o.get("status") != "paid" or (o.get("paid_btc_tx") or "").strip():
+        return {"error": f"заявка #{order_id} уже не ждёт выдачи (статус {o.get('status')})"}
+    try:
+        used = _used_txids()
+    except Exception:
+        return {"error": "не удалось прочитать занятые txid — закрывать нельзя"}
+    cur = (o.get("currency") or "").upper()
+    try:
+        transfers = fetch(cur, o.get("crypto_address"))
+    except Exception as e:
+        return {"error": f"цепочка недоступна: {type(e).__name__}"}
+    v = judge({**o, "expected_amount": expected_amount(o, rate_fn)},
+              transfers, used, trusted_senders(cur))
+    v["currency"] = cur
+    v["network"] = o.get("network")
+    v["user_id"] = o.get("user_id")
+    v["rub_amount"] = o.get("rub_amount")
+    v["address"] = o.get("crypto_address")
+    return v
 
 
 def format_report(res: dict, max_items: int = 6) -> str:

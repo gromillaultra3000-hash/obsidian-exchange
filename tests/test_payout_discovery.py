@@ -150,6 +150,28 @@ check("уже отправленная заявка не проверяется"
 check("отчёт непустой", "#10" in pd.format_report(res))
 check("нет поводов → пустой отчёт", pd.format_report({"checked": 3}) == "")
 
+r = pd.judge(ORDER, [tx(txid="A" * 64)], {"a" * 64}, TRUSTED)
+check("занятый txid узнаётся в другом регистре", r["action"] == "none")
+
+# --- подтверждение по одной заявке (кнопка в боте) --------------------------
+v = pd.candidates_for(10, rate_fn=lambda c, r: 6500000, fetch=fake_fetch)
+check("кандидат по заявке найден", v.get("candidates") and v["candidates"][0]["txid"] == "c" * 64)
+check("вердикт несёт всё нужное для закрытия",
+      v.get("user_id") == 5 and v.get("currency") == "BTC" and v.get("rub_amount") == 6500)
+
+v = pd.candidates_for(12, fetch=fake_fetch)
+check("уже отправленную заявку закрыть нельзя", "error" in v)
+v = pd.candidates_for(999, fetch=fake_fetch)
+check("несуществующая заявка → ошибка, не молчание", "error" in v)
+
+
+def boom_fetch(currency, address):
+    raise RuntimeError("обозреватель недоступен")
+
+
+v = pd.candidates_for(10, rate_fn=lambda c, r: 6500000, fetch=boom_fetch)
+check("сбой обозревателя → ошибка, а не пустой список кандидатов", "error" in v)
+
 import shutil  # noqa: E402
 
 shutil.rmtree(_TMP, ignore_errors=True)

@@ -5321,7 +5321,71 @@ async def cmd_discover(message: Message):
     txt = _discovery().format_report(res) or "✅ Расхождений нет: всё выданное учтено."
     if closed:
         txt += f"\n\n<b>Закрыто этим проходом:</b> {', '.join('#' + str(c) for c in closed)}"
-    await message.answer(txt, parse_mode="HTML")
+    await message.answer(txt, parse_mode="HTML",
+                         reply_markup=_discovery_review_kb(res.get("review", [])))
+
+
+def _discovery_review_kb(review):
+    """Кнопки «закрыть по этому переводу» для спорных находок.
+
+    Отправитель не наш — значит закрыть может только человек. Кнопка избавляет
+    от копирования TXID руками, но НЕ подменяет решение: сумма, отправитель и
+    хеш перевода видны в сообщении до нажатия. В callback_data кладём только
+    номер заявки и порядковый номер кандидата — 64 байта лимита не хватило бы
+    на хеш, да и доверять данным из кнопки нельзя: на нажатии всё пересчитывается.
+    """
+    rows = []
+    for v in (review or [])[:6]:
+        cands = v.get("candidates") or []
+        if len(cands) == 1:
+            rows.append([InlineKeyboardButton(
+                text=f"✅ Закрыть #{v['order_id']} ({cands[0]['amount']} {v['currency']})",
+                callback_data=f"dscclose_{v['order_id']}_0")])
+        else:
+            for i, c in enumerate(cands[:3]):
+                rows.append([InlineKeyboardButton(
+                    text=f"#{v['order_id']}: {c['amount']} {v['currency']} · {c['txid'][:10]}…",
+                    callback_data=f"dscclose_{v['order_id']}_{i}")])
+    return InlineKeyboardMarkup(inline_keyboard=rows) if rows else None
+
+
+@router.callback_query(F.data.startswith("dscclose_"))
+async def cb_discovery_close(callback: CallbackQuery):
+    """Закрыть заявку по переводу, который человек признал нашей выплатой."""
+    if not is_admin(callback.from_user.id):
+        await callback.answer("⛔ Нет прав", show_alert=True)
+        return
+    try:
+        _, oid_s, idx_s = callback.data.split("_")
+        oid, idx = int(oid_s), int(idx_s)
+    except ValueError:
+        await callback.answer("Некорректная кнопка", show_alert=True)
+        return
+    await callback.answer("Проверяю…")
+    pd = _discovery()
+    # Пересчёт заново: между показом и нажатием заявку мог закрыть кто-то
+    # другой, а перевод — оказаться закреплён за соседней заявкой.
+    v = await asyncio.to_thread(pd.candidates_for, oid, get_rate_with_markup)
+    if v.get("error"):
+        await callback.message.answer(f"⛔ #{oid}: {v['error']}")
+        return
+    cands = v.get("candidates") or []
+    if idx >= len(cands):
+        await callback.message.answer(
+            f"⛔ #{oid}: перевод больше не подходит под заявку — проверьте /discover заново.")
+        return
+    c = cands[idx]
+    ok = await _close_order_by_evidence({**v, "txid": c["txid"], "amount": c["amount"]})
+    if not ok:
+        await callback.message.answer(f"⚠️ #{oid} уже закрыта — ничего не меняли.")
+        return
+    log_staff_action(callback.from_user.id, "discovery_close_manual", oid,
+                     f"tx={c['txid']} от {','.join(c['senders'])[:80]}")
+    await callback.message.answer(
+        f"✅ <b>Заявка #{oid} закрыта</b>\n"
+        f"{c['amount']} {v['currency']}, TXID <code>{c['txid']}</code>\n"
+        f"Клиент уведомлён, реф-бонус и VIP-объём начислены.",
+        parse_mode="HTML")
 
 
 @router.message(Command("paysrc"))
@@ -5402,8 +5466,9 @@ async def payout_discovery_task():
                 fp = "discovery:review:" + ",".join(
                     sorted(str(v["order_id"]) for v in res["review"]))
                 if should_send(fp, 21600):
-                    await notify_admins(pd.format_report(
-                        {**res, "close": []}), parse_mode="HTML")
+                    await notify_admins(pd.format_report({**res, "close": []}),
+                                        parse_mode="HTML",
+                                        reply_markup=_discovery_review_kb(res["review"]))
         except Exception as e:
             logger.error(f"payout_discovery_task: {type(e).__name__}: {e}")
         await asyncio.sleep(1800)
