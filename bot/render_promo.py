@@ -5,6 +5,15 @@
 Захват через Playwright/Chromium с device_scale_factor=2 (чёткие 2x).
 Небольшая пауза перед скриншотом — чтобы canvas-частицы/градиенты прорисовались.
 
+⚠️ Анимации перед съёмкой ОСТАНАВЛИВАЮТСЯ на фиксированной фазе (FREEZE_MS).
+Без этого кадр ловится в случайный момент: у карточек есть блоки, которые
+циклически появляются и исчезают (комиссии, строка-переключатель), и они
+могли попасть в кадр наполовину прозрачными или вовсе пустыми. Дефект при этом
+выглядит как «дизайнер так задумал» — рендер отрабатывает без единой ошибки.
+
+Перед публикацией пака полезно прогнать /root/scratch_ux/check_layout.py —
+он ловит содержимое, обрезанное границами сцены.
+
 Запуск:  /root/bot/venv/bin/python3 /root/bot/render_promo.py
 Источник: /root/scratch_ux/obsidian_*.html  →  выход: /root/bot/images/
 """
@@ -14,6 +23,10 @@ from pathlib import Path
 
 SRC = Path("/root/scratch_ux")
 OUT = Path("/root/bot/images")
+
+# Фаза, на которой замирают анимации. 2000 мс подобраны так, чтобы у всех
+# циклических блоков в кадре был ПЕРВЫЙ слайд на полной непрозрачности.
+FREEZE_MS = 2000
 
 # (html-файл, размер сцены W, H, имя выходного PNG)
 CARDS = [
@@ -40,6 +53,11 @@ def main() -> int:
                                     device_scale_factor=2)
             page.goto(src.as_uri())
             page.wait_for_timeout(1400)  # дать canvas/градиентам прорисоваться
+            page.evaluate("()=>document.getAnimations().forEach(a=>a.pause())")
+            page.evaluate(
+                """(t)=>{document.getAnimations().forEach(a=>{try{a.currentTime=t}catch(e){}});
+                         return new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));}""",
+                FREEZE_MS)
             dst = OUT / out
             # скриншот строго по элементу сцены (без полей body)
             scene = page.locator(".scene").first

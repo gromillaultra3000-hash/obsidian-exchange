@@ -1,0 +1,93 @@
+<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Forum Banner Main</title><style>
+:root{--bg0:#050008;--bg1:#0f031a;--bg2:#180629;--v1:#8B5CF6;--v2:#A855F7;--v3:#C084FC;--tx:#F5F3FF;--mu:#D8C7FF;--gl:0 0 18px rgba(168,85,247,.42),0 0 40px rgba(168,85,247,.16)}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:#07050d;color:var(--tx);font-family:Inter,Segoe UI,Arial,sans-serif}
+body{display:grid;place-items:center;padding:20px}
+.scene{position:relative;overflow:hidden;border-radius:26px;background:
+radial-gradient(circle at 12% 28%, rgba(168,85,247,.18), transparent 24%),
+radial-gradient(circle at 84% 20%, rgba(192,132,252,.10), transparent 22%),
+radial-gradient(circle at 58% 88%, rgba(115,38,190,.10), transparent 24%),
+linear-gradient(180deg,var(--bg1),var(--bg0));
+border:1px solid rgba(192,132,252,.16);box-shadow:inset 0 1px 0 rgba(255,255,255,.04),0 18px 60px rgba(0,0,0,.55),0 0 42px rgba(139,92,246,.14)}
+.noise,.mist,.grid,.hud,.frame,.scan,canvas,.content,.topbar{position:absolute;inset:0}
+.noise{background-image:radial-gradient(rgba(255,255,255,.05) .55px,transparent .55px);background-size:6px 6px;opacity:.05;mix-blend-mode:screen}
+.mist{background:radial-gradient(circle at 20% 30%, rgba(168,85,247,.16), transparent 28%),radial-gradient(circle at 60% 70%, rgba(192,132,252,.10), transparent 30%),radial-gradient(circle at 90% 35%, rgba(139,92,246,.12), transparent 22%);filter:blur(18px);opacity:.9;animation:drift 11s ease-in-out infinite alternate}
+.grid{background:linear-gradient(to right, rgba(168,85,247,.08) 1px, transparent 1px),linear-gradient(to bottom, rgba(168,85,247,.06) 1px, transparent 1px);background-size:42px 42px;transform:perspective(520px) rotateX(72deg) scale(1.5) translateY(34%);transform-origin:center bottom;opacity:.32;mask-image:linear-gradient(to top, black 45%, transparent 95%)}
+.hud{background:linear-gradient(90deg,transparent 0 6%, rgba(192,132,252,.08) 6% 6.18%, transparent 6.18% 100%),linear-gradient(90deg,transparent 0 82%, rgba(192,132,252,.06) 82% 82.18%, transparent 82.18% 100%),linear-gradient(180deg,transparent 0 11%, rgba(192,132,252,.06) 11% 11.25%, transparent 11.25% 100%);opacity:.65}
+.scan{background:linear-gradient(to bottom,transparent,rgba(255,255,255,.06),transparent);height:24%;top:-28%;opacity:.42;filter:blur(10px);animation:scan 4.8s linear infinite}
+.frame{border-radius:26px;box-shadow:inset 0 0 0 1px rgba(192,132,252,.12),inset 0 0 24px rgba(139,92,246,.08),inset 0 0 60px rgba(168,85,247,.07)}
+.topbar{height:34px;bottom:auto;display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;padding:0 18px;z-index:5;border-bottom:1px solid rgba(192,132,252,.10);background:linear-gradient(180deg, rgba(15,3,26,.88), rgba(15,3,26,.38));box-shadow:inset 0 -1px 0 rgba(255,255,255,.03)}
+.topbar div{font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:rgba(245,243,255,.82);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topbar span,.sub,.kicker,.list .row span:last-child{color:var(--v3)}
+.brand{font-weight:900;letter-spacing:.08em;text-transform:uppercase;background:linear-gradient(180deg,#fff 0%, #f2e8ff 46%, #cfb0ff 100%);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:0 0 12px rgba(192,132,252,.35),0 0 28px rgba(168,85,247,.24)}
+.sub{font-weight:700;letter-spacing:.14em;text-transform:uppercase}.kicker{font-size:11px;font-weight:800;letter-spacing:.18em;text-transform:uppercase}
+.glass{background:linear-gradient(180deg, rgba(18,8,30,.86), rgba(14,6,26,.64));border:1px solid rgba(192,132,252,.16);border-radius:18px;box-shadow:inset 0 1px 0 rgba(255,255,255,.04),0 0 16px rgba(168,85,247,.08);backdrop-filter:blur(10px)}
+.chips{display:flex;gap:7px;flex-wrap:wrap}.chip{padding:5px 9px;border-radius:999px;background:linear-gradient(180deg, rgba(168,85,247,.20), rgba(168,85,247,.08));border:1px solid rgba(192,132,252,.18);color:#f0eaff;font-size:10.5px;font-weight:700;letter-spacing:.04em;overflow:hidden;position:relative}
+.chip:after,.cta:after{content:"";position:absolute;inset:0;background:linear-gradient(110deg, transparent 25%, rgba(255,255,255,.10), transparent 48%);transform:translateX(-130%);animation:shine 3.6s linear infinite}
+.cta{display:inline-flex;align-items:center;justify-content:center;padding:10px 15px;border-radius:13px;border:1px solid rgba(192,132,252,.24);background:linear-gradient(180deg, rgba(168,85,247,.30), rgba(168,85,247,.12));color:#fff;text-decoration:none;font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;box-shadow:var(--gl);position:relative;overflow:hidden;animation:breathe 2.8s ease-in-out infinite}
+.coin-row{display:flex;gap:9px;align-items:center}.coin{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:900;color:#0a0010;box-shadow:0 0 12px rgba(255,255,255,.08);animation:breathe 2.7s ease-in-out infinite}.coin.btc{background:#f7931a}.coin.ltc{background:#c0c0c0;animation-delay:.3s}.coin.usdt{background:#26a17b;animation-delay:.55s}
+.list{display:grid;gap:5px;font-size:11.5px}.list .row{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:1px 0;border-bottom:1px solid rgba(192,132,252,.08)}.list .row:last-child{border-bottom:0}
+.fee-box{position:relative;height:30px;overflow:hidden}.fee-slide{position:absolute;inset:0;display:flex;align-items:center;justify-content:flex-end;gap:9px;opacity:0;transform:translateY(8px) scale(.98);animation:feeCycle 8s infinite}.fee-slide:nth-child(2){animation-delay:2s}.fee-slide:nth-child(3){animation-delay:4s}.fee-slide:nth-child(4){animation-delay:6s}.fee{font-size:21px;font-weight:900;letter-spacing:.03em;text-shadow:0 0 16px rgba(168,85,247,.26);line-height:1}.range{font-size:10px;color:var(--mu);font-weight:700;letter-spacing:.03em;text-transform:uppercase;white-space:nowrap}
+.crystal-wrap{position:relative;width:168px;height:168px;display:grid;place-items:center;filter:drop-shadow(0 0 18px rgba(168,85,247,.44));animation:floaty 4.6s ease-in-out infinite}.crystal-aura{position:absolute;inset:18px;border-radius:50%;background:radial-gradient(circle, rgba(168,85,247,.22), rgba(168,85,247,.08) 40%, transparent 72%);filter:blur(12px);animation:pulseAura 2.8s ease-in-out infinite}.crystal{width:105px;height:140px;position:relative;transform-style:preserve-3d;animation:crystalSpin 8.5s ease-in-out infinite;filter:drop-shadow(0 0 10px rgba(168,85,247,.35))}.facet{position:absolute;inset:0;clip-path:polygon(50% 0%,84% 18%,95% 54%,66% 100%,34% 100%,5% 54%,16% 18%);border:1px solid rgba(220,194,255,.24);background:linear-gradient(180deg, rgba(15,8,24,.85), rgba(28,12,46,.96));overflow:hidden;box-shadow: inset 0 0 0 1px rgba(255,255,255,.05), inset 0 -14px 28px rgba(168,85,247,.20), 0 0 22px rgba(168,85,247,.22)}.facet.left{background:linear-gradient(160deg, rgba(255,255,255,.18), transparent 24%), linear-gradient(180deg, rgba(10,5,18,.9), rgba(28,12,46,.96));transform:translateX(-2px) rotateY(-12deg)}.facet.right{background:linear-gradient(200deg, rgba(255,255,255,.14), transparent 18%), linear-gradient(180deg, rgba(10,5,18,.88), rgba(24,10,40,.98));transform:translateX(2px) rotateY(10deg);opacity:.92}.facet.core{inset:16px 22px;clip-path:polygon(50% 0%,80% 18%,90% 56%,62% 100%,38% 100%,10% 56%,20% 18%);background:radial-gradient(circle at 50% 38%, rgba(192,132,252,.72), rgba(168,85,247,.16) 36%, transparent 66%), linear-gradient(180deg, rgba(18,8,30,.9), rgba(30,12,50,.98))}.facet:before{content:"";position:absolute;inset:0;background:linear-gradient(90deg, transparent 0 38%, rgba(255,255,255,.22) 50%, transparent 62%), linear-gradient(180deg, rgba(192,132,252,.18), transparent 55%);mix-blend-mode:screen;opacity:.88;animation:shimmer 2.8s ease-in-out infinite}
+@keyframes drift{from{transform:translate3d(-2%,-1%,0) scale(1)}to{transform:translate3d(2%,1%,0) scale(1.04)}}@keyframes scan{from{transform:translateY(-135%)}to{transform:translateY(560%)}}@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}@keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}@keyframes crystalSpin{0%,100%{transform:rotateY(-10deg) rotateX(0deg) rotateZ(0deg)}25%{transform:rotateY(6deg) rotateX(2deg) rotateZ(1deg)}50%{transform:rotateY(12deg) rotateX(0deg) rotateZ(0deg)}75%{transform:rotateY(2deg) rotateX(-2deg) rotateZ(-1deg)}}@keyframes shimmer{0%,100%{opacity:.55;transform:translateX(-10%) scale(.98)}50%{opacity:.92;transform:translateX(10%) scale(1.02)}}@keyframes breathe{0%,100%{transform:scale(1);filter:brightness(1)}50%{transform:scale(1.025);filter:brightness(1.08)}}@keyframes shine{from{transform:translateX(-125%)}to{transform:translateX(125%)}}@keyframes pulseAura{0%,100%{transform:scale(.96);opacity:.65}50%{transform:scale(1.05);opacity:1}}@keyframes feeCycle{0%,10%{opacity:0;transform:translateY(8px) scale(.98)}14%,34%{opacity:1;transform:translateY(0) scale(1)}39%,100%{opacity:0;transform:translateY(-8px) scale(1.01)}}@keyframes lineCycle{0%,9%{opacity:0;transform:translateY(14px) scale(.985)}12%,20%{opacity:1;transform:translateY(0) scale(1)}24%,100%{opacity:0;transform:translateY(-10px) scale(1.01)}}
+</style></head><body>
+<div class="scene" style="width:1200px;height:300px">
+<div class="topbar"><div>Obsidian<span>Exchange</span></div><div>БЕЗ KYC • АВТООБМЕН • 24/7 • <span>ЛИЧНЫЙ КАБИНЕТ</span></div><div style="text-align:right">СТАРТ В <span>TELEGRAM</span> • obsidian-exchange.org</div></div>
+<canvas id="matrix"></canvas><canvas id="particles"></canvas><div class="noise"></div><div class="mist"></div><div class="grid"></div><div class="hud"></div><div class="scan"></div><div class="frame"></div>
+<div class="content" style="display:grid;grid-template-columns:236px 1fr 314px;gap:16px;padding:42px 22px 40px;align-items:center;z-index:3">
+<section style="position:relative;display:grid;place-items:center;height:100%">
+<div style="position:absolute;width:206px;height:206px;border-radius:50%;border:1px solid rgba(168,85,247,.12);box-shadow: inset 0 0 24px rgba(168,85,247,.06);animation:spin 26s linear infinite reverse"></div>
+<div style="position:absolute;width:170px;height:170px;border-radius:50%;border:1px solid rgba(192,132,252,.20);box-shadow:0 0 24px rgba(168,85,247,.18), inset 0 0 20px rgba(168,85,247,.12);animation:spin 18s linear infinite"></div>
+<div class="crystal-wrap"><div class="crystal-aura"></div><div class="crystal"><div class="facet left"></div><div class="facet right"></div><div class="facet core"></div></div></div>
+<div style="position:absolute;bottom:14px;width:168px;height:16px;border-radius:999px;background:radial-gradient(circle, rgba(168,85,247,.45), rgba(168,85,247,.14) 45%, transparent 70%);filter:blur(8px);animation:breathe 3s ease-in-out infinite"></div>
+</section>
+<section style="display:flex;flex-direction:column;justify-content:center;min-width:0">
+<div class="brand" style="font-size:38px;line-height:1.02">OBSIDIAN EXCHANGE</div>
+<div class="sub" style="font-size:12px;margin-top:4px">Автоматический крипто-обменник</div>
+<div style="position:relative;height:26px;overflow:hidden;margin:4px 0 8px">
+<span style="position:absolute;inset:0;display:grid;align-items:center;font-size:17px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#efe7ff;opacity:0;transform:translateY(14px) scale(.985);animation:lineCycle 16s infinite;white-space:nowrap">БЕЗ KYC</span>
+<span style="position:absolute;inset:0;display:grid;align-items:center;font-size:17px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#efe7ff;opacity:0;transform:translateY(14px) scale(.985);animation:lineCycle 16s infinite 2s;white-space:nowrap">АВТОВЫПЛАТЫ</span>
+<span style="position:absolute;inset:0;display:grid;align-items:center;font-size:17px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#efe7ff;opacity:0;transform:translateY(14px) scale(.985);animation:lineCycle 16s infinite 4s;white-space:nowrap">КРИПТО-СВАП</span>
+<span style="position:absolute;inset:0;display:grid;align-items:center;font-size:17px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#efe7ff;opacity:0;transform:translateY(14px) scale(.985);animation:lineCycle 16s infinite 6s;white-space:nowrap">ЛИМИТНЫЕ ЗАЯВКИ</span>
+<span style="position:absolute;inset:0;display:grid;align-items:center;font-size:17px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#efe7ff;opacity:0;transform:translateY(14px) scale(.985);animation:lineCycle 16s infinite 8s;white-space:nowrap">DCA-АВТОПОКУПКА</span>
+<span style="position:absolute;inset:0;display:grid;align-items:center;font-size:17px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#efe7ff;opacity:0;transform:translateY(14px) scale(.985);animation:lineCycle 16s infinite 10s;white-space:nowrap">РЕФЕРАЛЬНАЯ ПРОГРАММА</span>
+<span style="position:absolute;inset:0;display:grid;align-items:center;font-size:17px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#efe7ff;opacity:0;transform:translateY(14px) scale(.985);animation:lineCycle 16s infinite 12s;white-space:nowrap">КРИПТО-ПОДАРКИ / ВАУЧЕРЫ</span>
+<span style="position:absolute;inset:0;display:grid;align-items:center;font-size:17px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#efe7ff;opacity:0;transform:translateY(14px) scale(.985);animation:lineCycle 16s infinite 14s;white-space:nowrap">ЛИЧНЫЙ КАБИНЕТ</span>
+</div>
+<div class="chips"><div class="chip">BTC</div><div class="chip">LTC</div><div class="chip">USDT</div><div class="chip">24/7</div><div class="chip">Рефералка 1%</div><div class="chip">Ваучеры</div></div>
+<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:12px"><a class="cta" href="#">Обменять • @Obsidian666999bot</a><div style="color:var(--mu);font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap">obsidian-exchange.org</div></div>
+</section>
+<aside style="display:flex;flex-direction:column;gap:8px;justify-content:center;height:100%">
+<div class="glass" style="padding:10px 12px"><div class="kicker" style="margin-bottom:6px">Возможности</div><div class="list">
+<div class="row"><span>⚡ Автовыплаты</span><span>24/7</span></div>
+<div class="row"><span>🔒 Полная анонимность</span><span>Без KYC</span></div>
+<div class="row"><span>💱 BTC / LTC / USDT</span><span>TRC-20</span></div>
+<div class="row"><span>👥 Рефералка 1%</span><span>Активно</span></div>
+<div class="row"><span>🎁 Крипто-подарки</span><span>Ваучеры</span></div>
+</div></div>
+<div class="glass" style="padding:9px 12px;display:flex;align-items:center;gap:10px"><div class="kicker" style="flex:0 0 auto">Комиссия</div><div class="fee-box" style="flex:1;min-width:0">
+<div class="fee-slide"><div class="fee">27%</div><div class="range">менее 5 000 ₽</div></div>
+<div class="fee-slide"><div class="fee">25%</div><div class="range">5 000 – 9 999 ₽</div></div>
+<div class="fee-slide"><div class="fee">23%</div><div class="range">10 000 – 19 999 ₽</div></div>
+<div class="fee-slide"><div class="fee">19%</div><div class="range">от 20 000 ₽ и выше</div></div>
+</div></div>
+</aside>
+</div>
+<div style="position:absolute;left:22px;right:22px;bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:12px;z-index:4"><div class="coin-row"><div class="coin btc">₿</div><div class="coin ltc">Ł</div><div class="coin usdt">₮</div></div><div style="color:rgba(245,243,255,.82);font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;text-align:right;max-width:54%">Безопасно • Анонимно • Крипто-свап • Реферальная программа • Крипто-подарки</div></div>
+</div>
+
+<script>
+const DPR=Math.min(window.devicePixelRatio||1,2);
+function fitCanvas(c){const r=c.getBoundingClientRect();c.width=Math.max(1,Math.floor(r.width*DPR));c.height=Math.max(1,Math.floor(r.height*DPR));const x=c.getContext('2d');x.setTransform(DPR,0,0,DPR,0,0);return{ctx:x,width:r.width,height:r.height}}
+function setupAmbient(){const mc=document.getElementById('matrix'), pc=document.getElementById('particles');let m,p;
+function init(){
+ if(mc){const {ctx,width,height}=fitCanvas(mc), fs=14, cols=Math.ceil(width/fs), drops=Array.from({length:cols},()=>({y:Math.random()*-height,speed:1.1+Math.random()*1.9,alpha:0.08+Math.random()*0.12,seed:Math.random()*1000}));ctx.font=`700 ${fs}px monospace`;ctx.textBaseline='top';m={ctx,width,height,fs,drops}}
+ if(pc){const {ctx,width,height}=fitCanvas(pc), count=Math.max(90,Math.floor(width/8)), items=Array.from({length:count},()=>({x:Math.random()*width,y:Math.random()*height,r:.8+Math.random()*2.3,vx:-.08+Math.random()*.16,vy:-.06+Math.random()*.16,phase:Math.random()*Math.PI*2,alpha:.16+Math.random()*.55}));p={ctx,width,height,items}}
+}
+const chars='01BTCUSDTLTC<>/[]{}▓▒░∆Ξ$';
+const glyph=s=>chars[Math.floor((Math.sin(s)*10000 %1 +1)%1 * chars.length)];
+function drawM(t){if(!m)return;const {ctx,width,height,fs,drops}=m;ctx.clearRect(0,0,width,height);ctx.fillStyle='rgba(5,0,8,0.13)';ctx.fillRect(0,0,width,height);for(let i=0;i<drops.length;i++){const d=drops[i], x=i*fs, y=d.y, trail=9;for(let j=0;j<trail;j++){const yy=y-j*(fs+2);if(yy<-fs||yy>height+fs)continue;const a=Math.max(0,d.alpha*(1-j/trail));ctx.fillStyle=`rgba(186,125,255,${a})`;ctx.fillText(glyph(d.seed+j*7+t*.002),x,yy)}d.y+=d.speed;if(d.y>height+60){d.y=-Math.random()*180;d.speed=1.1+Math.random()*1.9;d.alpha=.08+Math.random()*.12;d.seed=Math.random()*1000}}}
+function drawP(t){if(!p)return;const {ctx,width,height,items}=p;ctx.clearRect(0,0,width,height);for(const o of items){o.x+=o.vx+Math.sin(t*.0012+o.phase)*.12;o.y+=o.vy+Math.cos(t*.001+o.phase)*.08;if(o.x<-10)o.x=width+10;if(o.x>width+10)o.x=-10;if(o.y<-10)o.y=height+10;if(o.y>height+10)o.y=-10;const g=.65+.35*Math.sin(t*.002+o.phase);ctx.beginPath();ctx.arc(o.x,o.y,o.r*(.9+g*.5),0,Math.PI*2);ctx.fillStyle=`rgba(205,155,255,${o.alpha*g})`;ctx.fill()}}
+function loop(t){drawM(t);drawP(t);requestAnimationFrame(loop)}
+window.addEventListener('resize',init);init();requestAnimationFrame(loop)}
+</script>
+<script>setupAmbient()</script></body></html>
