@@ -4767,6 +4767,185 @@ async def cmd_force_payout(message: Message):
         await message.answer(f"⚠️ Не удалось уведомить клиента {user_id}: {e}")
 
 
+async def _payout_preflight(oid):
+    """Все проверки перед выплатой заявки — ровно те же, что у авто-выплаты.
+
+    Возвращает (данные, список_препятствий). Ничего не отправляет и не меняет.
+    Отдельной функцией, чтобы показ и сама отправка судили по одним правилам:
+    иначе кнопка «выплатить» обещала бы то, чего проверка на отправке не даст.
+    """
+    with db_conn(5) as conn:
+        row = conn.execute(
+            "SELECT user_id, rub_amount, crypto_address, currency, status, network "
+            "FROM orders WHERE order_id=?", (oid,)).fetchone()
+    if not row:
+        return None, [f"заявка #{oid} не найдена"]
+    user_id, rub, address, currency, status, network = row
+    info = {"order_id": oid, "user_id": user_id, "rub": rub, "address": address,
+            "currency": currency, "status": status, "network": network}
+    blockers = []
+    if status == "sent":
+        blockers.append("заявка уже в статусе «sent» — крипта отправлена")
+    elif status != "paid":
+        blockers.append(f"статус «{status}», а не «paid» — оплата не подтверждена")
+
+    # Первоисточник: подтверждает ли расчёт САМ провайдер (fail-closed).
+    import sys as _s
+    if '/root/relay' not in _s.path:
+        _s.path.insert(0, '/root/relay')
+    try:
+        from services.payout_guard import verify_payment_settled
+        g = await asyncio.to_thread(verify_payment_settled, oid)
+    except Exception as e:
+        g = {"verdict": "manual", "detail": f"страж недоступен: {type(e).__name__}"}
+    info["guard"] = g
+    if g.get("verdict") == "hold":
+        blockers.append(f"страж держит выплату: {g.get('detail','')}")
+
+    if not validate_crypto_address(address, currency, network):
+        blockers.append("адрес назначения не прошёл проверку контрольной суммы")
+
+    v = payout_verdict(oid, rub, currency)
+    info["verdict"] = v
+    if not v.get("auto_ok"):
+        blockers.append(v.get("reason", "объём выплаты под вопросом"))
+
+    # Движок умеет отправлять не всё: EVM под гейтом, USDT-TRC20 — своим путём.
+    if currency not in PAYOUT_WALLETS and not _evm_payout_asset(currency, network):
+        blockers.append(f"движок выплат не поддерживает {currency} — отправлять вручную")
+    return info, blockers
+
+
+@router.message(Command("payout"))
+async def cmd_payout(message: Message):
+    """/payout ORDER_ID — выплатить заявку движком авто-выплаты (админ).
+
+    Раньше запустить выплату руками было нечем: /force_payout только помечает
+    заявку выполненной по уже отправленному TXID, а движок жил внутри фонового
+    цикла и брал лишь заявки ≤ AUTO_PAYOUT_LIMIT. Всё остальное уходило человеку
+    в кошелёк — и заявка потом висела в 'paid', потому что отправка шла мимо
+    системы. Ключ вольта расшифровывается только в процессе бота, поэтому
+    команда и живёт здесь.
+    """
+    if not is_admin(message.from_user.id):
+        return
+    parts = message.text.split()
+    if len(parts) < 2 or not parts[1].lstrip("#").isdigit():
+        await message.answer("Формат: /payout ORDER_ID")
+        return
+    oid = int(parts[1].lstrip("#"))
+    info, blockers = await _payout_preflight(oid)
+    if info is None:
+        await message.answer(f"❌ {blockers[0]}")
+        return
+    v, g = info["verdict"], info["guard"]
+    txt = (f"💸 <b>Выплата по заявке #{oid}</b>\n\n"
+           f"Клиент: <code>{info['user_id']}</code>\n"
+           f"Принято: <b>{info['rub']:,.0f} ₽</b>\n"
+           f"К отправке: <code>{v['amount']} {info['currency']}</code>"
+           f"{' (обещано клиенту)' if v.get('source') == 'agreed' else ' (по курсу)'}\n"
+           f"🌐 Сеть: <b>{_network_label(info['currency'], info['network'])}</b>\n"
+           f"Адрес: <code>{info['address']}</code>\n\n"
+           f"Провайдер: <b>{g.get('verdict')}</b> — {g.get('detail','')}\n")
+    if blockers:
+        txt += "\n⛔ <b>Выплата невозможна:</b>\n" + "\n".join(f"• {b}" for b in blockers)
+        await message.answer(txt, parse_mode="HTML")
+        return
+    if g.get("verdict") != "confirmed":
+        txt += ("\n⚠️ <b>Провайдер не подтверждает оплату live.</b> Убедитесь, что "
+                "деньги действительно поступили, прежде чем отправлять крипту.\n")
+    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(
+        text=f"💸 Отправить {v['amount']} {info['currency']}", callback_data=f"payoutgo_{oid}")]])
+    await message.answer(txt, parse_mode="HTML", reply_markup=kb)
+
+
+@router.callback_query(F.data.startswith("payoutgo_"))
+async def cb_payout_go(callback: CallbackQuery):
+    """Собственно отправка. Все проверки повторяются: между показом и нажатием
+    заявку мог закрыть кто-то другой, а курс — уйти."""
+    if not is_admin(callback.from_user.id):
+        await callback.answer("⛔ Нет прав", show_alert=True)
+        return
+    oid = int(callback.data.split("_")[-1])
+    info, blockers = await _payout_preflight(oid)
+    if info is None or blockers:
+        await callback.answer("Условия изменились", show_alert=True)
+        await callback.message.answer(
+            f"⛔ Выплата #{oid} отменена:\n" + "\n".join(f"• {b}" for b in (blockers or ["нет заявки"])))
+        return
+    currency, network = info["currency"], info["network"]
+    rub, address, user_id = info["rub"], info["address"], info["user_id"]
+
+    # Стоп-кран горячего кошелька — тот же, что у авто-выплаты. Fail-closed.
+    import sys as _s
+    if '/root/relay' not in _s.path:
+        _s.path.insert(0, '/root/relay')
+    try:
+        from services import payout_circuit
+        cb_res = payout_circuit.check_payout_allowed(oid, rub, address, currency)
+    except Exception as e:
+        cb_res = {"action": "manual", "reason": f"страж выплат недоступен ({type(e).__name__})"}
+    if cb_res.get("action") != "ok":
+        await callback.answer("Стоп-кран", show_alert=True)
+        await callback.message.answer(
+            f"⛔ Выплата #{oid} остановлена стражем: {cb_res.get('reason','')}")
+        return
+
+    await callback.answer("Отправляю…")
+    await callback.message.answer(f"⏳ Отправляю {info['verdict']['amount']} {currency} по заявке #{oid}…")
+    # Двойная отправка исключена журналом идемпотентности вольта
+    # (ключ payout_{order_id}) — повторный вызов вернёт тот же txHash.
+    txid = await process_payout_async(oid, rub, address, currency, network)
+    if not txid:
+        await callback.message.answer(
+            f"❌ Движок не отправил заявку #{oid}. Причина — в логах бота "
+            f"(<code>journalctl -u exchange-bot</code>). Крипта НЕ ушла.",
+            parse_mode="HTML")
+        return
+
+    # Статус меняем ТОЛЬКО с 'paid': если заявку успели закрыть, бухгалтерию
+    # второй раз не проводим (реф-бонус и VIP-объём начислялись бы дважды).
+    with db_conn(5) as conn:
+        cur = conn.execute(
+            "UPDATE orders SET status='sent', paid_btc_tx=?, updated_at=CURRENT_TIMESTAMP "
+            "WHERE order_id=? AND status='paid'", (txid, oid))
+        conn.commit()
+        closed = cur.rowcount
+    if not closed:
+        logger.error(f"/payout #{oid}: крипта отправлена (txid={txid}), но заявка уже "
+                     f"была закрыта — бухгалтерию не проводим повторно")
+        await callback.message.answer(
+            f"⚠️ Крипта отправлена (<code>{txid}</code>), но заявка #{oid} уже была "
+            f"закрыта кем-то ещё. Проверьте, не ушла ли выплата дважды.",
+            parse_mode="HTML")
+        return
+
+    try:
+        await credit_referral_bonus(oid, user_id, rub)
+        await update_user_vip_volume(user_id, rub)
+    except Exception as e:
+        logger.warning(f"/payout {oid}: реф/VIP начисление: {e}")
+
+    _exp = explorer_url(currency, txid, network)
+    _kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(
+        text="🔍 Транзакция в блокчейне", url=_exp)]]) if _exp else None
+    try:
+        await send_sticker_safe(user_id, STICKER_SUCCESS)
+        await bot.send_message(
+            user_id,
+            f"🚀 <b>Заявка #{oid} выполнена!</b>\n\n"
+            f"Криптовалюта отправлена на ваш адрес.\n"
+            f"TXID: <code>{txid}</code>\n\n"
+            f"Спасибо за обмен в ObsidianExchange! 🟣",
+            parse_mode="HTML", reply_markup=_kb)
+    except Exception as e:
+        await callback.message.answer(f"⚠️ Клиента уведомить не удалось: {e}")
+    await callback.message.answer(
+        f"✅ <b>Заявка #{oid} выплачена</b>\nTXID: <code>{txid}</code>",
+        parse_mode="HTML", reply_markup=_kb)
+    log_staff_action(callback.from_user.id, "payout", oid, f"{info['verdict']['amount']} {currency} tx={txid}")
+
+
 @router.message(Command("broadcast"))
 async def cmd_broadcast(message: Message, state: FSMContext):
     """/broadcast текст — массовая рассылка всем активным пользователям."""
