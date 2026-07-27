@@ -46,6 +46,9 @@
             <button type="button" class="mini-coin currency-btn active" data-currency="BTC"><img src="/static/img/v5/btc.png" alt="">BTC</button>
             <button type="button" class="mini-coin currency-btn" data-currency="LTC"><img src="/static/img/v5/ltc.png" alt="">LTC</button>
             <button type="button" class="mini-coin currency-btn" data-currency="USDT"><img src="/static/img/v5/usdt.png" alt="">USDT</button>
+            {% if 'ETH' in offered_currencies %}
+            <button type="button" class="mini-coin currency-btn" data-currency="ETH"><img src="/static/img/v5/eth.png" alt="">ETH</button>
+            {% endif %}
         </div>
 
         <div class="field full">
@@ -72,21 +75,28 @@
 <!-- ══ МОНЕТЫ (живые курсы) ══ -->
 <section class="section reveal">
     <div class="coin-grid">
-        <div class="coin-card">
+        <div class="coin-card" data-coin-card="BTC">
             <img src="/static/img/v5/btc.png" alt="Bitcoin">
             <strong>Bitcoin</strong>
             <span class="value" data-rate="bitcoin">курс…</span>
         </div>
-        <div class="coin-card">
+        <div class="coin-card" data-coin-card="LTC">
             <img src="/static/img/v5/ltc.png" alt="Litecoin">
             <strong>Litecoin</strong>
             <span class="value" data-rate="litecoin">курс…</span>
         </div>
-        <div class="coin-card">
+        <div class="coin-card" data-coin-card="USDT">
             <img src="/static/img/v5/usdt.png" alt="Tether USDT TRC-20">
             <strong>Tether</strong>
             <span class="value" data-rate="tether">курс…</span>
         </div>
+        {% if 'ETH' in offered_currencies %}
+        <div class="coin-card" data-coin-card="ETH">
+            <img src="/static/img/v5/eth.png" alt="Ethereum">
+            <strong>Ethereum</strong>
+            <span class="value" data-rate="ethereum">курс…</span>
+        </div>
+        {% endif %}
     </div>
 </section>
 
@@ -115,10 +125,15 @@
         <div class="kicker">Комиссии</div>
         <h2>Прогрессивная ставка</h2>
         <div class="fee-table">
-            <div class="fee-row"><div class="fee-rate">27%</div><div class="fee-desc">до 10 000 ₽<small>минимальный диапазон обмена</small></div></div>
-            <div class="fee-row"><div class="fee-rate">25%</div><div class="fee-desc">до 30 000 ₽<small>средний диапазон обмена</small></div></div>
-            <div class="fee-row"><div class="fee-rate">23%</div><div class="fee-desc">до 100 000 ₽<small>увеличенный объём</small></div></div>
-            <div class="fee-row"><div class="fee-rate">19%</div><div class="fee-desc">от 100 000 ₽ и выше<small>крупные обмены</small></div></div>
+            {# Тарифы рендерятся из core/pricing.py — той же лестницы, по которой
+               реально считается заявка. Раньше здесь стояли статичные цифры с
+               чужими границами, и витрина расходилась со списанием. #}
+            {% for t in commission_tiers %}
+            <div class="fee-row">
+                <div class="fee-rate">{{ t.percent }}%</div>
+                <div class="fee-desc">{{ t.label }}<small>{{ t.hint }}</small></div>
+            </div>
+            {% endfor %}
             <div class="fee-row"><div class="fee-rate">2%</div><div class="fee-desc">swap монет<small>BTC ↔ LTC ↔ USDT</small></div></div>
         </div>
     </div>

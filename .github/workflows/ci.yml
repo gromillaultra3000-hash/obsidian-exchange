@@ -22,3 +22,5 @@ jobs:
         run: python3 tests/test_landmines.py
       - name: Единый источник валют/сетей (core.assets)
         run: python3 tests/test_assets.py
+      - name: Витрина направлений и тарифы (offerings + pricing)
+        run: python3 tests/test_offerings_pricing.py

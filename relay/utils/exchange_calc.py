@@ -13,6 +13,7 @@ import requests
 if "/root/relay" not in sys.path:
     sys.path.insert(0, "/root/relay")
 from core import assets as _assets  # единый источник правды по валютам/сетям/адресам
+from core import pricing as _pricing  # единый источник тарифной лестницы
 
 SWAP_COINS = ["BTC", "LTC", "USDT"]
 SWAP_NETWORKS = {"BTC": "Mainnet", "LTC": "Mainnet", "USDT": "TRC20"}
@@ -30,12 +31,9 @@ _BINANCE_USDT = {"BTC": "BTCUSDT", "LTC": "LTCUSDT", "ETH": "ETHUSDT"}
 
 
 def get_commission_percent(amount_rub):
-    if amount_rub <= 4999:
-        return 27
-    elif amount_rub <= 14999:
-        return 23
-    else:
-        return 19
+    """Единый источник — core.pricing. Раньше здесь была СВОЯ лестница без тира
+    25% и с границей 15 000 вместо 10/20 тыс.: сайт считал заявку не так, как бот."""
+    return _pricing.commission_percent(amount_rub)
 
 
 def get_cached_rate(coin):

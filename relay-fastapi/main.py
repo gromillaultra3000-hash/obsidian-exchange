@@ -151,9 +151,23 @@ def site_context(request: Request, **extra):
         "web_user": auth.get_web_user(request),
         "total_orders": total_orders,
         "success_rate": success_rate,
+        # Витрина и тарифы — из единых источников (services.offerings, core.pricing),
+        # чтобы шаблоны не держали собственных копий цен и списка монет.
+        "offered_currencies": _allowed_currencies(),
+        "commission_tiers": _commission_tiers(),
+        "offerings_json": _offerings_view(),
     }
     ctx.update(extra)
     return ctx
+
+
+def _commission_tiers():
+    try:
+        from core.pricing import tiers_for_display
+        return tiers_for_display()
+    except Exception as e:
+        logger.error(f"core.pricing недоступен: {e}")
+        return []
 
 # Функция аудита
 def audit_log(event, details=""):
@@ -391,11 +405,47 @@ from utils import exchange_calc
 from core import assets as _assets  # единый источник валют/сетей (Фаза C, мультичейн)
 
 def _allowed_currencies():
-    """Допустимые валюты создания заявки. ETH виден только при MULTICHAIN_UI_ENABLED —
-    бэкенд (курсы/валидация/сеть) готов заранее, поверхности включаются флагом."""
-    if _assets.multichain_ui_enabled():
-        return tuple(_assets.CURRENCY_NETWORKS.keys())
-    return ("BTC", "LTC", "USDT")
+    """Валюты, на которые сейчас можно принять заявку.
+
+    Не просто «что поддерживает код», а «что реально есть чем выдать»:
+    services.offerings связывает новые направления (ETH, USDT-ERC20) с
+    подтверждённой ликвидностью (курируемый резерв или готовый EVM-контур).
+    Иначе клиент оплатил бы заявку, которую нечем закрыть."""
+    try:
+        from services.offerings import offered_currencies
+        return offered_currencies()
+    except Exception as e:
+        logger.error(f"offerings недоступен, откат к базовым валютам: {e}")
+        return ("BTC", "LTC", "USDT")
+
+
+def _is_offered(currency, network):
+    """Принимаем ли заявку на (валюту, сеть) прямо сейчас. Fail-closed: сбой
+    сервиса витрины → разрешаем только исторические направления в их сети."""
+    try:
+        from services.offerings import is_offered
+        return is_offered(currency, network)
+    except Exception as e:
+        logger.error(f"offerings.is_offered недоступен: {e}")
+        cur = _assets.normalize_currency(currency)
+        return cur in ("BTC", "LTC", "USDT") and network == _assets.default_network(cur)
+
+
+def _offerings_view():
+    """Витрина для шаблонов/JSON: валюты + доступные сети с человекочитаемыми метками."""
+    curs = _allowed_currencies()
+    out = []
+    for c in curs:
+        try:
+            from services.offerings import offered_networks
+            nets = offered_networks(c)
+        except Exception:
+            nets = [_assets.default_network(c)]
+        out.append({
+            "code": c,
+            "networks": [{"code": n, "label": _assets.network_label(c, n)} for n in nets if n],
+        })
+    return out
 
 @app.get("/dashboard/exchange", response_class=HTMLResponse)
 async def dashboard_exchange_page(request: Request):
@@ -434,15 +484,19 @@ async def dashboard_exchange_submit(
         error = "Неподдерживаемая валюта."
     elif amount < MIN_AMOUNT or amount > MAX_AMOUNT:
         error = f"Сумма должна быть от {MIN_AMOUNT:.0f} до {MAX_AMOUNT:.0f} RUB."
-    elif net is None:
+    elif net is None or not _is_offered(currency, net):
         error = "Некорректная сеть для выбранной валюты."
     elif not exchange_calc.validate_crypto_address(address, currency, net):
         error = "Некорректный адрес для выбранной валюты."
 
     if error:
+        # network возвращаем в форму: иначе после ошибки селектор сбрасывался на
+        # первую сеть (TRC-20), а введённый 0x-адрес оставался — клиент попадал
+        # в цикл «неверный адрес» без единой подсказки, что не так.
         return templates.TemplateResponse(request, "dashboard_exchange.html", site_context(
             request, active="exchange", error=error,
-            form={"currency": currency, "amount": amount, "address": address},
+            form={"currency": currency, "amount": amount, "address": address,
+                  "network": net or (network or "").strip().upper()},
         ), status_code=400)
 
     user_id = web_user['telegram_id'] if web_user['telegram_id'] else -web_user['id']
@@ -627,7 +681,7 @@ async def api_create_order(request: Request):
     if amount < MIN_AMOUNT or amount > MAX_AMOUNT:
         raise HTTPException(status_code=400, detail=f"Сумма должна быть от {MIN_AMOUNT:.0f} до {MAX_AMOUNT:.0f} ₽.")
     net = _assets.normalize_network(currency, network)
-    if net is None:
+    if net is None or not _is_offered(currency, net):
         raise HTTPException(status_code=400, detail="Некорректная сеть для выбранной валюты.")
     if not exchange_calc.validate_crypto_address(address, currency, net):
         raise HTTPException(status_code=400, detail="Некорректный адрес кошелька.")
@@ -1390,6 +1444,19 @@ async def api_rates():
     ltc  = exchange_calc.get_cached_rate("LTC")  or 0
     usdt = exchange_calc.get_cached_rate("USDT") or 0
     result = {"BTC": btc, "LTC": ltc, "USDT": usdt, "ts": int(time.time())}
+    # ETH отдаём только когда направление реально открыто (есть чем выдать) —
+    # иначе фронт нарисовал бы живой курс монеты, которую нельзя купить.
+    if "ETH" in _allowed_currencies():
+        result["ETH"] = exchange_calc.get_cached_rate("ETH") or 0
+    result["offerings"] = _offerings_view()
+    # Тарифы отдаём фронту, чтобы виджет не хардкодил свою лестницу: раньше он
+    # обещал USDT по 2% и имел чужие границы тиров — витрина расходилась со
+    # списанием. Теперь единственный источник — core.pricing.
+    try:
+        from core.pricing import tiers_for_display
+        result["commission_tiers"] = tiers_for_display()
+    except Exception:
+        pass
     # Живой потолок сети трейдеров. MAX_AMOUNT=500 000 — витринная константа, а
     # реальные слоты держатся в разы ниже; заявка выше потолка гарантированно
     # упирается в «нет реквизитов». Отдаём фронту, чтобы показывать правду.
@@ -1422,9 +1489,22 @@ async def rates_xml_export():
             reserves = dict(conn.execute("SELECT currency, amount FROM reserves").fetchall())
         except Exception:
             reserves = {}
+    # Коды направлений в номенклатуре BestChange. USDT-ERC20 и ETH публикуем
+    # только когда направление открыто — агрегатор не должен звать клиентов
+    # на монету, которую мы не выдаём.
     coin_codes = {"BTC": "BTC", "LTC": "LTC", "USDT": "USDTTRC20"}
+    _open = _allowed_currencies()
+    if "ETH" in _open:
+        coin_codes["ETH"] = "ETH"
+        try:
+            from services.offerings import offered_networks
+            if _assets.NET_ERC20 in offered_networks("USDT"):
+                coin_codes["USDT_ERC20"] = "USDTERC20"
+        except Exception:
+            pass
     items = []
     for coin, code in coin_codes.items():
+        coin = "USDT" if coin == "USDT_ERC20" else coin
         try:
             rate = exchange_calc.get_rate_with_markup(coin, 20000)
         except Exception:

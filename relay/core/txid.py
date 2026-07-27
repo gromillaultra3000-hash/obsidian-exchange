@@ -30,14 +30,24 @@ def is_txid(value) -> bool:
     return bool(_HEX64.match(s))
 
 
-def explorer_url(currency, tx) -> str | None:
-    """Ссылка в эксплорер или None, если показывать нечего."""
+def explorer_url(currency, tx, network=None) -> str | None:
+    """Ссылка в эксплорер или None, если показывать нечего.
+
+    network важен для USDT: одна и та же монета живёт в TRON (tronscan) и в
+    Ethereum (etherscan). Без сети берём каноническую для валюты (USDT→TRC-20),
+    иначе ERC-20-выплата вела бы клиента в tronscan, где её нет.
+    """
     if not is_txid(tx):
         return None
+    cur = (currency or "BTC").upper()
+    net = str(network or "").strip().upper().replace("-", "")
+    if cur in ("USDT", "ETH") and net in ("ERC20", "ETH", "ETHEREUM", "EVM"):
+        cur = "ETH"
     base = {
         "BTC": "https://mempool.space/tx/",
         "LTC": "https://blockchair.com/litecoin/transaction/",
         "USDT": "https://tronscan.org/#/transaction/",
         "TRX": "https://tronscan.org/#/transaction/",
-    }.get((currency or "BTC").upper())
+        "ETH": "https://etherscan.io/tx/",
+    }.get(cur)
     return f"{base}{str(tx).strip()}" if base else None

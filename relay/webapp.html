@@ -273,11 +273,19 @@
             </div>
             <div class="input-group">
                 <label>Валюта</label>
-                <select id="currency" onchange="calculateFee(); updateAddressPlaceholder()">
+                <select id="currency" onchange="onCurrencyChange()">
                     <option value="BTC">₿ Bitcoin (BTC)</option>
                     <option value="LTC">Ł Litecoin (LTC)</option>
                     <option value="USDT">💵 USDT TRC20</option>
                 </select>
+            </div>
+            <!-- Сеть: показывается только когда выбор реально есть (USDT) -->
+            <div class="input-group" id="network-group" style="display:none">
+                <label>Сеть</label>
+                <select id="network" onchange="updateAddressPlaceholder()"></select>
+                <div style="margin-top:6px;font-size:11px;color:#f0a" id="network-warn">
+                    Монеты уйдут именно в этой сети — адрес другой сети не подойдёт.
+                </div>
             </div>
             <div class="input-group">
                 <label>Сумма (RUB)</label>
@@ -530,12 +538,22 @@
         }
         loadChart();
 
-        // Комиссия — логика идентична боту (main_bot.py: get_commission_percent)
-        function getCommissionPercent(amount, currency) {
-            if (currency === 'USDT') return 2;
-            if (amount < 5000) return 27;
-            if (amount <= 14999) return 23;
-            return 19;
+        // Комиссия приходит с сервера (/api/rates → commission_tiers, единый
+        // источник core/pricing.py — тот же, по которому считается заявка).
+        // Локальные значения — аварийный дубль, обязаны совпадать с сервером.
+        // Раньше здесь были фиксированные 2% по USDT (отменены) и своя лестница.
+        const FALLBACK_TIERS = [
+            { to_rub: 5000,  percent: 27 },
+            { to_rub: 10000, percent: 25 },
+            { to_rub: 20000, percent: 23 },
+            { to_rub: null,  percent: 19 }
+        ];
+        function getCommissionPercent(amount) {
+            const tiers = (window.__oeTiers && window.__oeTiers.length) ? window.__oeTiers : FALLBACK_TIERS;
+            for (const t of tiers) {
+                if (t.to_rub === null || t.to_rub === undefined || amount < t.to_rub) return t.percent;
+            }
+            return tiers[tiers.length - 1].percent;
         }
 
         // Live расчёт крипты
@@ -544,6 +562,10 @@
             try {
                 const r = await fetch('/api/rates');
                 cachedRates = await r.json();
+                // Тарифы и список открытых направлений — из того же ответа,
+                // чтобы витрина Mini App не расходилась с расчётом на сервере.
+                if (cachedRates.commission_tiers) window.__oeTiers = cachedRates.commission_tiers;
+                if (cachedRates.offerings) applyOfferings(cachedRates.offerings);
                 calculateFee();
             } catch(e) {}
         }
@@ -629,14 +651,14 @@
         function calculateFee() {
             const amount = parseFloat(document.getElementById('amount').value) || 0;
             const currency = document.getElementById('currency').value;
-            const fee = getCommissionPercent(amount, currency);
+            const fee = getCommissionPercent(amount);
             document.getElementById('fee-value').textContent = fee + '%';
             // Live расчёт
             const est = document.getElementById('crypto-estimate');
             if (amount >= 100 && cachedRates[currency]) {
                 const rate = cachedRates[currency]; // курс в ₽ за 1 монету
                 const netAmount = amount * (1 - fee / 100);
-                const crypto = (netAmount / rate).toFixed(currency === 'USDT' ? 2 : 6);
+                const crypto = (netAmount / rate).toFixed({ USDT: 2, LTC: 4, ETH: 5 }[currency] ?? 6);
                 est.textContent = `≈ ${crypto} ${currency} по курсу ${Math.round(rate).toLocaleString('ru')} ₽`;
             } else {
                 est.textContent = amount >= 2000 ? '…' : '';
@@ -644,14 +666,59 @@
         }
         calculateFee();
 
+        // Витрина: какие монеты и сети реально открыты (приходит с /api/rates).
+        // Список не хардкодим — направление может быть закрыто по ликвидности.
+        const COIN_LABEL = { BTC: '₿ Bitcoin (BTC)', LTC: 'Ł Litecoin (LTC)',
+                             USDT: '💵 Tether (USDT)', ETH: 'Ξ Ethereum (ETH)' };
+        function applyOfferings(offerings) {
+            if (!offerings || !offerings.length) return;
+            window.__oeOfferings = offerings;
+            const sel = document.getElementById('currency');
+            const prev = sel.value;
+            sel.innerHTML = offerings.map(o =>
+                `<option value="${o.code}">${COIN_LABEL[o.code] || o.code}</option>`).join('');
+            if (offerings.some(o => o.code === prev)) sel.value = prev;
+            onCurrencyChange();
+        }
+
+        function currentNetworks() {
+            const cur = document.getElementById('currency').value;
+            const o = (window.__oeOfferings || []).find(x => x.code === cur);
+            return (o && o.networks) ? o.networks : [];
+        }
+
+        function onCurrencyChange() {
+            const nets = currentNetworks();
+            const grp = document.getElementById('network-group');
+            const sel = document.getElementById('network');
+            // Селектор сети имеет смысл только когда сетей больше одной
+            if (nets.length > 1) {
+                sel.innerHTML = nets.map(n => `<option value="${n.code}">${n.label}</option>`).join('');
+                grp.style.display = '';
+            } else {
+                sel.innerHTML = nets.length ? `<option value="${nets[0].code}">${nets[0].label}</option>` : '';
+                grp.style.display = 'none';
+            }
+            calculateFee();
+            updateAddressPlaceholder();
+        }
+
+        function selectedNetwork() {
+            const sel = document.getElementById('network');
+            return (sel && sel.value) ? sel.value : '';
+        }
+
         // Подсказка адреса и восстановление из localStorage
         function updateAddressPlaceholder() {
             const cur = document.getElementById('currency').value;
-            const ph  = { BTC: 'bc1... или 1... или 3...', LTC: 'L... или M... или ltc1...', USDT: 'T... (TRC20 / Tron)' };
+            const net = selectedNetwork();
+            const ph  = { BTC: 'bc1... или 1... или 3...', LTC: 'L... или M... или ltc1...',
+                          USDT: net === 'ERC20' ? '0x... (ERC-20 / Ethereum)' : 'T... (TRC20 / Tron)',
+                          ETH: '0x... (ERC-20 / Ethereum)' };
             const addrInput = document.getElementById('address');
             addrInput.placeholder = ph[cur] || 'Введите адрес кошелька';
-            const saved = localStorage.getItem('lastAddress_' + cur);
-            if (saved) addrInput.value = saved;
+            const saved = localStorage.getItem('lastAddress_' + cur + '_' + net);
+            addrInput.value = saved || '';
             validateAddress();
         }
         // Инициализируем при загрузке
@@ -666,7 +733,8 @@
             const payMethod = document.querySelector('input[name="pay_method"]:checked')?.value || 'sbp';
             if (!amount || amount < 2000 || amount > 500000) { resultEl.textContent = 'Сумма от 2 000 до 500 000 ₽'; return; }
             if (!address) { resultEl.textContent = 'Введите адрес кошелька'; return; }
-            localStorage.setItem('lastAddress_' + currency, address);
+            const network = selectedNetwork();
+            localStorage.setItem('lastAddress_' + currency + '_' + network, address);
 
             resultEl.innerHTML = '🚀 Заявка создаётся…';
             document.getElementById('exchange-steps').style.display = 'flex';
@@ -675,7 +743,7 @@
                 const res = await fetch('/api/create_order', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': tg.initData || '' },
-                    body: JSON.stringify({ currency, amount: parseFloat(amount), address, pay_method: payMethod })
+                    body: JSON.stringify({ currency, amount: parseFloat(amount), address, network, pay_method: payMethod })
                 });
                 const data = await res.json().catch(() => ({}));
                 if (!res.ok || !data.ok) {
@@ -699,7 +767,7 @@
             if (_orderPoll) { clearInterval(_orderPoll); _orderPoll = null; }
             if (_orderTimer) { clearInterval(_orderTimer); _orderTimer = null; }
         }
-        const EXPLORER = { BTC: 'https://mempool.space/tx/', LTC: 'https://blockchair.com/litecoin/transaction/', USDT: 'https://tronscan.org/#/transaction/' };
+        const EXPLORER = { BTC: 'https://mempool.space/tx/', LTC: 'https://blockchair.com/litecoin/transaction/', USDT: 'https://tronscan.org/#/transaction/', ETH: 'https://etherscan.io/tx/' };
         // В txid исторически попадали ссылки на оплату Platega и пометки 'manual'.
         // Склейка давала битый адрес эксплорера — кнопка вела в никуда, но выглядела
         // как доказательство отправки. Показываем ссылку только для настоящего хеша.
@@ -1130,15 +1198,21 @@
             const input = document.getElementById('address');
             const msg   = document.getElementById('address-msg');
             if (!addr) { input.classList.remove('valid','invalid'); msg.textContent = ''; return; }
+            const net = (typeof selectedNetwork === 'function') ? selectedNetwork() : '';
+            const EVM = /^0x[a-fA-F0-9]{40}$/;
             const patterns = {
                 BTC:  /^(bc1[ac-hj-np-z02-9]{6,62}|[13][a-km-zA-HJ-NP-Z1-9]{25,34})$/,
                 LTC:  /^[LM3][a-km-zA-HJ-NP-Z1-9]{26,33}$|^ltc1[ac-hj-np-z02-9]{6,62}$/,
-                USDT: /^T[A-Za-z0-9]{33}$/,  // Tron/TRC20
+                // USDT живёт в двух сетях — формат зависит от выбранной
+                USDT: net === 'ERC20' ? EVM : /^T[A-Za-z0-9]{33}$/,
+                ETH:  EVM,
             };
             const ok = (patterns[cur] || patterns.BTC).test(addr);
             input.classList.toggle('valid', ok);
             input.classList.toggle('invalid', !ok);
-            msg.textContent = ok ? '✓ Адрес корректен' : `✗ Неверный формат ${cur}-адреса`;
+            const netName = net === 'ERC20' ? 'ERC-20' : (net === 'TRC20' ? 'TRC-20' : '');
+            msg.textContent = ok ? '✓ Адрес корректен'
+                                 : `✗ Неверный формат ${cur}-адреса${netName ? ' в сети ' + netName : ''}`;
             msg.className = 'validation-msg ' + (ok ? 'valid' : 'invalid');
         }
     </script>

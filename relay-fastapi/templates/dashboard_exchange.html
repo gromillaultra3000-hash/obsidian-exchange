@@ -9,12 +9,20 @@
         <input type="hidden" name="csrf_token" value="{{ web_user.csrf_token }}">
         <div class="input-group">
             <label>Валюта</label>
-            <select id="currency" name="currency" onchange="calculateFee()">
+            {# Список монет — из витрины (services.offerings): направление без
+               ликвидности не предлагаем, иначе заявку нечем закрыть. #}
+            <select id="currency" name="currency" onchange="onCurrencyChange()">
                 {% set cur = (form.currency if form else (prefill.currency if prefill else 'BTC')) %}
-                <option value="BTC" {{ 'selected' if cur == 'BTC' }}>BTC</option>
-                <option value="LTC" {{ 'selected' if cur == 'LTC' }}>LTC</option>
-                <option value="USDT" {{ 'selected' if cur == 'USDT' }}>USDT (TRC20)</option>
+                {% for c in offered_currencies %}
+                <option value="{{ c }}" {{ 'selected' if cur == c }}>{{ c }}</option>
+                {% endfor %}
             </select>
+        </div>
+        <div class="input-group" id="network-group" style="display:none">
+            <label>Сеть</label>
+            <select id="network" name="network"></select>
+            <p style="margin-top:6px;font-size:12px;opacity:.7">
+                Монеты уйдут именно в этой сети — адрес другой сети не подойдёт.</p>
         </div>
         <div class="input-group">
             <label>Сумма (RUB)</label>
@@ -42,23 +50,45 @@
 </div>
 
 <div class="dash-card">
-    <p>Курс фиксируется на 15 минут после создания заявки. Комиссия (BTC/LTC/USDT TRC20): 27% (до 5 000 ₽), 25% (5 000–9 999 ₽), 23% (10 000–19 999 ₽), 19% (от 20 000 ₽).</p>
+    <p>Курс фиксируется на 15 минут после создания заявки. Комиссия:
+        {% for t in commission_tiers %}{{ t.percent }}% ({{ t.label }}){{ ", " if not loop.last }}{% endfor %}.</p>
 </div>
 
 <script>
-function getCommissionPercent(amount, currency) {
-    if (currency === 'USDT') return 2;
-    if (amount < 5000) return 27;
-    if (amount <= 14999) return 23;
-    return 19;
+// Тарифы и сети приходят с сервера из тех же источников, что использует расчёт
+// заявки (core/pricing.py, services/offerings.py). Раньше здесь была третья
+// копия лестницы — со своими границами и фиктивными 2% по USDT.
+const TIERS = {{ commission_tiers|tojson }};
+const OFFERINGS = {{ offerings_json|tojson }};
+
+function getCommissionPercent(amount) {
+    for (const t of TIERS) {
+        if (t.to_rub === null || amount < t.to_rub) return t.percent;
+    }
+    return TIERS.length ? TIERS[TIERS.length - 1].percent : 19;
 }
+
+// Сеть, выбранная до ошибки валидации — чтобы форма не сбрасывала её на первую
+const PREV_NETWORK = {{ (form.network if form and form.network else '')|tojson }};
+
+function onCurrencyChange() {
+    const cur = document.getElementById('currency').value;
+    const o = OFFERINGS.find(x => x.code === cur);
+    const nets = (o && o.networks) ? o.networks : [];
+    const grp = document.getElementById('network-group');
+    const sel = document.getElementById('network');
+    sel.innerHTML = nets.map(n => `<option value="${n.code}">${n.label}</option>`).join('');
+    if (PREV_NETWORK && nets.some(n => n.code === PREV_NETWORK)) sel.value = PREV_NETWORK;
+    grp.style.display = nets.length > 1 ? '' : 'none';
+    calculateFee();
+}
+
 function calculateFee() {
     const amount = parseFloat(document.getElementById('amount').value) || 0;
-    const currency = document.getElementById('currency').value;
-    const fee = getCommissionPercent(amount, currency);
+    const fee = getCommissionPercent(amount);
     document.getElementById('fee-display').innerHTML =
         `⚡ Комиссия обмена: <strong>${fee}%</strong> &middot; Вы получите ≈ <strong id="fee-amount">${amount ? (amount * (1 - fee/100)).toLocaleString(undefined, {maximumFractionDigits:2}) + ' ₽ экв.' : '—'}</strong>`;
 }
-calculateFee();
+onCurrencyChange();
 </script>
 {% endblock %}

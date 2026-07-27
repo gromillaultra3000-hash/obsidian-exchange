@@ -54,10 +54,19 @@ async function fetchMarketRates() {
 
     if (!data) {
         try {
-            const res = await fetch(
-                'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,litecoin,tether&vs_currencies=rub'
-            );
-            data = await res.json();
+            // Свой /api/rates, а не CoinGecko напрямую: тот же источник, что у
+            // бэкенда (курсы кешируются на сервере), плюс тарифы и список
+            // открытых направлений — фронту нечего хардкодить. И никакого CORS.
+            const res = await fetch('/api/rates');
+            const api = await res.json();
+            data = {
+                bitcoin:  { rub: api.BTC },
+                litecoin: { rub: api.LTC },
+                tether:   { rub: api.USDT },
+                ethereum: api.ETH ? { rub: api.ETH } : undefined,
+                _tiers: api.commission_tiers,
+                _offerings: api.offerings
+            };
             sessionStorage.setItem(RATES_CACHE_KEY, JSON.stringify({ data, ts: Date.now() }));
         } catch (e) {
             targets.forEach(el => { el.textContent = 'н/д'; el.classList.remove('loading'); });
@@ -65,10 +74,14 @@ async function fetchMarketRates() {
         }
     }
 
+    if (data._tiers) window.__oeTiers = data._tiers;
+    if (data._offerings) window.__oeOfferings = data._offerings;
+
     const map = {
         bitcoin: data.bitcoin?.rub,
         litecoin: data.litecoin?.rub,
-        tether: data.tether?.rub
+        tether: data.tether?.rub,
+        ethereum: data.ethereum?.rub
     };
 
     targets.forEach(el => {
@@ -82,8 +95,16 @@ async function fetchMarketRates() {
     window.__oeRates = {
         BTC: map.bitcoin,
         LTC: map.litecoin,
-        USDT: map.tether
+        USDT: map.tether,
+        ETH: map.ethereum
     };
+    // Направления, закрытые на бэкенде (нет ликвидности), не должны предлагаться
+    document.querySelectorAll('[data-coin-card]').forEach(el => {
+        const code = el.dataset.coinCard;
+        const open = !window.__oeOfferings ||
+                     window.__oeOfferings.some(o => o.code === code);
+        el.hidden = !open;
+    });
 
     // Тикер
     const tickBtc = document.getElementById('tick-btc');
@@ -111,14 +132,6 @@ function initExchangeWidget() {
     const currencyBtns = document.querySelectorAll('.currency-btn');
     let selectedCurrency = 'BTC';
 
-    // Комиссия по тирам (из бота)
-    function getWidgetCommission(amount, currency) {
-        if (currency === 'USDT') return 2;
-        if (amount < 10000)  return 27;
-        if (amount < 30000)  return 25;
-        if (amount < 100000) return 23;
-        return 19;
-    }
 
     function updateWidget() {
         const amount = parseFloat(amountInput.value) || 0;
@@ -131,12 +144,12 @@ function initExchangeWidget() {
         }
 
         const rawRate    = rates[selectedCurrency];
-        const commission = getWidgetCommission(amount, selectedCurrency);
+        const commission = getCommissionPercent(amount);
         // Курс с наценкой: rawRate / (1 - commission/100)
         const rateWithMarkup = rawRate / (1 - commission / 100);
         const cryptoAmount   = amount / rateWithMarkup;
 
-        const decimals = selectedCurrency === 'USDT' ? 2 : (selectedCurrency === 'LTC' ? 4 : 6);
+        const decimals = { USDT: 2, LTC: 4, ETH: 5, BTC: 6 }[selectedCurrency] ?? 6;
         const formatted = cryptoAmount.toFixed(decimals).replace(/0+$/, '').replace(/\.$/, '');
 
         if (outputEl)   outputEl.textContent   = formatted + ' ' + selectedCurrency;
@@ -164,12 +177,24 @@ function initExchangeWidget() {
 // ══════════════════════════════════════
 // КАЛЬКУЛЯТОР (страница /rates)
 // ══════════════════════════════════════
-function getCommissionPercent(amount, currency) {
-    if (currency === 'USDT') return 2;
-    if (amount < 10000)  return 27;
-    if (amount < 30000)  return 25;
-    if (amount < 100000) return 23;
-    return 19;
+// Тарифная лестница приходит с сервера (/api/rates → commission_tiers,
+// единый источник core/pricing.py). Локальные значения — только аварийный
+// дубль на случай, если курсы ещё не загрузились; они ОБЯЗАНЫ совпадать с
+// сервером. Раньше здесь жила своя лестница с чужими границами и фиксированными
+// 2% по USDT — витрина обещала одно, а списывалось другое.
+const FALLBACK_TIERS = [
+    { to_rub: 5000,  percent: 27 },
+    { to_rub: 10000, percent: 25 },
+    { to_rub: 20000, percent: 23 },
+    { to_rub: null,  percent: 19 }
+];
+
+function getCommissionPercent(amount) {
+    const tiers = (window.__oeTiers && window.__oeTiers.length) ? window.__oeTiers : FALLBACK_TIERS;
+    for (const t of tiers) {
+        if (t.to_rub === null || t.to_rub === undefined || amount < t.to_rub) return t.percent;
+    }
+    return tiers[tiers.length - 1].percent;
 }
 
 function initCalculator() {
@@ -195,7 +220,7 @@ function initCalculator() {
             small.textContent = 'Курс загружается…';
             return;
         }
-        const commission     = getCommissionPercent(amount, currency);
+        const commission     = getCommissionPercent(amount);
         const rateWithMarkup = rates[currency] / (1 - commission / 100);
         const cryptoAmount   = amount / rateWithMarkup;
         big.textContent   = `≈ ${cryptoAmount.toFixed(8).replace(/0+$/, '').replace(/\.$/, '')} ${currency}`;

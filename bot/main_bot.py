@@ -871,14 +871,10 @@ async def update_user_vip_volume(user_id: int, rub_amount: float):
             pass
 
 def get_commission_percent(amount_rub, user_id: int = None):
-    if amount_rub < 5000:
-        base = 27
-    elif amount_rub < 10000:
-        base = 25
-    elif amount_rub < 20000:
-        base = 23
-    else:
-        base = 19
+    """Комиссия для суммы. Лестница — из core.pricing (единый источник для бота,
+    сайта и виджета); здесь поверх неё только персональные скидки VIP/промо."""
+    from core.pricing import commission_percent as _cp
+    base = _cp(amount_rub)
     if user_id:
         _, disc = get_user_vip(user_id)
         base = max(2, base + disc)
@@ -1033,12 +1029,58 @@ async def notify_admin(order_id, user_id, rub_amount, address, currency):
     if rub_amount >= HIGH_AMOUNT:
         await notify_admins( f"⚠️ Крупная заявка #{order_id} на {rub_amount:,.0f} RUB")
 
-async def notify_workers_paid(order_id, rub_amount, address, currency):
-    """Уведомляет всех работников о заявке, ожидающей ручной отправки."""
+def _direction_open(currency, network=None):
+    """Открыто ли направление (валюта+сеть) прямо сейчас. Fail-closed: при сбое
+    витрины пропускаем только исторические направления в их канонической сети."""
+    try:
+        from services.offerings import is_offered
+        return is_offered(currency, network)
+    except Exception as e:
+        logger.error(f"offerings.is_offered недоступен: {e}")
+        cur = str(currency).upper()
+        return cur in ("BTC", "LTC", "USDT") and not network
+
+
+def _assets_supported(currency):
+    """Поддерживает ли код такую валюту (единый источник core.assets)."""
+    try:
+        from core import assets as _assets
+        return _assets.is_supported_currency(currency)
+    except Exception:
+        return str(currency).upper() in ("BTC", "LTC", "USDT")
+
+
+def _canon_network(currency, network=None):
+    """Каноническая сеть для записи в orders.network. None → сеть по умолчанию
+    валюты, чтобы в БД не оседали разнородные написания ('trc20'/'TRC-20')."""
+    try:
+        from core import assets as _assets
+        return _assets.normalize_network(currency, network)
+    except Exception:
+        return network
+
+
+def _network_label(currency, network=None):
+    """Человекочитаемая сеть для сотрудников/клиента. Единый источник — core.assets.
+    Пустой network у старых заявок = каноническая сеть валюты (USDT→TRC-20)."""
+    try:
+        from core import assets as _assets
+        return _assets.network_label(currency, network) or (network or "—")
+    except Exception:
+        return network or "—"
+
+
+async def notify_workers_paid(order_id, rub_amount, address, currency, network=None):
+    """Уведомляет всех работников о заявке, ожидающей ручной отправки.
+    Сеть выводится ЯВНО: у USDT их две (TRC-20 / ERC-20), и отправка не в ту
+    сеть = безвозвратная потеря средств. Не полагаемся на то, что работник
+    угадает сеть по формату адреса."""
     rate = get_rate_with_markup(currency, rub_amount)
     crypto_amount = round(rub_amount / rate, 8) if rate else 0
+    net_label = _network_label(currency, network)
     text = (f"💳 <b>Заявка #{order_id} — оплачена</b>\n\n"
             f"Сумма: <b>{rub_amount:,.0f} RUB</b> → <code>{crypto_amount} {currency}</code>\n"
+            f"🌐 Сеть: <b>{net_label}</b>\n"
             f"Адрес: <code>{address}</code>\n\n"
             f"Необходима ручная отправка.")
     kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -1087,18 +1129,30 @@ def _fmt_rate_compact(r) -> str:
         return f"{r/1000:.1f}к ₽"
     return f"{r:.0f} ₽"
 
+COIN_ICONS = {"BTC": "₿", "LTC": "Ł", "USDT": "💵", "ETH": "Ξ"}
+
+
+def offered_coins():
+    """Монеты, которые сейчас реально можно купить (есть чем выдать).
+    Единый источник — services.offerings; сбой → исторические направления."""
+    try:
+        from services.offerings import offered_currencies
+        return list(offered_currencies())
+    except Exception as e:
+        logger.error(f"offerings недоступен в боте: {e}")
+        return ["BTC", "LTC", "USDT"]
+
+
 def build_currency_kb(prefix: str, back_cb: str = "back_to_menu") -> InlineKeyboardMarkup:
     """Клавиатура выбора монеты с живым курсом на кнопках. prefix: 'cur_' | 'sell_cur_'."""
-    rates = {c: get_cached_rate(c) or 0 for c in ('BTC', 'LTC', 'USDT')}
-    def lbl(icon, code):
-        rt = _fmt_rate_compact(rates[code])
-        return f"{icon} {code}" + (f"  ·  {rt}" if rt else "")
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=lbl("₿", "BTC"), callback_data=f"{prefix}BTC")],
-        [InlineKeyboardButton(text=lbl("Ł", "LTC"), callback_data=f"{prefix}LTC")],
-        [InlineKeyboardButton(text=lbl("💵", "USDT"), callback_data=f"{prefix}USDT")],
-        [InlineKeyboardButton(text="🔙 Назад в меню", callback_data=back_cb)]
-    ])
+    coins = offered_coins()
+    rates = {c: get_cached_rate(c) or 0 for c in coins}
+    def lbl(code):
+        rt = _fmt_rate_compact(rates.get(code, 0))
+        return f"{COIN_ICONS.get(code, '•')} {code}" + (f"  ·  {rt}" if rt else "")
+    rows = [[InlineKeyboardButton(text=lbl(c), callback_data=f"{prefix}{c}")] for c in coins]
+    rows.append([InlineKeyboardButton(text="🔙 Назад в меню", callback_data=back_cb)])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 def build_tools_kb() -> InlineKeyboardMarkup:
     """Подменю «⚙️ Ещё» — инструменты и информация."""
@@ -2085,16 +2139,66 @@ def check_order_limits(user_id: int) -> str | None:
     except Exception:
         pass
     return None
-@router.callback_query(F.data.startswith("cur_"))
-async def process_currency(callback: CallbackQuery, state: FSMContext):
-    currency = callback.data.split("_")[1]
-    await state.update_data(currency=currency)
-    kb = InlineKeyboardMarkup(inline_keyboard=[
+def _amount_mode_kb(currency):
+    return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="💵 Указать сумму в RUB", callback_data="amtmode_rub")],
         [InlineKeyboardButton(text=f"💱 Указать сумму в {currency}", callback_data="amtmode_crypto")],
         [InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_menu")]
     ])
-    await callback.message.answer("💱 <b>Как указать сумму?</b>\n\nВведите сколько хотите заплатить в рублях, или сколько крипты хотите получить:", reply_markup=kb, parse_mode="HTML")
+
+
+_AMOUNT_MODE_TEXT = ("💱 <b>Как указать сумму?</b>\n\nВведите сколько хотите заплатить "
+                     "в рублях, или сколько крипты хотите получить:")
+
+
+@router.callback_query(F.data.startswith("cur_"))
+async def process_currency(callback: CallbackQuery, state: FSMContext):
+    currency = callback.data.split("_")[1]
+    # callback_data приходит от клиента и может быть подделан (cur_ETH при
+    # закрытом направлении). Витрину проверяем здесь, а не только при отрисовке
+    # кнопок, иначе можно оформить заявку на монету, которую нечем выдать.
+    if currency not in offered_coins():
+        await callback.answer("Это направление сейчас недоступно", show_alert=True)
+        return
+    await state.update_data(currency=currency)
+    # У монеты может быть несколько сетей (USDT: TRC-20 и ERC-20). Сеть должна
+    # быть выбрана ДО ввода адреса: от неё зависит и формат адреса, и куда
+    # реально уйдут монеты.
+    try:
+        from services.offerings import offered_networks
+        nets = offered_networks(currency)
+    except Exception:
+        nets = []
+    if len(nets) > 1:
+        rows = [[InlineKeyboardButton(text=f"🌐 {_network_label(currency, n)}",
+                                      callback_data=f"net_{currency}_{n}")] for n in nets]
+        rows.append([InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_menu")])
+        await callback.message.answer(
+            f"🌐 <b>Выберите сеть для {currency}</b>\n\n"
+            f"Отправим монеты именно в этой сети. Убедитесь, что ваш кошелёк её поддерживает.",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=rows), parse_mode="HTML")
+        await callback.answer()
+        return
+    await state.update_data(network=(nets[0] if nets else None))
+    await callback.message.answer(_AMOUNT_MODE_TEXT, reply_markup=_amount_mode_kb(currency), parse_mode="HTML")
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("net_"))
+async def process_network(callback: CallbackQuery, state: FSMContext):
+    _, currency, network = callback.data.split("_", 2)
+    try:
+        from services.offerings import is_offered
+        ok = is_offered(currency, network)
+    except Exception:
+        ok = False
+    if not ok:
+        await callback.answer("Эта сеть сейчас недоступна", show_alert=True)
+        return
+    await state.update_data(currency=currency, network=network)
+    await callback.message.answer(
+        f"✅ Сеть: <b>{_network_label(currency, network)}</b>\n\n" + _AMOUNT_MODE_TEXT,
+        reply_markup=_amount_mode_kb(currency), parse_mode="HTML")
     await callback.answer()
 
 @router.callback_query(F.data == "amtmode_rub")
@@ -2241,8 +2345,12 @@ async def process_captcha(message: Message, state: FSMContext):
         await state.clear()
         return
     curr = data['currency']
+    net = data.get('network')
     await message.answer(
-        f"📥 <b>Введите {curr}-адрес</b>\n\nКуда отправить монеты после подтверждения оплаты:",
+        f"📥 <b>Введите {curr}-адрес</b>\n\n"
+        f"Сеть: <b>{_network_label(curr, net)}</b> — адрес другой сети не подойдёт, "
+        f"монеты в чужой сети теряются безвозвратно.\n\n"
+        f"Куда отправить монеты после подтверждения оплаты:",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_menu")]]),
         parse_mode="HTML"
     )
@@ -2714,8 +2822,20 @@ async def process_address(message: Message, state: FSMContext):
     address = message.text.strip()
     data = await state.get_data()
     currency = data['currency']
-    if not validate_crypto_address(address, currency):
-        await message.answer("❌ <b>Неверный адрес.</b>\n\nПроверьте, что вставили правильный адрес для выбранной валюты и попробуйте ещё раз.", parse_mode="HTML")
+    network = data.get('network')
+    # Последний рубеж перед записью заявки: направление могло закрыться, пока
+    # клиент вводил адрес, либо состояние пришло из подделанного колбэка.
+    if not _direction_open(currency, network):
+        await message.answer(
+            "⛔ Это направление сейчас недоступно. Выберите другую монету — /start",
+            parse_mode="HTML")
+        await state.clear()
+        return
+    if not validate_crypto_address(address, currency, network):
+        await message.answer(
+            f"❌ <b>Неверный адрес.</b>\n\nОжидается адрес <b>{currency}</b> в сети "
+            f"<b>{_network_label(currency, network)}</b>. Проверьте, что скопировали "
+            f"адрес именно этой сети, и попробуйте ещё раз.", parse_mode="HTML")
         return
     # Антиспам: проверяем лимиты
     limit_err = check_order_limits(message.from_user.id)
@@ -2725,8 +2845,9 @@ async def process_address(message: Message, state: FSMContext):
     amount = data.get("amount")
     with db_conn(10) as conn:
         cursor = conn.cursor()
-        cursor.execute("INSERT INTO orders (user_id, username, currency, rub_amount, crypto_address, status) VALUES (?,?,?,?,?,'pending')",
-                       (message.from_user.id, message.from_user.username, currency, amount, address))
+        cursor.execute("INSERT INTO orders (user_id, username, currency, rub_amount, crypto_address, status, network) VALUES (?,?,?,?,?,'pending',?)",
+                       (message.from_user.id, message.from_user.username, currency, amount, address,
+                        _canon_network(currency, network)))
         conn.commit()
         order_id = cursor.lastrowid
 
@@ -3943,12 +4064,12 @@ async def worker_send_start(callback: CallbackQuery, state: FSMContext):
     order_id = int(callback.data.split("_")[-1])
     with db_conn(5) as conn:
         c = conn.cursor()
-        c.execute("SELECT rub_amount, crypto_address, currency, status FROM orders WHERE order_id=?", (order_id,))
+        c.execute("SELECT rub_amount, crypto_address, currency, status, network FROM orders WHERE order_id=?", (order_id,))
         row = c.fetchone()
     if not row:
         await callback.answer("❌ Заявка не найдена", show_alert=True)
         return
-    rub, addr, curr, status = row
+    rub, addr, curr, status, net = row
     if status == 'sent':
         await callback.answer("✅ Уже отправлено", show_alert=True)
         return
@@ -3960,8 +4081,10 @@ async def worker_send_start(callback: CallbackQuery, state: FSMContext):
     await callback.message.answer(
         f"💸 <b>Заявка #{order_id}</b>\n"
         f"Сумма: {rub:,.0f} RUB → <code>{curr}</code>\n"
+        f"🌐 Сеть: <b>{_network_label(curr, net)}</b>\n"
         f"Адрес: <code>{addr}</code>\n\n"
-        f"Отправьте крипту на адрес выше, затем введите <b>TXID транзакции</b>:",
+        f"Отправьте крипту на адрес выше <b>строго в указанной сети</b>, "
+        f"затем введите <b>TXID транзакции</b>:",
         parse_mode="HTML"
     )
     await callback.answer()
@@ -3979,13 +4102,13 @@ async def worker_enter_tx(message: Message, state: FSMContext):
         return
     with db_conn(10) as conn:
         c = conn.cursor()
-        c.execute("SELECT user_id, rub_amount, currency FROM orders WHERE order_id=?", (order_id,))
+        c.execute("SELECT user_id, rub_amount, currency, network FROM orders WHERE order_id=?", (order_id,))
         row = c.fetchone()
         if not row:
             await message.answer("❌ Заявка не найдена.")
             await state.clear()
             return
-        user_id, rub_amount, currency = row
+        user_id, rub_amount, currency, network = row
         c.execute(
             "UPDATE orders SET status='sent', paid_btc_tx=?, updated_at=CURRENT_TIMESTAMP WHERE order_id=? AND status IN ('paid','pending')",
             (tx, order_id)
@@ -4004,7 +4127,7 @@ async def worker_enter_tx(message: Message, state: FSMContext):
     )
     try:
         await send_sticker_safe(user_id, STICKER_SUCCESS)
-        _exp = explorer_url(currency, tx)
+        _exp = explorer_url(currency, tx, network)
         _kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔍 Транзакция в блокчейне", url=_exp)]]) if _exp else None
         await bot.send_message(
             user_id,
@@ -4476,13 +4599,13 @@ async def cmd_force_payout(message: Message):
 
     with db_conn(5) as conn:
         c = conn.cursor()
-        c.execute("SELECT user_id, rub_amount, currency, status FROM orders WHERE order_id=?", (oid,))
+        c.execute("SELECT user_id, rub_amount, currency, status, network FROM orders WHERE order_id=?", (oid,))
         row = c.fetchone()
 
     if not row:
         await message.answer(f"❌ Заявка #{oid} не найдена.")
         return
-    user_id, rub, currency, status = row
+    user_id, rub, currency, status, network = row
     if status == "sent":
         await message.answer(f"⚠️ Заявка #{oid} уже в статусе «sent».")
         return
@@ -4527,7 +4650,7 @@ async def cmd_force_payout(message: Message):
             text += f"\n\n🔗 TXID: <code>{txid}</code>"
         text += "\n\n<b>Оцените качество обслуживания:</b>"
         _rows = []
-        _exp = explorer_url(currency, txid)
+        _exp = explorer_url(currency, txid, network)
         if _exp:
             _rows.append([InlineKeyboardButton(text="🔍 Транзакция в блокчейне", url=_exp)])
         _rows.append([
@@ -6030,8 +6153,11 @@ async def cmd_setreserve(message: Message):
             await message.answer("Формат: /setreserve BTC 1.5\n(0 — скрыть монету из витрины)")
             return
         coin = parts[1].upper()
-        if coin not in ('BTC', 'LTC', 'USDT'):
-            await message.answer("Допустимые валюты: BTC, LTC, USDT")
+        # RUB — резерв рублёвой стороны (для продажи). USDT_ERC20 — отдельный
+        # ключ: наличие USDT в TRON ничего не говорит про USDT в Ethereum.
+        # Резервы ETH и USDT_ERC20 — рычаги, открывающие эти направления.
+        if coin not in ('RUB', 'USDT_ERC20') and not _assets_supported(coin):
+            await message.answer("Допустимые валюты: BTC, LTC, USDT, ETH, USDT_ERC20, RUB")
             return
         amount = float(parts[2])
         if amount < 0:
@@ -6623,7 +6749,7 @@ async def auto_check_payments():
                 # Берём только свежие 'paid' заявки (не старше 24 часов),
                 # которые ещё не попали в обработку
                 c.execute("""
-                    SELECT o.order_id, o.user_id, o.rub_amount, o.crypto_address, o.currency
+                    SELECT o.order_id, o.user_id, o.rub_amount, o.crypto_address, o.currency, o.network
                     FROM orders o
                     WHERE o.status = 'paid'
                       -- updated_at может быть NULL (вебхук провайдера ставит
@@ -6655,7 +6781,7 @@ async def auto_check_payments():
                 payout_circuit = None
                 logger.error(f"payout_circuit недоступен: {_e}")
 
-            for order_id, user_id, rub_amount, address, currency in paid_orders:
+            for order_id, user_id, rub_amount, address, currency, network in paid_orders:
                 # НЕЗАВИСИМАЯ перепроверка: флаг status='paid' сам по себе НЕ повод
                 # отдавать крипту. Спрашиваем первоисточник (provider.get_status).
                 verdict = (verify_payment_settled(order_id) if verify_payment_settled
@@ -6707,7 +6833,7 @@ async def auto_check_payments():
                             f"Крипта НЕ отправлена авто — проверьте поступление ПЕРЕД ручной отправкой.",
                             parse_mode="HTML")
                     logger.info(f"[payout_guard] order {order_id} → ручной разбор: {verdict.get('detail')}")
-                    await notify_workers_paid(order_id, rub_amount, address, currency)
+                    await notify_workers_paid(order_id, rub_amount, address, currency, network)
                     continue
 
                 # v == 'confirmed' — провайдер live-подтвердил расчёт
@@ -6746,20 +6872,20 @@ async def auto_check_payments():
                         f"Заявка #{order_id} — к работнику.\n"
                         f"Снять: /unfreeze_payouts",
                         parse_mode="HTML")
-                    await notify_workers_paid(order_id, rub_amount, address, currency)
+                    await notify_workers_paid(order_id, rub_amount, address, currency, network)
                     continue
                 if cb.get("action") == "manual":
                     await notify_admins(
                         f"⚠️ <b>Заявка #{order_id}: выплата на ручной разбор</b>\n\n"
                         f"{cb.get('reason','')}",
                         parse_mode="HTML")
-                    await notify_workers_paid(order_id, rub_amount, address, currency)
+                    await notify_workers_paid(order_id, rub_amount, address, currency, network)
                     continue
 
                 if rub_amount <= AUTO_PAYOUT_LIMIT:
                     # Малая заявка — пробуем авто-выплату
                     try:
-                        payout_id = await process_payout_async(order_id, rub_amount, address, currency)
+                        payout_id = await process_payout_async(order_id, rub_amount, address, currency, network)
                         if payout_id:
                             with db_conn(5) as conn:
                                 conn.execute(
@@ -6776,13 +6902,13 @@ async def auto_check_payments():
                             await update_user_vip_volume(user_id, rub_amount)
                         else:
                             # Горячий кошелёк пуст — уходит к работникам
-                            await notify_workers_paid(order_id, rub_amount, address, currency)
+                            await notify_workers_paid(order_id, rub_amount, address, currency, network)
                     except Exception as e:
                         logger.error(f"Ошибка авто-выплаты #{order_id}: {e}")
-                        await notify_workers_paid(order_id, rub_amount, address, currency)
+                        await notify_workers_paid(order_id, rub_amount, address, currency, network)
                 else:
                     # Крупная заявка — всегда вручную
-                    await notify_workers_paid(order_id, rub_amount, address, currency)
+                    await notify_workers_paid(order_id, rub_amount, address, currency, network)
 
         except Exception as e:
             logger.error(f"auto_check_payments error: {e}")
@@ -7010,7 +7136,8 @@ async def cmd_approve(message: Message):
             await message.answer("Неверный код.")
             return
         # Выполняем выплату
-        payout_id = await process_payout_async(order_id, action['amount'], action['address'], action['currency'])
+        payout_id = await process_payout_async(order_id, action['amount'], action['address'],
+                                               action['currency'], action.get('network'))
         if payout_id:
             # Обновляем статус в БД
             with db_conn(10) as conn:
@@ -7065,6 +7192,7 @@ async def handle_webapp(message: Message, state: FSMContext):
         currency = data.get('currency', 'BTC')
         amount = float(data.get('amount', 0))
         address = data.get('address', '').strip()
+        network = (data.get('network') or '').strip() or None
     except:
         await message.answer("❌ Некорректные данные из Mini App.")
         return
@@ -7073,14 +7201,21 @@ async def handle_webapp(message: Message, state: FSMContext):
         await message.answer(f"❌ Сумма должна быть от {MIN_AMOUNT} до {MAX_AMOUNT} RUB.")
         return
 
-    if not validate_crypto_address(address, currency):
+    # Данные приходят из клиента — направление проверяем здесь, как и на всех
+    # остальных путях создания заявки (иначе это дыра в обход витрины).
+    if not _direction_open(currency, network):
+        await message.answer("⛔ Это направление сейчас недоступно.")
+        return
+
+    if not validate_crypto_address(address, currency, network):
         await message.answer(f"❌ Некорректный адрес для {currency}.")
         return
 
     with db_conn(10) as conn:
         cursor = conn.cursor()
-        cursor.execute("INSERT INTO orders (user_id, username, currency, rub_amount, crypto_address, status) VALUES (?,?,?,?,?,'pending')",
-                       (message.from_user.id, message.from_user.username, currency, amount, address))
+        cursor.execute("INSERT INTO orders (user_id, username, currency, rub_amount, crypto_address, status, network) VALUES (?,?,?,?,?,'pending',?)",
+                       (message.from_user.id, message.from_user.username, currency, amount, address,
+                        _canon_network(currency, network)))
         conn.commit()
         order_id = cursor.lastrowid
 
@@ -7250,19 +7385,20 @@ def _unlock_payout_wallets():
         except Exception as e:
             logger.error(f"разлочка secure EVM не удалась: {type(e).__name__}: {e}")
 
-def explorer_url(currency, tx):
+def explorer_url(currency, tx, network=None):
     """Ссылка на транзакцию в блокчейн-эксплорере — или None.
 
     Раньше склеивала что угодно: в paid_btc_tx лежат ссылки Platega (96 заявок)
     и пометки 'manual', и клиент получал кнопку «Транзакция в блокчейне»,
     ведущую в никуда. Сломанное доказательство хуже отсутствия доказательства.
+    network нужен, чтобы USDT-ERC20 вёл в etherscan, а не в tronscan.
     """
     try:
         import sys as _s
         if '/root/relay' not in _s.path:
             _s.path.insert(0, '/root/relay')
         from core.txid import explorer_url as _eu
-        return _eu(currency, tx)
+        return _eu(currency, tx, network)
     except Exception:
         return None  # не смогли проверить — кнопку не показываем
 
