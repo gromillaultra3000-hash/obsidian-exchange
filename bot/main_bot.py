@@ -1068,6 +1068,32 @@ def get_agreed_quote(order_id):
     return (row[0], row[1])
 
 
+def payout_verdict(order_id, rub_amount, currency):
+    """Сколько крипты реально должно уйти по заявке — для ЛЮБОГО пути выплаты.
+
+    Ручная выдача через /worker считала объём по свежему курсу, то есть мимо
+    зафиксированной котировки — ровно та ошибка, которую закрыли в process_payout.
+    А поскольку страж выплат намеренно строгий, к работнику уходит БОЛЬШИНСТВО
+    заявок: без этого обещание «курс действует 15 минут» не выполнялось как раз
+    на самом частом пути.
+
+    Возвращает вердикт core.quote.settle_amount (+ ключ `error` при сбое чтения:
+    человеку показываем предупреждение, а не молча рыночный объём).
+    """
+    rate = get_rate_with_markup(currency, rub_amount)
+    market = round(rub_amount / rate, 8) if rate else 0.0
+    try:
+        _rate, agreed = get_agreed_quote(order_id)
+        from core.quote import settle_amount
+        return settle_amount(agreed, market)
+    except Exception as e:
+        logger.error(f"payout_verdict #{order_id}: {type(e).__name__}: {e}")
+        return {"amount": market, "auto_ok": False, "source": "market",
+                "error": True,
+                "reason": f"договорённость не прочитана ({type(e).__name__}) — "
+                          f"сверьте объём с заявкой вручную"}
+
+
 def _direction_open(currency, network=None):
     """Открыто ли направление (валюта+сеть) прямо сейчас. Fail-closed: при сбое
     витрины пропускаем только исторические направления в их канонической сети."""
@@ -1114,25 +1140,18 @@ async def notify_workers_paid(order_id, rub_amount, address, currency, network=N
     Сеть выводится ЯВНО: у USDT их две (TRC-20 / ERC-20), и отправка не в ту
     сеть = безвозвратная потеря средств. Не полагаемся на то, что работник
     угадает сеть по формату адреса."""
-    rate = get_rate_with_markup(currency, rub_amount)
-    market_amount = round(rub_amount / rate, 8) if rate else 0
     # Работник должен отправить РОВНО обещанное клиенту, а не пересчёт по
-    # текущему курсу — иначе ручная выплата снова разойдётся с обещанием.
-    try:
-        _ar, agreed_amount = get_agreed_quote(order_id)
-    except Exception as e:
-        # Уведомление работнику не должно падать; он увидит рыночный расчёт и
-        # предупреждение, что обещанный объём проверить не удалось.
-        logger.error(f"Заявка #{order_id}: договорённость не прочитана для воркера: {e}")
-        agreed_amount = None
-    crypto_amount = agreed_amount if agreed_amount and agreed_amount > 0 else market_amount
+    # текущему курсу. Решение об объёме — одно на все пути выплаты
+    # (payout_verdict), иначе уведомление и панель /worker разойдутся в цифрах.
+    v = payout_verdict(order_id, rub_amount, currency)
     net_label = _network_label(currency, network)
-    drift = ""
-    if agreed_amount and market_amount and abs(agreed_amount - market_amount) / market_amount > 0.02:
-        drift = (f"\n<i>(по текущему курсу вышло бы {market_amount} — "
-                 f"платим обещанное при создании заявки)</i>")
+    note = ""
+    if not v.get("auto_ok"):
+        note = f"\n⚠️ <i>{v.get('reason','')}</i>"
+    elif v.get("source") == "agreed" and abs(v.get("excess_pct") or 0) > 2:
+        note = "\n<i>(объём зафиксирован при создании заявки — курс с тех пор ушёл)</i>"
     text = (f"💳 <b>Заявка #{order_id} — оплачена</b>\n\n"
-            f"Сумма: <b>{rub_amount:,.0f} RUB</b> → <code>{crypto_amount} {currency}</code>{drift}\n"
+            f"Сумма: <b>{rub_amount:,.0f} RUB</b> → <code>{v['amount']} {currency}</code>{note}\n"
             f"🌐 Сеть: <b>{net_label}</b>\n"
             f"Адрес: <code>{address}</code>\n\n"
             f"Необходима ручная отправка.")
@@ -4121,9 +4140,11 @@ async def cmd_worker_panel(message: Message):
     text = f"📋 <b>Заявки к отправке ({len(rows)}):</b>\n\n"
     buttons = []
     for oid, rub, addr, curr, created in rows:
-        rate = get_rate_with_markup(curr, rub)
-        crypto = round(rub / rate, 8) if rate else 0
-        text += (f"<b>#{oid}</b> · {rub:,.0f} RUB → <code>{crypto} {curr}</code>\n"
+        # Объём — из зафиксированной котировки, а не пересчёт по свежему курсу:
+        # работник должен отправить ровно то, что видел клиент.
+        v = payout_verdict(oid, rub, curr)
+        mark = "" if v.get("auto_ok") else " ⚠️"
+        text += (f"<b>#{oid}</b>{mark} · {rub:,.0f} RUB → <code>{v['amount']} {curr}</code>\n"
                  f"Адрес: <code>{addr}</code>\n"
                  f"Время: {created[:16]}\n\n")
         buttons.append([InlineKeyboardButton(
@@ -4151,15 +4172,20 @@ async def worker_send_start(callback: CallbackQuery, state: FSMContext):
     if status not in ('paid', 'pending'):
         await callback.answer(f"Статус: {status}", show_alert=True)
         return
+    v = payout_verdict(order_id, rub, curr)
+    warn = "" if v.get("auto_ok") else f"\n⚠️ <b>{v.get('reason','')}</b>\n"
     await state.set_state(WorkerState.waiting_tx)
     await state.update_data(worker_order_id=order_id)
     await callback.message.answer(
         f"💸 <b>Заявка #{order_id}</b>\n"
-        f"Сумма: {rub:,.0f} RUB → <code>{curr}</code>\n"
+        f"Сумма: {rub:,.0f} RUB\n"
+        f"К отправке: <code>{v['amount']} {curr}</code>"
+        f"{' (обещано клиенту)' if v.get('source') == 'agreed' else ''}\n"
         f"🌐 Сеть: <b>{_network_label(curr, net)}</b>\n"
-        f"Адрес: <code>{addr}</code>\n\n"
-        f"Отправьте крипту на адрес выше <b>строго в указанной сети</b>, "
-        f"затем введите <b>TXID транзакции</b>:",
+        f"Адрес: <code>{addr}</code>\n"
+        f"{warn}\n"
+        f"Отправьте <b>ровно указанный объём</b> на адрес выше "
+        f"<b>строго в указанной сети</b>, затем введите <b>TXID транзакции</b>:",
         parse_mode="HTML"
     )
     await callback.answer()

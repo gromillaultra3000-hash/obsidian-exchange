@@ -187,6 +187,33 @@ def check_every_provider_has_receipt_verdict():
              f"вручную, а клиенту не скажут ложное «принято».")
 
 
+def check_manual_payout_uses_agreed_quote():
+    """Ручные пути выплаты обязаны брать объём из зафиксированной котировки.
+
+    27.07.2026: process_payout научили платить обещанное, а панель работника
+    (/worker) продолжала считать объём по СВЕЖЕМУ курсу. Из-за строгого стража
+    к работнику уходит большинство заявок — то есть обещание «курс действует
+    15 минут» не выполнялось как раз на самом частом пути. Единое решение —
+    payout_verdict(); прямой пересчёт rub/get_rate_with_markup в местах выдачи
+    означает, что путь снова разошёлся.
+    """
+    src = _read(os.path.join(ROOT, "bot", "main_bot.py"))
+    if not src or "def payout_verdict" not in src:
+        return
+    for fn_name in ("cmd_worker_panel", "worker_send_start", "notify_workers_paid"):
+        m = re.search(r"(?:async )?def " + fn_name + r"\(.*?\n(?=\n(?:async )?def |\n@)", src, re.S)
+        if not m:
+            continue
+        body = m.group(0)
+        if "payout_verdict" in body:
+            continue
+        if re.search(r"get_rate_with_markup|/\s*rate", body):
+            fail("выплаты",
+                 f"{fn_name}: объём крипты считается по текущему курсу вместо "
+                 f"зафиксированной котировки. Использовать payout_verdict(), иначе "
+                 f"клиент получит не то, что ему обещали при создании заявки.")
+
+
 def check_alert_throttle_is_durable():
     """Троттлинг алертов не должен жить в памяти процесса.
 
@@ -236,7 +263,8 @@ def main():
     for fn in (check_no_diverging_duplicates, check_config_keys_are_read,
                check_no_fail_open_in_guards, check_session_expiry_uses_expires_at,
                check_every_provider_has_receipt_verdict,
-               check_alert_throttle_is_durable, check_deploy_restarts_only_on_change):
+               check_alert_throttle_is_durable, check_deploy_restarts_only_on_change,
+               check_manual_payout_uses_agreed_quote):
         try:
             fn()
         except Exception as e:
