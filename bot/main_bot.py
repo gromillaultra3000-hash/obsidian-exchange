@@ -780,6 +780,10 @@ def init_db():
         c.execute("CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_orders_created ON orders(created_at)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_swap_token ON swap_sessions(session_token)")
+        # Мультичейн (Фаза C): сеть выплаты на заявке. NULL = каноническая сеть валюты
+        # (BTC/LTC mainnet, USDT→TRC20). Идемпотентно: колонка добавляется один раз.
+        if 'network' not in [r[1] for r in c.execute("PRAGMA table_info(orders)")]:
+            c.execute("ALTER TABLE orders ADD COLUMN network TEXT")
         c.execute('''CREATE TABLE IF NOT EXISTS bot_users (
             user_id INTEGER PRIMARY KEY,
             username TEXT,
@@ -946,14 +950,15 @@ def get_rate_with_markup(coin, amount=None):
     return get_cached_rate(coin) / (1 - commission / 100)
 
 # ---------- ВАЛИДАЦИЯ АДРЕСОВ ----------
-def validate_crypto_address(addr, currency):
-    if currency == 'BTC':
-        fmt_ok = any(re.match(p, addr) for p in [r'^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$', r'^bc1[ac-hj-np-z02-9]{39,59}$'])
-    elif currency == 'LTC':
-        fmt_ok = any(re.match(p, addr) for p in [r'^[LM][1-9A-HJ-NP-Za-km-z]{26,33}$', r'^ltc1[ac-hj-np-z02-9]{39,59}$'])
-    elif currency == 'USDT':
-        fmt_ok = re.match(r'^T[A-Za-z1-9]{33}$', addr) is not None
-    else:
+def validate_crypto_address(addr, currency, network=None):
+    """Валидация адреса под валюту И (опционально) сеть — единый источник core.assets
+    (Фаза C, мультичейн). network=None → сеть по умолчанию валюты (USDT→TRC20),
+    поведение для существующих вызовов не меняется."""
+    try:
+        from core import assets as _assets
+        fmt_ok = _assets.validate_address(currency, addr, network)
+    except Exception:
+        logger.exception("core.assets недоступен в validate_crypto_address — фейл-клоуз")
         return False
     if not fmt_ok:
         return False
@@ -7156,17 +7161,26 @@ async def cmd_order(message: Message):
         return
     with db_conn(10) as conn:
         c = conn.cursor()
-        c.execute("SELECT * FROM orders WHERE order_id=?", (order_id,))
+        # Явный список колонок, а не SELECT * — таблица orders со временем
+        # обросла новыми полями (web_user_id, receipt_deadline, network, ...),
+        # позиционная распаковка "*" тихо падает ValueError при каждой миграции.
+        c.execute(
+            "SELECT order_id, user_id, username, currency, rub_amount, crypto_address, "
+            "status, created_at, paid_btc_tx, updated_at, network FROM orders WHERE order_id=?",
+            (order_id,),
+        )
         row = c.fetchone()
     if not row:
         await message.answer("Заказ не найден.")
         return
-    (oid, uid, username, currency, rub_amount, crypto_address, status, created, tx, updated) = row
+    (oid, uid, username, currency, rub_amount, crypto_address, status, created, tx, updated, network) = row
+    net_line = f"🌐 Сеть: {network}\n" if network else ""
     text = (
         f"🆔 Заказ #{oid}\n"
         f"👤 Пользователь: {uid} (@{username})\n"
         f"💰 Сумма: {rub_amount} RUB\n"
         f"🪙 Валюта: {currency}\n"
+        f"{net_line}"
         f"📥 Адрес: {crypto_address}\n"
         f"📌 Статус: {status}\n"
         f"🔗 TX/ID выплаты: {tx or 'нет'}\n"

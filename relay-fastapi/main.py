@@ -68,8 +68,27 @@ async def _session_cleanup_loop():
             logger.warning(f"Session cleanup error: {e}")
         await asyncio.sleep(6 * 3600)
 
+def _ensure_orders_network_column():
+    """Идемпотентная миграция orders.network (Фаза C, мультичейн).
+    Дублирует ту же проверку из bot/main_bot.py::init_db — relay-fastapi
+    и бот перезапускаются независимо (отдельные systemd-юниты), и если
+    relay-fastapi стартует раньше бота (или после восстановления БД без
+    колонки), запись заявки упадёт с 'no column named network'. Обе
+    точки создания заявки должны сами гарантировать себе колонку."""
+    # Фейл-клоуз: если миграция не применилась, создание заявки (INSERT ... network)
+    # будет падать на КАЖДОМ запросе с невнятным 'no column named network'. Лучше
+    # уронить старт сейчас (systemd Restart=always перезапустит и это будет видно
+    # в статусе юнита), чем тихо деградировать в рантайме.
+    with db_conn(5) as conn:
+        cols = [r[1] for r in conn.execute("PRAGMA table_info(orders)").fetchall()]
+        if "network" not in cols:
+            conn.execute("ALTER TABLE orders ADD COLUMN network TEXT")
+            conn.commit()
+            logger.info("Миграция: добавлена колонка orders.network")
+
 @asynccontextmanager
 async def lifespan(app):
+    _ensure_orders_network_column()
     asyncio.create_task(_session_cleanup_loop())
     asyncio.create_task(cleanup_expired_orders())
     asyncio.create_task(health_check_task())
@@ -369,6 +388,14 @@ async def dashboard_page(request: Request):
 
 # --- Личный кабинет: обмен RUB → крипта ---
 from utils import exchange_calc
+from core import assets as _assets  # единый источник валют/сетей (Фаза C, мультичейн)
+
+def _allowed_currencies():
+    """Допустимые валюты создания заявки. ETH виден только при MULTICHAIN_UI_ENABLED —
+    бэкенд (курсы/валидация/сеть) готов заранее, поверхности включаются флагом."""
+    if _assets.multichain_ui_enabled():
+        return tuple(_assets.CURRENCY_NETWORKS.keys())
+    return ("BTC", "LTC", "USDT")
 
 @app.get("/dashboard/exchange", response_class=HTMLResponse)
 async def dashboard_exchange_page(request: Request):
@@ -391,6 +418,7 @@ async def dashboard_exchange_submit(
     amount: float = Form(...),
     address: str = Form(...),
     payment_method: str = Form("sbp"),
+    network: str = Form(""),
 ):
     web_user = auth.get_web_user(request)
     if not web_user:
@@ -400,12 +428,15 @@ async def dashboard_exchange_submit(
 
     currency = currency.upper().strip()
     address = address.strip()
+    net = _assets.normalize_network(currency, network)
     error = None
-    if currency not in ("BTC", "LTC", "USDT"):
+    if currency not in _allowed_currencies():
         error = "Неподдерживаемая валюта."
     elif amount < MIN_AMOUNT or amount > MAX_AMOUNT:
         error = f"Сумма должна быть от {MIN_AMOUNT:.0f} до {MAX_AMOUNT:.0f} RUB."
-    elif not exchange_calc.validate_crypto_address(address, currency):
+    elif net is None:
+        error = "Некорректная сеть для выбранной валюты."
+    elif not exchange_calc.validate_crypto_address(address, currency, net):
         error = "Некорректный адрес для выбранной валюты."
 
     if error:
@@ -418,8 +449,8 @@ async def dashboard_exchange_submit(
     with db_conn(5) as conn:
         c = conn.cursor()
         c.execute(
-            "INSERT INTO orders (user_id, username, currency, rub_amount, crypto_address, status, web_user_id) VALUES (?,?,?,?,?,'pending',?)",
-            (user_id, web_user['email'], currency, amount, address, web_user['id']),
+            "INSERT INTO orders (user_id, username, currency, rub_amount, crypto_address, status, web_user_id, network) VALUES (?,?,?,?,?,'pending',?,?)",
+            (user_id, web_user['email'], currency, amount, address, web_user['id'], net),
         )
         conn.commit()
         order_id = c.lastrowid
@@ -583,6 +614,7 @@ async def api_create_order(request: Request):
 
     currency = str(body.get('currency', '')).upper().strip()
     address = str(body.get('address', '')).strip()
+    network = str(body.get('network') or '').strip()
     pay_method = body.get('pay_method') or body.get('payment_method') or 'sbp'
     pay_method = pay_method if pay_method in ('sbp', 'card') else 'sbp'
     try:
@@ -590,11 +622,14 @@ async def api_create_order(request: Request):
     except (TypeError, ValueError):
         raise HTTPException(status_code=400, detail="Некорректная сумма.")
 
-    if currency not in ('BTC', 'LTC', 'USDT'):
+    if currency not in _allowed_currencies():
         raise HTTPException(status_code=400, detail="Неподдерживаемая валюта.")
     if amount < MIN_AMOUNT or amount > MAX_AMOUNT:
         raise HTTPException(status_code=400, detail=f"Сумма должна быть от {MIN_AMOUNT:.0f} до {MAX_AMOUNT:.0f} ₽.")
-    if not exchange_calc.validate_crypto_address(address, currency):
+    net = _assets.normalize_network(currency, network)
+    if net is None:
+        raise HTTPException(status_code=400, detail="Некорректная сеть для выбранной валюты.")
+    if not exchange_calc.validate_crypto_address(address, currency, net):
         raise HTTPException(status_code=400, detail="Некорректный адрес кошелька.")
 
     tg_id = int(user['id'])
@@ -608,9 +643,10 @@ async def api_create_order(request: Request):
             SELECT o.order_id, ps.session_token FROM orders o
             LEFT JOIN payment_sessions ps ON ps.order_id=o.order_id AND ps.status NOT IN ('failed','expired')
             WHERE o.user_id=? AND o.currency=? AND o.rub_amount=? AND o.crypto_address=?
+              AND COALESCE(o.network, ?)=?
               AND o.status='pending' AND o.created_at > datetime('now','-90 seconds')
             ORDER BY o.created_at DESC LIMIT 1
-        """, (tg_id, currency, amount, address))
+        """, (tg_id, currency, amount, address, _assets.default_network(currency), net))
         dup = c.fetchone()
     if dup:
         dup_url = f"{PUBLIC_RELAY}/pay/{dup[1]}" if dup[1] else f"{PUBLIC_RELAY}/pay/{dup[0]}"
@@ -623,8 +659,8 @@ async def api_create_order(request: Request):
     with db_conn(5) as conn:
         c = conn.cursor()
         c.execute(
-            "INSERT INTO orders (user_id, username, currency, rub_amount, crypto_address, status) VALUES (?,?,?,?,?,'pending')",
-            (tg_id, username, currency, amount, address),
+            "INSERT INTO orders (user_id, username, currency, rub_amount, crypto_address, status, network) VALUES (?,?,?,?,?,'pending',?)",
+            (tg_id, username, currency, amount, address, net),
         )
         conn.commit()
         order_id = c.lastrowid

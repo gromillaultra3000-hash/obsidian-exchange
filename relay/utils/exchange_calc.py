@@ -6,8 +6,13 @@ get_commission_percent, validate_crypto_address) — скопирована в �
 """
 import os
 import re
+import sys
 import time
 import requests
+
+if "/root/relay" not in sys.path:
+    sys.path.insert(0, "/root/relay")
+from core import assets as _assets  # единый источник правды по валютам/сетям/адресам
 
 SWAP_COINS = ["BTC", "LTC", "USDT"]
 SWAP_NETWORKS = {"BTC": "Mainnet", "LTC": "Mainnet", "USDT": "TRC20"}
@@ -16,10 +21,12 @@ _rate_cache = {
     "BTC": {"rate": 0, "ts": 0},
     "LTC": {"rate": 0, "ts": 0},
     "USDT": {"rate": 0, "ts": 0},
+    "ETH": {"rate": 0, "ts": 0},
 }
 
-_COINGECKO_IDS = {"BTC": "bitcoin", "LTC": "litecoin", "USDT": "tether"}
-_FALLBACK_RATES = {"BTC": 6500000, "LTC": 4000, "USDT": 85}
+_COINGECKO_IDS = {"BTC": "bitcoin", "LTC": "litecoin", "USDT": "tether", "ETH": "ethereum"}
+_FALLBACK_RATES = {"BTC": 6500000, "LTC": 4000, "USDT": 85, "ETH": 250000}
+_BINANCE_USDT = {"BTC": "BTCUSDT", "LTC": "LTCUSDT", "ETH": "ETHUSDT"}
 
 
 def get_commission_percent(amount_rub):
@@ -42,15 +49,12 @@ def get_cached_rate(coin):
         rate = r.json()[cg_id]["rub"]
     except Exception:
         try:
-            if coin == "BTC":
-                r1 = requests.get("https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT", timeout=8)
+            sym = _BINANCE_USDT.get(coin)
+            if sym:  # BTC/LTC/ETH — цена в USDT × курс USDT/RUB
+                r1 = requests.get(f"https://api.binance.com/api/v3/ticker/price?symbol={sym}", timeout=8)
                 r2 = requests.get("https://api.binance.com/api/v3/ticker/price?symbol=USDTRUB", timeout=8)
                 rate = float(r1.json()["price"]) * float(r2.json()["price"])
-            elif coin == "LTC":
-                r1 = requests.get("https://api.binance.com/api/v3/ticker/price?symbol=LTCUSDT", timeout=8)
-                r2 = requests.get("https://api.binance.com/api/v3/ticker/price?symbol=USDTRUB", timeout=8)
-                rate = float(r1.json()["price"]) * float(r2.json()["price"])
-            else:
+            else:  # USDT
                 r = requests.get("https://api.binance.com/api/v3/ticker/price?symbol=USDTRUB", timeout=8)
                 rate = float(r.json()["price"])
         except Exception:
@@ -85,11 +89,7 @@ def get_sell_rate(coin):
     return round(get_cached_rate(coin) * (1 - commission / 100), 2)
 
 
-def validate_crypto_address(addr, currency):
-    if currency == "BTC":
-        return any(re.match(p, addr) for p in [r'^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$', r'^bc1[ac-hj-np-z02-9]{39,59}$'])
-    elif currency == "LTC":
-        return any(re.match(p, addr) for p in [r'^[LM][1-9A-HJ-NP-Za-km-z]{26,33}$', r'^ltc1[ac-hj-np-z02-9]{39,59}$'])
-    elif currency == "USDT":
-        return re.match(r'^T[A-Za-z1-9]{33}$', addr) is not None
-    return False
+def validate_crypto_address(addr, currency, network=None):
+    """Валидация адреса под валюту И сеть (единый источник — core.assets).
+    network=None → сеть по умолчанию валюты (USDT→TRC20) для обратной совместимости."""
+    return _assets.validate_address(currency, addr, network)
