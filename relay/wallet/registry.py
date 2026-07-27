@@ -102,6 +102,29 @@ def _evm() -> Dict[str, Callable]:
     return {"chain": "EVM", "label": "Ethereum (ETH · USDT-ERC20)", "status": status, "balance": balance}
 
 
+def _xrp() -> Dict[str, Callable]:
+    """XRP Ledger: XRP (актив и комиссия). Отдельно показываем доступный остаток —
+    на XRPL часть баланса заморожена резервом счёта и отправить её нельзя."""
+    def status() -> Dict[str, Any]:
+        from wallet import xrp_wallet as xw
+        st = xw.status()
+        return {"configured": bool(st.get("configured")),
+                "unlocked": bool(st.get("unlocked")),
+                "address": st.get("address") or "",
+                "network": st.get("network") or "xrpl-mainnet"}
+
+    def balance() -> Dict[str, Any]:
+        from wallet import xrp_wallet as xw
+        total = xw.get_balance()
+        avail = xw.spendable()
+        return {"assets": [{"symbol": "XRP", "balance": total, "status": "OK"},
+                           {"symbol": "XRP (доступно)", "balance": avail, "status": "OK"}],
+                "gasAsset": {"symbol": "XRP", "balance": total},
+                "error": None}
+
+    return {"chain": "XRP", "label": "XRP Ledger", "status": status, "balance": balance}
+
+
 # Порядок = порядок вывода в админ-поверхностях. Будущие сети — сюда:
 #   _ton(), _monero()  (когда появятся модули wallet/ton_wallet.py и т.д.)
 CHAINS: List[Callable[[], Dict[str, Callable]]] = [
@@ -109,6 +132,7 @@ CHAINS: List[Callable[[], Dict[str, Callable]]] = [
     lambda: _btc_like("LTC", "Litecoin"),
     _tron,
     _evm,
+    _xrp,
 ]
 
 

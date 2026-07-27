@@ -28,3 +28,5 @@ jobs:
         run: python3 tests/test_quote.py
       - name: Контрольные суммы адресов (BIP-350 векторы + EIP-55)
         run: python3 tests/test_address.py
+      - name: Реестр кошельков
+        run: python3 tests/test_wallet_registry.py

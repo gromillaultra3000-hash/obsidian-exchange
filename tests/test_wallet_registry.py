@@ -76,8 +76,8 @@ finally:
 
 # реальные адаптеры зарегистрированы и в правильном порядке
 names = R.chains()
-check("реальные сети зарегистрированы: BTC/LTC/TRON/EVM",
-      names == ["BTC", "LTC", "TRON", "EVM"])
+check("реальные сети зарегистрированы: BTC/LTC/TRON/EVM/XRP",
+      names == ["BTC", "LTC", "TRON", "EVM", "XRP"])
 
 if failures:
     print(f"\n{len(failures)} провал(ов): {failures}")
