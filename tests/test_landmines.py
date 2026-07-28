@@ -455,6 +455,34 @@ def check_every_currency_has_a_price_source():
                  f"чужую цену или уронит расчёт у живого клиента.")
 
 
+# ─────────────────────────────────────────────────────────────────────
+# 13. Поверхность, не собирающая тег, не должна предлагать валюту с тегом
+# ─────────────────────────────────────────────────────────────────────
+# Витрина (services.offerings) общая на бот, сайт и Mini App. Резерв, заданный
+# ради бота, открывает валюту ВЕЗДЕ. Бот умеет спросить destination tag; форма
+# кабинета и Mini App принимают одно поле адреса. Без защиты клиент оформил бы
+# на сайте перевод на биржевой classic-адрес без тега: заявка создаётся, оплата
+# проходит, перевод попадает на общий счёт биржи и не зачисляется никому.
+# Нашёл это внешний ревью (codex) — свой критик пропустил.
+def check_tagless_surfaces_refuse_tagged_currencies():
+    src = _read(os.path.join(ROOT, "relay-fastapi", "main.py"))
+    if not src:
+        return
+    # Комментарии выкидываем: первая версия этой проверки засчитала за «тег
+    # собирается» СЛОВО canonical_address из поясняющего комментария рядом с
+    # фильтром. Проверка, которую обманывает комментарий, не проверка.
+    code = "\n".join(re.sub(r"#.*$", "", ln) for ln in src.splitlines())
+    collects_tag = "canonical_address(" in code
+    filters_tagged = "_needs_tag_surface(" in code
+    if not collects_tag and not filters_tagged:
+        fail("тег на поверхности",
+             "relay-fastapi/main.py принимает заявки, но не собирает destination "
+             "tag (нет вызова assets.canonical_address) и не отсекает валюты с "
+             "тегом. Витрина общая: резерв, заданный ради бота, откроет такую "
+             "валюту и здесь, и клиент создаст заявку с адресом без тега — "
+             "перевод уйдёт на общий счёт биржи безвозвратно.")
+
+
 def main():
     for fn in (check_no_diverging_duplicates, check_config_keys_are_read,
                check_no_fail_open_in_guards, check_session_expiry_uses_expires_at,
@@ -463,7 +491,8 @@ def main():
                check_manual_payout_uses_agreed_quote, check_no_dead_state_machines,
                check_wallet_currencies_are_offered,
                check_tests_import_their_own_tree,
-               check_every_currency_has_a_price_source):
+               check_every_currency_has_a_price_source,
+               check_tagless_surfaces_refuse_tagged_currencies):
         try:
             fn()
         except Exception as e:

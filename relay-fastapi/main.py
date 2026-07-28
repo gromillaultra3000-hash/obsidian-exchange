@@ -420,15 +420,35 @@ def _allowed_currencies():
     Иначе клиент оплатил бы заявку, которую нечем закрыть."""
     try:
         from services.offerings import offered_currencies
-        return offered_currencies()
+        return tuple(c for c in offered_currencies() if not _needs_tag_surface(c))
     except Exception as e:
         logger.error(f"offerings недоступен, откат к базовым валютам: {e}")
         return ("BTC", "LTC", "USDT")
 
 
+# Форма кабинета и Mini App принимают ОДНО поле адреса и тег не спрашивают.
+# Витрина же общая на все поверхности: резерв, заданный ради бота, открыл бы
+# валюту и здесь. Клиент ввёл бы classic-адрес биржи без тега, заявка бы
+# создалась, оплата прошла — и перевод попал бы на общий счёт биржи, где его
+# никто не зачислит и не вернёт.
+#
+# Поэтому валюта с обязательным тегом здесь не предлагается и заявка на неё не
+# принимается. Снимать этот фильтр можно ТОЛЬКО одновременно с появлением поля
+# тега на обеих поверхностях и вызова assets.canonical_address в обоих
+# обработчиках создания заявки.
+def _needs_tag_surface(currency) -> bool:
+    """Валюта требует тега, которого эти поверхности собрать не умеют."""
+    try:
+        return _assets.tag_name(currency) is not None
+    except Exception:
+        return True          # фейл-клоуз: не смогли выяснить — не предлагаем
+
+
 def _is_offered(currency, network):
     """Принимаем ли заявку на (валюту, сеть) прямо сейчас. Fail-closed: сбой
     сервиса витрины → разрешаем только исторические направления в их сети."""
+    if _needs_tag_surface(currency):
+        return False
     try:
         from services.offerings import is_offered
         return is_offered(currency, network)
