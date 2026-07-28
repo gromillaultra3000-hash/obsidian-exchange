@@ -712,6 +712,7 @@ class Exchange(StatesGroup):
     crypto_amount = State()
     captcha = State()
     address = State()
+    dest_tag = State()       # только у валют с тегом (XRP), если он не в адресе
     payment_method = State()
     receipt_upload = State()
     verification_upload = State()
@@ -1140,6 +1141,53 @@ def _network_label(currency, network=None):
         return _assets.network_label(currency, network) or (network or "—")
     except Exception:
         return network or "—"
+
+
+def _tag_name(currency):
+    """Как называется тег у валюты ('destination tag') или None. Сбой → None:
+    лишний шаг ввода хуже, чем его отсутствие у валюты, где тега и не бывает."""
+    try:
+        from core import assets as _assets
+        return _assets.tag_name(currency)
+    except Exception:
+        return None
+
+
+def _address_carries_tag(currency, address):
+    """Тег уже зашит в сам адрес (X-адрес XRPL) — спрашивать нечего."""
+    try:
+        from core import assets as _assets
+        return _assets.address_carries_tag(currency, address)
+    except Exception:
+        return False
+
+
+def _canonical_address(currency, address, tag=None):
+    """Адрес в форме для ХРАНЕНИЯ (у XRP тег склеен внутрь) или None.
+    Фейл-клоуз: сбой единого источника не должен записать заявку с адресом,
+    который никто не проверил."""
+    try:
+        from core import assets as _assets
+        return _assets.canonical_address(currency, address, tag)
+    except Exception:
+        logger.exception("core.assets недоступен в _canonical_address — фейл-клоуз")
+        return None
+
+
+def _display_destination(currency, address):
+    """Как показать адрес человеку: X-адрес разворачиваем в «адрес + тег»,
+    иначе сотрудник и клиент видят строку, которой нет ни в одном кошельке."""
+    try:
+        from core import assets as _assets
+        from core import address as _addr
+        if not _assets.tag_name(currency):
+            return address
+        classic, tag = _addr.parse_xrp_destination(address)
+        if classic is None:
+            return address
+        return classic if tag is None else f"{classic} (тег {tag})"
+    except Exception:
+        return address
 
 
 async def notify_workers_paid(order_id, rub_amount, address, currency, network=None):
@@ -2927,8 +2975,113 @@ async def process_address(message: Message, state: FSMContext):
             f"<b>Скопируйте адрес из кошелька целиком</b>, не набирайте вручную, "
             f"и пришлите ещё раз.", parse_mode="HTML")
         return
+
+    # Валюта с тегом (XRP): если тег не зашит в сам адрес, спрашиваем отдельным
+    # шагом. Пропустить его нельзя — перевод на биржу без тега подтверждается
+    # сетью, но получателю не зачисляется, и вернуть его нечем.
+    tag_label = _tag_name(currency)
+    if tag_label and not _address_carries_tag(currency, address):
+        await state.update_data(pending_address=address)
+        await state.set_state(Exchange.dest_tag)
+        await message.answer(
+            f"✅ Адрес принят.\n\n"
+            f"🏷 Теперь пришлите <b>{tag_label}</b> — число, которое ваш кошелёк или "
+            f"биржа показывают рядом с адресом.\n\n"
+            f"<blockquote>Если получатель — <b>биржа</b> (Binance, Bybit, OKX и т.п.), "
+            f"тег обязателен: без него {currency} попадёт на общий счёт биржи и "
+            f"вам не зачислится.\n"
+            f"Если это <b>ваш личный кошелёк</b>, тега обычно нет — нажмите кнопку "
+            f"ниже.</blockquote>",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(text="Тега нет — это мой кошелёк",
+                                     callback_data="dest_tag_none")]]),
+            parse_mode="HTML")
+        return
+
+    await _finalize_order(message, state, currency, network, address)
+
+
+@router.message(Exchange.dest_tag)
+async def process_dest_tag(message: Message, state: FSMContext):
+    """Ввод destination tag отдельным шагом."""
+    data = await state.get_data()
+    currency = data.get("currency")
+    address = data.get("pending_address")
+    tag_label = _tag_name(currency) or "тег"
+    raw = (message.text or "").strip()
+
+    if not address:
+        await message.answer("⛔ Сессия истекла. Начните заново — /start")
+        await state.clear()
+        return
+
+    # Только целое число. «12 345», «tag: 42» и прочее НЕ вычищаем догадками:
+    # неверно распознанный тег отправит деньги на чужой счёт биржи.
+    if not raw.isdigit():
+        await message.answer(
+            f"❌ <b>{tag_label.capitalize()} должен быть целым числом</b> "
+            f"(например <code>12345</code>), без пробелов и знаков.\n\n"
+            f"Если тега нет — нажмите кнопку под предыдущим сообщением.",
+            parse_mode="HTML")
+        return
+
+    canonical = _canonical_address(currency, address, int(raw))
+    if canonical is None:
+        await message.answer(
+            f"❌ <b>{tag_label.capitalize()} не принят.</b> Допустимы значения "
+            f"от 0 до 4294967295.\n\nПроверьте значение в кошельке и пришлите ещё раз.",
+            parse_mode="HTML")
+        return
+
+    await state.update_data(pending_address=None)
+    await _finalize_order(message, state, currency, data.get("network"), canonical,
+                          shown_tag=int(raw))
+
+
+@router.callback_query(F.data == "dest_tag_none", Exchange.dest_tag)
+async def process_dest_tag_none(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    address = data.get("pending_address")
+    if not address:
+        await callback.answer("Сессия истекла", show_alert=True)
+        await state.clear()
+        return
+    await callback.answer()
+    try:
+        await callback.message.edit_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+    await state.update_data(pending_address=None)
+    # Адрес без тега — хранится как есть; канонизация подтверждает форму.
+    canonical = _canonical_address(data.get("currency"), address, None)
+    if canonical is None:
+        await callback.message.answer("⛔ Адрес не прошёл проверку. Начните заново — /start")
+        await state.clear()
+        return
+    await _finalize_order(callback.message, state, data.get("currency"),
+                          data.get("network"), canonical,
+                          user_id=callback.from_user.id,
+                          username=callback.from_user.username)
+
+
+async def _finalize_order(message: Message, state: FSMContext, currency, network, address,
+                          shown_tag=None,
+                          user_id=None, username=None):
+    """Создание заявки после того, как адрес назначения окончательно собран.
+
+    Вынесено из process_address, потому что путь с тегом приходит сюда вторым
+    шагом. `address` — уже каноническая строка для хранения (у XRP тег зашит
+    внутрь), `shown_*` — то, что клиент вводил, для показа в сообщении.
+
+    user_id/username передаются явно: при заходе из колбэка message принадлежит
+    БОТУ, и message.from_user был бы самим ботом (эта ошибка уже случалась в
+    меню — заявки уходили на user_id бота).
+    """
+    data = await state.get_data()
+    uid = user_id if user_id is not None else message.from_user.id
+    uname = username if user_id is not None else message.from_user.username
     # Антиспам: проверяем лимиты
-    limit_err = check_order_limits(message.from_user.id)
+    limit_err = check_order_limits(uid)
     if limit_err:
         await message.answer(f"⛔ {limit_err}")
         return
@@ -2937,11 +3090,11 @@ async def process_address(message: Message, state: FSMContext):
     # на мгновение существовать без зафиксированной договорённости, иначе сбой
     # между INSERT и UPDATE оставил бы её «легаси» — и выплата пересчиталась бы
     # по свежему курсу, как раньше.
-    _lock = get_active_rate_lock(message.from_user.id, currency)
+    _lock = get_active_rate_lock(uid, currency)
     if _lock:
         # Зафиксированный курс — тоже рыночный: наценку применяем той же
         # формулой, что и везде (было умножение — давало объём выше рынка).
-        rate = net_rate_for(_lock["rate"], get_commission_percent(amount, message.from_user.id))
+        rate = net_rate_for(_lock["rate"], get_commission_percent(amount, uid))
     else:
         rate = get_rate_with_markup(currency, amount)
     crypto_amount = round(amount / rate, 8) if rate else 0
@@ -2951,7 +3104,7 @@ async def process_address(message: Message, state: FSMContext):
             "INSERT INTO orders (user_id, username, currency, rub_amount, crypto_address, status, "
             "network, agreed_rate, agreed_crypto_amount, agreed_at) "
             "VALUES (?,?,?,?,?,'pending',?,?,?,CURRENT_TIMESTAMP)",
-            (message.from_user.id, message.from_user.username, currency, amount, address,
+            (uid, uname, currency, amount, address,
              _canon_network(currency, network), float(rate or 0), float(crypto_amount or 0)))
         order_id = cursor.lastrowid
         if _lock:
@@ -2974,28 +3127,39 @@ async def process_address(message: Message, state: FSMContext):
         conn.commit()
 
     # Фиксируем промокод если был активирован
-    promo = _active_promos.pop(message.from_user.id, None)
+    promo = _active_promos.pop(uid, None)
     if promo:
-        apply_promo_use(promo[0], message.from_user.id, order_id)
+        apply_promo_use(promo[0], uid, order_id)
 
-    await notify_admin(order_id, message.from_user.id, amount, address, currency)
+    await notify_admin(order_id, uid, amount, address, currency)
 
     await state.update_data(order_id=order_id, amount=amount, currency=currency, address=address)
     await state.set_state(Exchange.payment_method)
 
     rub_fmt3 = f"{int(float(amount)):,}".replace(",", " ")
+    # Тег показываем ЯВНО и отдельной строкой: в хранении он склеен с адресом
+    # (X-формат), и клиент, увидев только X-строку, не смог бы сверить её с тем,
+    # что вводил.
+    tag_line = ""
+    if shown_tag is not None:
+        tag_line = f"🏷 {(_tag_name(currency) or 'тег').capitalize()}: <b>{shown_tag}</b>\n"
+    elif _tag_name(currency):
+        _shown = _display_destination(currency, address)
+        if "(тег " in _shown:
+            tag_line = f"🏷 {_shown.split('(тег ', 1)[1].rstrip(')')} — тег из адреса\n"
     text = (
         f"🟣 <b>Заявка #{order_id} создана</b>\n\n"
         f"<blockquote>"
         f"💸 Оплата: <b>{rub_fmt3} ₽</b>\n"
         f"⬇️ Получаете: <b>{crypto_amount} {currency}</b>\n"
+        f"{tag_line}"
         f"📉 Комиссия: <b>{get_commission_percent(amount)}%</b>\n"
         f"⏱ Курс действует: <b>15 минут</b>"
         f"</blockquote>\n\n"
         f"Выберите удобный способ оплаты 👇"
     )
     await send_sticker_safe(message.chat.id, STICKER_WAIT)
-    inline_kb = await build_payment_methods_kb(order_id, amount, message.from_user.id)
+    inline_kb = await build_payment_methods_kb(order_id, amount, uid)
     if IMG_15MIN.exists():
         await message.answer_photo(FSInputFile(IMG_15MIN), caption=text, reply_markup=inline_kb, parse_mode="HTML")
     else:
