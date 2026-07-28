@@ -425,3 +425,45 @@ def is_valid_xrp_tag(tag) -> bool:
     if isinstance(tag, bool) or not isinstance(tag, int):
         return False
     return 0 <= tag <= 0xFFFFFFFF
+
+
+def xrp_xaddress(classic: str, tag=None):
+    """(classic, tag) → X-адрес. None, если адрес или тег некорректны."""
+    if not is_valid_xrp_classic(classic) or not is_valid_xrp_tag(tag):
+        return None
+    payload = _xrpl_decode(classic)
+    if not payload or len(payload) != 21:
+        return None
+    if tag is None:
+        flag, raw_tag = 0, b"\x00" * 8
+    else:
+        flag, raw_tag = 1, int(tag).to_bytes(4, "little") + b"\x00" * 4
+    return _b58check_encode_with(
+        _XRPL_X_PREFIX_MAIN + payload[1:] + bytes([flag]) + raw_tag, _XRPL_ALPHABET)
+
+
+def canonical_xrp_destination(address, tag=None):
+    """Одна строка, в которой адрес и тег НЕРАЗДЕЛИМЫ. None — если что-то не так.
+
+    Зачем именно так. Тег хранится не отдельной колонкой, а внутри адреса
+    (X-формат). Отдельное поле пришлось бы протаскивать через все восемь мест
+    создания заявки, обе панели выдачи и уведомления — и любое место, где его
+    забыли бы, отправило бы XRP на биржу БЕЗ тега. Это не ошибка с сообщением:
+    перевод подтверждается сетью, деньги попадают на общий счёт биржи и
+    получателю не зачисляются. X-адрес делает такую потерю невозможной
+    физически: тег едет вместе с адресом по любому пути, а `xrp_wallet.send`
+    достаёт его из адреса сам.
+
+    Тег без адреса-носителя (classic + tag) кодируется в X-адрес.
+    Конфликт (X-адрес несёт один тег, а передан другой) → отказ: молча выбрать
+    один из двух значило бы отправить деньги туда, куда клиент не просил.
+    """
+    classic, addr_tag = parse_xrp_destination(address)
+    if classic is None:
+        return None
+    if not is_valid_xrp_tag(tag):
+        return None
+    if addr_tag is not None and tag is not None and addr_tag != tag:
+        return None
+    final_tag = addr_tag if addr_tag is not None else tag
+    return classic if final_tag is None else xrp_xaddress(classic, final_tag)

@@ -15,6 +15,7 @@ import os
 import re
 import sys
 import ast
+import json
 import hashlib
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -340,13 +341,67 @@ def check_wallet_currencies_are_offered():
                  f"ничего. Добавить валюту в реестр вместе с валидацией адреса.")
 
 
+# ─────────────────────────────────────────────────────────────────────
+# 11. Тесты обязаны проверять СВОЙ код, а не боевой
+# ─────────────────────────────────────────────────────────────────────
+# /root — одновременно репозиторий и прод, поэтому проверки идут в git worktree.
+# Изоляция держится ровно до первого модуля, который вписывает в sys.path
+# зашитый «/root/relay»: дальше копия исполняет свой файл, но импортирует
+# зависимости из БОЕВОГО каталога. Так и было в offerings.py — тест витрины
+# гонял мастеровый core.assets, зелёный результат ничего не значил.
+_TESTED_IMPORTS = ("core.assets", "core.address", "services.offerings")
+
+
+def check_tests_import_their_own_tree():
+    relay_dir = os.path.join(ROOT, "relay")
+    if not os.path.isdir(relay_dir):
+        return
+    import subprocess
+    # Каждый модуль — в СВОЁМ интерпретаторе. В общем процессе первый удачный
+    # импорт core.assets осел бы в sys.modules и прикрыл собой подмену у всех
+    # последующих: проверка была бы зелёной ровно потому, что порядок удачный.
+    for mod in _TESTED_IMPORTS:
+        code = (
+            "import sys, json, importlib;"
+            f"sys.path.insert(0, {relay_dir!r});"
+            f"importlib.import_module({mod!r});"
+            "print(json.dumps({n: m.__file__ for n, m in sys.modules.items() "
+            "if getattr(m, '__file__', None) and '/relay/' in m.__file__}))"
+        )
+        try:
+            out = subprocess.run([sys.executable, "-c", code], capture_output=True,
+                                 text=True, timeout=60, cwd=ROOT)
+        except Exception as e:
+            fail("изоляция тестов", f"не удалось проверить импорт {mod}: {e}")
+            continue
+        if out.returncode != 0:
+            fail("изоляция тестов",
+                 f"импорт {mod} падает: {out.stderr.strip()[-300:]}")
+            continue
+        try:
+            loaded = json.loads(out.stdout.strip().splitlines()[-1])
+        except Exception:
+            fail("изоляция тестов", f"неразборчивый ответ по {mod}: {out.stdout[:200]!r}")
+            continue
+        alien = {n: p for n, p in loaded.items()
+                 if not os.path.abspath(p).startswith(ROOT + os.sep)}
+        if alien:
+            names = ", ".join(f"{n} ← {p}" for n, p in sorted(alien.items())[:4])
+            fail("изоляция тестов",
+                 f"при импорте {mod} подтянулись модули из ЧУЖОГО дерева: {names}. "
+                 f"Проверяем мы {ROOT}, значит где-то в цепочке зашит абсолютный "
+                 f"путь к боевому каталогу — тест будет зелёным, проверив не тот "
+                 f"код. Путь в sys.path выводить от __file__ модуля.")
+
+
 def main():
     for fn in (check_no_diverging_duplicates, check_config_keys_are_read,
                check_no_fail_open_in_guards, check_session_expiry_uses_expires_at,
                check_every_provider_has_receipt_verdict,
                check_alert_throttle_is_durable, check_deploy_restarts_only_on_change,
                check_manual_payout_uses_agreed_quote, check_no_dead_state_machines,
-               check_wallet_currencies_are_offered):
+               check_wallet_currencies_are_offered,
+               check_tests_import_their_own_tree):
         try:
             fn()
         except Exception as e:

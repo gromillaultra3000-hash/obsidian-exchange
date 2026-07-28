@@ -204,6 +204,34 @@ def address_carries_tag(currency, address) -> bool:
         return False
 
 
+def canonical_address(currency, address, tag=None):
+    """Адрес в том виде, в котором его следует ХРАНИТЬ в заявке, или None.
+
+    Для валют с тегом склеивает адрес и тег в одну неразделимую строку
+    (см. core.address.canonical_xrp_destination — почему не отдельная колонка).
+    Для остальных валют — обычная валидация: тег там взяться не должен.
+    """
+    c = normalize_currency(currency)
+    if c not in CURRENCY_NETWORKS:
+        return None
+    if c not in TAGGED_CURRENCIES:
+        if tag is not None:
+            return None          # тег у валюты без тегов — отказ, а не «проигнорируем»
+        addr = address.strip() if isinstance(address, str) else ""
+        return addr if validate_address(c, addr) else None
+    try:
+        from core import address as _addr
+    except Exception:
+        try:
+            import address as _addr
+        except Exception:
+            return None
+    try:
+        return _addr.canonical_xrp_destination(address, tag)
+    except Exception:
+        return None
+
+
 def validate_tag(currency, tag) -> bool:
     """Тег корректен для этой валюты. Валюта без тегов + непустой тег → False
     (фейл-клоуз: тег, который никуда не поедет, лучше отвергнуть на вводе).

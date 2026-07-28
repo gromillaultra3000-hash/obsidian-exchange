@@ -26,8 +26,13 @@ import sqlite3
 import time
 
 import sys
-if "/root/relay" not in sys.path:
-    sys.path.insert(0, "/root/relay")
+# Путь берётся ОТ СЕБЯ, а не зашит как /root/relay. Зашитый путь означает, что
+# копия проекта (git worktree, проверочный клон) исполняет свой offerings.py, но
+# импортирует core.assets из боевого каталога — код и его зависимость расходятся
+# молча, и тест «на копии» проверяет чужой модуль.
+_RELAY_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _RELAY_ROOT not in sys.path:
+    sys.path.insert(0, _RELAY_ROOT)
 from core import assets as _assets
 
 DB_PATH = os.getenv("DB_PATH", "/root/exchange.db")
@@ -79,7 +84,16 @@ def _compute() -> dict:
         if reserves.get(RESERVE_USDT_ERC20, 0) > 0:
             networks["USDT"] = [_assets.NET_TRC20, _assets.NET_ERC20]
 
+    # XRP — самостоятельное направление со своим признаком ликвидности.
+    # Сознательно НЕ под MULTICHAIN_UI_ENABLED: тот флаг про ETH и выбор сети
+    # USDT, и связывать их значило бы «чтобы открыть XRP, включи заодно ETH».
+    # Один выключатель — один смысл: /setreserve XRP <кол-во>.
+    if reserves.get("XRP", 0) > 0:
+        currencies.append("XRP")
+        networks["XRP"] = [_assets.NET_XRPL]
+
     eth_on = "ETH" in currencies
+    xrp_on = "XRP" in currencies
     return {
         "currencies": tuple(currencies),
         "networks": networks,
@@ -88,6 +102,11 @@ def _compute() -> dict:
             "" if eth_on
             else ("MULTICHAIN_UI_ENABLED выключен" if not _assets.multichain_ui_enabled()
                   else "нет подтверждённой ликвидности ETH: задайте /setreserve ETH <кол-во>")
+        ),
+        "xrp_enabled": xrp_on,
+        "reason_xrp_off": (
+            "" if xrp_on
+            else "нет подтверждённой ликвидности XRP: задайте /setreserve XRP <кол-во>"
         ),
     }
 
@@ -101,6 +120,8 @@ def _safe_default() -> dict:
                      "USDT": [_assets.NET_TRC20]},
         "eth_enabled": False,
         "reason_eth_off": "витрина недоступна — направление закрыто",
+        "xrp_enabled": False,
+        "reason_xrp_off": "витрина недоступна — направление закрыто",
     }
 
 

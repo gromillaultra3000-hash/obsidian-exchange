@@ -156,11 +156,60 @@ def test_registry_offers_xrp():
     check("тег у BTC отвергнут", A.validate_tag("BTC", 42), False)
 
 
+def test_canonical_destination_binds_tag_to_address():
+    """Тег хранится ВНУТРИ адреса, а не отдельным полем.
+
+    Отдельная колонка означала бы, что каждое из восьми мест создания заявки,
+    обе панели выдачи и уведомления обязаны её протащить. Место, где забыли,
+    отправило бы XRP на биржу без тега — сеть подтвердит перевод, а получателю
+    не зачислится. X-адрес делает потерю невозможной физически.
+    """
+    c = _CLASSIC_OK[0]
+    x_tag = _X_VECTORS[3][0]          # тег 42 на другом аккаунте
+    x_classic = _X_VECTORS[3][1]
+
+    check("classic без тега хранится как есть", A.canonical_address("XRP", c, None), c)
+
+    joined = A.canonical_address("XRP", c, 777)
+    check("classic + тег → X-адрес", joined.startswith("X"), True)
+    check("склейка разбирается обратно", parse_xrp_destination(joined), (c, 777))
+    check("повторная канонизация устойчива", A.canonical_address("XRP", joined, None), joined)
+    check("тот же тег ещё раз — не ошибка", A.canonical_address("XRP", joined, 777), joined)
+
+    check("тег 0 не теряется", parse_xrp_destination(A.canonical_address("XRP", c, 0))[1], 0)
+    check("тег 0 ≠ отсутствие тега", A.canonical_address("XRP", c, 0) == c, False)
+
+    # Конфликт: адрес несёт один тег, а рядом передан другой. Молчаливый выбор
+    # любого из двух = отправка не туда, куда просил клиент.
+    check("конфликт тегов отвергнут", A.canonical_address("XRP", x_tag, 9), None)
+    check("тег из X-адреса сохранён", parse_xrp_destination(A.canonical_address("XRP", x_tag, 42)),
+          (x_classic, 42))
+
+    for bad in (1.9, "42", True, -1, 2 ** 32, []):
+        check(f"негодный тег {bad!r} отвергнут", A.canonical_address("XRP", c, bad), None)
+
+    check("битый адрес отвергнут", A.canonical_address("XRP", c[:-1] + "9", 5), None)
+    check("чужая сеть отвергнута",
+          A.canonical_address("XRP", "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2", 5), None)
+
+
+def test_tag_on_untagged_currency_is_refused():
+    """У BTC/LTC/USDT тега не бывает. Пришедший тег — признак путаницы на входе,
+    и проглотить его молча значит записать заявку не тем, чем её создавали."""
+    btc = "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2"
+    check("BTC без тега — как есть", A.canonical_address("BTC", btc, None), btc)
+    check("BTC с тегом — отказ", A.canonical_address("BTC", btc, 5), None)
+    check("пробелы по краям обрезаются", A.canonical_address("BTC", f"  {btc} ", None), btc)
+    check("неизвестная валюта — отказ", A.canonical_address("DOGE", "x", None), None)
+    check("нестроковый адрес — отказ", A.canonical_address("BTC", 12345, None), None)
+
+
 def main():
     for fn in (test_x_addresses_carry_their_tag, test_tag_zero_differs_from_no_tag,
                test_classic_addresses, test_corrupted_address_rejected,
                test_testnet_and_foreign_networks_rejected, test_tag_validation,
-               test_registry_offers_xrp):
+               test_registry_offers_xrp, test_canonical_destination_binds_tag_to_address,
+               test_tag_on_untagged_currency_is_refused):
         try:
             fn()
         except Exception as e:

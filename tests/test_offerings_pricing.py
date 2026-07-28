@@ -107,6 +107,26 @@ check("резерв ETH = 0 закрывает направление", d["eth_e
 check("резерв USDT_ERC20 = 0 закрывает сеть",
       with_state(dict(base, USDT_ERC20=0), True)["networks"]["USDT"] == ["TRC20"])
 
+# ── XRP: собственный признак ликвидности, независимый от флага мультичейна ──
+d = with_state(base, False)
+check("без резерва XRP направление закрыто", d["xrp_enabled"] is False)
+check("причина закрытия XRP объясняет, что делать", "setreserve" in d["reason_xrp_off"])
+
+d = with_state(dict(base, XRP=500.0), False)
+check("резерв XRP открывает направление БЕЗ флага мультичейна", d["xrp_enabled"] is True)
+check("XRP идёт в сети XRPL", d["networks"]["XRP"] == ["XRPL"])
+check("XRP попал в список валют", "XRP" in d["currencies"])
+# Флаг про ETH и выбор сети USDT — он не должен управлять чужим направлением
+check("резерв XRP не открывает ETH", d["eth_enabled"] is False)
+check("резерв ETH не открывает XRP", with_state(dict(base, ETH=2.5), True)["xrp_enabled"] is False)
+check("резерв XRP = 0 закрывает направление",
+      with_state(dict(base, XRP=0), True)["xrp_enabled"] is False)
+
+with_state(dict(base, XRP=500.0), False)
+check("XRP/XRPL принимается", O.is_offered("XRP", "XRPL", force=True))
+check("XRP без сети принимается (дефолт)", O.is_offered("XRP", None, force=True))
+check("XRP в чужой сети отклоняется", not O.is_offered("XRP", "TRC20", force=True))
+
 # ── is_offered: fail-closed по паре (валюта, сеть) ──────────────────────────
 with_state(base, False)
 check("BTC/MAINNET принимается", O.is_offered("BTC", "MAINNET", force=True))
@@ -134,6 +154,8 @@ except Exception:
 check("сбой витрины не роняет вызывающего", ok)
 check("сбой витрины → только базовые направления (fail-closed)",
       ok and d["currencies"] == ("BTC", "LTC", "USDT") and d["eth_enabled"] is False)
+check("сбой витрины → XRP закрыт", ok and d["xrp_enabled"] is False)
+check("сбой витрины → is_offered(XRP) отклоняет", not O.is_offered("XRP", None, force=True))
 check("сбой витрины → is_offered(ETH) отклоняет", not O.is_offered("ETH", None, force=True))
 
 O._reserves = _real_reserves
