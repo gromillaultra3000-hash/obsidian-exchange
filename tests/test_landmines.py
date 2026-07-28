@@ -283,12 +283,70 @@ def check_deploy_restarts_only_on_change():
              "Нужен гейт по раскатанному реву (файл состояния .deploy_state).")
 
 
+# Кошелёк умеет отправлять эти валюты → валюта ОБЯЗАНА быть в реестре обмена.
+# Соответствие явное: по имени файла его не вывести (btc_wallet платит и LTC,
+# tron_wallet — это USDT-TRC20).
+_WALLET_CURRENCIES = {
+    "btc_wallet.py": ("BTC", "LTC"),
+    "tron_wallet.py": ("USDT",),
+    "evm_wallet.py": ("ETH",),
+    "xrp_wallet.py": ("XRP",),
+}
+
+
+def _currency_registry_keys(src):
+    """Ключи CURRENCY_NETWORKS из assets.py через ast (без импорта модуля)."""
+    try:
+        tree = ast.parse(src)
+    except SyntaxError:
+        return None
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Assign):
+            continue
+        for t in node.targets:
+            if isinstance(t, ast.Name) and t.id == "CURRENCY_NETWORKS":
+                if isinstance(node.value, ast.Dict):
+                    return {k.value for k in node.value.keys
+                            if isinstance(k, ast.Constant)}
+    return None
+
+
+def check_wallet_currencies_are_offered():
+    """Валюта с готовым кошельком обязана предлагаться клиенту.
+
+    Самый дорогой тихий сбой этого проекта — не падение, а работа, до которой
+    никто не дошёл. XRP пролежал так: полный модуль кошелька, флаг выплат,
+    резервы, лимит отправки, зелёный тест — и НОЛЬ упоминаний в assets.py,
+    то есть заявку на XRP нельзя было оформить в принципе. Ни один тест этого
+    не ловил, потому что каждый слой по отдельности исправен.
+    """
+    src = _read(os.path.join(ROOT, "relay", "core", "assets.py"))
+    if not src:
+        return
+    offered = _currency_registry_keys(src)
+    if offered is None:
+        fail("реестр валют", "не удалось разобрать CURRENCY_NETWORKS в assets.py")
+        return
+    wallet_dir = os.path.join(ROOT, "relay", "wallet")
+    for module, currencies in sorted(_WALLET_CURRENCIES.items()):
+        if not os.path.exists(os.path.join(wallet_dir, module)):
+            continue          # кошелька нет — предлагать нечего
+        missing = [c for c in currencies if c not in offered]
+        if missing:
+            fail("реестр валют",
+                 f"кошелёк {module} умеет отправлять {', '.join(missing)}, "
+                 f"но в assets.CURRENCY_NETWORKS этой валюты нет — клиент не "
+                 f"может оформить заявку, вся работа по кошельку не приносит "
+                 f"ничего. Добавить валюту в реестр вместе с валидацией адреса.")
+
+
 def main():
     for fn in (check_no_diverging_duplicates, check_config_keys_are_read,
                check_no_fail_open_in_guards, check_session_expiry_uses_expires_at,
                check_every_provider_has_receipt_verdict,
                check_alert_throttle_is_durable, check_deploy_restarts_only_on_change,
-               check_manual_payout_uses_agreed_quote, check_no_dead_state_machines):
+               check_manual_payout_uses_agreed_quote, check_no_dead_state_machines,
+               check_wallet_currencies_are_offered):
         try:
             fn()
         except Exception as e:

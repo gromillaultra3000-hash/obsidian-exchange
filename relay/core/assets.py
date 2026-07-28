@@ -16,6 +16,7 @@ import re
 NET_MAINNET = "MAINNET"   # BTC/LTC
 NET_TRC20 = "TRC20"       # USDT на TRON
 NET_ERC20 = "ERC20"       # ETH mainnet и USDT на Ethereum
+NET_XRPL = "XRPL"         # XRP Ledger — своя сеть, не MAINNET (тот код занят BTC/LTC)
 
 # Валюта → допустимые сети (первая = сеть по умолчанию)
 CURRENCY_NETWORKS = {
@@ -23,7 +24,13 @@ CURRENCY_NETWORKS = {
     "LTC": [NET_MAINNET],
     "USDT": [NET_TRC20, NET_ERC20],
     "ETH": [NET_ERC20],   # для ETH «ERC20» = Ethereum mainnet (единый EVM-контур)
+    "XRP": [NET_XRPL],
 }
+
+# Валюты, где адрес может сопровождаться тегом/мемо. Пропуск тега при переводе
+# на биржу = деньги зачислены «в никуда» и не возвращаются, поэтому это свойство
+# валюты, а не деталь интерфейса.
+TAGGED_CURRENCIES = {"XRP": "destination tag"}
 
 # Синонимы входных значений сети → канон (или None = недопустимо)
 _NET_ALIASES = {
@@ -31,6 +38,7 @@ _NET_ALIASES = {
     "ERC-20": NET_ERC20, "ERC20": NET_ERC20,
     "ETH": NET_ERC20, "ETHEREUM": NET_ERC20, "ETHEREUM-MAINNET": NET_ERC20, "EVM": NET_ERC20,
     "MAIN": NET_MAINNET, "MAINNET": NET_MAINNET,
+    "XRPL": NET_XRPL, "XRP": NET_XRPL, "RIPPLE": NET_XRPL,
     "BEP20": None, "BSC": None, "POLYGON": None, "MATIC": None, "TON": None,
 }
 
@@ -44,6 +52,10 @@ _ADDR_RE = {
     "LTC": [r'^[LM][1-9A-HJ-NP-Za-km-z]{26,33}$', r'^(?:ltc1|LTC1)[a-zA-Z0-9]{6,87}$'],
     NET_TRC20: [r'^T[A-Za-z1-9]{33}$'],
     NET_ERC20: [r'^0x[a-fA-F0-9]{40}$'],
+    # XRPL: classic (r…) и X-адрес (X…, несёт destination tag внутри себя).
+    # Алфавит у XRPL свой — ни '0', ни 'l', ни 'I', ни 'O'.
+    NET_XRPL: [r'^r[rpshnaf39wBUDNEGHJKLM4PQRST7VWXYZ2bcdeCg65jkm8oFqi1tuvAxyz]{24,34}$',
+               r'^X[rpshnaf39wBUDNEGHJKLM4PQRST7VWXYZ2bcdeCg65jkm8oFqi1tuvAxyz]{40,50}$'],
 }
 
 
@@ -122,6 +134,8 @@ def validate_address(currency, address, network=None) -> bool:
         pats = _ADDR_RE[NET_ERC20]
     elif c == "USDT":
         pats = _ADDR_RE[NET_ERC20] if net == NET_ERC20 else _ADDR_RE[NET_TRC20]
+    elif c == "XRP":
+        pats = _ADDR_RE[NET_XRPL]
     else:
         return False
     if not any(re.match(p, addr) for p in pats):
@@ -149,6 +163,8 @@ def _checksum_ok(currency, addr, net) -> bool:
         if currency == "USDT":
             return (_addr.is_valid_evm_address(addr) if net == NET_ERC20
                     else _addr.is_valid_tron(addr))
+        if currency == "XRP":
+            return _addr.is_valid_xrp(addr)
     except Exception:
         return False
     return False
@@ -157,4 +173,53 @@ def _checksum_ok(currency, addr, net) -> bool:
 def network_label(currency, network=None) -> str:
     """Человекочитаемая метка сети для UI, напр. 'TRC-20', 'ERC-20', 'Mainnet'."""
     net = normalize_network(currency, network)
-    return {NET_TRC20: "TRC-20", NET_ERC20: "ERC-20", NET_MAINNET: "Mainnet"}.get(net, "")
+    return {NET_TRC20: "TRC-20", NET_ERC20: "ERC-20", NET_MAINNET: "Mainnet",
+            NET_XRPL: "XRP Ledger"}.get(net, "")
+
+
+def tag_name(currency):
+    """Как называется тег у этой валюты ('destination tag') или None."""
+    return TAGGED_CURRENCIES.get(normalize_currency(currency))
+
+
+def address_carries_tag(currency, address) -> bool:
+    """True, если тег зашит в САМ адрес (X-адрес XRPL).
+
+    Тогда спрашивать тег у клиента не надо — и, главное, нельзя позволить
+    задать другой: адрес уже несёт свой.
+    """
+    if normalize_currency(currency) != "XRP":
+        return False
+    try:
+        from core import address as _addr
+    except Exception:
+        try:
+            import address as _addr
+        except Exception:
+            return False
+    try:
+        classic, tag = _addr.parse_xrp_destination((address or "").strip())
+        return classic is not None and tag is not None
+    except Exception:
+        return False
+
+
+def validate_tag(currency, tag) -> bool:
+    """Тег корректен для этой валюты. Валюта без тегов + непустой тег → False
+    (фейл-клоуз: тег, который никуда не поедет, лучше отвергнуть на вводе).
+    Тег 0 — ВАЛИДЕН и отличается от «тега нет»: часть бирж использует именно 0.
+    """
+    c = normalize_currency(currency)
+    if c not in TAGGED_CURRENCIES:
+        return tag is None
+    try:
+        from core import address as _addr
+    except Exception:
+        try:
+            import address as _addr
+        except Exception:
+            return False
+    try:
+        return _addr.is_valid_xrp_tag(tag)
+    except Exception:
+        return False

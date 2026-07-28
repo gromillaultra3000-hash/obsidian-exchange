@@ -26,18 +26,23 @@ _B58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
 _B58_INDEX = {c: i for i, c in enumerate(_B58_ALPHABET)}
 
 
-def b58check_decode(address: str):
-    """payload (версия+хеш) или None, если строка не Base58Check с верной суммой."""
+def _b58check_decode_with(address: str, alphabet: str, index: dict):
+    """Общий Base58Check, параметризованный алфавитом.
+
+    Алфавит — часть защиты, а не косметика: у XRPL он свой, и биткойновый адрес
+    в нём не разберётся (как и наоборот). Перепутать сети на этом шаге нельзя.
+    """
     if not address or not isinstance(address, str):
         return None
     num = 0
     for ch in address:
-        idx = _B58_INDEX.get(ch)
+        idx = index.get(ch)
         if idx is None:
-            return None                      # символ вне алфавита Base58
+            return None                      # символ вне алфавита
         num = num * 58 + idx
-    # Ведущие '1' в Base58 кодируют ведущие нулевые байты
-    pad = len(address) - len(address.lstrip("1"))
+    # Ведущий символ алфавита кодирует ведущие нулевые байты ('1' у BTC, 'r' у XRPL)
+    zero = alphabet[0]
+    pad = len(address) - len(address.lstrip(zero))
     body = num.to_bytes((num.bit_length() + 7) // 8, "big") if num else b""
     full = b"\x00" * pad + body
     if len(full) < 5:
@@ -46,6 +51,23 @@ def b58check_decode(address: str):
     if hashlib.sha256(hashlib.sha256(payload).digest()).digest()[:4] != checksum:
         return None
     return payload
+
+
+def _b58check_encode_with(payload: bytes, alphabet: str) -> str:
+    """Обратная операция — нужна, чтобы вернуть classic-адрес из X-адреса."""
+    full = payload + hashlib.sha256(hashlib.sha256(payload).digest()).digest()[:4]
+    num = int.from_bytes(full, "big")
+    out = ""
+    while num > 0:
+        num, rem = divmod(num, 58)
+        out = alphabet[rem] + out
+    pad = len(full) - len(full.lstrip(b"\x00"))
+    return alphabet[0] * pad + out
+
+
+def b58check_decode(address: str):
+    """payload (версия+хеш) или None, если строка не Base58Check с верной суммой."""
+    return _b58check_decode_with(address, _B58_ALPHABET, _B58_INDEX)
 
 
 # ─────────────────────────── Bech32 / Bech32m ───────────────────────────
@@ -308,3 +330,98 @@ def is_valid_tron(address: str) -> bool:
     if not address or not isinstance(address, str) or not address.startswith("T"):
         return False
     return _b58_ok(address, {_TRON_VERSION})
+
+
+# ─────────────────────────── XRP Ledger ───────────────────────────
+#
+# Две формы адреса, и обе ходят живьём:
+#   classic  r…  — 20-байтный AccountID, версия 0x00;
+#   X-адрес  X…  — тот же AccountID ПЛЮС destination tag внутри самой строки.
+#
+# Тег критичен: перевод на биржу без него зачисляется «в никуда» и деньги
+# клиента не возвращаются. Поэтому X-адрес разбираем здесь, а не полагаемся на
+# то, что тег доедет отдельным полем через все три поверхности.
+#
+# Реализация на stdlib намеренно: assets.py импортируется всеми и не должен
+# зависеть от библиотеки xrpl. Если её нет в окружении, валидация обязана
+# работать всё равно — иначе «нет библиотеки» тихо превратится в «адрес
+# невалиден» на живом клиенте.
+
+_XRPL_ALPHABET = "rpshnaf39wBUDNEGHJKLM4PQRST7VWXYZ2bcdeCg65jkm8oFqi1tuvAxyz"
+_XRPL_INDEX = {c: i for i, c in enumerate(_XRPL_ALPHABET)}
+
+_XRPL_ACCOUNT_VERSION = 0x00
+_XRPL_X_PREFIX_MAIN = b"\x05\x44"
+_XRPL_X_PREFIX_TEST = b"\x04\x93"
+
+
+def _xrpl_decode(address: str):
+    return _b58check_decode_with(address, _XRPL_ALPHABET, _XRPL_INDEX)
+
+
+def is_valid_xrp_classic(address: str) -> bool:
+    """Classic-адрес r… с верной контрольной суммой."""
+    if not address or not isinstance(address, str) or not address.startswith("r"):
+        return False
+    payload = _xrpl_decode(address)
+    return bool(payload) and len(payload) == 21 and payload[0] == _XRPL_ACCOUNT_VERSION
+
+
+def parse_xrp_destination(address: str):
+    """(classic_address, destination_tag) или (None, None).
+
+    Принимает обе формы. Для classic тег всегда None — его задаёт клиент
+    отдельно. Для X-адреса тег берётся ИЗ адреса и подменить его нельзя.
+
+    Тег 0 — валидное значение и обязан отличаться от «тега нет»: часть бирж
+    использует именно 0. Поэтому возвращаем int 0, а не None.
+    """
+    if not address or not isinstance(address, str):
+        return (None, None)
+    addr = address.strip()
+
+    if addr.startswith("r"):
+        return (addr, None) if is_valid_xrp_classic(addr) else (None, None)
+
+    if not addr.startswith("X"):
+        return (None, None)
+
+    payload = _xrpl_decode(addr)
+    # префикс(2) + AccountID(20) + флаг тега(1) + тег(8, little-endian)
+    if not payload or len(payload) != 31:
+        return (None, None)
+    if payload[:2] != _XRPL_X_PREFIX_MAIN:
+        return (None, None)          # testnet и неизвестные префиксы — отказ
+
+    flag = payload[22]
+    raw_tag = payload[23:31]
+    if flag == 0:
+        if raw_tag != b"\x00" * 8:
+            return (None, None)      # «тега нет», а байты не пусты — мусор
+        tag = None
+    elif flag == 1:
+        if raw_tag[4:] != b"\x00" * 4:
+            return (None, None)      # тег объявлен 32-битным, а старшие байты заняты
+        tag = int.from_bytes(raw_tag[:4], "little")
+    else:
+        return (None, None)          # 64-битные теги в XRPL не используются
+
+    classic = _b58check_encode_with(
+        bytes([_XRPL_ACCOUNT_VERSION]) + payload[2:22], _XRPL_ALPHABET)
+    return (classic, tag)
+
+
+def is_valid_xrp(address: str) -> bool:
+    """Адрес XRP в любой из двух форм."""
+    classic, _tag = parse_xrp_destination(address)
+    return classic is not None
+
+
+def is_valid_xrp_tag(tag) -> bool:
+    """Destination tag: целое 0..2^32-1. Дробное и строковое НЕ приводим молча —
+    1.9 стало бы тегом 1, то есть чужим счётом на бирже."""
+    if tag is None:
+        return True                  # тег необязателен
+    if isinstance(tag, bool) or not isinstance(tag, int):
+        return False
+    return 0 <= tag <= 0xFFFFFFFF
