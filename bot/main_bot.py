@@ -903,6 +903,7 @@ _COIN_SOURCES = {
     "LTC": {"cg": "litecoin", "binance": "LTCUSDT", "fallback": 4000},
     "USDT": {"cg": "tether",  "binance": None,      "fallback": 85},
     "ETH": {"cg": "ethereum", "binance": "ETHUSDT", "fallback": 250000},
+    "XRP": {"cg": "ripple",   "binance": "XRPUSDT", "fallback": 95},
 }
 _RATE_CACHE = {}  # module-level, живёт между вызовами: {coin: {"rate", "ts"}}
 
@@ -916,7 +917,13 @@ def _rate_coin_key(coin):
 def get_cached_rate(coin):
     import time, requests
     key = _rate_coin_key(coin)
-    src = _COIN_SOURCES.get(key, _COIN_SOURCES["USDT"])
+    # Раньше здесь стоял молчаливый дефолт на USDT: монета без своего источника
+    # котировалась по цене тезера (~85 ₽). Ошибка не выглядела бы ошибкой —
+    # клиент получил бы, скажем, XRP по цене USDT, то есть вдвое больше монет за
+    # свои деньги. Отсутствие источника — это отказ, а не «как-нибудь посчитаем».
+    src = _COIN_SOURCES.get(key)
+    if src is None:
+        raise ValueError(f"нет источника курса для {key} — монету нельзя продавать")
     cache = _RATE_CACHE.setdefault(key, {"rate": 0, "ts": 0})
     now = time.time()
     if cache["rate"] and (now - cache["ts"]) < 600:
@@ -1201,18 +1208,28 @@ def _fmt_rate_compact(r) -> str:
         return f"{r/1000:.1f}к ₽"
     return f"{r:.0f} ₽"
 
-COIN_ICONS = {"BTC": "₿", "LTC": "Ł", "USDT": "💵", "ETH": "Ξ"}
+COIN_ICONS = {"BTC": "₿", "LTC": "Ł", "USDT": "💵", "ETH": "Ξ", "XRP": "✕"}
 
 
 def offered_coins():
     """Монеты, которые сейчас реально можно купить (есть чем выдать).
-    Единый источник — services.offerings; сбой → исторические направления."""
+    Единый источник — services.offerings; сбой → исторические направления.
+
+    Дополнительно отсекаем монеты без источника курса: витрина знает про
+    ликвидность, но не про котировку, и монета без цены была бы предложена
+    клиенту с ценой, взятой неизвестно откуда.
+    """
     try:
         from services.offerings import offered_currencies
-        return list(offered_currencies())
+        coins = list(offered_currencies())
     except Exception as e:
         logger.error(f"offerings недоступен в боте: {e}")
         return ["BTC", "LTC", "USDT"]
+    priced = [c for c in coins if _rate_coin_key(c) in _COIN_SOURCES]
+    for c in coins:
+        if c not in priced:
+            logger.error(f"монета {c} на витрине, но источника курса нет — скрыта из выбора")
+    return priced
 
 
 def build_currency_kb(prefix: str, back_cb: str = "back_to_menu") -> InlineKeyboardMarkup:

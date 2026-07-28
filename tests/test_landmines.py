@@ -394,6 +394,67 @@ def check_tests_import_their_own_tree():
                  f"код. Путь в sys.path выводить от __file__ модуля.")
 
 
+# ─────────────────────────────────────────────────────────────────────
+# 12. Монета в реестре обязана иметь СВОЙ источник курса
+# ─────────────────────────────────────────────────────────────────────
+# Список валют и список котировок — разные таблицы в разных файлах. Монета,
+# добавленная в реестр и забытая в котировках, получала цену чужой монеты:
+# в боте стоял молчаливый дефолт на USDT (XRP котировался бы по цене тезера,
+# клиент получил бы вдвое больше монет за свои деньги), на сайте — KeyError
+# на живом клиенте. Ни то, ни другое не ловилось ничем.
+_RATE_TABLES = (
+    ("bot/main_bot.py", "_COIN_SOURCES"),
+    ("relay/utils/exchange_calc.py", "_COINGECKO_IDS"),
+    ("relay/utils/exchange_calc.py", "_FALLBACK_RATES"),
+)
+
+
+def _dict_literal_keys(src, name):
+    """Ключи словаря верхнего уровня по имени. None — если не разобрали."""
+    try:
+        tree = ast.parse(src)
+    except Exception:
+        return None
+    for node in tree.body:
+        if not isinstance(node, ast.Assign):
+            continue
+        if not any(isinstance(t, ast.Name) and t.id == name for t in node.targets):
+            continue
+        if not isinstance(node.value, ast.Dict):
+            return None
+        keys = set()
+        for k in node.value.keys:
+            if isinstance(k, ast.Constant) and isinstance(k.value, str):
+                keys.add(k.value)
+            else:
+                return None      # вычисляемый ключ — статикой не разберём
+        return keys
+    return None
+
+
+def check_every_currency_has_a_price_source():
+    assets_src = _read(os.path.join(ROOT, "relay", "core", "assets.py"))
+    if not assets_src:
+        return
+    currencies = _currency_registry_keys(assets_src)
+    if currencies is None:
+        return               # разбор реестра уже проверяется отдельной миной
+    for rel, table in _RATE_TABLES:
+        src = _read(os.path.join(ROOT, rel))
+        if not src:
+            continue
+        keys = _dict_literal_keys(src, table)
+        if keys is None:
+            fail("источник курса", f"не удалось разобрать {table} в {rel}")
+            continue
+        missing = sorted(c for c in currencies if c not in keys)
+        if missing:
+            fail("источник курса",
+                 f"{rel}: в {table} нет {', '.join(missing)}, хотя валюта есть в "
+                 f"assets.CURRENCY_NETWORKS. Монета без своей котировки получит "
+                 f"чужую цену или уронит расчёт у живого клиента.")
+
+
 def main():
     for fn in (check_no_diverging_duplicates, check_config_keys_are_read,
                check_no_fail_open_in_guards, check_session_expiry_uses_expires_at,
@@ -401,7 +462,8 @@ def main():
                check_alert_throttle_is_durable, check_deploy_restarts_only_on_change,
                check_manual_payout_uses_agreed_quote, check_no_dead_state_machines,
                check_wallet_currencies_are_offered,
-               check_tests_import_their_own_tree):
+               check_tests_import_their_own_tree,
+               check_every_currency_has_a_price_source):
         try:
             fn()
         except Exception as e:

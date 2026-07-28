@@ -10,24 +10,24 @@ import sys
 import time
 import requests
 
-if "/root/relay" not in sys.path:
-    sys.path.insert(0, "/root/relay")
+_RELAY_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _RELAY_ROOT not in sys.path:
+    sys.path.insert(0, _RELAY_ROOT)
 from core import assets as _assets  # единый источник правды по валютам/сетям/адресам
 from core import pricing as _pricing  # единый источник тарифной лестницы
 
 SWAP_COINS = ["BTC", "LTC", "USDT"]
 SWAP_NETWORKS = {"BTC": "Mainnet", "LTC": "Mainnet", "USDT": "TRC20"}
 
-_rate_cache = {
-    "BTC": {"rate": 0, "ts": 0},
-    "LTC": {"rate": 0, "ts": 0},
-    "USDT": {"rate": 0, "ts": 0},
-    "ETH": {"rate": 0, "ts": 0},
-}
+_COINGECKO_IDS = {"BTC": "bitcoin", "LTC": "litecoin", "USDT": "tether",
+                  "ETH": "ethereum", "XRP": "ripple"}
+_FALLBACK_RATES = {"BTC": 6500000, "LTC": 4000, "USDT": 85, "ETH": 250000, "XRP": 95}
+_BINANCE_USDT = {"BTC": "BTCUSDT", "LTC": "LTCUSDT", "ETH": "ETHUSDT", "XRP": "XRPUSDT"}
 
-_COINGECKO_IDS = {"BTC": "bitcoin", "LTC": "litecoin", "USDT": "tether", "ETH": "ethereum"}
-_FALLBACK_RATES = {"BTC": 6500000, "LTC": 4000, "USDT": 85, "ETH": 250000}
-_BINANCE_USDT = {"BTC": "BTCUSDT", "LTC": "LTCUSDT", "ETH": "ETHUSDT"}
+# Кеш заводится ОТ списка котируемых монет, а не отдельным литералом: раньше
+# это были два независимых перечня, и монета, забытая в кеше, роняла
+# get_cached_rate по KeyError на живом клиенте.
+_rate_cache = {coin: {"rate": 0, "ts": 0} for coin in _COINGECKO_IDS}
 
 
 def get_commission_percent(amount_rub):
@@ -37,6 +37,10 @@ def get_commission_percent(amount_rub):
 
 
 def get_cached_rate(coin):
+    if coin not in _rate_cache:
+        # Отсутствие источника — отказ, а не догадка: монета без своей цены
+        # не должна получить чужую.
+        raise ValueError(f"нет источника курса для {coin} — монету нельзя продавать")
     cache = _rate_cache[coin]
     now = time.time()
     if cache["rate"] and (now - cache["ts"]) < 600:
