@@ -885,6 +885,64 @@ def check_no_unreachable_handlers():
 # формы: админ заблокировал classic, клиент оформил заявку X-адресом того же
 # счёта — совпадения нет, крипта ушла. То же и наоборот. Правило: любой SQL по
 # blocked_addresses идёт через нормализацию к идентичности счёта.
+# ─────────────────────────────────────────────────────────────────────
+# 28. Страж сравнивает СТРОКУ адреса, а обходится он сменой формы
+# ─────────────────────────────────────────────────────────────────────
+# Один счёт записывается по-разному, и сравнение строк этого не ловит. За один
+# день класс выстрелил дважды: чёрный список пропускал заблокированный счёт
+# XRPL в classic-форме, а `payout_circuit` считал повторы выплат по строке —
+# один счёт с разными тегами давал разные строки, и лимит PAYOUT_ADDR_REPEAT_MAX
+# не сработал бы НИ РАЗУ. Страж, который выглядит установленным и не срабатывает,
+# хуже отсутствующего: на него рассчитывают.
+def check_guards_compare_accounts_not_strings():
+    tag = "страж сравнивает строку"
+    relay = os.path.join(ROOT, "relay")
+    if relay not in sys.path:
+        sys.path.insert(0, relay)
+    try:
+        from core.address import account_key
+    except Exception as e:
+        fail(tag, f"нет core.address.account_key — общей нормализации счёта: "
+                  f"{type(e).__name__}: {e}")
+        return
+
+    # Свойство: разные записи одного счёта дают ОДИН ключ.
+    try:
+        from xrpl.core import addresscodec as _ac
+        classic = "rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe"
+        keys = {account_key(classic),
+                account_key(_ac.classic_address_to_xaddress(classic, 1, False)),
+                account_key(_ac.classic_address_to_xaddress(classic, 99999, False))}
+        if len(keys) != 1:
+            fail(tag, f"account_key даёт разные ключи для одного счёта XRPL: {keys} "
+                      f"— значит и блокировка, и лимит повторов обходятся сменой тега")
+    except ImportError:
+        pass          # xrpl есть только в bot/venv; правило ниже всё равно работает
+    evm = "0xAbC0000000000000000000000000000000000001"
+    if account_key(evm) != account_key(evm.lower()):
+        fail(tag, "account_key различает регистр EVM-адреса — один счёт считается "
+                  "двумя, и лимит повторов выплат не сработает")
+
+    # Стражи обязаны спрашивать общий источник, а не сравнивать строки сами.
+    for rel, fn, human in (
+        ("relay/services/payout_circuit.py", "def _addr_payouts_24h(",
+         "лимит повторных выплат на адрес"),
+    ):
+        src = _read(os.path.join(ROOT, rel))
+        body = _nodoc(_slice(src, fn, "\ndef "))
+        if not body:
+            fail(tag, f"{rel}: не найдена {fn} — проверка ослепла")
+            continue
+        if "account_key" not in body:
+            fail(tag, f"{rel}: «{human}» не приводит адрес к счёту "
+                      f"(core.address.account_key) — один счёт в разных формах "
+                      f"считается разными, и страж не срабатывает никогда")
+        if re.search(r"crypto_address\s*=\s*\?", body):
+            fail(tag, f"{rel}: «{human}» отбирает по РАВЕНСТВУ строки адреса в SQL. "
+                      f"Так нормализовать хранимое нельзя: у XRPL один счёт с "
+                      f"разными тегами — разные строки, у EVM — разный регистр")
+
+
 def check_blocklist_matches_account_not_string():
     rel = "bot/main_bot.py"
     src = _read(os.path.join(ROOT, rel))
@@ -1581,6 +1639,7 @@ def main():
                check_unparsed_input_is_not_silence,
                check_no_unreachable_handlers,
                check_blocklist_matches_account_not_string,
+               check_guards_compare_accounts_not_strings,
                check_receipt_beats_the_timer,
                check_migrations_agree,
                check_debt_queue_is_visible,

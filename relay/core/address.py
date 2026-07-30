@@ -467,3 +467,35 @@ def canonical_xrp_destination(address, tag=None):
         return None
     final_tag = addr_tag if addr_tag is not None else tag
     return classic if final_tag is None else xrp_xaddress(classic, final_tag)
+
+
+def account_key(address, currency=None) -> str:
+    """Идентичность СЧЁТА из строки адреса — для сравнений в стражах.
+
+    Один и тот же счёт записывается по-разному, и сравнение строк это не
+    ловит. Уже стоило нам двух дефектов:
+      • чёрный список — заблокированный по X-адресу счёт XRPL проходил в
+        classic-форме (30.07.2026);
+      • `payout_circuit` считает повторы выплат на один адрес за сутки, а у
+        XRPL один счёт с разными тегами даёт разные строки — лимит
+        `PAYOUT_ADDR_REPEAT_MAX` не срабатывал бы вовсе.
+    Оба места теперь спрашивают здесь.
+
+    XRP — classic-адрес без тега: тег адресует получателя ВНУТРИ счёта, а для
+    «сколько раз этот счёт получал» и «заблокирован ли он» важен сам счёт.
+    EVM — нижний регистр (EIP-55 отличается только регистром букв).
+    Остальное возвращается как есть: у BTC/LTC регистр значащий, и «нормализация»
+    сломала бы сравнение вместо того, чтобы его починить.
+    """
+    s = str(address or "").strip()
+    if not s:
+        return ""
+    cur = str(currency or "").upper()
+    if cur == "XRP" or s[:1] in ("r", "X"):
+        classic, _tag = parse_xrp_destination(s)
+        if classic:
+            return classic
+        return s
+    if cur in ("ETH", "BNB", "MATIC") or (s[:2].lower() == "0x" and len(s) == 42):
+        return s.lower()
+    return s

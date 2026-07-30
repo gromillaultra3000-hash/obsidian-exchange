@@ -113,15 +113,42 @@ def _paid_last(hours):
         return 0.0, 0
 
 
-def _addr_payouts_24h(address):
+def _account_key(address, currency=None) -> str:
+    """Идентичность счёта из строки адреса. Общий источник — core.address."""
+    try:
+        import sys
+        _relay = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        if _relay not in sys.path:
+            sys.path.insert(0, _relay)
+        from core.address import account_key
+        return account_key(address, currency)
+    except Exception:
+        # Своей нормализации здесь быть не должно: разошлась бы с чужой.
+        # Не смогли привести — сравниваем как есть, это прежнее поведение.
+        return str(address or "").strip()
+
+
+def _addr_payouts_24h(address, currency=None):
+    """Сколько раз ЭТОТ СЧЁТ получал выплату за сутки.
+
+    Считать по строке адреса нельзя: у XRPL один счёт с разными тегами даёт
+    разные строки, и лимит `PAYOUT_ADDR_REPEAT_MAX` не сработал бы ни разу —
+    страж выглядел бы установленным, а на деле его обходит смена тега. У EVM
+    то же самое делает регистр. Поэтому сравниваем ключи счетов, а выборку
+    держим маленькой: только выплаты за сутки.
+    """
     if not address:
+        return 0
+    want = _account_key(address, currency)
+    if not want:
         return 0
     try:
         with _db() as conn:
-            row = conn.execute(
-                "SELECT COUNT(*) n FROM orders WHERE status='sent' AND crypto_address=? "
-                "AND updated_at >= datetime('now','-1 day')", (address,)).fetchone()
-        return int(row["n"] or 0)
+            rows = conn.execute(
+                "SELECT crypto_address, currency FROM orders WHERE status='sent' "
+                "AND updated_at >= datetime('now','-1 day')").fetchall()
+        return sum(1 for r in rows
+                   if _account_key(r["crypto_address"], r["currency"]) == want)
     except Exception:
         return 0
 
@@ -156,7 +183,7 @@ def check_payout_allowed(order_id, rub_amount, address, currency=None) -> dict:
                 "reason": f"превышен суточный потолок: {sum_24h + amt:,.0f} > {daily_cap:,.0f} ₽".replace(",", " ")}
 
     # повтор адреса — мягко, на ручной разбор (не заморозка: может быть постоянный клиент)
-    addr_cnt = _addr_payouts_24h(address)
+    addr_cnt = _addr_payouts_24h(address, currency)
     if addr_cnt >= addr_max:
         return {"action": "manual",
                 "reason": f"адрес получал выплату {addr_cnt}× за 24ч (≥ {addr_max}) — проверить вручную"}

@@ -1042,15 +1042,13 @@ def _blocklist_forms(addr):
     проверяем обе формы (старые записи могли лечь в любой из них).
     """
     forms = [addr]
-    s = (addr or "").strip()
-    if s[:1] in ("r", "X"):
-        try:
-            from core import address as _addr
-            classic, _tag = _addr.parse_xrp_destination(s)
-            if classic and classic not in forms:
-                forms.append(classic)
-        except Exception:
-            logger.exception("core.address недоступен при разборе чёрного списка")
+    try:
+        from core.address import account_key
+        key = account_key(addr)
+        if key and key not in forms:
+            forms.append(key)
+    except Exception:
+        logger.exception("core.address недоступен при разборе чёрного списка")
     return forms
 
 
