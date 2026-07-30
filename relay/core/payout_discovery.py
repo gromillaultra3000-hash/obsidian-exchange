@@ -246,7 +246,7 @@ def _incoming_trc20(address: str) -> list[dict]:
     return out
 
 
-def _incoming_xrpl(address: str) -> list[dict]:
+def _incoming_xrpl(address: str, dest_tag=None) -> list[dict]:
     """Входящие XRP на адрес клиента.
 
     Зачем именно здесь. Авто-выплаты XRP нет вовсе: `process_payout` его не
@@ -258,6 +258,11 @@ def _incoming_xrpl(address: str) -> list[dict]:
     XRPL отвечает по JSON-RPC (`account_tx`). Берём только доставленные платежи
     в НАШУ сторону: XRPL пишет фактически доставленное в `delivered_amount`, и
     именно оно, а не заявленный `Amount`, считается полученным.
+
+    `dest_tag` обязателен, если он был в адресе заявки. Классический адрес биржи
+    ОДИН на всех её клиентов, а различаются они тегом: без сверки тега перевод
+    нужного размера на ЧУЖОЙ тег закрыл бы не ту заявку — деньги ушли одному
+    клиенту, закрыли другого, и оба остались недовольны по-своему.
     """
     import requests
     rpc = os.getenv("XRP_RPC_URL", "https://xrplcluster.com/")
@@ -292,11 +297,23 @@ def _incoming_xrpl(address: str) -> list[dict]:
             value = int(amt) / 1_000_000.0   # дропы → XRP
         except (TypeError, ValueError):
             continue
+        # Тег назначения. Ждали конкретный — берём только его: адрес биржи
+        # общий, тег и есть «кому именно».
+        if dest_tag is not None:
+            try:
+                if int(tx.get("DestinationTag")) != int(dest_tag):
+                    continue
+            except (TypeError, ValueError):
+                continue        # тега в платеже нет вовсе — это не наш клиент
         out.append({
             "txid": tx.get("hash") or row.get("hash") or "",
             "amount": value,
             "ts": int(tx.get("date", 0)) + 946684800 if tx.get("date") else 0,
             "senders": [tx.get("Account")] if tx.get("Account") else [],
+            # Сюда попадают только tesSUCCESS — валидированный реестром платёж.
+            # Без этого поля judge() молча отбрасывает КАЖДЫЙ перевод, и весь
+            # добытчик выглядит работающим, не находя ничего никогда.
+            "confirmed": True,
         })
     return [t for t in out if t["txid"]]
 
@@ -339,6 +356,9 @@ def _incoming_evm(address: str) -> list[dict]:
                 "amount": value,
                 "ts": int(t.get("timeStamp") or 0),
                 "senders": [_norm(t.get("from"))] if t.get("from") else [],
+                # Провалившиеся отсеяны выше, значит эти — исполненные. Без
+                # поля judge() отбрасывает их все, и путь ETH мёртв молча.
+                "confirmed": True,
             })
         except (TypeError, ValueError):
             continue
@@ -352,27 +372,33 @@ def incoming_transfers(currency: str, address: str) -> list[dict]:
     if cur == "USDT":
         return _incoming_trc20(address)
     if cur == "XRP":
-        # У XRP адрес заявки может быть X-адресом (тег внутри) — на цепи же
-        # платёж идёт на classic-адрес. Сравнивать надо с ним, иначе своя же
-        # выплата не найдётся.
-        return _incoming_xrpl(_xrp_classic(address))
+        # У XRP адрес заявки может быть X-адресом (тег внутри) — на цепи платёж
+        # идёт на classic-адрес, поэтому ищем по нему. Но тег НЕ отбрасываем:
+        # classic-адрес биржи общий на всех её клиентов, и без сверки тега
+        # перевод подходящего размера закрыл бы чужую заявку.
+        classic, tag = _xrp_destination(address)
+        return _incoming_xrpl(classic, tag)
     if cur == "ETH":
         return _incoming_evm(address)
     return []
 
 
-def _xrp_classic(address: str) -> str:
-    """Classic-адрес из того, что лежит в заявке (X-адрес или уже classic)."""
+def _xrp_destination(address: str):
+    """(classic-адрес, тег) из того, что лежит в заявке — X-адрес или classic.
+
+    Тег возвращается отдельно и обязателен к сверке: он и есть «кому именно»,
+    когда classic-адрес общий на всех клиентов биржи.
+    """
     try:
         import sys
         _relay = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         if _relay not in sys.path:
             sys.path.insert(0, _relay)
         from wallet.xrp_wallet import parse_destination
-        classic, _tag = parse_destination(address)
-        return classic or str(address or "")
+        classic, tag = parse_destination(address)
+        return (classic or str(address or "")), tag
     except Exception:
-        return str(address or "")
+        return str(address or ""), None
 
 
 # ─────────────────────────────────────────────────────────────────

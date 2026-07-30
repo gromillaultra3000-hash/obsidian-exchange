@@ -151,6 +151,55 @@ def main():
         import importlib
         importlib.reload(pd)
 
+    # ── ПУТЬ ЦЕЛИКОМ: читатель → judge ───────────────────────────────
+    # Тесты выше проверяют читателей по отдельности, и этого оказалось мало:
+    # judge() молча отбрасывает перевод без флага confirmed, а читатели его не
+    # ставили — весь путь находил бы НОЛЬ всегда и выглядел работающим.
+    SHARED = "rExchangeSharedAddressXXXXXXXXXXXXX"
+
+    def _xtx(h, drops, tag):
+        return {"tx": {"TransactionType": "Payment", "Destination": SHARED, "hash": h,
+                       "Account": "rOurWallet", "Amount": str(drops),
+                       "date": 800000000, "DestinationTag": tag},
+                "meta": {"TransactionResult": "tesSUCCESS",
+                         "delivered_amount": str(drops)}}
+
+    requests.post = lambda *a, **k: _Resp(
+        {"result": {"transactions": [_xtx("НАШ", 25_000_000, 777),
+                                     _xtx("ЧУЖОЙ", 25_000_000, 999)]}})
+    try:
+        order = {"order_id": 1, "currency": "XRP", "crypto_address": SHARED,
+                 "expected_amount": 25.0, "paid_ts": 700000000}
+        with_tag = pd.judge(order, pd._incoming_xrpl(SHARED, 777), set(),
+                            trusted={"rourwallet"})
+        no_tag = pd.judge(order, pd._incoming_xrpl(SHARED), set(),
+                          trusted={"rourwallet"})
+    finally:
+        requests.post = real_post
+    got = [c["txid"] for c in with_tag["candidates"]]
+    check(got == ["НАШ"],
+          f"XRPL: со сверкой тега кандидаты {got} — classic-адрес биржи общий "
+          f"на всех клиентов, и без тега перевод того же размера закроет чужую "
+          f"заявку")
+    check(with_tag["action"] != "none",
+          "XRPL: перевод не дошёл до вердикта — judge отбрасывает переводы без "
+          "флага confirmed, и весь путь находит ноль всегда")
+    check(len(no_tag["candidates"]) == 2,
+          "проверка бессмысленна: чужой тег не воспроизвёлся")
+
+    ETH_ADDR = "0x00000000000000000000000000000000000000aa"
+    pd._get_json = lambda *a, **k: {"result": [
+        {"hash": "0xE", "to": ETH_ADDR, "from": "0xour", "value": str(10**18),
+         "timeStamp": "1780000000", "isError": "0", "txreceipt_status": "1"}]}
+    try:
+        v_eth = pd.judge({"order_id": 2, "currency": "ETH", "crypto_address": ETH_ADDR,
+                       "expected_amount": 1.0, "paid_ts": 1700000000},
+                      pd._incoming_evm(ETH_ADDR), set(), trusted={"0xour"})
+    finally:
+        pd._get_json = real_get
+    check(v_eth["action"] != "none",
+          "EVM: перевод не дошёл до вердикта — без флага confirmed путь ETH мёртв")
+
     if FAILS:
         print(f"❌ Провалов: {len(FAILS)}\n")
         for m in FAILS:
