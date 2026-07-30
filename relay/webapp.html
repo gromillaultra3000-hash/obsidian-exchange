@@ -934,7 +934,7 @@
             }, 1000);
 
             let _verifShown = false, _receiptShown = false;
-            const applyStatus = (st, txid, verification, txUrl, receipt) => {
+            const applyStatus = (st, txid, verification, txUrl, receipt, delayed) => {
                 if (receipt) _receipt = receipt;
                 // Исход, объявленный СЕРВЕРОМ, старше чека: заявку с дошедшим
                 // чеком Слой 0 сам не истекает, значит терминальный статус —
@@ -1003,9 +1003,15 @@
                     const txLink = _tu
                         ? `<br><a href="#" onclick="tg.openLink('${_tu}');return false" style="color:#c48cff">🔗 Транзакция в блокчейне</a>`
                         : '';
+                    // «Готовим выплату» перестаёт быть правдой, когда заявка
+                    // ушла на ручной разбор: клиент видит бодрый текст часами.
+                    // Признак задержки считает сервер по той же очереди, из
+                    // которой её разбирает оператор.
                     statusEl.innerHTML = st === 'sent'
                         ? `🚀 Крипта отправлена на ваш адрес. Спасибо!${txLink}`
-                        : `✅ Оплата получена! Готовим выплату ${currency}. Уведомим в чате.`;
+                        : (delayed
+                            ? `⏳ Оплата получена и подтверждена. Отправку ${currency} задерживает ручная проверка — заявкой занимается сотрудник. Повторно платить не нужно, номер транзакции придёт в чат.`
+                            : `✅ Оплата получена! Готовим выплату ${currency}. Уведомим в чате.`);
                     openBtn.style.display = 'none';
                     checkBtn.textContent = '🔄 Обновить';
                     if (steps) steps.innerHTML = st === 'sent'
@@ -1018,7 +1024,7 @@
             const poll = async () => {
                 try {
                     const r = await fetch(`/api/order/${orderId}`, { headers: { 'X-Telegram-Init-Data': tg.initData || '' } });
-                    if (r.ok) { const d = await r.json(); applyStatus(d.status, d.txid, d.verification, d.tx_url, d.receipt); }
+                    if (r.ok) { const d = await r.json(); applyStatus(d.status, d.txid, d.verification, d.tx_url, d.receipt, d.delayed); }
                 } catch (e) {}
             };
             checkBtn.onclick = poll;
@@ -1047,8 +1053,12 @@
                     // ушёл) клиент мог ещё не платить, и реквизиты ему нужны.
                     const onReview = o.status === 'pending' && o.receipt === 'sent';
                     const hasFile = o.status === 'pending' && !!o.receipt;
-                    const emoji = onReview ? '🧾' : ({ pending:'⏳', paid:'✅', sent:'🚀' }[o.status] || '⚡');
-                    const label = onReview ? 'На проверке' : (statusLabels[o.status] || o.status);
+                    // Оплаченная и зависшая заявка не «Оплачено» — это ожидание
+                    // с нашей стороны, и называть его надо своим именем.
+                    const stuck = o.status === 'paid' && o.delayed;
+                    const emoji = onReview ? '🧾' : (stuck ? '⏳' : ({ pending:'⏳', paid:'✅', sent:'🚀' }[o.status] || '⚡'));
+                    const label = onReview ? 'На проверке'
+                                : (stuck ? 'Выплата задерживается' : (statusLabels[o.status] || o.status));
                     const cls = statusClass[o.status] || '';
                     let action = '';
                     if (o.status === 'pending' && o.session_token) {

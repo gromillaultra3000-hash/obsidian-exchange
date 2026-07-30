@@ -4513,54 +4513,68 @@ async def cmd_order_card(message: Message):
 
 @router.message(Command("review"))
 async def cmd_review_queue(message: Message):
-    """/review — очередь «на проверке»: заявки с чеком (удержаны от истечения) и
-    оплаченные без отправки крипты. Здесь оператор решает: выдать или отклонить."""
+    """/review — очередь разбора: деньги клиента у нас, обещанное ему — нет.
+
+    Две половины одного долга, и обе берутся из общего `core.payout_queue`, а не
+    считаются здесь заново: оплаченные без выдачи крипты и заявки с чеком без
+    решения. До этого их видели три места по-своему (`/pending` — только `paid`,
+    `/review` — только чеки, сторож — третьим запросом), и ни одно не показывало
+    ВОЗРАСТ. Без возраста сорок строк выглядят одинаково, и человек берёт
+    верхнюю, а не самую больную: так заявка и провисела 99 часов.
+    """
     if not is_staff(message.from_user.id):
         return
     import sys as _sys
-    _sys.path.insert(0, RELAY_PATH)
+    if RELAY_PATH not in _sys.path:
+        _sys.path.insert(0, RELAY_PATH)
     from core.receipts import receipt_fraud_flags
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        # Заявки с чеком, по которым решения нет. Удержанные Слоем 0 (pending)
-        # и ЗАКРЫТЫЕ — истёкшие до появления Слоя 0 и отменённые. Закрытые
-        # берём потому, что сторож про них теперь тревожит, а разбирать их было
-        # негде: /review их не показывал, /payout отказывал по статусу, и
-        # оператор упирался в стену с деньгами клиента на руках.
-        try:
-            held = c.execute("""
-                SELECT o.order_id, o.user_id, o.username, o.rub_amount, o.currency,
-                       o.created_at, r.content_type, o.status
-                FROM orders o JOIN order_receipts r ON r.order_id = o.order_id
-                WHERE o.status NOT IN ('paid','sent')
-                ORDER BY (o.status='pending') DESC, o.created_at DESC LIMIT 15""").fetchall()
-        except Exception:
-            logger.warning("order_receipts недоступна при сборке /review")
-            held = []
-        # Зависшие выплаты: оплачено, крипта не ушла
-        stuck = c.execute("""
-            SELECT order_id, rub_amount, currency, updated_at FROM orders
-            WHERE status='paid' AND (paid_btc_tx IS NULL OR paid_btc_tx='')
-            ORDER BY updated_at LIMIT 15""").fetchall()
-    if not held and not stuck:
+    from core import payout_queue as _pq
+
+    rows = _pq.queue(limit=15)
+    if not rows:
         await message.answer("✅ Очередь пуста: заявок с чеком на проверке и "
                              "зависших выплат нет.")
         return
-    if stuck:
-        txt = "💸 <b>Оплачено, крипта НЕ отправлена</b> (выдать вручную):\n"
-        for oid, amt, cur, upd in stuck:
-            txt += (f"  • <b>#{oid}</b> — {int(amt):,} ₽ → {cur} · с {(upd or '—')[:16]}\n"
-                    .replace(",", " "))
-        await message.answer(txt[:4000], parse_mode="HTML")
-    for oid, uid, uname, amt, cur, created, ctype, ostatus in held:
+
+    s = _pq.summary(rows)
+    head = (f"🗂 <b>Очередь разбора: {s['count']}</b> на "
+            f"<b>{s['rub']:,.0f} ₽</b>\n".replace(",", " "))
+    if s["breach"]:
+        head += f"🔴 просрочено грубо (&gt;{_pq.SLA_BREACH_MIN // 60} ч): {s['breach']}\n"
+    if s["warn"]:
+        head += f"🟠 просрочено (&gt;{_pq.SLA_WARN_MIN} мин): {s['warn']}\n"
+    head += f"⏳ самая старая — <b>#{s['oldest_id']}</b>, {s['oldest_age']}\n"
+    await message.answer(head, parse_mode="HTML")
+
+    for r in rows:
+        oid = r["order_id"]
+        icon = _pq.sla_icon(r["sla"])
+        amt = f"{int(r['rub_amount'] or 0):,}".replace(",", " ")
+        if r["kind"] == _pq.KIND_PAYOUT:
+            # Долг — крипта. Деньги клиента уже у нас, и авто-движок к заявке
+            # больше не вернётся: маркер payout_triggered его не пускает.
+            text = (f"{icon} <b>Заявка #{oid}</b> — оплачено, крипта НЕ отправлена\n"
+                    f"<blockquote>👤 @{r['username'] or '—'} · ID <code>{r['user_id']}</code>\n"
+                    f"💸 {amt} ₽ → {r['currency']}\n"
+                    f"⏳ ждёт <b>{r['age_human']}</b></blockquote>\n"
+                    f"🔎 Разбор: <code>/order {oid}</code>")
+            kb = InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(text="💸 Выплатить", callback_data=f"qpayout_{oid}"),
+                InlineKeyboardButton(text="👷 Работнику", callback_data=f"qworker_{oid}"),
+            ]])
+            await message.answer(text, parse_mode="HTML", reply_markup=kb)
+            continue
+
+        # Долг — решение по чеку.
         flags = receipt_fraud_flags(oid)
-        fmt = "PDF" if ctype == "application/pdf" else ("видео" if ctype and "video" in ctype else "фото")
-        closed = ostatus not in ("pending", None, "")
-        head = "закрыта, чек остался" if closed else "на проверке"
-        text = (f"🧾 <b>Заявка #{oid}</b> — {head}\n"
-                f"<blockquote>👤 @{uname or '—'} · ID <code>{uid}</code>\n"
-                f"💸 {int(amt):,} ₽ → {cur}\n".replace(",", " ")
-                + f"📄 Чек: {fmt} · создана {created[:16]}</blockquote>")
+        closed = r["status"] not in ("pending", None, "")
+        delivered = bool(r.get("delivered"))
+        head2 = "закрыта, чек остался" if closed else "чек на проверке"
+        text = (f"{icon} 🧾 <b>Заявка #{oid}</b> — {head2}\n"
+                f"<blockquote>👤 @{r['username'] or '—'} · ID <code>{r['user_id']}</code>\n"
+                f"💸 {amt} ₽ → {r['currency']}\n"
+                f"📄 Чек: {'у партнёра' if delivered else 'НЕ передан партнёру'}\n"
+                f"⏳ ждёт <b>{r['age_human']}</b></blockquote>")
         if flags:
             text += "\n" + "\n".join(flags)
         text += f"\n\n🔎 Разбор: <code>/order {oid}</code>"
@@ -4568,8 +4582,9 @@ async def cmd_review_queue(message: Message):
             # «Выдать» по закрытой заявке не сработает (подтверждение оплаты
             # ищет строго pending) — не показываем кнопку, которая молча ничего
             # не делает. Сначала вернуть в работу, потом обычный путь.
-            text += (f"\n⚠️ Статус <b>{ostatus}</b>: подтвердить оплату по ней нельзя, "
-                     f"пока не вернёте в работу. Деньги клиента при этом у трейдера.")
+            text += (f"\n⚠️ Статус <b>{r['status']}</b>: подтвердить оплату по ней "
+                     f"нельзя, пока не вернёте в работу. Деньги клиента при этом "
+                     f"у трейдера.")
             kb = InlineKeyboardMarkup(inline_keyboard=[[
                 InlineKeyboardButton(text="♻️ Вернуть в работу",
                                      callback_data=f"review_reopen_{oid}"),
@@ -4580,6 +4595,48 @@ async def cmd_review_queue(message: Message):
                 InlineKeyboardButton(text="🚫 Отклонить", callback_data=f"review_reject_{oid}"),
             ]])
         await message.answer(text, parse_mode="HTML", reply_markup=kb)
+
+
+@router.callback_query(F.data.startswith("qpayout_"))
+async def cb_queue_payout(callback: CallbackQuery):
+    """Из очереди — сразу в предпросмотр выплаты, без копирования /payout ID.
+
+    Разбор очереди — работа на десятки строк; каждый шаг, который заставляет
+    человека перепечатывать номер заявки, ровно на этом шаге и обрывается.
+    Само решение о деньгах не меняется: показывается тот же предпросмотр, что и
+    у команды, и все проверки повторяются в момент нажатия «Отправить».
+    """
+    if not is_admin(callback.from_user.id):
+        await callback.answer("⛔ Выплата — только админ", show_alert=True)
+        return
+    oid = int(callback.data.split("_")[-1])
+    await callback.answer()
+    txt, kb = await _payout_preview(oid)
+    await callback.message.answer(txt, parse_mode="HTML", reply_markup=kb)
+
+
+@router.callback_query(F.data.startswith("qworker_"))
+async def cb_queue_worker(callback: CallbackQuery):
+    """Отдать заявку работникам на ручную отправку — тем же уведомлением, что
+    шлёт авто-путь, чтобы объём крипты считался одним и тем же payout_verdict."""
+    if not is_staff(callback.from_user.id):
+        await callback.answer("Недоступно", show_alert=True)
+        return
+    oid = int(callback.data.split("_")[-1])
+    with db_conn(5) as conn:
+        row = conn.execute(
+            "SELECT user_id, rub_amount, crypto_address, currency, network, status, paid_btc_tx "
+            "FROM orders WHERE order_id=?", (oid,)).fetchone()
+    if not row:
+        await callback.answer("Заявка не найдена", show_alert=True)
+        return
+    if row[5] != "paid" or (row[6] or ""):
+        await callback.answer(f"Уже не в очереди (статус «{row[5]}»)", show_alert=True)
+        return
+    await notify_workers_paid(oid, row[1], row[2], row[3], row[4])
+    log_staff_action(callback.from_user.id, "queue_to_worker", str(oid),
+                     "заявка отдана работникам из очереди разбора")
+    await callback.answer("Отправлено работникам")
 
 
 @router.callback_query(lambda c: c.data and c.data.startswith("review_reopen_"))
@@ -5343,6 +5400,37 @@ async def _payout_preflight(oid):
     return info, blockers
 
 
+async def _payout_preview(oid):
+    """Текст и кнопка предпросмотра выплаты. Один вид у команды и у очереди.
+
+    Разные тексты в двух точках входа означали бы, что человек принимает решение
+    о деньгах по разным данным в зависимости от того, откуда пришёл. Кнопка
+    возвращается только когда препятствий нет — иначе её не должно быть видно,
+    а не «пусть нажмёт и узнает».
+    """
+    info, blockers = await _payout_preflight(oid)
+    if info is None:
+        return f"❌ {blockers[0]}", None
+    v, g = info["verdict"], info["guard"]
+    txt = (f"💸 <b>Выплата по заявке #{oid}</b>\n\n"
+           f"Клиент: <code>{info['user_id']}</code>\n"
+           f"Принято: <b>{info['rub']:,.0f} ₽</b>\n"
+           f"К отправке: <code>{v['amount']} {info['currency']}</code>"
+           f"{' (обещано клиенту)' if v.get('source') == 'agreed' else ' (по курсу)'}\n"
+           f"🌐 Сеть: <b>{_network_label(info['currency'], info['network'])}</b>\n"
+           f"{_destination_block(info['currency'], info['address'])}\n\n"
+           f"Провайдер: <b>{g.get('verdict')}</b> — {g.get('detail','')}\n")
+    if blockers:
+        txt += "\n⛔ <b>Выплата невозможна:</b>\n" + "\n".join(f"• {b}" for b in blockers)
+        return txt, None
+    if g.get("verdict") != "confirmed":
+        txt += ("\n⚠️ <b>Провайдер не подтверждает оплату live.</b> Убедитесь, что "
+                "деньги действительно поступили, прежде чем отправлять крипту.\n")
+    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(
+        text=f"💸 Отправить {v['amount']} {info['currency']}", callback_data=f"payoutgo_{oid}")]])
+    return txt, kb
+
+
 @router.message(Command("payout"))
 async def cmd_payout(message: Message):
     """/payout ORDER_ID — выплатить заявку движком авто-выплаты (админ).
@@ -5361,28 +5449,7 @@ async def cmd_payout(message: Message):
         await message.answer("Формат: /payout ORDER_ID")
         return
     oid = int(parts[1].lstrip("#"))
-    info, blockers = await _payout_preflight(oid)
-    if info is None:
-        await message.answer(f"❌ {blockers[0]}")
-        return
-    v, g = info["verdict"], info["guard"]
-    txt = (f"💸 <b>Выплата по заявке #{oid}</b>\n\n"
-           f"Клиент: <code>{info['user_id']}</code>\n"
-           f"Принято: <b>{info['rub']:,.0f} ₽</b>\n"
-           f"К отправке: <code>{v['amount']} {info['currency']}</code>"
-           f"{' (обещано клиенту)' if v.get('source') == 'agreed' else ' (по курсу)'}\n"
-           f"🌐 Сеть: <b>{_network_label(info['currency'], info['network'])}</b>\n"
-           f"{_destination_block(info['currency'], info['address'])}\n\n"
-           f"Провайдер: <b>{g.get('verdict')}</b> — {g.get('detail','')}\n")
-    if blockers:
-        txt += "\n⛔ <b>Выплата невозможна:</b>\n" + "\n".join(f"• {b}" for b in blockers)
-        await message.answer(txt, parse_mode="HTML")
-        return
-    if g.get("verdict") != "confirmed":
-        txt += ("\n⚠️ <b>Провайдер не подтверждает оплату live.</b> Убедитесь, что "
-                "деньги действительно поступили, прежде чем отправлять крипту.\n")
-    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(
-        text=f"💸 Отправить {v['amount']} {info['currency']}", callback_data=f"payoutgo_{oid}")]])
+    txt, kb = await _payout_preview(oid)
     await message.answer(txt, parse_mode="HTML", reply_markup=kb)
 
 
@@ -6340,29 +6407,41 @@ async def cmd_pending(message: Message, uid: int = None):
     caller = uid or message.from_user.id
     if not is_staff(caller):
         return
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute("""SELECT order_id, user_id, username, rub_amount, currency,
-                            crypto_address, updated_at
-                     FROM orders WHERE status='paid'
-                     ORDER BY updated_at ASC LIMIT 15""")
-        rows = c.fetchall()
+    # Тот же источник, что у /review и у сторожа: ожидание меряется ВОЗРАСТОМ,
+    # а не датой обновления. Дату надо вычитать в уме, и в списке из пятнадцати
+    # строк этого не делает никто — а разница между «20 минут» и «двое суток»
+    # здесь и есть всё содержание списка.
+    import sys as _sys
+    if RELAY_PATH not in _sys.path:
+        _sys.path.insert(0, RELAY_PATH)
+    from core import payout_queue as _pq
+
+    rows = _pq.queue(limit=15, kind=_pq.KIND_PAYOUT)
     if not rows:
         await message.answer("✅ Нет оплаченных заявок, ожидающих выплаты.")
         return
     show_force = is_admin(caller)  # force_payout — только админам
-    text = f"🔄 <b>Ожидают выплаты ({len(rows)}):</b>\n\n"
-    for oid, uid, uname, amt, cur, addr, upd in rows:
+    s = _pq.summary(rows)
+    text = (f"🔄 <b>Ожидают выплаты: {s['count']}</b> на "
+            f"<b>{s['rub']:,.0f} ₽</b>\n".replace(",", " "))
+    if s["breach"] or s["warn"]:
+        text += f"🔴 {s['breach']} грубо просрочено · 🟠 {s['warn']} просрочено\n"
+    text += "\n"
+    for r in rows:
+        oid, cur = r["order_id"], r["currency"]
         # Обрезка съедала бы тег целиком — он лежит внутри адреса, в хвосте.
         # В списке ожидающих выплаты это половина реквизита: сотрудник видит
         # знакомое начало адреса и уходит платить без тега.
-        _a, _tag, _ok = _split_destination(cur, addr)
+        _a, _tag, _ok = _split_destination(cur, r["crypto_address"])
         addr_s = (f"{_a[:8]}…{_a[-4:]}" if _a else "—") if _ok else "адрес не разобран"
         if _tag is not None:
             addr_s += f" · тег {_tag}"
-        text += (f"<b>#{oid}</b> @{uname or uid} · {int(amt):,} ₽ → {cur}\n"
-                 f"  📬 <code>{addr_s}</code> · {upd[:16]}\n"
-                 + (f"  /force_payout {oid}\n\n" if show_force else f"  /order {oid}\n\n")).replace(",", " ")
+        text += (f"{_pq.sla_icon(r['sla'])} <b>#{oid}</b> "
+                 f"@{r['username'] or r['user_id']} · "
+                 f"{int(r['rub_amount'] or 0):,} ₽ → {cur}\n"
+                 f"  📬 <code>{addr_s}</code> · ждёт <b>{r['age_human']}</b>\n"
+                 + (f"  /payout {oid}\n\n" if show_force else f"  /order {oid}\n\n")).replace(",", " ")
+    text += "🗂 Разбор по одной с кнопками: /review"
     await message.answer(text, parse_mode="HTML")
 
 
@@ -9825,6 +9904,60 @@ async def abandoned_order_reminder():
         await asyncio.sleep(60)
 
 
+async def payout_delay_notice_task():
+    """Одноразовое честное «выплата задерживается» клиенту, чьи деньги у нас.
+
+    До этого после «Оплата подтверждена! Отправляем…» наступала тишина — на
+    практике до 99 часов. Клиент в этой тишине делает ровно две вещи: пишет в
+    поддержку или считает, что его обманули; обе стоят дороже одного сообщения.
+
+    Что здесь ВАЖНО не сделать — не пообещать срок, которого мы не знаем. Текст
+    говорит только то, что правда: деньги получены, заявка у человека, TXID
+    придёт сюда же. Порог — общий с очередью персонала (`payout_queue`): клиенту
+    сообщают ровно тогда, когда у оператора строка перестала быть зелёной.
+
+    Однократность — sent_notifications(event='payout_delayed'), метка ставится
+    ДО отправки: два одинаковых извинения хуже одного молчания.
+    """
+    await asyncio.sleep(240)  # прогрев после старта
+    import sys as _sys
+    if RELAY_PATH not in _sys.path:
+        _sys.path.insert(0, RELAY_PATH)
+    while True:
+        try:
+            from core import payout_queue as _pq
+            for r in _pq.queue(limit=30, kind=_pq.KIND_PAYOUT):
+                if r["sla"] == "ok":
+                    continue
+                oid, uid = r["order_id"], r["user_id"]
+                if not uid or uid <= 0:
+                    continue
+                with db_conn(5) as conn:
+                    claimed = conn.execute(
+                        "INSERT OR IGNORE INTO sent_notifications (order_id, event) "
+                        "VALUES (?, 'payout_delayed')", (oid,)).rowcount
+                    conn.commit()
+                if not claimed:
+                    continue
+                try:
+                    await bot.send_message(
+                        uid,
+                        f"⏳ <b>Заявка #{oid} — выплата задерживается</b>\n\n"
+                        f"Ваша оплата получена и подтверждена, деньги у нас. "
+                        f"Отправку {r['currency']} задерживает ручная проверка — "
+                        f"заявкой уже занимается сотрудник.\n\n"
+                        f"Ничего делать не нужно и повторно платить не нужно. "
+                        f"Как только крипта уйдёт, вы получите здесь номер "
+                        f"транзакции в блокчейне.",
+                        parse_mode="HTML")
+                    logger.info(f"[payout_delay] уведомлён клиент по заявке {oid}")
+                except Exception as e:
+                    logger.warning(f"[payout_delay] заявка {oid}: {e}")
+        except Exception as e:
+            logger.error(f"payout_delay_notice_task error: {e}")
+        await asyncio.sleep(600)
+
+
 async def winback_promo_task():
     """Win-back неоплативших: заявка истекла, клиент НИ РАЗУ не платил →
     одноразовый персональный промокод (скидка из нашей маржи, не трогает курс).
@@ -9953,6 +10086,7 @@ async def main():
     asyncio.create_task(montera_receipt_reminder())
     asyncio.create_task(abandoned_order_reminder())
     asyncio.create_task(winback_promo_task())
+    asyncio.create_task(payout_delay_notice_task())
     asyncio.create_task(limit_order_watcher())
     asyncio.create_task(recall_inactive_users())
     asyncio.create_task(dca_runner())

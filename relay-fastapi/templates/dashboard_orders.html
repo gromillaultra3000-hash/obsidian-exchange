@@ -20,7 +20,7 @@
                    проверке, и слово «Оплатить» зовёт заплатить второй раз за тот
                    же обмен. Путь к заявке при этом остаётся: у 'stored' (файл у
                    нас, партнёру не ушёл) клиент мог ещё не платить. #}
-                <td><span class="status-badge status-{{ o.status }}">{% if o.status == 'pending' and o.receipt == 'sent' %}На проверке{% else %}{{ {'pending':'Ожидает оплаты','paid':'Оплачена','sent':'Выплачена','expired':'Истекла','failed':'Отменена','cancelled':'Отменена'}.get(o.status, o.status) }}{% endif %}</span></td>
+                <td><span class="status-badge status-{{ o.status }}">{% if o.status == 'pending' and o.receipt == 'sent' %}На проверке{% elif o.status == 'paid' and o.delayed %}Выплата задерживается{% else %}{{ {'pending':'Ожидает оплаты','paid':'Оплачена','sent':'Выплачена','expired':'Истекла','failed':'Отменена','cancelled':'Отменена'}.get(o.status, o.status) }}{% endif %}</span></td>
                 <td>{{ o.created_at }}</td>
                 <td style="white-space:nowrap;">
                     {% if o.status == 'pending' and o.session_token %}

@@ -931,6 +931,19 @@ def _nocomment_js(s):
     return "\n".join(re.sub(r"//.*$", "", ln) for ln in s.splitlines())
 
 
+def _nodoc(body: str) -> str:
+    """Срезает docstring функции. Правило, которому хватает описания рядом с
+    кодом, проверяет описание, а не код: ровно так три проверки этого набора
+    зеленели на заведомо сломанных мутациях."""
+    m = re.match(r"\s*(?:async\s+)?def\s+\w+\s*\([^)]*\)\s*(?:->[^:]+)?:\s*\n\s*(\"\"\"|\'\'\')",
+                 body)
+    if not m:
+        return body
+    q = m.group(1)
+    end = body.find(q, m.end())
+    return body if end == -1 else body[:m.start(1)] + body[end + 3:]
+
+
 def _slice(src, start, *ends):
     i = src.find(start)
     if i < 0:
@@ -952,6 +965,105 @@ def _slice(src, start, *ends):
 # SELECT истории падал бы на «no such column», унося ВЕСЬ список заявок клиента.
 # Два процесса делят один файл БД и стартуют в любом порядке, поэтому набор
 # колонок у них обязан быть один: тот, кто стартовал первым, и есть миграция.
+# ─────────────────────────────────────────────────────────────────────
+# 24. Деньги приняты, обещанное не выдано — и об этом молчат обе стороны
+# ─────────────────────────────────────────────────────────────────────
+# Было 30.07.2026: оплаченные заявки без выдачи копились до 99 часов. Видели их
+# три места по-своему (`/pending` — только paid, `/review` — только чеки, сторож
+# — третьим запросом), и ни одно не показывало ВОЗРАСТ: сорок строк выглядят
+# одинаково, человек берёт верхнюю. Клиенту же после «Оплата подтверждена!
+# Отправляем…» не говорили вообще ничего — он либо шёл в поддержку, либо считал,
+# что его обманули. Правило: очередь у всех одна, в ней виден возраст, и порог
+# «пора беспокоиться» у персонала и у клиента — один и тот же.
+def check_debt_queue_is_visible():
+    tag = "очередь долгов"
+    bot = _read(os.path.join(ROOT, "bot", "main_bot.py"))
+    main = _read(os.path.join(ROOT, "relay-fastapi", "main.py"))
+    wa = _read(os.path.join(ROOT, "relay", "webapp.html"))
+    tpl = _read(os.path.join(ROOT, "relay-fastapi", "templates", "dashboard_orders.html"))
+    if not (bot and main and wa and tpl):
+        fail(tag, "не прочитан один из файлов поверхностей — проверка ослепла")
+        return
+    if not _read(os.path.join(ROOT, "relay", "core", "payout_queue.py")):
+        fail(tag, "нет relay/core/payout_queue.py — единого источника очереди "
+                  "разбора; каждая поверхность снова считает долг по-своему")
+        return
+
+    # 1. Обе поверхности персонала берут очередь из общего модуля и показывают
+    #    ВОЗРАСТ. Свой запрос по status='paid' здесь — это вторая правда,
+    #    которая разойдётся с первой ровно тогда, когда это будет дорого.
+    for fn, human in (("async def cmd_review_queue(", "/review"),
+                      ("async def cmd_pending(", "/pending")):
+        b = _slice(bot, fn, "\nasync def ", "\ndef ", "\n@router.")
+        b = "\n".join(re.sub(r"#.*$", "", ln) for ln in b.splitlines())
+        if not b:
+            fail(tag, f"bot/main_bot.py: не найдена {human} — проверка ослепла")
+            continue
+        if not re.search(r"\.queue\s*\(", b):
+            fail(tag, f"bot/main_bot.py: {human} не ВЫЗЫВАЕТ payout_queue.queue() — "
+                      f"импорта мало: список берётся откуда-то ещё, и две правды "
+                      f"об одном долге разойдутся ровно тогда, когда это дорого")
+        if "age_human" not in b:
+            fail(tag, f"bot/main_bot.py: {human} не показывает возраст заявки. "
+                      f"Без него сорок строк очереди выглядят одинаково, и "
+                      f"человек берёт верхнюю, а не ту, что ждёт вторые сутки")
+        if re.search(r"status\s*=\s*'paid'", b):
+            fail(tag, f"bot/main_bot.py: {human} снова отбирает заявки своим "
+                      f"условием status='paid' вместо общей очереди")
+
+    # 2. Клиенту говорят. Одноразово, и по ТОМУ ЖЕ порогу, что видит оператор.
+    b = _nodoc(_slice(bot, "async def payout_delay_notice_task(", "\nasync def ", "\ndef "))
+    if not b:
+        fail(tag, "bot/main_bot.py: нет payout_delay_notice_task — клиент, чьи "
+                  "деньги у нас, снова узнаёт о задержке только из тишины")
+    else:
+        if "payout_queue" not in b:
+            fail(tag, "bot/main_bot.py: уведомление о задержке считает порог само, "
+                      "мимо payout_queue — клиенту скажут «всё по плану» тогда, "
+                      "когда у оператора строка уже красная")
+        if "payout_delayed" not in b or "sent_notifications" not in b:
+            fail(tag, "bot/main_bot.py: уведомление о задержке не одноразовое "
+                      "(нет метки в sent_notifications) — клиент получит одно и "
+                      "то же извинение каждые десять минут")
+    if "payout_delay_notice_task()" not in bot.split("async def payout_delay_notice_task")[0] \
+            and "create_task(payout_delay_notice_task())" not in bot:
+        fail(tag, "bot/main_bot.py: payout_delay_notice_task определена, но не "
+                  "запущена через create_task — код, который выглядит работающим "
+                  "и не работает")
+
+    # 3. Признак задержки доезжает до КАЖДОЙ клиентской поверхности. Молчащая
+    #    поверхность здесь — это «Оплачена» и тишина на вторые сутки.
+    if "def _payout_delayed(" not in main:
+        fail(tag, "relay-fastapi/main.py: нет _payout_delayed() — сайт и Mini App "
+                  "не отличат «выплачиваем» от «застряло на сутки»")
+    elif not re.search(r"client_state\s*\(",
+                       _nodoc(_slice(main, "def _payout_delayed(", "\ndef ", "\n@app."))):
+        # Не «упоминается payout_queue» — упоминается он и в строке лога рядом,
+        # а ВЫЗЫВАЕТСЯ ли. Порог, посчитанный здесь заново, — вторая правда:
+        # клиенту «всё по плану» ровно тогда, когда у оператора строка красная.
+        fail(tag, "relay-fastapi/main.py: _payout_delayed не вызывает "
+                  "payout_queue.client_state() — порог считается сам, и у "
+                  "клиента с оператором будет разная правда о заявке")
+    for name, start in (("get_user_orders (кабинет)", "def get_user_orders("),
+                        ("/api/history (Mini App)", "async def api_history(")):
+        b = _slice(main, start, "\n@app.", "\ndef ", "\nasync def ")
+        if b and not re.search(r'["\']delayed["\']', _nodoc(b)):
+            fail(tag, f"relay-fastapi/main.py: {name} не отдаёт признак задержки — "
+                      f"в списке заявок зависшая выплата выглядит как обычная "
+                      f"«Оплачена»")
+    for src, rel, human in ((wa, "relay/webapp.html", "Mini App"),
+                            (tpl, "relay-fastapi/templates/dashboard_orders.html", "кабинет")):
+        clean = re.sub(r"\{#.*?#\}", "", src, flags=re.S)
+        clean = "\n".join(re.sub(r"//.*$", "", ln) for ln in clean.splitlines())
+        if not re.search(r"\bdelayed\b", clean):
+            fail(tag, f"{rel}: {human} не смотрит на признак задержки — клиент "
+                      f"видит «Оплачена» и не знает, что заявка стоит")
+    if "C.delayed" not in _slice(main, "function viewPaid()", "\nfunction "):
+        fail(tag, "relay-fastapi/main.py: страница /pay обещает «обычно 5–15 "
+                  "минут» и на застрявшей заявке — это обещание, которого мы не "
+                  "держим, а клиент по нему считает время")
+
+
 def check_migrations_agree():
     tag = "миграции разъехались"
     bot = _read(os.path.join(ROOT, "bot", "main_bot.py"))
@@ -994,10 +1106,9 @@ def check_receipt_beats_the_timer():
     # 1. Источник факта. Он обязан РАЗЛИЧАТЬ «файл у нас» и «чек дошёл до
     #    партнёра»: на первом обещать выплату нельзя (это может быть фото
     #    вместо PDF), на втором нельзя показывать реквизиты (заплатят дважды).
-    body = _slice(main, "def _receipt_state(", "\ndef ", "\n@app.")
     # Docstring вырезаем: он перечисляет ровно те состояния, которые мы ищем, и
     # мина, довольная собственным описанием рядом, — не мина.
-    body = re.sub(r'"""..*?"""', "", body, flags=re.S)
+    body = _nodoc(_slice(main, "def _receipt_state(", "\ndef ", "\n@app."))
     body = "\n".join(re.sub(r"#.*$", "", ln) for ln in body.splitlines())
     if not body.strip():
         fail(tag, "relay-fastapi/main.py: нет _receipt_state() — единственного "
@@ -1224,7 +1335,8 @@ def main():
                check_no_unreachable_handlers,
                check_blocklist_matches_account_not_string,
                check_receipt_beats_the_timer,
-               check_migrations_agree):
+               check_migrations_agree,
+               check_debt_queue_is_visible):
         try:
             fn()
         except Exception as e:

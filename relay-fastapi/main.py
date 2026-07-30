@@ -286,6 +286,7 @@ def get_user_orders(web_user, limit=20):
         except Exception:
             logger.warning("order_receipts недоступна при сборке истории кабинета")
             with_receipt = set()
+    delayed_ids = _delayed_ids()
     # Ссылку строит core.txid — своя копия карты здесь знала только три монеты,
     # и выполненная ETH/XRP-заявка показывала клиенту пустую кнопку.
     # receipt: заявка с ДОШЕДШИМ до партнёра чеком — «на проверке», а не
@@ -294,6 +295,7 @@ def get_user_orders(web_user, limit=20):
         {"order_id": r[0], "currency": r[1], "rub_amount": r[2], "status": r[3], "created_at": r[4],
          "crypto_address": r[5] or '', "txid": r[6] or '', "session_token": r[9] or '',
          "receipt": ("sent" if (r[8] or '').strip() else "stored") if r[0] in with_receipt else "",
+         "delayed": (r[3] == 'paid' and r[0] in delayed_ids),
          "tx_url": (_txid.explorer_url(r[1], r[6], r[7]) or '') if r[3] == 'sent' else ''}
         for r in rows
     ]
@@ -495,6 +497,38 @@ def _is_true(value) -> bool:
     if isinstance(value, str):
         return value.strip().lower() in ("1", "true", "on", "yes")
     return False
+
+
+def _delayed_ids() -> set:
+    """order_id, по которым выплата уже просрочена. Одним запросом на список.
+
+    По заявке в цикле это было бы N обращений к БД на отрисовку одной страницы
+    истории — цена честности не должна быть такой.
+    """
+    try:
+        from core import payout_queue as _pq
+        return {r["order_id"] for r in _pq.queue(limit=200, kind=_pq.KIND_PAYOUT)
+                if r["sla"] != "ok"}
+    except Exception:
+        logger.warning("payout_queue недоступна при сборке истории")
+        return set()
+
+
+def _payout_delayed(order_id) -> bool:
+    """Задерживается ли выплата по этой заявке — по общей очереди разбора.
+
+    Порог тот же, что у персонала (`core.payout_queue`). Считать его здесь
+    заново значило бы завести вторую правду: клиенту «всё идёт по плану» ровно
+    тогда, когда у оператора строка уже красная. Сбой — «не задерживается»:
+    выдумывать тревогу на пустом месте хуже, чем промолчать (о самой задержке
+    клиенту напишет бот, у него свой путь к тем же данным).
+    """
+    try:
+        from core import payout_queue as _pq
+        return bool(_pq.client_state(order_id).get("delayed"))
+    except Exception:
+        logger.warning("payout_queue недоступна при опросе заявки %s", order_id)
+        return False
 
 
 def _receipt_state(order_id) -> str:
@@ -1825,6 +1859,7 @@ async def api_history(request: Request):
         except Exception:
             logger.warning("order_receipts недоступна при сборке истории user=%s", uid)
             with_receipt = set()
+    delayed_ids = _delayed_ids()
     # tx_url считает сервер (core.txid): у Mini App была своя карта обозревателей
     # на четыре монеты — XRP-заявка оставалась вообще без ссылки.
     # receipt: заявка с ДОШЕДШИМ до партнёра чеком — это НЕ «ждём вашу оплату».
@@ -1832,6 +1867,7 @@ async def api_history(request: Request):
     return [{"order_id": r[0], "amount": r[1], "currency": r[2], "status": r[3],
              "created": r[4], "session_token": r[5], "txid": r[6],
              "receipt": ("sent" if (r[8] or '').strip() else "stored") if r[0] in with_receipt else "",
+             "delayed": (r[3] == 'paid' and r[0] in delayed_ids),
              "tx_url": _txid.explorer_url(r[2], r[6], r[7]) or ""} for r in rows]
 
 @app.get("/api/referral_stats")
@@ -1943,6 +1979,8 @@ async def api_order(order_id: int, request: Request):
     # получался относительный href, то есть 404 на нашем же домене.
     return {"status": status, "txid": txid, "verification": verification,
             "receipt": _receipt_state(order_id),
+            # «Оплачена» без движения часами клиент читает как «нас кинули».
+            "delayed": (status == "paid" and _payout_delayed(order_id)),
             "tx_url": _txid.explorer_url(currency, txid, network) or ""}
 
 # --- Админ-вкладка Mini App ---
@@ -2249,6 +2287,7 @@ async def pay(token: str, request: Request):
             # заявке, оплаченной в последнюю минуту, показывает «время истекло» —
             # клиент видит отказ на деньги, которые уже ушли трейдеру.
             "receipt": _receipt_state(order_id),
+            "delayed": (order_status == "paid" and _payout_delayed(order_id)),
         }
         cfg_json = _json.dumps(cfg, ensure_ascii=False)
 
@@ -2362,6 +2401,14 @@ function viewVerify(){{
     <div class="hint">Откройте бота и отправьте ${{C.verification==='video'?'короткое видео с чеком':'PDF-чек'}} — там же указан ID сделки.</div>`;
 }}
 function viewPaid(){{
+  // Обещание «5–15 минут» верно для авто-выплаты и становится ложью на
+  // ручном разборе — а туда уходит большинство заявок. Пока сервер считает
+  // выплату задержанной, говорим то, что есть: деньги у нас, занимается человек.
+  if (C.delayed) return `<div class="pill ok"><i class="pdot"></i>Оплата получена</div>
+    <div class="spin"></div>
+    <div class="lbl" style="font-size:15px;color:#e7e7ea;text-align:center">Выплата задерживается</div>
+    <div class="hint">Ваши деньги получены и подтверждены. Отправку ${{esc(C.currency)||'криптовалюты'}} задерживает ручная проверка — заявкой уже занимается сотрудник. <b>Повторно платить не нужно.</b> Номер транзакции придёт в бота.
+    ${{SUPPORT}}</div>`;
   return `<div class="pill ok"><i class="pdot"></i>Оплата получена</div>
     <div class="spin"></div>
     <div class="lbl" style="font-size:15px;color:#e7e7ea;text-align:center">Отправляем ${{esc(C.currency)||'криптовалюту'}}</div>
@@ -2455,7 +2502,8 @@ async function poll(){{
     const r = await fetch(`/api/order/${{C.orderId}}?token=${{encodeURIComponent(C.token)}}`);
     if (r.ok) {{ const d=await r.json();
       if ((d.status && d.status!==C.status) || ((d.verification||'')!==(C.verification||''))
-          || ((d.receipt||'') !== (C.receipt||''))) {{
+          || ((d.receipt||'') !== (C.receipt||'')) || (!!d.delayed !== !!C.delayed)) {{
+        C.delayed = !!d.delayed;
         C.status=d.status||C.status; C.verification=d.verification||''; C.txid=d.txid||C.txid;
         // Чек мог прийти уже после загрузки страницы — клиент отправляет его
         // в боте, а страница остаётся открытой. Значение то же, что у сервера
