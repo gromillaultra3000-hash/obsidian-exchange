@@ -781,6 +781,13 @@ def init_db():
         # повода быть условными: условие, которое можно не подставить, рано или
         # поздно не подставится. Колонки — минимум, нужный чтению; остальное
         # (sha256, dispute_opened_at) доводит receipts.py.
+        # Журнал одноразовых уведомлений. На нём держится вся идемпотентность:
+        # «клиенту это уже говорили», «выплату уже застолбили», «оператор уже
+        # отклонил чек». В боевую базу таблица попала руками — в коде её не
+        # создавал никто, и на свежей базе первый же INSERT валился, унося с
+        # собой уведомление, а вместе с ним и защиту от повтора.
+        c.execute('''CREATE TABLE IF NOT EXISTS sent_notifications (
+            order_id INTEGER, event TEXT, PRIMARY KEY (order_id, event))''')
         c.execute('''CREATE TABLE IF NOT EXISTS order_receipts (
             order_id INTEGER PRIMARY KEY, path TEXT, filename TEXT,
             content_type TEXT, created_at TEXT DEFAULT (datetime('now')),

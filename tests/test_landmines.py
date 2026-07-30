@@ -1312,6 +1312,23 @@ def check_migrations_agree():
         fail(tag, "bot/main_bot.py: не найдено ни одной миграции orders — "
                   "проверка ослепла")
         return
+    # Та же беда, но с ТАБЛИЦАМИ. `sent_notifications` — журнал, на котором
+    # держится вся идемпотентность уведомлений и защита от двойной выплаты, —
+    # не создавался НИГДЕ: в боевую базу попал руками. На свежей базе первый же
+    # INSERT валился, унося вместе с уведомлением и защиту от повтора.
+    shared = ("sent_notifications", "order_receipts")
+    for t in shared:
+        for src, rel, other in ((bot, "bot/main_bot.py", "relay-fastapi"),
+                                (main, "relay-fastapi/main.py", "бот")):
+            uses = re.search(rf"(FROM|INTO|UPDATE)\s+{t}\b", src)
+            creates = re.search(rf"CREATE TABLE IF NOT EXISTS\s+{t}\b", src)
+            if uses and not creates:
+                fail(tag, f"{rel}: работает с таблицей {t}, но не создаёт её. "
+                          f"Процессы стартуют в любом порядке: если этот окажется "
+                          f"первым, запрос упадёт — а вместе с ним пропадёт то, "
+                          f"ради чего таблица нужна ({other} её создаёт или нет — "
+                          f"полагаться на это нельзя)")
+
     for name, cols, other in (("bot/main_bot.py", bot_cols - web_cols, "relay-fastapi"),
                               ("relay-fastapi/main.py", web_cols - bot_cols, "бот")):
         if cols:

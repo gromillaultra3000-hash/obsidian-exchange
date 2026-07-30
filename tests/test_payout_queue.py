@@ -30,6 +30,8 @@ def _mkdb():
         status TEXT, created_at TEXT, updated_at TEXT, receipt_sent_at TEXT,
         paid_btc_tx TEXT);
     CREATE TABLE order_receipts(order_id INT, created_at TEXT);
+    CREATE TABLE sent_notifications(order_id INTEGER, event TEXT,
+        PRIMARY KEY (order_id, event));
     """)
     return p, c
 

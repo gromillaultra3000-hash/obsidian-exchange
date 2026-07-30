@@ -137,8 +137,11 @@ def queue(limit: int = 30, kind: str | None = None) -> list:
                         d = dict(r)
                         d["kind"] = KIND_RECEIPT
                         out.append(d)
-                except sqlite3.OperationalError:
-                    pass
+                except sqlite3.OperationalError as e:
+                    # Молчать здесь нельзя: пропадает ПОЛОВИНА очереди, и
+                    # выглядит это как «долгов такого рода нет».
+                    logger.warning("payout_queue: половина очереди (чеки) "
+                                   "недоступна: %s", e)
     except Exception as e:
         logger.error("payout_queue недоступна (%s)", type(e).__name__)
         return []

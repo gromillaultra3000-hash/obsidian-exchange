@@ -97,6 +97,10 @@ def _ensure_orders_columns():
         "receipt_deadline": "TEXT",
     }
     with db_conn(5) as conn:
+        # Журнал одноразовых уведомлений: его читают и пишут оба процесса, а
+        # создавал — никто. Кто стартовал первым, тот и заводит схему.
+        conn.execute("CREATE TABLE IF NOT EXISTS sent_notifications ("
+                     " order_id INTEGER, event TEXT, PRIMARY KEY (order_id, event))")
         cols = [r[1] for r in conn.execute("PRAGMA table_info(orders)").fetchall()]
         for name, typ in needed.items():
             if name not in cols:
