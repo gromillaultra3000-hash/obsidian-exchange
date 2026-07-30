@@ -1,5 +1,6 @@
 import hmac, hashlib, base64, json, os, requests
 from providers.base import PaymentProvider
+from core import attempt_id
 from config.config import PROVIDER_TIMEOUT
 from utils.logger import get_logger
 
@@ -133,7 +134,10 @@ class BrabusProvider(PaymentProvider):
             "currency": "RUB",
             "notificationUrl": f"{PUBLIC_RELAY}/brabus/webhook",
             "notificationToken": BRABUS_NOTIFICATION_TOKEN,
-            "internalId": f"obsidian_{order_id}",
+            # Идентификатор ПОПЫТКИ. Совпадая с идентификатором заявки, он
+            # делает два инвойса по одной заявке неразличимыми в вебхуке:
+            # неизвестно, какая из попыток оплачена.
+            "internalId": attempt_id.make(order_id),
             "startDeal": True,
             "paymentMethod": self.default_method,
             "paymentOption": self.default_option,
@@ -461,10 +465,7 @@ class BrabusProvider(PaymentProvider):
     def parse_webhook(self, data):
         # Структура: {"notificationType": "invoice", "invoice": {"internalId": "...", "status": "paid"}}
         invoice = data.get('invoice') or data
-        internal_id = invoice.get('internalId', '') or ''
-        order_id = None
-        if internal_id.startswith('obsidian_'):
-            order_id = internal_id.split('_', 1)[1]
+        order_id = attempt_id.parse(invoice.get('internalId'))
         status = invoice.get('status')
         normalized_status = {
             "paid": "paid",

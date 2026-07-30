@@ -1,5 +1,6 @@
 import os, time, threading, requests
 from providers.base import PaymentProvider
+from core import attempt_id
 from config.config import PROVIDER_TIMEOUT
 from utils.logger import get_logger
 
@@ -106,7 +107,8 @@ class VertuProvider(PaymentProvider):
         # игнорируется; свой platform_id для GET-статуса Vertu возвращает в
         # ОТВЕТЕ. timestamp — чтобы retry в PaymentService не упирался в дубль ID.
         payload = {
-            "deal_id": f"obsidian_{order_id}_{int(time.time())}",
+            # Посекундный суффикс давал одинаковый id трём ретраям внутри секунды.
+            "deal_id": attempt_id.make(order_id),
             "amount": float(amount),
             "type_pay": type_pay,
         }
@@ -297,7 +299,7 @@ class VertuProvider(PaymentProvider):
             return {"error": "Vertu: для выплаты нужны реквизиты и ФИО получателя"}
 
         payload = {
-            "deal_id": f"obsidian_out_{order_id}_{int(time.time())}",
+            "deal_id": attempt_id.make(order_id, prefix="obsidian_out"),
             "amount": float(amount),
             "type_pay": "sbp" if payment_method == "sbp" else "c2c",
             "bank": code,

@@ -1,5 +1,6 @@
 import os, time, json, hashlib, requests
 from providers.base import PaymentProvider
+from core import attempt_id
 from config.config import PROVIDER_TIMEOUT
 from utils.logger import get_logger
 
@@ -166,7 +167,7 @@ class XPayConnectProvider(PaymentProvider):
 
         body = {
             # timestamp — чтобы retry в PaymentService не ловил ORDER_ALREADY_EXISTS (409)
-            "order_id": f"obsidian_{order_id}_{int(time.time())}",
+            "order_id": attempt_id.make(order_id),
             "amount": int(round(float(amount))),
             "type": pay_type,
             "merchant_id": self.merchant_id,
@@ -275,9 +276,5 @@ class XPayConnectProvider(PaymentProvider):
 
     def parse_webhook(self, data):
         """Вебхук приходит только при success; order_id = наш external_id."""
-        external = data.get("order_id", "") or ""
-        order_id = None
-        if external.startswith("obsidian_"):
-            order_id = external.split("_")[1]
-        status = _STATUS_MAP.get(data.get("status"), "unknown")
+        order_id = attempt_id.parse(data.get("order_id"))
         return order_id, status

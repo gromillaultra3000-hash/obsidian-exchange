@@ -1,5 +1,6 @@
 import os, sqlite3, requests
 from providers.base import PaymentProvider
+from core import attempt_id
 from config.config import PROVIDER_TIMEOUT
 from utils.logger import get_logger
 
@@ -60,9 +61,13 @@ class MonteraProvider(PaymentProvider):
             user_id = 0
         user_rating, client_trusted = _get_user_rating(user_id)
 
+        # Идентификатор ПОПЫТКИ, а не заявки: на повторе с тем же значением
+        # Montera отвечает 422 «внешний id уже существует», и ретрай вместо
+        # второй попытки давал минус одну.
+        attempt = attempt_id.make(order_id)
         if payment_method == "sbp":
             payload = {
-                "external_id": f"obsidian_{order_id}",
+                "external_id": attempt,
                 "amount": int(round(float(amount))),
                 "payment_gateway": "sbp_rub",
                 "merchant_id": self.merchant_id,
@@ -70,7 +75,7 @@ class MonteraProvider(PaymentProvider):
             }
         else:
             payload = {
-                "external_id": f"obsidian_{order_id}",
+                "external_id": attempt,
                 "amount": int(round(float(amount))),
                 "currency": "rub",
                 "payment_detail_type": "card",
@@ -258,10 +263,11 @@ class MonteraProvider(PaymentProvider):
         return []
 
     def parse_webhook(self, data):
-        external_id = data.get('external_id', '') or ''
-        order_id = None
-        if external_id.startswith('obsidian_'):
-            order_id = external_id.split('_', 1)[1]
+        # Разбор — тем же модулем, что и построение. Прежний split('_', 1)[1]
+        # брал «всё после первого подчёркивания»: с суффиксом уникальности он
+        # искал бы заявку «1234_1783…», то есть оплата пришла бы, а мы бы её не
+        # узнали. Старая форма без суффикса читается по-прежнему.
+        order_id = attempt_id.parse(data.get('external_id'))
         status = data.get('status')
         normalized_status = 'paid' if status == 'success' else status
         if order_id and normalized_status:

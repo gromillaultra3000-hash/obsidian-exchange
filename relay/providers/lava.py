@@ -1,5 +1,6 @@
 import os, json, hmac, hashlib, requests
 from providers.base import PaymentProvider
+from core import attempt_id
 from config.config import PROVIDER_TIMEOUT
 from utils.logger import get_logger
 
@@ -66,7 +67,9 @@ class LavaProvider(PaymentProvider):
             'failUrl':        f'{PUBLIC_RELAY}/pay/fail',
             'hookUrl':        f'{PUBLIC_RELAY}/lava/webhook',
             'includeService': services,
-            'orderId':        f'obsidian_{order_id}',
+            # Идентификатор ПОПЫТКИ: повтор с тем же значением у платёжных
+            # шлюзов — это конфликт, а не идемпотентность.
+            'orderId':        attempt_id.make(order_id),
             'shopId':         self.shop_id,
             'successUrl':     f'{PUBLIC_RELAY}/pay/success',
             'sum':            float(round(amount, 2)),
@@ -130,8 +133,7 @@ class LavaProvider(PaymentProvider):
           id, orderId, status (1=paid/success, 2=cancelled), paymentAmount, shopId
         Возвращает (obsidian_order_id, status_string)
         """
-        order_ref = data.get('orderId', '')         # 'obsidian_1234'
-        order_id  = order_ref.replace('obsidian_', '') if order_ref.startswith('obsidian_') else None
+        order_id = attempt_id.parse(data.get('orderId'))
         raw_status = data.get('status')
 
         # Lava: 1 = оплачен, 2 = отменён/просрочен

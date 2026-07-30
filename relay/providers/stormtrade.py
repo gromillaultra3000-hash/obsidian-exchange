@@ -1,5 +1,6 @@
 import hmac, hashlib, base64, json, os, requests
 from providers.base import PaymentProvider
+from core import attempt_id
 from config.config import PROVIDER_TIMEOUT
 from utils.logger import get_logger
 
@@ -79,7 +80,7 @@ class StormTradeProvider(PaymentProvider):
             "currency": "RUB",
             "notificationUrl": f"{PUBLIC_RELAY}/stormtrade/webhook",
             "notificationToken": STORMTRADE_NOTIFICATION_TOKEN,
-            "internalId": f"obsidian_{order_id}",
+            "internalId": attempt_id.make(order_id),
             "startDeal": True,
             "paymentMethod": None,
             "paymentOption": option,
@@ -297,10 +298,7 @@ class StormTradeProvider(PaymentProvider):
     def parse_webhook(self, data):
         # {"notificationType": "invoice", "invoice": {"internalId": "...", "status": "paid"}}
         invoice = data.get('invoice') or data
-        internal_id = invoice.get('internalId', '') or ''
-        order_id = None
-        if internal_id.startswith('obsidian_'):
-            order_id = internal_id.split('_', 1)[1]
+        order_id = attempt_id.parse(invoice.get('internalId'))
         status = invoice.get('status')
         normalized = {"paid": "paid", "canceled": "failed", "expired": "failed"}.get(status, status)
         if order_id and normalized:

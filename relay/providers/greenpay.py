@@ -1,5 +1,6 @@
 import hmac, hashlib, time, uuid, os, json, requests
 from providers.base import PaymentProvider
+from core import attempt_id
 from config.config import PROVIDER_TIMEOUT
 from utils.logger import get_logger
 
@@ -31,7 +32,7 @@ class GreenPayProvider(PaymentProvider):
 
     def create_invoice(self, order_id, amount, payment_method=None):
         payment_method = payment_method or 'sbp'
-        transaction_id = f"obsidian_{order_id}"
+        transaction_id = attempt_id.make(order_id)
         payload = {
             "transaction_id": transaction_id,
             "payment_method": payment_method,
@@ -89,10 +90,9 @@ class GreenPayProvider(PaymentProvider):
         return []
 
     def parse_webhook(self, data):
-        external_id = data.get('external_id', '') or ''
-        order_id = None
-        if external_id.startswith('obsidian_'):
-            order_id = external_id.split('_', 1)[1]
+        # Общий разбор: см. core/attempt_id — «всё после первого подчёркивания»
+        # ломается о суффикс уникальности и теряет платёж.
+        order_id = attempt_id.parse(data.get('external_id'))
         if not order_id:
             order_id = (data.get('additional_info') or {}).get('order_id')
         status = data.get('status')

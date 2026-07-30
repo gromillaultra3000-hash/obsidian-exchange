@@ -435,6 +435,7 @@ async def dashboard_page(request: Request):
 # --- Личный кабинет: обмен RUB → крипта ---
 from utils import exchange_calc
 from core import assets as _assets  # единый источник валют/сетей (Фаза C, мультичейн)
+from core import attempt_id
 from core import txid as _txid      # единый источник ссылок на транзакцию
 
 def _allowed_currencies():
@@ -2697,11 +2698,11 @@ async def greenpay_webhook(request: Request):
         raise HTTPException(status_code=401)
     data = json.loads(raw)
     audit_log("greenpay_webhook_received", str(data))
-    external_id = data.get('external_id', '') or ''
     status = data.get('status')
-    order_id = None
-    if external_id.startswith('obsidian_'):
-        order_id = external_id.split('_', 1)[1]
+    # Разбор общим модулем (core/attempt_id), а не своей копией: у провайдера
+    # ровно та же логика в parse_webhook, и две копии одного разбора
+    # расходятся ровно в тот день, когда идентификатор меняет форму.
+    order_id = attempt_id.parse(data.get('external_id'))
     if not order_id:
         order_id = (data.get('additional_info') or {}).get('order_id')
     if order_id and status == 'success':
@@ -2729,9 +2730,7 @@ async def montera_webhook(request: Request):
     external_id = data.get('external_id', '') or ''
     status = data.get('status')
     requested_type = data.get('requested_type')  # 'video' или 'pdf-success'
-    order_id = None
-    if external_id.startswith('obsidian_'):
-        order_id = external_id.split('_', 1)[1]
+    order_id = attempt_id.parse(external_id)
 
     if order_id and status == 'success':
         with db_conn(5) as conn:
@@ -2795,9 +2794,8 @@ async def lava_webhook(request: Request):
             logger.warning(f"Lava webhook bad signature: expected={expected[:16]}... got={received_sign[:16]}...")
             raise HTTPException(status_code=401)
 
-    order_ref  = data.get('orderId', '') or ''
     raw_status = data.get('status')
-    order_id   = order_ref.replace('obsidian_', '') if order_ref.startswith('obsidian_') else None
+    order_id   = attempt_id.parse(data.get('orderId'))
 
     # Lava: status 1 = успешно оплачен, 2 = отменён
     if raw_status == 1 or raw_status == 'success':
@@ -2830,11 +2828,8 @@ async def brabus_webhook(request: Request):
     audit_log("brabus_webhook_received", str(data))
     # Структура: {"notificationType": "invoice", "invoice": {"internalId": "...", "status": "paid", ...}}
     invoice = data.get('invoice') or data  # fallback на flat если вдруг старый формат
-    internal_id = invoice.get('internalId', '') or ''
     status = invoice.get('status')
-    order_id = None
-    if internal_id.startswith('obsidian_'):
-        order_id = internal_id.split('_', 1)[1]
+    order_id = attempt_id.parse(invoice.get('internalId'))
     if order_id and status in ('paid',):
         with db_conn(5) as conn:
             c = conn.cursor()
@@ -2862,11 +2857,8 @@ async def stormtrade_webhook(request: Request):
     data = await request.json()
     audit_log("stormtrade_webhook_received", str(data))
     invoice = data.get('invoice') or data
-    internal_id = invoice.get('internalId', '') or ''
     status = invoice.get('status')
-    order_id = None
-    if internal_id.startswith('obsidian_'):
-        order_id = internal_id.split('_', 1)[1]
+    order_id = attempt_id.parse(invoice.get('internalId'))
     if order_id and status in ('paid',):
         with db_conn(5) as conn:
             c = conn.cursor()

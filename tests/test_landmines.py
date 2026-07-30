@@ -975,6 +975,68 @@ def _slice(src, start, *ends):
 # Отправляем…» не говорили вообще ничего — он либо шёл в поддержку, либо считал,
 # что его обманули. Правило: очередь у всех одна, в ней виден возраст, и порог
 # «пора беспокоиться» у персонала и у клиента — один и тот же.
+# ─────────────────────────────────────────────────────────────────────
+# 25. Идентификатор попытки строят в одном месте, а читают в другом
+# ─────────────────────────────────────────────────────────────────────
+# Было 30.07.2026: провайдерам слался `obsidian_{order_id}` — идентификатор
+# ЗАЯВКИ. Заявка одна, попыток по ней несколько (ретрай, эскалация, повторный
+# заход), и Montera на второй отвечала 422 «внешний id уже существует»: вместо
+# попытки получался минус одна попытка. Опаснее другое: разбор вебхука жил
+# КОПИЯМИ в семи местах и брал «всё после первого подчёркивания». Сделать
+# идентификатор уникальным и не поправить разбор — значит принять оплату и не
+# узнать её: деньги пришли, заявка осталась pending. Поэтому построение и
+# разбор обязаны быть одним модулем.
+def check_attempt_id_is_symmetric():
+    tag = "идентификатор попытки"
+    root_rel = os.path.join(ROOT, "relay", "core", "attempt_id.py")
+    if not _read(root_rel):
+        fail(tag, "нет relay/core/attempt_id.py — построение и разбор снова "
+                  "разъедутся по файлам, и первый же суффикс потеряет платёж")
+        return
+
+    # Свойство, а не текст: что построили — то и обязаны прочитать.
+    try:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("_aid", root_rel)
+        aid = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(aid)
+        for oid in ("1", "1234", "99955118"):
+            back = aid.parse(aid.make(oid))
+            if back != oid:
+                fail(tag, f"attempt_id: построили попытку по заявке {oid}, "
+                          f"разобрали {back!r} — вебхук пойдёт искать не ту заявку")
+        if aid.make("7") == aid.make("7"):
+            fail(tag, "attempt_id.make даёт одинаковый результат на повторе — "
+                      "ровно та коллизия, из-за которой ретрай сгорал на 422")
+        if aid.parse("obsidian_1234") != "1234":
+            fail(tag, "attempt_id.parse не понимает старую форму без суффикса — "
+                      "вебхуки по уже созданным у провайдера сделкам потеряются")
+    except Exception as e:
+        fail(tag, f"attempt_id не проверяется свойством: {type(e).__name__}: {e}")
+
+    # Ни одной своей копии — ни построения, ни разбора.
+    build = re.compile(r"obsidian_\{order_id\}")
+    parse = re.compile(r"split\('_', ?1\)\[1\]|replace\('obsidian_'")
+    targets = [os.path.join("relay-fastapi", "main.py"), os.path.join("bot", "main_bot.py")]
+    pdir = os.path.join(ROOT, "relay", "providers")
+    if os.path.isdir(pdir):
+        targets += [os.path.join("relay", "providers", f)
+                    for f in sorted(os.listdir(pdir)) if f.endswith(".py")]
+    for rel in targets:
+        src = _read(os.path.join(ROOT, rel))
+        if not src:
+            continue
+        code = "\n".join(l for l in src.splitlines() if not l.lstrip().startswith("#"))
+        if build.search(code):
+            fail(tag, f"{rel}: идентификатор попытки строится из номера заявки "
+                      f"(obsidian_{{order_id}}) — повтор по той же заявке уходит "
+                      f"провайдеру как дубль и сгорает")
+        if parse.search(code):
+            fail(tag, f"{rel}: свой разбор идентификатора вместо attempt_id.parse. "
+                      f"Он берёт «всё после первого подчёркивания» и о суффикс "
+                      f"уникальности ломается молча — оплата придёт в никуда")
+
+
 def check_debt_queue_is_visible():
     tag = "очередь долгов"
     bot = _read(os.path.join(ROOT, "bot", "main_bot.py"))
@@ -1336,7 +1398,8 @@ def main():
                check_blocklist_matches_account_not_string,
                check_receipt_beats_the_timer,
                check_migrations_agree,
-               check_debt_queue_is_visible):
+               check_debt_queue_is_visible,
+               check_attempt_id_is_symmetric):
         try:
             fn()
         except Exception as e:
