@@ -916,6 +916,259 @@ def check_blocklist_matches_account_not_string():
              f"{rel}: обращений к blocked_addresses нет — проверка ослепла")
 
 
+# ─────────────────────────────────────────────────────────────────────
+# 22. Клиенту говорят «истекло» по заявке, за которую он уже заплатил
+# ─────────────────────────────────────────────────────────────────────
+# Было 30.07.2026: клиент присылает чек, Слой 0 держит заявку живой (и правильно
+# делает — cleanup_expired_orders не истекает заявки с чеком), а каждая клиентская
+# поверхность продолжает судить об исходе по 15-минутному таймеру: «время истекло,
+# средства не переводите» и кнопка «Оплатить» рядом. Клиент читает это как отказ
+# и платит второй раз за тот же обмен. В логах при этом ни одной ошибки —
+# страница отработала ровно так, как написана.
+# Правило: там, где поверхность объявляет исход или зовёт платить, признак чека
+# должен быть СПРОШЕН и спрошен РАНЬШЕ срока.
+def _nocomment_js(s):
+    return "\n".join(re.sub(r"//.*$", "", ln) for ln in s.splitlines())
+
+
+def _slice(src, start, *ends):
+    i = src.find(start)
+    if i < 0:
+        return ""
+    j = len(src)
+    for e in ends:
+        k = src.find(e, i + len(start))
+        if 0 <= k < j:
+            j = k
+    return src[i:j]
+
+
+def check_receipt_beats_the_timer():
+    tag = "чек против таймера"
+    files = {}
+    for rel in ("relay-fastapi/main.py", "relay/webapp.html",
+                "relay-fastapi/templates/dashboard_orders.html", "bot/main_bot.py"):
+        files[rel] = _read(os.path.join(ROOT, rel))
+        if not files[rel]:
+            fail(tag, f"{rel}: файл не прочитан — проверка ослепла")
+            return
+    main = files["relay-fastapi/main.py"]
+    bot = files["bot/main_bot.py"]
+
+    # 1. Источник факта. Он обязан РАЗЛИЧАТЬ «файл у нас» и «чек дошёл до
+    #    партнёра»: на первом обещать выплату нельзя (это может быть фото
+    #    вместо PDF), на втором нельзя показывать реквизиты (заплатят дважды).
+    body = _slice(main, "def _receipt_state(", "\ndef ", "\n@app.")
+    # Docstring вырезаем: он перечисляет ровно те состояния, которые мы ищем, и
+    # мина, довольная собственным описанием рядом, — не мина.
+    body = re.sub(r'"""..*?"""', "", body, flags=re.S)
+    body = "\n".join(re.sub(r"#.*$", "", ln) for ln in body.splitlines())
+    if not body.strip():
+        fail(tag, "relay-fastapi/main.py: нет _receipt_state() — единственного "
+                  "источника факта о чеке для клиентских поверхностей")
+    else:
+        for need, why in ((r"order_receipts", "не читает таблицу чеков"),
+                          (r"receipt_sent_at", "не отличает дошедший чек от лежащего файла"),
+                          (r"""["']sent["']""", "не возвращает состояние 'sent'"),
+                          (r"""["']stored["']""", "не возвращает состояние 'stored'")):
+            if not re.search(need, body):
+                fail(tag, f"relay-fastapi/main.py: _receipt_state() {why} — "
+                          f"поверхности получат один и тот же ответ на разные "
+                          f"случаи и один из них обязательно соврут клиенту")
+
+    # 2. Списки заявок. Поле receipt должно приходить из ЗАПРОСА к чекам, а не
+    #    быть константой: «поле есть, а факта нет» выглядит исправленным.
+    for name, start in (("get_user_orders (история кабинета)", "def get_user_orders("),
+                        ("/api/history (история Mini App)", "async def api_history(")):
+        b = _slice(main, start, "\n@app.", "\ndef ", "\nasync def ")
+        if not b:
+            fail(tag, f"relay-fastapi/main.py: не найдена {name} — проверка ослепла")
+            continue
+        m = re.search(r'["\']receipt["\']\s*:\s*([^\n]*)', b)
+        if not m:
+            fail(tag, f"relay-fastapi/main.py: {name} не отдаёт поле receipt — "
+                      f"список заявок клиента не отличит «ждём оплату» от "
+                      f"«оплачено, проверяем» и предложит заплатить ещё раз")
+        elif "with_receipt" not in m.group(1):
+            fail(tag, f"relay-fastapi/main.py: {name} отдаёт receipt мимо запроса "
+                      f"к чекам — `{m.group(1).strip()[:70]}`")
+
+    # 3. Локальный таймер не подделывает вердикт сервера: раньше страница /pay
+    #    писала C.status='expired', и это же значение глушило её собственный
+    #    опрос — настоящий исход она не узнавала уже никогда.
+    for i, ln in enumerate(_nocomment_js(main).splitlines(), 1):
+        if re.search(r"C\.status\s*=\s*['\"]expired['\"]", ln):
+            fail(tag, f"relay-fastapi/main.py: стр. {i} — локальный таймер "
+                      f"присваивает C.status='expired'. Это догадка клиента, "
+                      f"выданная за ответ сервера; опрос статуса глохнет навсегда")
+
+    # 4. Порядок ветвей на каждой поверхности. Три правила, и все три — про
+    #    деньги: (а) исход, объявленный СЕРВЕРОМ, старше чека, иначе отменённая
+    #    оператором заявка вечно обещает выплату; (б) чек старше локального
+    #    таймера, иначе заплатившему говорят «истекло»; (в) значит закрытая
+    #    заявка с чеком идёт первой, потом чек, и только потом срок.
+    for rel, where, start, ends, seq in (
+        ("relay-fastapi/main.py", "render() страницы /pay", "function render()",
+         ("function startTimer",),
+         ((r"viewReceiptClosed", "закрытая заявка с чеком"),
+          (r"viewReceipt\(\)", "чек на проверке"),
+          (r"viewExpired", "истёкший срок"))),
+        ("relay/webapp.html", "applyStatus() Mini App", "const applyStatus",
+         ("const poll", "function poll"),
+         ((r"_receipt\s*&&\s*\(\s*st\s*===\s*'expired'", "закрытая заявка с чеком"),
+          (r"_receipt\s*===\s*'sent'", "чек на проверке"),
+          (r"if\s*\(\s*st\s*===\s*'expired'", "истёкший срок"))),
+    ):
+        b = _nocomment_js(_slice(files[rel], start, *ends))
+        if not b:
+            fail(tag, f"{rel}: не найден {where} — проверка ослепла")
+            continue
+        pos = []
+        for pat, human in seq:
+            m = re.search(pat, b)
+            i = m.start() if m else -1
+            if i < 0:
+                fail(tag, f"{rel}: в {where} нет ветки «{human}». Без неё этот "
+                          f"случай попадёт в соседнюю ветку и клиент услышит "
+                          f"про свои деньги неправду")
+            pos.append((i, human))
+        for (i1, h1), (i2, h2) in zip(pos, pos[1:]):
+            if i1 >= 0 and i2 >= 0 and i1 > i2:
+                fail(tag, f"{rel}: в {where} ветка «{h2}» стоит раньше «{h1}» — "
+                          f"перехватит её случаи. Порядок обязан идти от самого "
+                          f"твёрдого факта (решение сервера) к самой слабой "
+                          f"догадке (локальный таймер)")
+
+    # 5. Слово «Оплатить» в списке заявок клиента. Заявке с дошедшим чеком оно
+    #    предлагает заплатить второй раз за тот же обмен, поэтому рядом обязан
+    #    стоять признак чека.
+    for rel, what in (("relay/webapp.html", "история Mini App"),
+                      ("relay-fastapi/templates/dashboard_orders.html", "история кабинета")):
+        src = re.sub(r"\{#.*?#\}", "", files[rel], flags=re.S)
+        lines = _nocomment_js(src).splitlines()
+        hits = 0
+        # Имена, про которые правило 6 уже доказало, что они СЧИТАЮТСЯ из чека.
+        derived = ("eceipt", "hasFile", "onReview", "on_review")
+        for i, ln in enumerate(lines):
+            if "Оплатить" not in ln:
+                continue
+            # Ближайший гейт над кнопкой — условие с session_token. Смотрим
+            # только его и саму строку: чек, упомянутый десятью строками выше в
+            # подписи статуса, кнопку ни от чего не удерживает.
+            gate = ""
+            for j in range(i, max(0, i - 6), -1):
+                if "session_token" in lines[j]:
+                    gate = lines[j]
+                    break
+            if not gate:
+                continue
+            hits += 1
+            if not any(d in gate or d in ln for d in derived):
+                fail(tag, f"{rel}: стр. {i + 1} — «Оплатить» в «{what}» выдаётся "
+                          f"без оглядки на чек. По этой ссылке клиент, уже "
+                          f"оплативший заявку, платит второй раз")
+        if not hits:
+            fail(tag, f"{rel}: не найдена кнопка оплаты в «{what}» — проверка ослепла")
+
+    # 6. Мёртвая переменная. Признак чека, вычисленный и не влияющий ни на что,
+    #    выглядит как исправление, но им не является: достаточно присвоить
+    #    False, и все подписи вернутся к «ждёт оплаты» — молча.
+    for rel, names in (("relay/webapp.html", ("onReview", "hasFile")),
+                       ("bot/main_bot.py", ("on_review",))):
+        src = _nocomment_js(files[rel]) if rel.endswith(".html") else "\n".join(
+            re.sub(r"#.*$", "", ln) for ln in files[rel].splitlines())
+        rows = src.splitlines()
+        for n in names:
+            found = False
+            for i, ln in enumerate(rows):
+                if not re.search(rf"\b{n}\s*=\s*[^=]", ln):
+                    continue
+                found = True
+                # Выражение тянем ровно до закрытия скобок, а не «плюс две
+                # строки»: иначе `onReview = false;` оправдывался бы соседним
+                # объявлением, в котором чек упомянут.
+                expr, depth = "", 0
+                for k in range(i, min(len(rows), i + 6)):
+                    expr += " " + rows[k]
+                    depth += rows[k].count("(") - rows[k].count(")")
+                    if depth <= 0:
+                        break
+                if "eceipt" not in expr:
+                    fail(tag, f"{rel}: стр. {i + 1} — `{ln.strip()[:60]}` считается "
+                              f"мимо факта чека. Подпись «На проверке» станет "
+                              f"украшением, а заявка с чеком снова будет "
+                              f"числиться ждущей оплаты")
+            if not found:
+                fail(tag, f"{rel}: переменной {n} нет — проверка ослепла")
+
+    # 7. Списки клиент открывает сам, а ТОЛКАЮЩЕЕ уведомление приходит ему в
+    #    чат — и именно оно опаснее всего: «заявка ждёт оплаты», «заявка
+    #    истекла, создайте новую», «скидка, создайте новую» человеку, чьи деньги
+    #    уже у трейдера. На боевых данных 30.07 так ушли и напоминание (57 чеков
+    #    из 64 приходят ДО его окна), и win-back по трём заявкам с чеками.
+    # Ищем не слово «order_receipts» где-нибудь рядом (его хватает и проверке
+    # существования таблицы), а РАБОТАЮЩЕЕ условие отбора: NOT EXISTS по чекам,
+    # и чтобы собранный кусок SQL был реально подставлен в запрос.
+    push = r"NOT EXISTS\s*\(\s*SELECT\s+1\s+FROM\s+order_receipts"
+    for rel, fn, human, pat in (
+        ("bot/main_bot.py", "async def my_orders(", "«Мои заявки»", r"receipts_for\s*\("),
+        ("bot/main_bot.py", "async def abandoned_order_reminder(",
+         "напоминание «заявка ждёт оплаты»", push),
+        ("bot/main_bot.py", "async def winback_promo_task(",
+         "win-back «создайте новую заявку»", push),
+        ("relay-fastapi/main.py", "async def cleanup_expired_orders(",
+         "уведомление «заявка истекла»", push),
+    ):
+        b = _slice(files[rel], fn, "\nasync def ", "\ndef ", "\n@router.", "\n@app.")
+        b = "\n".join(re.sub(r"#.*$", "", ln) for ln in b.splitlines())
+        if not b:
+            fail(tag, f"{rel}: не найдена {fn} — проверка ослепла")
+            continue
+        if not re.search(pat, b):
+            fail(tag, f"{rel}: {human} не отсеивает заявки с чеком — клиента, "
+                      f"который уже заплатил и прислал чек, зовут сделать это "
+                      f"ещё раз")
+            continue
+        # Условие не должно быть ВЫКЛЮЧАЕМЫМ. Собранное в переменную, оно либо
+        # не подставится в запрос, либо окажется пустой строкой при первом же
+        # «database is locked» — и канал откроется снова, молча. Такой отбор
+        # выглядит сделанным ровно до того дня, когда он понадобится.
+        m = re.search(r"""(\w+)\s*=\s*\(?\s*["']AND\s+NOT EXISTS""", b)
+        if m:
+            var = m.group(1)
+            if ("{" + var + "}") not in b:
+                fail(tag, f"{rel}: в «{human}» условие про чек собрано в "
+                          f"{var}, но в запрос не подставлено — отбор "
+                          f"выглядит сделанным и не работает")
+            elif re.search(var + r"\s*=(?:[^\n]*\n){0,4}[^\n]*else\s*[\"']{2}", b):
+                fail(tag, f"{rel}: в «{human}» условие про чек выключается "
+                          f"веткой else «пусто» — на любом сбое БД канал "
+                          f"откроется снова, и клиента с чеком опять позовут "
+                          f"платить. Таблицу создаёт init_db(), условие "
+                          f"обязано быть безусловным")
+
+    # 8. HTTP 200 — не то же самое, что «сделано». Подтверждение оплаты идёт по
+    #    WHERE status='pending' и по закрытой заявке меняет НОЛЬ строк; оператор
+    #    при этом читал «✅ подтверждён» и уходил, а деньги клиента оставались
+    #    там же. Ответ обязан нести исход, а бот — его читать.
+    b = _slice(main, "async def payment_callback(", "\n@app.", "\nasync def ", "\ndef ")
+    if not b:
+        fail(tag, "relay-fastapi/main.py: не найден /payment/callback — проверка ослепла")
+    elif "rowcount" not in b:
+        fail(tag, "relay-fastapi/main.py: /payment/callback не смотрит, сколько строк "
+                  "изменил, и отвечает успехом всегда. По закрытой заявке это "
+                  "ложное «подтверждено» человеку, который держит в руках деньги "
+                  "клиента")
+    b = _slice(bot, 'Command("confirm")', "\n@router.")
+    b = "\n".join(re.sub(r"#.*$", "", ln) for ln in b.splitlines())
+    if not b or "payment/callback" not in b:
+        fail(tag, "bot/main_bot.py: не найден /confirm — проверка ослепла")
+    elif not re.search(r'get\(\s*["\']ok["\']', b):
+        fail(tag, "bot/main_bot.py: /confirm рапортует об успехе по одному коду "
+                  "HTTP, не читая исход из ответа — оператор получит «✅ "
+                  "подтверждён» там, где не изменилось ни одной строки")
+
+
 def main():
     for fn in (check_no_diverging_duplicates, check_config_keys_are_read,
                check_no_fail_open_in_guards, check_session_expiry_uses_expires_at,
@@ -933,7 +1186,8 @@ def main():
                check_sell_menu_offers_only_receivable_coins,
                check_unparsed_input_is_not_silence,
                check_no_unreachable_handlers,
-               check_blocklist_matches_account_not_string):
+               check_blocklist_matches_account_not_string,
+               check_receipt_beats_the_timer):
         try:
             fn()
         except Exception as e:

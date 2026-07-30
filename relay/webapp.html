@@ -901,6 +901,14 @@
             if (payLink) openBtn.textContent = '🔗 Открыть страницу оплаты';
             openBtn.onclick = openPay;
 
+            // Чек клиента: '' | 'stored' (файл у нас) | 'sent' (дошёл до
+            // партнёра). Пока чека нет — судьбу заявки решает срок; как только
+            // дошёл — срок к ней отношения не имеет (Слой 0 держит заявку живой),
+            // и говорить «истекло, не переводите» человеку, который уже перевёл,
+            // нельзя: он идёт создавать вторую заявку и платит дважды. А вот
+            // 'stored' обещаний не даёт: файл может быть фото вместо PDF, и
+            // клиент, возможно, ещё не платил — реквизиты ему нужны.
+            let _receipt = '';
             // 15-минутный обратный отсчёт
             let left = 15 * 60;
             timerEl.style.color = '#c48cff';
@@ -917,25 +925,69 @@
                     if (qrWrap) qrWrap.style.display = 'none';
                     const _rq = document.getElementById('pay-req'); if (_rq) _rq.style.display = 'none';
                     openBtn.style.display = 'none';
-                    statusEl.innerHTML = '⌛ Время фиксации курса истекло. Средства не переводите — создайте новую заявку.';
+                    statusEl.innerHTML = _receipt === 'sent'
+                        ? '🧾 Чек получен — проверяем платёж. Заявка не отменена, крипта уйдёт после подтверждения.'
+                        : _receipt
+                        ? '🧾 Файл получен, но платёжному партнёру он ещё не передан — часто так бывает, когда вместо PDF-чека приходит фото. Если вы уже перевели деньги, <b>повторно не переводите</b>: напишите в поддержку и пришлите PDF-чек из банка.'
+                        : '⌛ Время фиксации курса истекло. Средства не переводите — создайте новую заявку.';
                 }
             }, 1000);
 
-            let _verifShown = false;
-            const applyStatus = (st, txid, verification, txUrl) => {
+            let _verifShown = false, _receiptShown = false;
+            const applyStatus = (st, txid, verification, txUrl, receipt) => {
+                if (receipt) _receipt = receipt;
+                // Исход, объявленный СЕРВЕРОМ, старше чека: заявку с дошедшим
+                // чеком Слой 0 сам не истекает, значит терминальный статус —
+                // это решение человека. Обещать по нему выплату нельзя, но и
+                // отправлять клиента «создать новую» с его деньгами у трейдера
+                // тоже нельзя: единственный честный выход — к человеку.
+                if (_receipt && (st === 'expired' || st === 'failed' || st === 'cancelled')) {
+                    stopOrderTracking();
+                    if (qrWrap) qrWrap.style.display = 'none';
+                    const _rq0 = document.getElementById('pay-req'); if (_rq0) _rq0.style.display = 'none';
+                    openBtn.style.display = 'none';
+                    timerEl.textContent = '🧾';
+                    title.textContent = `Заявка #${orderId} — закрыта`;
+                    statusEl.innerHTML = '🧾 Заявка закрыта, но ваш чек у нас. <b>Повторно не переводите и новую заявку не создавайте</b> — напишите в поддержку, разберём вручную.';
+                    if (steps) steps.style.display = 'none';
+                    loadHistory();
+                    return;
+                }
                 if (st === 'pending' && verification && !_verifShown) {
                     // Трейдер запросил подтверждение (Montera PDF/видео) — направляем в чат с ботом
                     _verifShown = true;
                     statusEl.innerHTML = `📋 Трейдер запросил ${verification === 'video' ? 'видео-подтверждение' : 'PDF-чек'}. Откройте чат с ботом — там инструкция и ID сделки.`;
                     if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('warning');
                 }
-                if (st === 'expired' || st === 'failed') {
+                if (_receipt === 'sent' && st !== 'paid' && st !== 'sent') {
+                    // Опрос НЕ останавливаем: решение по заявке ещё впереди, и
+                    // узнать его страница может единственным способом — спрашивая.
+                    if (!_receiptShown) {
+                        _receiptShown = true;
+                        if (qrWrap) qrWrap.style.display = 'none';
+                        const _rq = document.getElementById('pay-req'); if (_rq) _rq.style.display = 'none';
+                        openBtn.style.display = 'none';
+                        timerEl.textContent = '🧾';
+                        title.textContent = `Заявка #${orderId} — на проверке`;
+                        statusEl.innerHTML = '🧾 Чек получен — проверяем платёж. Заявка не отменена; крипта уйдёт на ваш адрес после подтверждения. Обычно до 30 минут.';
+                        if (steps) steps.innerHTML = '<div class="ex-step done">✓ Заявка создана</div><div class="ex-step active">🧾 Проверяем оплату</div><div class="ex-step">📤 Выплата крипты</div>';
+                    }
+                    return;
+                }
+                // 'cancelled' сюда добавлен: без него отменённая заявка
+                // продолжала показывать живые реквизиты — /pay этот случай
+                // закрывает, а Mini App оставался единственной поверхностью,
+                // которая звала платить по закрытой заявке.
+                if (st === 'expired' || st === 'failed' || st === 'cancelled') {
                     stopOrderTracking();
                     if (qrWrap) qrWrap.style.display = 'none';
                     const _rq = document.getElementById('pay-req'); if (_rq) _rq.style.display = 'none';
                     timerEl.textContent = '—';
-                    title.textContent = `Заявка #${orderId} — истекла`;
-                    statusEl.innerHTML = '⌛ Заявка истекла. Средства не переводите — создайте новую заявку с актуальным курсом.';
+                    title.textContent = st === 'cancelled'
+                        ? `Заявка #${orderId} — отменена` : `Заявка #${orderId} — истекла`;
+                    statusEl.innerHTML = st === 'cancelled'
+                        ? '🚫 Заявка отменена. Средства по этим реквизитам не переводите.'
+                        : '⌛ Заявка истекла. Средства не переводите — создайте новую заявку с актуальным курсом.';
                     openBtn.style.display = 'none';
                     if (steps) steps.style.display = 'none';
                     loadHistory();
@@ -966,7 +1018,7 @@
             const poll = async () => {
                 try {
                     const r = await fetch(`/api/order/${orderId}`, { headers: { 'X-Telegram-Init-Data': tg.initData || '' } });
-                    if (r.ok) { const d = await r.json(); applyStatus(d.status, d.txid, d.verification, d.tx_url); }
+                    if (r.ok) { const d = await r.json(); applyStatus(d.status, d.txid, d.verification, d.tx_url, d.receipt); }
                 } catch (e) {}
             };
             checkBtn.onclick = poll;
@@ -988,13 +1040,21 @@
                 const statusClass = { pending: 'pending', paid: 'success', sent: 'success' };
                 let html = '';
                 orders.forEach(o => {
-                    const emoji = { pending:'⏳', paid:'✅', sent:'🚀' }[o.status] || '⚡';
-                    const label = statusLabels[o.status] || o.status;
+                    // pending с ДОШЕДШИМ до партнёра чеком — это не «ждём вашу
+                    // оплату», а «проверяем»: слово «Оплатить» здесь зовёт
+                    // заплатить второй раз. Но путь к заявке не отбираем —
+                    // меняем подпись кнопки: у 'stored' (файл есть, партнёру не
+                    // ушёл) клиент мог ещё не платить, и реквизиты ему нужны.
+                    const onReview = o.status === 'pending' && o.receipt === 'sent';
+                    const hasFile = o.status === 'pending' && !!o.receipt;
+                    const emoji = onReview ? '🧾' : ({ pending:'⏳', paid:'✅', sent:'🚀' }[o.status] || '⚡');
+                    const label = onReview ? 'На проверке' : (statusLabels[o.status] || o.status);
                     const cls = statusClass[o.status] || '';
                     let action = '';
                     if (o.status === 'pending' && o.session_token) {
                         const purl = `${location.origin}/pay/${o.session_token}`;
-                        action = `<a href="#" class="btn-pay" onclick="tg.openLink('${purl}');return false">💳 Оплатить</a>`;
+                        const cap = hasFile ? '🧾 Открыть заявку' : '💳 Оплатить';
+                        action = `<a href="#" class="btn-pay" onclick="tg.openLink('${purl}');return false">${cap}</a>`;
                     } else if (o.status === 'sent' && o.tx_url) {
                         action = `<a href="#" class="btn-pay" style="background:rgba(159,103,255,.15)" onclick="tg.openLink('${o.tx_url}');return false">🔍 Транзакция</a>`;
                     }

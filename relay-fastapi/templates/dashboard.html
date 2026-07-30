@@ -41,7 +41,10 @@
                 <td>#{{ o.order_id }}</td>
                 <td>{{ o.currency }}</td>
                 <td>{{ '%.2f'|format(o.rub_amount) }}</td>
-                <td><span class="status-badge status-{{ o.status }}">{{ o.status }}</span></td>
+                {# Тот же словарь, что в /dashboard/orders: сырое «pending» на
+                   главной и «На проверке» во вкладке — это две разные истории
+                   про одну заявку, и клиент верит той, что пугает. #}
+                <td><span class="status-badge status-{{ o.status }}">{% if o.status == 'pending' and o.receipt == 'sent' %}На проверке{% else %}{{ {'pending':'Ожидает оплаты','paid':'Оплачена','sent':'Выплачена','expired':'Истекла','failed':'Отменена','cancelled':'Отменена'}.get(o.status, o.status) }}{% endif %}</span></td>
                 <td>{{ o.created_at }}</td>
             </tr>
             {% endfor %}

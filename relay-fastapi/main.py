@@ -260,7 +260,7 @@ def get_user_orders(web_user, limit=20):
         c = conn.cursor()
         c.execute("""
             SELECT o.order_id, o.currency, o.rub_amount, o.status, o.created_at,
-                   o.crypto_address, o.paid_btc_tx, o.network,
+                   o.crypto_address, o.paid_btc_tx, o.network, o.receipt_sent_at,
                    (SELECT ps.session_token FROM payment_sessions ps
                      WHERE ps.order_id=o.order_id AND ps.session_token IS NOT NULL
                        AND ps.status NOT IN ('failed','expired')
@@ -270,11 +270,23 @@ def get_user_orders(web_user, limit=20):
             ORDER BY o.created_at DESC LIMIT ?
         """, (web_user['id'], web_user['telegram_id'], web_user['telegram_id'], limit))
         rows = c.fetchall()
+        # Отдельным запросом: order_receipts создаётся лениво, и на базе без неё
+        # JOIN уронил бы всю историю. Нет таблицы — считаем, что чеков нет.
+        try:
+            with_receipt = {r[0] for r in c.execute(
+                "SELECT order_id FROM order_receipts WHERE order_id IN ({})".format(
+                    ",".join("?" * len(rows))), [r[0] for r in rows]).fetchall()} if rows else set()
+        except Exception:
+            logger.warning("order_receipts недоступна при сборке истории кабинета")
+            with_receipt = set()
     # Ссылку строит core.txid — своя копия карты здесь знала только три монеты,
     # и выполненная ETH/XRP-заявка показывала клиенту пустую кнопку.
+    # receipt: заявка с ДОШЕДШИМ до партнёра чеком — «на проверке», а не
+    # «оплатите». Кнопка оплаты на ней зовёт перевести деньги второй раз.
     return [
         {"order_id": r[0], "currency": r[1], "rub_amount": r[2], "status": r[3], "created_at": r[4],
-         "crypto_address": r[5] or '', "txid": r[6] or '', "session_token": r[8] or '',
+         "crypto_address": r[5] or '', "txid": r[6] or '', "session_token": r[9] or '',
+         "receipt": ("sent" if (r[8] or '').strip() else "stored") if r[0] in with_receipt else "",
          "tx_url": (_txid.explorer_url(r[1], r[6], r[7]) or '') if r[3] == 'sent' else ''}
         for r in rows
     ]
@@ -476,6 +488,36 @@ def _is_true(value) -> bool:
     if isinstance(value, str):
         return value.strip().lower() in ("1", "true", "on", "yes")
     return False
+
+
+def _receipt_state(order_id) -> str:
+    """Что мы знаем о чеке по этой заявке: '' | 'stored' | 'sent'.
+
+    Различать обязательно, потому что обещать клиенту разное:
+      stored — файл у нас, но платёжному партнёру не ушёл. Это в том числе
+               путь «клиент прислал фото вместо PDF»: бот в тот же миг пишет
+               «нужен именно PDF, партнёр фото не принимает». Сказать такому
+               клиенту «чек принят, крипта уйдёт» — соврать, а спрятать от
+               него реквизиты — запереть: он, возможно, ещё не платил.
+      sent   — чек ДОШЁЛ до партнёра, платёж на проверке. Вот здесь реквизиты
+               и кнопка «Оплатить» опасны: по ним платят второй раз.
+    Общее у обоих — по этому факту Слой 0 (cleanup_expired_orders) не
+    истекает заявку, значит и клиенту нельзя показывать «срок истёк».
+    Ошибка чтения — считаем, что чека нет: лишний таймер честнее
+    выдуманной «оплаты на проверке».
+    """
+    try:
+        with db_conn(3) as conn:
+            row = conn.execute(
+                "SELECT o.receipt_sent_at FROM order_receipts r "
+                "JOIN orders o ON o.order_id=r.order_id WHERE r.order_id=? LIMIT 1",
+                (order_id,)).fetchone()
+        if not row:
+            return ""
+        return "sent" if (row[0] or "").strip() else "stored"
+    except Exception:
+        logger.warning("order_receipts недоступна при проверке чека order=%s", order_id)
+        return ""
 
 
 def _destination_lines(currency, stored):
@@ -1759,7 +1801,7 @@ async def api_history(request: Request):
         c = conn.cursor()
         c.execute("""
             SELECT o.order_id, o.rub_amount, o.currency, o.status, o.created_at,
-                   ps.session_token, o.paid_btc_tx, o.network
+                   ps.session_token, o.paid_btc_tx, o.network, o.receipt_sent_at
             FROM orders o
             LEFT JOIN payment_sessions ps ON ps.order_id = o.order_id
                 AND ps.status NOT IN ('failed','expired')
@@ -1767,10 +1809,22 @@ async def api_history(request: Request):
             ORDER BY o.created_at DESC LIMIT 30
         """, (uid,))
         rows = c.fetchall()
+        # Отдельным запросом, а не EXISTS в основном: order_receipts создаётся
+        # лениво, и на базе без неё JOIN уронил бы ВСЮ историю клиента.
+        try:
+            with_receipt = {r[0] for r in c.execute(
+                "SELECT order_id FROM order_receipts WHERE order_id IN "
+                "(SELECT order_id FROM orders WHERE user_id=?)", (uid,)).fetchall()}
+        except Exception:
+            logger.warning("order_receipts недоступна при сборке истории user=%s", uid)
+            with_receipt = set()
     # tx_url считает сервер (core.txid): у Mini App была своя карта обозревателей
     # на четыре монеты — XRP-заявка оставалась вообще без ссылки.
+    # receipt: заявка с ДОШЕДШИМ до партнёра чеком — это НЕ «ждём вашу оплату».
+    # Клиент уже заплатил, и звать его «💳 Оплатить» — путь к двойному переводу.
     return [{"order_id": r[0], "amount": r[1], "currency": r[2], "status": r[3],
              "created": r[4], "session_token": r[5], "txid": r[6],
+             "receipt": ("sent" if (r[8] or '').strip() else "stored") if r[0] in with_receipt else "",
              "tx_url": _txid.explorer_url(r[2], r[6], r[7]) or ""} for r in rows]
 
 @app.get("/api/referral_stats")
@@ -1881,6 +1935,7 @@ async def api_order(order_id: int, request: Request):
     # три монеты из шести и для остальных склеивали ссылку из пустого префикса —
     # получался относительный href, то есть 404 на нашем же домене.
     return {"status": status, "txid": txid, "verification": verification,
+            "receipt": _receipt_state(order_id),
             "tx_url": _txid.explorer_url(currency, txid, network) or ""}
 
 # --- Админ-вкладка Mini App ---
@@ -2026,7 +2081,20 @@ async def pay(token: str, request: Request):
             return RedirectResponse(f"/pay/{sess[0]}", status_code=302)
 
         amount, o_status = row
-        _titles = {'pending': ('Реквизиты готовятся', 'Платёжный маршрут ещё не выдал реквизиты. Откройте бота — там появится кнопка оплаты, или создайте заявку заново.'),
+        # Чек уже прислан — заявка не «ждёт реквизитов», она на проверке.
+        # Звать такого клиента «создать заявку заново» значит звать заплатить
+        # второй раз за тот же обмен. Отдельная подпись у закрытой заявки с
+        # чеком: обещать по ней выплату нельзя, но и молчать о чеке нельзя —
+        # деньги клиент, возможно, отдал.
+        _rcpt = _receipt_state(order_id)
+        if _rcpt == 'sent':
+            if o_status in (None, '', 'pending'):
+                o_status = '_receipt'
+            elif o_status in ('expired', 'failed', 'cancelled'):
+                o_status = '_receipt_closed'
+        _titles = {'_receipt': ('Чек получен — проверяем', 'Заявка не отменена и не истекла. Как только платёж подтвердится, крипта уйдёт на ваш адрес. Обычно до 30 минут.'),
+                   '_receipt_closed': ('Заявка закрыта, чек у нас', 'Повторно не переводите и новую заявку не создавайте. Напишите в поддержку — разберём вручную по вашему чеку.'),
+                   'pending': ('Реквизиты готовятся', 'Платёжный маршрут ещё не выдал реквизиты. Откройте бота — там появится кнопка оплаты, или создайте заявку заново.'),
                    'paid': ('Оплата получена', 'Готовим выплату криптовалюты. Уведомим в Telegram.'),
                    'sent': ('Криптовалюта отправлена', 'Сделка завершена. Спасибо, что выбрали нас!'),
                    'expired': ('Заявка истекла', 'Средства не переводите — создайте новую заявку с актуальным курсом.')}
@@ -2169,6 +2237,11 @@ async def pay(token: str, request: Request):
             "payLink": pay_link, "qr": qr_uri, "expiresAt": expires_at,
             "txid": txid or "", "txUrl": tx_url, "verification": verification,
             "foreign": req_foreign,
+            # Чек клиента: '' | 'stored' (файл у нас) | 'sent' (дошёл до
+            # партнёра). Без этого страница судит об исходе по одному таймеру и
+            # заявке, оплаченной в последнюю минуту, показывает «время истекло» —
+            # клиент видит отказ на деньги, которые уже ушли трейдеру.
+            "receipt": _receipt_state(order_id),
         }
         cfg_json = _json.dumps(cfg, ensure_ascii=False)
 
@@ -2196,6 +2269,7 @@ async def pay(token: str, request: Request):
   .pill.wait {{ background:rgba(139,92,246,.12); color:#c4b5fd; }}
   .pill.ok {{ background:rgba(52,211,153,.12); color:var(--ok); }}
   .pill.dim {{ background:rgba(255,255,255,.06); color:var(--muted); }}
+  .pill.exp {{ background:rgba(248,113,113,.12); color:#fca5a5; }}
   .pdot {{ width:6px; height:6px; border-radius:50%; background:currentColor; }}
   .pill.wait .pdot {{ animation:blink 1.4s infinite; }}
   @keyframes blink {{ 0%,100%{{opacity:1}} 50%{{opacity:.25}} }}
@@ -2300,13 +2374,50 @@ function viewExpired(){{
     <div class="lbl" style="font-size:15px;color:#e7e7ea;text-align:center">Срок оплаты заявки истёк</div>
     <div class="hint">Курс фиксируется на 15 минут. Создайте новую заявку в боте или на сайте.</div>`;
 }}
-let _timer=null;
+const SUPPORT = '<a href="https://t.me/Obsidian666999bot" style="display:inline-block;margin-top:9px;color:#c4b5fd;text-decoration:none;font-weight:600">Поддержка в Telegram →</a>';
+// Чек ДОШЁЛ до платёжного партнёра: платёж на проверке, реквизиты убираем —
+// по ним заплатят второй раз.
+function viewReceipt(){{
+  return `<div class="pill wait"><i class="pdot"></i>Чек получен · проверяем</div>
+    <div class="spin"></div>
+    <div class="lbl" style="font-size:15px;color:#e7e7ea;text-align:center">Проверяем ваш платёж</div>
+    <div class="hint">Заявка НЕ отменена и таймер на неё больше не влияет. Как только платёж подтвердится, ${{esc(C.currency)||'криптовалюта'}} уйдёт на ваш адрес. Обычно до 30 минут; если дольше — напишите в поддержку.
+    ${{SUPPORT}}</div>`;
+}}
+// Заявка ЗАКРЫТА (истекла/отменена), а чек по ней у нас. Обещать выплату
+// нельзя — решение уже принято; молчать о чеке тоже нельзя — деньги клиент,
+// возможно, отдал. Единственный честный выход — к человеку.
+function viewReceiptClosed(){{
+  return `<div class="pill exp"><i class="pdot"></i>Заявка закрыта · чек у нас</div>
+    <div class="lbl" style="font-size:15px;color:#e7e7ea;text-align:center">Разбираем вручную</div>
+    <div class="hint">Эта заявка больше не активна, но ваш чек мы получили. <b>Повторно не переводите и новую заявку не создавайте</b> — напишите в поддержку, разберём по чеку.
+    ${{SUPPORT}}</div>`;
+}}
+// Файл у нас, но партнёру НЕ ушёл, а срок реквизитов вышел. Ни «платите по
+// этим реквизитам» (они мертвы), ни «создайте новую» (клиент мог заплатить).
+function viewReceiptStored(){{
+  return `<div class="pill wait"><i class="pdot"></i>Файл получен · не передан партнёру</div>
+    <div class="lbl" style="font-size:15px;color:#e7e7ea;text-align:center">Нужна проверка человеком</div>
+    <div class="hint">Срок этих реквизитов истёк. Ваш файл у нас, но платёжному партнёру он пока не передан — часто это значит, что вместо PDF-чека пришло фото. <b>Если вы уже перевели деньги, ничего не переводите повторно</b> — напишите в поддержку и пришлите PDF-чек из банка.
+    ${{SUPPORT}}</div>`;
+}}
+let _timer=null, _localExpired=false;
 function render(){{
   const v = document.getElementById('view');
+  const closed = (C.status==='expired'||C.status==='failed'||C.status==='cancelled');
   if (C.status==='sent') v.innerHTML=viewSent();
   else if (C.status==='paid') v.innerHTML=viewPaid();
-  else if (C.status==='expired'||C.status==='failed') v.innerHTML=viewExpired();
+  // Исход, который объявил СЕРВЕР, старше чека: заявку с дошедшим чеком Слой 0
+  // сам не истекает, а раз статус всё же терминальный — это решение человека,
+  // и обещать по нему выплату было бы враньём в другую сторону.
+  else if (closed && C.receipt) v.innerHTML=viewReceiptClosed();
   else if (C.verification) v.innerHTML=viewVerify();
+  // А вот локальный таймер чеку не указ: 15 минут кончились, решение впереди.
+  else if (C.receipt==='sent') v.innerHTML=viewReceipt();
+  else if (closed) v.innerHTML=viewExpired();
+  else if (_localExpired && C.receipt) v.innerHTML=viewReceiptStored();
+  else if (_localExpired) v.innerHTML=viewExpired();
+  // 'stored' до истечения срока — реквизиты показываем: клиент мог ещё не платить.
   else {{ v.innerHTML=viewPay(); startTimer(); }}
 }}
 function startTimer(){{
@@ -2316,19 +2427,33 @@ function startTimer(){{
   const tick=()=>{{
     if(!el) return;
     let s = Math.floor((end-Date.now())/1000);
-    if (s<=0) {{ C.status='expired'; render(); return; }}
+    // Локальный таймер — догадка, а не приговор: сервер держит заявку живой,
+    // пока не решит иначе (а с чеком — не истекает вовсе). Раньше здесь
+    // писалось C.status='expired', и это же значение глушило опрос ниже —
+    // страница переставала узнавать что бы то ни было.
+    if (s<=0) {{ _localExpired=true; if(_timer)clearInterval(_timer); render(); return; }}
     const m=String(Math.floor(s/60)).padStart(2,'0'), ss=String(s%60).padStart(2,'0');
     el.innerHTML = `Реквизиты действительны ещё <b>${{m}}:${{ss}}</b>`;
   }};
   tick(); if(_timer)clearInterval(_timer); _timer=setInterval(tick,1000);
 }}
 async function poll(){{
-  if (C.status==='sent'||C.status==='expired') return;
+  // Останавливаемся только на исходе, который подтвердил СЕРВЕР. Пока заявка
+  // жива, а чек ещё в проверке, решение впереди — и узнать его страница может
+  // единственным способом: продолжая спрашивать. Раньше опрос глушил ЛОКАЛЬНЫЙ
+  // таймер, дописывавший C.status='expired' от себя.
+  if (C.status==='sent' || C.status==='expired' || C.status==='failed'
+      || C.status==='cancelled') return;
   try {{
     const r = await fetch(`/api/order/${{C.orderId}}?token=${{encodeURIComponent(C.token)}}`);
     if (r.ok) {{ const d=await r.json();
-      if ((d.status && d.status!==C.status) || ((d.verification||'')!==(C.verification||''))) {{
+      if ((d.status && d.status!==C.status) || ((d.verification||'')!==(C.verification||''))
+          || ((d.receipt||'') !== (C.receipt||''))) {{
         C.status=d.status||C.status; C.verification=d.verification||''; C.txid=d.txid||C.txid;
+        // Чек мог прийти уже после загрузки страницы — клиент отправляет его
+        // в боте, а страница остаётся открытой. Значение то же, что у сервера
+        // ('' | 'stored' | 'sent'): 'stored' обещаний не даёт.
+        C.receipt = d.receipt || '';
         // Ссылку даёт сервер (core.txid). Своя карта здесь знала три монеты, и
         // для остальных склеивала пустой префикс с хешем — ОТНОСИТЕЛЬНЫЙ href,
         // то есть 404 на нашем домене вместо доказательства выдачи.
@@ -2752,9 +2877,23 @@ async def payment_callback(request: Request):
         raise HTTPException(status_code=403)
     with db_conn(5) as conn:
         c = conn.cursor()
-        c.execute("UPDATE orders SET status='paid', updated_at=datetime('now') WHERE order_id=? AND status='pending'", (order_id,))
+        c.execute("UPDATE orders SET status='paid', updated_at=datetime('now') "
+                  "WHERE order_id=? AND status='pending'", (order_id,))
+        changed = c.rowcount
+        row = c.execute("SELECT status FROM orders WHERE order_id=?", (order_id,)).fetchone()
         conn.commit()
-    return JSONResponse(status_code=200, content={})
+    # Раньше отвечали пустым 200 всегда, и бот по коду 200 рапортовал оператору
+    # «✅ Платёж подтверждён» даже когда не изменилось НИ ОДНОЙ строки: заявка
+    # уже закрыта, условие WHERE не совпало. Человек уходил уверенным, что
+    # сделал дело, а деньги клиента оставались там же.
+    if not changed:
+        return JSONResponse(status_code=200, content={
+            "ok": False,
+            "status": (row[0] if row else None),
+            "reason": ("нет такой заявки" if not row else
+                       f"заявка уже в статусе «{row[0]}» — подтверждать нечего"),
+        })
+    return JSONResponse(status_code=200, content={"ok": True, "status": "paid"})
 
 @app.post("/api/ai-ask")
 async def api_ai_ask(request: Request):
@@ -2936,11 +3075,22 @@ async def cleanup_expired_orders():
                     try:
                         with db_conn(5) as conn3:
                             c3 = conn3.cursor()
+                            # Заявку с чеком Слой 0 не истекает — значит сюда
+                            # она попасть не должна. «Не должна» слабее «не
+                            # может»: истечь могла до появления Слоя 0, а чек
+                            # прийти после. Цена ошибки — «создайте новую» тому,
+                            # чьи деньги уже у трейдера, поэтому проверяем прямо
+                            # здесь и БЕЗУСЛОВНО: таблицу создал сам Слой 0
+                            # восемью десятками строк выше в этом же проходе.
+                            # Условное условие — это условие, которое однажды не
+                            # подставится.
                             c3.execute("""
                                 SELECT o.order_id, o.user_id, o.currency, o.rub_amount
                                 FROM orders o
                                 WHERE o.status='expired' AND o.user_id > 0
                                   AND datetime(o.updated_at) > datetime('now', '-15 minutes')
+                                  AND NOT EXISTS (SELECT 1 FROM order_receipts r
+                                                  WHERE r.order_id=o.order_id)
                                   AND NOT EXISTS (SELECT 1 FROM sent_notifications sn
                                                   WHERE sn.order_id=o.order_id AND sn.event='order_expired')
                             """)
@@ -3150,14 +3300,23 @@ async def conversion_watch_task():
     while True:
         try:
             from core.conversion_watch import check_conversion, format_alert
-            from core.alert_throttle import should_send
+            from core.alert_throttle import should_send, high_water
             res = check_conversion()
             # Троттлинг — в БД, а не в памяти процесса: сервис перезапускается
             # деплой-таймером, и словарь в корутине обнулялся вместе с ним (алерт
             # уходил каждые 15 минут вместо раза в 6 часов). Ключ — отпечаток
             # алерта, поэтому НОВАЯ пострадавшая заявка пробивает окно сразу.
-            fresh = [a for a in res.get("alerts", [])
-                     if should_send("conv:" + a.get("fingerprint", a["kind"]), 21600)]
+            # Два независимых повода заговорить: истекло окно молчания ИЛИ
+            # пострадал кто-то, о ком мы ещё не тревожили (водяной знак). Оба
+            # вызова делаем всегда — они и есть запись состояния; порядок
+            # важен только тем, что `or` не должен их пропускать.
+            fresh = []
+            for a in res.get("alerts", []):
+                window = should_send("conv:" + a.get("fingerprint", a["kind"]), 21600)
+                victim = ("watermark" in a
+                          and high_water("conv:hw:" + a["kind"], a["watermark"]))
+                if window or victim:
+                    fresh.append(a)
             msg = format_alert({**res, "alerts": fresh}) if fresh else ""
             if msg and BOT_TOKEN:
                 async with httpx.AsyncClient(timeout=10) as client:

@@ -23,6 +23,8 @@ DB_PATH = os.getenv("DB_PATH", "/root/exchange.db")
 
 _DDL = ("CREATE TABLE IF NOT EXISTS alert_throttle ("
         " key TEXT PRIMARY KEY, last_sent TEXT NOT NULL)")
+_DDL_HW = ("CREATE TABLE IF NOT EXISTS alert_watermark ("
+           " key TEXT PRIMARY KEY, value INTEGER NOT NULL)")
 
 
 def should_send(key: str, min_interval_sec: int) -> bool:
@@ -73,6 +75,51 @@ def cleanup(older_than_days: int = 30) -> int:
         return cur.rowcount
     except Exception:
         return 0
+    finally:
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+
+def high_water(key: str, value) -> bool:
+    """True — `value` выше всего, что по этому ключу видели раньше (и запоминает).
+
+    Зачем отдельно от should_send. Окно молчания «раз в 6 часов» правильно молчит
+    про ту же беду и обязано заговорить про НОВУЮ. Отпечаток по составу
+    пострадавших заявок для этого не годится, когда очередь живёт неделю и
+    меряется десятками: состав меняется и от новой жертвы, и от каждой заявки,
+    которую разобрал оператор, — то есть работа оператора сама порождала бы
+    тревогу. Максимум текущей выборки не годится тоже: разобрали самую свежую —
+    максимум упал — ключ снова «новый».
+
+    Водяной знак не падает никогда. Растёт он только тогда, когда пострадал
+    кто-то, о ком мы ещё не тревожили, — а это ровно то событие, ради которого
+    окно молчания пробивают.
+
+    Сбой БД — True (fail-OPEN, как и у should_send): цена ошибки здесь лишнее
+    сообщение, цена молчания — незамеченные деньги клиента.
+    """
+    try:
+        v = int(value)
+    except (TypeError, ValueError):
+        return False
+    if not key:
+        return True
+    conn = None
+    try:
+        conn = sqlite3.connect(DB_PATH, timeout=5)
+        conn.execute(_DDL_HW)
+        conn.execute("INSERT OR IGNORE INTO alert_watermark (key, value) VALUES (?, -1)", (key,))
+        # Захват атомарный: поднять знак и узнать, что он поднялся, — один UPDATE.
+        cur = conn.execute("UPDATE alert_watermark SET value=? WHERE key=? AND value < ?",
+                           (v, key, v))
+        conn.commit()
+        return cur.rowcount > 0
+    except Exception as e:
+        logger.error("alert_watermark недоступен (%s) — считаем беду новой", type(e).__name__)
+        return True
     finally:
         if conn is not None:
             try:

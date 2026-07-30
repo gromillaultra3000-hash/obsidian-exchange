@@ -17,6 +17,15 @@
                   если доставка молча сорвалась (API отказал, группа споров
                   недоступна, у метода нет канала) — сигнал делает сбой громким,
                   пока сделка у провайдера ещё жива и её можно подтвердить.
+  receipt_unresolved — чек ДОШЁЛ до провайдера, а решения так и нет: заявка не
+                  стала ни paid, ни sent, ни cancelled. Такую заявку держит
+                  Слой 0 (cleanup_expired_orders не истекает заявки с чеком —
+                  и правильно делает), и в /review её видно. Но /review — это
+                  витрина, куда надо прийти САМОМУ: единственное толкающее
+                  уведомление даёт dispute_watch, а оно разовое (_mark_opened
+                  навсегда убирает заявку из выборки). Не пришёл — тишина.
+                  30.07.2026 так висели 22 заявки на 99 400 ₽ — до 13 часов,
+                  с деньгами клиента.
 
 Порог намеренно по КОЛИЧЕСТВУ выдач, а не по проценту: при 2-3 заявках ноль оплат
 статистически нормален, при 8 — уже нет.
@@ -37,6 +46,14 @@ STUCK_PAYOUT_MIN = int(os.getenv("CONV_WATCH_STUCK_PAYOUT_MIN", "45") or 45)
 # пуст), прежде чем это тревога. Доставка штатно занимает секунды; 20 минут =
 # что-то сорвалось молча, а сделка у провайдера ещё может быть жива.
 RECEIPT_UNDELIVERED_MIN = int(os.getenv("CONV_WATCH_RECEIPT_UNDELIVERED_MIN", "20") or 20)
+# Сколько минут заявка с ДОШЕДШИМ чеком может стоять без решения. Порог больше
+# срока автоспора (DISPUTE_AFTER_MIN=25) плюс время на ответ трейдера: раньше
+# сигналить значит дублировать спор, который и так открывается сам.
+RECEIPT_UNRESOLVED_MIN = int(os.getenv("CONV_WATCH_RECEIPT_UNRESOLVED_MIN", "90") or 90)
+# Докуда назад смотрим по нерешённым чекам. Дольше суток такие заявки копятся
+# (сделка у провайдера уже мертва), но деньги клиента реальны и решение по ним
+# всё равно принимает человек — поэтому окно шире, чем у недоставленных.
+RECEIPT_UNRESOLVED_DAYS = int(os.getenv("CONV_WATCH_RECEIPT_UNRESOLVED_DAYS", "7") or 7)
 
 
 def _db():
@@ -50,7 +67,7 @@ def check_conversion(window_hours: int | None = None) -> dict:
     h = window_hours or WINDOW_HOURS
     win = f"-{h} hours"
     out = {"window_hours": h, "alerts": [], "issued": 0, "paid": 0, "early_expiry": 0,
-           "stuck_payouts": [], "undelivered_receipts": []}
+           "stuck_payouts": [], "undelivered_receipts": [], "unresolved_receipts": []}
     try:
         with _db() as conn:
             out["issued"] = conn.execute(
@@ -102,6 +119,34 @@ def check_conversion(window_hours: int | None = None) -> dict:
                     (f"-{RECEIPT_UNDELIVERED_MIN} minutes",)).fetchall()]
             except sqlite3.OperationalError:
                 out["undelivered_receipts"] = []
+            # Чек есть, а решения по заявке нет. Гоняться за доставкой чека — дело
+            # соседнего симптома, и пока он этим занят (первые сутки), дублировать
+            # его не нужно: одна беда, звучащая дважды, приучает игнорировать обе.
+            # А вот ПОСЛЕ его окна недоставленный чек обязан всплыть здесь, иначе
+            # худший случай — деньги у трейдера, чек у нас, сделка у провайдера
+            # мертва — навсегда исчезал из обоих. Заявка в expired/cancelled тоже
+            # берётся: закрытый статус не возвращает клиенту деньги.
+            # Возраст считаем от чека: именно с этого момента клиент считает, что
+            # заплатил.
+            already = {p["order_id"] for p in out["undelivered_receipts"]}
+            try:
+                rows = [dict(r) for r in conn.execute(
+                    "SELECT o.order_id, o.rub_amount, o.currency, o.status, "
+                    "  (o.receipt_sent_at IS NOT NULL AND o.receipt_sent_at<>'') delivered, "
+                    "  COALESCE(ps.provider,'?') provider, "
+                    "  CAST((julianday('now')-julianday(r.created_at))*24*60 AS INT) age_min "
+                    "FROM order_receipts r JOIN orders o ON o.order_id=r.order_id "
+                    "LEFT JOIN payment_sessions ps ON ps.id=("
+                    "  SELECT id FROM payment_sessions WHERE order_id=o.order_id ORDER BY id DESC LIMIT 1) "
+                    "WHERE o.status NOT IN ('paid','sent') "
+                    "AND r.created_at <= datetime('now', ?) "
+                    "AND r.created_at >= datetime('now', ?) "
+                    "ORDER BY r.created_at",
+                    (f"-{RECEIPT_UNRESOLVED_MIN} minutes",
+                     f"-{RECEIPT_UNRESOLVED_DAYS} days")).fetchall()]
+                out["unresolved_receipts"] = [r for r in rows if r["order_id"] not in already]
+            except sqlite3.OperationalError:
+                out["unresolved_receipts"] = []
     except Exception as e:
         out["error"] = f"{type(e).__name__}: {e}"
         return out
@@ -142,7 +187,47 @@ def check_conversion(window_hours: int | None = None) -> dict:
                      f"Передать чек трейдеру вручную в кабинете/группе провайдера, "
                      f"ПОКА сделка на их стороне жива — иначе оплату не подтвердят."),
         })
+    if out["unresolved_receipts"]:
+        rows = out["unresolved_receipts"]
+        rub = sum(float(p.get("rub_amount") or 0) for p in rows)
+        lst = ", ".join(
+            f"#{p['order_id']} ({p['rub_amount']:g} ₽, {p['provider']}, "
+            f"{p['age_min'] // 60} ч{'' if p.get('delivered') else ', чек НЕ у провайдера'})"
+            for p in rows[:8])
+        tail = f" и ещё {len(rows) - 8}" if len(rows) > 8 else ""
+        out["alerts"].append({
+            "kind": "receipt_unresolved",
+            # Окно молчания — на весь симптом, а пробивает его водяной знак
+            # (см. alert_throttle.high_water): очередь разбора живёт неделю, и
+            # отпечаток по её составу сбрасывался бы от каждой заявки, которую
+            # оператор закрыл, — работа сама порождала бы тревогу.
+            "fingerprint": "receipt_unresolved",
+            "watermark": _newest_id(rows),
+            "text": (f"Заявок с чеком и без решения дольше "
+                     f"{RECEIPT_UNRESOLVED_MIN} мин: {len(rows)} на {rub:,.0f} ₽".replace(",", " ") +
+                     f" — {lst}{tail}. Клиент считает, что заплатил, а сама заявка "
+                     f"не закроется: пока она pending, её держит Слой 0; если уже "
+                     f"expired — деньги клиенту это всё равно не вернуло. Решает "
+                     f"человек: /review — выдать или отклонить, /order ID — разбор."),
+        })
     return out
+
+
+def _newest_id(rows: list) -> int:
+    """Наибольший order_id в выборке — для водяного знака тревоги.
+
+    Сравнение ЧИСЛОВОЕ: на строках max() лексикографический, и «99» осталось бы
+    новее всех заявок от «100» до «199» — новая жертва попала бы в чужое окно
+    молчания ровно на переходе через разрядность. Нечисловые id пропускаем: знак
+    должен расти от реальных заявок, а не от мусора.
+    """
+    best = -1
+    for r in rows:
+        try:
+            best = max(best, int(r.get("order_id")))
+        except (TypeError, ValueError):
+            continue
+    return best
 
 
 def _fingerprint(kind: str, rows: list) -> str:

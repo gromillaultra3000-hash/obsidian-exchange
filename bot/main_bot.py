@@ -78,6 +78,27 @@ def db_conn(timeout=5):
 RELAY_SECRET = os.getenv('RELAY_SECRET', '')
 COMMISSION_PERCENT = float(os.getenv('COMMISSION_PERCENT', 12))
 
+
+def receipts_for(cursor, order_ids) -> set:
+    """order_id, по которым клиент прислал чек — из переданного списка.
+
+    Отдельным запросом, а не JOIN'ом в основной выборке, и под try: таблица
+    order_receipts создаётся ЛЕНИВО (relay/core/receipts.py), при первом чеке.
+    На базе, где чеков ещё не было, JOIN уронил бы весь список заявок клиента —
+    показать «на проверке» не удалось бы ценой того, что не показано ничего.
+    """
+    ids = [i for i in (order_ids or []) if i is not None]
+    if not ids:
+        return set()
+    try:
+        return {r[0] for r in cursor.execute(
+            "SELECT order_id FROM order_receipts WHERE order_id IN ({})".format(
+                ",".join("?" * len(ids))), ids).fetchall()}
+    except Exception:
+        logger.warning("order_receipts недоступна — заявки с чеком не отмечены")
+        return set()
+
+
 def get_active_workers() -> list[int]:
     """Возвращает список user_id всех активных работников из БД."""
     try:
@@ -754,6 +775,16 @@ def init_db():
             rub_amount REAL NOT NULL, crypto_address TEXT NOT NULL,
             status TEXT NOT NULL DEFAULT 'pending', created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             paid_btc_tx TEXT, updated_at TEXT)''')
+        # Чеки клиентов. Схему создаёт core/receipts.py при первом чеке, но
+        # ЧИТАЮТ её отборы, от которых зависит, не позовём ли мы клиента
+        # заплатить второй раз. Создаём здесь, чтобы у этих отборов не было
+        # повода быть условными: условие, которое можно не подставить, рано или
+        # поздно не подставится. Колонки — минимум, нужный чтению; остальное
+        # (sha256, dispute_opened_at) доводит receipts.py.
+        c.execute('''CREATE TABLE IF NOT EXISTS order_receipts (
+            order_id INTEGER PRIMARY KEY, path TEXT, filename TEXT,
+            content_type TEXT, created_at TEXT DEFAULT (datetime('now')),
+            dispute_opened_at TEXT)''')
         c.execute('''CREATE TABLE IF NOT EXISTS referrals (
             referrer_id INTEGER, referred_id INTEGER, bonus_paid INTEGER DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, total_bonus_btc REAL DEFAULT 0,
@@ -1749,6 +1780,12 @@ async def menu_orders(callback: CallbackQuery):
     await callback.answer()
 
 
+# Первое нажатие «Отменить» по заявке с чеком — предупреждение, второе —
+# отмена. В памяти процесса намеренно: это защита от случайного нажатия, а не
+# страж денег, и переживать рестарт ей не нужно.
+_cancel_confirmed: dict = {}
+
+
 @router.callback_query(F.data.startswith("cancel_order_"))
 async def cancel_order_callback(callback: CallbackQuery):
     uid = callback.from_user.id
@@ -1776,6 +1813,22 @@ async def cancel_order_callback(callback: CallbackQuery):
         )
         return
 
+    # Клиент уже присылал по этой заявке файл. Отменить её — значит убрать со
+    # стола оператора единственную ниточку к деньгам, которые, возможно, уже у
+    # трейдера. Кнопку отмены в списке мы прячем только при ДОШЕДШЕМ чеке (для
+    # «файл есть, партнёру не ушёл» она нужна: там клиент мог и не платить), но
+    # решение всё равно должно быть осознанным, а персонал — знать о нём.
+    with db_conn(5) as conn:
+        has_file = bool(receipts_for(conn.cursor(), [oid]))
+    if has_file and _cancel_confirmed.pop(oid, None) != uid:
+        _cancel_confirmed[oid] = uid
+        await callback.answer(
+            "⚠️ По этой заявке вы уже присылали чек. Если деньги списались — "
+            "НЕ отменяйте: заявка нужна нам, чтобы найти ваш перевод. "
+            "Нажмите ещё раз, если платежа не было.",
+            show_alert=True)
+        return
+
     # Проверяем 10-минутное окно
     try:
         age = (_dt.datetime.utcnow() -
@@ -1795,6 +1848,13 @@ async def cancel_order_callback(callback: CallbackQuery):
             (oid,)
         )
         conn.commit()
+    if has_file:
+        await notify_staff(
+            f"⚠️ <b>Клиент отменил заявку #{oid}, по которой ЕСТЬ чек</b>\n\n"
+            f"Файл у нас, платёжному партнёру он не уходил. Если перевод всё же "
+            f"был — заявка нужна для разбора: <code>/review</code> → «♻️ Вернуть "
+            f"в работу», или <code>/order {oid}</code>.",
+            parse_mode="HTML")
 
     await callback.message.edit_text(
         f"🚫 <b>Заявка #{oid} отменена.</b>\n\nСредства не были списаны.",
@@ -2759,13 +2819,21 @@ async def inline_check_payment(callback: CallbackQuery):
                     data = await resp.json()
                     status = data.get('status')
                     tx = data.get('txid')
+                    receipt = data.get('receipt') or ''
                 else:
                     status = "pending"
                     tx = None
+                    receipt = ''
         if status == "sent" and tx:
             text = f"✅ <b>Заявка #{order_id} выполнена!</b>\n\n<blockquote>Монеты отправлены на ваш адрес</blockquote>\n\n🔗 <code>{tx}</code>"
         elif status == "paid":
             text = f"🔄 <b>Заявка #{order_id}</b>\n\n<blockquote>Оплата получена — обрабатываем отправку монет…</blockquote>"
+        elif receipt == 'sent':
+            # Чек уже у платёжного партнёра. «Ожидаем поступление оплаты» здесь
+            # читается как «ваш перевод не дошёл» — и клиент платит ещё раз.
+            text = (f"🧾 <b>Заявка #{order_id}</b>\n\n<blockquote>Чек получен, "
+                    f"проверяем платёж</blockquote>\n\nЗаявка не отменена. "
+                    f"Крипта уйдёт после подтверждения — обычно до 30 минут.")
         else:
             text = f"⏳ <b>Заявка #{order_id}</b>\n\n<blockquote>Ожидаем поступление оплаты</blockquote>\n\nЕсли уже оплатили — нажмите «Я оплатил»"
         if callback.message.photo:
@@ -2804,7 +2872,16 @@ async def confirm_payout(message: Message):
         order_id = action["order_id"]
         async with aiohttp.ClientSession() as session:
             async with session.post(f"{RELAY_SITE}/payment/callback", data={"order_id": order_id, "key": RELAY_SECRET}) as resp:
-                if resp.status == 200:
+                # HTTP 200 ≠ «подтвердили». Обновление идёт по WHERE status='pending',
+                # и по уже закрытой заявке оно меняет НОЛЬ строк. Раньше оператору
+                # в этом случае всё равно писали «✅ подтверждён»: человек уходил
+                # уверенным, что сделал дело, а деньги клиента оставались на месте.
+                try:
+                    _res = await resp.json(content_type=None)
+                except Exception:
+                    _res = None
+                _ok = resp.status == 200 and (not isinstance(_res, dict) or _res.get("ok") is not False)
+                if _ok:
                     await message.answer(f"✅ Платёж по заявке #{order_id} подтверждён.")
                     log_staff_action(message.from_user.id, "confirm_order", order_id)
                     if not is_admin(message.from_user.id):
@@ -2812,6 +2889,11 @@ async def confirm_payout(message: Message):
                             f"👷 Оператор @{message.from_user.username or message.from_user.id} "
                             f"подтвердил оплату заявки <b>#{order_id}</b>",
                             parse_mode="HTML")
+                elif isinstance(_res, dict) and _res.get("reason"):
+                    await message.answer(
+                        f"⚠️ Заявка #{order_id} НЕ подтверждена: {_res['reason']}.\n"
+                        f"Закрытую заявку с чеком можно вернуть в работу: /review → "
+                        f"«♻️ Вернуть в работу».")
                 else:
                     await message.answer("Ошибка подтверждения.")
         del pending_admin_action[message.from_user.id]
@@ -2825,9 +2907,10 @@ async def my_orders(message: Message, uid: int = None):
     with db_conn(10) as conn:
         c = conn.cursor()
         c.execute("""SELECT order_id, rub_amount, crypto_address, currency, status,
-                            created_at, paid_btc_tx, network
+                            created_at, paid_btc_tx, network, receipt_sent_at
                      FROM orders WHERE user_id=? ORDER BY created_at DESC LIMIT 8""", (uid,))
         orders = c.fetchall()
+        with_receipt = receipts_for(c, [o[0] for o in orders])
     if not orders:
         await message.answer(
             "🟣 <b>Мои заявки</b>\n\nУ вас пока нет ни одной заявки. Начните первый обмен прямо сейчас:",
@@ -2844,9 +2927,14 @@ async def my_orders(message: Message, uid: int = None):
                     "sent": "Выполнена", "failed": "Ошибка", "cancelled": "Отменена"}
     CUR_ICON = {"BTC": "₿", "LTC": "Ł", "USDT": "💵"}
 
-    for oid, rub, addr, curr, status, created, tx, net in orders:
-        icon   = STATUS_ICON.get(status, "❔")
-        label  = STATUS_LABEL.get(status, status)
+    for oid, rub, addr, curr, status, created, tx, net, rsent in orders:
+        # «На проверке» — только когда чек ДОШЁЛ до партнёра. Файл, который ему
+        # не ушёл (частый случай: фото вместо PDF), обещаний не даёт: клиент,
+        # возможно, ещё не платил, и «ждёт оплаты» для него — правда.
+        on_review = status == "pending" and (
+            oid in with_receipt and (rsent or "").strip())
+        icon   = "🧾" if on_review else STATUS_ICON.get(status, "❔")
+        label  = "На проверке" if on_review else STATUS_LABEL.get(status, status)
         cur_ic = CUR_ICON.get(curr, curr)
         amt_fmt = f"{int(rub):,}".replace(",", " ")
         # Адрес сокращаем, а тег НЕТ: обрезка съедала его целиком («rrpDp2…345)»),
@@ -2870,7 +2958,11 @@ async def my_orders(message: Message, uid: int = None):
 
         # Кнопки: отмена только для pending в первые 10 минут
         buttons = []
-        if status == "pending" and created:
+        # Отмена заявки, по которой чек уже ушёл партнёру, — это отказ от
+        # собственных денег: перевод трейдеру сделан, а заявка, по которой его
+        # искать, закрыта. Заявку с одним лишь сохранённым файлом отменить
+        # можно: иначе случайная картинка навсегда замораживает обмен.
+        if status == "pending" and created and not on_review:
             try:
                 age = (_dt.datetime.utcnow() -
                        _dt.datetime.strptime(created[:19], "%Y-%m-%d %H:%M:%S")).total_seconds()
@@ -4421,12 +4513,21 @@ async def cmd_review_queue(message: Message):
     from core.receipts import receipt_fraud_flags
     with db_conn(5) as conn:
         c = conn.cursor()
-        # Удержанные Слоем 0: pending + есть чек в order_receipts
-        held = c.execute("""
-            SELECT o.order_id, o.user_id, o.username, o.rub_amount, o.currency,
-                   o.created_at, r.content_type
-            FROM orders o JOIN order_receipts r ON r.order_id = o.order_id
-            WHERE o.status='pending' ORDER BY o.created_at DESC LIMIT 15""").fetchall()
+        # Заявки с чеком, по которым решения нет. Удержанные Слоем 0 (pending)
+        # и ЗАКРЫТЫЕ — истёкшие до появления Слоя 0 и отменённые. Закрытые
+        # берём потому, что сторож про них теперь тревожит, а разбирать их было
+        # негде: /review их не показывал, /payout отказывал по статусу, и
+        # оператор упирался в стену с деньгами клиента на руках.
+        try:
+            held = c.execute("""
+                SELECT o.order_id, o.user_id, o.username, o.rub_amount, o.currency,
+                       o.created_at, r.content_type, o.status
+                FROM orders o JOIN order_receipts r ON r.order_id = o.order_id
+                WHERE o.status NOT IN ('paid','sent')
+                ORDER BY (o.status='pending') DESC, o.created_at DESC LIMIT 15""").fetchall()
+        except Exception:
+            logger.warning("order_receipts недоступна при сборке /review")
+            held = []
         # Зависшие выплаты: оплачено, крипта не ушла
         stuck = c.execute("""
             SELECT order_id, rub_amount, currency, updated_at FROM orders
@@ -4442,21 +4543,69 @@ async def cmd_review_queue(message: Message):
             txt += (f"  • <b>#{oid}</b> — {int(amt):,} ₽ → {cur} · с {(upd or '—')[:16]}\n"
                     .replace(",", " "))
         await message.answer(txt[:4000], parse_mode="HTML")
-    for oid, uid, uname, amt, cur, created, ctype in held:
+    for oid, uid, uname, amt, cur, created, ctype, ostatus in held:
         flags = receipt_fraud_flags(oid)
         fmt = "PDF" if ctype == "application/pdf" else ("видео" if ctype and "video" in ctype else "фото")
-        text = (f"🧾 <b>Заявка #{oid}</b> — на проверке\n"
+        closed = ostatus not in ("pending", None, "")
+        head = "закрыта, чек остался" if closed else "на проверке"
+        text = (f"🧾 <b>Заявка #{oid}</b> — {head}\n"
                 f"<blockquote>👤 @{uname or '—'} · ID <code>{uid}</code>\n"
                 f"💸 {int(amt):,} ₽ → {cur}\n".replace(",", " ")
                 + f"📄 Чек: {fmt} · создана {created[:16]}</blockquote>")
         if flags:
             text += "\n" + "\n".join(flags)
         text += f"\n\n🔎 Разбор: <code>/order {oid}</code>"
-        kb = InlineKeyboardMarkup(inline_keyboard=[[
-            InlineKeyboardButton(text="✅ Выдать", callback_data=f"admin_confirm_{oid}"),
-            InlineKeyboardButton(text="🚫 Отклонить", callback_data=f"review_reject_{oid}"),
-        ]])
+        if closed:
+            # «Выдать» по закрытой заявке не сработает (подтверждение оплаты
+            # ищет строго pending) — не показываем кнопку, которая молча ничего
+            # не делает. Сначала вернуть в работу, потом обычный путь.
+            text += (f"\n⚠️ Статус <b>{ostatus}</b>: подтвердить оплату по ней нельзя, "
+                     f"пока не вернёте в работу. Деньги клиента при этом у трейдера.")
+            kb = InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(text="♻️ Вернуть в работу",
+                                     callback_data=f"review_reopen_{oid}"),
+            ]])
+        else:
+            kb = InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(text="✅ Выдать", callback_data=f"admin_confirm_{oid}"),
+                InlineKeyboardButton(text="🚫 Отклонить", callback_data=f"review_reject_{oid}"),
+            ]])
         await message.answer(text, parse_mode="HTML", reply_markup=kb)
+
+
+@router.callback_query(lambda c: c.data and c.data.startswith("review_reopen_"))
+async def cb_review_reopen(callback: CallbackQuery):
+    """Закрытую заявку с чеком — обратно в работу, чтобы её можно было разобрать.
+
+    Заявка истекла (или была отменена), а чек клиента у нас: деньги ушли
+    трейдеру, и закрытый статус этого не изменил. Все инструменты разбора
+    (подтверждение оплаты, /payout) работают только по живой заявке, поэтому
+    без этого шага человек упирался в стену. Сама по себе кнопка денег не
+    двигает — открывает обычный путь, на котором все стражи выплаты на месте.
+    """
+    if not is_staff(callback.from_user.id):
+        await callback.answer("Недоступно", show_alert=True)
+        return
+    oid = int(callback.data.rsplit("_", 1)[1])
+    with db_conn(5) as conn:
+        cur = conn.execute(
+            "UPDATE orders SET status='pending', updated_at=datetime('now') "
+            "WHERE order_id=? AND status NOT IN ('paid','sent','pending')", (oid,))
+        conn.commit()
+        if cur.rowcount:
+            log_staff_action(callback.from_user.id, "review_reopen", str(oid),
+                             "закрытая заявка с чеком возвращена в работу")
+    if not cur.rowcount:
+        await callback.answer("Статус уже изменился — обновите /review", show_alert=True)
+        return
+    await callback.answer("Заявка снова в работе")
+    try:
+        await callback.message.edit_text(
+            f"♻️ <b>Заявка #{oid} возвращена в работу.</b>\n"
+            f"Теперь по ней доступны «✅ Выдать» и /payout — откройте /review заново.",
+            parse_mode="HTML")
+    except Exception:
+        pass
 
 
 @router.callback_query(lambda c: c.data and c.data.startswith("review_reject_"))
@@ -6346,9 +6495,12 @@ async def cmd_myhistory(message: Message):
     with db_conn(5) as conn:
         c = conn.cursor()
         c.execute("""SELECT order_id, created_at, currency, rub_amount, status,
-                            crypto_address, paid_btc_tx
+                            crypto_address, paid_btc_tx, receipt_sent_at
                      FROM orders WHERE user_id=? ORDER BY order_id DESC""", (uid,))
         rows = c.fetchall()
+        # Та же подпись, что в «Мои заявки» и в кабинете: выгрузка, где заявка
+        # с ушедшим партнёру чеком названа «Ожидает», спорит с ними обеими.
+        with_receipt = receipts_for(c, [r[0] for r in rows])
     if not rows:
         await message.answer("У вас пока нет заявок.")
         return
@@ -6362,10 +6514,13 @@ async def cmd_myhistory(message: Message):
     w.writerow(["#", "Дата", "Валюта", "Сумма RUB", "Статус", "Адрес", "Тег", "TXID"])
     status_map = {"sent": "Выполнена", "paid": "Оплачена", "pending": "Ожидает",
                   "failed": "Ошибка", "cancelled": "Отменена"}
-    for oid, dt, cur, amt, status, addr, tx in rows:
+    for oid, dt, cur, amt, status, addr, tx, rsent in rows:
         _a, _tag, _ok = _split_destination(cur, addr or "")
+        _label = ("На проверке"
+                  if status == "pending" and oid in with_receipt and (rsent or "").strip()
+                  else status_map.get(status, status))
         w.writerow([oid, dt[:16] if dt else "", cur, f"{amt:.2f}",
-                    status_map.get(status, status), _a or "",
+                    _label, _a or "",
                     "" if _tag is None else _tag, tx or ""])
     buf.seek(0)
 
@@ -9552,17 +9707,27 @@ async def montera_receipt_reminder():
                       )
                 """, (window_from, window_to))
                 rows = c.fetchall()
+                # Файл от клиента уже лежит у нас, но партнёру не ушёл (чаще
+                # всего это фото вместо PDF). Говорить такому «оплатите перевод»
+                # — обвинять его в том, чего он, возможно, не делал; просить
+                # надо ровно то, чего не хватает.
+                with_file = receipts_for(c, [r[0] for r in rows])
 
             for oid, uid, inv_id, deadline in rows:
                 if uid and uid > 0:
                     try:
-                        await bot.send_message(
-                            uid,
+                        _txt = (
+                            f"⏰ <b>Заявка #{oid} — осталось ~10 минут!</b>\n\n"
+                            f"Мы получили ваш файл, но платёжный партнёр принимает "
+                            f"только <b>PDF-чек из банка</b> — фото и скриншоты он "
+                            f"не читает.\nПришлите PDF сюда, иначе заявку придётся "
+                            f"разбирать вручную."
+                            if oid in with_file else
                             f"⏰ <b>Заявка #{oid} — осталось ~10 минут!</b>\n\n"
                             f"Пожалуйста, оплатите перевод и отправьте <b>PDF-чек</b> прямо сейчас.\n"
-                            f"Если вы уже оплатили — просто перешлите чек сюда.",
-                            parse_mode="HTML"
+                            f"Если вы уже оплатили — просто перешлите чек сюда."
                         )
+                        await bot.send_message(uid, _txt, parse_mode="HTML")
                     except Exception:
                         pass
                     await notify_admins(
@@ -9594,6 +9759,16 @@ async def abandoned_order_reminder():
             window_to   = (now - _dt.timedelta(minutes=8)).strftime("%Y-%m-%d %H:%M:%S")
             with db_conn(5) as conn:
                 c = conn.cursor()
+                # Чек приходит раньше окна напоминания чаще, чем позже (57 из
+                # 64 на боевых данных 30.07). Без этого условия «⏳ заявка ждёт
+                # оплаты · 💳 Оплатить сейчас» уходило клиенту, который уже
+                # заплатил и прислал подтверждение — самый громкий канал звал
+                # заплатить второй раз. Критерий тот же, что у Слоя 0.
+                # Условие БЕЗУСЛОВНОЕ: таблицу создаёт init_db(). Раньше здесь
+                # стоял зонд «есть ли таблица», который возвращал «нет» на любом
+                # исключении — в том числе на «database is locked» в момент
+                # бэкапа — и одной занятой секунды хватало, чтобы канал открылся
+                # снова. Страж, пропускающий при сомнении, — не страж.
                 c.execute("""
                     SELECT o.order_id, o.user_id, o.rub_amount, o.currency,
                            (SELECT ps.session_token FROM payment_sessions ps
@@ -9603,6 +9778,9 @@ async def abandoned_order_reminder():
                     WHERE o.status='pending'
                       AND o.user_id > 0
                       AND o.created_at BETWEEN ? AND ?
+                      AND NOT EXISTS (
+                          SELECT 1 FROM order_receipts r WHERE r.order_id = o.order_id
+                      )
                       AND NOT EXISTS (
                           SELECT 1 FROM sent_notifications sn
                           WHERE sn.order_id = o.order_id AND sn.event = 'pay_reminder'
@@ -9656,6 +9834,14 @@ async def winback_promo_task():
                 c = conn.cursor()
                 # По одному на клиента: свежеистёкшие (1-48ч) заявки юзеров без
                 # единой оплаты и без уже выданного win-back промо
+                # Клиент, приславший чек, «ни разу не платил» только по нашим
+                # данным: по его данным деньги ушли трейдеру и лежат у нас в
+                # виде подтверждения. Предложить ему скидку со словами «ваша
+                # заявка истекла, создайте новую» — позвать заплатить второй
+                # раз, ещё и подсластив. На боевых данных 30.07 такое промо уже
+                # ушло по трём заявкам с чеками. Разбирать это должен человек.
+                # Условие БЕЗУСЛОВНОЕ: таблицу создаёт init_db(). Зонд «есть ли
+                # таблица» здесь был fail-open — «нет» на любом сбое БД.
                 c.execute("""
                     SELECT MAX(o.order_id), o.user_id
                     FROM orders o
@@ -9664,6 +9850,9 @@ async def winback_promo_task():
                                                      AND datetime('now','-1 hour')
                       AND NOT EXISTS (SELECT 1 FROM orders p
                                       WHERE p.user_id=o.user_id AND p.status IN ('paid','sent'))
+                      AND NOT EXISTS (SELECT 1 FROM order_receipts r
+                                      JOIN orders q ON q.order_id=r.order_id
+                                      WHERE q.user_id=o.user_id)
                       AND NOT EXISTS (SELECT 1 FROM sent_notifications sn
                                       JOIN orders o2 ON o2.order_id=sn.order_id
                                       WHERE o2.user_id=o.user_id AND sn.event='winback_promo')
