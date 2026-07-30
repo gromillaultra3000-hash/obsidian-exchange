@@ -795,6 +795,20 @@ def init_db():
             updated_at TEXT DEFAULT CURRENT_TIMESTAMP)''')
         c.execute('''CREATE TABLE IF NOT EXISTS blocked_users (
             user_id INTEGER PRIMARY KEY, reason TEXT, blocked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+        # Уже лежащие в чёрном списке XRPL-адреса приводим к идентичности
+        # счёта. Сравнение ниже нормализует и хранимое тоже, так что это не
+        # условие корректности — но список становится читаемым (одна строка
+        # на счёт, а не по одной на каждый тег назначения) и совпадает с тем,
+        # что кладёт _blocklist_key при новых блокировках.
+        try:
+            for _row in c.execute("SELECT address FROM blocked_addresses").fetchall():
+                _old_a, _new_a = _row[0], _blocklist_key(_row[0])
+                if _new_a and _new_a != _old_a:
+                    c.execute("UPDATE OR IGNORE blocked_addresses SET address=? "
+                              "WHERE address=?", (_new_a, _old_a))
+                    c.execute("DELETE FROM blocked_addresses WHERE address=?", (_old_a,))
+        except Exception:
+            logger.warning("нормализация чёрного списка адресов пропущена")
         c.execute('''CREATE TABLE IF NOT EXISTS admin_log (
             id INTEGER PRIMARY KEY AUTOINCREMENT, admin_id INTEGER NOT NULL,
             action TEXT NOT NULL, target_id INTEGER, details TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
@@ -1050,18 +1064,23 @@ def validate_crypto_address(addr, currency, network=None):
         return False
     if not fmt_ok:
         return False
-    # Проверка по черному списку адресов
+    # Проверка по чёрному списку — по ИДЕНТИЧНОСТИ СЧЁТА с ОБЕИХ сторон.
+    # Приводить к счёту только присланный адрес мало: в таблице могла лежать
+    # X-форма (её положил админ до нормализации записи), и тот же счёт в
+    # classic-форме под неё не подпадает — блокировка обходится сменой формы.
+    # Вывести все возможные X-адреса из classic нельзя: их по одному на каждый
+    # тег назначения, то есть бесконечно. Значит нормализовать надо ХРАНИМОЕ,
+    # а сравнивать в Python. Список ведёт админ вручную, он короткий — цена
+    # прохода несопоставима с ценой обойдённой блокировки.
     try:
+        want = _blocklist_key(addr)
         with db_conn(3) as conn:
-            c = conn.cursor()
-            _forms = _blocklist_forms(addr)
-            c.execute(
-                "SELECT 1 FROM blocked_addresses WHERE address IN (%s)"
-                % ",".join("?" * len(_forms)), _forms)
-            if c.fetchone():
+            rows = conn.execute("SELECT address FROM blocked_addresses").fetchall()
+        for (stored,) in rows:
+            if _blocklist_key(stored) == want:
                 return False
     except Exception:
-        pass
+        logger.exception("проверка чёрного списка адресов")
     return True
 
 # ---------- ФОРМАТИРОВАНИЕ РЕКВИЗИТОВ GREENPAY ----------

@@ -906,6 +906,20 @@ def check_blocklist_matches_account_not_string():
         # подготовке параметров выше (окно — тело того же блока with/try).
         window = "\n".join(lines[max(0, i - 8):i + 2])
         window = "\n".join(re.sub(r"#.*$", "", w) for w in window.splitlines())
+        # Отбор по адресу в самом SQL опасен ОСОБО: приводить к счёту можно
+        # только присланное, а в таблице могла лежать X-форма — тот же счёт в
+        # classic-виде под неё не подпадёт, и блокировка обойдётся сменой формы
+        # записи. Вывести все X-адреса из classic нельзя (по одному на каждый
+        # тег). Значит сравнивать надо в Python, нормализуя И хранимое.
+        if re.search(r"WHERE\s+address\s+IN|WHERE\s+address\s*=", stmt, re.I) \
+                and "SELECT" in stmt.upper() and "INSERT" not in stmt.upper() \
+                and "DELETE" not in stmt.upper():
+            fail("чёрный список",
+                 f"{rel}: стр. {i}, совпадение ищется SQL-запросом по строке "
+                 f"адреса. Хранимую запись так не нормализовать: лежит X-форма — "
+                 f"тот же счёт в classic-виде её не найдёт, и блокировка "
+                 f"обходится сменой формы. Читать список и сравнивать ключи "
+                 f"счетов в Python.")
         if not any(n in window for n in norm):
             fail("чёрный список",
                  f"{rel}: стр. {i}, запрос к blocked_addresses без приведения "
