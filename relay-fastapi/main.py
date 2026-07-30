@@ -88,6 +88,13 @@ def _ensure_orders_columns():
         "agreed_rate": "REAL",            # курс с наценкой, показанный клиенту
         "agreed_crypto_amount": "REAL",   # объём, обещанный клиенту
         "agreed_at": "TEXT",
+        # Момент, когда чек клиента ушёл платёжному партнёру. Ставит
+        # core/receipts.py, а ЧИТАЮТ клиентские списки заявок: по этой отметке
+        # заявка называется «на проверке», а не «ждёт оплаты». В боевой базе
+        # колонка появилась миграцией вне репозитория — на свежей её не было бы,
+        # и вся история клиента падала бы на «no such column».
+        "receipt_sent_at": "TEXT",
+        "receipt_deadline": "TEXT",
     }
     with db_conn(5) as conn:
         cols = [r[1] for r in conn.execute("PRAGMA table_info(orders)").fetchall()]

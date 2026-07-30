@@ -943,6 +943,42 @@ def _slice(src, start, *ends):
     return src[i:j]
 
 
+# ─────────────────────────────────────────────────────────────────────
+# 23. Колонку читают там, где её никто не создаёт
+# ─────────────────────────────────────────────────────────────────────
+# Было 30.07.2026: `orders.receipt_sent_at` пишет core/receipts.py и читают
+# клиентские списки заявок, но ни init_db() бота, ни миграция relay-fastapi её
+# не добавляли — в боевой базе она появилась руками. На свежей базе первый же
+# SELECT истории падал бы на «no such column», унося ВЕСЬ список заявок клиента.
+# Два процесса делят один файл БД и стартуют в любом порядке, поэтому набор
+# колонок у них обязан быть один: тот, кто стартовал первым, и есть миграция.
+def check_migrations_agree():
+    tag = "миграции разъехались"
+    bot = _read(os.path.join(ROOT, "bot", "main_bot.py"))
+    main = _read(os.path.join(ROOT, "relay-fastapi", "main.py"))
+    if not bot or not main:
+        fail(tag, "не прочитан bot/main_bot.py или relay-fastapi/main.py")
+        return
+    bot_cols = set(re.findall(r"ALTER TABLE orders ADD COLUMN (\w+)", bot))
+    m = re.search(r"needed = \{(.*?)\n    \}", main, re.S)
+    if not m:
+        fail(tag, "relay-fastapi/main.py: не найден список миграций orders — "
+                  "проверка ослепла")
+        return
+    web_cols = set(re.findall(r'["\'](\w+)["\']\s*:', m.group(1)))
+    if not bot_cols:
+        fail(tag, "bot/main_bot.py: не найдено ни одной миграции orders — "
+                  "проверка ослепла")
+        return
+    for name, cols, other in (("bot/main_bot.py", bot_cols - web_cols, "relay-fastapi"),
+                              ("relay-fastapi/main.py", web_cols - bot_cols, "бот")):
+        if cols:
+            fail(tag, f"{name}: колонки {sorted(cols)} мигрирует только он, а "
+                      f"{other} — нет. Оба процесса делят один файл БД и "
+                      f"стартуют в любом порядке: чей старт был первым, тот и "
+                      f"определил схему, и читающий упадёт на «no such column»")
+
+
 def check_receipt_beats_the_timer():
     tag = "чек против таймера"
     files = {}
@@ -1187,7 +1223,8 @@ def main():
                check_unparsed_input_is_not_silence,
                check_no_unreachable_handlers,
                check_blocklist_matches_account_not_string,
-               check_receipt_beats_the_timer):
+               check_receipt_beats_the_timer,
+               check_migrations_agree):
         try:
             fn()
         except Exception as e:

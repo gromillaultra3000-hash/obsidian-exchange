@@ -833,6 +833,15 @@ def init_db():
             c.execute("ALTER TABLE orders ADD COLUMN agreed_crypto_amount REAL")
         if 'agreed_at' not in _order_cols:
             c.execute("ALTER TABLE orders ADD COLUMN agreed_at TEXT")
+        # Отметка «чек ушёл платёжному партнёру». Пишет core/receipts.py, читают
+        # клиентские списки заявок — по ней заявка называется «на проверке», а
+        # не «ждёт оплаты». В боевой базе колонка появилась миграцией вне
+        # репозитория; на свежей базе её не было, и список заявок падал бы
+        # целиком на «no such column».
+        if 'receipt_sent_at' not in _order_cols:
+            c.execute("ALTER TABLE orders ADD COLUMN receipt_sent_at TEXT")
+        if 'receipt_deadline' not in _order_cols:
+            c.execute("ALTER TABLE orders ADD COLUMN receipt_deadline TEXT")
         c.execute('''CREATE TABLE IF NOT EXISTS bot_users (
             user_id INTEGER PRIMARY KEY,
             username TEXT,
