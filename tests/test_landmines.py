@@ -996,6 +996,67 @@ def _slice(src, start, *ends):
 # трейдер мог просить видео, но у Vertu канала для этого НЕТ — просьба уходит в
 # чат диспута, которого никто не читает. Кодом канал не создать; честно только
 # одно — не притворяться, что он есть, и звать человека.
+# ─────────────────────────────────────────────────────────────────────
+# 27. Монету продаём, а выплату по ней сверка не видит
+# ─────────────────────────────────────────────────────────────────────
+# Было 30.07.2026: `payout_discovery` умел BTC, LTC и USDT-TRC20. Для XRP
+# авто-выплаты нет вовсе (`process_payout` его не знает, `/payout` отвечает
+# «отправлять вручную») — то есть ручная выдача там ЕДИНСТВЕННЫЙ путь, а
+# механизм, который ловит ручные выдачи, про эту монету не знал ничего. Заявка
+# оставалась `paid` навсегда с нулевым шансом закрыться: клиент без TXID,
+# реф-бонус и VIP-объём не начислены, сторож считает её зависшей вечно.
+# Правило: если монету можно купить, её выплату обязано быть видно.
+def check_every_currency_is_reconcilable():
+    tag = "сверка не видит монету"
+    import importlib.util
+    relay = os.path.join(ROOT, "relay")
+    if relay not in sys.path:
+        sys.path.insert(0, relay)
+    try:
+        spec = importlib.util.spec_from_file_location(
+            "_pd_mine", os.path.join(relay, "core", "payout_discovery.py"))
+        pd = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(pd)
+        from core import assets as _assets
+    except Exception as e:
+        fail(tag, f"не удалось загрузить сверку/реестр валют: {type(e).__name__}: {e}")
+        return
+
+    known = sorted(_assets.CURRENCY_NETWORKS)
+    if not known:
+        fail(tag, "реестр валют пуст — проверка ослепла")
+        return
+
+    # Подменяем читателей цепи: важно не «что вернулось», а ушёл ли запрос
+    # вообще хоть куда-то. Валюта, для которой сверка молча отдаёт [], выглядит
+    # работающей и не находит НИ ОДНОЙ выплаты.
+    seen = []
+    for name in ("_incoming_btc_like", "_incoming_trc20", "_incoming_xrpl", "_incoming_evm"):
+        if hasattr(pd, name):
+            setattr(pd, name, (lambda n: (lambda *a, **k: seen.append(n) or []))(name))
+    for cur in known:
+        seen.clear()
+        try:
+            pd.incoming_transfers(cur, "адрес-клиента")
+        except Exception as e:
+            fail(tag, f"{cur}: сверка падает на чтении цепи: {type(e).__name__}: {e}")
+            continue
+        if not seen:
+            fail(tag, f"{cur}: продаём, но выплату по ней сверка не читает ни из "
+                      f"одной цепи — выдача «мимо бота» останется невидимой "
+                      f"навсегда, а заявка «paid» вечной")
+
+    # Свой кошелёк тоже должен быть известен: без него ни одна выплата не
+    # опознаётся как НАША, и авто-закрытие не сработает ни разу.
+    src = _read(os.path.join(relay, "core", "payout_discovery.py"))
+    own = _slice(src, "def _own_wallet_addresses(", "\ndef ")
+    for cur in known:
+        if f'"{cur}"' not in own and cur not in ("BTC", "LTC"):
+            fail(tag, f"{cur}: _own_wallet_addresses не знает адреса нашего "
+                      f"кошелька — своя же выплата будет выглядеть чужой и "
+                      f"заявка не закроется автоматически никогда")
+
+
 def check_dead_deal_is_not_silent():
     tag = "смерть сделки"
     main = _read(os.path.join(ROOT, "relay-fastapi", "main.py"))
@@ -1474,7 +1535,8 @@ def main():
                check_migrations_agree,
                check_debt_queue_is_visible,
                check_attempt_id_is_symmetric,
-               check_dead_deal_is_not_silent):
+               check_dead_deal_is_not_silent,
+               check_every_currency_is_reconcilable):
         try:
             fn()
         except Exception as e:

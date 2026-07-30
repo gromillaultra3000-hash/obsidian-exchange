@@ -162,6 +162,17 @@ def _own_wallet_addresses(currency: str) -> set:
             a = tron_address()
             if a:
                 out.add(_norm(a))
+        elif cur == "XRP":
+            # У XRPL адрес один (не иерархический), поэтому меты достаточно.
+            from wallet import xrp_wallet as xw
+            a = (xw.status() or {}).get("address")
+            if a:
+                out.add(_norm(a))
+        elif cur == "ETH":
+            from wallet import evm_wallet as ew
+            a = ew.address()
+            if a:
+                out.add(_norm(a))
     except Exception as e:
         logger.warning("payout_discovery: адрес своего кошелька %s: %s", cur, e)
     out = {a for a in out if a}
@@ -235,13 +246,133 @@ def _incoming_trc20(address: str) -> list[dict]:
     return out
 
 
+def _incoming_xrpl(address: str) -> list[dict]:
+    """Входящие XRP на адрес клиента.
+
+    Зачем именно здесь. Авто-выплаты XRP нет вовсе: `process_payout` его не
+    знает, `/payout` честно отвечает «отправлять вручную». То есть у XRP ручная
+    выдача — ЕДИНСТВЕННЫЙ путь, и до этого момента сверка, которая ловит ручные
+    выдачи, про XRP не знала ничего. Монету открыли, а способа заметить выплату
+    не завели: заявка оставалась `paid` навсегда с нулевым шансом закрыться.
+
+    XRPL отвечает по JSON-RPC (`account_tx`). Берём только доставленные платежи
+    в НАШУ сторону: XRPL пишет фактически доставленное в `delivered_amount`, и
+    именно оно, а не заявленный `Amount`, считается полученным.
+    """
+    import requests
+    rpc = os.getenv("XRP_RPC_URL", "https://xrplcluster.com/")
+    body = {"method": "account_tx", "params": [{
+        "account": address, "ledger_index_min": -1, "ledger_index_max": -1,
+        "binary": False, "limit": 60, "forward": False}]}
+    try:
+        r = requests.post(rpc, json=body, timeout=15)
+        r.raise_for_status()
+        rows = ((r.json() or {}).get("result") or {}).get("transactions") or []
+    except Exception as e:
+        logger.warning("payout_discovery: XRPL %s: %s", address[:12], type(e).__name__)
+        return []
+    out = []
+    for row in rows:
+        tx = row.get("tx") or row.get("tx_json") or {}
+        meta = row.get("meta") or row.get("metaData") or {}
+        if tx.get("TransactionType") != "Payment":
+            continue
+        if tx.get("Destination") != address:
+            continue
+        if (meta.get("TransactionResult") or "") != "tesSUCCESS":
+            continue
+        # delivered_amount — то, что реально дошло. У частичных платежей оно
+        # МЕНЬШЕ Amount, и брать Amount значило бы засчитать недоплату полной.
+        amt = meta.get("delivered_amount")
+        if amt is None:
+            amt = tx.get("Amount")
+        if not isinstance(amt, str):
+            continue          # выпуски токенов (dict) — не наш XRP
+        try:
+            value = int(amt) / 1_000_000.0   # дропы → XRP
+        except (TypeError, ValueError):
+            continue
+        out.append({
+            "txid": tx.get("hash") or row.get("hash") or "",
+            "amount": value,
+            "ts": int(tx.get("date", 0)) + 946684800 if tx.get("date") else 0,
+            "senders": [tx.get("Account")] if tx.get("Account") else [],
+        })
+    return [t for t in out if t["txid"]]
+
+
+def _incoming_evm(address: str) -> list[dict]:
+    """Входящие ETH на адрес клиента — через публичный обозреватель.
+
+    Ключа Etherscan у проекта нет, поэтому берём Blockscout: у него открытый
+    API без ключа. Нет ответа — пустой список, а не исключение: сверка не должна
+    падать целиком из-за одной недоступной сети.
+    """
+    base = os.getenv("EVM_EXPLORER_API", "https://eth.blockscout.com/api")
+    try:
+        data = _get_json(base, {"module": "account", "action": "txlist",
+                                "address": address, "sort": "desc", "page": 1,
+                                "offset": 50}) or {}
+        rows = data.get("result") or []
+        if not isinstance(rows, list):
+            return []
+    except Exception as e:
+        logger.warning("payout_discovery: EVM %s: %s", address[:12], type(e).__name__)
+        return []
+    out = []
+    for t in rows:
+        try:
+            if _norm(t.get("to")) != _norm(address):
+                continue
+            # Неуспешные транзакции: у Blockscout isError='1'. Засчитать
+            # провалившийся перевод значило бы закрыть заявку по деньгам,
+            # которые никуда не ушли.
+            if str(t.get("isError", "0")) == "1":
+                continue
+            if str(t.get("txreceipt_status", "1")) == "0":
+                continue
+            value = int(t.get("value") or 0) / 1e18
+            if value <= 0:
+                continue        # вызовы контрактов без перевода
+            out.append({
+                "txid": t.get("hash") or "",
+                "amount": value,
+                "ts": int(t.get("timeStamp") or 0),
+                "senders": [_norm(t.get("from"))] if t.get("from") else [],
+            })
+        except (TypeError, ValueError):
+            continue
+    return [t for t in out if t["txid"]]
+
+
 def incoming_transfers(currency: str, address: str) -> list[dict]:
     cur = str(currency or "").upper()
     if cur in ("BTC", "LTC"):
         return _incoming_btc_like(address, cur)
     if cur == "USDT":
         return _incoming_trc20(address)
+    if cur == "XRP":
+        # У XRP адрес заявки может быть X-адресом (тег внутри) — на цепи же
+        # платёж идёт на classic-адрес. Сравнивать надо с ним, иначе своя же
+        # выплата не найдётся.
+        return _incoming_xrpl(_xrp_classic(address))
+    if cur == "ETH":
+        return _incoming_evm(address)
     return []
+
+
+def _xrp_classic(address: str) -> str:
+    """Classic-адрес из того, что лежит в заявке (X-адрес или уже classic)."""
+    try:
+        import sys
+        _relay = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        if _relay not in sys.path:
+            sys.path.insert(0, _relay)
+        from wallet.xrp_wallet import parse_destination
+        classic, _tag = parse_destination(address)
+        return classic or str(address or "")
+    except Exception:
+        return str(address or "")
 
 
 # ─────────────────────────────────────────────────────────────────
