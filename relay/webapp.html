@@ -934,7 +934,7 @@
             }, 1000);
 
             let _verifShown = false, _receiptShown = false;
-            const applyStatus = (st, txid, verification, txUrl, receipt, delayed) => {
+            const applyStatus = (st, txid, verification, txUrl, receipt, delayed, dead) => {
                 if (receipt) _receipt = receipt;
                 // Исход, объявленный СЕРВЕРОМ, старше чека: заявку с дошедшим
                 // чеком Слой 0 сам не истекает, значит терминальный статус —
@@ -958,6 +958,17 @@
                     _verifShown = true;
                     statusEl.innerHTML = `📋 Трейдер запросил ${verification === 'video' ? 'видео-подтверждение' : 'PDF-чек'}. Откройте чат с ботом — там инструкция и ID сделки.`;
                     if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('warning');
+                }
+                // Сделка закрыта у провайдера, а заявка ещё «ждёт оплаты»:
+                // реквизиты на экране ведут туда, где перевод уже не ждут.
+                if (dead && st === 'pending' && !_receipt) {
+                    if (qrWrap) qrWrap.style.display = 'none';
+                    const _rqd = document.getElementById('pay-req'); if (_rqd) _rqd.style.display = 'none';
+                    openBtn.style.display = 'none';
+                    timerEl.textContent = '—';
+                    title.textContent = `Заявка #${orderId} — реквизиты не действуют`;
+                    statusEl.innerHTML = '⚠️ Платёжная сессия закрыта партнёром. <b>Если вы уже перевели деньги — повторно не переводите</b>, пришлите чек в чат. Если ещё нет — создайте новую заявку.';
+                    return;
                 }
                 if (_receipt === 'sent' && st !== 'paid' && st !== 'sent') {
                     // Опрос НЕ останавливаем: решение по заявке ещё впереди, и
@@ -1024,7 +1035,7 @@
             const poll = async () => {
                 try {
                     const r = await fetch(`/api/order/${orderId}`, { headers: { 'X-Telegram-Init-Data': tg.initData || '' } });
-                    if (r.ok) { const d = await r.json(); applyStatus(d.status, d.txid, d.verification, d.tx_url, d.receipt, d.delayed); }
+                    if (r.ok) { const d = await r.json(); applyStatus(d.status, d.txid, d.verification, d.tx_url, d.receipt, d.delayed, d.dead); }
                 } catch (e) {}
             };
             checkBtn.onclick = poll;

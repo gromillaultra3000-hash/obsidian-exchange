@@ -515,6 +515,24 @@ def _delayed_ids() -> set:
         return set()
 
 
+def _session_dead(order_id) -> bool:
+    """Платёжная сессия закрыта провайдером, а заявка ещё ждёт оплаты.
+
+    Ровно то состояние, в котором клиент смотрит на реквизиты, ведущие в никуда:
+    сделка у провайдера умерла (Declined/Revoked), но заявка живая. Показывать
+    ему в этот момент живые реквизиты — приглашать перевести деньги туда, где их
+    уже никто не ждёт.
+    """
+    try:
+        with db_conn(3) as conn:
+            row = conn.execute(
+                "SELECT status FROM payment_sessions WHERE order_id=? "
+                "ORDER BY id DESC LIMIT 1", (order_id,)).fetchone()
+        return bool(row) and (row[0] or "") == "failed"
+    except Exception:
+        return False
+
+
 def _payout_delayed(order_id) -> bool:
     """Задерживается ли выплата по этой заявке — по общей очереди разбора.
 
@@ -1982,6 +2000,7 @@ async def api_order(order_id: int, request: Request):
             "receipt": _receipt_state(order_id),
             # «Оплачена» без движения часами клиент читает как «нас кинули».
             "delayed": (status == "paid" and _payout_delayed(order_id)),
+            "dead": (status == "pending" and _session_dead(order_id)),
             "tx_url": _txid.explorer_url(currency, txid, network) or ""}
 
 # --- Админ-вкладка Mini App ---
@@ -2289,6 +2308,7 @@ async def pay(token: str, request: Request):
             # клиент видит отказ на деньги, которые уже ушли трейдеру.
             "receipt": _receipt_state(order_id),
             "delayed": (order_status == "paid" and _payout_delayed(order_id)),
+            "dead": (order_status == "pending" and _session_dead(order_id)),
         }
         cfg_json = _json.dumps(cfg, ensure_ascii=False)
 
@@ -2433,6 +2453,14 @@ const SUPPORT = '<a href="https://t.me/Obsidian666999bot" style="display:inline-
 // Чек ДОШЁЛ до платёжного партнёра: платёж на проверке, реквизиты убираем —
 // по ним заплатят второй раз.
 function viewReceipt(){{
+  // Сделка у партнёра закрыта — автоматика её уже не подтвердит, решает
+  // человек. Обещать «обычно до 30 минут» здесь значит назвать срок, которого
+  // никто не держит.
+  if (C.dead) return `<div class="pill wait"><i class="pdot"></i>Чек получен · разбираем вручную</div>
+    <div class="spin"></div>
+    <div class="lbl" style="font-size:15px;color:#e7e7ea;text-align:center">Заявкой занимается сотрудник</div>
+    <div class="hint">Платёжная сессия закрылась на стороне партнёра, а ваш чек у нас. <b>Повторно не переводите и новую заявку не создавайте.</b> Мы напишем в бота, как только будет решение.
+    ${{SUPPORT}}</div>`;
   return `<div class="pill wait"><i class="pdot"></i>Чек получен · проверяем</div>
     <div class="spin"></div>
     <div class="lbl" style="font-size:15px;color:#e7e7ea;text-align:center">Проверяем ваш платёж</div>
@@ -2456,6 +2484,14 @@ function viewReceiptStored(){{
     <div class="hint">Срок этих реквизитов истёк. Ваш файл у нас, но платёжному партнёру он пока не передан — часто это значит, что вместо PDF-чека пришло фото. <b>Если вы уже перевели деньги, ничего не переводите повторно</b> — напишите в поддержку и пришлите PDF-чек из банка.
     ${{SUPPORT}}</div>`;
 }}
+// Сделка закрыта у провайдера, а заявка ещё жива. Реквизиты показывать нельзя:
+// перевод по ним уйдёт туда, где его уже никто не ждёт.
+function viewDead(){{
+  return `<div class="pill exp"><i class="pdot"></i>Реквизиты больше не действуют</div>
+    <div class="lbl" style="font-size:15px;color:#e7e7ea;text-align:center">Платёжная сессия закрыта</div>
+    <div class="hint">Партнёр закрыл эту сделку. <b>Если вы уже перевели деньги — не переводите повторно</b>, пришлите чек в бота, разберёмся вручную. Если ещё нет — создайте новую заявку, реквизиты выдадим заново.
+    ${{SUPPORT}}</div>`;
+}}
 let _timer=null, _localExpired=false;
 function render(){{
   const v = document.getElementById('view');
@@ -2470,6 +2506,8 @@ function render(){{
   // А вот локальный таймер чеку не указ: 15 минут кончились, решение впереди.
   else if (C.receipt==='sent') v.innerHTML=viewReceipt();
   else if (closed) v.innerHTML=viewExpired();
+  // Мёртвая сессия важнее живого таймера: срок ещё идёт, а платить уже некуда.
+  else if (C.dead) v.innerHTML=viewDead();
   else if (_localExpired && C.receipt) v.innerHTML=viewReceiptStored();
   else if (_localExpired) v.innerHTML=viewExpired();
   // 'stored' до истечения срока — реквизиты показываем: клиент мог ещё не платить.
@@ -2503,8 +2541,9 @@ async function poll(){{
     const r = await fetch(`/api/order/${{C.orderId}}?token=${{encodeURIComponent(C.token)}}`);
     if (r.ok) {{ const d=await r.json();
       if ((d.status && d.status!==C.status) || ((d.verification||'')!==(C.verification||''))
-          || ((d.receipt||'') !== (C.receipt||'')) || (!!d.delayed !== !!C.delayed)) {{
-        C.delayed = !!d.delayed;
+          || ((d.receipt||'') !== (C.receipt||'')) || (!!d.delayed !== !!C.delayed)
+          || (!!d.dead !== !!C.dead)) {{
+        C.delayed = !!d.delayed; C.dead = !!d.dead;
         C.status=d.status||C.status; C.verification=d.verification||''; C.txid=d.txid||C.txid;
         // Чек мог прийти уже после загрузки страницы — клиент отправляет его
         // в боте, а страница остаётся открытой. Значение то же, что у сервера
@@ -3140,6 +3179,11 @@ async def cleanup_expired_orders():
                                                   WHERE r.order_id=o.order_id)
                                   AND NOT EXISTS (SELECT 1 FROM sent_notifications sn
                                                   WHERE sn.order_id=o.order_id AND sn.event='order_expired')
+                                  -- Про смерть сессии клиенту уже сказали
+                                  -- конкретнее и раньше; «заявка истекла»
+                                  -- вторым сообщением только путает.
+                                  AND NOT EXISTS (SELECT 1 FROM sent_notifications sn2
+                                                  WHERE sn2.order_id=o.order_id AND sn2.event='session_dead')
                             """)
                             to_notify = c3.fetchall()
                             for _oid, _uid, _cur, _amt in to_notify:
@@ -3191,6 +3235,76 @@ async def cleanup_expired_orders():
         except Exception as e:
             logger.error(f"[cleanup] Error: {e}")
         await asyncio.sleep(600)  # каждые 10 минут
+
+
+def handle_dead_session(order_id, token, provider, detail=""):
+    """Сделка умерла на стороне провайдера. Сказать об этом всем, кого касается.
+
+    Раньше здесь стояло `UPDATE payment_sessions SET status='failed'` и строка в
+    аудит — и всё. Заявка оставалась `pending` навсегда, клиент смотрел на
+    реквизиты, которые уже никуда не ведут, а персонал не знал, что разбирать.
+    Так висели 22 заявки на 99 400 ₽.
+
+    Статус ЗАЯВКИ здесь не меняется намеренно. «Сделка не состоялась» на стороне
+    провайдера не доказывает, что клиент не платил: он мог перевести и не
+    прислать чек. Пометить такую заявку failed — значит сказать человеку с
+    ушедшими деньгами «оплаты не было». Дальше её ведёт обычный жизненный цикл:
+    с чеком её держит Слой 0 и она стоит в очереди разбора, без чека — истечёт
+    сама, и клиент получит про это отдельное честное уведомление.
+    """
+    import sys as _sys
+    if RELAY_PATH not in _sys.path:
+        _sys.path.insert(0, RELAY_PATH)
+    from core import provider_caps
+
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        c.execute("UPDATE payment_sessions SET status='failed', updated_at=datetime('now') "
+                  "WHERE session_token=?", (token,))
+        # Однократность: опрос ходит каждые 30 секунд и без метки завалил бы
+        # клиента одинаковыми сообщениями раз в полминуты.
+        claimed = c.execute(
+            "INSERT OR IGNORE INTO sent_notifications (order_id, event) "
+            "VALUES (?, 'session_dead')", (order_id,)).rowcount
+        row = c.execute("SELECT user_id, rub_amount, currency, status FROM orders "
+                        "WHERE order_id=?", (order_id,)).fetchone()
+        try:
+            has_receipt = c.execute("SELECT 1 FROM order_receipts WHERE order_id=?",
+                                    (order_id,)).fetchone() is not None
+        except Exception:
+            has_receipt = False
+        conn.commit()
+    audit_log("session_dead", f"order={order_id} provider={provider} {detail}")
+    if not claimed or not row:
+        return
+
+    uid, rub, cur, ostatus = row
+    notify_admins_tg(
+        f"💀 <b>Сделка умерла у провайдера — заявка #{order_id}</b>\n\n"
+        f"{int(rub or 0)} ₽ → {cur} · провайдер <b>{provider}</b>"
+        f"{(' · ' + detail) if detail else ''}\n"
+        f"Чек от клиента: <b>{'ЕСТЬ' if has_receipt else 'нет'}</b>\n\n"
+        f"{provider_caps.verification_note(provider)}\n\n"
+        f"{'Заявка в очереди разбора: /review' if has_receipt else 'Разбор: /order ' + str(order_id)}")
+
+    if not uid or int(uid) <= 0 or ostatus in ("paid", "sent"):
+        return
+    if has_receipt:
+        # Клиент уже прислал подтверждение — он считает, что заплатил, и он,
+        # скорее всего, прав. Ни «оплаты не было», ни «создайте новую».
+        text = (f"🔍 <b>Заявка #{order_id} — разбираем вручную</b>\n\n"
+                f"Платёжная сессия закрылась на стороне партнёра, а ваш чек у нас. "
+                f"Заявкой уже занимается сотрудник.\n\n"
+                f"<b>Повторно не переводите и новую заявку не создавайте.</b> "
+                f"Мы напишем сюда, как только будет решение.")
+    else:
+        text = (f"⚠️ <b>Заявка #{order_id} — реквизиты больше не действуют</b>\n\n"
+                f"Платёжная сессия закрылась на стороне партнёра.\n\n"
+                f"<b>Если вы уже перевели деньги</b> — не переводите повторно, "
+                f"пришлите чек сюда, разберёмся вручную.\n"
+                f"<b>Если ещё нет</b> — создайте новую заявку, реквизиты выдадим "
+                f"заново.")
+    notify_telegram(uid, text)
 
 
 async def vertu_poll_task():
@@ -3245,11 +3359,12 @@ async def vertu_poll_task():
                                 f"Заявка <b>#{order_id}</b> принята — выплата будет произведена в ближайшее время."
                             ))
                     elif status == 'failed':
-                        with db_conn(5) as conn:
-                            conn.execute("UPDATE payment_sessions SET status='failed', updated_at=datetime('now') "
-                                         "WHERE session_token=?", (token,))
-                            conn.commit()
-                        audit_log("vertu_polled_failed", f"order={order_id} inv={inv_id}")
+                        # У Vertu это Declined/Revoked — единственный сигнал,
+                        # который мы вообще получим: канала «трейдер просит
+                        # доп. проверку» у него нет, и просьба ушла в чат
+                        # диспута, которого никто не читает.
+                        handle_dead_session(order_id, token, 'vertu',
+                                            detail=f"сделка {inv_id} отклонена/отозвана")
         except Exception as e:
             logger.error(f"[vertu_poll] Error: {e}")
         await asyncio.sleep(30)

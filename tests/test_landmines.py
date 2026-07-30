@@ -986,6 +986,80 @@ def _slice(src, start, *ends):
 # идентификатор уникальным и не поправить разбор — значит принять оплату и не
 # узнать её: деньги пришли, заявка осталась pending. Поэтому построение и
 # разбор обязаны быть одним модулем.
+# ─────────────────────────────────────────────────────────────────────
+# 26. Провайдер сказал «сделка умерла» — и это услышал только журнал
+# ─────────────────────────────────────────────────────────────────────
+# Было 30.07.2026: `vertu_poll_task` на Declined/Revoked писала
+# `payment_sessions.status='failed'`, строку в аудит — и всё. Заявка оставалась
+# `pending` навсегда, клиент смотрел на реквизиты, ведущие в никуда, персонал не
+# знал, что разбирать. Так висели 22 заявки на 99 400 ₽. Отдельная половина:
+# трейдер мог просить видео, но у Vertu канала для этого НЕТ — просьба уходит в
+# чат диспута, которого никто не читает. Кодом канал не создать; честно только
+# одно — не притворяться, что он есть, и звать человека.
+def check_dead_deal_is_not_silent():
+    tag = "смерть сделки"
+    main = _read(os.path.join(ROOT, "relay-fastapi", "main.py"))
+    caps = _read(os.path.join(ROOT, "relay", "core", "provider_caps.py"))
+    if not main:
+        fail(tag, "relay-fastapi/main.py не прочитан — проверка ослепла")
+        return
+    if not caps:
+        fail(tag, "нет relay/core/provider_caps.py — возможности провайдера "
+                  "снова угадываются на месте, и персонал будет ждать сигнала, "
+                  "которого не бывает")
+
+    body = _nodoc(_slice(main, "def handle_dead_session(", "\nasync def ", "\ndef "))
+    if not body:
+        fail(tag, "relay-fastapi/main.py: нет handle_dead_session — смерть сделки "
+                  "у провайдера снова видна только в журнале")
+    else:
+        for need, why in (
+            ("notify_telegram", "клиенту не говорят ничего, а он смотрит на "
+                                "реквизиты, по которым уже не примут"),
+            ("notify_admins_tg", "персоналу не говорят ничего, разбирать некому"),
+            ("sent_notifications", "уведомление не одноразовое — опрос ходит раз "
+                                   "в 30 секунд и завалит клиента дублями"),
+            # Не «упоминается provider_caps» — импорта мало, нужен ВЫЗОВ:
+            # ровно так это правило и проскочило первую проверку мутациями.
+            ("verification_note(", "персоналу не сказано, ждать ли от этого "
+                                   "провайдера запроса доп. проверки — а у "
+                                   "половины его нет вовсе"),
+        ):
+            if need not in body:
+                fail(tag, f"handle_dead_session: {why} (нет {need})")
+        # Статус заявки трогать нельзя: «сделка не состоялась» у провайдера НЕ
+        # доказывает, что клиент не платил.
+        if re.search(r"UPDATE\s+orders\s+SET\s+status=", body):
+            fail(tag, "handle_dead_session меняет статус заявки — человеку, чьи "
+                      "деньги уже у трейдера, будет сказано «оплаты не было»")
+
+    # Ветка «сделка умерла» в опросе обязана звать общий обработчик, а не
+    # обновлять сессию своими руками и расходиться с ним.
+    poll = _slice(main, "async def vertu_poll_task(", "\nasync def ", "\ndef ")
+    if not poll:
+        fail(tag, "relay-fastapi/main.py: не найдена vertu_poll_task — проверка ослепла")
+    elif "handle_dead_session" not in poll:
+        fail(tag, "vertu_poll_task: ветка неуспеха не зовёт handle_dead_session — "
+                  "смерть сделки снова останется между строкой в журнале и "
+                  "полем в payment_sessions")
+
+    # Клиентские поверхности должны знать, что реквизиты мертвы.
+    if "def _session_dead(" not in main:
+        fail(tag, "relay-fastapi/main.py: нет _session_dead — /pay и Mini App "
+                  "продолжат показывать реквизиты закрытой сделки")
+    if '"dead"' not in main:
+        fail(tag, "relay-fastapi/main.py: признак мёртвой сессии не отдаётся "
+                  "клиентским страницам")
+    if "C.dead" not in _slice(main, "function render()", "\nfunction startTimer"):
+        fail(tag, "relay-fastapi/main.py: render() страницы /pay не смотрит на "
+                  "мёртвую сессию — клиент увидит живой таймер над реквизитами, "
+                  "по которым платёж уже не примут")
+    wa = _read(os.path.join(ROOT, "relay", "webapp.html"))
+    if wa and not re.search(r"\bdead\b", _nocomment_js(wa)):
+        fail(tag, "relay/webapp.html: Mini App не знает о мёртвой сессии и "
+                  "оставляет реквизиты на экране")
+
+
 def check_attempt_id_is_symmetric():
     tag = "идентификатор попытки"
     root_rel = os.path.join(ROOT, "relay", "core", "attempt_id.py")
@@ -1399,7 +1473,8 @@ def main():
                check_receipt_beats_the_timer,
                check_migrations_agree,
                check_debt_queue_is_visible,
-               check_attempt_id_is_symmetric):
+               check_attempt_id_is_symmetric,
+               check_dead_deal_is_not_silent):
         try:
             fn()
         except Exception as e:

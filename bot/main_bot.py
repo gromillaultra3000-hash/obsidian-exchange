@@ -4529,6 +4529,7 @@ async def cmd_review_queue(message: Message):
         _sys.path.insert(0, RELAY_PATH)
     from core.receipts import receipt_fraud_flags
     from core import payout_queue as _pq
+    from core import provider_caps
 
     rows = _pq.queue(limit=15)
     if not rows:
@@ -4577,6 +4578,19 @@ async def cmd_review_queue(message: Message):
                 f"⏳ ждёт <b>{r['age_human']}</b></blockquote>")
         if flags:
             text += "\n" + "\n".join(flags)
+        # Чего ждать от этого провайдера. У части из них запрос трейдера на
+        # доп. проверку до нас не доходит вовсе — оператор должен знать это
+        # ДО того, как начнёт ждать сигнала, которого не будет.
+        _prov = ""
+        try:
+            with db_conn(5) as _cn:
+                _r = _cn.execute("SELECT provider FROM payment_sessions WHERE order_id=? "
+                                 "ORDER BY id DESC LIMIT 1", (oid,)).fetchone()
+                _prov = _r[0] if _r else ""
+        except Exception:
+            pass
+        if _prov and not provider_caps.has_verification_channel(_prov):
+            text += f"\n\n{provider_caps.verification_note(_prov)}"
         text += f"\n\n🔎 Разбор: <code>/order {oid}</code>"
         if closed:
             # «Выдать» по закрытой заявке не сработает (подтверждение оплаты
