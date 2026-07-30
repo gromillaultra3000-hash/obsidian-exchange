@@ -6706,7 +6706,15 @@ async def menu_dca(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data.startswith("dca_cur_"))
 async def dca_choose_currency(callback: CallbackQuery, state: FSMContext):
-    cur = callback.data.split("_")[2]
+    # Монета из callback_data. DCA хуже разовой заявки: он создаёт покупки
+    # РЕГУЛЯРНО, и закрытое направление рождало бы поток заявок, которые нечем
+    # закрыть, — каждую пришлось бы разбирать руками.
+    cur = (callback.data.split("_")[2] or "").upper()
+    if cur not in offered_coins():
+        await callback.answer(
+            f"Направление {cur} сейчас закрыто — выберите другую монету",
+            show_alert=True)
+        return
     await state.update_data(dca_currency=cur)
     min_a = int(os.getenv('MIN_AMOUNT', 2000))
     await callback.message.answer(
@@ -7022,7 +7030,17 @@ async def menu_gift(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data.startswith("gift_cur_"))
 async def gift_choose_currency(callback: CallbackQuery, state: FSMContext):
-    cur = callback.data.split("_")[2]
+    # Валюта приходит из callback_data — то есть от клиента, а не от нас.
+    # Кнопки мы рисуем только по открытым направлениям, но нажать можно и по
+    # старой кнопке, и по подделанным данным. Без проверки подарок создавался
+    # бы в монете, которую мы не продаём и выдать не можем: деньги приняты,
+    # обещание невыполнимо. Тот же гейт, что у обычной покупки.
+    cur = (callback.data.split("_")[2] or "").upper()
+    if cur not in offered_coins():
+        await callback.answer(
+            f"Направление {cur} сейчас закрыто — выберите другую монету",
+            show_alert=True)
+        return
     await state.update_data(gift_currency=cur)
     min_a = int(os.getenv("MIN_AMOUNT", 2000))
     rate  = get_cached_rate(cur)
@@ -7307,7 +7325,15 @@ async def menu_ratelock(callback: CallbackQuery):
 
 @router.callback_query(F.data.startswith("ratelock_"))
 async def ratelock_choose(callback: CallbackQuery):
-    cur  = callback.data.split("_")[1]
+    # Фиксация курса — обещание цены. Давать его на монету, которую мы сейчас
+    # не продаём, значит пообещать то, чего не выполним: клиент придёт с
+    # зафиксированным курсом к закрытому направлению.
+    cur  = (callback.data.split("_")[1] or "").upper()
+    if cur not in offered_coins():
+        await callback.answer(
+            f"Направление {cur} сейчас закрыто — фиксировать курс нечего",
+            show_alert=True)
+        return
     uid  = callback.from_user.id
     rate = get_cached_rate(cur)
     import datetime as _dt
@@ -7436,9 +7462,25 @@ async def cmd_reserves(message: Message):
         await message.answer("Резервы не заданы. Установить: /setreserve BTC 1.5")
         return
     ICON = {"BTC": "₿", "LTC": "Ł", "USDT": "💵"}
-    text = "🏦 <b>Курируемые резервы</b>\n\n" + "\n".join(
-        f"{ICON.get(c,'')} {c}: <b>{a:g}</b>  <i>({u[:16]})</i>" for c, a, u in rows
-    ) + "\n\nИзменить: /setreserve BTC 1.5"
+    # Резерв открывает ПРИЁМ денег, а выдачу открывает другой выключатель.
+    # Про расхождение говорится в момент /setreserve — но это разовое
+    # сообщение, а состояние живёт месяцами. Здесь оно видно всегда: строка
+    # без пометки = деньги примем и выдадим сами, строка с пометкой = примем,
+    # а выдавать придётся руками.
+    lines, manual = [], []
+    for c, a, u in rows:
+        ready, why = _hot_wallet_state(c)
+        mark = "" if (ready or not a) else "  ⚠️ выдача только вручную"
+        if mark:
+            manual.append(f"{c}: {why}")
+        lines.append(f"{ICON.get(c,'')} {c}: <b>{a:g}</b>  <i>({u[:16]})</i>{mark}")
+    text = "🏦 <b>Курируемые резервы</b>\n\n" + "\n".join(lines)
+    if manual:
+        text += ("\n\n⚠️ <b>Направление открыто, а горячий кошелёк выдать не может:</b>\n"
+                 + "\n".join(f"  • {m}" for m in manual)
+                 + "\nЗаявки по ним уходят работнику. Закрыть направление: "
+                   "/setreserve КОД 0")
+    text += "\n\nИзменить: /setreserve BTC 1.5"
     await message.answer(text, parse_mode="HTML")
 
 @router.message(Command("limits"))
