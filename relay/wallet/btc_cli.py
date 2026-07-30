@@ -23,7 +23,8 @@ import os
 import sys
 from pathlib import Path
 
-sys.path.insert(0, "/root/relay")
+# путь к relay — от себя, а не от боевого каталога (мина «зашитый боевой путь»)
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from wallet import btc_wallet as w  # noqa: E402
 
 

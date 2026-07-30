@@ -115,8 +115,10 @@ def reconcile(days: int = 30) -> dict:
     """Сверяет цепочку с заявками. Ничего не меняет."""
     try:
         import sys
-        if "/root/relay" not in sys.path:
-            sys.path.insert(0, "/root/relay")
+        # путь к relay — от себя, а не от боевого каталога (мина «зашитый боевой путь»)
+        _relay = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        if _relay not in sys.path:
+            sys.path.insert(0, _relay)
         from wallet.tron_wallet import tron_address
         from core.txid import is_txid
         address = tron_address()

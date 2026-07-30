@@ -204,21 +204,28 @@ def address_carries_tag(currency, address) -> bool:
         return False
 
 
-def canonical_address(currency, address, tag=None):
+def canonical_address(currency, address, tag=None, network=None):
     """Адрес в том виде, в котором его следует ХРАНИТЬ в заявке, или None.
 
     Для валют с тегом склеивает адрес и тег в одну неразделимую строку
     (см. core.address.canonical_xrp_destination — почему не отдельная колонка).
     Для остальных валют — обычная валидация: тег там взяться не должен.
+
+    `network` обязателен там, где у валюты сетей больше одной: USDT-ERC20
+    задаётся 0x-адресом, который в сети по умолчанию (TRC20) невалиден. Без
+    этого параметра проверка сравнивала бы адрес не с той сетью и отвергала
+    исправную заявку — сеть должна быть ТА ЖЕ, что уйдёт в заявку.
     """
     c = normalize_currency(currency)
     if c not in CURRENCY_NETWORKS:
         return None
+    if normalize_network(c, network) is None:
+        return None              # сеть не из списка валюты — отказ, а не «по умолчанию»
     if c not in TAGGED_CURRENCIES:
         if tag is not None:
             return None          # тег у валюты без тегов — отказ, а не «проигнорируем»
         addr = address.strip() if isinstance(address, str) else ""
-        return addr if validate_address(c, addr) else None
+        return addr if validate_address(c, addr, network) else None
     try:
         from core import address as _addr
     except Exception:

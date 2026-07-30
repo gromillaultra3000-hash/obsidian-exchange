@@ -41,8 +41,30 @@
         </div>
         <div class="input-group">
             <label>Адрес для получения</label>
-            <input type="text" name="address" placeholder="Введите адрес кошелька"
-                   value="{{ form.address if form else (prefill.address if prefill else '') }}" required>
+            <input type="text" id="address" name="address" placeholder="Введите адрес кошелька"
+                   value="{{ form.address if form else (prefill.address if prefill else '') }}"
+                   oninput="onAddressChange()" required>
+        </div>
+        {# Тег назначения. Показывается только у валют, где он есть (XRP), и
+           прячется, если адрес уже несёт тег внутри себя (X-формат) — иначе
+           клиент задал бы второе, противоречащее значение. #}
+        <div class="input-group" id="tag-group" style="display:none">
+            <label id="tag-label">Тег назначения</label>
+            <input type="text" id="dest_tag" name="dest_tag" inputmode="numeric"
+                   placeholder="Например 12345"
+                   value="{{ form.dest_tag if form and form.dest_tag else '' }}">
+            <p style="margin-top:6px;font-size:12px;opacity:.7" id="tag-hint"></p>
+            {# Пустое поле тега — не согласие: клиент мог просто не понять вопрос,
+               а перевод на биржевой адрес без тега уходит на общий счёт биржи.
+               В боте отказ от тега — отдельная кнопка; здесь тот же смысл несёт
+               эта галочка, и сервер её перепроверяет. #}
+            <label style="display:flex;gap:8px;align-items:flex-start;margin-top:8px;
+                          font-size:12px;opacity:.85;cursor:pointer">
+                <input type="checkbox" id="no_tag" name="no_tag" value="1"
+                       {% if form and form.no_tag %}checked{% endif %}
+                       style="width:auto;margin-top:2px">
+                <span id="no-tag-label">У моего кошелька нет тега — это личный кошелёк, не биржа</span>
+            </label>
         </div>
         <button class="btn btn-primary btn-block" type="submit">🚀 Создать заявку</button>
         <p style="margin-top:10px;font-size:12px;opacity:.6;">Создавая заявку, вы принимаете условия <a href="/offer" target="_blank">пользовательского соглашения</a>.</p>
@@ -71,6 +93,45 @@ function getCommissionPercent(amount) {
 // Сеть, выбранная до ошибки валидации — чтобы форма не сбрасывала её на первую
 const PREV_NETWORK = {{ (form.network if form and form.network else '')|tojson }};
 
+// Тег назначения: нужен ли он — решает сервер (assets.TAGGED_CURRENCIES),
+// поле tag_name приходит в OFFERINGS. Списка монет здесь намеренно НЕТ: он
+// разошёлся бы с реестром на следующей валюте с тегом.
+function currentTagName() {
+    const o = OFFERINGS.find(x => x.code === document.getElementById('currency').value);
+    return (o && o.tag_name) ? o.tag_name : '';
+}
+
+// X-адрес XRPL несёт тег внутри себя. Признак — первая буква X и длина;
+// это лишь подсказка интерфейса, решение всё равно принимает сервер.
+function addressCarriesTag(addr) {
+    return /^X[1-9A-HJ-NP-Za-km-z]{40,50}$/.test((addr || '').trim());
+}
+
+function onAddressChange() {
+    const tagName = currentTagName();
+    const grp = document.getElementById('tag-group');
+    const input = document.getElementById('dest_tag');
+    // Спрятать поле мало: скрытый input всё равно уходит с формой. Клиент,
+    // набравший тег для XRP и переключившийся на BTC, получил бы отказ
+    // «для этой валюты тег не используется» на исправной заявке.
+    const nt = document.getElementById('no_tag');
+    if (!tagName) { grp.style.display = 'none'; input.value = ''; if (nt) nt.checked = false; return; }
+    const carries = addressCarriesTag(document.getElementById('address').value);
+    grp.style.display = carries ? 'none' : '';
+    if (carries) { input.value = ''; if (nt) nt.checked = false; }
+    // Тег и «тега нет» — взаимоисключающие ответы: набранный тег снимает галочку,
+    // иначе клиент отправит оба и не поймёт, что именно уйдёт в заявку.
+    if (input.value.trim() && nt) nt.checked = false;
+    const ntl = document.getElementById('no-tag-label');
+    if (ntl) ntl.textContent = `У моего кошелька нет ${tagName}а — это личный кошелёк, не биржа`;
+    document.getElementById('tag-label').textContent =
+        tagName.charAt(0).toUpperCase() + tagName.slice(1);
+    document.getElementById('tag-hint').innerHTML = carries ? '' :
+        'Если получаете на <b>биржу</b> (Binance, Bybit, OKX) — тег обязателен: ' +
+        'без него монеты попадут на общий счёт биржи и вам не зачислятся. ' +
+        'Если это <b>ваш кошелёк</b> — тега обычно нет: отметьте галочку ниже.';
+}
+
 function onCurrencyChange() {
     const cur = document.getElementById('currency').value;
     const o = OFFERINGS.find(x => x.code === cur);
@@ -80,6 +141,7 @@ function onCurrencyChange() {
     sel.innerHTML = nets.map(n => `<option value="${n.code}">${n.label}</option>`).join('');
     if (PREV_NETWORK && nets.some(n => n.code === PREV_NETWORK)) sel.value = PREV_NETWORK;
     grp.style.display = nets.length > 1 ? '' : 'none';
+    onAddressChange();
     calculateFee();
 }
 

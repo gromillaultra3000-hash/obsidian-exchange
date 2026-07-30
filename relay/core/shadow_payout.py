@@ -50,8 +50,10 @@ def record_pending(limit: int = 25) -> dict:
     """Выносит вердикт по оплаченным заявкам, которых ещё нет в журнале."""
     ensure_schema()
     import sys
-    if "/root/relay" not in sys.path:
-        sys.path.insert(0, "/root/relay")
+    # путь к relay — от себя, а не от боевого каталога (мина «зашитый боевой путь»)
+    _relay = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if _relay not in sys.path:
+        sys.path.insert(0, _relay)
     from core.safety import verify_payment_settled, check_payout_allowed
 
     stats = {"checked": 0, "recorded": 0, "errors": 0}

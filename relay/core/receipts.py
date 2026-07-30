@@ -25,8 +25,10 @@ import sys
 
 import requests
 
-if "/root/relay" not in sys.path:
-    sys.path.insert(0, "/root/relay")
+# путь к relay — от себя, а не от боевого каталога (мина «зашитый боевой путь»)
+_RELAY = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _RELAY not in sys.path:
+    sys.path.insert(0, _RELAY)
 
 logger = logging.getLogger(__name__)
 DB_PATH = os.getenv("DB_PATH", "/root/exchange.db")

@@ -43,11 +43,30 @@ def explorer_url(currency, tx, network=None) -> str | None:
     net = str(network or "").strip().upper().replace("-", "")
     if cur in ("USDT", "ETH") and net in ("ERC20", "ETH", "ETHEREUM", "EVM"):
         cur = "ETH"
-    base = {
-        "BTC": "https://mempool.space/tx/",
-        "LTC": "https://blockchair.com/litecoin/transaction/",
-        "USDT": "https://tronscan.org/#/transaction/",
-        "TRX": "https://tronscan.org/#/transaction/",
-        "ETH": "https://etherscan.io/tx/",
-    }.get(cur)
+    base = _EXPLORERS.get(cur)
     return f"{base}{str(tx).strip()}" if base else None
+
+
+# Куда ведёт ссылка на транзакцию. Одно место на весь проект: раньше карта была
+# скопирована в четыре (бот, /api, инлайн-JS страницы оплаты, Mini App), копии
+# разошлись, и новые направления получали либо пустую кнопку, либо ссылку в
+# чужую сеть. Пополнять ТОЛЬКО здесь.
+_EXPLORERS = {
+    "BTC": "https://mempool.space/tx/",
+    "LTC": "https://blockchair.com/litecoin/transaction/",
+    "USDT": "https://tronscan.org/#/transaction/",
+    "TRX": "https://tronscan.org/#/transaction/",
+    "ETH": "https://etherscan.io/tx/",
+    "XRP": "https://xrpscan.com/tx/",
+}
+
+
+def known_currencies() -> tuple:
+    """Валюты, для которых ссылка вообще существует. Для проверок и диагностики.
+
+    Карты наружу НЕ отдаём намеренно. Первая версия отдавала копию словаря
+    «валюта → префикс» для поверхностей без Python — и это воспроизводило ровно
+    ту беду, ради которой источник сводили в одно место: ключ без сети, значит
+    USDT-ERC20 по такой карте уезжает в tronscan. Клиенту ссылку считает сервер
+    (explorer_url) и отдаёт готовой в поле tx_url."""
+    return tuple(sorted(_EXPLORERS))

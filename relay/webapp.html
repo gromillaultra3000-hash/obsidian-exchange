@@ -316,6 +316,22 @@
                 <input type="text" id="address" placeholder="Введите адрес кошелька" oninput="validateAddress()">
                 <div class="validation-msg" id="address-msg"></div>
             </div>
+            <!-- Тег назначения: только у валют, где он есть (XRP). Прячется,
+                 если адрес уже несёт тег внутри себя (X-формат XRPL). -->
+            <div class="input-group" id="tag-group" style="display:none">
+                <label id="tag-label">Тег назначения</label>
+                <input type="text" id="dest_tag" inputmode="numeric"
+                       placeholder="Например 12345">
+                <div style="margin-top:6px;font-size:11px;color:#f0a" id="tag-hint"></div>
+                <!-- Пустое поле тега — не согласие: перевод на биржевой адрес без
+                     тега уходит на общий счёт биржи. В боте отказ от тега — кнопка,
+                     здесь — эта галочка; сервер перепроверяет её сам. -->
+                <label style="display:flex;gap:8px;align-items:flex-start;margin-top:8px;
+                              font-size:11px;opacity:.85">
+                    <input type="checkbox" id="no_tag" style="width:auto;margin-top:2px">
+                    <span id="no-tag-label">У моего кошелька нет тега — это личный кошелёк, не биржа</span>
+                </label>
+            </div>
             <button class="btn btn-breathe" id="create-order">🚀 Создать заявку</button>
             <!-- Шаги обмена -->
             <div class="exchange-steps" id="exchange-steps" style="display:none">
@@ -669,7 +685,8 @@
         // Витрина: какие монеты и сети реально открыты (приходит с /api/rates).
         // Список не хардкодим — направление может быть закрыто по ликвидности.
         const COIN_LABEL = { BTC: '₿ Bitcoin (BTC)', LTC: 'Ł Litecoin (LTC)',
-                             USDT: '💵 Tether (USDT)', ETH: 'Ξ Ethereum (ETH)' };
+                             USDT: '💵 Tether (USDT)', ETH: 'Ξ Ethereum (ETH)',
+                             XRP: '✕ XRP (Ripple)' };
         function applyOfferings(offerings) {
             if (!offerings || !offerings.length) return;
             window.__oeOfferings = offerings;
@@ -701,6 +718,49 @@
             }
             calculateFee();
             updateAddressPlaceholder();
+            updateTagField();
+        }
+
+        // Нужен ли тег — решает сервер (assets.TAGGED_CURRENCIES), значение
+        // приходит в витрине как tag_name. Списка монет здесь нет намеренно:
+        // он разошёлся бы с реестром на следующей валюте с тегом.
+        function currentTagName() {
+            const cur = document.getElementById('currency').value;
+            const o = (window.__oeOfferings || []).find(x => x.code === cur);
+            return (o && o.tag_name) ? o.tag_name : '';
+        }
+
+        // X-адрес XRPL несёт тег в себе. Это подсказка интерфейса — решение
+        // всё равно принимает сервер (_resolve_destination).
+        function addressCarriesTag(addr) {
+            return /^X[1-9A-HJ-NP-Za-km-z]{40,50}$/.test((addr || '').trim());
+        }
+
+        function updateTagField() {
+            const tagName = currentTagName();
+            const grp = document.getElementById('tag-group');
+            const input = document.getElementById('dest_tag');
+            if (!grp) return;
+            // Чистим значение, а не только прячем поле: отправку страхует ещё и
+            // проверка видимости при сборке запроса, но два места должны
+            // сходиться. На сайте такая же скрытая строка уходила с формой и
+            // валила исправную заявку после смены валюты.
+            const nt = document.getElementById('no_tag');
+            if (!tagName) { grp.style.display = 'none'; if (input) input.value = '';
+                            if (nt) nt.checked = false; return; }
+            const carries = addressCarriesTag(document.getElementById('address').value);
+            grp.style.display = carries ? 'none' : '';
+            if (carries) { if (input) input.value = ''; if (nt) nt.checked = false; }
+            // Тег и «тега нет» — взаимоисключающие ответы.
+            if (input && input.value.trim() && nt) nt.checked = false;
+            const ntl = document.getElementById('no-tag-label');
+            if (ntl) ntl.textContent = `У моего кошелька нет ${tagName}а — это личный кошелёк, не биржа`;
+            document.getElementById('tag-label').textContent =
+                tagName.charAt(0).toUpperCase() + tagName.slice(1);
+            document.getElementById('tag-hint').innerHTML = carries ? '' :
+                'На <b>биржу</b> (Binance, Bybit, OKX) тег обязателен — без него ' +
+                'монеты попадут на общий счёт биржи и не зачислятся. На <b>свой ' +
+                'кошелёк</b> тега обычно нет: отметьте галочку ниже.';
         }
 
         function selectedNetwork() {
@@ -714,12 +774,14 @@
             const net = selectedNetwork();
             const ph  = { BTC: 'bc1... или 1... или 3...', LTC: 'L... или M... или ltc1...',
                           USDT: net === 'ERC20' ? '0x... (ERC-20 / Ethereum)' : 'T... (TRC20 / Tron)',
-                          ETH: '0x... (ERC-20 / Ethereum)' };
+                          ETH: '0x... (ERC-20 / Ethereum)',
+                          XRP: 'r... или X... (X-адрес уже содержит тег)' };
             const addrInput = document.getElementById('address');
             addrInput.placeholder = ph[cur] || 'Введите адрес кошелька';
             const saved = localStorage.getItem('lastAddress_' + cur + '_' + net);
             addrInput.value = saved || '';
             validateAddress();
+            updateTagField();
         }
         // Инициализируем при загрузке
         updateAddressPlaceholder();
@@ -733,6 +795,13 @@
             const payMethod = document.querySelector('input[name="pay_method"]:checked')?.value || 'sbp';
             if (!amount || amount < 2000 || amount > 500000) { resultEl.textContent = 'Сумма от 2 000 до 500 000 ₽'; return; }
             if (!address) { resultEl.textContent = 'Введите адрес кошелька'; return; }
+            // Тег отправляем как есть. Разбор и проверка — на сервере: две копии
+            // правил разошлись бы, а цена расхождения — потерянный перевод.
+            const tagEl = document.getElementById('dest_tag');
+            const tagVisible = document.getElementById('tag-group').style.display !== 'none';
+            const destTag = (tagVisible && tagEl) ? tagEl.value.trim() : '';
+            const ntEl = document.getElementById('no_tag');
+            const noTag = tagVisible && !!(ntEl && ntEl.checked);
             const network = selectedNetwork();
             localStorage.setItem('lastAddress_' + currency + '_' + network, address);
 
@@ -743,7 +812,9 @@
                 const res = await fetch('/api/create_order', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': tg.initData || '' },
-                    body: JSON.stringify({ currency, amount: parseFloat(amount), address, network, pay_method: payMethod })
+                    body: JSON.stringify({ currency, amount: parseFloat(amount), address, network,
+                                          pay_method: payMethod, dest_tag: destTag,
+                                          no_tag: noTag })
                 });
                 const data = await res.json().catch(() => ({}));
                 if (!res.ok || !data.ok) {
@@ -767,12 +838,12 @@
             if (_orderPoll) { clearInterval(_orderPoll); _orderPoll = null; }
             if (_orderTimer) { clearInterval(_orderTimer); _orderTimer = null; }
         }
-        const EXPLORER = { BTC: 'https://mempool.space/tx/', LTC: 'https://blockchair.com/litecoin/transaction/', USDT: 'https://tronscan.org/#/transaction/', ETH: 'https://etherscan.io/tx/' };
-        // В txid исторически попадали ссылки на оплату Platega и пометки 'manual'.
-        // Склейка давала битый адрес эксплорера — кнопка вела в никуда, но выглядела
-        // как доказательство отправки. Показываем ссылку только для настоящего хеша.
-        const isTxid = (t) => !!t && /^(0x)?[0-9a-fA-F]{64}$/.test(String(t).trim());
-        const txLinkOf = (cur, t) => (isTxid(t) && EXPLORER[cur]) ? EXPLORER[cur] + String(t).trim() : null;
+        // Ссылку на транзакцию строит СЕРВЕР (core.txid) и отдаёт готовой в поле
+        // tx_url — /api/order и /api/history. Своя карта жила здесь, в /pay, в
+        // /api и в боте: копии разошлись, знали три-четыре монеты из шести, и
+        // выполненная ETH/XRP-заявка показывала клиенту либо пустоту, либо
+        // обозреватель чужой сети. Сломанное доказательство выдачи хуже, чем
+        // его отсутствие, поэтому источник ровно один и он на сервере.
         function startOrderTracking(orderId, payUrl, currency, qrImage, payAmount, requisites) {
             stopOrderTracking();
             const card = document.getElementById('pay-card');
@@ -851,7 +922,7 @@
             }, 1000);
 
             let _verifShown = false;
-            const applyStatus = (st, txid, verification) => {
+            const applyStatus = (st, txid, verification, txUrl) => {
                 if (st === 'pending' && verification && !_verifShown) {
                     // Трейдер запросил подтверждение (Montera PDF/видео) — направляем в чат с ботом
                     _verifShown = true;
@@ -876,7 +947,7 @@
                     const _rq = document.getElementById('pay-req'); if (_rq) _rq.style.display = 'none';
                     timerEl.textContent = st === 'sent' ? '🚀' : '✅';
                     title.textContent = st === 'sent' ? `Заявка #${orderId} — выплачена` : `Заявка #${orderId} — оплачена`;
-                    const _tu = (st === 'sent') ? txLinkOf(currency, txid) : null;
+                    const _tu = (st === 'sent') ? (txUrl || null) : null;
                     const txLink = _tu
                         ? `<br><a href="#" onclick="tg.openLink('${_tu}');return false" style="color:#c48cff">🔗 Транзакция в блокчейне</a>`
                         : '';
@@ -895,7 +966,7 @@
             const poll = async () => {
                 try {
                     const r = await fetch(`/api/order/${orderId}`, { headers: { 'X-Telegram-Init-Data': tg.initData || '' } });
-                    if (r.ok) { const d = await r.json(); applyStatus(d.status, d.txid, d.verification); }
+                    if (r.ok) { const d = await r.json(); applyStatus(d.status, d.txid, d.verification, d.tx_url); }
                 } catch (e) {}
             };
             checkBtn.onclick = poll;
@@ -924,8 +995,8 @@
                     if (o.status === 'pending' && o.session_token) {
                         const purl = `${location.origin}/pay/${o.session_token}`;
                         action = `<a href="#" class="btn-pay" onclick="tg.openLink('${purl}');return false">💳 Оплатить</a>`;
-                    } else if (o.status === 'sent' && txLinkOf(o.currency, o.txid)) {
-                        action = `<a href="#" class="btn-pay" style="background:rgba(159,103,255,.15)" onclick="tg.openLink('${txLinkOf(o.currency, o.txid)}');return false">🔍 Транзакция</a>`;
+                    } else if (o.status === 'sent' && o.tx_url) {
+                        action = `<a href="#" class="btn-pay" style="background:rgba(159,103,255,.15)" onclick="tg.openLink('${o.tx_url}');return false">🔍 Транзакция</a>`;
                     }
                     html += `<div class="history-item ${cls}">
                         <span class="h-icon">${emoji}</span>
@@ -1206,8 +1277,18 @@
                 // USDT живёт в двух сетях — формат зависит от выбранной
                 USDT: net === 'ERC20' ? EVM : /^T[A-Za-z0-9]{33}$/,
                 ETH:  EVM,
+                // XRPL: classic r… и X-адрес (несёт тег). Алфавит свой.
+                XRP:  /^(r[rpshnaf39wBUDNEGHJKLM4PQRST7VWXYZ2bcdeCg65jkm8oFqi1tuvAxyz]{24,34}|X[rpshnaf39wBUDNEGHJKLM4PQRST7VWXYZ2bcdeCg65jkm8oFqi1tuvAxyz]{40,50})$/,
             };
-            const ok = (patterns[cur] || patterns.BTC).test(addr);
+            // Монеты нет в таблице — молчим, а НЕ проверяем шаблоном биткойна.
+            // Прежний фолбэк `|| patterns.BTC` красил валидный адрес новой
+            // валюты красным и говорил «неверный формат» о верном адресе.
+            if (!patterns[cur]) {
+                input.classList.remove('valid','invalid');
+                msg.textContent = '';
+                return;
+            }
+            const ok = patterns[cur].test(addr);
             input.classList.toggle('valid', ok);
             input.classList.toggle('invalid', !ok);
             const netName = net === 'ERC20' ? 'ERC-20' : (net === 'TRC20' ? 'TRC-20' : '');
@@ -1216,6 +1297,12 @@
             msg.textContent = ok ? '✓ Формат верный'
                                  : `✗ Неверный формат ${cur}-адреса${netName ? ' в сети ' + netName : ''}`;
             msg.className = 'validation-msg ' + (ok ? 'valid' : 'invalid');
+            // Поле тега зависит от АДРЕСА (X-формат несёт тег внутри), поэтому
+            // пересчитываем его здесь же. На сайте ввод адреса зовёт свой
+            // обработчик поля тега, а в Mini App у #address висит только эта
+            // функция — без вызова X-адрес оставлял поле тега открытым, клиент
+            // вводил второй тег и получал отказ сервера на исправной заявке.
+            if (typeof updateTagField === 'function') updateTagField();
         }
     </script>
     <script>

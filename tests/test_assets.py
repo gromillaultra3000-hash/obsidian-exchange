@@ -91,6 +91,40 @@ check("network_label USDT ERC20 → 'ERC-20'", A.network_label("USDT", "ERC20") 
 check("network_label BTC → 'Mainnet'", A.network_label("BTC") == "Mainnet")
 check("network_label неизвестной валюты → ''", A.network_label("DOGE") == "")
 
+# ── canonical_address: сеть должна быть ТА ЖЕ, что уйдёт в заявку ───────────
+# Проверка адреса по сети «по умолчанию» отвергала бы исправную заявку
+# USDT-ERC20: 0x-адрес в TRC20 невалиден. Ошибка была бы громкой, но
+# необъяснимой для клиента — «адрес не прошёл проверку» на верном адресе.
+_ERC = "0x742d35Cc6634C0532925a3b844Bc454e4438f44e"
+_TRC = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"
+_BTC = "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh"
+_XRP = "rrpDp2dLMs7KyhZhg5RbReRagjWuvH7qB"
+
+check("canonical USDT/ERC20 принимает 0x-адрес",
+      A.canonical_address("USDT", _ERC, None, "ERC20") == _ERC)
+check("canonical USDT/TRC20 принимает T-адрес",
+      A.canonical_address("USDT", _TRC, None, "TRC20") == _TRC)
+check("canonical USDT без сети → сеть по умолчанию (TRC20)",
+      A.canonical_address("USDT", _TRC) == _TRC)
+check("canonical USDT/ERC20 отвергает T-адрес (чужая сеть)",
+      A.canonical_address("USDT", _TRC, None, "ERC20") is None)
+check("canonical USDT/TRC20 отвергает 0x-адрес (чужая сеть)",
+      A.canonical_address("USDT", _ERC, None, "TRC20") is None)
+check("canonical отвергает сеть не из списка валюты (BEP20)",
+      A.canonical_address("USDT", _TRC, None, "BEP20") is None)
+check("canonical ETH/ERC20 принимает 0x-адрес",
+      A.canonical_address("ETH", _ERC, None, "ERC20") == _ERC)
+check("canonical BTC/MAINNET принимает bech32",
+      A.canonical_address("BTC", _BTC, None, "MAINNET") == _BTC)
+check("canonical XRP/XRPL принимает classic-адрес",
+      A.canonical_address("XRP", _XRP, None, "XRPL") == _XRP)
+check("canonical XRP с чужой сетью → отказ",
+      A.canonical_address("XRP", _XRP, None, "TRC20") is None)
+check("canonical неизвестной валюты → None",
+      A.canonical_address("DOGE", "DH5yaieqoZN36fDVciNyRueRGvGLR3mr7L") is None)
+check("canonical: тег у валюты без тегов → отказ, а не «проигнорируем»",
+      A.canonical_address("BTC", _BTC, 42) is None)
+
 if failures:
     print(f"\n{len(failures)} провал(ов): {failures}")
     sys.exit(1)

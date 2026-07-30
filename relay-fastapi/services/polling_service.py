@@ -9,8 +9,12 @@ sys.path.insert(0, '/root/relay'), и импорты services.* уходят т�
 уже занято этим шимом, и обычный импорт вернул бы сам шим (петля).
 """
 import importlib.util as _u
+import os as _os
 
-_spec = _u.spec_from_file_location("_canon_polling_service", "/root/relay/services/polling_service.py")
+# путь к relay — от себя, а не от боевого каталога (мина «зашитый боевой путь»)
+_RELAY = _os.path.join(_os.path.dirname(_os.path.dirname(_os.path.dirname(
+    _os.path.abspath(__file__)))), "relay")
+_spec = _u.spec_from_file_location("_canon_polling_service", _os.path.join(_RELAY, "services", "polling_service.py"))
 _canon = _u.module_from_spec(_spec)
 _spec.loader.exec_module(_canon)
 globals().update({k: v for k, v in vars(_canon).items() if not k.startswith("__")})

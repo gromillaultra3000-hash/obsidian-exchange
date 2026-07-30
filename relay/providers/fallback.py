@@ -1,5 +1,6 @@
 import os, sys
-sys.path.insert(0, '/root/relay')
+# путь к relay — от себя, а не от боевого каталога (мина «зашитый боевой путь»)
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from providers.brabus import BrabusProvider
 from providers.base import PaymentProvider
 

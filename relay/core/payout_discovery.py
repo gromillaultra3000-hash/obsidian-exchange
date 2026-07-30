@@ -137,8 +137,10 @@ def _own_wallet_addresses(currency: str) -> set:
     out = set()
     try:
         import sys
-        if "/root/relay" not in sys.path:
-            sys.path.insert(0, "/root/relay")
+        # путь к relay — от себя, а не от боевого каталога (мина «зашитый боевой путь»)
+        _relay = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        if _relay not in sys.path:
+            sys.path.insert(0, _relay)
         if cur in _LEGACY_WALLETS:
             from wallet import btc_wallet as bw
             a = bw.address(cur)

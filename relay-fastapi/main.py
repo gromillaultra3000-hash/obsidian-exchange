@@ -51,8 +51,12 @@ BOT_USERNAME = os.getenv('BOT_USERNAME', 'Obsidian666999bot')
 SUPPORT_USERNAME = os.getenv('SUPPORT_USERNAME', 'ObsidianSupBot')
 REVIEWS_USERNAME = os.getenv('REVIEWS_USERNAME', 'ObsidianReviews')
 
-# Добавляем путь к модулям
-sys.path.insert(0, '/root/relay')
+# Путь к relay берётся ОТ СЕБЯ, а не зашит как /root/relay. Зашитый путь означает,
+# что копия проекта (git worktree, проверочный клон) исполняет свой main.py, но
+# импортирует core/services/wallet из БОЕВОГО каталога — и проверка «на копии»
+# проверяет чужие модули. В проде значение то же: /root/relay-fastapi → /root/relay.
+RELAY_PATH = str(Path(__file__).resolve().parent.parent / 'relay')
+sys.path.insert(0, RELAY_PATH)
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -256,7 +260,7 @@ def get_user_orders(web_user, limit=20):
         c = conn.cursor()
         c.execute("""
             SELECT o.order_id, o.currency, o.rub_amount, o.status, o.created_at,
-                   o.crypto_address, o.paid_btc_tx,
+                   o.crypto_address, o.paid_btc_tx, o.network,
                    (SELECT ps.session_token FROM payment_sessions ps
                      WHERE ps.order_id=o.order_id AND ps.session_token IS NOT NULL
                        AND ps.status NOT IN ('failed','expired')
@@ -266,12 +270,12 @@ def get_user_orders(web_user, limit=20):
             ORDER BY o.created_at DESC LIMIT ?
         """, (web_user['id'], web_user['telegram_id'], web_user['telegram_id'], limit))
         rows = c.fetchall()
-    EXPLORER = {'BTC': 'https://mempool.space/tx/', 'LTC': 'https://blockchair.com/litecoin/transaction/',
-                'USDT': 'https://tronscan.org/#/transaction/'}
+    # Ссылку строит core.txid — своя копия карты здесь знала только три монеты,
+    # и выполненная ETH/XRP-заявка показывала клиенту пустую кнопку.
     return [
         {"order_id": r[0], "currency": r[1], "rub_amount": r[2], "status": r[3], "created_at": r[4],
-         "crypto_address": r[5] or '', "txid": r[6] or '', "session_token": r[7] or '',
-         "tx_url": (EXPLORER.get(r[1], '') + r[6]) if (r[6] and r[3] == 'sent') else ''}
+         "crypto_address": r[5] or '', "txid": r[6] or '', "session_token": r[8] or '',
+         "tx_url": (_txid.explorer_url(r[1], r[6], r[7]) or '') if r[3] == 'sent' else ''}
         for r in rows
     ]
 
@@ -410,6 +414,7 @@ async def dashboard_page(request: Request):
 # --- Личный кабинет: обмен RUB → крипта ---
 from utils import exchange_calc
 from core import assets as _assets  # единый источник валют/сетей (Фаза C, мультичейн)
+from core import txid as _txid      # единый источник ссылок на транзакцию
 
 def _allowed_currencies():
     """Валюты, на которые сейчас можно принять заявку.
@@ -420,35 +425,15 @@ def _allowed_currencies():
     Иначе клиент оплатил бы заявку, которую нечем закрыть."""
     try:
         from services.offerings import offered_currencies
-        return tuple(c for c in offered_currencies() if not _needs_tag_surface(c))
+        return offered_currencies()
     except Exception as e:
         logger.error(f"offerings недоступен, откат к базовым валютам: {e}")
         return ("BTC", "LTC", "USDT")
 
 
-# Форма кабинета и Mini App принимают ОДНО поле адреса и тег не спрашивают.
-# Витрина же общая на все поверхности: резерв, заданный ради бота, открыл бы
-# валюту и здесь. Клиент ввёл бы classic-адрес биржи без тега, заявка бы
-# создалась, оплата прошла — и перевод попал бы на общий счёт биржи, где его
-# никто не зачислит и не вернёт.
-#
-# Поэтому валюта с обязательным тегом здесь не предлагается и заявка на неё не
-# принимается. Снимать этот фильтр можно ТОЛЬКО одновременно с появлением поля
-# тега на обеих поверхностях и вызова assets.canonical_address в обоих
-# обработчиках создания заявки.
-def _needs_tag_surface(currency) -> bool:
-    """Валюта требует тега, которого эти поверхности собрать не умеют."""
-    try:
-        return _assets.tag_name(currency) is not None
-    except Exception:
-        return True          # фейл-клоуз: не смогли выяснить — не предлагаем
-
-
 def _is_offered(currency, network):
     """Принимаем ли заявку на (валюту, сеть) прямо сейчас. Fail-closed: сбой
     сервиса витрины → разрешаем только исторические направления в их сети."""
-    if _needs_tag_surface(currency):
-        return False
     try:
         from services.offerings import is_offered
         return is_offered(currency, network)
@@ -471,8 +456,106 @@ def _offerings_view():
         out.append({
             "code": c,
             "networks": [{"code": n, "label": _assets.network_label(c, n)} for n in nets if n],
+            # Непусто → у валюты есть тег назначения, и форма обязана его спросить.
+            # Отдаём во фронт, чтобы поле не зависело от захардкоженного списка
+            # монет в JS: он разошёлся бы с реестром при следующей валюте.
+            "tag_name": _assets.tag_name(c) or "",
         })
     return out
+
+
+def _is_true(value) -> bool:
+    """Строгое чтение «да» из формы или JSON.
+
+    Питоновская истинность здесь не годится: строка "false" непустая, то есть
+    сошла бы за согласие. Признак отказа от тега — ответ клиента, и читать его
+    надо буквально, иначе «нет» превращается в «да».
+    """
+    if value is True:
+        return True
+    if isinstance(value, str):
+        return value.strip().lower() in ("1", "true", "on", "yes")
+    return False
+
+
+def _destination_lines(currency, stored):
+    """Реквизиты получателя для сотрудника: адрес и тег РАЗНЫМИ строками.
+
+    В заявке они склеены (X-формат) — так тег невозможно потерять по дороге. Но
+    кошельки и биржи просят их отдельно, и слитая строка в уведомлении читается
+    как «адрес какой-то длинный», а не «здесь ещё и тег». Неразобранную строку
+    называем прямо: «тега нет» там, где разбор не удался, — это обещание,
+    которое отправит деньги на общий счёт биржи.
+    """
+    tag_label = _assets.tag_name(currency)
+    if not tag_label:
+        return f"Адрес: {stored}"
+    try:
+        from core.address import parse_xrp_destination
+        classic, tag = parse_xrp_destination(stored)
+    except Exception:
+        classic, tag = None, None
+    if classic is None:
+        return f"Адрес: {stored}\n⚠️ {tag_label.capitalize()}: адрес не разобран"
+    if tag is None:
+        return f"Адрес: {classic}\n{tag_label.capitalize()}: нет"
+    return f"Адрес: {classic}\n{tag_label.capitalize()}: {tag}"
+
+
+def _resolve_destination(currency, address, tag_raw, network=None, no_tag=False):
+    """(строка для хранения, текст ошибки). Одна на обе поверхности.
+
+    Собирает адрес и тег в каноническую форму (у XRP тег уезжает ВНУТРЬ адреса,
+    см. core.address.canonical_xrp_destination). Общая функция здесь не ради
+    краткости: две копии этой логики разошлись бы, и одна из поверхностей рано
+    или поздно записала бы заявку без тега — молча, потому что перевод без тега
+    сеть подтверждает.
+
+    `network` — та же сеть, что уйдёт в заявку. Без неё адрес USDT-ERC20
+    сверялся бы с сетью по умолчанию (TRC20) и исправная заявка отвергалась.
+    """
+    addr = (address or "").strip()
+    tag_label = _assets.tag_name(currency)
+    raw = (tag_raw or "").strip() if isinstance(tag_raw, str) else tag_raw
+
+    if not tag_label:
+        if raw not in (None, ""):
+            return None, "Для этой валюты тег не используется."
+        return (addr, None) if _assets.validate_address(currency, addr, network) else (
+            None, "Адрес не прошёл проверку контрольной суммы.")
+
+    # Тег уже внутри адреса (X-формат) — второго значения быть не должно.
+    if _assets.address_carries_tag(currency, addr):
+        if raw not in (None, ""):
+            return None, (f"Этот адрес уже содержит {tag_label} внутри себя. "
+                          f"Оставьте поле тега пустым.")
+        canonical = _assets.canonical_address(currency, addr, None, network)
+        return (canonical, None) if canonical else (None, "Адрес не прошёл проверку.")
+
+    if raw in (None, ""):
+        # Пустое поле — НЕ согласие. Пустым оно бывает и потому, что клиент
+        # не понял, что от него хотят; для биржевого адреса это перевод на
+        # общий счёт биржи, который сеть подтвердит, а получателю не зачислит.
+        # В боте отказ от тега — отдельная кнопка; здесь тот же смысл несёт
+        # галочка, и её отсутствие означает «спросить ещё раз», а не «нет тега».
+        if not no_tag:
+            return None, (f"Укажите {tag_label} или отметьте «у моего кошелька "
+                          f"нет {tag_label}а». Перевод на биржу без {tag_label}а "
+                          f"попадёт на общий счёт биржи и вам не зачислится.")
+        canonical = _assets.canonical_address(currency, addr, None, network)
+        return (canonical, None) if canonical else (None, "Адрес не прошёл проверку.")
+
+    tag_str = str(raw)
+    # Только целое без пробелов и знаков. «12 345» не чистим догадками:
+    # неверно распознанный тег отправит деньги на чужой счёт биржи.
+    if not tag_str.isdigit():
+        return None, (f"{tag_label.capitalize()} — целое число без пробелов "
+                      f"и знаков, например 12345.")
+    canonical = _assets.canonical_address(currency, addr, int(tag_str), network)
+    if not canonical:
+        return None, (f"{tag_label.capitalize()} должен быть от 0 до 4294967295, "
+                      f"а адрес — пройти проверку контрольной суммы.")
+    return canonical, None
 
 @app.get("/dashboard/exchange", response_class=HTMLResponse)
 async def dashboard_exchange_page(request: Request):
@@ -496,6 +579,8 @@ async def dashboard_exchange_submit(
     address: str = Form(...),
     payment_method: str = Form("sbp"),
     network: str = Form(""),
+    dest_tag: str = Form(""),
+    no_tag: str = Form(""),
 ):
     web_user = auth.get_web_user(request)
     if not web_user:
@@ -516,6 +601,15 @@ async def dashboard_exchange_submit(
     elif not exchange_calc.validate_crypto_address(address, currency, net):
         error = ("Адрес не прошёл проверку контрольной суммы — скорее всего опечатка. "
                  "Скопируйте адрес из кошелька целиком, не набирайте вручную.")
+    else:
+        # Адрес и тег сводятся в одну строку ДО записи: дальше по всему пути
+        # выплаты едет она, и потерять тег уже негде.
+        stored_address, tag_error = _resolve_destination(
+            currency, address, dest_tag, net, no_tag=_is_true(no_tag))
+        if tag_error:
+            error = tag_error
+        else:
+            address = stored_address
 
     if error:
         # network возвращаем в форму: иначе после ошибки селектор сбрасывался на
@@ -524,7 +618,12 @@ async def dashboard_exchange_submit(
         return templates.TemplateResponse(request, "dashboard_exchange.html", site_context(
             request, active="exchange", error=error,
             form={"currency": currency, "amount": amount, "address": address,
-                  "network": net or (network or "").strip().upper()},
+                  "network": net or (network or "").strip().upper(),
+                  "dest_tag": (dest_tag or "").strip(),
+                  # Галочку «тега нет» возвращаем тоже: иначе после любой другой
+                  # ошибки формы ответ клиента терялся, и он получал уже второй
+                  # отказ — теперь про тег, которого он и не собирался указывать.
+                  "no_tag": _is_true(no_tag)},
         ), status_code=400)
 
     user_id = web_user['telegram_id'] if web_user['telegram_id'] else -web_user['id']
@@ -550,7 +649,7 @@ async def dashboard_exchange_submit(
             f"🆕 Новая заявка #{order_id} (сайт)\n"
             f"Аккаунт: {web_user['email']}\n"
             f"Сумма: {amount:g} RUB ≈ {crypto_amount} {currency}\n"
-            f"Адрес: {address}"
+            f"{_destination_lines(currency, address)}"
         ))
     audit_log("web_order_created", f"order_id={order_id} web_user_id={web_user['id']}")
 
@@ -723,6 +822,12 @@ async def api_create_order(request: Request):
             detail="Адрес не прошёл проверку контрольной суммы — скорее всего опечатка. "
                    "Скопируйте адрес из кошелька целиком, не набирайте вручную.")
 
+    # Тот же резолвер, что и в форме кабинета: адрес и тег → одна строка.
+    address, tag_error = _resolve_destination(currency, address, body.get('dest_tag'), net,
+                                              no_tag=_is_true(body.get('no_tag')))
+    if tag_error:
+        raise HTTPException(status_code=400, detail=tag_error)
+
     tg_id = int(user['id'])
     username = user.get('username') or ''
 
@@ -808,7 +913,7 @@ async def api_create_order(request: Request):
             f"🆕 Новая заявка #{order_id} (Mini App)\n"
             f"Клиент: {tg_id} @{username}\n"
             f"Сумма: {amount:g} RUB ≈ {crypto_amount} {currency}\n"
-            f"Адрес: {address}"
+            f"{_destination_lines(currency, address)}"
         )
     audit_log("miniapp_order_created", f"order_id={order_id} user_id={tg_id}")
 
@@ -1484,11 +1589,30 @@ async def api_rates():
     ltc  = exchange_calc.get_cached_rate("LTC")  or 0
     usdt = exchange_calc.get_cached_rate("USDT") or 0
     result = {"BTC": btc, "LTC": ltc, "USDT": usdt, "ts": int(time.time())}
-    # ETH отдаём только когда направление реально открыто (есть чем выдать) —
-    # иначе фронт нарисовал бы живой курс монеты, которую нельзя купить.
-    if "ETH" in _allowed_currencies():
-        result["ETH"] = exchange_calc.get_cached_rate("ETH") or 0
-    result["offerings"] = _offerings_view()
+    # Монету сверх исторической тройки отдаём только когда направление реально
+    # открыто (есть чем выдать) — иначе фронт нарисовал бы живой курс того, что
+    # нельзя купить. Список берём у витрины, а НЕ перечисляем руками: витрина
+    # общая, и открытая ею монета появлялась в выпадающем списке, а её курса
+    # здесь не было — Mini App считает «сколько получу» по cachedRates[валюта]
+    # и оставлял прочерк до самой оплаты. Так открылся XRP; ровно та же строка
+    # руками была дописана когда-то ради ETH.
+    for cur in _allowed_currencies():
+        if cur in result:
+            continue
+        try:
+            result[cur] = exchange_calc.get_cached_rate(cur) or 0
+        except Exception as e:
+            # Источника цены нет — молчать нельзя: витрина уже предлагает монету.
+            logger.error(f"/api/rates: нет курса для {cur}: {e}")
+    # Монету без цены убираем и из ВИТРИНЫ, а не только из карты курсов: иначе
+    # она осталась бы в выпадающем списке с пустым расчётом — ровно тот дефект,
+    # против которого написан перебор выше. Бот так делает давно (offered_coins),
+    # сайт и Mini App брали витрину как есть.
+    view = _offerings_view()
+    if isinstance(view, list):
+        view = [o for o in view
+                if o.get("code") in result or o.get("code") in ("BTC", "LTC", "USDT")]
+    result["offerings"] = view
     # Тарифы отдаём фронту, чтобы виджет не хардкодил свою лестницу: раньше он
     # обещал USDT по 2% и имел чужие границы тиров — витрина расходилась со
     # списанием. Теперь единственный источник — core.pricing.
@@ -1615,7 +1739,9 @@ async def api_reserves():
 @app.get("/webapp", response_class=HTMLResponse)
 async def webapp():
     try:
-        with open('/root/relay/webapp.html', 'r') as f:
+        # Из своего дерева, а не из боевого: иначе копия проекта отдавала бы
+        # прод-версию Mini App и правки ветки нельзя было бы увидеть вообще.
+        with open(os.path.join(RELAY_PATH, 'webapp.html'), 'r') as f:
             return f.read()
     except:
         raise HTTPException(status_code=500)
@@ -1633,7 +1759,7 @@ async def api_history(request: Request):
         c = conn.cursor()
         c.execute("""
             SELECT o.order_id, o.rub_amount, o.currency, o.status, o.created_at,
-                   ps.session_token, o.paid_btc_tx
+                   ps.session_token, o.paid_btc_tx, o.network
             FROM orders o
             LEFT JOIN payment_sessions ps ON ps.order_id = o.order_id
                 AND ps.status NOT IN ('failed','expired')
@@ -1641,8 +1767,11 @@ async def api_history(request: Request):
             ORDER BY o.created_at DESC LIMIT 30
         """, (uid,))
         rows = c.fetchall()
+    # tx_url считает сервер (core.txid): у Mini App была своя карта обозревателей
+    # на четыре монеты — XRP-заявка оставалась вообще без ссылки.
     return [{"order_id": r[0], "amount": r[1], "currency": r[2], "status": r[3],
-             "created": r[4], "session_token": r[5], "txid": r[6]} for r in rows]
+             "created": r[4], "session_token": r[5], "txid": r[6],
+             "tx_url": _txid.explorer_url(r[2], r[6], r[7]) or ""} for r in rows]
 
 @app.get("/api/referral_stats")
 async def api_referral(request: Request):
@@ -1671,11 +1800,13 @@ async def api_referral(request: Request):
 async def api_order(order_id: int, request: Request):
     with db_conn(5) as conn:
         c = conn.cursor()
-        c.execute("SELECT status, paid_btc_tx, user_id, verification_requested FROM orders WHERE order_id=?", (order_id,))
+        c.execute("SELECT status, paid_btc_tx, user_id, verification_requested, currency, network "
+                  "FROM orders WHERE order_id=?", (order_id,))
         row = c.fetchone()
     if not row:
         raise HTTPException(status_code=404)
     status, txid, owner_id, verification = row[0], row[1], row[2], (row[3] or '')
+    currency, network = row[4], row[5]
 
     # Защита от IDOR/энумерации: статус заявки виден только владельцу.
     # Доказательство владения — подпись initData Mini App ИЛИ session_token заявки
@@ -1746,7 +1877,11 @@ async def api_order(order_id: int, request: Request):
         except Exception as e:
             logger.warning(f"[vertu_poll] order {order_id}: {e}")
 
-    return {"status": status, "txid": txid, "verification": verification}
+    # Готовую ссылку считает сервер: клиентские копии карты обозревателей знали
+    # три монеты из шести и для остальных склеивали ссылку из пустого префикса —
+    # получался относительный href, то есть 404 на нашем же домене.
+    return {"status": status, "txid": txid, "verification": verification,
+            "tx_url": _txid.explorer_url(currency, txid, network) or ""}
 
 # --- Админ-вкладка Mini App ---
 @app.get("/api/admin/stats")
@@ -1948,12 +2083,15 @@ async def pay(token: str, request: Request):
 
         # Актуальный статус/txid/валюта — из orders (там живёт жизненный цикл)
         with db_conn(5) as conn:
-            _o = conn.execute("SELECT status, paid_btc_tx, currency, verification_requested "
+            _o = conn.execute("SELECT status, paid_btc_tx, currency, verification_requested, network "
                               "FROM orders WHERE order_id=?", (order_id,)).fetchone()
         order_status = (_o[0] if _o else session.get('status')) or 'pending'
         txid = _o[1] if _o else None
         currency = (_o[2] if _o else '') or ''
         verification = (_o[3] if _o else '') or ''
+        # Сеть нужна ссылке на транзакцию: без неё выплата USDT-ERC20 уводила бы
+        # клиента в tronscan, где её нет.
+        order_network = (_o[4] if _o else '') or ''
 
         # Реквизиты из provider_payload (repr raw провайдера)
         raw = {}
@@ -2018,7 +2156,7 @@ async def pay(token: str, request: Request):
         # Platega и пометки 'manual' — склейка давала битый адрес эксплорера.
         try:
             from core.txid import explorer_url as _eu
-            tx_url = _eu(currency, txid) or ''
+            tx_url = _eu(currency, txid, order_network) or ''
         except Exception:
             tx_url = ''
 
@@ -2191,7 +2329,10 @@ async function poll(){{
     if (r.ok) {{ const d=await r.json();
       if ((d.status && d.status!==C.status) || ((d.verification||'')!==(C.verification||''))) {{
         C.status=d.status||C.status; C.verification=d.verification||''; C.txid=d.txid||C.txid;
-        if(C.txid&&C.currency){{const E={{BTC:'https://mempool.space/tx/',LTC:'https://blockchair.com/litecoin/transaction/',USDT:'https://tronscan.org/#/transaction/'}};C.txUrl=(E[C.currency]||'')+C.txid;}}
+        // Ссылку даёт сервер (core.txid). Своя карта здесь знала три монеты, и
+        // для остальных склеивала пустой префикс с хешем — ОТНОСИТЕЛЬНЫЙ href,
+        // то есть 404 на нашем домене вместо доказательства выдачи.
+        C.txUrl = d.tx_url || '';
         if(_timer)clearInterval(_timer); render(); }}
     }}
   }} catch(e) {{}}

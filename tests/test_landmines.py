@@ -464,23 +464,456 @@ def check_every_currency_has_a_price_source():
 # на сайте перевод на биржевой classic-адрес без тега: заявка создаётся, оплата
 # проходит, перевод попадает на общий счёт биржи и не зачисляется никому.
 # Нашёл это внешний ревью (codex) — свой критик пропустил.
+# Функции, которые пишут заявку в orders, но получают адрес уже собранным
+# выше по стеку. У каждой всё равно обязан быть свой резолв — см. комментарий
+# в _finalize_order: именно «за тег отвечает вызывающий» и развело четыре места.
+# Свести адрес и тег умеют эти три. Четвёртое — единственное ЯВНОЕ исключение:
+# подарочная заявка создаётся до того, как получатель известен, и пишет
+# заведомо невыплачиваемую заглушку; настоящий адрес с тегом появляется при
+# выкупе. Исключение названо функцией, а не молчаливым пропуском, — чтобы новая
+# точка не проскочила, сославшись на «у нас особый случай».
+_RESOLVERS = ("_resolve_destination(", "_canonical_address(", "canonical_address(",
+              "_gift_placeholder_address(")
+
+
 def check_tagless_surfaces_refuse_tagged_currencies():
-    src = _read(os.path.join(ROOT, "relay-fastapi", "main.py"))
+    """Каждая точка создания заявки обязана сама свести адрес и тег.
+
+    Витрина `services.offerings` общая на бот, сайт и Mini App: резерв,
+    заданный ради одной поверхности, открывает валюту ВЕЗДЕ. Точка, которая
+    просто запишет введённый адрес, создаст заявку на биржевой classic-адрес
+    без тега — перевод подтвердится сетью и не зачислится никому.
+
+    Первую такую дыру (сайт и Mini App) нашёл внешний ревью codex, свой критик
+    пропустил. Вторую — эта проверка: legacy-обработчик handle_webapp в боте
+    брал currency прямо из клиентских данных и тег не спрашивал вовсе.
+    """
+    for rel in ("relay-fastapi/main.py", "bot/main_bot.py"):
+        src = _read(os.path.join(ROOT, rel))
+        if not src:
+            continue
+        try:
+            tree = ast.parse(src)
+        except SyntaxError:
+            fail("тег на поверхности", f"{rel} не разбирается")
+            continue
+        lines = src.splitlines()
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            body = "\n".join(lines[node.lineno - 1:node.end_lineno])
+            if "INSERT INTO orders" not in body:
+                continue
+            # Комментарии вон: первая версия проверки засчитала за вызов СЛОВО
+            # canonical_address из поясняющего комментария рядом. Проверка,
+            # которую обманывает комментарий, — не проверка.
+            code = "\n".join(re.sub(r"#.*$", "", ln) for ln in body.splitlines())
+            if not any(r in code for r in _RESOLVERS):
+                fail("тег на поверхности",
+                     f"{rel}: {node.name}() (стр. {node.lineno}) создаёт заявку, "
+                     f"но не сводит адрес и тег назначения. Для валюты с тегом "
+                     f"(XRP) это заявка на биржевой адрес БЕЗ тега: перевод "
+                     f"подтвердится сетью и не зачислится получателю. Вызвать "
+                     f"canonical_address перед вставкой — она идемпотентна, "
+                     f"даже если выше по стеку это уже сделали.")
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 14. Код нельзя грузить по зашитому боевому пути
+# ─────────────────────────────────────────────────────────────────────
+# `/root` — одновременно репозиторий и прод. Изолирует только git worktree, и
+# то лишь файлы: если модуль делает sys.path.insert(0, "/root/relay") или
+# грузит файл по абсолютному пути, копия исполняет СВОЙ верхний уровень, но
+# импортирует зависимости из БОЕВОГО каталога. Дальше всё выглядит исправным:
+# тесты зелёные, py_compile молчит, diff чистый — а проверялся другой код.
+# Так вышло дважды подряд: сначала bot/main_bot.py и relay-fastapi/main.py,
+# потом шимы relay-fastapi/services/* и десяток модулей relay/. Память тут не
+# помогает — путь пишется машинально, поэтому правило машинное.
+#
+# Ловим ровно места ЗАГРУЗКИ КОДА: sys.path, spec_from_file_location и open()
+# исходника/шаблона. Данные (общая БД /root/exchange.db, /root/relay/logs,
+# /root/wallet_data) намеренно живут по абсолютному пути и общие у копий —
+# их правило не касается.
+_CODE_SUFFIXES = (".py", ".html", ".htm", ".j2", ".jinja", ".jinja2")
+_PATH_CALLS = ("sys.path.insert", "sys.path.append", "path.insert", "path.append",
+               "spec_from_file_location")
+
+
+def _call_name(node):
+    """Пунктирное имя вызываемого: sys.path.insert, os.path.join, open."""
+    parts = []
+    cur = node.func
+    while isinstance(cur, ast.Attribute):
+        parts.append(cur.attr)
+        cur = cur.value
+    if isinstance(cur, ast.Name):
+        parts.append(cur.id)
+    return ".".join(reversed(parts))
+
+
+def check_no_code_loaded_from_hardcoded_path():
+    """Ни один модуль не грузит код по абсолютному пути в боевой каталог."""
+    skip_dirs = {"venv", "__pycache__", "backups", "node_modules", ".git", "tests"}
+    for top in ("bot", "relay", "relay-fastapi"):
+        base = os.path.join(ROOT, top)
+        if not os.path.isdir(base):
+            continue
+        for dirpath, dirnames, filenames in os.walk(base):
+            dirnames[:] = [d for d in dirnames if d not in skip_dirs]
+            for fn in filenames:
+                if not fn.endswith(".py"):
+                    continue
+                full = os.path.join(dirpath, fn)
+                rel = os.path.relpath(full, ROOT)
+                src = _read(full)
+                if not src:
+                    continue
+                try:
+                    tree = ast.parse(src)
+                except SyntaxError:
+                    continue          # синтаксис — забота py_compile, не наша
+                for node in ast.walk(tree):
+                    if not isinstance(node, ast.Call):
+                        continue
+                    name = _call_name(node)
+                    is_path = name.endswith(_PATH_CALLS)
+                    is_open = name == "open" or name.endswith(".open")
+                    if not (is_path or is_open):
+                        continue
+                    for arg in list(node.args) + [k.value for k in node.keywords]:
+                        if not (isinstance(arg, ast.Constant)
+                                and isinstance(arg.value, str)):
+                            continue
+                        val = arg.value
+                        if not val.startswith("/root/"):
+                            continue
+                        if is_open and not val.endswith(_CODE_SUFFIXES):
+                            continue   # данные по общему пути — это норма
+                        fail("зашитый боевой путь",
+                             f"{rel}: стр. {arg.lineno}, {name}({val!r}) — код "
+                             f"грузится по абсолютному пути в боевой каталог. "
+                             f"Копия проекта (worktree, проверочный клон) будет "
+                             f"исполнять свой файл, но тянуть зависимости из "
+                             f"прода: проверка пройдёт по ЧУЖОМУ коду и ничего "
+                             f"не докажет. Выводить путь от __file__.")
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 15. Ссылка на обозреватель — только из core.txid
+# ─────────────────────────────────────────────────────────────────────
+# Карта «валюта → обозреватель» жила в четырёх местах: бот (/mystatus и
+# /myhistory), /api личного кабинета, инлайн-JS страницы /pay и Mini App. Копии
+# разошлись — каждая знала три-четыре монеты из шести, а бот вдобавок угадывал
+# «всё, что не BTC и не LTC, — tronscan». Выполненная ETH- или XRP-заявка
+# показывала клиенту либо пустоту, либо чужую сеть, где транзакции нет.
+# Кнопка «🔍 Транзакция в блокчейне» — единственное доказательство выдачи,
+# которое клиент проверяет сам; сломанное доказательство хуже отсутствующего.
+_EXPLORER_HOSTS = ("mempool.space/tx", "blockchair.com/litecoin/transaction",
+                   "tronscan.org/#/transaction", "etherscan.io/tx", "xrpscan.com/tx")
+
+
+def check_explorer_links_have_one_source():
+    """Адрес обозревателя встречается только в core/txid.py."""
+    owner = os.path.join("relay", "core", "txid.py")
+    skip_dirs = {"venv", "__pycache__", "backups", "node_modules", ".git", "tests", "docs"}
+    for top in ("bot", "relay", "relay-fastapi"):
+        base = os.path.join(ROOT, top)
+        if not os.path.isdir(base):
+            continue
+        for dirpath, dirnames, filenames in os.walk(base):
+            dirnames[:] = [d for d in dirnames if d not in skip_dirs]
+            for fn in filenames:
+                if not fn.endswith((".py", ".html", ".j2", ".jinja2")):
+                    continue
+                rel = os.path.relpath(os.path.join(dirpath, fn), ROOT)
+                if rel == owner:
+                    continue
+                src = _read(os.path.join(dirpath, fn))
+                # Комментарий, объясняющий беду, не должен считаться бедой:
+                # берём только строки, где адрес стоит внутри кавычек.
+                for host in _EXPLORER_HOSTS:
+                    for m in re.finditer(re.escape(host), src):
+                        line = src[:m.start()].count("\n") + 1
+                        head = src.rfind("\n", 0, m.start())
+                        prefix = src[head + 1:m.start()]
+                        if '"' not in prefix and "'" not in prefix and "`" not in prefix:
+                            continue      # текст комментария, а не ссылка
+                        fail("ссылка на обозреватель",
+                             f"{rel}: стр. {line}, своя ссылка на {host}. Карта "
+                             f"обозревателей уже расходилась в четырёх копиях: "
+                             f"монета появлялась в проекте, а копию не правили, и "
+                             f"клиент получал пустую кнопку или чужую сеть. "
+                             f"Источник один — core.txid.explorer_url(); клиенту "
+                             f"сервер отдаёт готовое поле tx_url.")
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 16. Курсы для фронта берутся у витрины, а не перечисляются руками
+# ─────────────────────────────────────────────────────────────────────
+# /api/rates и витрина (services.offerings) — один экран для клиента: список
+# монет приходит из витрины, а цена к ним — из этого словаря. Пока монеты
+# дописывались в него руками, XRP открылся витриной и попал в выпадающий список
+# Mini App, а курса к нему не было: строка «получите ≈ …» оставалась прочерком
+# до самой оплаты. Нашли это ОБА гейта независимо — значит, дефект виден снаружи.
+def check_rates_api_follows_the_showcase():
+    """Тело /api/rates обязано перебирать витрину, а не список монет."""
+    rel = "relay-fastapi/main.py"
+    src = _read(os.path.join(ROOT, rel))
     if not src:
         return
-    # Комментарии выкидываем: первая версия этой проверки засчитала за «тег
-    # собирается» СЛОВО canonical_address из поясняющего комментария рядом с
-    # фильтром. Проверка, которую обманывает комментарий, не проверка.
-    code = "\n".join(re.sub(r"#.*$", "", ln) for ln in src.splitlines())
-    collects_tag = "canonical_address(" in code
-    filters_tagged = "_needs_tag_surface(" in code
-    if not collects_tag and not filters_tagged:
-        fail("тег на поверхности",
-             "relay-fastapi/main.py принимает заявки, но не собирает destination "
-             "tag (нет вызова assets.canonical_address) и не отсекает валюты с "
-             "тегом. Витрина общая: резерв, заданный ради бота, откроет такую "
-             "валюту и здесь, и клиент создаст заявку с адресом без тега — "
-             "перевод уйдёт на общий счёт биржи безвозвратно.")
+    try:
+        tree = ast.parse(src)
+    except SyntaxError:
+        return
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        if node.name != "api_rates":
+            continue
+        body = "\n".join(src.splitlines()[node.lineno - 1:node.end_lineno])
+        code = "\n".join(re.sub(r"#.*$", "", ln) for ln in body.splitlines())
+        if not re.search(r"for\s+\w+\s+in\s+_allowed_currencies\(\)", code):
+            fail("курс для витрины",
+                 f"{rel}: api_rates() (стр. {node.lineno}) не перебирает "
+                 f"_allowed_currencies(). Значит монеты перечислены руками, и "
+                 f"открытая витриной монета попадёт клиенту в список без цены: "
+                 f"расчёт «сколько получу» останется пустым, а заявку сервер "
+                 f"примет. Строить карту курсов из витрины.")
+        return
+    fail("курс для витрины", f"{rel}: функция api_rates не найдена — проверка ослепла")
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 17. Отказ от тега — явный ответ, а не пустое поле
+# ─────────────────────────────────────────────────────────────────────
+# Бот спрашивает тег отдельным шагом, и «тега нет» там — нажатая кнопка. Сайт и
+# Mini App принимали пустое поле как согласие: клиент, не понявший вопроса,
+# оформлял перевод на биржевой адрес без тега — сеть такой перевод подтверждает,
+# а биржа кладёт монеты на общий счёт и получателю не зачисляет. Разница между
+# «тега нет» и «не ответил» должна доезжать до сервера, поэтому у резолвера есть
+# отдельный признак, и каждая поверхность обязана его передавать.
+def check_no_tag_is_explicit():
+    """_resolve_destination принимает признак явного отказа, и его передают все."""
+    rel = "relay-fastapi/main.py"
+    src = _read(os.path.join(ROOT, rel))
+    if not src:
+        return
+    try:
+        tree = ast.parse(src)
+    except SyntaxError:
+        return
+    found = False
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and \
+                node.name == "_resolve_destination":
+            found = True
+            names = [a.arg for a in node.args.args] + [a.arg for a in node.args.kwonlyargs]
+            if "no_tag" not in names:
+                fail("явный отказ от тега",
+                     f"{rel}: у _resolve_destination нет параметра no_tag. Значит "
+                     f"пустое поле тега снова считается согласием, и заявка на "
+                     f"биржевой адрес уйдёт без тега — деньги попадут на общий "
+                     f"счёт биржи.")
+                return
+    if not found:
+        fail("явный отказ от тега", f"{rel}: _resolve_destination не найден — проверка ослепла")
+        return
+    calls = [n for n in ast.walk(tree)
+             if isinstance(n, ast.Call) and getattr(n.func, "id", "") == "_resolve_destination"]
+    if not calls:
+        fail("явный отказ от тега", f"{rel}: резолвер никто не зовёт — проверка ослепла")
+    for c in calls:
+        if not any(k.arg == "no_tag" for k in c.keywords):
+            fail("явный отказ от тега",
+                 f"{rel}: стр. {c.lineno}, вызов _resolve_destination без no_tag. "
+                 f"Поверхность не отличает «тега нет» от «клиент не ответил» — "
+                 f"по умолчанию будет принято молчание.")
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 18. Меню продажи не предлагает монету, которую некуда принять
+# ─────────────────────────────────────────────────────────────────────
+# Клавиатура выбора монеты одна на покупку и продажу, а списки монет разные:
+# купить можно то, чем мы владеем (резерв), продать — только то, для чего у нас
+# есть адрес приёма. Монета, открытая резервом (XRP), появлялась в меню продажи
+# и упиралась в «❌ Неверная валюта» — врало сообщение, а не клиент.
+def check_sell_menu_offers_only_receivable_coins():
+    rel = "bot/main_bot.py"
+    src = _read(os.path.join(ROOT, rel))
+    if not src:
+        return
+    try:
+        tree = ast.parse(src)
+    except SyntaxError:
+        return
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and \
+                node.name == "build_currency_kb":
+            body = "\n".join(src.splitlines()[node.lineno - 1:node.end_lineno])
+            code = "\n".join(re.sub(r"#.*$", "", ln) for ln in body.splitlines())
+            if "SELL_RECEIVE_ADDRESSES" not in code:
+                fail("меню продажи",
+                     f"{rel}: build_currency_kb() (стр. {node.lineno}) не отсеивает "
+                     f"монеты без адреса приёма. Клавиатура общая на покупку и "
+                     f"продажу: монета, открытая резервом, окажется в меню "
+                     f"продажи и ответит «Неверная валюта» на верную валюту.")
+            return
+    fail("меню продажи", f"{rel}: build_currency_kb не найдена — проверка ослепла")
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 19. Неразобранный ввод — не согласие на его отсутствие
+# ─────────────────────────────────────────────────────────────────────
+# _parse_tag_input по договору возвращает None и на «тега нет», и на «тег есть,
+# но я его не понял» — различить их обязан вызывающий. Легаси-путь Mini App
+# звал парсер прямо в аргументах _canonical_address: тег «abc» превращался в
+# None, из адреса собиралась классическая (бестеговая) форма, заявка уходила.
+# Сеть такой перевод подтвердит, а биржа зачислит его на общий счёт — деньги
+# невозвратны, при том что клиент тег указал. Правило машинное: результат
+# парсера обязан лечь в переменную и получить явный отказ по `is None`.
+def check_unparsed_input_is_not_silence():
+    rel = "bot/main_bot.py"
+    src = _read(os.path.join(ROOT, rel))
+    if not src:
+        return
+    try:
+        tree = ast.parse(src)
+    except SyntaxError:
+        return
+    PARSER = "_parse_tag_input"
+
+    def _calls_to(node, name):
+        return [n for n in ast.walk(node)
+                if isinstance(n, ast.Call) and getattr(n.func, "id", "") == name]
+
+    if not _calls_to(tree, PARSER):
+        fail("неразобранный ввод",
+             f"{rel}: {PARSER} никто не зовёт — проверка ослепла")
+        return
+
+    # Вызов внутри аргументов сборщика адреса — ровно та форма, где отказ
+    # негде поставить: результат нигде не назван и проверить его нечем.
+    for call in _calls_to(tree, "_canonical_address"):
+        for arg in list(call.args) + [k.value for k in call.keywords]:
+            if _calls_to(arg, PARSER):
+                fail("неразобранный ввод",
+                     f"{rel}: стр. {call.lineno}, {PARSER}() вызван прямо в "
+                     f"аргументах _canonical_address. Неразобранный тег молча "
+                     f"станет «тега нет», и адрес соберётся без него.")
+
+    def _rejects_none(fn, name):
+        """В функции есть if с `name is None`, из тела которого выходят."""
+        for node in ast.walk(fn):
+            if not isinstance(node, ast.If):
+                continue
+            hits = [c for c in ast.walk(node.test)
+                    if isinstance(c, ast.Compare)
+                    and isinstance(c.left, ast.Name) and c.left.id == name
+                    and any(isinstance(o, ast.Is) for o in c.ops)
+                    and any(isinstance(v, ast.Constant) and v.value is None
+                            for v in c.comparators)]
+            if not hits:
+                continue
+            for stmt in node.body:
+                if any(isinstance(x, ast.Return) for x in ast.walk(stmt)):
+                    return True
+        return False
+
+    checked = 0
+    for fn in ast.walk(tree):
+        if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        bound = set()
+        for node in ast.walk(fn):
+            if isinstance(node, ast.Assign) and isinstance(node.value, ast.Call) \
+                    and getattr(node.value.func, "id", "") == PARSER:
+                bound |= {t.id for t in node.targets if isinstance(t, ast.Name)}
+        for name in sorted(bound):
+            checked += 1
+            if not _rejects_none(fn, name):
+                fail("неразобранный ввод",
+                     f"{rel}: {fn.name}() (стр. {fn.lineno}) кладёт {PARSER}() "
+                     f"в «{name}» и не отказывает при `{name} is None`. "
+                     f"Непонятый тег уйдёт в заявку как отсутствие тега.")
+    if not checked:
+        fail("неразобранный ввод",
+             f"{rel}: ни один результат {PARSER}() не назван — проверка ослепла")
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 20. Обработчик, до которого не доходит ни маршрут, ни вызов
+# ─────────────────────────────────────────────────────────────────────
+# Команда объявляется дважды, живёт первая, вторая остаётся лежать под
+# комментарием «отключён дубликат». Она выглядит рабочей: то же имя, тот же
+# текст ответа — и правка ложится именно в неё. Так этап 0.1 «доставил»
+# оператору тег в /order: код написан, тест зелёный, а живой обработчик
+# по-прежнему печатал слитый X-адрес. Файл — единственный источник маршрутов
+# бота, поэтому недостижимость проверяется механически.
+def check_no_unreachable_handlers():
+    rel = "bot/main_bot.py"
+    src = _read(os.path.join(ROOT, rel))
+    if not src:
+        return
+    try:
+        tree = ast.parse(src)
+    except SyntaxError:
+        return
+    called = {n.func.id for n in ast.walk(tree)
+              if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)}
+    handlers = [n for n in tree.body
+                if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+                and n.name.startswith("cmd_")]
+    if not handlers:
+        fail("недостижимый обработчик",
+             f"{rel}: функций cmd_* нет — проверка ослепла")
+        return
+    for fn in handlers:
+        routed = any("router." in ast.unparse(d) for d in fn.decorator_list)
+        if routed or fn.name in called:
+            continue
+        fail("недостижимый обработчик",
+             f"{rel}: {fn.name}() (стр. {fn.lineno}) не подключена к роутеру и "
+             f"никем не вызывается. Правка в такой функции выглядит внесённой, "
+             f"но живой обработчик работает по-старому.")
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 21. Чёрный список адресов сравнивается по счёту, а не по строке
+# ─────────────────────────────────────────────────────────────────────
+# У счёта XRPL две равноправные формы записи (classic `r…` и X-адрес), и это
+# один и тот же счёт. Строгое `address=?` значит, что бан обходится сменой
+# формы: админ заблокировал classic, клиент оформил заявку X-адресом того же
+# счёта — совпадения нет, крипта ушла. То же и наоборот. Правило: любой SQL по
+# blocked_addresses идёт через нормализацию к идентичности счёта.
+def check_blocklist_matches_account_not_string():
+    rel = "bot/main_bot.py"
+    src = _read(os.path.join(ROOT, rel))
+    if not src:
+        return
+    lines = src.splitlines()
+    norm = ("_blocklist_forms", "_blocklist_key")
+    hits = 0
+    for i, ln in enumerate(lines, 1):
+        if "blocked_addresses" not in ln or ln.lstrip().startswith("#"):
+            continue
+        # Интересуют только запросы, которые СОПОСТАВЛЯЮТ адрес: выборка списка
+        # для показа админу ничего не сравнивает и нормализовать в ней нечего.
+        stmt = "\n".join(lines[i - 1:i + 3])
+        if not re.search(r"WHERE\s+address|INSERT[^(]*\(\s*address", stmt, re.I):
+            continue
+        hits += 1
+        # Нормализация стоит рядом с запросом: либо в самой строке, либо в
+        # подготовке параметров выше (окно — тело того же блока with/try).
+        window = "\n".join(lines[max(0, i - 8):i + 2])
+        window = "\n".join(re.sub(r"#.*$", "", w) for w in window.splitlines())
+        if not any(n in window for n in norm):
+            fail("чёрный список",
+                 f"{rel}: стр. {i}, запрос к blocked_addresses без приведения "
+                 f"адреса к идентичности счёта ({' / '.join(norm)}). У XRPL две "
+                 f"формы записи одного счёта — блокировка обходится сменой формы.")
+    if not hits:
+        fail("чёрный список",
+             f"{rel}: обращений к blocked_addresses нет — проверка ослепла")
 
 
 def main():
@@ -492,7 +925,15 @@ def main():
                check_wallet_currencies_are_offered,
                check_tests_import_their_own_tree,
                check_every_currency_has_a_price_source,
-               check_tagless_surfaces_refuse_tagged_currencies):
+               check_tagless_surfaces_refuse_tagged_currencies,
+               check_no_code_loaded_from_hardcoded_path,
+               check_explorer_links_have_one_source,
+               check_rates_api_follows_the_showcase,
+               check_no_tag_is_explicit,
+               check_sell_menu_offers_only_receivable_coins,
+               check_unparsed_input_is_not_silence,
+               check_no_unreachable_handlers,
+               check_blocklist_matches_account_not_string):
         try:
             fn()
         except Exception as e:

@@ -36,3 +36,21 @@ jobs:
         run: python3 tests/test_alert_throttle.py
       - name: Сверка выдачи с блокчейном (core.payout_discovery)
         run: python3 tests/test_payout_discovery.py
+      - name: Поле тега на сайте и в Mini App (спрятать ≠ очистить)
+        run: python3 tests/test_tag_field_frontend.py
+      - name: Ссылка на транзакцию — у каждой валюты свой обозреватель
+        run: python3 tests/test_txid.py
+      # Ниже — наборы, которые гонялись только руками. Набор вне CI бесполезен
+      # ровно в тот момент, когда нужен: правку никто не остановит.
+      - name: Доставка чека провайдеру (core.receipts)
+        run: python3 tests/test_receipts.py
+      - name: Выбор пути выплаты
+        run: python3 tests/test_payout_selection.py
+      - name: Маршрутизация выплаты по сети
+        run: python3 tests/test_payout_routing.py
+      - name: Кошелёк BTC/LTC
+        run: WALLET_DATA_DIR=$RUNNER_TEMP/wallet python3 tests/test_btc_wallet.py
+      - name: Кошелёк EVM
+        run: WALLET_DATA_DIR=$RUNNER_TEMP/wallet python3 tests/test_evm_wallet.py
+      - name: Кошелёк XRP
+        run: WALLET_DATA_DIR=$RUNNER_TEMP/wallet python3 tests/test_xrp_wallet.py

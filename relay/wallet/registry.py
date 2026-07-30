@@ -19,11 +19,14 @@
 """
 from __future__ import annotations
 
+import os
 import sys
 from typing import Any, Callable, Dict, List, Optional
 
-if "/root/relay" not in sys.path:
-    sys.path.insert(0, "/root/relay")
+# путь к relay — от себя, а не от боевого каталога (мина «зашитый боевой путь»)
+_RELAY = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _RELAY not in sys.path:
+    sys.path.insert(0, _RELAY)
 
 
 # ── адаптеры конкретных сетей ────────────────────────────────────────────────

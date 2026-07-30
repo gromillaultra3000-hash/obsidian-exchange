@@ -25,9 +25,16 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
                     handlers=[log_handler, logging.StreamHandler(sys.stdout)])
 logger = logging.getLogger(__name__)
 
+# Путь к relay берётся ОТ СЕБЯ, а не зашит как /root/relay. Зашитый путь означает,
+# что копия проекта (git worktree, проверочный клон) исполняет свой main_bot.py, но
+# импортирует core/services/wallet из БОЕВОГО каталога: код и его зависимости
+# расходятся молча, и проверка «на копии» проверяет чужие модули. В проде значение
+# то же самое — /root/bot/main_bot.py даёт /root/relay.
+RELAY_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'relay')
+
 # Централизованная редакция секретов в логах (ключи/токены/карты/телефоны/адреса)
 try:
-    sys.path.insert(0, '/root/relay')
+    sys.path.insert(0, RELAY_PATH)
     from utils.log_redaction import install_redaction
     install_redaction()
 except Exception as _e:
@@ -207,8 +214,8 @@ def get_service_status() -> dict:
         if real:
             if 'MonteraProvider' in real:
                 try:
-                    if '/root/relay' not in sys.path:
-                        sys.path.insert(0, '/root/relay')
+                    if RELAY_PATH not in sys.path:
+                        sys.path.insert(0, RELAY_PATH)
                     from providers.montera import MonteraProvider
                     avail = MonteraProvider().check_availability(10_000, 'sbp')
                     mn, mx = avail.get('min_available'), avail.get('max_available')
@@ -228,8 +235,8 @@ def get_service_status() -> dict:
         # тот же источник, что на сайте и в mini app
         if data['ok'] != 'down':
             try:
-                if '/root/relay' not in sys.path:
-                    sys.path.insert(0, '/root/relay')
+                if RELAY_PATH not in sys.path:
+                    sys.path.insert(0, RELAY_PATH)
                 from services.smart_router import get_trust_metrics
                 t = get_trust_metrics()
                 if t.get('active_routes'):
@@ -436,7 +443,7 @@ async def montera_precheck(callback, amount, payment_method=None, order_id=None)
     Возвращает True если можно продолжать, False если уже ответили пользователю.
     """
     import sys
-    sys.path.insert(0, '/root/relay')
+    sys.path.insert(0, RELAY_PATH)
     try:
         from providers.montera import MonteraProvider
         avail = MonteraProvider().check_availability(amount, payment_method)
@@ -464,8 +471,8 @@ async def montera_precheck(callback, amount, payment_method=None, order_id=None)
         )
         try:
             import sys as _s
-            if '/root/relay' not in _s.path:
-                _s.path.insert(0, '/root/relay')
+            if RELAY_PATH not in _s.path:
+                _s.path.insert(0, RELAY_PATH)
             from core.amount_suggest import suggest_text, suggest_amounts
             hint = suggest_text(slots, amount)
             if hint:
@@ -499,7 +506,7 @@ def user_success_count(user_id: int) -> int:
 async def build_payment_methods_kb(order_id: int, amount: float, user_id: int = None) -> InlineKeyboardMarkup:
     """Клавиатура способов оплаты — показывает только методы, реально доступные для данной суммы."""
     import sys
-    sys.path.insert(0, '/root/relay')
+    sys.path.insert(0, RELAY_PATH)
     rows = []
     amt = float(amount)
 
@@ -964,6 +971,33 @@ def get_rate_with_markup(coin, amount=None):
     return get_cached_rate(coin) / (1 - commission / 100)
 
 # ---------- ВАЛИДАЦИЯ АДРЕСОВ ----------
+def _blocklist_forms(addr):
+    """Все формы записи, под которыми адрес может лежать в чёрном списке.
+
+    У счёта XRPL их две — classic (`r…`) и X-адрес, и они кодируют ОДИН счёт.
+    Сравнение по строке значит, что блокировка обходится сменой формы: админ
+    забанил classic, клиент прислал X-адрес того же счёта — совпадения нет,
+    крипта уходит на заблокированный счёт. Сводим к идентичности счёта и
+    проверяем обе формы (старые записи могли лечь в любой из них).
+    """
+    forms = [addr]
+    s = (addr or "").strip()
+    if s[:1] in ("r", "X"):
+        try:
+            from core import address as _addr
+            classic, _tag = _addr.parse_xrp_destination(s)
+            if classic and classic not in forms:
+                forms.append(classic)
+        except Exception:
+            logger.exception("core.address недоступен при разборе чёрного списка")
+    return forms
+
+
+def _blocklist_key(addr):
+    """Форма для ЗАПИСИ в чёрный список — идентичность счёта, а не ввод админа."""
+    return _blocklist_forms(addr)[-1]
+
+
 def validate_crypto_address(addr, currency, network=None):
     """Валидация адреса под валюту И (опционально) сеть — единый источник core.assets
     (Фаза C, мультичейн). network=None → сеть по умолчанию валюты (USDT→TRC20),
@@ -980,7 +1014,10 @@ def validate_crypto_address(addr, currency, network=None):
     try:
         with db_conn(3) as conn:
             c = conn.cursor()
-            c.execute("SELECT 1 FROM blocked_addresses WHERE address=?", (addr,))
+            _forms = _blocklist_forms(addr)
+            c.execute(
+                "SELECT 1 FROM blocked_addresses WHERE address IN (%s)"
+                % ",".join("?" * len(_forms)), _forms)
             if c.fetchone():
                 return False
     except Exception:
@@ -998,8 +1035,8 @@ def format_requisites(raw):
     # «Карта получателя» не выдаётся за банк.
     try:
         import sys as _s
-        if '/root/relay' not in _s.path:
-            _s.path.insert(0, '/root/relay')
+        if RELAY_PATH not in _s.path:
+            _s.path.insert(0, RELAY_PATH)
         from core.requisites import normalize_requisites as _norm
         requisites = _norm(requisites)
     except Exception:
@@ -1036,7 +1073,7 @@ async def notify_admin(order_id, user_id, rub_amount, address, currency):
             f"<blockquote>"
             f"👤 Пользователь: <code>{user_id}</code>\n"
             f"💸 Сумма: <b>{rub_fmt} ₽</b> → <b>{crypto_amount} {currency}</b>\n"
-            f"📬 Адрес: <code>{address}</code>"
+            f"{_destination_block(currency, address, '📬 Адрес')}"
             f"</blockquote>")
     try:
         kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -1162,32 +1199,135 @@ def _address_carries_tag(currency, address):
         return False
 
 
-def _canonical_address(currency, address, tag=None):
+def _canonical_address(currency, address, tag=None, network=None):
     """Адрес в форме для ХРАНЕНИЯ (у XRP тег склеен внутрь) или None.
     Фейл-клоуз: сбой единого источника не должен записать заявку с адресом,
-    который никто не проверил."""
+    который никто не проверил.
+
+    `network` — та же сеть, что уйдёт в заявку: у USDT адрес ERC20 и адрес
+    TRC20 выглядят по-разному, и проверка по сети «по умолчанию» отвергла бы
+    исправный 0x-адрес."""
     try:
         from core import assets as _assets
-        return _assets.canonical_address(currency, address, tag)
+        return _assets.canonical_address(currency, address, tag, network)
     except Exception:
         logger.exception("core.assets недоступен в _canonical_address — фейл-клоуз")
         return None
 
 
-def _display_destination(currency, address):
-    """Как показать адрес человеку: X-адрес разворачиваем в «адрес + тег»,
-    иначе сотрудник и клиент видят строку, которой нет ни в одном кошельке."""
+def _parse_tag_input(raw):
+    """Тег из недоверенного ввода → int или None. Только целое без пробелов и
+    знаков: «12 345» и «tag: 42» НЕ чистим догадками — неверно распознанный тег
+    отправит деньги на чужой счёт биржи. Не разобрали → None (тега нет), и
+    вызывающий сам решает, годится ли это."""
+    if raw is None:
+        return None
+    if isinstance(raw, bool):
+        return None
+    if isinstance(raw, int):
+        return raw if 0 <= raw <= 0xFFFFFFFF else None
+    s = str(raw).strip()
+    return int(s) if s.isdigit() and int(s) <= 0xFFFFFFFF else None
+
+
+def _split_destination(currency, address):
+    """Хранимый адрес → (адрес для кошелька, тег, разобрано ли).
+
+    В заявке адрес и тег склеены (X-формат) — так тег невозможно потерять по
+    дороге. Но кошельки и биржи просят их ОТДЕЛЬНО, поэтому перед показом
+    человеку строку разбираем обратно.
+
+    Третье значение отличает «тега нет» от «разобрать не удалось». Слить их в
+    одно None значит показать сотруднику «тега нет» там, где на самом деле
+    строку не поняли, — и он отправит без тега, уверенный, что так и надо."""
     try:
         from core import assets as _assets
         from core import address as _addr
         if not _assets.tag_name(currency):
-            return address
+            return address, None, True
         classic, tag = _addr.parse_xrp_destination(address)
-        if classic is None:
-            return address
-        return classic if tag is None else f"{classic} (тег {tag})"
+        return (address, None, False) if classic is None else (classic, tag, True)
     except Exception:
-        return address
+        return address, None, False
+
+
+def _display_destination(currency, address):
+    """Одной строкой — для сообщений, где отдельная строка тега не помещается."""
+    addr, tag, _ok = _split_destination(currency, address)
+    return addr if tag is None else f"{addr} (тег {tag})"
+
+
+def _destination_block(currency, address, label="Адрес"):
+    """Реквизиты получателя для сотрудника: адрес и тег — РАЗНЫМИ строками,
+    каждая копируется одним касанием.
+
+    Отсутствие тега проговариваем словами. Пустая строка читалась бы как
+    «забыли посмотреть», и работник пошёл бы искать тег сам — а у монеты с
+    тегом придуманный тег отправит деньги на чужой счёт биржи."""
+    addr, tag, ok = _split_destination(currency, address)
+    line = f"{label}: <code>{addr}</code>"
+    tag_label = ""
+    try:
+        from core import assets as _assets
+        tag_label = _assets.tag_name(currency) or ""
+    except Exception:
+        pass
+    if not tag_label:
+        return line
+    if not ok:
+        return line + (f"\n🏷 {tag_label.capitalize()}: <b>адрес не разобран</b> — "
+                       f"НЕ отправляйте, сообщите администратору")
+    if tag is None:
+        return line + f"\n🏷 {tag_label.capitalize()}: <b>нет</b> (клиент указал адрес без тега)"
+    return line + f"\n🏷 {tag_label.capitalize()}: <code>{tag}</code> — <b>указать обязательно</b>"
+
+
+# Чем отправить монету, которую движок авто-выплаты не умеет. Без этой подсказки
+# резерв, открывший направление (/setreserve), не имеет расходной поверхности:
+# деньги клиента приходят, а сотрудник не знает, откуда их выдать, — и платит из
+# своего кошелька мимо системы (заявка навсегда остаётся в 'paid').
+# Ключ — валюта; значение — команда, которую можно скопировать целиком.
+_MANUAL_SEND_CLI = {
+    "XRP": "/root/bot/venv/bin/python3 /root/relay/wallet/xrp_cli.py transfer {addr} {amount}",
+}
+
+
+def _hot_wallet_state(currency):
+    """(готов ли горячий кошелёк выдать монету, человеческая причина).
+
+    Резерв (`/setreserve`) говорит о ЛИКВИДНОСТИ, а выдачу открывает другой
+    выключатель — гейт выплат и созданный вольт. Разные действия: увидеть баланс
+    и включить отправку. Пока об этом не сказано вслух, направление открывается
+    раньше, чем появляется чем платить, и узнаётся это после оплаты клиентом.
+    """
+    cur = str(currency or "").upper()
+    if cur != "XRP":
+        return True, ""
+    try:
+        import sys as _s
+        if RELAY_PATH not in _s.path:
+            _s.path.insert(0, RELAY_PATH)
+        from wallet import xrp_wallet as _xw
+        if not _xw.payouts_enabled():
+            return False, "гейт XRP_PAYOUTS_ENABLED выключен"
+        if not _xw.status().get("configured"):
+            return False, "вольт XRP не создан (wallet/xrp_cli.py create|import)"
+        return True, ""
+    except Exception as e:
+        return False, f"кошелёк XRP недоступен: {type(e).__name__}"
+
+
+def _manual_send_hint(currency, address, amount):
+    """Строка «чем отправить» для карточки сотрудника или пустая строка."""
+    tpl = _MANUAL_SEND_CLI.get(str(currency or "").upper())
+    if not tpl:
+        return ""
+    ready, why = _hot_wallet_state(currency)
+    head = ("\n🛠 Отправить из горячего кошелька (адрес с тегом копируется целиком):"
+            if ready else
+            f"\n⚠️ Горячий кошелёк выдать не сможет: {why}.\n"
+            f"Отправляйте своим кошельком, команда — на случай, когда включат:")
+    return f"{head}\n<code>{tpl.format(addr=address, amount=amount)}</code>"
 
 
 async def notify_workers_paid(order_id, rub_amount, address, currency, network=None):
@@ -1208,7 +1348,7 @@ async def notify_workers_paid(order_id, rub_amount, address, currency, network=N
     text = (f"💳 <b>Заявка #{order_id} — оплачена</b>\n\n"
             f"Сумма: <b>{rub_amount:,.0f} RUB</b> → <code>{v['amount']} {currency}</code>{note}\n"
             f"🌐 Сеть: <b>{net_label}</b>\n"
-            f"Адрес: <code>{address}</code>\n\n"
+            f"{_destination_block(currency, address)}\n\n"
             f"Необходима ручная отправка.")
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="💸 Отправить и указать TX", callback_data=f"worker_send_{order_id}")]
@@ -1281,8 +1421,16 @@ def offered_coins():
 
 
 def build_currency_kb(prefix: str, back_cb: str = "back_to_menu") -> InlineKeyboardMarkup:
-    """Клавиатура выбора монеты с живым курсом на кнопках. prefix: 'cur_' | 'sell_cur_'."""
+    """Клавиатура выбора монеты с живым курсом на кнопках. prefix: 'cur_' | 'sell_cur_'.
+
+    Покупка и продажа — РАЗНЫЕ списки монет. Клавиатура была общей, и монета,
+    открытая для покупки (XRP по резерву), появлялась в меню продажи, где её
+    некуда принять: обработчик отвечал «❌ Неверная валюта» на верную валюту.
+    Продажа возможна только туда, где у нас есть адрес приёма.
+    """
     coins = offered_coins()
+    if prefix.startswith("sell_"):
+        coins = [c for c in coins if SELL_RECEIVE_ADDRESSES.get(c)]
     rates = {c: get_cached_rate(c) or 0 for c in coins}
     def lbl(code):
         rt = _fmt_rate_compact(rates.get(code, 0))
@@ -1491,7 +1639,7 @@ async def menu_swap(callback: CallbackQuery, state: FSMContext):
 async def process_swap_pair(callback: CallbackQuery, state: FSMContext):
     _, _, coin_from, coin_to = callback.data.split("_")
     import sys
-    sys.path.insert(0, '/root/relay')
+    sys.path.insert(0, RELAY_PATH)
     from providers.swapuz import SwapUzProvider
     rate_info = SwapUzProvider().get_rate(coin_from, coin_to, amount=1)
     min_amount = rate_info.get("min_amount")
@@ -1521,7 +1669,7 @@ async def process_swap_amount(message: Message, state: FSMContext):
     coin_to = data['coin_to']
 
     import sys
-    sys.path.insert(0, '/root/relay')
+    sys.path.insert(0, RELAY_PATH)
     from providers.swapuz import SwapUzProvider
     rate_info = SwapUzProvider().get_rate(coin_from, coin_to, amount)
     if "error" in rate_info:
@@ -1551,7 +1699,7 @@ async def process_swap_address(message: Message, state: FSMContext):
         return
 
     import sys
-    sys.path.insert(0, '/root/relay')
+    sys.path.insert(0, RELAY_PATH)
     from providers.swapuz import SwapUzProvider
     from utils.tokens import generate_session_token
 
@@ -2521,7 +2669,7 @@ async def inline_paid(callback: CallbackQuery):
                 f"<blockquote>"
                 f"👤 ID: <code>{order_user_id}</code>\n"
                 f"💸 Сумма: <b>{rub_fmt2} ₽</b> · {currency}\n"
-                f"📬 Адрес: <code>{address}</code>"
+                f"{_destination_block(currency, address, '📬 Адрес')}"
                 f"</blockquote>\n\n"
                 f"⚠️ Проверьте поступление средств перед подтверждением.")
         kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -2535,7 +2683,7 @@ async def inline_paid(callback: CallbackQuery):
         user_kb = None
         try:
             import sys
-            sys.path.insert(0, '/root/relay')
+            sys.path.insert(0, RELAY_PATH)
             from core.receipts import channel_available
             if channel_available(order_id):
                 msg_text += ("\n\n📄 Ускорить проверку: приложите PDF-чек из банковского "
@@ -2677,7 +2825,7 @@ async def my_orders(message: Message, uid: int = None):
     with db_conn(10) as conn:
         c = conn.cursor()
         c.execute("""SELECT order_id, rub_amount, crypto_address, currency, status,
-                            created_at, paid_btc_tx
+                            created_at, paid_btc_tx, network
                      FROM orders WHERE user_id=? ORDER BY created_at DESC LIMIT 8""", (uid,))
         orders = c.fetchall()
     if not orders:
@@ -2696,12 +2844,17 @@ async def my_orders(message: Message, uid: int = None):
                     "sent": "Выполнена", "failed": "Ошибка", "cancelled": "Отменена"}
     CUR_ICON = {"BTC": "₿", "LTC": "Ł", "USDT": "💵"}
 
-    for oid, rub, addr, curr, status, created, tx in orders:
+    for oid, rub, addr, curr, status, created, tx, net in orders:
         icon   = STATUS_ICON.get(status, "❔")
         label  = STATUS_LABEL.get(status, status)
         cur_ic = CUR_ICON.get(curr, curr)
         amt_fmt = f"{int(rub):,}".replace(",", " ")
-        addr_short = f"{addr[:6]}…{addr[-4:]}" if addr and len(addr) > 10 else (addr or "—")
+        # Адрес сокращаем, а тег НЕТ: обрезка съедала его целиком («rrpDp2…345)»),
+        # и клиент не мог сверить главный реквизит своей заявки.
+        _a, _tag, _ok = _split_destination(curr, addr or "")
+        addr_short = f"{_a[:6]}…{_a[-4:]}" if _a and len(_a) > 10 else (_a or "—")
+        if _tag is not None:
+            addr_short += f" · тег {_tag}"
 
         text = (
             f"{icon} <b>Заявка #{oid}</b> · {label}\n"
@@ -2727,15 +2880,13 @@ async def my_orders(message: Message, uid: int = None):
                     ))
             except Exception:
                 pass
-        if tx and len(tx) > 20:
-            # Угадываем блокчейн-эксплорер
-            if curr == "BTC":
-                explorer = f"https://mempool.space/tx/{tx}"
-            elif curr == "LTC":
-                explorer = f"https://blockchair.com/litecoin/transaction/{tx}"
-            else:
-                explorer = f"https://tronscan.org/#/transaction/{tx}"
-            buttons.append(InlineKeyboardButton(text="🔍 Explorer", url=explorer))
+        # Ссылку берём у единого источника (core.txid), а не угадываем «всё, что
+        # не BTC и не LTC, — tronscan»: по этой догадке ETH- и XRP-выплата вела
+        # клиента в чужой обозреватель, где транзакции нет. Нет ссылки — нет и
+        # кнопки: сломанное доказательство хуже отсутствующего.
+        _exp = explorer_url(curr, tx, net)
+        if _exp:
+            buttons.append(InlineKeyboardButton(text="🔍 Explorer", url=_exp))
 
         kb = InlineKeyboardMarkup(inline_keyboard=[buttons]) if buttons else None
         await message.answer(text, parse_mode="HTML", reply_markup=kb)
@@ -3080,6 +3231,30 @@ async def _finalize_order(message: Message, state: FSMContext, currency, network
     data = await state.get_data()
     uid = user_id if user_id is not None else message.from_user.id
     uname = username if user_id is not None else message.from_user.username
+
+    # Последний рубеж перед записью. Адрес сюда приходит уже каноническим, но
+    # проверяем ещё раз ЗДЕСЬ, а не полагаемся на вызывающего: канонизация
+    # идемпотентна, зато любой новый путь к созданию заявки получает защиту
+    # даром. Именно отсутствие такой проверки у точки записи и позволило четырём
+    # местам в проекте разойтись в том, кто отвечает за тег.
+    address = _canonical_address(currency, address, network=network)
+    if not address:
+        await message.answer(
+            "⛔ Адрес получателя не прошёл проверку. Начните заново — /start")
+        await state.clear()
+        return
+
+    # Направление перепроверяем ЗДЕСЬ же. Между проверкой в process_address и
+    # записью заявки лежит шаг ввода тега — минуты, за которые владелец может
+    # закрыть монету (/setreserve XRP 0). Заявка, созданная после закрытия,
+    # примет оплату там, где выдавать уже нечем.
+    if not _direction_open(currency, network):
+        await message.answer(
+            f"⛔ Направление {currency} только что закрылось — заявку не создаём. "
+            f"Выберите другую монету: /start")
+        await state.clear()
+        return
+
     # Антиспам: проверяем лимиты
     limit_err = check_order_limits(uid)
     if limit_err:
@@ -3174,7 +3349,7 @@ async def process_payment_method(callback: CallbackQuery, state: FSMContext):
     pm = callback.data
 
     import sys
-    sys.path.insert(0, '/root/relay')
+    sys.path.insert(0, RELAY_PATH)
 
     # XPay bank-picker: показать список банков (мерчант obsidian_sng_mono —
     # побанковые переводы, клиент платит из своего банка)
@@ -3714,7 +3889,7 @@ async def process_receipt_upload(message: Message, state: FSMContext):
         file = await bot.get_file(photo.file_id)
         file_bytes = await bot.download_file(file.file_path)
         import sys
-        sys.path.insert(0, '/root/relay')
+        sys.path.insert(0, RELAY_PATH)
         from core.receipts import send_receipt, requires_pdf, store_receipt
         raw_photo = file_bytes.read()
 
@@ -3783,7 +3958,7 @@ async def process_montera_receipt_upload(message: Message, state: FSMContext):
         file_bytes = file_bytes_io.read()
 
         import sys
-        sys.path.insert(0, '/root/relay')
+        sys.path.insert(0, RELAY_PATH)
         from core.receipts import send_receipt, receipt_fraud_flags
         result = send_receipt(order_id, file_bytes, doc.file_name or "receipt.pdf",
                               "application/pdf")
@@ -3870,7 +4045,7 @@ async def process_montera_video_verification(message: Message, state: FSMContext
         file_bytes_io = await bot.download_file(file.file_path)
         file_bytes = file_bytes_io.read()
         import sys
-        sys.path.insert(0, '/root/relay')
+        sys.path.insert(0, RELAY_PATH)
         from core.receipts import send_receipt
         filename = f"verification_{order_id}.mp4"
         # Маршрутизация по провайдеру заявки, а не жёстко в Montera
@@ -3940,7 +4115,7 @@ async def process_montera_pdf_verification(message: Message, state: FSMContext):
         file_bytes_io = await bot.download_file(file.file_path)
         file_bytes = file_bytes_io.read()
         import sys
-        sys.path.insert(0, '/root/relay')
+        sys.path.insert(0, RELAY_PATH)
         from core.receipts import send_receipt
         filename = doc.file_name or f"verification_{order_id}.pdf"
         # Маршрутизация по провайдеру заявки, а не жёстко в Montera
@@ -4210,7 +4385,10 @@ async def cmd_order_card(message: Message):
         f"<blockquote>"
         f"👤 @{uname or '—'} · ID <code>{uid}</code>\n"
         f"💸 {amt_fmt} ₽ → {cur}\n"
-        f"📬 <code>{addr}</code>\n"
+        # Адрес и тег — разными строками. Оператор разбирает заявку в переписке
+        # с клиентом, а клиент называет свой адрес в той форме, в какой его
+        # знает: слитый X-адрес не совпадёт с ней даже префиксом.
+        f"{_destination_block(cur, addr, label='📬 Адрес')}\n"
         f"🕐 Создана: {created[:16]} · Обновлена: {(updated or '—')[:16]}"
         f"{tx_line}"
         f"</blockquote>\n"
@@ -4239,7 +4417,7 @@ async def cmd_review_queue(message: Message):
     if not is_staff(message.from_user.id):
         return
     import sys as _sys
-    _sys.path.insert(0, '/root/relay')
+    _sys.path.insert(0, RELAY_PATH)
     from core.receipts import receipt_fraud_flags
     with db_conn(5) as conn:
         c = conn.cursor()
@@ -4325,7 +4503,7 @@ async def cmd_worker_panel(message: Message):
         v = payout_verdict(oid, rub, curr)
         mark = "" if v.get("auto_ok") else " ⚠️"
         text += (f"<b>#{oid}</b>{mark} · {rub:,.0f} RUB → <code>{v['amount']} {curr}</code>\n"
-                 f"Адрес: <code>{addr}</code>\n"
+                 f"{_destination_block(curr, addr)}\n"
                  f"Время: {created[:16]}\n\n")
         buttons.append([InlineKeyboardButton(
             text=f"💸 Отправить #{oid}", callback_data=f"worker_send_{oid}"
@@ -4362,7 +4540,8 @@ async def worker_send_start(callback: CallbackQuery, state: FSMContext):
         f"К отправке: <code>{v['amount']} {curr}</code>"
         f"{' (обещано клиенту)' if v.get('source') == 'agreed' else ''}\n"
         f"🌐 Сеть: <b>{_network_label(curr, net)}</b>\n"
-        f"Адрес: <code>{addr}</code>\n"
+        f"{_destination_block(curr, addr)}\n"
+        f"{_manual_send_hint(curr, addr, v['amount'])}\n"
         f"{warn}\n"
         f"Отправьте <b>ровно указанный объём</b> на адрес выше "
         f"<b>строго в указанной сети</b>, затем введите <b>TXID транзакции</b>:",
@@ -4568,9 +4747,11 @@ async def cmd_blockaddr(message: Message):
     reason = parts[2].strip() if len(parts) > 2 else "manual block"
     with db_conn(5) as conn:
         try:
+            # Пишем идентичность счёта, а не форму, в которой её набрал
+            # админ: иначе бан обходится вводом того же счёта X-адресом.
             conn.execute(
                 "INSERT OR REPLACE INTO blocked_addresses (address, reason, blocked_by) VALUES (?,?,?)",
-                (addr, reason, message.from_user.id)
+                (_blocklist_key(addr), reason, message.from_user.id)
             )
             conn.commit()
         except Exception as e:
@@ -4589,7 +4770,9 @@ async def cmd_unblockaddr(message: Message):
         return
     addr = parts[1].strip()
     with db_conn(5) as conn:
-        conn.execute("DELETE FROM blocked_addresses WHERE address=?", (addr,))
+        _forms = _blocklist_forms(addr)
+        conn.execute("DELETE FROM blocked_addresses WHERE address IN (%s)"
+                     % ",".join("?" * len(_forms)), _forms)
         conn.commit()
     await message.answer(f"✅ Адрес разблокирован: <code>{addr}</code>", parse_mode="HTML")
 
@@ -4971,8 +5154,8 @@ async def _payout_preflight(oid):
 
     # Первоисточник: подтверждает ли расчёт САМ провайдер (fail-closed).
     import sys as _s
-    if '/root/relay' not in _s.path:
-        _s.path.insert(0, '/root/relay')
+    if RELAY_PATH not in _s.path:
+        _s.path.insert(0, RELAY_PATH)
     try:
         from services.payout_guard import verify_payment_settled
         g = await asyncio.to_thread(verify_payment_settled, oid)
@@ -4992,7 +5175,13 @@ async def _payout_preflight(oid):
 
     # Движок умеет отправлять не всё: EVM под гейтом, USDT-TRC20 — своим путём.
     if currency not in PAYOUT_WALLETS and not _evm_payout_asset(currency, network):
-        blockers.append(f"движок выплат не поддерживает {currency} — отправлять вручную")
+        _how = ""
+        if str(currency).upper() in _MANUAL_SEND_CLI:
+            _ready, _why = _hot_wallet_state(currency)
+            _how = (" (горячий кошелёк: wallet/xrp_cli.py transfer)" if _ready
+                    else f" (горячий кошелёк тоже не отправит: {_why})")
+        blockers.append(f"движок выплат не поддерживает {currency} — "
+                        f"отправлять вручную{_how}")
     return info, blockers
 
 
@@ -5025,7 +5214,7 @@ async def cmd_payout(message: Message):
            f"К отправке: <code>{v['amount']} {info['currency']}</code>"
            f"{' (обещано клиенту)' if v.get('source') == 'agreed' else ' (по курсу)'}\n"
            f"🌐 Сеть: <b>{_network_label(info['currency'], info['network'])}</b>\n"
-           f"Адрес: <code>{info['address']}</code>\n\n"
+           f"{_destination_block(info['currency'], info['address'])}\n\n"
            f"Провайдер: <b>{g.get('verdict')}</b> — {g.get('detail','')}\n")
     if blockers:
         txt += "\n⛔ <b>Выплата невозможна:</b>\n" + "\n".join(f"• {b}" for b in blockers)
@@ -5058,8 +5247,8 @@ async def cb_payout_go(callback: CallbackQuery):
 
     # Стоп-кран горячего кошелька — тот же, что у авто-выплаты. Fail-closed.
     import sys as _s
-    if '/root/relay' not in _s.path:
-        _s.path.insert(0, '/root/relay')
+    if RELAY_PATH not in _s.path:
+        _s.path.insert(0, RELAY_PATH)
     try:
         from services import payout_circuit
         cb_res = payout_circuit.check_payout_allowed(oid, rub, address, currency)
@@ -5256,8 +5445,8 @@ def build_providers_report():
     # reliability-скоринг + агрегат «слоя доверия» (тот же источник, что сайт/mini app)
     rel_scores, trust = {}, {}
     try:
-        if '/root/relay' not in sys.path:
-            sys.path.insert(0, '/root/relay')
+        if RELAY_PATH not in sys.path:
+            sys.path.insert(0, RELAY_PATH)
         from services.smart_router import get_health_scores, get_trust_metrics
         rel_scores = get_health_scores()
         trust = get_trust_metrics()
@@ -5325,8 +5514,8 @@ async def cmd_conversion(message: Message):
         return
     try:
         import sys as _s
-        if '/root/relay' not in _s.path:
-            _s.path.insert(0, '/root/relay')
+        if RELAY_PATH not in _s.path:
+            _s.path.insert(0, RELAY_PATH)
         from core.conversion_watch import check_conversion
         lines = ["📊 <b>Конверсия оплат</b>\n"]
         for h, label in ((3, "3 часа"), (24, "сутки"), (72, "3 суток")):
@@ -5422,8 +5611,8 @@ async def cmd_reconcile(message: Message):
     await message.answer("⛓ Сверяю цепочку с заявками…")
     try:
         import sys as _s
-        if '/root/relay' not in _s.path:
-            _s.path.insert(0, '/root/relay')
+        if RELAY_PATH not in _s.path:
+            _s.path.insert(0, RELAY_PATH)
         from core.chain_reconcile import reconcile, format_report
         r = await asyncio.to_thread(reconcile, 30)
         txt = format_report(r)
@@ -5437,8 +5626,8 @@ async def cmd_reconcile(message: Message):
 def _discovery():
     """Ленивая загрузка модуля сверки выдачи (живёт в /root/relay/core)."""
     import sys as _s
-    if '/root/relay' not in _s.path:
-        _s.path.insert(0, '/root/relay')
+    if RELAY_PATH not in _s.path:
+        _s.path.insert(0, RELAY_PATH)
     from core import payout_discovery
     return payout_discovery
 
@@ -5661,8 +5850,8 @@ async def cmd_shadow(message: Message):
         return
     try:
         import sys as _s
-        if '/root/relay' not in _s.path:
-            _s.path.insert(0, '/root/relay')
+        if RELAY_PATH not in _s.path:
+            _s.path.insert(0, RELAY_PATH)
         from core.shadow_payout import summary
         s = await asyncio.to_thread(summary, 14)
         if s.get("error"):
@@ -5697,7 +5886,7 @@ async def cmd_payout_status(message: Message):
     if not is_admin(message.from_user.id):
         return
     import sys
-    sys.path.insert(0, '/root/relay')
+    sys.path.insert(0, RELAY_PATH)
     from services import payout_circuit
     s = payout_circuit.status()
     head = "🛑 <b>ЗАМОРОЖЕНЫ</b>" if s["frozen"] else "🟢 <b>Активны</b>"
@@ -5731,8 +5920,8 @@ async def cmd_wallet(message: Message):
     if message.from_user.id != ADMIN_ID:
         return
     import sys
-    if '/root/relay' not in sys.path:
-        sys.path.insert(0, '/root/relay')
+    if RELAY_PATH not in sys.path:
+        sys.path.insert(0, RELAY_PATH)
     try:
         from wallet import registry
     except Exception as e:
@@ -5785,7 +5974,7 @@ async def cmd_freeze_payouts(message: Message):
     if not is_admin(message.from_user.id):
         return
     import sys
-    sys.path.insert(0, '/root/relay')
+    sys.path.insert(0, RELAY_PATH)
     from services import payout_circuit
     payout_circuit.freeze(f"ручная заморозка админом {message.from_user.id}")
     log_staff_action(message.from_user.id, "freeze_payouts", 0)
@@ -5798,7 +5987,7 @@ async def cmd_unfreeze_payouts(message: Message):
     if message.from_user.id != ADMIN_ID:
         return await message.answer("Снять стоп-кран может только главный админ.")
     import sys
-    sys.path.insert(0, '/root/relay')
+    sys.path.insert(0, RELAY_PATH)
     from services import payout_circuit
     payout_circuit.unfreeze()
     log_staff_action(message.from_user.id, "unfreeze_payouts", 0)
@@ -6006,7 +6195,13 @@ async def cmd_pending(message: Message, uid: int = None):
     show_force = is_admin(caller)  # force_payout — только админам
     text = f"🔄 <b>Ожидают выплаты ({len(rows)}):</b>\n\n"
     for oid, uid, uname, amt, cur, addr, upd in rows:
-        addr_s = f"{addr[:8]}…{addr[-4:]}" if addr else "—"
+        # Обрезка съедала бы тег целиком — он лежит внутри адреса, в хвосте.
+        # В списке ожидающих выплаты это половина реквизита: сотрудник видит
+        # знакомое начало адреса и уходит платить без тега.
+        _a, _tag, _ok = _split_destination(cur, addr)
+        addr_s = (f"{_a[:8]}…{_a[-4:]}" if _a else "—") if _ok else "адрес не разобран"
+        if _tag is not None:
+            addr_s += f" · тег {_tag}"
         text += (f"<b>#{oid}</b> @{uname or uid} · {int(amt):,} ₽ → {cur}\n"
                  f"  📬 <code>{addr_s}</code> · {upd[:16]}\n"
                  + (f"  /force_payout {oid}\n\n" if show_force else f"  /order {oid}\n\n")).replace(",", " ")
@@ -6099,7 +6294,7 @@ async def cmd_mystatus(message: Message):
     with db_conn(5) as conn:
         c = conn.cursor()
         c.execute("""SELECT order_id, user_id, rub_amount, currency, crypto_address,
-                            status, created_at, paid_btc_tx
+                            status, created_at, paid_btc_tx, network
                      FROM orders WHERE order_id=?""", (oid,))
         row = c.fetchone()
 
@@ -6107,31 +6302,26 @@ async def cmd_mystatus(message: Message):
         await message.answer("❌ Заявка не найдена.")
         return
 
-    oid, _, rub, cur, addr, status, created, tx = row
+    oid, _, rub, cur, addr, status, created, tx, net = row
     STATUS_ICON  = {"pending": "⏳", "paid": "🔄", "sent": "🚀", "failed": "❌", "cancelled": "🚫"}
     STATUS_LABEL = {"pending": "Ожидает оплаты", "paid": "Оплата подтверждена — обрабатываем",
                     "sent": "Выполнена ✅", "failed": "Ошибка", "cancelled": "Отменена"}
-    CUR_ICON = {"BTC": "₿", "LTC": "Ł", "USDT": "💵"}
-
     text = (
         f"{STATUS_ICON.get(status,'❔')} <b>Заявка #{oid}</b>\n\n"
         f"Статус: <b>{STATUS_LABEL.get(status, status)}</b>\n"
-        f"Сумма: <b>{int(rub):,} ₽</b> → {CUR_ICON.get(cur,'')} {cur}\n"
-        f"Адрес: <code>{addr}</code>\n"
+        f"Сумма: <b>{int(rub):,} ₽</b> → {COIN_ICONS.get(cur,'')} {cur}\n"
+        f"Адрес: <code>{_display_destination(cur, addr)}</code>\n"
         f"Создана: {created[:16] if created else '—'}"
     ).replace(",", " ")
     if tx:
         text += f"\n🔗 TXID: <code>{tx}</code>"
 
     buttons = []
-    if tx and len(tx) > 20:
-        if cur == "BTC":
-            url = f"https://mempool.space/tx/{tx}"
-        elif cur == "LTC":
-            url = f"https://blockchair.com/litecoin/transaction/{tx}"
-        else:
-            url = f"https://tronscan.org/#/transaction/{tx}"
-        buttons.append(InlineKeyboardButton(text="🔍 Проверить в блокчейне", url=url))
+    # Единый источник ссылки — core.txid: догадка «не BTC и не LTC → tronscan»
+    # уводила ETH- и XRP-клиента в чужой обозреватель, где его транзакции нет.
+    _exp = explorer_url(cur, tx, net)
+    if _exp:
+        buttons.append(InlineKeyboardButton(text="🔍 Проверить в блокчейне", url=_exp))
 
     import datetime as _dt
     if status == "pending" and created:
@@ -6167,12 +6357,16 @@ async def cmd_myhistory(message: Message):
     import csv as _csv
     buf = StringIO()
     w = _csv.writer(buf)
-    w.writerow(["#", "Дата", "Валюта", "Сумма RUB", "Статус", "Адрес", "TXID"])
+    # Адрес и тег — РАЗНЫМИ колонками. В базе они склеены (X-формат), и клиент,
+    # вводивший classic-адрес с тегом, не узнавал в выгрузке ни того, ни другого.
+    w.writerow(["#", "Дата", "Валюта", "Сумма RUB", "Статус", "Адрес", "Тег", "TXID"])
     status_map = {"sent": "Выполнена", "paid": "Оплачена", "pending": "Ожидает",
                   "failed": "Ошибка", "cancelled": "Отменена"}
     for oid, dt, cur, amt, status, addr, tx in rows:
+        _a, _tag, _ok = _split_destination(cur, addr or "")
         w.writerow([oid, dt[:16] if dt else "", cur, f"{amt:.2f}",
-                    status_map.get(status, status), addr or "", tx or ""])
+                    status_map.get(status, status), _a or "",
+                    "" if _tag is None else _tag, tx or ""])
     buf.seek(0)
 
     from aiogram.types import BufferedInputFile
@@ -6387,6 +6581,20 @@ async def dca_runner():
 
             for did, uid, cur, amt, addr, intv in due:
                 try:
+                    # Адрес лежит в расписании с момента его создания. Сводим его
+                    # в форму хранения ПЕРЕД заявкой: у монет с тегом (XRP) это
+                    # единственная точка, где тег ещё можно не потерять.
+                    _dest = _canonical_address(cur, addr)
+                    if not _dest:
+                        with db_conn(5) as conn:
+                            conn.execute("UPDATE dca_schedules SET status='cancelled' WHERE id=?", (did,))
+                            conn.commit()
+                        await bot.send_message(
+                            uid,
+                            f"⚠️ DCA-расписание #{did} остановлено: адрес получения "
+                            f"({cur}) не проходит проверку. Создайте расписание заново — /dca")
+                        continue
+                    addr = _dest
                     # Создаём заявку. Котировка фиксируется тем же INSERT —
                     # на момент срабатывания расписания, со скидкой клиента.
                     _rate = net_rate_for(get_cached_rate(cur), get_commission_percent(amt, uid))
@@ -6493,6 +6701,19 @@ async def _generate_gift_card(currency: str, rub_amount: int, code: str) -> byte
         return None
 
 
+def _gift_placeholder_address(currency: str) -> str:
+    """Адрес-заглушка подарочной заявки.
+
+    Подарок оплачивается ДО того, как известен получатель: настоящий адрес (и
+    тег, если у монеты он есть) появляется только при выкупе, в
+    gift_enter_recipient_address — там он и сводится в форму хранения.
+    Заглушка намеренно не проходит контрольную сумму: выплата на неё
+    невозможна ни автоматом, ни через /payout."""
+    return {"BTC": "1GiftPlaceholder1111111111111111111",
+            "LTC": "LGiftPlaceholder111111111111111111",
+            "USDT": "TGiftPlaceholderUSDT111111111111111"}.get(currency, "placeholder")
+
+
 @router.callback_query(F.data == "menu_gift")
 async def menu_gift(callback: CallbackQuery, state: FSMContext):
     kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -6582,9 +6803,7 @@ async def gift_pay(callback: CallbackQuery, state: FSMContext):
     amount = data["gift_amount"]
     code   = data["gift_code"]
     # Создаём заявку — адрес-заглушка (заменится при выкупе)
-    placeholder_addr = {"BTC": "1GiftPlaceholder1111111111111111111",
-                        "LTC": "LGiftPlaceholder111111111111111111",
-                        "USDT": "TGiftPlaceholderUSDT111111111111111"}.get(cur, "placeholder")
+    placeholder_addr = _gift_placeholder_address(cur)
     # Котировка считается до вставки и пишется тем же INSERT
     commission = get_commission_percent(amount, uid)
     rate = get_cached_rate(cur)
@@ -6677,11 +6896,17 @@ async def cmd_redeem(message: Message, state: FSMContext):
     await state.update_data(redeem_gift_id=gid, redeem_currency=cur,
                             redeem_amount=amt, redeem_approx=approx)
     await state.set_state(GiftState.address)
-    icons = {"BTC": "₿", "LTC": "Ł", "USDT": "💵"}
+    # Монеты с тегом (XRP): в выкупе один шаг ввода, поэтому объясняем формат
+    # сразу. Молча принять адрес без тега нельзя — на бирже деньги не зачислятся.
+    _tag = _tag_name(cur)
+    _tag_hint = ("\n\nЕсли получаете на <b>биржу</b> — укажите "
+                 f"{_tag} через двоеточие: <code>адрес:12345</code>. "
+                 "X-адрес уже содержит его внутри.") if _tag else ""
+    _amt_str = f"{int(amt):,}".replace(",", " ")
     await message.answer(
         f"🎁 <b>Подарок найден!</b>\n\n"
-        f"{icons.get(cur,'')} <b>{approx:.6f} {cur}</b> (~{int(amt):,} ₽)\n\n"
-        f"Введите ваш <b>{cur}-адрес</b> для получения:".replace(",", " "),
+        f"{COIN_ICONS.get(cur,'')} <b>{approx:.6f} {cur}</b> (~{_amt_str} ₽)\n\n"
+        f"Введите ваш <b>{cur}-адрес</b> для получения:{_tag_hint}",
         parse_mode="HTML"
     )
 
@@ -6692,8 +6917,25 @@ async def gift_enter_recipient_address(message: Message, state: FSMContext):
     cur  = data["redeem_currency"]
     gid  = data["redeem_gift_id"]
     amt  = data["redeem_amount"]
+    # У монет с тегом принимаем «адрес:тег» одним сообщением — отдельного шага
+    # в выкупе нет. X-адрес несёт тег сам, его не трогаем.
+    _tag = None
+    if _tag_name(cur) and ":" in addr and not _address_carries_tag(cur, addr):
+        addr, _, _tag_raw = addr.rpartition(":")
+        addr = addr.strip()
+        _tag = _parse_tag_input(_tag_raw)
+        if _tag is None:
+            await message.answer(
+                f"❌ {_tag_name(cur).capitalize()} после двоеточия — целое число без пробелов. "
+                f"Пример: <code>rAdres…:12345</code>", parse_mode="HTML")
+            return
     if not validate_crypto_address(addr, cur):
         await message.answer(f"❌ Неверный {cur}-адрес. Проверьте и введите снова.")
+        return
+    # Форма для хранения: тег склеен внутрь адреса и дальше неотделим от него.
+    addr = _canonical_address(cur, addr, _tag)
+    if not addr:
+        await message.answer(f"❌ Адрес не прошёл проверку. Введите {cur}-адрес заново.")
         return
     uid = message.from_user.id
     # Подарок обещан в рублях («тебе подарили BTC на N ₽») → объём фиксируем на
@@ -6859,7 +7101,18 @@ async def cmd_setreserve(message: Message):
         # ключ: наличие USDT в TRON ничего не говорит про USDT в Ethereum.
         # Резервы ETH и USDT_ERC20 — рычаги, открывающие эти направления.
         if coin not in ('RUB', 'USDT_ERC20') and not _assets_supported(coin):
-            await message.answer("Допустимые валюты: BTC, LTC, USDT, ETH, USDT_ERC20, RUB")
+            # Список берём у реестра валют, а не перечисляем руками: заведённая
+            # монета (XRP) не попадала в подсказку, и единственный рычаг, которым
+            # её открывают, оставался невидимым для того, кто им управляет.
+            try:
+                import sys as _s
+                if RELAY_PATH not in _s.path:
+                    _s.path.insert(0, RELAY_PATH)
+                from core import assets as _a
+                _known = ", ".join(sorted(_a.CURRENCY_NETWORKS))
+            except Exception:
+                _known = "BTC, LTC, USDT, ETH, XRP"
+            await message.answer(f"Допустимые валюты: {_known}, USDT_ERC20, RUB")
             return
         amount = float(parts[2])
         if amount < 0:
@@ -6872,7 +7125,17 @@ async def cmd_setreserve(message: Message):
                 (coin, amount)
             )
             conn.commit()
-        await message.answer(f"✅ Резерв {coin} установлен: {amount:g}")
+        msg = f"✅ Резерв {coin} установлен: {amount:g}"
+        # Резерв открывает ПРИЁМ денег. Если выдавать пока нечем — сказать об
+        # этом здесь и сейчас, а не после того, как клиент оплатил заявку.
+        ready, why = _hot_wallet_state(coin)
+        if amount > 0 and not ready:
+            msg += (f"\n\n⚠️ Направление открыто для клиентов, но горячий кошелёк "
+                    f"выдать {coin} не сможет: {why}.\n"
+                    f"Пока так — выдача только вручную своим кошельком "
+                    f"(заявка уйдёт работнику). Чтобы закрыть: включить гейт и "
+                    f"создать вольт, либо вернуть /setreserve {coin} 0.")
+        await message.answer(msg)
     except Exception:
         await message.answer("Ошибка. Формат: /setreserve BTC 1.5")
 
@@ -6901,39 +7164,6 @@ async def cmd_limits(message: Message):
         f"Крупная заявка: {HIGH_AMOUNT:,.0f} RUB\n"
         f"Комиссия (BTC/LTC/USDT): 27% (до 5000), 25% (5000-9999), 23% (10000-19999), 19% (от 20000 RUB)"
     )
-
-# ОТКЛЁН дубликат: /stats обслуживает cmd_stats выше. Тело оставлено как легаси.
-async def cmd_stats(message: Message):
-    if not is_admin(message.from_user.id): return
-    with db_conn(10) as conn:
-        c = conn.cursor()
-        now = datetime.now()
-        today = now.strftime("%Y-%m-%d")
-        yesterday = (now - timedelta(days=1)).strftime("%Y-%m-%d")
-        week_start = (now - timedelta(days=now.weekday())).strftime("%Y-%m-%d")
-        month_start = now.strftime("%Y-%m-01")
-
-        # Сегодня
-        c.execute("SELECT COUNT(*), SUM(rub_amount) FROM orders WHERE date(created_at)=? AND status='sent'", (today,))
-        cnt_today, vol_today = c.fetchone()
-        # Вчера
-        c.execute("SELECT COUNT(*), SUM(rub_amount) FROM orders WHERE date(created_at)=? AND status='sent'", (yesterday,))
-        cnt_yest, vol_yest = c.fetchone()
-        # Неделя
-        c.execute("SELECT COUNT(*), SUM(rub_amount) FROM orders WHERE date(created_at)>=? AND status='sent'", (week_start,))
-        cnt_week, vol_week = c.fetchone()
-        # Месяц
-        c.execute("SELECT COUNT(*), SUM(rub_amount) FROM orders WHERE date(created_at)>=? AND status='sent'", (month_start,))
-        cnt_month, vol_month = c.fetchone()
-
-    await message.answer(
-        f"📊 Статистика\n"
-        f"Сегодня: {cnt_today or 0} обменов, {vol_today or 0:,.0f} RUB\n"
-        f"Вчера: {cnt_yest or 0} обменов, {vol_yest or 0:,.0f} RUB\n"
-        f"Неделя: {cnt_week or 0} обменов, {vol_week or 0:,.0f} RUB\n"
-        f"Месяц: {cnt_month or 0} обменов, {vol_month or 0:,.0f} RUB"
-    )
-
 
 # ---------- УЛУЧШЕННЫЙ МОНИТОРИНГ ----------
 async def build_admin_report(period_label: str, date_from: str, date_to: str) -> str:
@@ -7309,6 +7539,21 @@ async def limit_order_watcher():
                 if not triggered:
                     continue
 
+                # Адрес пришёл из ордера, созданного когда-то раньше. Сводим в
+                # форму хранения перед заявкой — у монет с тегом (XRP) тег иначе
+                # потеряется молча, и выплата уйдёт на общий счёт биржи.
+                _dest = _canonical_address(cur, address)
+                if not _dest:
+                    with db_conn(5) as conn:
+                        conn.execute("UPDATE limit_orders SET status='cancelled' WHERE id=?", (lid,))
+                        conn.commit()
+                    await bot.send_message(
+                        uid,
+                        f"⚠️ Лимитный ордер #{lid} отменён: адрес получения ({cur}) "
+                        f"не проходит проверку. Создайте ордер заново.")
+                    continue
+                address = _dest
+
                 # Создаём обычную заявку
                 commission = get_commission_percent(rub_amount, uid) + LIMIT_COMMISSION_EXTRA
                 net_rate = net_rate_for(current, commission)
@@ -7471,8 +7716,8 @@ async def auto_check_payments():
 
             # fail-closed перепроверка расчёта у провайдера перед выплатой
             import sys as _sys
-            if '/root/relay' not in _sys.path:
-                _sys.path.insert(0, '/root/relay')
+            if RELAY_PATH not in _sys.path:
+                _sys.path.insert(0, RELAY_PATH)
             try:
                 from services.payout_guard import verify_payment_settled
             except Exception as _e:
@@ -7668,7 +7913,7 @@ async def auto_check_usdt():
 # ---------- АВТОПРОВЕРКА СВОПОВ ----------
 async def swap_status_monitor():
     import sys
-    sys.path.insert(0, '/root/relay')
+    sys.path.insert(0, RELAY_PATH)
     from providers.trocador import TrocadorProvider
     from providers.swapuz import SwapUzProvider
     trocador = TrocadorProvider()
@@ -7795,28 +8040,6 @@ async def ssl_healthcheck():
         await asyncio.sleep(86400)  # раз в сутки
 
 
-# ОТКЛЁН дубликат: /broadcast обслуживает cmd_broadcast (FSM) выше.
-async def cmd_broadcast(message: Message):
-    if not is_admin(message.from_user.id): return
-    text = message.text.partition(' ')[2]
-    if not text:
-        await message.answer("Использование: /broadcast Текст для рассылки")
-        return
-    with db_conn(10) as conn:
-        c = conn.cursor()
-        c.execute("SELECT DISTINCT user_id FROM orders")
-        users = c.fetchall()
-    sent = 0
-    for user in users:
-        try:
-            await bot.send_message(user[0], text)
-            sent += 1
-            await asyncio.sleep(0.05)  # чтобы не упереться в лимиты Telegram
-        except Exception:
-            pass
-    await message.answer(f"Рассылка завершена. Сообщение отправлено {sent} пользователям.")
-
-
 @router.message(Command("approve"))
 async def cmd_approve(message: Message):
     """Команда устарела — её путь никогда не работал.
@@ -7885,6 +8108,39 @@ async def handle_webapp(message: Message, state: FSMContext):
         await message.answer(f"❌ Некорректный адрес для {currency}.")
         return
 
+    # Валюта с тегом: собираем адрес и тег в одну строку. Данные приходят от
+    # клиента, и молчание тегом не является: без явного ответа заявка ушла бы
+    # на биржевой адрес без тега — сеть подтвердит, получателю не зачислят.
+    # Это последний путь со старой семантикой, поэтому здесь fail-closed.
+    if _tag_name(currency):
+        _raw_tag = data.get('dest_tag')
+        _said_no_tag = str(data.get('no_tag') or "").strip().lower() in ("1", "true", "on", "yes")
+        _tag_given = str("" if _raw_tag is None else _raw_tag).strip() != ""
+        _tag = _parse_tag_input(_raw_tag)
+        # Непустой, но неразобранный тег — это НЕ «тега нет». Уронив его в None,
+        # мы собрали бы классический адрес без тега: сеть перевод подтвердит, а
+        # биржа зачислит его на общий счёт, и вернуть будет нечем. Клиент при
+        # этом уверен, что тег указал.
+        if _tag_given and _tag is None:
+            await message.answer(
+                f"❌ {_tag_name(currency).capitalize()} — целое число без пробелов "
+                f"(0…4294967295). Оформите заявку через меню бота — там он "
+                f"запрашивается отдельным шагом, с кнопкой «тега нет».")
+            return
+        if not _tag_given and not _said_no_tag \
+                and not _address_carries_tag(currency, address):
+            await message.answer(
+                f"❌ Нужен {_tag_name(currency)} получателя. Оформите заявку через "
+                f"меню бота — там он запрашивается отдельным шагом, с кнопкой "
+                f"«тега нет».")
+            return
+        address = _canonical_address(currency, address, _tag, network)
+        if not address:
+            await message.answer(
+                f"❌ Не удалось разобрать {_tag_name(currency)}. "
+                f"Оформите заявку через меню бота — там тег запрашивается отдельным шагом.")
+            return
+
     # Котировка фиксируется тем же INSERT — заявка не существует без неё
     _rate = get_rate_with_markup(currency, amount)
     _crypto = round(amount / _rate, 8) if _rate else 0
@@ -7903,7 +8159,7 @@ async def handle_webapp(message: Message, state: FSMContext):
 
 
     import sys
-    sys.path.insert(0, '/root/relay')
+    sys.path.insert(0, RELAY_PATH)
     payment_link = f"{PUBLIC_RELAY}/pay/{order_id}"  # fallback
     try:
         from services.payment_service import PaymentService
@@ -7965,54 +8221,14 @@ async def pagination(callback: CallbackQuery):
     await callback.answer()
 
 
-# ОТКЛЁН дубликат: /order обслуживает cmd_order_card выше (карточка для операторов).
-async def cmd_order(message: Message):
-    if not is_admin(message.from_user.id):
-        return
-    try:
-        order_id = int(message.text.split()[1])
-    except:
-        await message.answer("Использование: /order ID")
-        return
-    with db_conn(10) as conn:
-        c = conn.cursor()
-        # Явный список колонок, а не SELECT * — таблица orders со временем
-        # обросла новыми полями (web_user_id, receipt_deadline, network, ...),
-        # позиционная распаковка "*" тихо падает ValueError при каждой миграции.
-        c.execute(
-            "SELECT order_id, user_id, username, currency, rub_amount, crypto_address, "
-            "status, created_at, paid_btc_tx, updated_at, network FROM orders WHERE order_id=?",
-            (order_id,),
-        )
-        row = c.fetchone()
-    if not row:
-        await message.answer("Заказ не найден.")
-        return
-    (oid, uid, username, currency, rub_amount, crypto_address, status, created, tx, updated, network) = row
-    net_line = f"🌐 Сеть: {network}\n" if network else ""
-    text = (
-        f"🆔 Заказ #{oid}\n"
-        f"👤 Пользователь: {uid} (@{username})\n"
-        f"💰 Сумма: {rub_amount} RUB\n"
-        f"🪙 Валюта: {currency}\n"
-        f"{net_line}"
-        f"📥 Адрес: {crypto_address}\n"
-        f"📌 Статус: {status}\n"
-        f"🔗 TX/ID выплаты: {tx or 'нет'}\n"
-        f"📅 Создан: {created}\n"
-        f"🕒 Обновлён: {updated}"
-    )
-    await message.answer(text)
-
-
 PAYOUT_WALLETS = {'BTC': 'PayoutWallet', 'LTC': 'PayoutLTC'}
 
 
 def _evm_routing():
     """Ленивая загрузка чистой логики роутинга (wallet/payout_routing.py)."""
     import sys as _s
-    if "/root/relay" not in _s.path:
-        _s.path.insert(0, "/root/relay")
+    if RELAY_PATH not in _s.path:
+        _s.path.insert(0, RELAY_PATH)
     from wallet import payout_routing as _pr
     return _pr
 
@@ -8038,8 +8254,8 @@ def _unlock_payout_wallets():
         return
     try:
         import sys as _s
-        if "/root/relay" not in _s.path:
-            _s.path.insert(0, "/root/relay")
+        if RELAY_PATH not in _s.path:
+            _s.path.insert(0, RELAY_PATH)
         from wallet import btc_wallet as _bw
     except Exception as e:
         logger.error(f"secure-кошелёк недоступен при старте: {type(e).__name__}: {e}")
@@ -8075,8 +8291,8 @@ def explorer_url(currency, tx, network=None):
     """
     try:
         import sys as _s
-        if '/root/relay' not in _s.path:
-            _s.path.insert(0, '/root/relay')
+        if RELAY_PATH not in _s.path:
+            _s.path.insert(0, RELAY_PATH)
         from core.txid import explorer_url as _eu
         return _eu(currency, tx, network)
     except Exception:
@@ -8090,8 +8306,8 @@ def _send_evm(asset, address, amount, idempotency_key):
     if not idempotency_key:
         raise RuntimeError("evm_payout_requires_idempotency_key")
     import sys as _s
-    if "/root/relay" not in _s.path:
-        _s.path.insert(0, "/root/relay")
+    if RELAY_PATH not in _s.path:
+        _s.path.insert(0, RELAY_PATH)
     from wallet import evm_wallet as _ew
     st = _ew.status()
     if st.get("configured") and not st.get("unlocked"):
@@ -8135,8 +8351,8 @@ def send_crypto(currency, address, amount, idempotency_key="", network=None):
         _bw = None
         try:
             import sys as _s
-            if "/root/relay" not in _s.path:
-                _s.path.insert(0, "/root/relay")
+            if RELAY_PATH not in _s.path:
+                _s.path.insert(0, RELAY_PATH)
             from wallet import btc_wallet as _bw
         except Exception as e:
             logger.error(f"secure {currency}-кошелёк недоступен ({type(e).__name__}) — легаси")
@@ -8319,22 +8535,6 @@ async def cmd_testpost(message: Message):
     await message.answer("⏳ Отправляю тестовый пост...")
     await send_daily_post(target_id=message.from_user.id)
     await message.answer("✅ Готово! Для запуска рассылки всем: /broadcast")
-
-
-# ОТКЛЁН дубликат: /broadcast обслуживает cmd_broadcast (FSM) выше.
-async def cmd_broadcast(message: Message):
-    """Запускает немедленную рассылку всем пользователям (только для админа)."""
-    if not is_admin(message.from_user.id):
-        return
-    try:
-        with db_conn(5) as conn:
-            c = conn.cursor()
-            c.execute("SELECT COUNT(*) FROM bot_users WHERE broadcast_enabled=1")
-            count = c.fetchone()[0]
-    except Exception:
-        count = 0
-    await message.answer(f"🚀 Запускаю рассылку {count} пользователям...")
-    asyncio.create_task(send_daily_post())
 
 
 @router.message(Command("getfileid"))
