@@ -1222,6 +1222,25 @@ def check_debt_queue_is_visible():
             fail(tag, f"bot/main_bot.py: {human} снова отбирает заявки своим "
                       f"условием status='paid' вместо общей очереди")
 
+    # 1б. Решённое человеком не возвращается в очередь. Оператор посмотрел чек
+    #     и отказал — долга больше нет; если такая заявка остаётся в /review и
+    #     продолжает поднимать тревогу, работа оператора снова порождает шум,
+    #     от которого её и лечили. Статуса для различения мало: `cancelled`
+    #     ставит и сам клиент, и тогда решения по его деньгам как раз НЕ было.
+    pq = _read(os.path.join(ROOT, "relay", "core", "payout_queue.py"))
+    cw = _read(os.path.join(ROOT, "relay", "core", "conversion_watch.py"))
+    for src, rel in ((pq, "relay/core/payout_queue.py"),
+                     (cw, "relay/core/conversion_watch.py")):
+        if src and "receipt_rejected" not in src:
+            fail(tag, f"{rel}: отклонённая оператором заявка не отличается от "
+                      f"нерешённой — она останется в очереди навсегда и будет "
+                      f"звать человека посмотреть на его же решение")
+    bot_src = _read(os.path.join(ROOT, "bot", "main_bot.py"))
+    rej = _slice(bot_src, "async def cb_review_reject(", "\nasync def ", "\ndef ", "\n@router.")
+    if rej and "receipt_rejected" not in rej:
+        fail(tag, "bot/main_bot.py: кнопка «Отклонить» не оставляет следа решения "
+                  "— очередь не узнает, что по заявке уже решили")
+
     # 2. Клиенту говорят. Одноразово, и по ТОМУ ЖЕ порогу, что видит оператор.
     b = _nodoc(_slice(bot, "async def payout_delay_notice_task(", "\nasync def ", "\ndef "))
     if not b:

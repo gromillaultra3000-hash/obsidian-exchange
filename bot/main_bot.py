@@ -4716,6 +4716,12 @@ async def cb_review_reject(callback: CallbackQuery):
     with db_conn(5) as conn:
         conn.execute("UPDATE orders SET status='cancelled', updated_at=datetime('now') "
                      "WHERE order_id=? AND status='pending'", (oid,))
+        # След решения. Без него очередь разбора не отличает «человек посмотрел
+        # и отказал» от «заявка просто закрылась»: отклонённая остаётся в
+        # /review навсегда и продолжает поднимать тревогу — то есть работа
+        # оператора снова порождает шум, от которого её и лечили.
+        conn.execute("INSERT OR IGNORE INTO sent_notifications (order_id, event) "
+                     "VALUES (?, 'receipt_rejected')", (oid,))
         conn.commit()
         log_staff_action(callback.from_user.id, "review_reject", str(oid),
                          "чек отклонён оператором (не подтверждён)")

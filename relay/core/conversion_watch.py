@@ -139,6 +139,10 @@ def check_conversion(window_hours: int | None = None) -> dict:
                     "LEFT JOIN payment_sessions ps ON ps.id=("
                     "  SELECT id FROM payment_sessions WHERE order_id=o.order_id ORDER BY id DESC LIMIT 1) "
                     "WHERE o.status NOT IN ('paid','sent') "
+                    # Отклонённое оператором — решённое: тревожить о нём значит
+                    # звать человека посмотреть на собственное решение.
+                    "AND NOT EXISTS (SELECT 1 FROM sent_notifications sn "
+                    "                WHERE sn.order_id=o.order_id AND sn.event='receipt_rejected') "
                     "AND r.created_at <= datetime('now', ?) "
                     "AND r.created_at >= datetime('now', ?) "
                     "ORDER BY r.created_at",

@@ -106,6 +106,11 @@ _RECEIPT_SQL = """
            CAST((julianday('now')-julianday(r.created_at))*24*60 AS INT) age_min
     FROM order_receipts r JOIN orders o ON o.order_id=r.order_id
     WHERE o.status NOT IN ('paid','sent')
+      -- Оператор посмотрел чек и отказал — решение принято, долга больше нет.
+      -- Статуса для этого мало: `cancelled` ставит и сам клиент, и тогда
+      -- решения по его деньгам как раз НЕ было. Различает след отклонения.
+      AND NOT EXISTS (SELECT 1 FROM sent_notifications sn
+                      WHERE sn.order_id=o.order_id AND sn.event='receipt_rejected')
 """
 
 
