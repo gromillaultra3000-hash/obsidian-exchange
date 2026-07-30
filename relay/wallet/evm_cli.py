@@ -10,7 +10,10 @@
   backup                                            — проверить шифр-бэкап паролем
   unlock                                            — проверить пароль
   preview  <ASSET> <to> <amount>
-  transfer <ASSET> <to> <amount>                    — ⭐ весь путь (пароль→превью→подтверждение→отправка)
+  transfer <ASSET> <to> <amount> [--ref ЯРЛЫК]      — ⭐ весь путь (пароль→превью→подтверждение→отправка)
+
+  --ref — только чтобы СОЗНАТЕЛЬНО отправить второй одинаковый платёж на тот же
+  адрес: без него повтор той же команды опознаётся как дубль и денег не тронет.
 
   ASSET = ETH | USDT
   *balance требует, чтобы вольт уже был создан.
@@ -61,9 +64,30 @@ def _asset(argv, idx=2):
     return a
 
 
+def _take_ref():
+    """Вынимает `--ref ЯРЛЫК` из argv ДО разбора позиционных аргументов.
+
+    Иначе флаг занимает место необязательного позиционного (у XRP это тег), и
+    задокументированная команда падает с «Тег назначения — целое число».
+    Возвращает ярлык и оставляет argv без него.
+    """
+    ref = ""
+    out, i = [], 0
+    while i < len(sys.argv):
+        if sys.argv[i] == "--ref" and i + 1 < len(sys.argv):
+            ref = sys.argv[i + 1]
+            i += 2
+            continue
+        out.append(sys.argv[i])
+        i += 1
+    sys.argv[:] = out
+    return ref
+
+
 def main():
     if len(sys.argv) < 2:
         print(__doc__); return 2
+    ref = _take_ref()
     cmd = sys.argv[1]
     try:
         if cmd == "status":
@@ -106,8 +130,16 @@ def main():
             print(f"\nОтправить {amount} {asset} на {to}?")
             if input("Введите ДА для подтверждения: ").strip().upper() not in ("ДА", "YES"):
                 print("Отменено."); return 1
-            import hashlib as _h, time as _t
-            idem = _h.sha256(f"{asset}|{to}|{amount}|{int(_t.time()//600)}".encode()).hexdigest()[:32]
+            # Времени в ключе НЕТ намеренно: раньше в него входило
+            # `time()//600`, и повтор после неопределённого ответа сети, попавший
+            # за границу окна, получал ДРУГОЙ ключ — журнал вольта не находил
+            # прежнюю попытку и деньги уходили второй раз. Ровно тот случай,
+            # ради которого ключ и заводился. Сознательный второй одинаковый
+            # платёж на тот же адрес — через явный ярлык --ref.
+            import hashlib as _h
+            idem = _h.sha256(f"{asset}|{to}|{amount}|{ref}".encode()).hexdigest()[:32]
+            if ref:
+                print(f"Ярлык повторной выплаты: {ref} (ключ идемпотентности другой)")
             print(json.dumps(w.send(asset, to, amount, prev["previewId"], idempotency_key=idem),
                              ensure_ascii=False, indent=2))
         elif cmd == "backup":
