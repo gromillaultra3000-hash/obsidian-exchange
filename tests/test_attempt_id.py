@@ -66,6 +66,53 @@ def main():
     # check_attempt_id_is_symmetric — здесь проверяется поведение модуля,
     # там то, что им пользуются все.
 
+    # ── КАЖДЫЙ parse_webhook исполняется, а не только читается ────────
+    # Разбор вебхука не вызывал ни один тест, и опечатка в нём (NameError на
+    # необъявленной переменной) прошла бы в прод целиком: провайдер прислал
+    # «оплачено», обработчик упал, заявка осталась pending. Ловится это
+    # единственным способом — вызовом.
+    cases = [
+        ("montera", "MonteraProvider",
+         lambda a: {"external_id": a, "status": "success"}, "paid"),
+        ("greenpay", "GreenPayProvider",
+         lambda a: {"external_id": a, "status": "success"}, "paid"),
+        ("lava", "LavaProvider",
+         lambda a: {"orderId": a, "status": 1}, "paid"),
+        ("brabus", "BrabusProvider",
+         lambda a: {"invoice": {"internalId": a, "status": "paid"}}, "paid"),
+        ("stormtrade", "StormTradeProvider",
+         lambda a: {"invoice": {"internalId": a, "status": "paid"}}, "paid"),
+        ("xpayconnect", "XPayConnectProvider",
+         lambda a: {"order_id": a, "status": "success"}, "paid"),
+    ]
+    import importlib
+    for mod, cls_name, payload, want_status in cases:
+        try:
+            cls = getattr(importlib.import_module(f"providers.{mod}"), cls_name)
+            inst = cls.__new__(cls)          # без сети и ключей: нужен только разбор
+            oid, st = inst.parse_webhook(payload(attempt_id.make(4242)))
+        except Exception as e:
+            FAILS.append(f"providers/{mod}.parse_webhook падает на нормальном "
+                         f"вебхуке: {type(e).__name__}: {e}")
+            continue
+        check(oid == "4242",
+              f"providers/{mod}.parse_webhook вернул заявку {oid!r} вместо 4242 — "
+              f"оплата придёт, а мы её не узнаем")
+        check(st == want_status,
+              f"providers/{mod}.parse_webhook вернул статус {st!r} вместо "
+              f"{want_status!r} — заявка не станет оплаченной")
+    # и старая форма, по которой у провайдеров живут созданные ранее сделки
+    for mod, cls_name, payload, _ in cases:
+        try:
+            cls = getattr(importlib.import_module(f"providers.{mod}"), cls_name)
+            oid, _st = cls.__new__(cls).parse_webhook(payload("obsidian_4242"))
+        except Exception as e:
+            FAILS.append(f"providers/{mod}.parse_webhook падает на старой форме: {e}")
+            continue
+        check(oid == "4242",
+              f"providers/{mod}: вебхук по сделке, созданной до суффикса, "
+              f"больше не находит свою заявку (получили {oid!r})")
+
     if FAILS:
         print(f"❌ Провалов: {len(FAILS)}\n")
         for m in FAILS:

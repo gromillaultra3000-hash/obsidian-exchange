@@ -277,4 +277,5 @@ class XPayConnectProvider(PaymentProvider):
     def parse_webhook(self, data):
         """Вебхук приходит только при success; order_id = наш external_id."""
         order_id = attempt_id.parse(data.get("order_id"))
+        status = _STATUS_MAP.get(data.get("status"), "unknown")
         return order_id, status
