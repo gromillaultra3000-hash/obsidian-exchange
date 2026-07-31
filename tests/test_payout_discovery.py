@@ -10,7 +10,11 @@ import tempfile
 _TMP = tempfile.mkdtemp(prefix="discovery_test_")
 os.environ["DISCOVERY_SOURCES_PATH"] = os.path.join(_TMP, "sources.json")
 os.environ["DB_PATH"] = os.path.join(_TMP, "test.db")
-sys.path.insert(0, "/root/relay")
+# Путь к relay — ОТ СЕБЯ, а не боевой абсолютный. С «/root/relay» набор
+# проверял прод, а не ветку: правки в worktree он не видел вовсе и
+# оставался зелёным на заведомо сломанном коде.
+sys.path.insert(0, os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "relay"))
 
 from core import payout_discovery as pd  # noqa: E402
 
@@ -163,6 +167,32 @@ v = pd.candidates_for(12, fetch=fake_fetch)
 check("уже отправленную заявку закрыть нельзя", "error" in v)
 v = pd.candidates_for(999, fetch=fake_fetch)
 check("несуществующая заявка → ошибка, не молчание", "error" in v)
+
+
+# Сеть в контракт fetch добавилась позже, а подменяют его снаружи. Позвать
+# двухаргументную функцию с тремя = TypeError, который выше глотается в
+# «цепочка недоступна»: сверка молча перестаёт находить что-либо. Поэтому
+# двухаргументный источник обязан продолжать работать.
+def legacy_fetch(currency, address):
+    return fake_fetch(currency, address)
+
+
+v = pd.candidates_for(10, rate_fn=lambda c, r: 6500000, fetch=legacy_fetch)
+check("двухаргументный источник переводов (старый контракт) продолжает работать",
+      not v.get("error") and v.get("candidates"))
+
+
+seen_network = []
+
+
+def three_arg_fetch(currency, address, network=None):
+    seen_network.append(network)
+    return fake_fetch(currency, address)
+
+
+v = pd.candidates_for(10, rate_fn=lambda c, r: 6500000, fetch=three_arg_fetch)
+check("трёхаргументный источник получает сеть заявки",
+      not v.get("error") and v.get("candidates") and seen_network)
 
 
 def boom_fetch(currency, address):

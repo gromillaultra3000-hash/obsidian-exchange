@@ -582,6 +582,22 @@ def expected_amount(order: dict, rate_fn=None) -> float:
         return 0.0
 
 
+
+def _fetch_transfers(fetch, currency, address, network):
+    """Зовёт источник переводов, не ломая старый контракт (currency, address).
+
+    Сеть добавилась позже — а `fetch` подменяют снаружи (тесты, будущие
+    источники). Позвать двухаргументную функцию с тремя значит получить
+    TypeError, который выше ловится общим `except` и превращается в «цепочка
+    недоступна»: сверка молча перестала бы находить что-либо вообще. Поэтому
+    сначала пробуем с сетью, а на несовпадение сигнатуры откатываемся.
+    """
+    try:
+        return fetch(currency, address, network)
+    except TypeError:
+        return fetch(currency, address)
+
+
 def discover(rate_fn=None, fetch=None) -> dict:
     """Ищет доказательства выплаты по всем зависшим заявкам.
 
@@ -609,7 +625,7 @@ def discover(rate_fn=None, fetch=None) -> dict:
         if cur not in trusted_cache:
             trusted_cache[cur] = trusted_senders(cur)
         try:
-            transfers = fetch(cur, addr, o.get("network"))
+            transfers = _fetch_transfers(fetch, cur, addr, o.get("network"))
         except Exception as e:
             out["errors"].append(f"#{o['order_id']}: цепочка недоступна ({type(e).__name__})")
             continue
@@ -658,7 +674,7 @@ def candidates_for(order_id: int, rate_fn=None, fetch=None) -> dict:
         return {"error": "не удалось прочитать занятые txid — закрывать нельзя"}
     cur = (o.get("currency") or "").upper()
     try:
-        transfers = fetch(cur, o.get("crypto_address"), o.get("network"))
+        transfers = _fetch_transfers(fetch, cur, o.get("crypto_address"), o.get("network"))
     except Exception as e:
         return {"error": f"цепочка недоступна: {type(e).__name__}"}
     v = judge({**o, "expected_amount": expected_amount(o, rate_fn)},

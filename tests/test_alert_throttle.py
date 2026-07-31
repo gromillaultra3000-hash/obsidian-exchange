@@ -9,7 +9,11 @@ import tempfile
 
 _TMP = tempfile.mkdtemp(prefix="alert_throttle_test_")
 os.environ["DB_PATH"] = os.path.join(_TMP, "test.db")
-sys.path.insert(0, "/root/relay")
+# Путь к relay — ОТ СЕБЯ, а не боевой абсолютный. С «/root/relay» набор
+# проверял прод, а не ветку: правки в worktree он не видел вовсе и
+# оставался зелёным на заведомо сломанном коде.
+sys.path.insert(0, os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "relay"))
 
 from core.alert_throttle import should_send, cleanup  # noqa: E402
 from core.conversion_watch import _fingerprint  # noqa: E402

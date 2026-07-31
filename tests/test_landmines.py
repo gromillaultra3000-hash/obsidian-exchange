@@ -356,6 +356,25 @@ def check_tests_import_their_own_tree():
     relay_dir = os.path.join(ROOT, "relay")
     if not os.path.isdir(relay_dir):
         return
+
+    # Сначала — сами файлы тестов. Проверка ниже импортирует модули САМА и
+    # потому всегда попадает в своё дерево; она не видела, что тест внутри
+    # прописал боевой путь руками. Два набора так и проверяли ПРОД, оставаясь
+    # зелёными на заведомо сломанном коде ветки (30.07.2026).
+    tdir = os.path.dirname(os.path.abspath(__file__))
+    for fn in sorted(os.listdir(tdir)):
+        if not fn.startswith("test_") or not fn.endswith(".py"):
+            continue
+        src = _read(os.path.join(tdir, fn))
+        for i, ln in enumerate(src.splitlines(), 1):
+            if ln.lstrip().startswith("#"):
+                continue
+            m = re.search(r"""sys\.path\.insert\([^)]*["'](/root/[^"']+)["']""", ln)
+            if m:
+                fail("изоляция тестов",
+                     f"tests/{fn}: стр. {i} — путь к коду прописан абсолютно "
+                     f"({m.group(1)}). Набор проверяет ТО ДЕРЕВО, а не своё: "
+                     f"правки в worktree он не видит и зеленеет на сломанном коде")
     import subprocess
     # Каждый модуль — в СВОЁМ интерпретаторе. В общем процессе первый удачный
     # импорт core.assets осел бы в sys.modules и прикрыл собой подмену у всех
