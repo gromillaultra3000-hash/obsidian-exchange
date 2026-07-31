@@ -973,6 +973,11 @@ _COIN_SOURCES = {
     "USDT": {"cg": "tether",  "binance": None,      "fallback": 85},
     "ETH": {"cg": "ethereum", "binance": "ETHUSDT", "fallback": 250000},
     "XRP": {"cg": "ripple",   "binance": "XRPUSDT", "fallback": 95},
+    # На CoinGecko монета TON называется the-open-network (не «toncoin»),
+    # на Binance пара TONUSDT. Фолбэк — грубый порядок величины на 30.07.2026:
+    # он нужен, только когда оба источника молчат, и всё равно уводит заявку
+    # к человеку (страж котировки не пустит расхождение).
+    "TON": {"cg": "the-open-network", "binance": "TONUSDT", "fallback": 260},
 }
 _RATE_CACHE = {}  # module-level, живёт между вызовами: {coin: {"rate", "ts"}}
 

@@ -133,12 +133,15 @@ def main():
 
     # ── маршрутизация по валюте ───────────────────────────────────────
     seen = {}
-    for name in ("_incoming_btc_like", "_incoming_trc20", "_incoming_xrpl", "_incoming_evm"):
+    # Читатели берём из модуля: список руками отстаёт от кода, и новая цепь
+    # уходила бы в настоящую сеть вместо шпиона.
+    for name in [n for n in dir(pd) if n.startswith("_incoming_")]:
         setattr(pd, name, (lambda n: (lambda *a, **k: seen.setdefault(n, a) or []))(name))
     try:
         for cur, want in (("BTC", "_incoming_btc_like"), ("LTC", "_incoming_btc_like"),
                           ("USDT", "_incoming_trc20"), ("XRP", "_incoming_xrpl"),
-                          ("ETH", "_incoming_evm"), ("xrp", "_incoming_xrpl")):
+                          ("ETH", "_incoming_evm"), ("xrp", "_incoming_xrpl"),
+                          ("TON", "_incoming_ton")):
             seen.clear()
             pd.incoming_transfers(cur, "addr")
             check(want in seen, f"{cur}: сверка не пошла в {want} — выплата в этой "

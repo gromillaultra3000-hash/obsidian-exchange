@@ -58,6 +58,9 @@ _EXPLORERS = {
     "TRX": "https://tronscan.org/#/transaction/",
     "ETH": "https://etherscan.io/tx/",
     "XRP": "https://xrpscan.com/tx/",
+    # tonviewer принимает хеш транзакции в том же виде, в каком его
+    # отдаёт toncenter (base64), — отдельного преобразования не нужно.
+    "TON": "https://tonviewer.com/transaction/",
 }
 
 

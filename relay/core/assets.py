@@ -17,6 +17,7 @@ NET_MAINNET = "MAINNET"   # BTC/LTC
 NET_TRC20 = "TRC20"       # USDT на TRON
 NET_ERC20 = "ERC20"       # ETH mainnet и USDT на Ethereum
 NET_XRPL = "XRPL"         # XRP Ledger — своя сеть, не MAINNET (тот код занят BTC/LTC)
+NET_TON = "TON"           # The Open Network — своя цепь, не EVM и не TRON
 
 # Валюта → допустимые сети (первая = сеть по умолчанию)
 CURRENCY_NETWORKS = {
@@ -25,12 +26,15 @@ CURRENCY_NETWORKS = {
     "USDT": [NET_TRC20, NET_ERC20],
     "ETH": [NET_ERC20],   # для ETH «ERC20» = Ethereum mainnet (единый EVM-контур)
     "XRP": [NET_XRPL],
+    "TON": [NET_TON],
 }
 
 # Валюты, где адрес может сопровождаться тегом/мемо. Пропуск тега при переводе
 # на биржу = деньги зачислены «в никуда» и не возвращаются, поэтому это свойство
 # валюты, а не деталь интерфейса.
-TAGGED_CURRENCIES = {"XRP": "destination tag"}
+# У TON это не число, а текстовый комментарий — но роль та же: на бирже он и
+# есть «кому именно», и перевод без него зачисляется в общий котёл.
+TAGGED_CURRENCIES = {"XRP": "destination tag", "TON": "memo (комментарий)"}
 
 # Синонимы входных значений сети → канон (или None = недопустимо)
 _NET_ALIASES = {
@@ -39,7 +43,8 @@ _NET_ALIASES = {
     "ETH": NET_ERC20, "ETHEREUM": NET_ERC20, "ETHEREUM-MAINNET": NET_ERC20, "EVM": NET_ERC20,
     "MAIN": NET_MAINNET, "MAINNET": NET_MAINNET,
     "XRPL": NET_XRPL, "XRP": NET_XRPL, "RIPPLE": NET_XRPL,
-    "BEP20": None, "BSC": None, "POLYGON": None, "MATIC": None, "TON": None,
+    "TON": NET_TON, "TONCOIN": NET_TON, "THE OPEN NETWORK": NET_TON,
+    "BEP20": None, "BSC": None, "POLYGON": None, "MATIC": None,
 }
 
 # Регулярки — только ДЕШЁВЫЙ ПРЕДФИЛЬТР «похоже на адрес этой валюты».
@@ -56,6 +61,8 @@ _ADDR_RE = {
     # Алфавит у XRPL свой — ни '0', ни 'l', ни 'I', ни 'O'.
     NET_XRPL: [r'^r[rpshnaf39wBUDNEGHJKLM4PQRST7VWXYZ2bcdeCg65jkm8oFqi1tuvAxyz]{24,34}$',
                r'^X[rpshnaf39wBUDNEGHJKLM4PQRST7VWXYZ2bcdeCg65jkm8oFqi1tuvAxyz]{40,50}$'],
+    # TON: «дружественная» форма (48 символов base64url) и «сырая» (workchain:hex64).
+    NET_TON: [r'^[A-Za-z0-9+/_-]{48}$', r'^-?\d+:[0-9a-fA-F]{64}$'],
 }
 
 
@@ -136,6 +143,8 @@ def validate_address(currency, address, network=None) -> bool:
         pats = _ADDR_RE[NET_ERC20] if net == NET_ERC20 else _ADDR_RE[NET_TRC20]
     elif c == "XRP":
         pats = _ADDR_RE[NET_XRPL]
+    elif c == "TON":
+        pats = _ADDR_RE[NET_TON]
     else:
         return False
     if not any(re.match(p, addr) for p in pats):
@@ -165,6 +174,8 @@ def _checksum_ok(currency, addr, net) -> bool:
                     else _addr.is_valid_tron(addr))
         if currency == "XRP":
             return _addr.is_valid_xrp(addr)
+        if currency == "TON":
+            return _addr.is_valid_ton(addr)
     except Exception:
         return False
     return False
@@ -174,7 +185,7 @@ def network_label(currency, network=None) -> str:
     """Человекочитаемая метка сети для UI, напр. 'TRC-20', 'ERC-20', 'Mainnet'."""
     net = normalize_network(currency, network)
     return {NET_TRC20: "TRC-20", NET_ERC20: "ERC-20", NET_MAINNET: "Mainnet",
-            NET_XRPL: "XRP Ledger"}.get(net, "")
+            NET_XRPL: "XRP Ledger", NET_TON: "TON"}.get(net, "")
 
 
 def tag_name(currency):

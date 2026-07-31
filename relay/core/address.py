@@ -18,6 +18,9 @@
 Фейл-клоуз: всё, что не удалось разобрать, считается невалидным.
 """
 from __future__ import annotations
+
+import base64
+import re
 import hashlib
 
 # ─────────────────────────── Base58Check ───────────────────────────
@@ -499,3 +502,94 @@ def account_key(address, currency=None) -> str:
     if cur in ("ETH", "BNB", "MATIC") or (s[:2].lower() == "0x" and len(s) == 42):
         return s.lower()
     return s
+
+
+# ─────────────────────────────────────────────────────────────────
+# TON (The Open Network)
+# ─────────────────────────────────────────────────────────────────
+# У адреса TON две формы, и обе встречаются у клиентов:
+#   • «дружественная» — 48 символов base64url, внутри 36 байт:
+#       флаг(1) + workchain(1) + hash(32) + CRC16-CCITT(2);
+#   • «сырая» — `workchain:hex64`, например `0:83df…31a8`, без контрольной суммы.
+# Проверять надо ровно контрольную сумму: опечатка в одном символе сохраняет и
+# длину, и алфавит, а адрес превращается в несуществующий — монеты уходят
+# безвозвратно. Именно так проверка спасла TRON-адрес на реальных данных.
+_TON_B64_RE = re.compile(r"^[A-Za-z0-9+/_-]{48}$")
+_TON_RAW_RE = re.compile(r"^(-?\d+):([0-9a-fA-F]{64})$")
+
+
+def _crc16_xmodem(data: bytes) -> int:
+    """CRC16-CCITT (XMODEM): полином 0x1021, начальное 0. Именно им TON
+    подписывает адрес — не путать с другими вариантами CRC16, дающими иное
+    значение на тех же данных."""
+    crc = 0
+    for b in data:
+        crc ^= b << 8
+        for _ in range(8):
+            crc = ((crc << 1) ^ 0x1021) & 0xFFFF if crc & 0x8000 else (crc << 1) & 0xFFFF
+    return crc
+
+
+def parse_ton_address(address: str):
+    """(workchain, hash-32-байта) или (None, None). Понимает обе формы.
+
+    Фейл-клоуз: любая неувязка — длина, алфавит, контрольная сумма, чужой
+    workchain — это отказ, а не «наверное сойдёт».
+    """
+    if not address or not isinstance(address, str):
+        return (None, None)
+    addr = address.strip()
+
+    m = _TON_RAW_RE.match(addr)
+    if m:
+        wc = int(m.group(1))
+        # В TON рабочие цепочки 0 (basechain) и -1 (masterchain). Остальные не
+        # существуют, и адрес с ними — опечатка либо чужая сеть.
+        if wc not in (0, -1):
+            return (None, None)
+        return (wc, bytes.fromhex(m.group(2)))
+
+    if not _TON_B64_RE.match(addr):
+        return (None, None)
+    try:
+        raw = base64.urlsafe_b64decode(addr.replace("+", "-").replace("/", "_") + "=")
+    except Exception:
+        return (None, None)
+    if len(raw) != 36:
+        return (None, None)
+    if _crc16_xmodem(raw[:34]) != int.from_bytes(raw[34:], "big"):
+        return (None, None)
+    # Байт флагов: 0x11 bounceable, 0x51 non-bounceable; +0x80 = testnet.
+    flags = raw[0]
+    if flags & 0x80:
+        return (None, None)          # testnet-адрес в проде — не наш случай
+    if flags & ~0x80 not in (0x11, 0x51):
+        return (None, None)
+    wc = raw[1] if raw[1] < 0x80 else raw[1] - 0x100
+    if wc not in (0, -1):
+        return (None, None)
+    return (wc, raw[2:34])
+
+
+def is_valid_ton(address: str) -> bool:
+    """Адрес TON в любой из двух форм, с проверкой контрольной суммы."""
+    wc, _h = parse_ton_address(address)
+    return wc is not None
+
+
+def is_valid_ton_memo(memo) -> bool:
+    """Комментарий (memo) к переводу TON.
+
+    У TON это не число, как destination tag у XRP, а произвольный текст — но
+    биржи используют его как идентификатор счёта, и промах здесь стоит тех же
+    денег. Пустой memo допустим (личный кошелёк), слишком длинный — нет: в одну
+    ячейку TON влезает 127 байт, длиннее придётся дробить, и биржа такой
+    комментарий не разберёт.
+    """
+    if memo is None or memo == "":
+        return True
+    if not isinstance(memo, str):
+        return False
+    if "\n" in memo or "\r" in memo:
+        return False                 # перевод строки ломает разбор на стороне биржи
+    return len(memo.encode("utf-8")) <= 127

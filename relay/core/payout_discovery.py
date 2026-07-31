@@ -173,6 +173,13 @@ def _own_wallet_addresses(currency: str) -> set:
             a = ew.address()
             if a:
                 out.add(_norm(a))
+        elif cur == "TON":
+            # Своего вольта TON пока нет — выдача ручная, как была у XRP.
+            # Адрес кошелька, с которого владелец платит, задаётся в окружении:
+            # без него своя же выплата выглядит чужой и не закрывает заявку.
+            a = os.getenv("TON_PAYOUT_ADDRESS", "").strip()
+            if a:
+                out.add(_norm(a))
     except Exception as e:
         logger.warning("payout_discovery: адрес своего кошелька %s: %s", cur, e)
     out = {a for a in out if a}
@@ -411,6 +418,60 @@ def _incoming_erc20(address: str, token="USDT") -> list[dict]:
     return [t for t in out if t["txid"]]
 
 
+def _incoming_ton(address: str, memo=None) -> list[dict]:
+    """Входящие TON на адрес клиента — через публичный toncenter.
+
+    Как и у XRP, у TON есть «кому именно» внутри одного адреса: комментарий
+    (memo). Биржи дают всем клиентам ОДИН адрес и различают их комментарием, так
+    что без сверки memo перевод нужного размера закрыл бы чужую заявку.
+
+    Ключ toncenter необязателен, но без него сервис жёстко ограничивает частоту;
+    TONCENTER_API_KEY задаётся владельцем, когда проходов станет много.
+    """
+    base = os.getenv("TON_API_URL", "https://toncenter.com/api/v2/getTransactions")
+    params = {"address": address, "limit": 50, "archival": "true"}
+    key = os.getenv("TONCENTER_API_KEY", "").strip()
+    if key:
+        params["api_key"] = key
+    try:
+        data = _get_json(base, params) or {}
+        rows = data.get("result") or []
+        if not isinstance(rows, list):
+            return []
+    except Exception as e:
+        logger.warning("payout_discovery: TON %s: %s", str(address)[:12], type(e).__name__)
+        return []
+    out = []
+    for t in rows:
+        try:
+            inp = t.get("in_msg") or {}
+            # Нас интересуют только ВХОДЯЩИЕ с суммой: исходящие и служебные
+            # сообщения к выплате отношения не имеют.
+            val = int(inp.get("value") or 0)
+            if val <= 0:
+                continue
+            if memo not in (None, ""):
+                if (inp.get("message") or "").strip() != str(memo).strip():
+                    continue
+            # toncenter отдаёт хеш в base64, а весь остальной проект (проверка
+            # is_txid, дедупликация занятых переводов, ссылка в обозреватель)
+            # работает с hex64. Приводим здесь, чтобы форма была одна на всех:
+            # иначе выплата TON не пройдёт даже проверку «это вообще хеш» и
+            # клиент останется без доказательства.
+            raw_hash = (t.get("transaction_id") or {}).get("hash") or ""
+            out.append({
+                "txid": _ton_hash_hex(raw_hash),
+                "amount": val / 1e9,          # нанотоны → TON
+                "ts": int(t.get("utime") or 0),
+                "senders": [_norm(inp.get("source"))] if inp.get("source") else [],
+                # toncenter отдаёт уже включённые в блок транзакции.
+                "confirmed": True,
+            })
+        except (TypeError, ValueError):
+            continue
+    return [t for t in out if t["txid"]]
+
+
 def incoming_transfers(currency: str, address: str, network=None) -> list[dict]:
     cur = str(currency or "").upper()
     if cur in ("BTC", "LTC"):
@@ -432,7 +493,41 @@ def incoming_transfers(currency: str, address: str, network=None) -> list[dict]:
         return _incoming_xrpl(classic, tag)
     if cur == "ETH":
         return _incoming_evm(address)
+    if cur == "TON":
+        # Комментарий хранится в заявке отдельным полем; сюда он приходит
+        # приклеенным к адресу тем же способом, что и тег XRP.
+        addr, memo = _ton_destination(address)
+        return _incoming_ton(addr, memo)
     return []
+
+
+def _ton_hash_hex(value: str) -> str:
+    """Хеш транзакции TON в hex64. base64 (как отдаёт toncenter) переводим."""
+    s = str(value or "").strip()
+    if not s:
+        return ""
+    if len(s) == 64 and all(c in "0123456789abcdefABCDEF" for c in s):
+        return s.lower()
+    try:
+        import base64
+        raw = base64.b64decode(s + "=" * (-len(s) % 4), validate=False)
+        return raw.hex() if len(raw) == 32 else ""
+    except Exception:
+        return ""
+
+
+def _ton_destination(address: str):
+    """(адрес, memo) из того, что лежит в заявке. Разделитель — '#'.
+
+    В адресе TON его быть не может: дружественная форма — base64url (буквы,
+    цифры, '-', '_'), сырая — 'workchain:hex'. Значит склейка однозначна и
+    обратно разбирается без догадок.
+    """
+    s = str(address or "").strip()
+    if "#" in s:
+        addr, _, memo = s.partition("#")
+        return addr.strip(), memo.strip()
+    return s, None
 
 
 def _xrp_destination(address: str):

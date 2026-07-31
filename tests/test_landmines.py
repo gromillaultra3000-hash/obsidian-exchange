@@ -1177,9 +1177,16 @@ def check_every_currency_is_reconcilable():
     # вообще хоть куда-то. Валюта, для которой сверка молча отдаёт [], выглядит
     # работающей и не находит НИ ОДНОЙ выплаты.
     seen = []
-    for name in ("_incoming_btc_like", "_incoming_trc20", "_incoming_xrpl", "_incoming_evm"):
-        if hasattr(pd, name):
-            setattr(pd, name, (lambda n: (lambda *a, **k: seen.append(n) or []))(name))
+    # Список читателей собираем из самого модуля: перечисленный руками, он
+    # отставал бы от кода — новая цепь появлялась, в списке её не было, и
+    # проверка «сходили ли мы хоть куда-то» видела настоящий сетевой вызов
+    # вместо шпиона. Ровно так и вышло при добавлении TON.
+    readers = [n for n in dir(pd) if n.startswith("_incoming_") and callable(getattr(pd, n))]
+    if not readers:
+        fail(tag, "в сверке не найдено ни одного читателя цепи — проверка ослепла")
+        return
+    for name in readers:
+        setattr(pd, name, (lambda n: (lambda *a, **k: seen.append(n) or []))(name))
     for cur in known:
         seen.clear()
         try:

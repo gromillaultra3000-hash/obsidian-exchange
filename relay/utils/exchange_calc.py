@@ -20,9 +20,13 @@ SWAP_COINS = ["BTC", "LTC", "USDT"]
 SWAP_NETWORKS = {"BTC": "Mainnet", "LTC": "Mainnet", "USDT": "TRC20"}
 
 _COINGECKO_IDS = {"BTC": "bitcoin", "LTC": "litecoin", "USDT": "tether",
-                  "ETH": "ethereum", "XRP": "ripple"}
-_FALLBACK_RATES = {"BTC": 6500000, "LTC": 4000, "USDT": 85, "ETH": 250000, "XRP": 95}
-_BINANCE_USDT = {"BTC": "BTCUSDT", "LTC": "LTCUSDT", "ETH": "ETHUSDT", "XRP": "XRPUSDT"}
+                  "ETH": "ethereum", "XRP": "ripple",
+                  # На CoinGecko TON — the-open-network, не «toncoin».
+                  "TON": "the-open-network"}
+_FALLBACK_RATES = {"BTC": 6500000, "LTC": 4000, "USDT": 85, "ETH": 250000,
+                   "XRP": 95, "TON": 260}
+_BINANCE_USDT = {"BTC": "BTCUSDT", "LTC": "LTCUSDT", "ETH": "ETHUSDT",
+                 "XRP": "XRPUSDT", "TON": "TONUSDT"}
 
 # Кеш заводится ОТ списка котируемых монет, а не отдельным литералом: раньше
 # это были два независимых перечня, и монета, забытая в кеше, роняла
