@@ -128,14 +128,41 @@ def _xrp() -> Dict[str, Callable]:
     return {"chain": "XRP", "label": "XRP Ledger", "status": status, "balance": balance}
 
 
+def _ton() -> Dict[str, Callable]:
+    """TON: наблюдение за счётом владельца. Права подписи у контура нет —
+    выдача ручная, но баланс обязан быть виден: по нему владелец решает,
+    открывать ли монету клиентам (`/setreserve TON N`)."""
+    def status() -> Dict[str, Any]:
+        from wallet import ton_wallet as tw
+        st = tw.status()
+        return {"configured": bool(st.get("configured")),
+                "unlocked": bool(st.get("unlocked")),
+                "address": st.get("address") or "",
+                "network": st.get("network") or "ton-mainnet"}
+
+    def balance() -> Dict[str, Any]:
+        from wallet import ton_wallet as tw
+        b = tw.balance()
+        amt = b.get("balance")
+        return {"assets": [{"symbol": "TON",
+                            "balance": amt if isinstance(amt, (int, float)) else None,
+                            "status": b.get("status", "?")}],
+                "gasAsset": None,
+                "error": b.get("reason")}
+
+    return {"chain": "TON", "label": "TON (только просмотр)",
+            "status": status, "balance": balance}
+
+
 # Порядок = порядок вывода в админ-поверхностях. Будущие сети — сюда:
-#   _ton(), _monero()  (когда появятся модули wallet/ton_wallet.py и т.д.)
+#   _monero()  (когда появится модуль wallet/monero_wallet.py и т.д.)
 CHAINS: List[Callable[[], Dict[str, Callable]]] = [
     lambda: _btc_like("BTC", "Bitcoin"),
     lambda: _btc_like("LTC", "Litecoin"),
     _tron,
     _evm,
     _xrp,
+    _ton,
 ]
 
 

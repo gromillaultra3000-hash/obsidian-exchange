@@ -89,7 +89,9 @@ if not shutil.which("node"):
 
 X_ADDR = "X7TYt4nPauxSispXtYbecsfAHuA4ciuXLfdxguAicta1ViD"
 CLASSIC = "rrpDp2dLMs7KyhZhg5RbReRagjWuvH7qB"
-TON_ADDR = "UQAs9VlT6S9pyC_dpJv0Xh0Cq6HxvMSjTX0aKGl_j8V5MjSf"
+# Настоящий счёт (контрольная сумма сходится) — выдуманная строка нужной длины
+# прошла бы фронт, но сервер бы её отверг, и тест проверял бы не тот путь.
+TON_ADDR = "UQCD39VS5jcptHL8vMjEXrzGaRcCVYto7HUn4bpAOg8xqEBI"
 
 # Витрину собираем ИЗ РЕЕСТРА, а не руками: у тега два свойства (вид значения и
 # разделитель внутри адреса), и вписанная сюда копия отстала бы от реестра на

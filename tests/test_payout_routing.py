@@ -67,6 +67,36 @@ check("' erc20 ' с пробелами/регистром → EVM(USDT)",
 check("' eth ' валюта с пробелами → EVM(ETH)",
       P.evm_payout_asset(" eth ") == "ETH")
 
+# ── Контур выплаты: «выдадим сами» — обещание, а не умолчание ───────────────
+# Его дают владельцу в момент /setreserve, то есть ДО оплаты клиентом. Пока
+# решение принималось перечислением исключений («всё, кроме XRP, умеем»),
+# каждая новая монета получала обещание молча — TON движок не умеет вовсе.
+check("BTC → свой контур", P.payout_contour("BTC") == "btc")
+check("LTC → свой контур", P.payout_contour("LTC") == "btc")
+check("USDT без сети → TRON", P.payout_contour("USDT") == "tron")
+check("USDT/TRC20 → TRON", P.payout_contour("USDT", "TRC20") == "tron")
+check("USDT/ERC20 → EVM", P.payout_contour("USDT", "ERC20") == "evm")
+check("ETH → EVM", P.payout_contour("ETH") == "evm")
+check("XRP → свой контур", P.payout_contour("XRP") == "xrp")
+check("TON → выдаёт человек", P.payout_contour("TON") == "manual")
+# «Решили выдавать руками» и «никто не решал» — разные ответы: во втором
+# случае монету забыли внести, и обещание давать нельзя.
+check("незнакомая монета → unknown, а не manual",
+      P.payout_contour("DOGE") == "unknown")
+check("USDT в третьей сети → unknown (решения по ней нет)",
+      P.payout_contour("USDT", "BEP20") == "unknown")
+check("регистр и пробелы не меняют контур",
+      P.payout_contour(" ton ") == "manual" and P.payout_contour("btc") == "btc")
+
+# Каждая монета витрины обязана иметь названный контур: молчаливое умолчание
+# здесь означает «примем деньги и не будем знать, чем платить».
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__))), "relay"))
+from core import assets as _AS  # noqa: E402
+_unknown = [c for c in _AS.CURRENCY_NETWORKS if P.payout_contour(c) == "unknown"]
+check(f"у всех монет реестра назван контур выплаты (без ответа: {_unknown})",
+      not _unknown)
+
 if failures:
     print(f"\n{len(failures)} провал(ов): {failures}")
     sys.exit(1)

@@ -1185,6 +1185,131 @@ def check_tag_shape_comes_from_the_registry():
                       f"тега додуман по одной валюте")
 
 
+# ─────────────────────────────────────────────────────────────────────
+# 33. Кошелёк написан, но админ его не видит
+# ─────────────────────────────────────────────────────────────────────
+# Реестр кошельков — единственное место, где владелец видит «сколько у нас
+# есть» по каждой сети. Модуль, не вписанный в него, работает вхолостую: код
+# есть, тесты зелёные, а на поверхности сети нет вовсе. Это ровно та болезнь,
+# от которой сторожит мина 10 (валюта с кошельком обязана быть на витрине),
+# только с другого конца — и она уже сбывалась: XRP пролежал так месяцами.
+#
+# Для TON цена особенно прямая: витрина монеты закрыта до `/setreserve TON N`,
+# а резерв владелец задаёт по факту остатка. Не видно баланса — резерв ставится
+# вслепую либо не ставится никогда, и вся работа по монете не доходит до денег.
+def check_wallet_modules_are_registered():
+    tag = "кошелёк вне реестра"
+    wallet_dir = os.path.join(ROOT, "relay", "wallet")
+    reg = _read(os.path.join(wallet_dir, "registry.py"))
+    if not reg:
+        fail(tag, "relay/wallet/registry.py не прочитан — проверка ослепла")
+        return
+    m = re.search(r"CHAINS\s*:[^=]*=\s*\[(.*?)\]", reg, re.S)
+    if not m:
+        fail(tag, "relay/wallet/registry.py: не найден список CHAINS — проверка ослепла")
+        return
+    listed = m.group(1)
+    # Адаптер зовёт свой модуль внутри функции, а в CHAINS стоит имя функции —
+    # поэтому ищем упоминание модуля в файле И его адаптер в самом списке.
+    for fn in sorted(os.listdir(wallet_dir)):
+        if not fn.endswith("_wallet.py"):
+            continue
+        mod = fn[:-3]
+        if f"import {mod}" not in reg and f"{mod} import" not in reg:
+            fail(tag, f"relay/wallet/{fn}: реестр кошельков про него не знает. "
+                      f"Баланс этой сети не увидит никто, и решение «открывать "
+                      f"ли монету клиентам» будет приниматься вслепую")
+            continue
+        chain = mod.replace("_wallet", "")
+        if not re.search(r"_%s\b" % re.escape(chain), listed) \
+                and f'"{chain.upper()}"' not in listed:
+            fail(tag, f"relay/wallet/{fn}: адаптер написан, но в список CHAINS "
+                      f"не добавлен — реестр его не обойдёт, поверхность пуста")
+    # Общего контракта имён у модулей нет (у TRON `tron_status`, у XRP
+    # `get_balance`) — реестр их адаптирует, и это нормально. Проверяем не
+    # имена, а существование того, что адаптер РЕАЛЬНО зовёт: опечатка или
+    # переименование в модуле иначе всплывёт только на живой админ-странице,
+    # где сеть покажет «balance:AttributeError» вместо остатка.
+    try:
+        tree = ast.parse(reg)
+    except SyntaxError:
+        fail(tag, "relay/wallet/registry.py не разбирается — проверка ослепла")
+        return
+    wanted = {}                      # модуль → {имена, которые из него зовут}
+    aliases = {}                     # локальное имя → модуль
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.ImportFrom):
+            continue
+        for al in node.names:
+            if node.module == "wallet" and al.name.endswith("_wallet"):
+                aliases[al.asname or al.name] = al.name
+            elif (node.module or "").startswith("wallet."):
+                wanted.setdefault(node.module.split(".", 1)[1], set()).add(al.name)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name) \
+                and node.value.id in aliases:
+            wanted.setdefault(aliases[node.value.id], set()).add(node.attr)
+    # Ненастроенная сеть обязана нести подсказку «чем это лечится»: пустая
+    # строка в панели /wallet превращает решение владельца в умолчание.
+    bot = _read(os.path.join(ROOT, "bot", "main_bot.py"))
+    hint = re.search(r"create_hint\s*=\s*\{(.*?)\n    \}", bot or "", re.S)
+    if not hint:
+        fail(tag, "bot/main_bot.py: не найдена карта create_hint — проверка ослепла")
+    else:
+        known = set(re.findall(r'"([A-Z]{2,6})"\s*:', hint.group(1)))
+        for chain in re.findall(r'"chain":\s*"([A-Z]{2,6})"', reg) + \
+                re.findall(r'_btc_like\("([A-Z]{2,6})"', reg):
+            if chain not in known:
+                fail(tag, f"bot/main_bot.py: в /wallet нет подсказки для {chain}. "
+                          f"Ненастроенная сеть покажется как «не создан» с пустой "
+                          f"строкой, и владелец не узнает, чем это включается")
+
+    # «Выдадим сами» — обещание, которое даётся владельцу в момент /setreserve,
+    # то есть ДО оплаты клиентом. Пока оно выводилось перечнем исключений
+    # («всё, кроме XRP, умеем»), каждая новая монета получала его молча.
+    # Решение обязано приходить из общей логики, где перечислены ВСЕ монеты.
+    if bot:
+        try:
+            btree = ast.parse(bot)
+        except SyntaxError:
+            btree = None
+        fn = next((n for n in ast.walk(btree or ast.Module(body=[], type_ignores=[]))
+                   if isinstance(n, ast.FunctionDef) and n.name == "_hot_wallet_state"), None)
+        if fn is None:
+            fail(tag, "bot/main_bot.py: нет _hot_wallet_state — проверка ослепла")
+        else:
+            body = ast.get_source_segment(bot, fn) or ""
+            if "payout_contour" not in body:
+                fail(tag, "bot/main_bot.py: _hot_wallet_state решает сама, не "
+                          "спрашивая payout_contour. Монета, которой движок не "
+                          "умеет, получит «выдадим сами», и узнается это после "
+                          "оплаты клиентом")
+            for node in ast.walk(fn):
+                # `if cur != "XXX": return True` — ровно та форма умолчания
+                if not (isinstance(node, ast.If) and isinstance(node.test, ast.Compare)
+                        and any(isinstance(o, (ast.NotEq, ast.NotIn)) for o in node.test.ops)):
+                    continue
+                for stmt in node.body:
+                    if isinstance(stmt, ast.Return) and "True" in (
+                            ast.get_source_segment(bot, stmt) or ""):
+                        fail(tag, f"bot/main_bot.py: стр. {node.lineno} — "
+                                  f"готовность выдать выводится из «валюта не "
+                                  f"такая-то». Это умолчание: следующая монета "
+                                  f"получит обещание автоматической выдачи молча")
+
+    for mod, names in sorted(wanted.items()):
+        src = _read(os.path.join(wallet_dir, mod + ".py"))
+        if not src:
+            fail(tag, f"registry.py импортирует wallet.{mod}, которого нет")
+            continue
+        for name in sorted(names):
+            if not re.search(r"^def %s\s*\(" % re.escape(name), src, re.M):
+                fail(tag, f"relay/wallet/registry.py зовёт {mod}.{name}(), "
+                          f"которой в модуле нет. Реестр покажет по этой сети "
+                          f"ошибку вместо остатка, и увидит её только владелец "
+                          f"на живой странице")
+
+
 def check_coin_lists_come_from_the_shopfront():
     tag = "текст отстал от витрины"
     bot = _read(os.path.join(ROOT, "bot", "main_bot.py"))
@@ -2005,6 +2130,7 @@ def main():
                check_failed_autopayout_reaches_a_human,
                check_tagged_currencies_use_the_dispatcher,
                check_tag_shape_comes_from_the_registry,
+               check_wallet_modules_are_registered,
                check_receipt_beats_the_timer,
                check_migrations_agree,
                check_debt_queue_is_visible,

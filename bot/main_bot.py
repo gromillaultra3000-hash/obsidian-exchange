@@ -1390,36 +1390,80 @@ _MANUAL_SEND_CLI = {
     "XRP": "/root/bot/venv/bin/python3 /root/relay/wallet/xrp_cli.py transfer {addr} {amount}",
 }
 
+# У части монет своего вольта нет вовсе (TON: контур только наблюдает). Команду
+# дать нечего, но молчать нельзя: сотрудник видит заявку и должен знать, откуда
+# берётся монета и что закрывать её надо через бота, иначе платит мимо системы
+# и заявка навсегда остаётся в 'paid'. Значение — человеческая инструкция.
+_MANUAL_SEND_NOTE = {
+    "TON": ("Отправьте со своего кошелька TON — своего вольта у сервиса нет. "
+            "Комментарий (memo) обязателен, если он указан выше: без него "
+            "биржа зачислит перевод на общий счёт."),
+}
 
-def _hot_wallet_state(currency):
+
+def _hot_wallet_state(currency, network=None):
     """(готов ли горячий кошелёк выдать монету, человеческая причина).
 
     Резерв (`/setreserve`) говорит о ЛИКВИДНОСТИ, а выдачу открывает другой
     выключатель — гейт выплат и созданный вольт. Разные действия: увидеть баланс
     и включить отправку. Пока об этом не сказано вслух, направление открывается
     раньше, чем появляется чем платить, и узнаётся это после оплаты клиентом.
+
+    Раньше здесь стоял перечень исключений («всё, кроме XRP, умеем»), и любая
+    новая монета получала обещание «выдадим сами» молча. Теперь контур
+    называет общая логика (wallet/payout_routing), а здесь проверяется только
+    готовность конкретного вольта.
     """
     cur = str(currency or "").upper()
-    if cur != "XRP":
-        return True, ""
     try:
         import sys as _s
         if RELAY_PATH not in _s.path:
             _s.path.insert(0, RELAY_PATH)
-        from wallet import xrp_wallet as _xw
-        if not _xw.payouts_enabled():
-            return False, "гейт XRP_PAYOUTS_ENABLED выключен"
-        if not _xw.status().get("configured"):
-            return False, "вольт XRP не создан (wallet/xrp_cli.py create|import)"
-        return True, ""
+        from wallet import payout_routing as _pr
+        contour = _pr.payout_contour(cur, network)
     except Exception as e:
-        return False, f"кошелёк XRP недоступен: {type(e).__name__}"
+        return False, f"логика выплат недоступна: {type(e).__name__}"
+
+    if contour == "manual":
+        return False, (f"автоматической выдачи {cur} нет — контур только "
+                       f"наблюдает за счётом, отправляет человек")
+    if contour == "unknown":
+        return False, (f"движок выплат про {cur} ничего не знает — монету не "
+                       f"внесли в payout_routing, выдача только вручную")
+    if contour == "xrp":
+        try:
+            from wallet import xrp_wallet as _xw
+            if not _xw.payouts_enabled():
+                return False, "гейт XRP_PAYOUTS_ENABLED выключен"
+            if not _xw.status().get("configured"):
+                return False, "вольт XRP не создан (wallet/xrp_cli.py create|import)"
+        except Exception as e:
+            return False, f"кошелёк XRP недоступен: {type(e).__name__}"
+        return True, ""
+    if contour == "evm":
+        try:
+            from wallet import evm_wallet as _ew
+            if not _pr.evm_payouts_enabled():
+                return False, "гейт EVM_PAYOUTS_ENABLED выключен"
+            if not _ew.status().get("configured"):
+                return False, "вольт EVM не создан (wallet/evm_cli.py create)"
+        except Exception as e:
+            return False, f"кошелёк EVM недоступен: {type(e).__name__}"
+        return True, ""
+    return True, ""
 
 
 def _manual_send_hint(currency, address, amount):
     """Строка «чем отправить» для карточки сотрудника или пустая строка."""
-    tpl = _MANUAL_SEND_CLI.get(str(currency or "").upper())
+    cur = str(currency or "").upper()
+    tpl = _MANUAL_SEND_CLI.get(cur)
     if not tpl:
+        note = _MANUAL_SEND_NOTE.get(cur)
+        if note:
+            return (f"\n🛠 <b>Выдача {cur} — вручную.</b> {note}\n"
+                    f"После отправки закройте заявку кнопкой ниже "
+                    f"(или <code>/force_payout ID TXID</code>) — иначе клиент "
+                    f"не получит уведомление, а заявка останется висеть.")
         return ""
     ready, why = _hot_wallet_state(currency)
     head = ("\n🛠 Отправить из горячего кошелька (адрес с тегом копируется целиком):"
@@ -5500,9 +5544,13 @@ async def _payout_preflight(oid):
     if currency not in PAYOUT_WALLETS and not _evm_payout_asset(currency, network):
         _how = ""
         if str(currency).upper() in _MANUAL_SEND_CLI:
-            _ready, _why = _hot_wallet_state(currency)
+            _ready, _why = _hot_wallet_state(currency, network)
             _how = (" (горячий кошелёк: wallet/xrp_cli.py transfer)" if _ready
                     else f" (горячий кошелёк тоже не отправит: {_why})")
+        elif str(currency).upper() in _MANUAL_SEND_NOTE:
+            # Вольта нет вовсе — причина обязана быть названа, иначе блокер
+            # выглядит как временный сбой, который «скоро починят».
+            _how = f" ({_hot_wallet_state(currency, network)[1]})"
         blockers.append(f"движок выплат не поддерживает {currency} — "
                         f"отправлять вручную{_how}")
     return info, blockers
@@ -6267,11 +6315,19 @@ async def cmd_wallet(message: Message):
         return
 
     # CLI создания/отправки по сетям
+    # Что делать, если сеть не настроена. Пустая подсказка = владелец видит
+    # «не создан» и не знает, чем это лечится, — сеть остаётся выключенной не
+    # по решению, а по умолчанию. Ключи в этой карте обязаны покрывать ВСЕ
+    # чейны реестра (мина «кошелёк вне реестра» это проверяет).
     create_hint = {
         "BTC": "python3 /root/relay/wallet/btc_cli.py import btc",
         "LTC": "python3 /root/relay/wallet/btc_cli.py import ltc",
         "TRON": "python3 /root/relay/wallet/cli.py create",
         "EVM": "python3 /root/relay/wallet/evm_cli.py create",
+        "XRP": "python3 /root/relay/wallet/xrp_cli.py import",
+        # У TON своего вольта нет: контур только наблюдает за счётом владельца,
+        # выдача ручная. «Создавать» здесь нечего — нужен адрес.
+        "TON": "TON_PAYOUT_ADDRESS=<адрес> в bot/.env (контур только просмотр)",
     }
     blocks = ["👛 <b>Горячие кошельки</b> (единый мультичейн-обзор, read-only)\n"]
     for r in rows:

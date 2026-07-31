@@ -38,3 +38,36 @@ def evm_payout_asset(currency, network=None):
     if c in ("USDT_ERC20", "USDT-ERC20", "USDTE"):
         return "USDT"
     return None  # 'USDT' без сети → не EVM (это Tron/воркер)
+
+
+# Каким контуром монета уходит САМА. Список нужен потому, что «выдадим
+# автоматически» — обещание, которое даётся владельцу в момент `/setreserve`,
+# то есть ДО того, как клиент заплатит. Пока решение принималось перечислением
+# исключений («всё кроме XRP умеем»), каждая новая монета получала это
+# обещание молча: TON движок не умеет вовсе, а панель резервов рапортовала бы
+# о полной готовности.
+_CONTOUR_BY_CURRENCY = {
+    "BTC": "btc",         # secure-контур btc_wallet
+    "LTC": "btc",
+    "USDT": "tron",       # TRC-20 — отдельный путь auto_check_usdt
+    "ETH": "evm",
+    "XRP": "xrp",         # под гейтом XRP_PAYOUTS_ENABLED
+    "TON": "manual",      # своего вольта нет: watch-only, выдаёт человек
+}
+
+
+def payout_contour(currency, network=None) -> str:
+    """Контур авто-выплаты: 'btc' | 'tron' | 'evm' | 'xrp' | 'manual' | 'unknown'.
+
+    'manual' — монета известна, и мы знаем, что автомата для неё нет.
+    'unknown' — монету забыли внести сюда; это НЕ синоним 'manual', потому что
+    молчаливое умолчание и есть тот дефект, от которого список защищает:
+    вызывающий обязан различать «решили выдавать руками» и «никто не решал».
+    """
+    c = (currency or "").strip().upper()
+    if evm_payout_asset(c, network):
+        return "evm"
+    n = (network or "").strip().upper()
+    if c == "USDT" and n and n not in ("TRC20", "TRON", "TRC-20"):
+        return "unknown"          # третья сеть USDT — решения по ней нет
+    return _CONTOUR_BY_CURRENCY.get(c, "unknown")

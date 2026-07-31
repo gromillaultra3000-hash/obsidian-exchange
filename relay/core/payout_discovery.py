@@ -428,11 +428,12 @@ def _incoming_ton(address: str, memo=None) -> list[dict]:
     Ключ toncenter необязателен, но без него сервис жёстко ограничивает частоту;
     TONCENTER_API_KEY задаётся владельцем, когда проходов станет много.
     """
-    base = os.getenv("TON_API_URL", "https://toncenter.com/api/v2/getTransactions")
-    params = {"address": address, "limit": 50, "archival": "true"}
-    key = os.getenv("TONCENTER_API_KEY", "").strip()
-    if key:
-        params["api_key"] = key
+    # Адрес сервиса и ключ — из модуля кошелька TON, одной точкой на проект:
+    # разойдясь, сверка смотрела бы один узел, а баланс другой, и это две
+    # разные правды об одном счёте.
+    from wallet import ton_wallet as _tw
+    base = _tw.api_url("getTransactions")
+    params = _tw.api_params({"address": address, "limit": 50, "archival": "true"})
     try:
         data = _get_json(base, params) or {}
         rows = data.get("result") or []

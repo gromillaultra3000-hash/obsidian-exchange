@@ -74,10 +74,24 @@ try:
 finally:
     R.CHAINS = _orig
 
-# реальные адаптеры зарегистрированы и в правильном порядке
+# Реальные адаптеры зарегистрированы. Список НЕ перечисляем руками: он уже
+# отставал — новая сеть добавлялась в каталог, а проверка «сети на месте»
+# оставалась зелёной, не зная о ней. Ожидание собираем из самих модулей.
 names = R.chains()
-check("реальные сети зарегистрированы: BTC/LTC/TRON/EVM/XRP",
-      names == ["BTC", "LTC", "TRON", "EVM", "XRP"])
+wallet_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                          "relay", "wallet")
+expected = set()
+for fn in os.listdir(wallet_dir):
+    if not fn.endswith("_wallet.py"):
+        continue
+    chain = fn[:-len("_wallet.py")].upper()
+    # btc_wallet обслуживает две монеты одним контуром — единственное исключение,
+    # и оно названо здесь явно, а не растворено в списке.
+    expected |= {"BTC", "LTC"} if chain == "BTC" else {chain}
+check(f"каждая сеть с модулем кошелька зарегистрирована (нет: "
+      f"{sorted(expected - set(names))})", expected <= set(names))
+check("порядок вывода начинается с основных сетей",
+      names[:2] == ["BTC", "LTC"])
 
 if failures:
     print(f"\n{len(failures)} провал(ов): {failures}")
