@@ -1259,6 +1259,33 @@ def _tag_name(currency):
         return None
 
 
+def _tag_kind(currency):
+    """'number' | 'text' | None — какого вида значение ждать в поле тега."""
+    try:
+        from core import assets as _assets
+        return _assets.tag_kind(currency)
+    except Exception:
+        return None
+
+
+def _tag_separator(currency):
+    """Чем клиент отделяет тег от адреса в одной строке, или None."""
+    try:
+        from core import assets as _assets
+        return _assets.tag_separator(currency)
+    except Exception:
+        return None
+
+
+def _tag_error_text(currency, code):
+    """Текст отказа по тегу — общий с сайтом и Mini App."""
+    try:
+        from core import assets as _assets
+        return _assets.tag_error_text(currency, code)
+    except Exception:
+        return "Тег не принят. Проверьте значение в кошельке."
+
+
 def _address_carries_tag(currency, address):
     """Тег уже зашит в сам адрес (X-адрес XRPL) — спрашивать нечего."""
     try:
@@ -1284,19 +1311,19 @@ def _canonical_address(currency, address, tag=None, network=None):
         return None
 
 
-def _parse_tag_input(raw):
-    """Тег из недоверенного ввода → int или None. Только целое без пробелов и
-    знаков: «12 345» и «tag: 42» НЕ чистим догадками — неверно распознанный тег
-    отправит деньги на чужой счёт биржи. Не разобрали → None (тега нет), и
-    вызывающий сам решает, годится ли это."""
-    if raw is None:
+def _parse_tag_input(raw, currency=None):
+    """Тег из недоверенного ввода в типе ЭТОЙ валюты, или None.
+
+    Тип разный: у XRP целое, у TON текст. Собственный разбор здесь означал бы
+    «числом» для всех — и правильный memo TON отвергался бы как не-число.
+    Не разобрали → None (тега нет), вызывающий сам решает, годится ли это."""
+    try:
+        from core.address import parse_tag_input
+        value, _err = parse_tag_input(raw, currency)
+        return value
+    except Exception:
+        logger.exception("core.address недоступен при разборе тега")
         return None
-    if isinstance(raw, bool):
-        return None
-    if isinstance(raw, int):
-        return raw if 0 <= raw <= 0xFFFFFFFF else None
-    s = str(raw).strip()
-    return int(s) if s.isdigit() and int(s) <= 0xFFFFFFFF else None
 
 
 def _split_destination(currency, address):
@@ -3284,10 +3311,15 @@ async def process_address(message: Message, state: FSMContext):
     if tag_label and not _address_carries_tag(currency, address):
         await state.update_data(pending_address=address)
         await state.set_state(Exchange.dest_tag)
+        # «Число» верно для XRP и неверно для TON, где memo — текст. Вид
+        # значения спрашиваем у реестра: иначе подсказка врёт про монету, и
+        # клиент правильный memo даже не попробует ввести.
+        _kind_hint = ("число" if _tag_kind(currency) == "number"
+                      else "короткий текст")
         await message.answer(
             f"✅ Адрес принят.\n\n"
-            f"🏷 Теперь пришлите <b>{tag_label}</b> — число, которое ваш кошелёк или "
-            f"биржа показывают рядом с адресом.\n\n"
+            f"🏷 Теперь пришлите <b>{tag_label}</b> — {_kind_hint}, который ваш кошелёк "
+            f"или биржа показывают рядом с адресом.\n\n"
             f"<blockquote>Если получатель — <b>биржа</b> (Binance, Bybit, OKX и т.п.), "
             f"тег обязателен: без него {currency} попадёт на общий счёт биржи и "
             f"вам не зачислится.\n"
@@ -3316,27 +3348,34 @@ async def process_dest_tag(message: Message, state: FSMContext):
         await state.clear()
         return
 
-    # Только целое число. «12 345», «tag: 42» и прочее НЕ вычищаем догадками:
+    # Вид значения зависит от валюты: у XRP целое, у TON текст. Догадками
+    # ввод не чистим ни у одной — «12 345» и «tag: 42» это отказ, а не тег:
     # неверно распознанный тег отправит деньги на чужой счёт биржи.
-    if not raw.isdigit():
+    try:
+        from core.address import parse_tag_input as _parse_tag
+        value, err = _parse_tag(raw, currency)
+    except Exception:
+        logger.exception("core.address недоступен при разборе тега")
+        value, err = None, "bad_number"
+    if err or value is None:
         await message.answer(
-            f"❌ <b>{tag_label.capitalize()} должен быть целым числом</b> "
-            f"(например <code>12345</code>), без пробелов и знаков.\n\n"
-            f"Если тега нет — нажмите кнопку под предыдущим сообщением.",
+            f"❌ {_tag_error_text(currency, err or 'bad_number')}\n\n"
+            f"Если {tag_label}а нет — нажмите кнопку под предыдущим сообщением.",
             parse_mode="HTML")
         return
 
-    canonical = _canonical_address(currency, address, int(raw))
+    canonical = _canonical_address(currency, address, value)
     if canonical is None:
         await message.answer(
-            f"❌ <b>{tag_label.capitalize()} не принят.</b> Допустимы значения "
-            f"от 0 до 4294967295.\n\nПроверьте значение в кошельке и пришлите ещё раз.",
+            f"❌ <b>{tag_label.capitalize()} не принят.</b>\n"
+            f"{_tag_error_text(currency, err or ('bad_number' if _tag_kind(currency) == 'number' else 'bad_text'))}\n\n"
+            f"Проверьте значение в кошельке и пришлите ещё раз.",
             parse_mode="HTML")
         return
 
     await state.update_data(pending_address=None)
     await _finalize_order(message, state, currency, data.get("network"), canonical,
-                          shown_tag=int(raw))
+                          shown_tag=value)
 
 
 @router.callback_query(F.data == "dest_tag_none", Exchange.dest_tag)
@@ -7249,15 +7288,19 @@ async def gift_enter_recipient_address(message: Message, state: FSMContext):
     amt  = data["redeem_amount"]
     # У монет с тегом принимаем «адрес:тег» одним сообщением — отдельного шага
     # в выкупе нет. X-адрес несёт тег сам, его не трогаем.
+    # Разделитель берём у валюты: у XRP это ':', у TON '#'. Общего быть не
+    # может — сырой адрес TON сам выглядит как `workchain:hex64`, и разрез по
+    # двоеточию превратил бы правильный адрес в «адрес 0» и «тег из hex».
     _tag = None
-    if _tag_name(cur) and ":" in addr and not _address_carries_tag(cur, addr):
-        addr, _, _tag_raw = addr.rpartition(":")
+    _sep = _tag_separator(cur)
+    if _tag_name(cur) and _sep and _sep in addr and not _address_carries_tag(cur, addr):
+        addr, _, _tag_raw = addr.rpartition(_sep)
         addr = addr.strip()
-        _tag = _parse_tag_input(_tag_raw)
+        _tag = _parse_tag_input(_tag_raw, cur)
         if _tag is None:
             await message.answer(
-                f"❌ {_tag_name(cur).capitalize()} после двоеточия — целое число без пробелов. "
-                f"Пример: <code>rAdres…:12345</code>", parse_mode="HTML")
+                f"❌ {_tag_error_text(cur, 'bad_number' if _tag_kind(cur) == 'number' else 'bad_text')}\n\n"
+                f"Пишите одной строкой: <code>адрес{_sep}тег</code>", parse_mode="HTML")
             return
     if not validate_crypto_address(addr, cur):
         await message.answer(f"❌ Неверный {cur}-адрес. Проверьте и введите снова.")
@@ -8486,16 +8529,18 @@ async def handle_webapp(message: Message, state: FSMContext):
         _raw_tag = data.get('dest_tag')
         _said_no_tag = str(data.get('no_tag') or "").strip().lower() in ("1", "true", "on", "yes")
         _tag_given = str("" if _raw_tag is None else _raw_tag).strip() != ""
-        _tag = _parse_tag_input(_raw_tag)
+        _tag = _parse_tag_input(_raw_tag, currency)
         # Непустой, но неразобранный тег — это НЕ «тега нет». Уронив его в None,
         # мы собрали бы классический адрес без тега: сеть перевод подтвердит, а
         # биржа зачислит его на общий счёт, и вернуть будет нечем. Клиент при
         # этом уверен, что тег указал.
         if _tag_given and _tag is None:
+            # Требование к значению — своё у каждой валюты (у TON memo текстовый),
+            # поэтому текст отказа берём из реестра, а не пишем «целое число» всем.
             await message.answer(
-                f"❌ {_tag_name(currency).capitalize()} — целое число без пробелов "
-                f"(0…4294967295). Оформите заявку через меню бота — там он "
-                f"запрашивается отдельным шагом, с кнопкой «тега нет».")
+                f"❌ {_tag_error_text(currency, 'bad_number' if _tag_kind(currency) == 'number' else 'bad_text')} "
+                f"Оформите заявку через меню бота — там он запрашивается "
+                f"отдельным шагом, с кнопкой «тега нет».")
             return
         if not _tag_given and not _said_no_tag \
                 and not _address_carries_tag(currency, address):

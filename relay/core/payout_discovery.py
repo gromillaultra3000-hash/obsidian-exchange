@@ -502,18 +502,14 @@ def incoming_transfers(currency: str, address: str, network=None) -> list[dict]:
 
 
 def _ton_hash_hex(value: str) -> str:
-    """Хеш транзакции TON в hex64. base64 (как отдаёт toncenter) переводим."""
-    s = str(value or "").strip()
-    if not s:
-        return ""
-    if len(s) == 64 and all(c in "0123456789abcdefABCDEF" for c in s):
-        return s.lower()
-    try:
-        import base64
-        raw = base64.b64decode(s + "=" * (-len(s) % 4), validate=False)
-        return raw.hex() if len(raw) == 32 else ""
-    except Exception:
-        return ""
+    """Хеш транзакции TON в общей для проекта форме («» — не хеш).
+
+    Своего приведения здесь нет намеренно: правило одно на весь проект и живёт
+    в core.txid. Копия разошлась бы с проверкой is_txid, и сверка признавала бы
+    выплату, ссылку на которую бот показать отказывается.
+    """
+    from core.txid import normalize_txid
+    return normalize_txid(value, "TON") or ""
 
 
 def _ton_destination(address: str):

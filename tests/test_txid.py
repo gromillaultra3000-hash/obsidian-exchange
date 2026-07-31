@@ -49,6 +49,40 @@ check("None — НЕ txid", T.is_txid(None) is False)
 check("короткий хеш — НЕ txid", T.is_txid("a" * 63) is False)
 check("не строка — НЕ txid без исключения", T.is_txid(12345) is False)
 
+# ── Форма хеша — свойство сети ──────────────────────────────────────────────
+# У TON один и тот же хеш ходит в hex64 и в base64 (44 символа): так его отдаёт
+# toncenter и так его показывает кошелёк. TON выдаётся ВРУЧНУЮ — владелец
+# копирует хеш из кошелька, и hex-only проверка отвергла бы настоящую выплату,
+# оставив клиента без ссылки-доказательства.
+import base64 as _b64  # noqa: E402
+
+TON_RAW = bytes(range(32))
+TON_B64 = _b64.b64encode(TON_RAW).decode()          # 44 символа, с '='
+TON_B64URL = _b64.urlsafe_b64encode(TON_RAW).decode().rstrip("=")
+check("base64-хеш TON — txid", T.is_txid(TON_B64, "TON"))
+check("base64url без выравнивания — тоже txid", T.is_txid(TON_B64URL, "TON"))
+check("hex-хеш TON — по-прежнему txid", T.is_txid(HEX, "TON"))
+check("base64-хеш приводится к hex", T.normalize_txid(TON_B64, "TON") == TON_RAW.hex())
+check("обе формы дают ОДИН результат",
+      T.normalize_txid(TON_B64, "TON") == T.normalize_txid(TON_B64URL, "TON"))
+check("ссылка TON строится от hex-формы",
+      T.explorer_url("TON", TON_B64) == f"https://tonviewer.com/transaction/{TON_RAW.hex()}")
+# Послабление не должно расползтись: у BTC 44-символьная строка — не хеш, а
+# что угодно, и признать её доказательством отправки нельзя.
+check("base64 у BTC — НЕ txid", T.is_txid(TON_B64, "BTC") is False)
+check("base64 без валюты — НЕ txid", T.is_txid(TON_B64) is False)
+check("ссылка BTC по base64 не строится", T.explorer_url("BTC", TON_B64) is None)
+check("base64 неверной длины — НЕ txid",
+      T.is_txid(_b64.b64encode(b"x" * 20).decode(), "TON") is False)
+check("мусор, похожий на base64 — НЕ txid", T.is_txid("не хеш совсем", "TON") is False)
+
+# Сверка и показ клиенту обязаны сходиться в одном приведении: если у сверки
+# своя копия правила, она признает выплату, ссылку на которую бот не покажет.
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "relay"))
+from core import payout_discovery as _pd  # noqa: E402
+check("сверка приводит хеш тем же правилом, что и показ",
+      _pd._ton_hash_hex(TON_B64) == T.normalize_txid(TON_B64, "TON") != "")
+
 # ── explorer_url: валюта И сеть ─────────────────────────────────────────────
 check("BTC → mempool.space", T.explorer_url("BTC", HEX) == f"https://mempool.space/tx/{HEX}")
 check("LTC → blockchair", starts(T.explorer_url("LTC", HEX), "https://blockchair.com/litecoin/"))

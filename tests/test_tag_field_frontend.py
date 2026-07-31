@@ -53,8 +53,11 @@ def extract_function(src, name):
 DOM_STUB = r"""
 // Заглушка DOM: ровно то, чем пользуются проверяемые функции.
 function mkEl(id) {
+  const attrs = {};
   return { id: id, value: '', textContent: '', innerHTML: '', checked: false,
-           style: { display: '' } };
+           style: { display: '' },
+           setAttribute: (k, v) => { attrs[k] = v; },
+           getAttribute: (k) => (k in attrs ? attrs[k] : null) };
 }
 const _els = {};
 for (const id of ['currency','address','dest_tag','tag-group','tag-label','tag-hint',
@@ -86,17 +89,30 @@ if not shutil.which("node"):
 
 X_ADDR = "X7TYt4nPauxSispXtYbecsfAHuA4ciuXLfdxguAicta1ViD"
 CLASSIC = "rrpDp2dLMs7KyhZhg5RbReRagjWuvH7qB"
-OFFERINGS = json.dumps([
-    {"code": "BTC", "tag_name": ""},
-    {"code": "USDT", "tag_name": ""},
-    {"code": "XRP", "tag_name": "destination tag"},
-])
+TON_ADDR = "UQAs9VlT6S9pyC_dpJv0Xh0Cq6HxvMSjTX0aKGl_j8V5MjSf"
+
+# Витрину собираем ИЗ РЕЕСТРА, а не руками: у тега два свойства (вид значения и
+# разделитель внутри адреса), и вписанная сюда копия отстала бы от реестра на
+# следующей валюте — тест бы позеленел на разошедшемся фронте.
+sys.path.insert(0, os.path.join(ROOT, "relay"))
+from core import assets as ASSETS  # noqa: E402
+
+
+def offering(code):
+    return {"code": code,
+            "tag_name": ASSETS.TAGGED_CURRENCIES.get(code, ""),
+            "tag_kind": ASSETS.tag_kind(code) or "",
+            "tag_sep": ASSETS.tag_separator(code) or ""}
+
+
+OFFERINGS = json.dumps([offering(c) for c in ("BTC", "USDT", "XRP", "TON")])
 
 # ── Сайт: /dashboard/exchange ───────────────────────────────────────────────
 site_src = open(os.path.join(ROOT, "relay-fastapi/templates/dashboard_exchange.html"),
                 encoding="utf-8").read()
 site_body = "const OFFERINGS = %s;\n" % OFFERINGS + "\n".join(
-    extract_function(site_src, n) for n in ("currentTagName", "addressCarriesTag", "onAddressChange"))
+    extract_function(site_src, n)
+    for n in ("currentOffering", "currentTagName", "addressCarriesTag", "onAddressChange"))
 
 res = run_js(site_body, """
 _els['currency'].value = 'XRP';
@@ -135,7 +151,8 @@ check("сайт: X-адрес стирает ранее введённый те�
 # ── Mini App: relay/webapp.html ─────────────────────────────────────────────
 app_src = open(os.path.join(ROOT, "relay/webapp.html"), encoding="utf-8").read()
 app_body = "\n".join(
-    extract_function(app_src, n) for n in ("currentTagName", "addressCarriesTag", "updateTagField"))
+    extract_function(app_src, n)
+    for n in ("currentOffering", "currentTagName", "addressCarriesTag", "updateTagField"))
 
 # В Mini App витрина лежит в window.__oeOfferings, а в тело запроса тег попадает
 # через проверку видимости. Выражение НЕ переписываем сюда руками: копия жила
@@ -233,6 +250,68 @@ console.log(JSON.stringify({ beforeX: beforeX, afterX: _els['no_tag'].checked })
 
 check("сайт: галочка «тега нет» держится на classic-адресе", res["beforeX"] is True)
 check("сайт: X-адрес снимает галочку (тег уже внутри адреса)", res["afterX"] is False)
+
+
+# ── Вид тега: числовая клавиатура на текстовом memo = набрать нельзя ────────
+# У XRP тег числовой, у TON memo — произвольный текст. Клавиатура и пример
+# должны приходить из витрины (tag_kind), иначе клиент TON с телефона получит
+# цифровую панель и правильный memo просто не наберёт.
+res = run_js(site_body, """
+_els['currency'].value = 'XRP';
+_els['address'].value = %s;
+onAddressChange();
+const xrpMode = _els['dest_tag'].getAttribute('inputmode');
+_els['currency'].value = 'TON';
+_els['address'].value = %s;
+onAddressChange();
+console.log(JSON.stringify({ xrpMode: xrpMode,
+  tonMode: _els['dest_tag'].getAttribute('inputmode'),
+  tonShown: _els['tag-group'].style.display !== 'none',
+  tonPlaceholder: _els['dest_tag'].getAttribute('placeholder') }));
+""" % (json.dumps(CLASSIC), json.dumps(TON_ADDR)))
+
+check("сайт: у XRP клавиатура числовая", res["xrpMode"] == "numeric")
+check("сайт: у TON клавиатура текстовая", res["tonMode"] == "text")
+check("сайт: у TON поле memo показано", res["tonShown"])
+check("сайт: пример у TON не числовой", "12345" not in (res["tonPlaceholder"] or ""))
+
+# Разделитель тега внутри адреса — тоже свойство валюты: у TON это «#», а
+# двоеточие живёт в его СЫРОМ адресе (`0:hex64`) как часть адреса. Прибитый
+# разделитель `:` разрезал бы такой адрес пополам.
+res = run_js(site_body, """
+_els['currency'].value = 'TON';
+_els['address'].value = '0:' + 'a'.repeat(64);
+onAddressChange();
+const rawShown = _els['tag-group'].style.display !== 'none';
+_els['address'].value = %s + '#order-42';
+onAddressChange();
+console.log(JSON.stringify({ rawShown: rawShown,
+  gluedHidden: _els['tag-group'].style.display === 'none' }));
+""" % json.dumps(TON_ADDR))
+
+check("сайт: сырой TON-адрес `0:hex` не принят за «тег внутри адреса»", res["rawShown"])
+check("сайт: склейка «адрес#memo» прячет поле тега", res["gluedHidden"])
+
+res = run_js("window.__oeOfferings = %s;\n" % OFFERINGS + app_body, """
+_els['currency'].value = 'XRP';
+_els['address'].value = %s;
+updateTagField();
+const xrpMode = _els['dest_tag'].getAttribute('inputmode');
+_els['currency'].value = 'TON';
+_els['address'].value = '0:' + 'a'.repeat(64);
+updateTagField();
+const rawShown = _els['tag-group'].style.display !== 'none';
+const tonMode = _els['dest_tag'].getAttribute('inputmode');
+_els['address'].value = %s + '#order-42';
+updateTagField();
+console.log(JSON.stringify({ xrpMode: xrpMode, tonMode: tonMode, rawShown: rawShown,
+  gluedHidden: _els['tag-group'].style.display === 'none' }));
+""" % (json.dumps(CLASSIC), json.dumps(TON_ADDR)))
+
+check("Mini App: у XRP клавиатура числовая", res["xrpMode"] == "numeric")
+check("Mini App: у TON клавиатура текстовая", res["tonMode"] == "text")
+check("Mini App: сырой TON-адрес `0:hex` не принят за «тег внутри адреса»", res["rawShown"])
+check("Mini App: склейка «адрес#memo» прячет поле тега", res["gluedHidden"])
 
 
 # ── Логика привязана к вводу адреса, а не только существует ─────────────────

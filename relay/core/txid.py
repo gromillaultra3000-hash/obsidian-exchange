@@ -10,24 +10,52 @@
 доказательство отправки, но ничего не доказывает.
 """
 from __future__ import annotations
+import base64
 import re
 
 # BTC/LTC — 64 hex. TRON — 64 hex. ETH-совместимые — 0x + 64 hex.
 _HEX64 = re.compile(r"^(0x)?[0-9a-fA-F]{64}$")
 # Служебные пометки, которые txid НЕ являются
 _MARKERS = {"manual", "manual-reconciled-20260719", "pending", "none", "null", "-", ""}
+# Сети, где тот же хеш ходит ещё и в base64 (toncenter, кошельки TON).
+_BASE64_HASH_CURRENCIES = {"TON"}
 
 
-def is_txid(value) -> bool:
-    """True — только для настоящего хеша транзакции."""
+def normalize_txid(value, currency=None) -> str | None:
+    """Хеш транзакции в канонической для проекта форме, или None.
+
+    Форма записи хеша — свойство сети, а не универсальная константа. У TON
+    один и тот же хеш ходит в двух видах: hex64 и base64 (44 символа, так его
+    отдаёт toncenter и так его показывает кошелёк клиента). Приведение живёт
+    здесь, а не у вызывающего: TON выдаётся вручную, владелец копирует хеш из
+    кошелька, и без общего приведения он получил бы отказ «это не хеш» на
+    настоящей выплате, а клиент — заявку без ссылки-доказательства.
+    """
     if value is None:
-        return False
+        return None
     s = str(value).strip()
     if not s or s.lower() in _MARKERS:
-        return False
+        return None
     if s.lower().startswith(("http://", "https://")):
-        return False          # ссылка на оплату, а не транзакция
-    return bool(_HEX64.match(s))
+        return None          # ссылка на оплату, а не транзакция
+    if _HEX64.match(s):
+        return s
+    # base64 принимаем ТОЛЬКО там, где сеть его действительно использует:
+    # для BTC случайная 44-символьная строка иначе сошла бы за доказательство.
+    if str(currency or "").strip().upper() in _BASE64_HASH_CURRENCIES:
+        try:
+            raw = base64.b64decode(s.replace("-", "+").replace("_", "/")
+                                   + "=" * (-len(s) % 4), validate=False)
+        except Exception:
+            return None
+        if len(raw) == 32:
+            return raw.hex()
+    return None
+
+
+def is_txid(value, currency=None) -> bool:
+    """True — только для настоящего хеша транзакции."""
+    return normalize_txid(value, currency) is not None
 
 
 def explorer_url(currency, tx, network=None) -> str | None:
@@ -37,14 +65,15 @@ def explorer_url(currency, tx, network=None) -> str | None:
     Ethereum (etherscan). Без сети берём каноническую для валюты (USDT→TRC-20),
     иначе ERC-20-выплата вела бы клиента в tronscan, где её нет.
     """
-    if not is_txid(tx):
-        return None
     cur = (currency or "BTC").upper()
+    canon = normalize_txid(tx, cur)
+    if canon is None:
+        return None
     net = str(network or "").strip().upper().replace("-", "")
     if cur in ("USDT", "ETH") and net in ("ERC20", "ETH", "ETHEREUM", "EVM"):
         cur = "ETH"
     base = _EXPLORERS.get(cur)
-    return f"{base}{str(tx).strip()}" if base else None
+    return f"{base}{canon}" if base else None
 
 
 # Куда ведёт ссылка на транзакцию. Одно место на весь проект: раньше карта была
@@ -58,8 +87,8 @@ _EXPLORERS = {
     "TRX": "https://tronscan.org/#/transaction/",
     "ETH": "https://etherscan.io/tx/",
     "XRP": "https://xrpscan.com/tx/",
-    # tonviewer принимает хеш транзакции в том же виде, в каком его
-    # отдаёт toncenter (base64), — отдельного преобразования не нужно.
+    # В ссылку идёт hex-форма: base64 из toncenter и из кошелька клиента
+    # приводит к ней normalize_txid, чтобы форма была одна на весь проект.
     "TON": "https://tonviewer.com/transaction/",
 }
 

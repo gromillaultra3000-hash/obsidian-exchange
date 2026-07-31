@@ -320,7 +320,10 @@
                  если адрес уже несёт тег внутри себя (X-формат XRPL). -->
             <div class="input-group" id="tag-group" style="display:none">
                 <label id="tag-label">Тег назначения</label>
-                <input type="text" id="dest_tag" inputmode="numeric"
+                <!-- inputmode и пример ставит JS по tag_kind из витрины: у XRP
+                 значение числовое, у TON memo — текст, и цифровая клавиатура
+                 не дала бы набрать его с телефона. -->
+            <input type="text" id="dest_tag"
                        placeholder="Например 12345">
                 <div style="margin-top:6px;font-size:11px;color:#f0a" id="tag-hint"></div>
                 <!-- Пустое поле тега — не согласие: перевод на биржевой адрес без
@@ -724,16 +727,25 @@
         // Нужен ли тег — решает сервер (assets.TAGGED_CURRENCIES), значение
         // приходит в витрине как tag_name. Списка монет здесь нет намеренно:
         // он разошёлся бы с реестром на следующей валюте с тегом.
-        function currentTagName() {
+        function currentOffering() {
             const cur = document.getElementById('currency').value;
-            const o = (window.__oeOfferings || []).find(x => x.code === cur);
+            return (window.__oeOfferings || []).find(x => x.code === cur);
+        }
+
+        function currentTagName() {
+            const o = currentOffering();
             return (o && o.tag_name) ? o.tag_name : '';
         }
 
-        // X-адрес XRPL несёт тег в себе. Это подсказка интерфейса — решение
-        // всё равно принимает сервер (_resolve_destination).
-        function addressCarriesTag(addr) {
-            return /^X[1-9A-HJ-NP-Za-km-z]{40,50}$/.test((addr || '').trim());
+        // Тег внутри самого адреса выглядит по-разному: у XRP это X-формат,
+        // у TON — склейка «адрес#memo». Разделитель приходит из витрины:
+        // своего списка монет здесь быть не должно, он отстанет на следующей.
+        // Это подсказка интерфейса — решение принимает сервер.
+        function addressCarriesTag(addr, o) {
+            const s = (addr || '').trim();
+            if (!s) return false;
+            if (o && o.tag_sep && s.includes(o.tag_sep)) return true;
+            return /^X[1-9A-HJ-NP-Za-km-z]{40,50}$/.test(s);
         }
 
         function updateTagField() {
@@ -748,7 +760,16 @@
             const nt = document.getElementById('no_tag');
             if (!tagName) { grp.style.display = 'none'; if (input) input.value = '';
                             if (nt) nt.checked = false; return; }
-            const carries = addressCarriesTag(document.getElementById('address').value);
+            const off = currentOffering();
+            const carries = addressCarriesTag(document.getElementById('address').value, off);
+            // Клавиатура и пример — по виду значения из витрины. Числовая
+            // клавиатура на текстовом memo означала бы, что клиент с телефона
+            // правильное значение просто не наберёт.
+            const isText = off && off.tag_kind === 'text';
+            if (input) {
+                input.setAttribute('inputmode', isText ? 'text' : 'numeric');
+                input.setAttribute('placeholder', isText ? 'Например order-42' : 'Например 12345');
+            }
             grp.style.display = carries ? 'none' : '';
             if (carries) { if (input) input.value = ''; if (nt) nt.checked = false; }
             // Тег и «тега нет» — взаимоисключающие ответы.
@@ -775,7 +796,8 @@
             const ph  = { BTC: 'bc1... или 1... или 3...', LTC: 'L... или M... или ltc1...',
                           USDT: net === 'ERC20' ? '0x... (ERC-20 / Ethereum)' : 'T... (TRC20 / Tron)',
                           ETH: '0x... (ERC-20 / Ethereum)',
-                          XRP: 'r... или X... (X-адрес уже содержит тег)' };
+                          XRP: 'r... или X... (X-адрес уже содержит тег)',
+                          TON: 'EQ... / UQ... или 0:... (можно адрес#memo)' };
             const addrInput = document.getElementById('address');
             addrInput.placeholder = ph[cur] || 'Введите адрес кошелька';
             const saved = localStorage.getItem('lastAddress_' + cur + '_' + net);
@@ -1360,6 +1382,11 @@
                 ETH:  EVM,
                 // XRPL: classic r… и X-адрес (несёт тег). Алфавит свой.
                 XRP:  /^(r[rpshnaf39wBUDNEGHJKLM4PQRST7VWXYZ2bcdeCg65jkm8oFqi1tuvAxyz]{24,34}|X[rpshnaf39wBUDNEGHJKLM4PQRST7VWXYZ2bcdeCg65jkm8oFqi1tuvAxyz]{40,50})$/,
+                // TON: дружественная форма (48 символов base64url) и сырая
+                // (workchain:hex64), обе — с необязательной склейкой «#memo».
+                // Контрольную сумму здесь не считаем: это подсказка ввода,
+                // проверяет сервер (core.address.is_valid_ton).
+                TON:  /^(?:[A-Za-z0-9+/_-]{48}|-?\d+:[0-9a-fA-F]{64})(?:#[^\r\n]{0,127})?$/,
             };
             // Монеты нет в таблице — молчим, а НЕ проверяем шаблоном биткойна.
             // Прежний фолбэк `|| patterns.BTC` красил валидный адрес новой

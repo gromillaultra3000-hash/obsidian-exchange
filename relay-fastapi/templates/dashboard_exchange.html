@@ -50,7 +50,10 @@
            клиент задал бы второе, противоречащее значение. #}
         <div class="input-group" id="tag-group" style="display:none">
             <label id="tag-label">Тег назначения</label>
-            <input type="text" id="dest_tag" name="dest_tag" inputmode="numeric"
+            {# inputmode и подсказку ставит JS по tag_kind из витрины: у XRP
+               значение числовое, у TON memo — текст. Прибитая сюда цифровая
+               клавиатура не дала бы набрать правильный memo с телефона. #}
+            <input type="text" id="dest_tag" name="dest_tag"
                    placeholder="Например 12345"
                    value="{{ form.dest_tag if form and form.dest_tag else '' }}">
             <p style="margin-top:6px;font-size:12px;opacity:.7" id="tag-hint"></p>
@@ -96,15 +99,24 @@ const PREV_NETWORK = {{ (form.network if form and form.network else '')|tojson }
 // Тег назначения: нужен ли он — решает сервер (assets.TAGGED_CURRENCIES),
 // поле tag_name приходит в OFFERINGS. Списка монет здесь намеренно НЕТ: он
 // разошёлся бы с реестром на следующей валюте с тегом.
+function currentOffering() {
+    return OFFERINGS.find(x => x.code === document.getElementById('currency').value);
+}
+
 function currentTagName() {
-    const o = OFFERINGS.find(x => x.code === document.getElementById('currency').value);
+    const o = currentOffering();
     return (o && o.tag_name) ? o.tag_name : '';
 }
 
-// X-адрес XRPL несёт тег внутри себя. Признак — первая буква X и длина;
-// это лишь подсказка интерфейса, решение всё равно принимает сервер.
-function addressCarriesTag(addr) {
-    return /^X[1-9A-HJ-NP-Za-km-z]{40,50}$/.test((addr || '').trim());
+// Тег внутри самого адреса выглядит по-разному: у XRP это X-формат, у TON —
+// склейка «адрес#memo». Разделитель приходит из витрины, потому что своего
+// списка монет здесь быть не должно: он отстанет на следующей валюте.
+// Это лишь подсказка интерфейса, решение всё равно принимает сервер.
+function addressCarriesTag(addr, o) {
+    const s = (addr || '').trim();
+    if (!s) return false;
+    if (o && o.tag_sep && s.includes(o.tag_sep)) return true;
+    return /^X[1-9A-HJ-NP-Za-km-z]{40,50}$/.test(s);
 }
 
 function onAddressChange() {
@@ -116,7 +128,13 @@ function onAddressChange() {
     // «для этой валюты тег не используется» на исправной заявке.
     const nt = document.getElementById('no_tag');
     if (!tagName) { grp.style.display = 'none'; input.value = ''; if (nt) nt.checked = false; return; }
-    const carries = addressCarriesTag(document.getElementById('address').value);
+    const off = currentOffering();
+    const carries = addressCarriesTag(document.getElementById('address').value, off);
+    // Клавиатура и пример — по виду значения из витрины. Числовая клавиатура
+    // на текстовом memo означала бы, что клиент с телефона его не наберёт.
+    const isText = off && off.tag_kind === 'text';
+    input.setAttribute('inputmode', isText ? 'text' : 'numeric');
+    input.setAttribute('placeholder', isText ? 'Например order-42' : 'Например 12345');
     grp.style.display = carries ? 'none' : '';
     if (carries) { input.value = ''; if (nt) nt.checked = false; }
     // Тег и «тега нет» — взаимоисключающие ответы: набранный тег снимает галочку,

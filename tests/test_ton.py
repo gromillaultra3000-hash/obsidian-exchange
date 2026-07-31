@@ -147,6 +147,46 @@ def main():
     check(A.canonical_destination(BOUNCE, None, "BTC") is None,
           "валюта без тегов пущена через тегированный вход")
 
+    # ── Ввод тега разбирается в типе СВОЕЙ валюты ──────────────────────────
+    # Одна общая функция на все поверхности: у XRP значение целое, у TON —
+    # текст. Числовой разбор для всех означал бы, что правильный memo молча
+    # станет «тега нет» и адрес соберётся без него.
+    check(A.parse_tag_input("order-42", "TON") == ("order-42", None),
+          "текстовый memo TON не принят — заявка уйдёт без memo")
+    check(A.parse_tag_input("12345", "XRP") == (12345, None),
+          "числовой тег XRP не разобран")
+    check(A.parse_tag_input("order-42", "XRP") == (None, "bad_number"),
+          "текст принят как тег XRP — в заявку ляжет «тега нет» вместо отказа")
+    check(A.parse_tag_input("4294967296", "XRP") == (None, "bad_number"),
+          "тег XRP за границей 32 бит принят")
+    check(A.parse_tag_input("", "TON") == (None, None)
+          and A.parse_tag_input("  ", "XRP") == (None, None),
+          "пустой ввод отдан как ошибка — клиент увидит отказ на пустом поле")
+    check(A.parse_tag_input("x", "BTC") == (None, "not_tagged"),
+          "тег у валюты без тегов принят молча")
+    check(A.parse_tag_input("a" * 128, "TON")[1] == "bad_text"
+          and A.parse_tag_input("две\nстроки", "TON")[1] == "bad_text",
+          "слишком длинный или многострочный memo принят")
+
+    # Вид и разделитель — свойства валюты, а не поверхности.
+    check((AS.tag_kind("XRP"), AS.tag_kind("TON")) == ("number", "text"),
+          "реестр не знает вида значения тега")
+    check((AS.tag_separator("XRP"), AS.tag_separator("TON")) == (":", "#"),
+          "реестр не знает разделителя «адрес+тег»")
+    check(AS.tag_kind("BTC") is None and AS.tag_separator("BTC") is None,
+          "валюта без тега получила вид/разделитель")
+    # Сырой TON-адрес сам содержит двоеточие: прибитый разделитель разрезал бы
+    # его пополам, поэтому «тег внутри адреса» ищется по СВОЕМУ символу.
+    raw = "0:" + "a" * 64
+    check(not AS.address_carries_tag("TON", raw),
+          "сырой TON-адрес принят за «адрес с memo» — memo спросят не у того")
+    check(AS.address_carries_tag("TON", BOUNCE + "#note"),
+          "склейка «адрес#memo» не распознана")
+    for code, cur in (("bad_number", "XRP"), ("bad_text", "TON")):
+        check(bool(AS.tag_error_text(cur, code)) and
+              AS.tag_error_text(cur, code) != AS.tag_error_text(cur, "not_tagged"),
+              f"текст отказа {code} для {cur} пустой или неотличимый")
+
     if FAILS:
         print(f"❌ Провалов: {len(FAILS)}\n")
         for m in FAILS:

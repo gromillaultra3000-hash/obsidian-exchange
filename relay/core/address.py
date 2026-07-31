@@ -678,3 +678,39 @@ def is_valid_tag(tag, currency) -> bool:
     if cur == "TON":
         return tag is None or is_valid_ton_memo(tag)
     return False
+
+
+def parse_tag_input(raw, currency):
+    """Недоверенный ввод → тег ТОГО типа, который нужен этой валюте.
+
+    Возвращает (значение, код ошибки). Пустой ввод — это (None, None): «клиент
+    ничего не указал», а не «тега нет». Разница принципиальная: у биржевого
+    адреса второе означает перевод на общий счёт биржи, который сеть подтвердит,
+    а получателю не зачислит. Решение принимает поверхность — она одна знает,
+    нажал ли клиент «у меня личный кошелёк».
+
+    Отдельная функция нужна потому, что тип значения у валют РАЗНЫЙ: у XRP это
+    целое, у TON — текст. Поверхности проверяли ввод через `.isdigit()`, и на
+    TON это давало отказ «тег должен быть числом» на совершенно правильном
+    memo — клиент не мог создать заявку вообще.
+
+    Догадками ввод не чистим ни у одной валюты: «12 345» и «tag: 42» — отказ,
+    а не тег 12345. Неверно распознанный тег отправляет деньги чужому.
+    """
+    cur = str(currency or "").strip().upper()
+    s = "" if raw is None else str(raw).strip()
+    if cur == "XRP":
+        if isinstance(raw, bool):
+            return (None, "bad_number")
+        if isinstance(raw, int):
+            return (raw, None) if is_valid_xrp_tag(raw) else (None, "bad_number")
+        if s == "":
+            return (None, None)
+        if not s.isdigit() or int(s) > 0xFFFFFFFF:
+            return (None, "bad_number")
+        return (int(s), None)
+    if cur == "TON":
+        if s == "":
+            return (None, None)
+        return (s, None) if is_valid_ton_memo(s) else (None, "bad_text")
+    return (None, None if s == "" else "not_tagged")

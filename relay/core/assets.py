@@ -36,6 +36,18 @@ CURRENCY_NETWORKS = {
 # есть «кому именно», и перевод без него зачисляется в общий котёл.
 TAGGED_CURRENCIES = {"XRP": "destination tag", "TON": "memo (комментарий)"}
 
+# Какого ВИДА значение ждать в поле тега. У XRP это число, у TON — текст, и
+# интерфейс обязан спрашивать по-разному: клавиатура, подсказка, текст отказа.
+# Пока вид считался числом «по умолчанию», поле memo у TON отвергало правильное
+# значение сообщением «должен быть целым числом» — заявку было не создать.
+TAG_KINDS = {"XRP": "number", "TON": "text"}
+
+# Чем клиент отделяет тег от адреса, когда пишет их одной строкой. Общего
+# разделителя тут быть не может: сырой адрес TON — это `workchain:hex64`, и
+# двоеточие в нём СВОЁ. Разрезав по нему, мы получили бы «адрес 0» и «тег
+# из hex» — то есть отказ на совершенно правильном адресе.
+TAG_SEPARATORS = {"XRP": ":", "TON": "#"}
+
 # Синонимы входных значений сети → канон (или None = недопустимо)
 _NET_ALIASES = {
     "TRON": NET_TRC20, "TRC-20": NET_TRC20, "TRC20": NET_TRC20,
@@ -191,6 +203,34 @@ def network_label(currency, network=None) -> str:
 def tag_name(currency):
     """Как называется тег у этой валюты ('destination tag') или None."""
     return TAGGED_CURRENCIES.get(normalize_currency(currency))
+
+
+def tag_kind(currency):
+    """'number' | 'text' | None — какого вида значение ждать в поле тега."""
+    return TAG_KINDS.get(normalize_currency(currency))
+
+
+def tag_separator(currency):
+    """Чем клиент отделяет тег от адреса в одной строке, или None."""
+    return TAG_SEPARATORS.get(normalize_currency(currency))
+
+
+def tag_error_text(currency, code):
+    """Текст отказа по тегу — один на бот, сайт и Mini App.
+
+    Три копии этой фразы разошлись бы, и клиент читал бы на одной поверхности
+    «нужно число», а на другой «нужен текст» про одну и ту же монету.
+    """
+    label = (tag_name(currency) or "тег")
+    if code == "not_tagged":
+        return "Для этой валюты тег не используется."
+    if code == "bad_number":
+        return (f"{label.capitalize()} — целое число без пробелов и знаков, "
+                f"от 0 до 4294967295 (например 12345).")
+    if code == "bad_text":
+        return (f"{label.capitalize()} — короткий текст без переводов строки, "
+                f"не длиннее 127 символов. Скопируйте его из кошелька целиком.")
+    return f"{label.capitalize()} не принят."
 
 
 def address_carries_tag(currency, address) -> bool:

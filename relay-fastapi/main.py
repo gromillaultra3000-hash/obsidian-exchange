@@ -486,6 +486,11 @@ def _offerings_view():
             # Отдаём во фронт, чтобы поле не зависело от захардкоженного списка
             # монет в JS: он разошёлся бы с реестром при следующей валюте.
             "tag_name": _assets.tag_name(c) or "",
+            # Вид значения — оттуда же. Без него форма ставила бы числовую
+            # клавиатуру и подсказку «число» на memo TON, который текстовый:
+            # клиент с телефона правильное значение просто не набрал бы.
+            "tag_kind": _assets.tag_kind(c) or "",
+            "tag_sep": _assets.tag_separator(c) or "",
         })
     return out
 
@@ -654,16 +659,22 @@ def _resolve_destination(currency, address, tag_raw, network=None, no_tag=False)
         canonical = _assets.canonical_address(currency, addr, None, network)
         return (canonical, None) if canonical else (None, "Адрес не прошёл проверку.")
 
-    tag_str = str(raw)
-    # Только целое без пробелов и знаков. «12 345» не чистим догадками:
-    # неверно распознанный тег отправит деньги на чужой счёт биржи.
-    if not tag_str.isdigit():
-        return None, (f"{tag_label.capitalize()} — целое число без пробелов "
-                      f"и знаков, например 12345.")
-    canonical = _assets.canonical_address(currency, addr, int(tag_str), network)
+    # Вид значения зависит от валюты: у XRP целое, у TON текст. Своя проверка
+    # «это цифры?» здесь означала бы отказ правильному memo TON — заявку по
+    # монете было бы не создать вовсе. Догадками ввод не чистим ни у одной
+    # валюты: неверно распознанный тег отправит деньги на чужой счёт биржи.
+    try:
+        from core.address import parse_tag_input
+        value, err = parse_tag_input(raw, currency)
+    except Exception:
+        logger.exception("core.address недоступен при разборе тега")
+        value, err = None, "bad_number"
+    if err or value is None:
+        return None, _assets.tag_error_text(currency, err or "bad_number")
+    canonical = _assets.canonical_address(currency, addr, value, network)
     if not canonical:
-        return None, (f"{tag_label.capitalize()} должен быть от 0 до 4294967295, "
-                      f"а адрес — пройти проверку контрольной суммы.")
+        return None, (f"{_assets.tag_error_text(currency, err or 'bad_number')} "
+                      f"Адрес также должен пройти проверку контрольной суммы.")
     return canonical, None
 
 @app.get("/dashboard/exchange", response_class=HTMLResponse)

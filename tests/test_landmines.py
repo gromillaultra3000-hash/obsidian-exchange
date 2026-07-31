@@ -1058,6 +1058,133 @@ def check_tagged_currencies_use_the_dispatcher():
                           f"адрес клиента")
 
 
+# ─────────────────────────────────────────────────────────────────────
+# 32. Форма тега додумана, а не спрошена у реестра
+# ─────────────────────────────────────────────────────────────────────
+# Диспетчер разбора появился (мина 31), но ВИД значения остался додуманным по
+# единственной валюте, какая была: тег числовой, а внутри адреса он отделён
+# двоеточием. У TON и то и другое иначе — memo это произвольный текст, а
+# двоеточие живёт в самом сыром адресе (`0:hex64`) как его часть. Отсюда
+# четыре тихих отказа: `int(raw)` в боте и в кабинете превращал memo «order-42»
+# в «тега нет» и собирал адрес без него (перевод на биржу уходит на общий
+# счёт — деньги невозвратны); `rpartition(":")` в подарочном сценарии резал
+# сырой TON-адрес пополам; прибитая в HTML цифровая клавиатура не давала
+# набрать memo с телефона вовсе.
+#
+# Правило: вид тега и разделитель — свойства валюты, лежат в реестре рядом с
+# самим списком, и каждая валюта из списка обязана иметь оба. Поверхности
+# спрашивают реестр, а не догадываются.
+def check_tag_shape_comes_from_the_registry():
+    tag = "форма тега додумана"
+    assets = _read(os.path.join(ROOT, "relay", "core", "assets.py"))
+    if not assets:
+        fail(tag, "relay/core/assets.py не прочитан — проверка ослепла")
+        return
+
+    def _keys(name):
+        m = re.search(name + r"\s*=\s*\{(.*?)\}", assets, re.S)
+        return set(re.findall(r'"([A-Z]{2,6})"\s*:', m.group(1) if m else ""))
+
+    tagged = _keys("TAGGED_CURRENCIES")
+    if not tagged:
+        fail(tag, "relay/core/assets.py: не найден TAGGED_CURRENCIES — проверка ослепла")
+        return
+    for reg, what in (("TAG_KINDS", "вид значения"),
+                      ("TAG_SEPARATORS", "разделитель внутри адреса")):
+        missing = tagged - _keys(reg)
+        if missing:
+            fail(tag, f"relay/core/assets.py: у {', '.join(sorted(missing))} нет "
+                      f"записи в {reg} ({what}), хотя валюта числится в "
+                      f"TAGGED_CURRENCIES. Поверхности возьмут поведение "
+                      f"предыдущей монеты: числовое поле там, где нужен текст, "
+                      f"и чужой разделитель в разборе адреса")
+
+    # Разбор ввода тега — тоже диспетчер: `int()` над сырым вводом означает,
+    # что текстовый memo молча станет «тега нет».
+    for rel in (os.path.join("bot", "main_bot.py"),
+                os.path.join("relay-fastapi", "main.py")):
+        src = _read(os.path.join(ROOT, rel))
+        if not src:
+            fail(tag, f"{rel} не прочитан — проверка ослепла")
+            continue
+        if "parse_tag_input" not in src:
+            fail(tag, f"{rel}: ввод тега не проходит через core.address."
+                      f"parse_tag_input — значит, его форма где-то додумана")
+        try:
+            tree = ast.parse(src)
+        except SyntaxError:
+            fail(tag, f"{rel}: не разбирается — проверка ослепла")
+            continue
+
+        def _mentions_tag(node):
+            """Есть ли в поддереве имя/строка/ключ со словом «tag»."""
+            for sub in ast.walk(node):
+                if isinstance(sub, ast.Name) and "tag" in sub.id.lower():
+                    return True
+                if isinstance(sub, ast.Attribute) and "tag" in sub.attr.lower():
+                    return True
+                if isinstance(sub, ast.Constant) and isinstance(sub.value, str) \
+                        and "tag" in sub.value.lower():
+                    return True
+            return False
+
+        # Приведение тега к числу ищем по СМЫСЛУ выражения, а не по имени
+        # переменной: список имён устарел бы на первом же переименовании и
+        # мина позеленела бы на сломанном коде.
+        for node in ast.walk(tree):
+            if not (isinstance(node, ast.Call)
+                    and getattr(node.func, "id", "") == "int" and node.args):
+                continue
+            targets = []
+            for parent in ast.walk(tree):
+                if isinstance(parent, ast.Assign) and parent.value is node:
+                    targets = parent.targets
+            if _mentions_tag(node.args[0]) or any(_mentions_tag(t) for t in targets):
+                fail(tag, f"{rel}: стр. {node.lineno} — ввод тега приводится к "
+                          f"числу напрямую. У TON memo текстовый: он превратится "
+                          f"в None, а None по договору читается как «тега нет», "
+                          f"и адрес соберётся без memo. Разбор — "
+                          f"core.address.parse_tag_input(raw, currency)")
+
+        # Расщепление адреса по прибитому литералу-разделителю.
+        for node in ast.walk(tree):
+            if not (isinstance(node, ast.Call)
+                    and isinstance(node.func, ast.Attribute)
+                    and node.func.attr in ("partition", "rpartition", "split", "rsplit")
+                    and node.args
+                    and isinstance(node.args[0], ast.Constant)
+                    and isinstance(node.args[0].value, str)):
+                continue
+            recv = node.func.value
+            name = getattr(recv, "id", "") or getattr(recv, "attr", "")
+            if re.search(r"addr|dest", name, re.I):
+                fail(tag, f"{rel}: стр. {node.lineno} — адрес расщепляется по "
+                          f"прибитому {node.args[0].value!r}. Разделитель — "
+                          f"свойство валюты (assets.tag_separator): сырой "
+                          f"TON-адрес `0:hex64` сам содержит двоеточие и будет "
+                          f"разрезан пополам")
+
+    # Клавиатура и пример на обеих поверхностях — из витрины (tag_kind), а не
+    # из разметки: прибитый в HTML numeric не даёт набрать memo с телефона.
+    for rel in (os.path.join("relay", "webapp.html"),
+                os.path.join("relay-fastapi", "templates", "dashboard_exchange.html")):
+        src = _read(os.path.join(ROOT, rel))
+        if not src:
+            fail(tag, f"{rel} не прочитан — проверка ослепла")
+            continue
+        m = re.search(r"<input[^>]*id=[\"']dest_tag[\"'][^>]*>", src, re.S)
+        if not m:
+            fail(tag, f"{rel}: не найдено поле dest_tag — проверка ослепла")
+            continue
+        if "inputmode" in m.group(0):
+            fail(tag, f"{rel}: у поля dest_tag клавиатура прибита в разметке. "
+                      f"Она одна на все валюты, а memo у TON текстовый — с "
+                      f"цифровой панели его не набрать")
+        if "tag_kind" not in src:
+            fail(tag, f"{rel}: витринное tag_kind нигде не читается — вид поля "
+                      f"тега додуман по одной валюте")
+
+
 def check_coin_lists_come_from_the_shopfront():
     tag = "текст отстал от витрины"
     bot = _read(os.path.join(ROOT, "bot", "main_bot.py"))
@@ -1877,6 +2004,7 @@ def main():
                check_coin_lists_come_from_the_shopfront,
                check_failed_autopayout_reaches_a_human,
                check_tagged_currencies_use_the_dispatcher,
+               check_tag_shape_comes_from_the_registry,
                check_receipt_beats_the_timer,
                check_migrations_agree,
                check_debt_queue_is_visible,
