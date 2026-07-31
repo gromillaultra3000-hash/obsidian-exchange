@@ -1314,8 +1314,11 @@ def _split_destination(currency, address):
         from core import address as _addr
         if not _assets.tag_name(currency):
             return address, None, True
-        classic, tag = _addr.parse_xrp_destination(address)
-        return (address, None, False) if classic is None else (classic, tag, True)
+        # Разборщик выбирается по валюте. Прямой вызов XRP-разбора отсюда
+        # показывал бы работнику «адрес не разобран» на любой другой монете
+        # с тегом — то есть выдачу пришлось бы делать вслепую.
+        clean, tag = _addr.parse_destination(address, currency)
+        return (address, None, False) if clean is None else (clean, tag, True)
     except Exception:
         return address, None, False
 
@@ -8256,8 +8259,24 @@ async def auto_check_usdt():
                                 await update_user_vip_volume(user_id, rub_amount)
                             except Exception as e:
                                 logger.warning(f"usdt payout {order_id}: реф/VIP начисление: {e}")
+                        else:
+                            # Авто-выплата не состоялась — а заявка уже помечена
+                            # 'paid' строкой выше, то есть деньги клиента у нас.
+                            # Без этой ветки она осталась бы оплаченной и никем
+                            # не замеченной: клиент ждёт, в очереди разбора её
+                            # нет, тревога не звучит. Ровно так копились
+                            # зависшие выдачи. Отдаём человеку.
+                            await notify_workers_paid(order_id, rub_amount,
+                                                      address, currency)
         except Exception as e:
             logger.error(f"Ошибка проверки USDT: {e}")
+            # Упасть здесь означает бросить заявку, уже помеченную оплаченной,
+            # поэтому о сбое обязан узнать человек, а не только журнал.
+            try:
+                await notify_admins(f"⚠️ Авто-проверка USDT сорвалась: "
+                                    f"{type(e).__name__}: {e}")
+            except Exception:
+                logger.exception("не удалось сообщить админам о сбое auto_check_usdt")
         await asyncio.sleep(60)
 
 

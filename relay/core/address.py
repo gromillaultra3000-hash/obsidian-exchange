@@ -593,3 +593,88 @@ def is_valid_ton_memo(memo) -> bool:
     if "\n" in memo or "\r" in memo:
         return False                 # перевод строки ломает разбор на стороне биржи
     return len(memo.encode("utf-8")) <= 127
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Диспетчер по валюте: адрес + тег как одна неразделимая строка
+# ─────────────────────────────────────────────────────────────────────
+# Монет с «тегом» стало больше одной, и это сразу вскрыло цену прежней
+# конструкции: `assets.canonical_address` и `_split_destination` в боте вели
+# ЛЮБУЮ валюту из TAGGED_CURRENCIES в `parse_xrp_destination`. Пока такая
+# валюта была одна, всё сходилось. Стоило завести TON — и его адрес перестал
+# разбираться везде: заявку не создать, а работнику в панели выдачи вместо
+# реквизитов показалось бы «адрес не разобран».
+#
+# Ошибка тут не в TON, а в форме: общий список валют обслуживался частным
+# разборщиком. Поэтому вход теперь один, а ветвление — внутри него, рядом с
+# самими разборщиками. Добавляя монету с тегом, её правят в ОДНОМ месте.
+#
+# Склейка у TON — 'адрес#memo'. Разделитель однозначен: в дружественной форме
+# адреса допустимы только буквы, цифры, '-', '_', в сырой — 'workchain:hex'.
+
+def canonical_ton_destination(address, memo=None):
+    """Адрес TON и memo одной строкой. None — если что-то не так.
+
+    Memo у TON текстовый, а не числовой, и в отличие от XRP в самом адресе не
+    живёт: если клиент прислал 'адрес#memo', это наша же склейка, вернувшаяся
+    с прошлого круга. Конфликт двух разных memo — отказ, как и у XRP: выбрать
+    один молча значит отправить деньги не туда, куда просил клиент.
+    """
+    addr, addr_memo = parse_ton_destination(address)
+    if addr is None:
+        return None
+    if memo is not None and not is_valid_ton_memo(memo):
+        return None
+    if addr_memo is not None and memo is not None and addr_memo != memo:
+        return None
+    final = addr_memo if addr_memo is not None else memo
+    return addr if final is None else f"{addr}#{final}"
+
+
+def parse_ton_destination(address):
+    """'адрес#memo' → (адрес, memo). (None, None), если адрес невалиден."""
+    if not address or not isinstance(address, str):
+        return (None, None)
+    s = address.strip()
+    memo = None
+    if "#" in s:
+        s, _, memo = s.partition("#")
+        s, memo = s.strip(), memo.strip()
+        if not is_valid_ton_memo(memo):
+            return (None, None)
+    if not is_valid_ton(s):
+        return (None, None)
+    return (s, memo)
+
+
+def parse_destination(address, currency):
+    """(адрес, тег) для валюты с тегом. (None, None) — разобрать не удалось.
+
+    Валюта без тегов сюда попадать не должна: у неё адрес и есть адрес.
+    """
+    cur = str(currency or "").strip().upper()
+    if cur == "XRP":
+        return parse_xrp_destination(address)
+    if cur == "TON":
+        return parse_ton_destination(address)
+    return (None, None)
+
+
+def canonical_destination(address, tag, currency):
+    """Единый вход: адрес + тег → одна строка для хранения. None при отказе."""
+    cur = str(currency or "").strip().upper()
+    if cur == "XRP":
+        return canonical_xrp_destination(address, tag)
+    if cur == "TON":
+        return canonical_ton_destination(address, tag)
+    return None
+
+
+def is_valid_tag(tag, currency) -> bool:
+    """Тег корректен для этой валюты. У XRP — число, у TON — текст."""
+    cur = str(currency or "").strip().upper()
+    if cur == "XRP":
+        return is_valid_xrp_tag(tag)
+    if cur == "TON":
+        return tag is None or is_valid_ton_memo(tag)
+    return False

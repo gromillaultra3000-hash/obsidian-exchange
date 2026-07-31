@@ -194,12 +194,18 @@ def tag_name(currency):
 
 
 def address_carries_tag(currency, address) -> bool:
-    """True, если тег зашит в САМ адрес (X-адрес XRPL).
+    """True, если тег зашит в САМ адрес (X-адрес XRPL, 'адрес#memo' у TON).
 
     Тогда спрашивать тег у клиента не надо — и, главное, нельзя позволить
     задать другой: адрес уже несёт свой.
+
+    Проверка идёт через разборщик ПО ВАЛЮТЕ. Жёсткая привязка к XRP здесь
+    означала бы, что у любой следующей монеты с тегом клиента переспросят
+    тег поверх уже указанного, а расхождение двух значений вскроется только
+    на выдаче.
     """
-    if normalize_currency(currency) != "XRP":
+    cur = normalize_currency(currency)
+    if cur not in TAGGED_CURRENCIES:
         return False
     try:
         from core import address as _addr
@@ -209,8 +215,8 @@ def address_carries_tag(currency, address) -> bool:
         except Exception:
             return False
     try:
-        classic, tag = _addr.parse_xrp_destination((address or "").strip())
-        return classic is not None and tag is not None
+        clean, tag = _addr.parse_destination((address or "").strip(), cur)
+        return clean is not None and tag is not None
     except Exception:
         return False
 
@@ -245,7 +251,10 @@ def canonical_address(currency, address, tag=None, network=None):
         except Exception:
             return None
     try:
-        return _addr.canonical_xrp_destination(address, tag)
+        # Диспетчер по валюте, а НЕ разборщик конкретной монеты: список
+        # TAGGED_CURRENCIES общий, и частный вызов отсюда означал бы, что
+        # каждая новая монета с тегом молча разбирается правилами чужой.
+        return _addr.canonical_destination(address, tag, c)
     except Exception:
         return None
 
@@ -266,6 +275,6 @@ def validate_tag(currency, tag) -> bool:
         except Exception:
             return False
     try:
-        return _addr.is_valid_xrp_tag(tag)
+        return _addr.is_valid_tag(tag, c)
     except Exception:
         return False

@@ -110,13 +110,51 @@ def main():
     finally:
         pd._get_json = real_get
 
+    # ── адрес и memo проходят ОБЩИЙ вход, а не разборщик чужой монеты ──────
+    # Пока валюта с тегом была одна, `canonical_address` и панель выдачи вели
+    # любую такую валюту в XRP-разбор. С появлением TON это стало значить:
+    # заявку не создать, а работнику вместо реквизитов показать «адрес не
+    # разобран». Проверяем поведением, а не наличием функции.
+    check(AS.canonical_address("TON", BOUNCE, None) == BOUNCE,
+          "TON без memo не проходит канонизацию — заявку не создать")
+    check(AS.canonical_address("TON", BOUNCE, "order 42") == f"{BOUNCE}#order 42",
+          "текстовый memo TON теряется при канонизации")
+    check(AS.canonical_address("TON", BOUNCE, 12345) is None,
+          "числовой memo принят как текстовый — у TON memo это строка")
+    check(AS.canonical_address("TON", f"{BOUNCE}#one", "two") is None,
+          "конфликт двух memo решён молча — деньги уйдут не туда, "
+          "куда просил клиент")
+    check(AS.canonical_address("TON", "не адрес", None) is None,
+          "мусор вместо адреса TON принят")
+    check(AS.validate_tag("TON", "order 42") is True,
+          "текстовый memo TON отвергнут числовым валидатором XRP")
+    check(AS.validate_tag("XRP", "order 42") is False,
+          "XRP принял текстовый тег — destination tag это число")
+    check(AS.validate_tag("TON", "x" * 200) is False,
+          "memo длиннее ячейки TON принят — перевод не соберётся")
+
+    # обратный разбор: то, что сохранили, обязано разобраться в те же части
+    for memo in (None, "order 42", "0"):
+        stored = AS.canonical_address("TON", BOUNCE, memo)
+        got_addr, got_memo = A.parse_destination(stored, "TON")
+        check(got_addr == BOUNCE and got_memo == memo,
+              f"склейка TON не разбирается обратно при memo={memo!r}: "
+              f"{got_addr!r}/{got_memo!r} — работник увидит не те реквизиты")
+
+    # диспетчер не путает монеты между собой
+    check(A.parse_destination(BOUNCE, "XRP") == (None, None),
+          "адрес TON разобран как XRP — проверка по валюте не работает")
+    check(A.canonical_destination(BOUNCE, None, "BTC") is None,
+          "валюта без тегов пущена через тегированный вход")
+
     if FAILS:
         print(f"❌ Провалов: {len(FAILS)}\n")
         for m in FAILS:
             print("  •", m)
         return 1
     print("✅ TON: адрес проверяется контрольной суммой, memo не пускает чужой "
-          "перевод, хеш приведён к общему виду, обозреватель есть.")
+          "перевод, хеш приведён к общему виду, обозреватель есть, адрес и memo "
+          "проходят общий вход и разбираются обратно.")
     return 0
 
 

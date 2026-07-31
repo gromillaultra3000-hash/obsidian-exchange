@@ -597,8 +597,11 @@ def _destination_lines(currency, stored):
     if not tag_label:
         return f"Адрес: {stored}"
     try:
-        from core.address import parse_xrp_destination
-        classic, tag = parse_xrp_destination(stored)
+        # Разборщик выбирается по валюте: список валют с тегом общий, и жёсткий
+        # XRP-разбор здесь выдал бы «адрес не разобран» на любой другой монете
+        # с тегом — то есть на исправной заявке.
+        from core.address import parse_destination
+        classic, tag = parse_destination(stored, currency)
     except Exception:
         classic, tag = None, None
     if classic is None:

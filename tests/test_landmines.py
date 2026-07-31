@@ -926,6 +926,138 @@ def check_no_unreachable_handlers():
 # «комиссия BTC / LTC». Мина, которая кричит без причины, хуже отсутствующей:
 # её начинают глушить целиком. Поэтому проверяются НАЗВАННЫЕ поверхности, где
 # текст обещает клиенту ассортимент, — и от них требуется спросить витрину.
+# ─────────────────────────────────────────────────────────────────────
+# 30. Авто-выплата не смогла — и заявка осталась молчать
+# ─────────────────────────────────────────────────────────────────────
+# Витрину открывает резерв, а выдавать монету автоматика умеет не всегда: у XRP
+# и TON авто-выплаты нет вовсе, у EVM она под отдельным гейтом. Это осознанный
+# режим «принимаем, выдаём руками», и держится он ровно на одном: когда
+# `process_payout` возвращает None, заявка обязана уйти РАБОТНИКУ. Уберут эту
+# ветку — и деньги клиента останутся приняты без единого следа о том, что их
+# кто-то должен выдать. Внешние ревью уже шесть раз читали этот режим как
+# «направление невозможно выполнить»; правильный ответ — не спор, а машинная
+# гарантия, что человеческий путь на месте.
+def check_failed_autopayout_reaches_a_human():
+    tag = "выплата без человека"
+    bot = _read(os.path.join(ROOT, "bot", "main_bot.py"))
+    if not bot:
+        fail(tag, "bot/main_bot.py не прочитан — проверка ослепла")
+        return
+    lines = bot.splitlines()
+    calls = [i for i, l in enumerate(lines) if "process_payout_async(" in l
+             and not l.lstrip().startswith("#") and "async def" not in l]
+    if not calls:
+        fail(tag, "не найден вызов движка выплаты — проверка ослепла")
+        return
+    # Первая версия правила искала любое упоминание notify_workers_paid в 25
+    # строках после вызова — и была зелёной на сломанном коде: ветку «не смогла»
+    # убирали, а упоминание оставалось в соседнем `except`. Проверять надо не
+    # соседство, а именно тот блок, который исполняется при неудаче.
+    def _human_call_in(block):
+        code = "\n".join(l for l in block if not l.lstrip().startswith("#"))
+        return any(c in code for c in ("notify_workers_paid(", "notify_admins(",
+                                       ".answer(", "send_message("))
+
+    def _indent(l):
+        return len(l) - len(l.lstrip())
+
+    def _block_after(start):
+        """Тело блока, открытого строкой start: до первого возврата отступа."""
+        base = _indent(lines[start])
+        out = []
+        for l in lines[start + 1:]:
+            if not l.strip():
+                out.append(l)
+                continue
+            if _indent(l) <= base:
+                break
+            out.append(l)
+        return out
+
+    for i in calls:
+        m = re.match(r"\s*(\w+)\s*=\s*await\s+process_payout_async\(", lines[i])
+        if not m:
+            fail(tag, f"bot/main_bot.py: стр. {i + 1} — результат выплаты никуда "
+                      f"не присваивается, значит неудачу вообще не проверяют")
+            continue
+        var = m.group(1)
+        falsy = None
+        for j in range(i + 1, min(i + 12, len(lines))):
+            if re.match(rf"\s*if\s+not\s+{var}\s*:\s*$", lines[j]):
+                falsy = _block_after(j)                 # охранная форма
+                break
+            if re.match(rf"\s*if\s+{var}\s*:\s*$", lines[j]):
+                want = _indent(lines[j])
+                for k in range(j + 1, len(lines)):
+                    if lines[k].strip() and _indent(lines[k]) <= want:
+                        if re.match(r"\s*else\s*:\s*$", lines[k]):
+                            falsy = _block_after(k)
+                        break
+                break
+        if falsy is None:
+            fail(tag, f"bot/main_bot.py: стр. {i + 1} — у вызова авто-выплаты нет "
+                      f"ветки на случай неудачи: заявка останется оплаченной и "
+                      f"никем не замеченной, хотя деньги клиента уже у нас")
+        elif not _human_call_in(falsy):
+            fail(tag, f"bot/main_bot.py: стр. {i + 1} — ветка неудачи есть, но в "
+                      f"ней никто не зовёт человека (ни работника, ни админа, ни "
+                      f"ответа инициатору): сбой останется только в журнале")
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 31. Общий список валют обслуживает разборщик одной монеты
+# ─────────────────────────────────────────────────────────────────────
+# `TAGGED_CURRENCIES` — список валют, у которых к адресу прилагается тег. Пока
+# в нём была одна монета, все поверхности спокойно звали `parse_xrp_destination`
+# напрямую: список общий, разборщик частный, но результат совпадал. Добавление
+# TON превратило это в четыре тихих отказа сразу — канонизация заявки, тег в
+# кабинете, панель выдачи работнику и вопрос «указывать ли тег»: адрес TON
+# XRP-разборщику непонятен, и все четыре места сообщили бы «адрес не разобран»
+# про совершенно исправный адрес.
+#
+# Дефект не в TON и не в XRP, а в форме: ветвление по валюте расползлось по
+# поверхностям вместо того, чтобы жить рядом с самими разборщиками. Поэтому
+# правило: вне `core/address.py` монето-специфичных разборщиков быть не должно —
+# только диспетчеры `parse_destination` / `canonical_destination` / `is_valid_tag`.
+def check_tagged_currencies_use_the_dispatcher():
+    tag = "чужой разборщик тега"
+    private = ("parse_xrp_destination", "canonical_xrp_destination",
+               "is_valid_xrp_tag", "parse_ton_destination",
+               "canonical_ton_destination")
+    for rel in (os.path.join("relay", "core", "assets.py"),
+                os.path.join("bot", "main_bot.py"),
+                os.path.join("relay-fastapi", "main.py")):
+        src = _read(os.path.join(ROOT, rel))
+        if not src:
+            fail(tag, f"{rel} не прочитан — проверка ослепла")
+            continue
+        for n, line in enumerate(src.splitlines(), 1):
+            if line.lstrip().startswith("#") or '"""' in line:
+                continue            # объяснение — не вызов
+            for name in private:
+                if name + "(" in line:
+                    fail(tag, f"{rel}: стр. {n} — прямой вызов {name}(): "
+                              f"валюты с тегом перечислены общим списком, а "
+                              f"разбирает их правило одной монеты. Следующая "
+                              f"монета получит «адрес не разобран» на исправном "
+                              f"адресе. Нужен диспетчер core.address."
+                              f"parse_destination / canonical_destination / "
+                              f"is_valid_tag")
+    # Диспетчер обязан знать КАЖДУЮ валюту из общего списка — иначе он молча
+    # вернёт None, и отказ будет выглядеть как «клиент ввёл плохой адрес».
+    disp = _read(os.path.join(ROOT, "relay", "core", "address.py"))
+    assets = _read(os.path.join(ROOT, "relay", "core", "assets.py"))
+    if disp and assets:
+        body = _slice(disp, "def parse_destination(", "\ndef ")
+        m = re.search(r"TAGGED_CURRENCIES\s*=\s*\{(.*?)\}", assets, re.S)
+        for cur in re.findall(r'"([A-Z]{2,6})"\s*:', m.group(1) if m else ""):
+            if f'"{cur}"' not in body:
+                fail(tag, f"core/address.py: parse_destination не знает {cur}, "
+                          f"хотя тот числится в TAGGED_CURRENCIES — заявка по "
+                          f"этой монете не создастся, а причиной будет назван "
+                          f"адрес клиента")
+
+
 def check_coin_lists_come_from_the_shopfront():
     tag = "текст отстал от витрины"
     bot = _read(os.path.join(ROOT, "bot", "main_bot.py"))
@@ -1743,6 +1875,8 @@ def main():
                check_blocklist_matches_account_not_string,
                check_guards_compare_accounts_not_strings,
                check_coin_lists_come_from_the_shopfront,
+               check_failed_autopayout_reaches_a_human,
+               check_tagged_currencies_use_the_dispatcher,
                check_receipt_beats_the_timer,
                check_migrations_agree,
                check_debt_queue_is_visible,
