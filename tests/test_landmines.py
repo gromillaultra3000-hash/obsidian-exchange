@@ -1176,6 +1176,27 @@ def check_every_currency_is_reconcilable():
     # Свой кошелёк тоже должен быть известен: без него ни одна выплата не
     # опознаётся как НАША, и авто-закрытие не сработает ни разу.
     src = _read(os.path.join(relay, "core", "payout_discovery.py"))
+
+    # Валюта с НЕСКОЛЬКИМИ сетями обязана получать сеть заявки. У USDT их две,
+    # и монета в них разная по природе: TRC-20 живёт в TRON, ERC-20 — токен в
+    # Ethereum. Без сети половина выплат ищется не в той цепи и не находится
+    # никогда, а выглядит это как «переводов нет».
+    import inspect
+    multi = [c for c, nets in _assets.CURRENCY_NETWORKS.items() if len(nets) > 1]
+    if multi:
+        try:
+            sig = inspect.signature(pd.incoming_transfers)
+        except (TypeError, ValueError):
+            sig = None
+        if sig is not None and "network" not in sig.parameters:
+            fail(tag, f"incoming_transfers не принимает сеть, а у {', '.join(multi)} "
+                      f"их несколько — выплата в неканонической сети невидима навсегда")
+        body = _nodoc(_slice(src, "def incoming_transfers(", "\ndef "))
+        for c in multi:
+            if f'"{c}"' in body and "network" not in body:
+                fail(tag, f"{c}: у валюты несколько сетей, а маршрутизация сверки "
+                          f"их не различает")
+
     own = _slice(src, "def _own_wallet_addresses(", "\ndef ")
     for cur in known:
         if f'"{cur}"' not in own and cur not in ("BTC", "LTC"):

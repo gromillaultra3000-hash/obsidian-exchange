@@ -365,11 +365,63 @@ def _incoming_evm(address: str) -> list[dict]:
     return [t for t in out if t["txid"]]
 
 
-def incoming_transfers(currency: str, address: str) -> list[dict]:
+def _incoming_erc20(address: str, token="USDT") -> list[dict]:
+    """Входящие USDT в сети Ethereum — это ТОКЕН, а не сам ETH.
+
+    Отдельный читатель, потому что `txlist` (обычные транзакции) токен-переводов
+    не содержит вовсе: выплата USDT-ERC20 была бы невидима, даже когда ETH в той
+    же сети виден. Нужен `tokentx`, и суммы там в единицах токена (у USDT шесть
+    знаков, а не восемнадцать, как у ETH) — делить на 1e18 значило бы увидеть
+    вместо 25 USDT ноль и решить, что выплаты не было.
+    """
+    base = os.getenv("EVM_EXPLORER_API", "https://eth.blockscout.com/api")
+    try:
+        data = _get_json(base, {"module": "account", "action": "tokentx",
+                                "address": address, "sort": "desc",
+                                "page": 1, "offset": 50}) or {}
+        rows = data.get("result") or []
+        if not isinstance(rows, list):
+            return []
+    except Exception as e:
+        logger.warning("payout_discovery: ERC-20 %s: %s", address[:12], type(e).__name__)
+        return []
+    want = str(token or "USDT").upper()
+    out = []
+    for t in rows:
+        try:
+            if (t.get("tokenSymbol") or "").upper() != want:
+                continue
+            if _norm(t.get("to")) != _norm(address):
+                continue
+            # Знаков у токена столько, сколько он объявил, а не сколько у ETH.
+            dec = int(t.get("tokenDecimal") or 6)
+            value = int(t.get("value") or 0) / (10 ** dec)
+            if value <= 0:
+                continue
+            out.append({
+                "txid": t.get("hash") or "",
+                "amount": value,
+                "ts": int(t.get("timeStamp") or 0),
+                "senders": [_norm(t.get("from"))] if t.get("from") else [],
+                # В tokentx попадают только исполненные переводы.
+                "confirmed": True,
+            })
+        except (TypeError, ValueError):
+            continue
+    return [t for t in out if t["txid"]]
+
+
+def incoming_transfers(currency: str, address: str, network=None) -> list[dict]:
     cur = str(currency or "").upper()
     if cur in ("BTC", "LTC"):
         return _incoming_btc_like(address, cur)
     if cur == "USDT":
+        # У USDT две сети, и монеты в них разные по своей природе: TRC-20 живёт
+        # в TRON, ERC-20 — токен в Ethereum. Искать по одной сети обе — значит
+        # не найти половину выплат и при этом считать, что искали.
+        net = str(network or "").upper()
+        if net in ("ERC20", "ETH", "ETHEREUM"):
+            return _incoming_erc20(address, "USDT")
         return _incoming_trc20(address)
     if cur == "XRP":
         # У XRP адрес заявки может быть X-адресом (тег внутри) — на цепи платёж
@@ -534,7 +586,9 @@ def discover(rate_fn=None, fetch=None) -> dict:
     """Ищет доказательства выплаты по всем зависшим заявкам.
 
     rate_fn(currency, rub) — курс для старых заявок без зафиксированной
-    котировки; fetch(currency, address) — источник переводов (подменяется в тестах).
+    котировки; fetch(currency, address, network) — источник переводов
+    (подменяется в тестах). Сеть обязательна: у USDT их две, и монета в них
+    разная — без неё половина выплат ищется не в той цепи.
     Ничего не меняет: возвращает список вердиктов.
     """
     fetch = fetch or incoming_transfers
@@ -555,7 +609,7 @@ def discover(rate_fn=None, fetch=None) -> dict:
         if cur not in trusted_cache:
             trusted_cache[cur] = trusted_senders(cur)
         try:
-            transfers = fetch(cur, addr)
+            transfers = fetch(cur, addr, o.get("network"))
         except Exception as e:
             out["errors"].append(f"#{o['order_id']}: цепочка недоступна ({type(e).__name__})")
             continue
@@ -604,7 +658,7 @@ def candidates_for(order_id: int, rate_fn=None, fetch=None) -> dict:
         return {"error": "не удалось прочитать занятые txid — закрывать нельзя"}
     cur = (o.get("currency") or "").upper()
     try:
-        transfers = fetch(cur, o.get("crypto_address"))
+        transfers = fetch(cur, o.get("crypto_address"), o.get("network"))
     except Exception as e:
         return {"error": f"цепочка недоступна: {type(e).__name__}"}
     v = judge({**o, "expected_amount": expected_amount(o, rate_fn)},

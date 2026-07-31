@@ -151,6 +151,43 @@ def main():
         import importlib
         importlib.reload(pd)
 
+    # ── у USDT ДВЕ сети, и монета в них разная ───────────────────────
+    # TRC-20 живёт в TRON, ERC-20 — токен в Ethereum. Искать обе в одной цепи
+    # значит не найти половину выплат и считать, что искали. Плюс знаки: у
+    # USDT их шесть, у ETH восемнадцать — перепутать значит увидеть ноль
+    # вместо 25 USDT и решить, что выплаты не было.
+    UA = "0x00000000000000000000000000000000000000aa"
+    seen = {}
+    tokentx = {"result": [
+        {"hash": "0xU", "to": UA, "from": "0xour", "value": str(25 * 10**6),
+         "tokenSymbol": "USDT", "tokenDecimal": "6", "timeStamp": "1780000000"},
+        {"hash": "0xOTHER", "to": UA, "from": "0xx", "value": str(25 * 10**6),
+         "tokenSymbol": "USDC", "tokenDecimal": "6", "timeStamp": "1780000100"},
+    ]}
+    pd._get_json = lambda url, params=None, **k: (
+        seen.update(action=(params or {}).get("action")) or tokentx)
+    real_trc = pd._incoming_trc20
+    pd._incoming_trc20 = lambda a: (seen.update(chain="TRON") or [])
+    try:
+        erc = pd.incoming_transfers("USDT", UA, "ERC20")
+        check(seen.get("action") == "tokentx",
+              "USDT/ERC20 читается как обычные транзакции (txlist) — токен-переводов "
+              "там нет вовсе, выплата невидима")
+        check([t["txid"] for t in erc] == ["0xU"],
+              f"USDT/ERC20: взято {[t['txid'] for t in erc]} — чужой токен должен отсеяться")
+        check(erc and abs(erc[0]["amount"] - 25.0) < 1e-9,
+              f"USDT/ERC20: знаки токена перепутаны с ETH "
+              f"({erc[0]['amount'] if erc else '—'} вместо 25.0)")
+        seen.clear()
+        pd.incoming_transfers("USDT", "TXxx", "TRC20")
+        check(seen.get("chain") == "TRON", "USDT/TRC20 ушёл не в TRON")
+        seen.clear()
+        pd.incoming_transfers("USDT", "TXxx", None)
+        check(seen.get("chain") == "TRON",
+              "USDT без указания сети должен идти в TRON — историческое умолчание")
+    finally:
+        pd._get_json, pd._incoming_trc20 = real_get, real_trc
+
     # ── ПУТЬ ЦЕЛИКОМ: читатель → judge ───────────────────────────────
     # Тесты выше проверяют читателей по отдельности, и этого оказалось мало:
     # judge() молча отбрасывает перевод без флага confirmed, а читатели его не
