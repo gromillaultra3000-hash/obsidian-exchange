@@ -431,7 +431,7 @@ def build_welcome_caption(btc_rate: float, ltc_rate: float, usdt_rate: float, vi
         f"5 000 – 10 000 ₽  →  25%\n"
         f"10 000 – 20 000 ₽  →  23%\n"
         f"от 20 000 ₽  →  19%\n\n"
-        f"💵 BTC · LTC · USDT (TRC20) — тарифы по сумме\n\n"
+        f"💵 {coins_line()} — тарифы по сумме\n\n"
         f"🔒 Non-KYC · Без верификации\n"
         f"⚡ Мин. сумма 2 000 ₽"
         f"</blockquote>\n\n"
@@ -1463,6 +1463,23 @@ def _fmt_rate_compact(r) -> str:
 COIN_ICONS = {"BTC": "₿", "LTC": "Ł", "USDT": "💵", "ETH": "Ξ", "XRP": "✕"}
 
 
+def coins_line(sep=" · ", fallback="BTC · LTC · USDT"):
+    """Список монет для КЛИЕНТСКОГО текста — из витрины, а не руками.
+
+    Перечисления вида «BTC · LTC · USDT» жили в десятке мест: в тарифах, в «о
+    сервисе», в описании продажи. Каждая новая монета добавлялась в витрину и
+    НЕ добавлялась в тексты — клиент читал, что XRP мы не продаём, хотя кнопка
+    рядом его предлагала. Текст, который перечисляет товар, обязан спрашивать
+    об этом того же, кто товар выдаёт.
+    """
+    try:
+        coins = list(offered_coins())
+        return sep.join(coins) if coins else fallback
+    except Exception:
+        logger.warning("витрина недоступна при сборке списка монет — фолбэк")
+        return fallback
+
+
 def offered_coins():
     """Монеты, которые сейчас реально можно купить (есть чем выдать).
     Единый источник — services.offerings; сбой → исторические направления.
@@ -2003,10 +2020,10 @@ async def menu_about(callback: CallbackQuery):
         "✅ Без KYC и верификации\n"
         "⚡ Автоматические выплаты\n"
         "🔒 Двойная защита каждой сделки\n"
-        "💱 BTC, LTC, USDT (TRC20)\n"
+        f"💱 {coins_line(sep=', ')}\n"
         "💳 Оплата: СБП, карта, приложения банков"
         "</blockquote>\n\n"
-        "📊 Комиссия 19–27% по сумме (BTC · LTC · USDT)\n"
+        f"📊 Комиссия 19–27% по сумме ({coins_line()})\n"
         "🌐 obsidian-exchange.org\n\n"
         "<i>Используя сервис, вы принимаете условия пользовательского соглашения — /offer</i>",
         parse_mode="HTML",
@@ -2075,7 +2092,7 @@ async def menu_sell(callback: CallbackQuery, state: FSMContext):
     kb = build_currency_kb("sell_cur_")
     await callback.message.answer(
         "💰 <b>Продажа крипты → RUB</b>\n\n"
-        "<blockquote>Отправьте нам монеты на указанный адрес — мы переведём рубли по СБП на ваш номер телефона в течение 30–60 минут.\n\n💱 Курс: рыночный за вычетом комиссии\n~19–27% по сумме (BTC · LTC · USDT)</blockquote>\n\n"
+        f"<blockquote>Отправьте нам монеты на указанный адрес — мы переведём рубли по СБП на ваш номер телефона в течение 30–60 минут.\n\n💱 Курс: рыночный за вычетом комиссии\n~19–27% по сумме ({coins_line()})</blockquote>\n\n"
         "Выберите монету для продажи:",
         reply_markup=kb,
         parse_mode="HTML"

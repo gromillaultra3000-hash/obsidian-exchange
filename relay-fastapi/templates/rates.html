@@ -23,7 +23,10 @@
     <div class="table-wrap">
         <table class="tariffs">
             <thead>
-                <tr><th>Сумма заявки</th><th>BTC · LTC · USDT (TRC20)</th></tr>
+                {# Список монет — из витрины (site_context.offered_currencies), а не
+   руками: иначе новая монета появляется в кнопках и не появляется в
+   тарифах, и клиент читает, что мы её не продаём. #}
+                <tr><th>Сумма заявки</th><th>{{ offered_currencies|join(' · ') }}</th></tr>
             </thead>
             <tbody>
                 <tr><td>до 5 000 ₽</td><td class="highlight">27%</td></tr>

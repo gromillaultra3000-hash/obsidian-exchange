@@ -894,6 +894,61 @@ def check_no_unreachable_handlers():
 # один счёт с разными тегами давал разные строки, и лимит PAYOUT_ADDR_REPEAT_MAX
 # не сработал бы НИ РАЗУ. Страж, который выглядит установленным и не срабатывает,
 # хуже отсутствующего: на него рассчитывают.
+# ─────────────────────────────────────────────────────────────────────
+# 29. Витрина уехала вперёд, а текст остался
+# ─────────────────────────────────────────────────────────────────────
+# Перечисления «BTC · LTC · USDT» жили в тарифах бота, в «о сервисе», в описании
+# продажи и в шапке таблицы тарифов на сайте. Новая монета добавлялась в витрину
+# и НЕ добавлялась в тексты: кнопка предлагала XRP, а текст рядом сообщал, что мы
+# продаём три монеты. Клиент верит тексту — тот выглядит официальнее кнопки.
+#
+# Правило намеренно УЗКОЕ. Первая версия запрещала любое перечисление тикеров и
+# дала 41 срабатывание — на комментариях, на генераторе баннера, на историческом
+# «комиссия BTC / LTC». Мина, которая кричит без причины, хуже отсутствующей:
+# её начинают глушить целиком. Поэтому проверяются НАЗВАННЫЕ поверхности, где
+# текст обещает клиенту ассортимент, — и от них требуется спросить витрину.
+def check_coin_lists_come_from_the_shopfront():
+    tag = "текст отстал от витрины"
+    bot = _read(os.path.join(ROOT, "bot", "main_bot.py"))
+    if not bot:
+        fail(tag, "bot/main_bot.py не прочитан — проверка ослепла")
+        return
+    if "def coins_line(" not in bot:
+        fail(tag, "bot/main_bot.py: нет coins_line() — списка монет из витрины; "
+                  "тексты снова начнут перечислять ассортимент руками")
+    for fn, human in (("def build_welcome_caption(", "тарифы в приветствии"),
+                      ("async def menu_about(", "«о сервисе»"),
+                      ("async def menu_reviews(", "экран отзывов/условий")):
+        body = _nodoc(_slice(bot, fn, "\nasync def ", "\ndef "))
+        if not body:
+            fail(tag, f"bot/main_bot.py: не найдена {fn} — проверка ослепла")
+            continue
+        if not re.search(r"(?:BTC|LTC|USDT|ETH|XRP)\s*(?:·|,|/)\s*(?:BTC|LTC|USDT|ETH|XRP)",
+                         body):
+            continue          # ассортимент здесь не перечисляется — и хорошо
+        if "coins_line" not in body:
+            fail(tag, f"bot/main_bot.py: «{human}» перечисляет монеты руками "
+                      f"вместо coins_line() — витрина уедет вперёд, текст "
+                      f"останется, и клиент прочитает, что монету мы не продаём, "
+                      f"рядом с кнопкой, которая её предлагает")
+
+    for rel, human in ((os.path.join("relay-fastapi", "templates", "rates.html"),
+                        "таблица тарифов на сайте"),
+                       (os.path.join("relay-fastapi", "templates", "dashboard_sell.html"),
+                        "описание продажи в кабинете")):
+        src = _read(os.path.join(ROOT, rel))
+        if not src:
+            continue
+        body = re.sub(r"\{#.*?#\}", "", src, flags=re.S)
+        if not re.search(r"(?:BTC|LTC|USDT|ETH|XRP)\s*(?:·|,|/)\s*(?:BTC|LTC|USDT|ETH|XRP)",
+                         body):
+            continue
+        if "offered_currencies" not in body:
+            fail(tag, f"{rel}: «{human}» перечисляет монеты руками вместо "
+                      f"offered_currencies из общего контекста — список отстанет "
+                      f"от витрины при первой же новой монете")
+
+
 def check_guards_compare_accounts_not_strings():
     tag = "страж сравнивает строку"
     relay = os.path.join(ROOT, "relay")
@@ -1640,6 +1695,7 @@ def main():
                check_no_unreachable_handlers,
                check_blocklist_matches_account_not_string,
                check_guards_compare_accounts_not_strings,
+               check_coin_lists_come_from_the_shopfront,
                check_receipt_beats_the_timer,
                check_migrations_agree,
                check_debt_queue_is_visible,
