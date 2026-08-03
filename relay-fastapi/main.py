@@ -125,6 +125,18 @@ app = FastAPI(title="ObsidianExchange Relay", version="3.0", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
+
+def _tsfmt(ts) -> str:
+    """unix-время → «дд.мм ЧЧ:ММ» для шаблонов. Нечитаемое значение — прочерк,
+    а не исключение посреди страницы."""
+    try:
+        return datetime.fromtimestamp(int(ts)).strftime("%d.%m %H:%M")
+    except (TypeError, ValueError, OSError, OverflowError):
+        return "—"
+
+
+templates.env.filters["tsfmt"] = _tsfmt
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
 logger = logging.getLogger(__name__)
 
@@ -200,6 +212,27 @@ def audit_log(event, details=""):
             conn.commit()
     except Exception as e:
         logger.error(f"Audit log error: {e}")
+
+def webhook_secret(name: str, value: str) -> str:
+    """Секрет вебхука или отказ 503. Пустой секрет = проверять подпись нечем.
+
+    Зачем отдельная функция. Все пять вебхуков, ставящих заявке «оплачено»,
+    были фейл-ОПЕН, каждый по-своему: `if TOKEN and not compare_digest(...)`
+    (Brabus, StormTrade) и `if KEY:` (XPay, Lava) пропускали проверку целиком
+    при пустой переменной, а `compare_digest(token, '')` (Montera) совпадал с
+    пустым заголовком. То есть незаполненный ключ превращал роут в «пометить
+    ЛЮБУЮ заявку оплаченной» — и выглядело это как исправная проверка подписи.
+
+    Пустой секрет — это неготовность канала, а не разрешение. 503 говорит
+    провайдеру «повтори позже» (вебхуки ретраятся), и настройка не теряет
+    уведомление молча, как потеряла бы 401.
+    """
+    if not value:
+        logger.error("%s/webhook: секрет не задан — запрос отклонён (фейл-клоуз). "
+                     "Пока переменная пуста, канал не может подтверждать оплаты.", name)
+        raise HTTPException(status_code=503)
+    return value
+
 
 def verify_init_data(init_data: str, max_age: int = 86400):
     """Проверяет HMAC-подпись Telegram WebApp initData.
@@ -1201,15 +1234,19 @@ async def dashboard_profile_page(request: Request):
     # которого привязан Telegram: связь кошелька живёт на telegram_id, там же
     # доказано владение. Без привязки честно показываем «подключается в
     # Telegram», а не пустой блок.
-    wallets = []
+    wallets, wallet_ops = [], None
     if web_user['telegram_id']:
         try:
             from core import wallet_link as _wl
             wallets = _wl.balances_for(web_user['telegram_id'])
+            if wallets:
+                wallet_ops = _wl.history_for(web_user['telegram_id'],
+                                             chain=wallets[0]["chain"], limit=10)
         except Exception as e:
             logger.warning(f"dashboard profile: кошельки недоступны: {e}")
     return templates.TemplateResponse(request, "dashboard_profile.html", site_context(
         request, active="profile", ref_address=ref_address, wallets=wallets,
+        wallet_ops=wallet_ops,
         error=request.query_params.get('error'), success=request.query_params.get('success'),
     ))
 
@@ -1956,6 +1993,23 @@ async def api_wallet_links(request: Request):
         raise HTTPException(status_code=403, detail="Откройте приложение через бота Telegram.")
     from core import wallet_link as _wl
     return {"wallets": _wl.balances_for(user['id'])}
+
+
+@app.get("/api/wallet/history")
+async def api_wallet_history(request: Request):
+    """История операций подключённого кошелька.
+
+    Адрес снова НЕ из запроса: история выдаёт связи, суммы и контрагентов —
+    отдать её по адресу из параметра значило бы показать чужую финансовую
+    жизнь любому, кто этот адрес знает. Сеть в параметре допустима: она лишь
+    выбирает среди СВОИХ подтверждённых кошельков.
+    """
+    user = verify_init_data(request.headers.get('X-Telegram-Init-Data', ''))
+    if not user:
+        raise HTTPException(status_code=403, detail="Откройте приложение через бота Telegram.")
+    from core import wallet_link as _wl
+    chain = (request.query_params.get('chain') or 'TON').upper()[:12]
+    return _wl.history_for(user['id'], chain=chain, limit=20)
 
 
 @app.post("/api/wallet/disconnect")
@@ -2867,13 +2921,10 @@ async def greenpay_webhook(request: Request):
             raise HTTPException(status_code=404)
     except ImportError:
         pass
-    if not GREENPAY_API_SECRET:
-        # ключа нет — проверять подпись нечем, принимать нельзя (фейл-клоуз)
-        logger.error("greenpay/webhook: GREENPAY_API_SECRET пуст — запрос отклонён")
-        raise HTTPException(status_code=503)
+    secret = webhook_secret('greenpay', GREENPAY_API_SECRET)
     raw = await request.body()
     sig = request.headers.get('X-Signature', '')
-    expected = hmac.new(GREENPAY_API_SECRET.encode(), raw, hashlib.sha256).hexdigest()
+    expected = hmac.new(secret.encode(), raw, hashlib.sha256).hexdigest()
     if not hmac.compare_digest(expected, sig):
         raise HTTPException(status_code=401)
     data = json.loads(raw)
@@ -2902,8 +2953,9 @@ async def greenpay_webhook(request: Request):
 
 @app.post("/montera/webhook")
 async def montera_webhook(request: Request):
+    secret = webhook_secret('montera', MONTERA_API_TOKEN)
     token = request.headers.get('Access-Token', '')
-    if not hmac.compare_digest(token, MONTERA_API_TOKEN):
+    if not hmac.compare_digest(token, secret):
         raise HTTPException(status_code=401)
     data = await request.json()
     audit_log("montera_webhook_received", str(data))
@@ -2959,20 +3011,20 @@ async def montera_webhook(request: Request):
 
 @app.post("/lava/webhook")
 async def lava_webhook(request: Request):
+    # Подпись проверяем ДО разбора тела и без «если ключ задан». У Lava было
+    # два фейл-опена сразу: пустой ключ и ОТСУТСТВУЮЩИЙ заголовок подписи —
+    # то есть достаточно было не прислать подпись, чтобы её не проверили.
+    import json as _json, hmac as _hmac, hashlib as _hashlib
+    lava_add_key = webhook_secret('lava', os.getenv('LAVA_ADDITIONAL_KEY', ''))
+    received_sign = request.headers.get('Signature', '')
     data = await request.json()
     audit_log("lava_webhook_received", str(data))
-
-    # Верификация подписи через дополнительный ключ
-    import sys, json as _json, hmac as _hmac, hashlib as _hashlib
-    lava_add_key = os.getenv('LAVA_ADDITIONAL_KEY', '')
-    received_sign = request.headers.get('Signature', '')
-    if lava_add_key and received_sign:
-        ordered = dict(sorted(data.items()))
-        json_str = _json.dumps(ordered, ensure_ascii=False, separators=(',', ':'))
-        expected = _hmac.new(lava_add_key.encode(), json_str.encode(), _hashlib.sha256).hexdigest()
-        if not _hmac.compare_digest(expected, received_sign):
-            logger.warning(f"Lava webhook bad signature: expected={expected[:16]}... got={received_sign[:16]}...")
-            raise HTTPException(status_code=401)
+    ordered = dict(sorted(data.items()))
+    json_str = _json.dumps(ordered, ensure_ascii=False, separators=(',', ':'))
+    expected = _hmac.new(lava_add_key.encode(), json_str.encode(), _hashlib.sha256).hexdigest()
+    if not _hmac.compare_digest(expected, received_sign):
+        logger.warning(f"Lava webhook bad signature: expected={expected[:16]}... got={received_sign[:16]}...")
+        raise HTTPException(status_code=401)
 
     raw_status = data.get('status')
     order_id   = attempt_id.parse(data.get('orderId'))
@@ -3001,8 +3053,9 @@ async def lava_webhook(request: Request):
 
 @app.post("/brabus/webhook")
 async def brabus_webhook(request: Request):
+    secret = webhook_secret('brabus', BRABUS_NOTIFICATION_TOKEN)
     token = request.headers.get('X-Notification-Token', '')
-    if BRABUS_NOTIFICATION_TOKEN and not hmac.compare_digest(token, BRABUS_NOTIFICATION_TOKEN):
+    if not hmac.compare_digest(token, secret):
         raise HTTPException(status_code=401)
     data = await request.json()
     audit_log("brabus_webhook_received", str(data))
@@ -3031,8 +3084,9 @@ async def brabus_webhook(request: Request):
 async def stormtrade_webhook(request: Request):
     # StormTrade — тот же Merchant Integration API, что Brabus:
     # токен в X-Notification-Token, тело {"notificationType": "invoice", "invoice": {...}}
+    secret = webhook_secret('stormtrade', STORMTRADE_NOTIFICATION_TOKEN)
     token = request.headers.get('X-Notification-Token', '')
-    if STORMTRADE_NOTIFICATION_TOKEN and not hmac.compare_digest(token, STORMTRADE_NOTIFICATION_TOKEN):
+    if not hmac.compare_digest(token, secret):
         raise HTTPException(status_code=401)
     data = await request.json()
     audit_log("stormtrade_webhook_received", str(data))
@@ -3060,13 +3114,13 @@ async def stormtrade_webhook(request: Request):
 async def xpay_webhook(request: Request):
     # XPayConnect шлёт вебхук только при success; подпись в x-api-key —
     # SHA-256 от '<API_KEY>|<сырое тело>' (docs.xpayconnect.io/concepts/webhooks.md)
+    secret = webhook_secret('xpay', XPAY_API_KEY)
     body_bytes = await request.body()
     received = request.headers.get('x-api-key', '')
-    if XPAY_API_KEY:
-        expected = hashlib.sha256(XPAY_API_KEY.encode() + b'|' + body_bytes).hexdigest()
-        if not hmac.compare_digest(expected, received):
-            logger.warning(f"XPay webhook bad signature: got={received[:16]}...")
-            raise HTTPException(status_code=401)
+    expected = hashlib.sha256(secret.encode() + b'|' + body_bytes).hexdigest()
+    if not hmac.compare_digest(expected, received):
+        logger.warning(f"XPay webhook bad signature: got={received[:16]}...")
+        raise HTTPException(status_code=401)
     try:
         data = json.loads(body_bytes)
     except Exception:

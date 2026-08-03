@@ -151,8 +151,10 @@ MAIN = open(os.path.join(ROOT, "relay-fastapi", "main.py"), encoding="utf-8").re
 gp = MAIN[MAIN.index('@app.post("/greenpay/webhook")'):]
 gp = gp[:gp.index("\n@app.")]
 check("вебхук снятого канала проверяет снятие", "is_provider_retired" in gp)
+# Пустой ключ отвергается общим стражом всех вебхуков (webhook_secret):
+# отдельная проверка здесь была бы копией правила, которая разойдётся с ним.
 check("вебхук снятого канала не верит пустому ключу",
-      "if not GREENPAY_API_SECRET" in gp)
+      "webhook_secret(" in gp)
 check("отказ идёт ДО разбора тела",
       gp.index("is_provider_retired") < gp.index("await request.body()"))
 

@@ -219,6 +219,64 @@ def balance(address: str = None) -> Dict[str, Any]:
             "reason": st.get("reason")}
 
 
+def history(address: str, limit: int = 20) -> Dict[str, Any]:
+    """Последние операции счёта: {'items': [...], 'status', 'reason'}.
+
+    Элемент: direction ('in'|'out'), amount (TON, всегда положительный),
+    counterparty, comment, ts (unix), txid, fee.
+
+    Пустой список и «сеть не ответила» РАЗЛИЧАЮТСЯ статусом: клиенту, который
+    ищет свой перевод, «операций нет» и «мы не смогли спросить» — разные
+    новости, и подменять вторую первой значит успокаивать его напрасно.
+    """
+    addr = (address or "").strip()
+    if not addr:
+        return {"items": [], "status": "NOT_CONFIGURED", "reason": "адрес не задан"}
+    try:
+        lim = max(1, min(int(limit), 50))
+    except (TypeError, ValueError):
+        lim = 20
+    try:
+        data = _get_json(api_url("getTransactions"),
+                         api_params({"address": addr, "limit": lim,
+                                     "archival": "false"})) or {}
+    except Exception as e:
+        return {"items": [], "status": "ERROR", "reason": type(e).__name__}
+    if not data.get("ok"):
+        return {"items": [], "status": "ERROR",
+                "reason": str(data.get("error") or "toncenter отказал")[:160]}
+
+    def _nano(v):
+        try:
+            return int(v) / 1e9
+        except (TypeError, ValueError):
+            return None
+
+    items = []
+    for tx in (data.get("result") or []):
+        txid = ((tx.get("transaction_id") or {}).get("hash") or "")
+        ts = tx.get("utime") or 0
+        fee = _nano(tx.get("fee")) or 0.0
+        # Входящее — in_msg с суммой; исходящие — каждое out_msg отдельно.
+        in_msg = tx.get("in_msg") or {}
+        in_value = _nano(in_msg.get("value"))
+        if in_value and in_value > 0 and in_msg.get("source"):
+            items.append({"direction": "in", "amount": in_value,
+                          "counterparty": in_msg.get("source") or "",
+                          "comment": (in_msg.get("message") or "")[:120],
+                          "ts": int(ts), "txid": txid, "fee": fee})
+        for out in (tx.get("out_msgs") or []):
+            out_value = _nano(out.get("value"))
+            if out_value is None:
+                continue
+            items.append({"direction": "out", "amount": out_value,
+                          "counterparty": out.get("destination") or "",
+                          "comment": (out.get("message") or "")[:120],
+                          "ts": int(ts), "txid": txid, "fee": fee})
+    items.sort(key=lambda x: x["ts"], reverse=True)
+    return {"items": items[:lim], "status": "OK", "reason": None}
+
+
 # ── отправка ─────────────────────────────────────────────────────────────────
 def send(*_args, **_kwargs):
     """Отправки нет: контур watch-only.

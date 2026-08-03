@@ -416,6 +416,7 @@
                 <button type="button" id="wallet-refresh" style="background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer">🔄</button>
               </div>
               <div id="wallet-list"></div>
+              <div id="wallet-ops" style="margin-top:10px;border-top:1px solid rgba(255,255,255,.07);padding-top:8px"></div>
               <button type="button" id="wallet-disconnect" style="margin-top:10px;background:none;border:1px solid rgba(255,255,255,.12);color:var(--muted);border-radius:10px;padding:7px 12px;font-size:12px;cursor:pointer">Отключить кошелёк</button>
             </div>
             <div class="input-group"><label>BTC адрес для рефбонусов</label><input type="text" id="btc-address" placeholder="bc1... или 1... или 3..."></div>
@@ -976,15 +977,48 @@
             }).join('');
         }
 
+        function walletOpsRender(d) {
+            const el = document.getElementById('wallet-ops');
+            if (!el) return;
+            const items = (d && d.items) || [];
+            // «Операций нет» и «спросить не смогли» — разные новости для того,
+            // кто ищет свой перевод. Второе не выдаём за первое.
+            if (!d || d.status !== 'OK') {
+                el.innerHTML = '<div style="font-size:12px;color:var(--muted)">'
+                    + 'История сейчас недоступна — попробуйте обновить.</div>';
+                return;
+            }
+            if (!items.length) {
+                el.innerHTML = '<div style="font-size:12px;color:var(--muted)">Операций пока нет.</div>';
+                return;
+            }
+            el.innerHTML = items.slice(0, 8).map(op => {
+                const inc = op.direction === 'in';
+                const when = op.ts ? new Date(op.ts * 1000).toLocaleString('ru-RU',
+                    { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
+                return '<div style="display:flex;justify-content:space-between;gap:8px;padding:3px 0;font-size:12px">'
+                     + '<span style="color:var(--muted)">' + when + ' · '
+                     + walletShorten(op.counterparty) + '</span>'
+                     + '<span style="font-weight:700;color:' + (inc ? 'var(--green)' : '#e2e8f0') + '">'
+                     + (inc ? '+' : '−') + Number(op.amount || 0).toFixed(4) + '</span></div>';
+            }).join('');
+        }
+
         async function loadWallets() {
             try {
                 const r = await fetch('/api/wallet/links', {
                     headers: { 'X-Telegram-Init-Data': tg.initData || '' } });
                 if (!r.ok) { walletRender([]); return; }
                 const d = await r.json().catch(() => ({}));
-                walletRender((d && d.wallets) || []);
+                const list = (d && d.wallets) || [];
+                walletRender(list);
+                if (!list.length) { walletOpsRender(null); return; }
+                const h = await fetch('/api/wallet/history', {
+                    headers: { 'X-Telegram-Init-Data': tg.initData || '' } });
+                walletOpsRender(h.ok ? await h.json().catch(() => null) : null);
             } catch (e) {
                 walletRender([]);
+                walletOpsRender(null);
             }
         }
 

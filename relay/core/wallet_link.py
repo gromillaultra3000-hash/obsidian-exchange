@@ -33,6 +33,10 @@ BALANCE_SOURCES = {
     "TON": ("wallet.ton_wallet", "account_state"),
 }
 
+HISTORY_SOURCES = {
+    "TON": ("wallet.ton_wallet", "history"),
+}
+
 _DDL = ("CREATE TABLE IF NOT EXISTS wallet_links ("
         " user_id INTEGER NOT NULL,"
         " chain TEXT NOT NULL,"
@@ -148,6 +152,47 @@ def _account_state(chain: str, address: str, source=None) -> dict:
         return {"balance": None, "status": st.get("status") or "ERROR",
                 "reason": st.get("reason") or "баланс недоступен"}
     return {"balance": float(bal), "status": "OK", "reason": None}
+
+
+def history_for(user_id, chain: str = "TON", limit: int = 20, source=None) -> dict:
+    """История операций ПОДКЛЮЧЁННОГО кошелька клиента.
+
+    Как и у баланса, адрес берётся из хранилища связей, а не из запроса — и по
+    той же причине, только цена ошибки выше: история кошелька выдаёт связи,
+    суммы и контрагентов. Показать её по адресу из параметра значило бы отдать
+    чужую финансовую жизнь любому, кто знает адрес.
+
+    Ответ различает «операций нет» и «спросить не смогли»: клиенту, который
+    ищет свой перевод, это разные новости.
+    """
+    chain = (chain or "TON").upper().strip()
+    address = address_for(user_id, chain)
+    if not address:
+        return {"items": [], "status": "NOT_CONNECTED", "reason": "кошелёк не подключён",
+                "chain": chain, "address": ""}
+    fn = source
+    if fn is None:
+        mod_name, fn_name = HISTORY_SOURCES.get(chain, (None, None))
+        if not mod_name:
+            return {"items": [], "status": "UNSUPPORTED",
+                    "reason": f"история сети {chain} не поддержана",
+                    "chain": chain, "address": address}
+        try:
+            mod = __import__(mod_name, fromlist=[fn_name])
+            fn = getattr(mod, fn_name)
+        except Exception as e:
+            return {"items": [], "status": "ERROR", "reason": type(e).__name__,
+                    "chain": chain, "address": address}
+    try:
+        res = fn(address, limit) or {}
+    except Exception as e:
+        return {"items": [], "status": "ERROR", "reason": type(e).__name__,
+                "chain": chain, "address": address}
+    items = res.get("items")
+    if not isinstance(items, list):
+        items = []
+    return {"items": items, "status": res.get("status") or "ERROR",
+            "reason": res.get("reason"), "chain": chain, "address": address}
 
 
 def balances_for(user_id, source=None) -> list:

@@ -122,6 +122,28 @@ check("резерв ETH не открывает XRP", with_state(dict(base, ETH=
 check("резерв XRP = 0 закрывает направление",
       with_state(dict(base, XRP=0), True)["xrp_enabled"] is False)
 
+# ── TON: то же правило. Без этой ветки этапы 1-2 (сеть, memo, TON Connect)
+# существовали, а заявку по ним создать было нельзя — витрина TON не отдавала.
+d = with_state(base, False)
+check("без резерва TON направление закрыто", d["ton_enabled"] is False)
+check("TON не попадает в валюты без резерва", "TON" not in d["currencies"])
+check("причина закрытия TON объясняет, что делать", "setreserve" in d["reason_ton_off"])
+
+d = with_state(dict(base, TON=25.0), False)
+check("резерв TON открывает направление БЕЗ флага мультичейна", d["ton_enabled"] is True)
+check("TON попал в список валют", "TON" in d["currencies"])
+check("TON идёт в своей сети", d["networks"]["TON"] == ["TON"])
+check("резерв TON не открывает XRP", d["xrp_enabled"] is False)
+check("резерв XRP не открывает TON",
+      with_state(dict(base, XRP=500.0), True)["ton_enabled"] is False)
+check("резерв TON = 0 закрывает направление",
+      with_state(dict(base, TON=0), True)["ton_enabled"] is False)
+
+with_state(dict(base, TON=25.0), False)
+check("TON в своей сети принимается", O.is_offered("TON", "TON", force=True))
+check("TON без сети принимается (дефолт)", O.is_offered("TON", None, force=True))
+check("TON в чужой сети отклоняется", not O.is_offered("TON", "TRC20", force=True))
+
 with_state(dict(base, XRP=500.0), False)
 check("XRP/XRPL принимается", O.is_offered("XRP", "XRPL", force=True))
 check("XRP без сети принимается (дефолт)", O.is_offered("XRP", None, force=True))

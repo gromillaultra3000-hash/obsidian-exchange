@@ -171,6 +171,55 @@ def main():
         check(row.get("configured") is False,
               "без адреса сеть показана ненастроенной, а не с нулевым остатком")
 
+    # ── история операций ───────────────────────────────────────────────
+    # Разбор ответа toncenter: входящее и исходящие берутся из РАЗНЫХ полей,
+    # и перепутать их значит показать клиенту приход вместо расхода.
+    sample = {"ok": True, "result": [
+        {"utime": 1785000000, "fee": "3000000",
+         "transaction_id": {"hash": "AAA"},
+         "in_msg": {"source": "UQSender", "value": "2500000000", "message": "заказ 42"},
+         "out_msgs": []},
+        {"utime": 1784000000, "fee": "1000000",
+         "transaction_id": {"hash": "BBB"},
+         "in_msg": {"source": "", "value": "0"},
+         "out_msgs": [{"destination": "UQTarget", "value": "1000000000", "message": ""}]},
+    ]}
+    real_get = tw._get_json
+    tw._get_json = lambda *a, **k: sample
+    try:
+        h = tw.history("UQMine", limit=10)
+    finally:
+        tw._get_json = real_get
+    check(h["status"] == "OK" and len(h["items"]) == 2,
+          f"история разобрана ({h.get('status')}, {len(h.get('items', []))} шт.)")
+    inc = [i for i in h["items"] if i["direction"] == "in"]
+    out = [i for i in h["items"] if i["direction"] == "out"]
+    check(len(inc) == 1 and abs(inc[0]["amount"] - 2.5) < 1e-9,
+          "входящее взято из in_msg и переведено из нано")
+    check(len(out) == 1 and abs(out[0]["amount"] - 1.0) < 1e-9,
+          "исходящее взято из out_msgs, а не посчитано входящим")
+    check(h["items"][0]["ts"] >= h["items"][1]["ts"], "операции отсортированы, свежие сверху")
+    check(inc[0]["comment"] == "заказ 42", "комментарий перевода сохранён")
+
+    tw._get_json = lambda *a, **k: {"ok": False, "error": "rate limit"}
+    try:
+        h = tw.history("UQMine")
+    finally:
+        tw._get_json = real_get
+    check(h["status"] == "ERROR" and h["items"] == [],
+          "отказ узла — это не «операций нет»")
+
+    def _boom(*a, **k):
+        raise OSError("нет сети")
+    tw._get_json = _boom
+    try:
+        h = tw.history("UQMine")
+    finally:
+        tw._get_json = real_get
+    check(h["status"] == "ERROR", "сбой сети не роняет историю исключением")
+    check(tw.history("")["status"] == "NOT_CONFIGURED",
+          "пустой адрес — отказ, а не запрос в никуда")
+
     if FAILS:
         print(f"\n❌ Провалов: {len(FAILS)}")
         for m in FAILS:

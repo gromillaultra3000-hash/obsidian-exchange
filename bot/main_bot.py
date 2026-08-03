@@ -6824,7 +6824,27 @@ def _my_wallet_text(uid) -> str:
         else:
             amount = f"баланс недоступен ({w.get('reason') or 'сеть не ответила'})"
         lines.append(f"<b>{w['chain']}</b> · <code>{w['address']}</code>\n{amount}")
-    lines.append("\nОтключить кошелёк можно в приложении, вкладка «Профиль».")
+    # Последние операции — тем же источником. Пустая история и недоступная
+    # сеть звучат по-разному: клиент, который ищет свой перевод, не должен
+    # услышать «операций нет» вместо «мы не смогли спросить».
+    try:
+        hist = _wl.history_for(uid, chain=wallets[0]["chain"], limit=5)
+    except Exception:
+        hist = {"status": "ERROR", "items": []}
+    if hist.get("status") == "OK" and hist.get("items"):
+        ops = ["<b>Последние операции</b>"]
+        for op in hist["items"][:5]:
+            when = datetime.fromtimestamp(op["ts"]).strftime("%d.%m %H:%M") if op.get("ts") else ""
+            sign = "+" if op.get("direction") == "in" else "−"
+            who = op.get("counterparty") or ""
+            who = (who[:8] + "…" + who[-6:]) if len(who) > 16 else who
+            ops.append(f"{when} · {sign}{op.get('amount', 0):.4f} · <code>{who}</code>")
+        lines.append("\n".join(ops))
+    elif hist.get("status") == "OK":
+        lines.append("Операций по кошельку пока нет.")
+    else:
+        lines.append("История сейчас недоступна — попробуйте позже.")
+    lines.append("Отключить кошелёк можно в приложении, вкладка «Профиль».")
     return "\n\n".join(lines)
 
 

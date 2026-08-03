@@ -2572,14 +2572,17 @@ def check_balance_is_shown_only_for_proven_ownership():
 
     # Показ баланса требует опознанного клиента и не берёт адрес из запроса.
     main_src = _read(os.path.join(ROOT, "relay-fastapi", "main.py"))
-    if "balances_for" in main_src:
+    # История кошелька — тот же класс, что баланс, и цена ошибки выше: она
+    # выдаёт связи, суммы и контрагентов.
+    SHOWS_WALLET = ("balances_for", "history_for")
+    if any(s in main_src for s in SHOWS_WALLET):
         t = ast.parse(main_src)
         seen = False
         for node in ast.walk(t):
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 continue
             seg = ast.get_source_segment(main_src, node) or ""
-            if "balances_for" not in seg:
+            if not any(s in seg for s in SHOWS_WALLET):
                 continue
             seen = True
             if "verify_init_data" not in seg and "get_web_user" not in seg:
@@ -2594,7 +2597,7 @@ def check_balance_is_shown_only_for_proven_ownership():
                           f"({taken.group(0)}) рядом с показом баланса — адрес "
                           f"обязан приходить из хранилища связей, а не снаружи")
         if not seen:
-            fail(tag, "main.py: balances_for упоминается, но не внутри обработчика — "
+            fail(tag, "main.py: показ кошелька упоминается, но не внутри обработчика — "
                       "проверить опознание клиента невозможно")
 
     # Фронт не шлёт адрес в кошельковые эндпоинты: если начнёт — значит сервер
@@ -2607,6 +2610,58 @@ def check_balance_is_shown_only_for_proven_ownership():
         if re.search(r"addr(ess)?", m.group(1) + m.group(2), re.I):
             fail(tag, f"webapp.html: рядом с запросом {m.group(1)} фигурирует адрес — "
                       f"клиентская сторона не должна выбирать, чей баланс смотреть")
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Вебхук не ставит «оплачено» без секрета
+# ─────────────────────────────────────────────────────────────────────
+# Все пять вебхуков, помечающих заявку оплаченной, были фейл-ОПЕН, и каждый
+# по-своему: `if TOKEN and not compare_digest(...)` (Brabus, StormTrade) и
+# `if KEY:` (XPay, Lava) при пустой переменной пропускали проверку целиком, а
+# `compare_digest(token, '')` (Montera) совпадал с пустым заголовком. Выглядело
+# как исправная проверка подписи, работало как «пометить ЛЮБУЮ заявку
+# оплаченной». Пустой секрет — это неготовность канала, а не разрешение.
+def check_webhooks_refuse_without_secret():
+    tag = "вебхук помечает оплату без секрета"
+    src = _read(os.path.join(ROOT, "relay-fastapi", "main.py"))
+    if not src:
+        return
+    tree = ast.parse(src)
+    routes = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        for dec in node.decorator_list:
+            if not isinstance(dec, ast.Call):
+                continue
+            path = next((a.value for a in dec.args
+                         if isinstance(a, ast.Constant) and isinstance(a.value, str)), "")
+            if path.endswith("/webhook"):
+                routes[path] = node
+    if not routes:
+        fail(tag, "в main.py не нашлось ни одного вебхука — правило смотрит не туда")
+        return
+    for path, node in routes.items():
+        seg = ast.get_source_segment(src, node) or ""
+        if "status='paid'" not in seg and 'status="paid"' not in seg:
+            continue                 # этот вебхук деньги не подтверждает
+        if "webhook_secret(" not in seg:
+            fail(tag, f"{path}: подтверждает оплату, но не проходит через общий "
+                      f"страж webhook_secret() — при пустой переменной окружения "
+                      f"роут примет «оплачено» от кого угодно")
+            continue
+        # Страж обязан стоять безусловно. `if KEY: <проверка>` — это тот самый
+        # фейл-опен, только записанный иначе.
+        for n in ast.walk(node):
+            if not isinstance(n, ast.If):
+                continue
+            body_src = "\n".join(ast.get_source_segment(src, b) or "" for b in n.body)
+            if "webhook_secret(" in body_src:
+                test_src = ast.get_source_segment(src, n.test) or ""
+                if "retired" not in test_src:   # снятие канала — законный гейт
+                    fail(tag, f"{path}: webhook_secret() спрятан под условием "
+                              f"«{test_src[:60]}» — при невыполненном условии "
+                              f"подпись снова никто не проверит")
 
 
 def main():
@@ -2636,6 +2691,7 @@ def main():
                check_wallet_proof_is_checked_against_the_chain,
                check_retired_provider_leaves_the_money_path,
                check_balance_is_shown_only_for_proven_ownership,
+               check_webhooks_refuse_without_secret,
                check_destination_is_not_checked_as_bare_address,
                check_receipt_beats_the_timer,
                check_migrations_agree,

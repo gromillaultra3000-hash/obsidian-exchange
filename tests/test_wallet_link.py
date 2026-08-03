@@ -104,6 +104,54 @@ params = set(inspect.signature(wl.balances_for).parameters)
 check("balances_for не принимает адрес аргументом",
       not ({"address", "addr", "wallet"} & params))
 
+# --- история ----------------------------------------------------------------
+asked_hist = []
+
+
+def hist_ok(address, limit=20):
+    asked_hist.append((address, limit))
+    return {"items": [
+        {"direction": "in", "amount": 3.0, "counterparty": "UQFrom",
+         "comment": "", "ts": 1785000000, "txid": "AAA", "fee": 0.001},
+        {"direction": "out", "amount": 1.0, "counterparty": "UQTo",
+         "comment": "", "ts": 1784000000, "txid": "BBB", "fee": 0.001},
+    ], "status": "OK", "reason": None}
+
+
+def hist_down(address, limit=20):
+    return {"items": [], "status": "ERROR", "reason": "toncenter молчит"}
+
+
+def hist_boom(address, limit=20):
+    raise RuntimeError("сеть отвалилась")
+
+
+asked_hist.clear()
+h = wl.history_for(ALICE, source=hist_ok)
+check("история отдаётся по подключённому кошельку",
+      h["status"] == "OK" and len(h["items"]) == 2)
+check("история спрашивалась ровно по подтверждённому адресу",
+      asked_hist and asked_hist[0][0] == A_ADDR)
+check("в ответе указан адрес, по которому смотрели", h["address"] == A_ADDR)
+
+h = wl.history_for(ALICE, source=hist_down)
+check("недоступная история не выдаётся за «операций нет»",
+      h["items"] == [] and h["status"] == "ERROR")
+h = wl.history_for(ALICE, source=hist_boom)
+check("падение источника истории не роняет ответ",
+      h["items"] == [] and h["status"] == "ERROR")
+
+h = wl.history_for(BOB, source=hist_ok)
+check("у клиента без кошелька истории нет",
+      h["items"] == [] and h["status"] == "NOT_CONNECTED")
+check("неизвестная сеть — честный отказ, а не пустая история",
+      wl.history_for(ALICE, chain="BTC", source=None)["status"] in ("NOT_CONNECTED",
+                                                                    "UNSUPPORTED"))
+
+hist_params = set(inspect.signature(wl.history_for).parameters)
+check("history_for не принимает адрес аргументом",
+      not ({"address", "addr", "wallet"} & hist_params))
+
 # --- отключение -------------------------------------------------------------
 check("отключение снимает связь", wl.forget(ALICE, "TON") == 1)
 check("после отключения кошельков нет", wl.links_for(ALICE) == [])
@@ -134,6 +182,55 @@ if verify:
     src = ast.get_source_segment(MAIN, verify) or ""
     check("связь запоминается только при положительном вердикте",
           'if verdict["verified"]' in src and "remember" in src)
+
+# --- карточка кошелька на сайте ---------------------------------------------
+# Шаблон рисуется отдельно от кода, и ошибка в нём молчит до открытия страницы.
+# Тут уже поймано: `wallet_ops.items` в Jinja — это МЕТОД словаря, а не список
+# операций, страница падала с TypeError.
+try:
+    from jinja2 import Environment, FileSystemLoader, select_autoescape
+except ImportError:
+    Environment = None
+
+if Environment is not None:
+    tpl_dir = os.path.join(ROOT, "relay-fastapi", "templates")
+    env = Environment(loader=FileSystemLoader(tpl_dir), autoescape=select_autoescape())
+    env.filters["tsfmt"] = lambda ts: "01.01 00:00"
+    page = open(os.path.join(tpl_dir, "dashboard_profile.html"), encoding="utf-8").read()
+    card = page[page.index('<div class="dash-card">\n    <h2>🔌'):
+                page.index('<div class="dash-card">\n    <h2>🔐')]
+    tpl = env.from_string(card)
+
+    class _U(dict):
+        __getattr__ = dict.get
+
+    def render(tg_id, wallets, ops):
+        return tpl.render(web_user=_U(telegram_id=tg_id), wallets=wallets, wallet_ops=ops)
+
+    W = [{"chain": "TON", "address": "UQabc", "balance": 2.5}]
+    W_UNK = [{"chain": "TON", "address": "UQabc", "balance": None}]
+    OPS = {"status": "OK", "chain": "TON",
+           "items": [{"ts": 1785000000, "direction": "in", "amount": 2.5,
+                      "counterparty": "UQx"}]}
+    try:
+        out_ok = render(1, W, OPS)
+        out_down = render(1, W_UNK, {"status": "ERROR", "chain": "TON", "items": []})
+        out_empty = render(1, W, {"status": "OK", "chain": "TON", "items": []})
+        out_none = render(None, [], None)
+        rendered = True
+    except Exception as e:
+        rendered = False
+        check(f"карточка кошелька рендерится ({type(e).__name__}: {e})", False)
+    if rendered:
+        check("на сайте видна сумма операции", "2.5000" in out_ok and "получено" in out_ok)
+        check("на сайте недоступный баланс не выдан за ноль",
+              "баланс недоступен" in out_down)
+        check("на сайте недоступная история не выдана за «операций нет»",
+              "История сейчас недоступна" in out_down)
+        check("на сайте пустая история названа пустой",
+              "Операций по кошельку пока нет" in out_empty)
+        check("без привязки Telegram сказано, где подключать",
+              "подключается в Telegram" in out_none)
 
 print(f"\n{ok} проверок пройдено, {fail} провал(ов)")
 sys.exit(1 if fail else 0)

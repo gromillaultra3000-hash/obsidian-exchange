@@ -92,8 +92,17 @@ def _compute() -> dict:
         currencies.append("XRP")
         networks["XRP"] = [_assets.NET_XRPL]
 
+    # TON — то же правило, свой резерв. Без этой ветки этапы 1-2 (сеть, memo,
+    # проверка адреса, TON Connect) существовали, но клиент не мог создать
+    # заявку: витрина TON не отдавала, а _allowed_currencies() её отбрасывал.
+    # Нашёл codex: возможность, до которой не доходит живой клиент, не сделана.
+    if reserves.get("TON", 0) > 0:
+        currencies.append("TON")
+        networks["TON"] = [_assets.NET_TON]
+
     eth_on = "ETH" in currencies
     xrp_on = "XRP" in currencies
+    ton_on = "TON" in currencies
     return {
         "currencies": tuple(currencies),
         "networks": networks,
@@ -107,6 +116,11 @@ def _compute() -> dict:
         "reason_xrp_off": (
             "" if xrp_on
             else "нет подтверждённой ликвидности XRP: задайте /setreserve XRP <кол-во>"
+        ),
+        "ton_enabled": ton_on,
+        "reason_ton_off": (
+            "" if ton_on
+            else "нет подтверждённой ликвидности TON: задайте /setreserve TON <кол-во>"
         ),
     }
 
@@ -122,6 +136,8 @@ def _safe_default() -> dict:
         "reason_eth_off": "витрина недоступна — направление закрыто",
         "xrp_enabled": False,
         "reason_xrp_off": "витрина недоступна — направление закрыто",
+        "ton_enabled": False,
+        "reason_ton_off": "витрина недоступна — направление закрыто",
     }
 
 

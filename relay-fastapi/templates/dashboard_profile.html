@@ -48,6 +48,29 @@
         {% endfor %}
         </tbody>
     </table>
+    {# История: «операций нет» и «спросить не смогли» показываем по-разному —
+       клиент, который ищет свой перевод, не должен принять второе за первое. #}
+    {% if wallet_ops and wallet_ops['status'] == 'OK' and wallet_ops['items'] %}
+    <h3 style="margin-top:14px">Последние операции</h3>
+    <table class="dash-table">
+        <thead><tr><th>Когда</th><th>Направление</th><th>Сумма</th><th>Контрагент</th></tr></thead>
+        <tbody>
+        {% for op in wallet_ops['items'][:10] %}
+        <tr>
+            <td>{{ op.ts | tsfmt if op.ts else '—' }}</td>
+            <td>{{ 'получено' if op.direction == 'in' else 'отправлено' }}</td>
+            <td>{{ '%.4f'|format(op.amount) }} {{ wallet_ops['chain'] }}</td>
+            <td style="font-family:monospace;font-size:12px">{{ op.counterparty }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% elif wallet_ops and wallet_ops['status'] == 'OK' %}
+    <p style="font-size:13px;opacity:.75">Операций по кошельку пока нет.</p>
+    {% elif wallet_ops %}
+    <p style="font-size:13px;opacity:.75">История сейчас недоступна — сеть не ответила.
+       Это не значит, что операций нет.</p>
+    {% endif %}
     <p style="font-size:13px;opacity:.75">Ключи остаются у вас: мы видим только
        адрес и его публичный баланс. Отключить кошелёк можно в Telegram-приложении.</p>
     {% else %}
