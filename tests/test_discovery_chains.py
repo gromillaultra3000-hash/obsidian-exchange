@@ -43,28 +43,38 @@ def main():
         # обычный доставленный платёж
         {"tx": {"TransactionType": "Payment", "Destination": ADDR, "hash": "AAA",
                 "Account": "rOurWallet", "Amount": "12500000", "date": 780000000},
-         "meta": {"TransactionResult": "tesSUCCESS", "delivered_amount": "12500000"}},
+         "validated": True, "meta": {"TransactionResult": "tesSUCCESS", "delivered_amount": "12500000"}},
         # ЧАСТИЧНЫЙ платёж: заявлено много, дошло мало — считать надо дошедшее
         {"tx": {"TransactionType": "Payment", "Destination": ADDR, "hash": "BBB",
                 "Account": "rOurWallet", "Amount": "99000000", "date": 780000100},
-         "meta": {"TransactionResult": "tesSUCCESS", "delivered_amount": "1000000"}},
+         "validated": True, "meta": {"TransactionResult": "tesSUCCESS", "delivered_amount": "1000000"}},
         # неуспешная — денег не было
         {"tx": {"TransactionType": "Payment", "Destination": ADDR, "hash": "CCC",
                 "Account": "rOurWallet", "Amount": "50000000", "date": 780000200},
-         "meta": {"TransactionResult": "tecUNFUNDED_PAYMENT", "delivered_amount": "50000000"}},
+         "validated": True, "meta": {"TransactionResult": "tecUNFUNDED_PAYMENT", "delivered_amount": "50000000"}},
         # чужому адресу
         {"tx": {"TransactionType": "Payment", "Destination": "rSomeoneElse", "hash": "DDD",
                 "Account": "rOurWallet", "Amount": "7000000", "date": 780000300},
-         "meta": {"TransactionResult": "tesSUCCESS", "delivered_amount": "7000000"}},
+         "validated": True, "meta": {"TransactionResult": "tesSUCCESS", "delivered_amount": "7000000"}},
         # не платёж
         {"tx": {"TransactionType": "TrustSet", "Destination": ADDR, "hash": "EEE",
                 "Account": "rOurWallet", "date": 780000400},
-         "meta": {"TransactionResult": "tesSUCCESS"}},
+         "validated": True, "meta": {"TransactionResult": "tesSUCCESS"}},
+        # предварительный успех: реестр ещё НЕ подтвердил. Такую транзакцию
+        # можно потерять — засчитать её значит закрыть заявку раньше денег.
+        {"tx": {"TransactionType": "Payment", "Destination": ADDR, "hash": "GGG",
+                "Account": "rOurWallet", "Amount": "31000000", "date": 780000600},
+         "validated": False,
+         "meta": {"TransactionResult": "tesSUCCESS", "delivered_amount": "31000000"}},
+        # поля validated нет вовсе — тоже не доказательство
+        {"tx": {"TransactionType": "Payment", "Destination": ADDR, "hash": "HHH",
+                "Account": "rOurWallet", "Amount": "42000000", "date": 780000700},
+         "meta": {"TransactionResult": "tesSUCCESS", "delivered_amount": "42000000"}},
         # платёж токеном (Amount — объект, не дропы)
         {"tx": {"TransactionType": "Payment", "Destination": ADDR, "hash": "FFF",
                 "Account": "rIssuer", "date": 780000500,
                 "Amount": {"currency": "USD", "value": "10", "issuer": "rI"}},
-         "meta": {"TransactionResult": "tesSUCCESS",
+         "validated": True, "meta": {"TransactionResult": "tesSUCCESS",
                   "delivered_amount": {"currency": "USD", "value": "10", "issuer": "rI"}}},
     ]}}
 
@@ -78,6 +88,9 @@ def main():
     by = {t["txid"]: t for t in got}
     check(set(by) == {"AAA", "BBB"},
           f"XRPL: взяты переводы {sorted(by)} — ждали только AAA и BBB")
+    check("GGG" not in by and "HHH" not in by,
+          "XRPL: неподтверждённая реестром транзакция засчитана как выплата — "
+          "заявка закроется раньше, чем деньги окончательно уйдут")
     check(abs(by.get("AAA", {}).get("amount", 0) - 12.5) < 1e-9,
           f"XRPL: дропы не переведены в XRP ({by.get('AAA', {}).get('amount')})")
     check(abs(by.get("BBB", {}).get("amount", 0) - 1.0) < 1e-9,
@@ -215,7 +228,7 @@ def main():
         return {"tx": {"TransactionType": "Payment", "Destination": SHARED, "hash": h,
                        "Account": "rOurWallet", "Amount": str(drops),
                        "date": 800000000, "DestinationTag": tag},
-                "meta": {"TransactionResult": "tesSUCCESS",
+                "validated": True, "meta": {"TransactionResult": "tesSUCCESS",
                          "delivered_amount": str(drops)}}
 
     requests.post = lambda *a, **k: _Resp(

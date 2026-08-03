@@ -293,6 +293,14 @@ def _incoming_xrpl(address: str, dest_tag=None) -> list[dict]:
             continue
         if (meta.get("TransactionResult") or "") != "tesSUCCESS":
             continue
+        # tesSUCCESS в НЕвалидированной строке — предварительный исход: такую
+        # транзакцию реестр ещё может не принять. Засчитать её как выплату
+        # значит закрыть заявку до того, как деньги окончательно ушли
+        # (замечание codex 03.08). Ждём подтверждения реестра — «пока не
+        # знаем» здесь безопаснее, чем «уже да»: строка появится в следующем
+        # проходе через полчаса.
+        if row.get("validated") is not True:
+            continue
         # delivered_amount — то, что реально дошло. У частичных платежей оно
         # МЕНЬШЕ Amount, и брать Amount значило бы засчитать недоплату полной.
         amt = meta.get("delivered_amount")

@@ -1197,8 +1197,19 @@ async def dashboard_profile_page(request: Request):
             c.execute("SELECT address FROM referral_addresses WHERE user_id=? AND currency='BTC'", (web_user['telegram_id'],))
             row = c.fetchone()
         ref_address = row[0] if row else None
+    # Подключённый кошелёк виден и здесь — но только владельцу аккаунта, у
+    # которого привязан Telegram: связь кошелька живёт на telegram_id, там же
+    # доказано владение. Без привязки честно показываем «подключается в
+    # Telegram», а не пустой блок.
+    wallets = []
+    if web_user['telegram_id']:
+        try:
+            from core import wallet_link as _wl
+            wallets = _wl.balances_for(web_user['telegram_id'])
+        except Exception as e:
+            logger.warning(f"dashboard profile: кошельки недоступны: {e}")
     return templates.TemplateResponse(request, "dashboard_profile.html", site_context(
-        request, active="profile", ref_address=ref_address,
+        request, active="profile", ref_address=ref_address, wallets=wallets,
         error=request.query_params.get('error'), success=request.query_params.get('success'),
     ))
 
@@ -1922,9 +1933,44 @@ async def tonconnect_verify(request: Request):
     verdict = _tc.verify_proof(body.get("account") or {}, body.get("proof") or {},
                                subject=user['id'], public_key_of=_tw.public_key)
     logger.info(f"tonconnect verify uid={user['id']} → {verdict['reason']}")
+    if verdict["verified"] and verdict["address"]:
+        # Связь запоминаем ТОЛЬКО здесь — в единственной точке, где есть вердикт
+        # о владении. Отсюда её потом берёт показ баланса.
+        from core import wallet_link as _wl
+        _wl.remember(user['id'], "TON", verdict["address"])
     return {"verified": verdict["verified"], "reason": verdict["reason"],
             "message": verdict["message"], "address": verdict["address"],
             "currency": "TON"}
+
+
+@app.get("/api/wallet/links")
+async def api_wallet_links(request: Request):
+    """Подключённые кошельки клиента и их балансы.
+
+    Адрес НЕ принимается параметром — только из хранилища подтверждённых
+    связей. Иначе эндпоинт стал бы публичным пробником чужих остатков от
+    нашего имени, а клиенту показывалось бы «ваш баланс» под чужим адресом.
+    """
+    user = verify_init_data(request.headers.get('X-Telegram-Init-Data', ''))
+    if not user:
+        raise HTTPException(status_code=403, detail="Откройте приложение через бота Telegram.")
+    from core import wallet_link as _wl
+    return {"wallets": _wl.balances_for(user['id'])}
+
+
+@app.post("/api/wallet/disconnect")
+async def api_wallet_disconnect(request: Request):
+    """Отключить кошелёк. Клиент вправе уйти так же легко, как пришёл."""
+    user = verify_init_data(request.headers.get('X-Telegram-Init-Data', ''))
+    if not user:
+        raise HTTPException(status_code=403, detail="Откройте приложение через бота Telegram.")
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    from core import wallet_link as _wl
+    removed = _wl.forget(user['id'], (body or {}).get("chain") or None)
+    return {"ok": True, "removed": removed}
 
 
 # --- API эндпоинты ---

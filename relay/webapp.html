@@ -408,6 +408,16 @@
                 <div style="font-size:16px;font-weight:800;color:var(--green)" id="profile-volume">—</div>
               </div>
             </div>
+            <!-- Подключённый кошелёк: только просмотр. Ключ остаётся у клиента,
+                 мы показываем то, что видно в сети по подтверждённому адресу. -->
+            <div id="wallet-box" style="display:none;margin-bottom:14px;padding:12px 14px;background:rgba(159,103,255,.06);border:1px solid rgba(159,103,255,.2);border-radius:14px">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Мой кошелёк</div>
+                <button type="button" id="wallet-refresh" style="background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer">🔄</button>
+              </div>
+              <div id="wallet-list"></div>
+              <button type="button" id="wallet-disconnect" style="margin-top:10px;background:none;border:1px solid rgba(255,255,255,.12);color:var(--muted);border-radius:10px;padding:7px 12px;font-size:12px;cursor:pointer">Отключить кошелёк</button>
+            </div>
             <div class="input-group"><label>BTC адрес для рефбонусов</label><input type="text" id="btc-address" placeholder="bc1... или 1... или 3..."></div>
             <button class="btn" onclick="saveAddress()">💾 Сохранить адрес</button>
             <div id="profile-result" class="result"></div>
@@ -870,6 +880,11 @@
                     updateTagField();
                     tcSay('Адрес подставлен из кошелька и подтверждён подписью.', 'valid');
                     if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+                    // Связь только что подтверждена сервером — в профиле уже
+                    // есть что показать. Отдельно от главного пути: неудача
+                    // обновления профиля не должна превращать удавшуюся
+                    // проверку подписи в «не удалось проверить».
+                    try { loadWallets(); } catch (e) {}
                 } else {
                     tcSay((data && data.message ? data.message : 'Подпись не подтверждена') +
                           ' Адрес можно ввести вручную.', 'invalid');
@@ -929,6 +944,68 @@
         }
 
         document.getElementById('tc-connect').addEventListener('click', tcConnect);
+
+        // ── Мой кошелёк: просмотр баланса подключённого кошелька ──────────
+        // Адрес сюда не передаём НИКОГДА: сервер знает подтверждённый адрес
+        // сам и по чужому баланс не покажет. Всё, что рисуется, приходит с
+        // сервера — фронт ничего не додумывает.
+        function walletShorten(a) {
+            a = String(a || '');
+            return a.length > 16 ? a.slice(0, 8) + '…' + a.slice(-6) : a;
+        }
+
+        function walletRender(list) {
+            const box = document.getElementById('wallet-box');
+            const el = document.getElementById('wallet-list');
+            if (!box || !el) return;
+            if (!list || !list.length) { box.style.display = 'none'; return; }
+            box.style.display = 'block';
+            el.innerHTML = list.map(w => {
+                // «Не знаем» и «ноль» — разные вещи: недоступный обозреватель
+                // не должен выглядеть как пустой кошелёк.
+                const known = typeof w.balance === 'number';
+                const amount = known
+                    ? (w.balance.toFixed(4) + ' ' + w.chain)
+                    : 'баланс недоступен';
+                const color = known ? '#e2e8f0' : 'var(--muted)';
+                return '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:4px 0">'
+                     + '<span style="font-size:12px;color:var(--muted);font-family:monospace">'
+                     + walletShorten(w.address) + '</span>'
+                     + '<span style="font-size:15px;font-weight:800;color:' + color + '">'
+                     + amount + '</span></div>';
+            }).join('');
+        }
+
+        async function loadWallets() {
+            try {
+                const r = await fetch('/api/wallet/links', {
+                    headers: { 'X-Telegram-Init-Data': tg.initData || '' } });
+                if (!r.ok) { walletRender([]); return; }
+                const d = await r.json().catch(() => ({}));
+                walletRender((d && d.wallets) || []);
+            } catch (e) {
+                walletRender([]);
+            }
+        }
+
+        async function walletDisconnect() {
+            try {
+                await fetch('/api/wallet/disconnect', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json',
+                               'X-Telegram-Init-Data': tg.initData || '' },
+                    body: JSON.stringify({ chain: 'TON' })
+                });
+            } catch (e) {}
+            loadWallets();
+        }
+
+        (function () {
+            const rf = document.getElementById('wallet-refresh');
+            const dc = document.getElementById('wallet-disconnect');
+            if (rf) rf.addEventListener('click', loadWallets);
+            if (dc) dc.addEventListener('click', walletDisconnect);
+        })();
 
         function selectedNetwork() {
             const sel = document.getElementById('network');
@@ -1318,7 +1395,7 @@
                 document.getElementById(`panel-${tab.dataset.tab}`).classList.add('active');
                 if (tab.dataset.tab === 'history') loadHistory();
                 if (tab.dataset.tab === 'referral') loadReferral();
-                if (tab.dataset.tab === 'profile') loadProfile();
+                if (tab.dataset.tab === 'profile') { loadProfile(); loadWallets(); }
                 if (tab.dataset.tab === 'admin') loadAdmin();
             };
             tab.addEventListener('click', activate);

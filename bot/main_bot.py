@@ -6797,6 +6797,43 @@ async def admin_unblock_callback(callback: CallbackQuery):
     await callback.answer(f"✅ Пользователь {uid} разблокирован.", show_alert=True)
 
 
+def _my_wallet_text(uid) -> str:
+    """Подключённый кошелёк клиента и его баланс — тем же источником, что
+    Mini App и сайт. Адрес берётся из подтверждённых связей, ввести чужой и
+    посмотреть его остаток нельзя ни одной командой."""
+    try:
+        if RELAY_PATH not in sys.path:
+            sys.path.insert(0, RELAY_PATH)
+        from core import wallet_link as _wl
+        wallets = _wl.balances_for(uid)
+    except Exception as e:
+        logger.warning("mywallet: не прочитали кошельки: %s", e)
+        return ("🔌 <b>Мой кошелёк</b>\n\nСейчас не удалось получить данные. "
+                "Попробуйте позже.")
+    if not wallets:
+        return ("🔌 <b>Мой кошелёк</b>\n\nКошелёк не подключён. Подключить можно "
+                "в приложении: «Личный кабинет» → создание заявки → «Подключить "
+                "кошелёк». Ключи остаются у вас — мы видим только адрес и его "
+                "публичный баланс.")
+    lines = ["🔌 <b>Мой кошелёк</b>\n"]
+    for w in wallets:
+        # «Не знаем» не превращаем в ноль: пустой кошелёк и недоступная сеть —
+        # разные новости для того, кто собрался платить.
+        if isinstance(w.get("balance"), (int, float)):
+            amount = f"{w['balance']:.4f} {w['chain']}"
+        else:
+            amount = f"баланс недоступен ({w.get('reason') or 'сеть не ответила'})"
+        lines.append(f"<b>{w['chain']}</b> · <code>{w['address']}</code>\n{amount}")
+    lines.append("\nОтключить кошелёк можно в приложении, вкладка «Профиль».")
+    return "\n\n".join(lines)
+
+
+@router.message(Command("mywallet"))
+async def cmd_mywallet(message: Message):
+    """/mywallet — подключённый кошелёк и его баланс."""
+    await message.answer(_my_wallet_text(message.from_user.id), parse_mode="HTML")
+
+
 @router.message(Command("mystatus"))
 async def cmd_mystatus(message: Message):
     """/mystatus ORDER_ID — статус конкретной заявки."""
@@ -10495,6 +10532,7 @@ async def main():
             BotCommand(command="start",     description="🟣 Главное меню"),
             BotCommand(command="mystatus",  description="👤 Мой VIP-статус и скидка"),
             BotCommand(command="myhistory", description="📋 История заявок"),
+            BotCommand(command="mywallet",  description="🔌 Мой подключённый кошелёк"),
             BotCommand(command="mydca",     description="📅 Мои DCA-планы"),
             BotCommand(command="redeem",    description="🎁 Активировать подарочный код"),
             BotCommand(command="offer",     description="📜 Пользовательское соглашение"),

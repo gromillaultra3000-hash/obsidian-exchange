@@ -25,6 +25,38 @@
     {% endif %}
 </div>
 
+{# Подключённый кошелёк: только просмотр. Ключи у клиента, подключение живёт
+   в Telegram (там доказывается владение адресом) — здесь показываем итог. #}
+<div class="dash-card">
+    <h2>🔌 Мой кошелёк</h2>
+    {% if not web_user.telegram_id %}
+    <p>Кошелёк подключается в Telegram-приложении: там кошелёк подписывает
+       подтверждение владения адресом. Привяжите Telegram — и баланс появится здесь.</p>
+    {% elif wallets %}
+    <table class="dash-table">
+        <thead><tr><th>Сеть</th><th>Адрес</th><th>Баланс</th></tr></thead>
+        <tbody>
+        {% for w in wallets %}
+        <tr>
+            <td>{{ w.chain }}</td>
+            <td style="font-family:monospace;font-size:12px">{{ w.address }}</td>
+            {# «Не знаем» и «ноль» — разные вещи: недоступная сеть не должна
+               выглядеть как пустой кошелёк. #}
+            <td>{% if w.balance is number %}{{ '%.4f'|format(w.balance) }} {{ w.chain }}
+                {% else %}<span style="color:var(--t3, #94a3b8)">баланс недоступен</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <p style="font-size:13px;opacity:.75">Ключи остаются у вас: мы видим только
+       адрес и его публичный баланс. Отключить кошелёк можно в Telegram-приложении.</p>
+    {% else %}
+    <p>Кошелёк не подключён. Откройте приложение в Telegram и нажмите
+       «Подключить кошелёк» при создании заявки — адрес получателя перестанет
+       набираться руками.</p>
+    {% endif %}
+</div>
+
 <div class="dash-card">
     <h2>🔐 Двухфакторная аутентификация</h2>
     {% if web_user.totp_enabled %}

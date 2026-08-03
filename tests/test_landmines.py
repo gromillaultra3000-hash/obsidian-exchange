@@ -2507,6 +2507,108 @@ def check_retired_provider_leaves_the_money_path():
                       f"заявке статус «оплачено»")
 
 
+# ─────────────────────────────────────────────────────────────────────
+# Баланс — только по адресу, владение которым доказано
+# ─────────────────────────────────────────────────────────────────────
+# Этап 3: просмотр кошелька клиента. Соблазн — принять адрес параметром: так
+# проще и «клиент же свой смотрит». Но тогда наш сервер становится бесплатным
+# пробником чужих остатков (чужой IP, наши ключи к обозревателю), а клиенту
+# рисуется «ваш баланс» под адресом, который он мог получить откуда угодно.
+# Источник адреса ровно один — таблица связей, куда он попадает после
+# проверенной подписи. Мина сторожит и вход (адрес не аргумент), и опознание
+# клиента (без подписанного initData баланс не показываем), и запись связи
+# (только при положительном вердикте).
+def check_balance_is_shown_only_for_proven_ownership():
+    tag = "баланс по недоказанному адресу"
+    path = os.path.join(CANON, "core", "wallet_link.py")
+    src = _read(path)
+    if not src:
+        return                       # модуля ещё нет — проверять нечего
+    tree = ast.parse(src)
+    fns = {n.name: n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)}
+
+    ADDRESS_LIKE = {"address", "addr", "wallet", "account"}
+    for name in ("balances_for", "links_for"):
+        node = fns.get(name)
+        if node is None:
+            fail(tag, f"wallet_link.{name}() исчез — источник адреса стал другим")
+            continue
+        args = {a.arg for a in node.args.args} | {a.arg for a in node.args.kwonlyargs}
+        if args & ADDRESS_LIKE:
+            fail(tag, f"wallet_link.{name}() принимает адрес аргументом — теперь её "
+                      f"есть чем позвать за ЧУЖОЙ кошелёк")
+
+    # Связь запоминается только там, где есть вердикт о владении.
+    for rel in ("relay-fastapi/main.py", "bot/main_bot.py", "relay/webapp.html"):
+        s = _read(os.path.join(ROOT, rel))
+        if not s or "remember(" not in s:
+            continue
+        if rel.endswith(".py"):
+            t = ast.parse(s)
+            # Мало, чтобы слово «verified» встречалось где-то в обработчике:
+            # сам вызов remember() обязан стоять ПОД условием о вердикте.
+            # Первая версия правила проверяла наличие слова — и мутация
+            # «if verdict[...] → if True» прошла мимо неё.
+            parents = {}
+            for node in ast.walk(t):
+                for child in ast.iter_child_nodes(node):
+                    parents[child] = node
+            for node in ast.walk(t):
+                if not (isinstance(node, ast.Call)
+                        and getattr(node.func, "attr", getattr(node.func, "id", "")) == "remember"):
+                    continue
+                guarded, cur = False, parents.get(node)
+                while cur is not None:
+                    if isinstance(cur, ast.If):
+                        test = ast.dump(cur.test)
+                        if "verified" in test or "verdict" in test:
+                            guarded = True
+                            break
+                    cur = parents.get(cur)
+                if not guarded:
+                    fail(tag, f"{rel}: remember() вызывается не под проверкой вердикта "
+                              f"о владении — в таблицу подтверждённых связей попадёт "
+                              f"непроверенный адрес")
+
+    # Показ баланса требует опознанного клиента и не берёт адрес из запроса.
+    main_src = _read(os.path.join(ROOT, "relay-fastapi", "main.py"))
+    if "balances_for" in main_src:
+        t = ast.parse(main_src)
+        seen = False
+        for node in ast.walk(t):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            seg = ast.get_source_segment(main_src, node) or ""
+            if "balances_for" not in seg:
+                continue
+            seen = True
+            if "verify_init_data" not in seg and "get_web_user" not in seg:
+                fail(tag, f"main.py: {node.name}() показывает баланс без опознания "
+                          f"клиента — эндпоинт станет публичным пробником кошельков")
+            # Запрещён не любой параметр запроса (страница профиля читает из
+            # него флаги успеха), а именно АДРЕС из запроса рядом с балансом.
+            taken = re.search(r"(query_params|params|body|data|json)\s*(\.get\(|\[)\s*"
+                              r"['\"](address|addr|wallet|account)['\"]", seg)
+            if taken:
+                fail(tag, f"main.py: {node.name}() берёт адрес из запроса "
+                          f"({taken.group(0)}) рядом с показом баланса — адрес "
+                          f"обязан приходить из хранилища связей, а не снаружи")
+        if not seen:
+            fail(tag, "main.py: balances_for упоминается, но не внутри обработчика — "
+                      "проверить опознание клиента невозможно")
+
+    # Фронт не шлёт адрес в кошельковые эндпоинты: если начнёт — значит сервер
+    # его где-то принимает.
+    web = _read(os.path.join(ROOT, "relay", "webapp.html"))
+    # Смотрим и сам URL, и тело запроса: адрес может уехать как параметром
+    # строки, так и полем JSON — «нет слова address рядом» проще и надёжнее,
+    # чем угадывать форму (на угадывании правило один раз уже промолчало).
+    for m in re.finditer(r"fetch\('(/api/wallet/[^']*)'([^;]{0,600})", web):
+        if re.search(r"addr(ess)?", m.group(1) + m.group(2), re.I):
+            fail(tag, f"webapp.html: рядом с запросом {m.group(1)} фигурирует адрес — "
+                      f"клиентская сторона не должна выбирать, чей баланс смотреть")
+
+
 def main():
     for fn in (check_no_diverging_duplicates, check_config_keys_are_read,
                check_no_fail_open_in_guards, check_session_expiry_uses_expires_at,
@@ -2533,6 +2635,7 @@ def main():
                check_wallet_modules_are_registered,
                check_wallet_proof_is_checked_against_the_chain,
                check_retired_provider_leaves_the_money_path,
+               check_balance_is_shown_only_for_proven_ownership,
                check_destination_is_not_checked_as_bare_address,
                check_receipt_beats_the_timer,
                check_migrations_agree,
