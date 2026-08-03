@@ -7,6 +7,7 @@
      (ровно тот баг-класс, из-за которого заявка «создавалась» и зависала).
 Быстрый, детерминированный, не требует зависимостей и секретов — годится для CI.
 """
+import ast
 import re
 import sys
 import os
@@ -76,6 +77,25 @@ def main():
     for fp in sorted(extract_webapp_fetches(WEBAPP)):
         if not any(rx.match(fp) for rx in regexes):
             errors.append(f"webapp.html fetch('{fp}') не соответствует ни одному роуту main.py")
+
+    # 3) Тело запроса разбирается как СЛОВАРЬ, а не «как получится».
+    # `await request.json()` принимает и `[]`, и `null`: разбор удался, а
+    # `body.get(...)` на них падает — клиент получает 500 «у нас всё сломалось»
+    # вместо «запрос неверный», и чужой мусор попадает в тревогу об ошибках.
+    src = open(MAIN, encoding="utf-8").read()
+    tree = ast.parse(src)
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        if not any(isinstance(d, ast.Call) for d in node.decorator_list):
+            continue
+        seg = ast.get_source_segment(src, node) or ""
+        if "request.json()" not in seg or "json_object" in seg:
+            continue
+        # Проверка на словарь на месте — тоже годится (главное, чтобы была).
+        if "isinstance(" not in seg or "dict" not in seg:
+            errors.append(f"{node.name}: тело разбирается request.json() без проверки, "
+                          f"что это словарь — валидный `[]` или `null` даст 500")
 
     if errors:
         print("❌ Контракт маршрутов нарушен:")

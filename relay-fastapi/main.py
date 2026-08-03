@@ -213,6 +213,24 @@ def audit_log(event, details=""):
     except Exception as e:
         logger.error(f"Audit log error: {e}")
 
+async def json_object(request: Request) -> dict:
+    """Тело запроса как СЛОВАРЬ или честная 400.
+
+    `await request.json()` разбирает и `[]`, и `null`, и число — разбор удался,
+    а `body.get(...)` на них падает с AttributeError, то есть клиент получает
+    500 «у нас всё сломалось» вместо «запрос неверный» (замечание codex 03.08).
+    Разница не косметическая: 500 попадает в тревогу об ошибках сервиса и
+    маскирует настоящие сбои чужим мусором.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Некорректный запрос.")
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="Некорректный запрос.")
+    return body
+
+
 def webhook_secret(name: str, value: str) -> str:
     """Секрет вебхука или отказ 503. Пустой секрет = проверять подпись нечем.
 
@@ -950,10 +968,7 @@ async def api_create_order(request: Request):
     user = verify_init_data(request.headers.get('X-Telegram-Init-Data', ''))
     if not user:
         raise HTTPException(status_code=403, detail="Откройте приложение через бота Telegram.")
-    try:
-        body = await request.json()
-    except Exception:
-        raise HTTPException(status_code=400, detail="Некорректный запрос.")
+    body = await json_object(request)
 
     currency = str(body.get('currency', '')).upper().strip()
     address = str(body.get('address', '')).strip()
@@ -1963,10 +1978,7 @@ async def tonconnect_verify(request: Request):
     user = verify_init_data(request.headers.get('X-Telegram-Init-Data', ''))
     if not user:
         raise HTTPException(status_code=403, detail="Откройте приложение через бота Telegram.")
-    try:
-        body = await request.json()
-    except Exception:
-        raise HTTPException(status_code=400, detail="Некорректный запрос.")
+    body = await json_object(request)
     verdict = _tc.verify_proof(body.get("account") or {}, body.get("proof") or {},
                                subject=user['id'], public_key_of=_tw.public_key)
     logger.info(f"tonconnect verify uid={user['id']} → {verdict['reason']}")
@@ -2018,12 +2030,14 @@ async def api_wallet_disconnect(request: Request):
     user = verify_init_data(request.headers.get('X-Telegram-Init-Data', ''))
     if not user:
         raise HTTPException(status_code=403, detail="Откройте приложение через бота Telegram.")
-    try:
-        body = await request.json()
-    except Exception:
-        body = {}
+    # Тело необязательно: пустой POST = отключить все кошельки. Но если тело
+    # прислали, оно обязано быть словарём — список или число иначе дали бы 500
+    # на ровном месте. (Starlette кеширует прочитанное тело, повторный разбор
+    # безопасен.)
+    raw = await request.body()
+    body = await json_object(request) if raw.strip() else {}
     from core import wallet_link as _wl
-    removed = _wl.forget(user['id'], (body or {}).get("chain") or None)
+    removed = _wl.forget(user['id'], body.get("chain") or None)
     return {"ok": True, "removed": removed}
 
 
@@ -2223,7 +2237,7 @@ async def admin_blocked_api(request: Request):
 @app.post("/api/admin/block")
 async def admin_block_api(request: Request):
     require_admin(request)
-    data = await request.json()
+    data = await json_object(request)
     user_id = int(data['user_id'])
     reason = (data.get('reason') or 'admin block').strip()
     with db_conn(10) as conn:
@@ -2235,7 +2249,7 @@ async def admin_block_api(request: Request):
 @app.post("/api/admin/unblock")
 async def admin_unblock_api(request: Request):
     require_admin(request)
-    data = await request.json()
+    data = await json_object(request)
     user_id = int(data['user_id'])
     with db_conn(10) as conn:
         conn.execute("DELETE FROM blocked_users WHERE user_id=?", (user_id,))
@@ -2246,7 +2260,7 @@ async def admin_unblock_api(request: Request):
 @app.post("/api/admin/force_payout")
 async def admin_force_payout_api(request: Request):
     require_admin(request)
-    data = await request.json()
+    data = await json_object(request)
     order_id = int(data['order_id'])
     fake_tx = f"manual_{int(time.time())}"
     with db_conn(10) as conn:
@@ -2260,7 +2274,7 @@ async def internal_force_payout(request: Request):
     secret = request.headers.get("X-Internal-Secret", "")
     if not INTERNAL_ADMIN_SECRET or not hmac.compare_digest(secret, INTERNAL_ADMIN_SECRET):
         raise HTTPException(status_code=403, detail="forbidden")
-    data = await request.json()
+    data = await json_object(request)
     order_id = int(data['order_id'])
     fake_tx = f"manual_{int(time.time())}"
     with db_conn(10) as conn:
@@ -2274,7 +2288,7 @@ async def internal_notify_support(request: Request):
     secret = request.headers.get("X-Internal-Secret", "")
     if not INTERNAL_ADMIN_SECRET or not hmac.compare_digest(secret, INTERNAL_ADMIN_SECRET):
         raise HTTPException(status_code=403, detail="forbidden")
-    data = await request.json()
+    data = await json_object(request)
     web_user_id = int(data['web_user_id'])
     text = data['text']
     with db_conn(5) as conn:
@@ -2957,7 +2971,7 @@ async def montera_webhook(request: Request):
     token = request.headers.get('Access-Token', '')
     if not hmac.compare_digest(token, secret):
         raise HTTPException(status_code=401)
-    data = await request.json()
+    data = await json_object(request)
     audit_log("montera_webhook_received", str(data))
     external_id = data.get('external_id', '') or ''
     status = data.get('status')
@@ -3017,7 +3031,7 @@ async def lava_webhook(request: Request):
     import json as _json, hmac as _hmac, hashlib as _hashlib
     lava_add_key = webhook_secret('lava', os.getenv('LAVA_ADDITIONAL_KEY', ''))
     received_sign = request.headers.get('Signature', '')
-    data = await request.json()
+    data = await json_object(request)
     audit_log("lava_webhook_received", str(data))
     ordered = dict(sorted(data.items()))
     json_str = _json.dumps(ordered, ensure_ascii=False, separators=(',', ':'))
@@ -3057,7 +3071,7 @@ async def brabus_webhook(request: Request):
     token = request.headers.get('X-Notification-Token', '')
     if not hmac.compare_digest(token, secret):
         raise HTTPException(status_code=401)
-    data = await request.json()
+    data = await json_object(request)
     audit_log("brabus_webhook_received", str(data))
     # Структура: {"notificationType": "invoice", "invoice": {"internalId": "...", "status": "paid", ...}}
     invoice = data.get('invoice') or data  # fallback на flat если вдруг старый формат
@@ -3088,7 +3102,7 @@ async def stormtrade_webhook(request: Request):
     token = request.headers.get('X-Notification-Token', '')
     if not hmac.compare_digest(token, secret):
         raise HTTPException(status_code=401)
-    data = await request.json()
+    data = await json_object(request)
     audit_log("stormtrade_webhook_received", str(data))
     invoice = data.get('invoice') or data
     status = invoice.get('status')
@@ -3180,8 +3194,8 @@ async def payment_callback(request: Request):
 async def api_ai_ask(request: Request):
     if not AI_ENABLED:
         return {"answer": "AI-ассистент недоступен."}
+    body = await json_object(request)
     try:
-        body = await request.json()
         q = str(body.get("question", ""))[:500]
         if not q:
             return {"answer": "Задайте вопрос."}
