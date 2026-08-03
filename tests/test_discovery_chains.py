@@ -267,6 +267,62 @@ def main():
     check(v_eth["action"] != "none",
           "EVM: перевод не дошёл до вердикта — без флага confirmed путь ETH мёртв")
 
+    # ── TON: один счёт в разных формах записи — один и тот же счёт ────
+    # Обозреватель отдаёт отправителя сырым (`0:…`), а TON_PAYOUT_ADDRESS
+    # владелец пишет дружественно (`UQ…`). Сравнение строк тут не «иногда
+    # ошибается» — оно не совпадает НИКОГДА: своя выплата TON выглядела бы
+    # чужой, и заявка не закрывалась бы автоматически ни при каких условиях.
+    sys.path.insert(0, os.path.join(ROOT, "relay"))
+    from core.address import ton_friendly_address    # noqa: E402
+    RAW_OWN = "0:" + "ab" * 32
+    FRIENDLY_OWN = ton_friendly_address(RAW_OWN)
+    check(RAW_OWN != FRIENDLY_OWN, "формы записи счёта TON и правда различаются")
+    check(pd._norm_account("TON", RAW_OWN) == pd._norm_account("TON", FRIENDLY_OWN),
+          "TON: сырая и дружественная формы одного счёта дают разные ключи — "
+          "своя выплата навсегда останется «чужой»")
+    check(pd._norm_account("TON", RAW_OWN) != pd._norm_account("TON", "0:" + "cd" * 32),
+          "TON: разные счета слились в один ключ")
+    check(pd._norm_account("BTC", "BC1QXYZ") == "bc1qxyz",
+          "у остальных валют правило сравнения не изменилось")
+
+    ton_tx = {"ok": True, "result": [{
+        # Хеш toncenter отдаёт в base64 от 32 байт — иначе он не пройдёт общую
+        # проверку txid и перевод отбросится ещё до сравнения отправителя.
+        "transaction_id": {"hash": __import__("base64").b64encode(bytes(range(32))).decode()},
+        "utime": 1700000000,
+        "in_msg": {"source": RAW_OWN, "value": str(2 * 10 ** 9), "message": ""},
+    }]}
+    real_get = pd._get_json
+    pd._get_json = lambda *a, **k: ton_tx
+    try:
+        got_ton = pd._incoming_ton(ton_friendly_address("0:" + "11" * 32), "")
+    finally:
+        pd._get_json = real_get
+    check(got_ton, "TON: входящий перевод не разобрался")
+
+    # Откат: сумма положительна, но монеты вернулись отправителю. Принять такую
+    # за выплату — закрыть заявку, по которой клиент ничего не получил.
+    ton_aborted = {"ok": True, "result": [dict(ton_tx["result"][0],
+                                               description={"aborted": True})]}
+    pd._get_json = lambda *a, **k: ton_aborted
+    try:
+        got_ab = pd._incoming_ton(ton_friendly_address("0:" + "11" * 32), "")
+    finally:
+        pd._get_json = real_get
+    check(got_ab == [], "TON: откатившаяся транзакция принята за выплату")
+    # Проверяем ПУТЬ целиком, а не половину: отправитель из обозревателя против
+    # доверенного множества, собранного из настройки владельца. По отдельности
+    # обе стороны выглядят исправными — расходятся они только вместе.
+    os.environ["TON_PAYOUT_ADDRESS"] = FRIENDLY_OWN
+    pd._OWN_CACHE.pop("TON", None)
+    trusted_ton = pd.trusted_senders("TON")
+    pd._OWN_CACHE.pop("TON", None)
+    check(trusted_ton, "TON: доверенные отправители пусты при заданном TON_PAYOUT_ADDRESS")
+    if got_ton:
+        check(set(got_ton[0]["senders"]) & trusted_ton,
+              "TON: отправитель из обозревателя не пересёкся со своим же кошельком — "
+              "своя выплата считается чужой, и заявка не закроется никогда")
+
     if FAILS:
         print(f"❌ Провалов: {len(FAILS)}\n")
         for m in FAILS:

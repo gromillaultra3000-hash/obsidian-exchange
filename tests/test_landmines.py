@@ -2664,6 +2664,118 @@ def check_webhooks_refuse_without_secret():
                               f"подпись снова никто не проверит")
 
 
+# ─────────────────────────────────────────────────────────────────────
+# Кому и сколько уходит — решает сервер, а не тело запроса
+# ─────────────────────────────────────────────────────────────────────
+# Отправка из подключённого кошелька устроена так: сервер собирает запрос на
+# перевод, клиент подписывает его в своём кошельке. Соблазн — принять адрес и
+# сумму из тела запроса «чтобы фронту было удобнее». Это дало бы в Telegram
+# кнопку «отправь куда скажут» с нашим оформлением: страница выглядит нашей,
+# перевод из неё клиент считает нашим, а получателя подставил кто угодно.
+# Правило: строитель запроса не принимает получателя/сумму аргументами, а
+# обработчик не читает их из тела.
+def check_transfer_target_is_decided_by_the_server():
+    tag = "получатель перевода приходит от клиента"
+    path = os.path.join(CANON, "core", "wallet_send.py")
+    src = _read(path)
+    if not src:
+        return                        # модуля ещё нет — проверять нечего
+    tree = ast.parse(src)
+    fns = {n.name: n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)}
+
+    CLIENT_CHOSEN = {"to", "to_address", "address", "addr", "destination",
+                     "recipient", "amount", "amount_nano", "nano", "value", "comment"}
+    node = fns.get("build_request")
+    if node is None:
+        fail(tag, "wallet_send.build_request() исчез — точка сборки перевода стала другой")
+    else:
+        args = ({a.arg for a in node.args.args} | {a.arg for a in node.args.kwonlyargs}
+                | {a.arg for a in node.args.posonlyargs})
+        leaked = args & CLIENT_CHOSEN
+        if leaked:
+            fail(tag, f"wallet_send.build_request() принимает {sorted(leaked)} — "
+                      f"значит получателя или сумму перевода задаёт вызывающий, "
+                      f"а не заявка в базе")
+
+    # Обработчик берёт из тела ТОЛЬКО номер заявки.
+    main_src = _read(os.path.join(ROOT, "relay-fastapi", "main.py"))
+    if "build_request" not in main_src:
+        return
+    t = ast.parse(main_src)
+    seen = False
+    for fn in ast.walk(t):
+        if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        seg = ast.get_source_segment(main_src, fn) or ""
+        if "build_request" not in seg:
+            continue
+        seen = True
+        if "verify_init_data" not in seg and "get_web_user" not in seg:
+            fail(tag, f"main.py: {fn.name}() готовит перевод без опознания клиента — "
+                      f"заявку нельзя проверить на принадлежность")
+        taken = re.search(r"(body|data|payload|json|query_params|params)\s*(\.get\(|\[)\s*"
+                          r"['\"](to|to_address|address|addr|destination|recipient|"
+                          r"amount|amount_nano|nano|value|comment)['\"]", seg)
+        if taken:
+            fail(tag, f"main.py: {fn.name}() читает «{taken.group(3)}» из запроса — "
+                      f"получателя, сумму и метку перевода задаёт заявка на сервере")
+    if not seen:
+        fail(tag, "main.py: build_request упоминается, но не внутри обработчика — "
+                  "проверить источник получателя невозможно")
+
+    # Фронт отдаёт кошельку то, что пришло с сервера, и не собирает перевод сам.
+    web = _read(os.path.join(ROOT, "relay", "webapp.html"))
+    for m in re.finditer(r"sendTransaction\(([^)]{0,200})", web):
+        arg = m.group(1)
+        if "{" in arg or "messages" in arg:
+            fail(tag, f"webapp.html: перевод собирается на фронте "
+                      f"(sendTransaction({arg[:60]}…)) — адрес и сумма обязаны "
+                      f"приходить с сервера как есть")
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Подпись в кошельке — не поступление денег
+# ─────────────────────────────────────────────────────────────────────
+# Кошелёк возвращает подписанное сообщение, а не подтверждение сети: перевод
+# может не долететь, не пройти по балансу, быть отменён. Пометить заявку
+# оплаченной по факту подписи значит выдать рубли за перевод, которого нет.
+# Правило: путь «клиент подписал» не трогает статус заявки — его меняет только
+# проверка блокчейна.
+def check_signature_is_not_payment():
+    tag = "подпись принята за поступление денег"
+    src = _read(os.path.join(CANON, "core", "wallet_send.py"))
+    if not src:
+        return
+    # В модуле подготовки перевода вообще нет права менять статус заявок.
+    for m in re.finditer(r"UPDATE\s+(sell_orders|orders)\b[^\"']*", src, re.I):
+        if re.search(r"\bstatus\s*=", m.group(0), re.I):
+            fail(tag, f"wallet_send.py: «{m.group(0)[:70]}» — модуль подготовки "
+                      f"перевода меняет статус заявки, то есть подпись начинает "
+                      f"значить оплату")
+
+    main_src = _read(os.path.join(ROOT, "relay-fastapi", "main.py"))
+    if "mark_signed" not in main_src:
+        return
+    t = ast.parse(main_src)
+    for fn in ast.walk(t):
+        if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        seg = ast.get_source_segment(main_src, fn) or ""
+        if "mark_signed" not in seg:
+            continue
+        if re.search(r"UPDATE\s+(sell_orders|orders)\b", seg, re.I) or "'paid'" in seg \
+                or '"paid"' in seg:
+            fail(tag, f"main.py: {fn.name}() отмечает подпись и тут же трогает заявку — "
+                      f"деньги подтверждает сеть, а не кошелёк клиента")
+
+    # Страж продажи обязан считать привязку депозита, а не верить намерению:
+    # запись «клиент собирался заплатить» не должна закрывать заявку сама.
+    guard = _read(os.path.join(ROOT, "bot", "sell_guard.py"))
+    if guard and "signed_at" in guard:
+        fail(tag, "sell_guard.py: страж смотрит на отметку подписи — засчитывать "
+                  "депозит по ней значит платить за неподтверждённый перевод")
+
+
 def main():
     for fn in (check_no_diverging_duplicates, check_config_keys_are_read,
                check_no_fail_open_in_guards, check_session_expiry_uses_expires_at,
@@ -2691,6 +2803,8 @@ def main():
                check_wallet_proof_is_checked_against_the_chain,
                check_retired_provider_leaves_the_money_path,
                check_balance_is_shown_only_for_proven_ownership,
+               check_transfer_target_is_decided_by_the_server,
+               check_signature_is_not_payment,
                check_webhooks_refuse_without_secret,
                check_destination_is_not_checked_as_bare_address,
                check_receipt_beats_the_timer,

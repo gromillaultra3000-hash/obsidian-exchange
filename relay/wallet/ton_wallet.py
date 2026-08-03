@@ -219,6 +219,31 @@ def balance(address: str = None) -> Dict[str, Any]:
             "reason": st.get("reason")}
 
 
+def tx_failed(tx: Dict[str, Any]) -> bool:
+    """Провалилась ли транзакция (откат/bounce), то есть НЕ считается переводом.
+
+    У TON положительная сумма во входящем сообщении ещё не значит, что деньги
+    остались у получателя: транзакция могла завершиться откатом, и монеты
+    вернулись отправителю. Засчитать такую как поступление — выдать рубли за
+    перевод, которого нет; засчитать как выплату — закрыть заявку, по которой
+    клиент ничего не получил. Нашёл codex.
+
+    Судим ТОЛЬКО по явному признаку: `description` в ответе может отсутствовать
+    (разные версии toncenter), и требовать его значило бы отбрасывать все
+    переводы разом — сверка молча нашла бы ноль и выглядела бы рабочей.
+    """
+    d = tx.get("description")
+    if not isinstance(d, dict):
+        return False
+    if d.get("aborted") is True:
+        return True
+    for phase in ("compute_ph", "action"):
+        ph = d.get(phase)
+        if isinstance(ph, dict) and ph.get("success") is False:
+            return True
+    return False
+
+
 def history(address: str, limit: int = 20) -> Dict[str, Any]:
     """Последние операции счёта: {'items': [...], 'status', 'reason'}.
 
@@ -257,6 +282,10 @@ def history(address: str, limit: int = 20) -> Dict[str, Any]:
         txid = ((tx.get("transaction_id") or {}).get("hash") or "")
         ts = tx.get("utime") or 0
         fee = _nano(tx.get("fee")) or 0.0
+        # Откатившаяся транзакция помечается, а не выбрасывается: в списке
+        # операций клиент вправе увидеть, что перевод не прошёл. Решения о
+        # деньгах принимают вызывающие — они этот признак и проверяют.
+        failed = tx_failed(tx)
         # Входящее — in_msg с суммой; исходящие — каждое out_msg отдельно.
         in_msg = tx.get("in_msg") or {}
         in_value = _nano(in_msg.get("value"))
@@ -264,7 +293,8 @@ def history(address: str, limit: int = 20) -> Dict[str, Any]:
             items.append({"direction": "in", "amount": in_value,
                           "counterparty": in_msg.get("source") or "",
                           "comment": (in_msg.get("message") or "")[:120],
-                          "ts": int(ts), "txid": txid, "fee": fee})
+                          "ts": int(ts), "txid": txid, "fee": fee,
+                          "failed": failed})
         for out in (tx.get("out_msgs") or []):
             out_value = _nano(out.get("value"))
             if out_value is None:
@@ -272,7 +302,8 @@ def history(address: str, limit: int = 20) -> Dict[str, Any]:
             items.append({"direction": "out", "amount": out_value,
                           "counterparty": out.get("destination") or "",
                           "comment": (out.get("message") or "")[:120],
-                          "ts": int(ts), "txid": txid, "fee": fee})
+                          "ts": int(ts), "txid": txid, "fee": fee,
+                          "failed": failed})
     items.sort(key=lambda x: x["ts"], reverse=True)
     return {"items": items[:lim], "status": "OK", "reason": None}
 

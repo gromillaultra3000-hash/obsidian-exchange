@@ -408,6 +408,13 @@
                 <div style="font-size:16px;font-weight:800;color:var(--green)" id="profile-volume">—</div>
               </div>
             </div>
+            <!-- Заявки на продажу, ждущие перевода монет. Подписывает клиент
+                 в своём кошельке: получателя, сумму и метку задаёт сервер по
+                 заявке, ключ отсюда не виден и не нужен. -->
+            <div id="wallet-dues" style="display:none;margin-bottom:14px;padding:12px 14px;background:rgba(255,196,0,.06);border:1px solid rgba(255,196,0,.25);border-radius:14px">
+              <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Ждут перевода</div>
+              <div id="wallet-dues-list"></div>
+            </div>
             <!-- Подключённый кошелёк: только просмотр. Ключ остаётся у клиента,
                  мы показываем то, что видно в сети по подтверждённому адресу. -->
             <div id="wallet-box" style="display:none;margin-bottom:14px;padding:12px 14px;background:rgba(159,103,255,.06);border:1px solid rgba(159,103,255,.2);border-radius:14px">
@@ -1004,6 +1011,83 @@
             }).join('');
         }
 
+        // Заявки, ждущие перевода. Кнопка отдаёт кошельку ГОТОВЫЙ запрос от
+        // сервера: адрес, сумма и метка приходят с сервера и здесь не
+        // собираются — фронт не имеет права решать, кому уходят деньги.
+        let walletDues = [];
+
+        function walletDuesRender(list) {
+            walletDues = Array.isArray(list) ? list : [];
+            const box = document.getElementById('wallet-dues');
+            const el = document.getElementById('wallet-dues-list');
+            if (!box || !el) return;
+            if (!walletDues.length) { box.style.display = 'none'; return; }
+            box.style.display = 'block';
+            el.innerHTML = walletDues.map(d => {
+                const amount = Number(d.amount || 0);
+                return '<div style="padding:6px 0;border-top:1px solid rgba(255,255,255,.06)">'
+                     + '<div style="display:flex;justify-content:space-between;gap:8px;font-size:13px">'
+                     + '<span>Заявка #' + d.sell_id + '</span>'
+                     + '<span style="font-weight:800">' + amount + ' ' + (d.currency || '') + '</span></div>'
+                     + '<div style="font-size:11px;color:var(--muted);margin:3px 0 6px">Комментарий: '
+                     + (d.marker || '—') + '</div>'
+                     + '<button type="button" class="wallet-pay" data-sell="' + d.sell_id + '" '
+                     + 'style="width:100%;background:var(--accent);border:none;color:#fff;border-radius:10px;padding:8px;font-size:13px;font-weight:700;cursor:pointer">'
+                     + '💎 Отправить из кошелька</button></div>';
+            }).join('');
+            el.querySelectorAll('.wallet-pay').forEach(b => {
+                b.addEventListener('click', () => walletPay(b.dataset.sell, b));
+            });
+        }
+
+        async function walletPay(sellId, btn) {
+            const say = (t) => { if (btn) { btn.textContent = t; } };
+            if (!tcUI) { say('Кошелёк недоступен'); return; }
+            try {
+                say('Готовим перевод…');
+                const r = await fetch('/api/wallet/send-request', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json',
+                               'X-Telegram-Init-Data': tg.initData || '' },
+                    body: JSON.stringify({ sell_id: Number(sellId) })
+                });
+                const d = await r.json().catch(() => ({}));
+                if (!r.ok || !d.ok || !d.request) {
+                    say(d.message || 'Не получилось — попробуйте позже');
+                    return;
+                }
+                say('Подтвердите в кошельке…');
+                // Запрос уходит в кошелёк КАК ПРИШЁЛ: подменять адрес или сумму
+                // на фронте нечем и незачем — подписывать всё равно клиенту.
+                await tcUI.sendTransaction(d.request);
+                // Подпись — не поступление денег: сервер лишь отмечает время,
+                // заявку закроет проверка блокчейна.
+                await fetch('/api/wallet/send-signed', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json',
+                               'X-Telegram-Init-Data': tg.initData || '' },
+                    body: JSON.stringify({ sell_id: Number(sellId) })
+                }).catch(() => {});
+                say('✅ Подписано — ждём сеть');
+                if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+            } catch (e) {
+                // Отказ в кошельке — нормальный исход, а не сбой: так и пишем.
+                say('Перевод не подтверждён');
+            }
+        }
+
+        async function loadDues() {
+            try {
+                const r = await fetch('/api/wallet/dues', {
+                    headers: { 'X-Telegram-Init-Data': tg.initData || '' } });
+                if (!r.ok) { walletDuesRender([]); return; }
+                const d = await r.json().catch(() => ({}));
+                walletDuesRender((d && d.dues) || []);
+            } catch (e) {
+                walletDuesRender([]);
+            }
+        }
+
         async function loadWallets() {
             try {
                 const r = await fetch('/api/wallet/links', {
@@ -1020,6 +1104,9 @@
                 walletRender([]);
                 walletOpsRender(null);
             }
+            // Список ждущих перевода не зависит от того, удалось ли показать
+            // баланс: заявка ждёт денег независимо от доступности обозревателя.
+            loadDues();
         }
 
         async function walletDisconnect() {

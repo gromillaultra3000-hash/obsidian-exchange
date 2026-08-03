@@ -162,6 +162,7 @@ DAILY_POST_HOUR_UTC = int(os.getenv('DAILY_POST_HOUR_UTC', '7'))  # 07:00 UTC = 
 SELL_BTC_ADDRESS = os.getenv('SELL_BTC_ADDRESS', '')
 SELL_LTC_ADDRESS = os.getenv('SELL_LTC_ADDRESS', '')
 SELL_USDT_ADDRESS = os.getenv('SELL_USDT_ADDRESS', '')
+SELL_TON_ADDRESS = os.getenv('SELL_TON_ADDRESS', '')
 
 # Фирменные анимированные стикеры (см. /root/bot/create_assets.py)
 STICKER_SET_NAME = os.getenv('STICKER_SET_NAME', '')
@@ -1673,7 +1674,12 @@ def build_currency_kb(prefix: str, back_cb: str = "back_to_menu") -> InlineKeybo
     """
     coins = offered_coins()
     if prefix.startswith("sell_"):
-        coins = [c for c in coins if SELL_RECEIVE_ADDRESSES.get(c)]
+        # Продажа НЕ зависит от витрины покупки: чтобы принять монету, наша
+        # ликвидность не нужна — нужны адрес приёма и цена. Гейт по витрине
+        # означал бы «чтобы продать TON, откройте заодно покупку TON», причём
+        # только в боте: сайт показывает продажу по одному адресу приёма.
+        coins = [c for c, addr in SELL_RECEIVE_ADDRESSES.items()
+                 if addr and _rate_coin_key(c) in _COIN_SOURCES]
     rates = {c: get_cached_rate(c) or 0 for c in coins}
     def lbl(code):
         rt = _fmt_rate_compact(rates.get(code, 0))
@@ -2261,9 +2267,32 @@ async def cmd_offer(message: Message):
     await message.answer(_OFFER_TEXT, parse_mode="HTML")
 
 # ---------- ПРОДАЖА КРИПТЫ (крипта → RUB) ----------
-SELL_RECEIVE_ADDRESSES = {'BTC': SELL_BTC_ADDRESS, 'LTC': SELL_LTC_ADDRESS, 'USDT': SELL_USDT_ADDRESS}
-SELL_COIN_LABELS = {'BTC': '₿ Bitcoin (BTC)', 'LTC': 'Ł Litecoin (LTC)', 'USDT': '💵 USDT (TRC20)'}
-SELL_MIN_AMOUNTS = {'BTC': 0.0005, 'LTC': 0.5, 'USDT': 50}
+SELL_RECEIVE_ADDRESSES = {'BTC': SELL_BTC_ADDRESS, 'LTC': SELL_LTC_ADDRESS,
+                          'USDT': SELL_USDT_ADDRESS, 'TON': SELL_TON_ADDRESS}
+SELL_COIN_LABELS = {'BTC': '₿ Bitcoin (BTC)', 'LTC': 'Ł Litecoin (LTC)',
+                    'USDT': '💵 USDT (TRC20)', 'TON': '💎 Toncoin (TON)'}
+SELL_MIN_AMOUNTS = {'BTC': 0.0005, 'LTC': 0.5, 'USDT': 50, 'TON': 5}
+
+# Монеты, чей перевод несёт текстовую метку. У BTC/LTC/USDT её нет, и выдумывать
+# «комментарий» там нельзя: клиент искал бы поле, которого в его кошельке не
+# существует.
+SELL_MARKER_CURRENCIES = ('TON',)
+
+
+def _sell_marker(currency: str, sell_id) -> str:
+    """Метка платежа для заявки или пустая строка. Считается там же, где её
+    потом проверяет страж, — иначе клиенту показали бы одну строку, а искали
+    другую."""
+    if str(currency).upper() not in SELL_MARKER_CURRENCIES:
+        return ""
+    try:
+        if RELAY_PATH not in sys.path:
+            sys.path.insert(0, RELAY_PATH)
+        from core.wallet_send import marker_for
+        return marker_for(sell_id)
+    except Exception as e:
+        logger.error(f"метка платежа для продажи #{sell_id} не собралась: {e}")
+        return ""
 
 @router.callback_query(F.data == "menu_sell")
 async def menu_sell(callback: CallbackQuery, state: FSMContext):
@@ -2291,11 +2320,14 @@ async def process_sell_currency(callback: CallbackQuery, state: FSMContext):
         await callback.answer("❌ Продажа этой валюты временно недоступна.", show_alert=True)
         return
 
-    btc_rate = get_cached_rate('BTC')
-    ltc_rate = get_cached_rate('LTC')
-    usdt_rate = get_cached_rate('USDT')
-    rates = {'BTC': btc_rate, 'LTC': ltc_rate, 'USDT': usdt_rate}
-    rate = rates.get(currency, 0)
+    # Курс спрашиваем по САМОЙ валюте, а не из списка трёх исторических монет:
+    # перечисление здесь означало бы, что новая монета продажи молча получает
+    # курс 0 и уходит в заявку с нулевой выплатой.
+    rate = get_cached_rate(currency) or 0
+    if rate <= 0:
+        await callback.answer("❌ Курс этой монеты сейчас недоступен — попробуйте позже.",
+                              show_alert=True)
+        return
     commission = get_commission_percent(50000, callback.from_user.id)
     sell_rate = round(rate * (1 - commission / 100), 2)
 
@@ -2376,15 +2408,26 @@ async def process_sell_phone(message: Message, state: FSMContext):
 
     await state.clear()
 
+    # Метка платежа для монет, чей перевод её несёт (TON). Адрес приёма один на
+    # все заявки: без метки депозит привязывается к заявке только по размеру и
+    # времени — это догадка, а не привязка, и сверять её придётся человеку.
+    marker_block = ""
+    marker = _sell_marker(currency, sell_id)
+    if marker:
+        marker_block = (f"\n🏷 Комментарий к переводу (обязательно):\n<code>{marker}</code>\n")
+
     await message.answer(
         f"✅ <b>Заявка на продажу #{sell_id} принята!</b>\n\n"
         f"<blockquote>"
         f"📤 Отправьте: <b>{amount} {currency}</b>\n"
-        f"📬 На адрес:\n<code>{receive_addr}</code>\n\n"
+        f"📬 На адрес:\n<code>{receive_addr}</code>\n"
+        f"{marker_block}\n"
         f"💰 Выплата: <b>≈ {rub_amount:,.2f} ₽</b>\n"
         f"📱 На СБП: <code>{phone}</code>"
         f"</blockquote>\n\n"
-        f"⏳ После подтверждения транзакции выплата поступит в течение 30–60 минут.\n\n"
+        + ("💎 В Mini App комментарий подставляется сам — кошелёк подпишет готовый "
+           "перевод: «Личный кабинет» → Профиль.\n\n" if marker else "")
+        + f"⏳ После подтверждения транзакции выплата поступит в течение 30–60 минут.\n\n"
         f"💬 Вопросы: @ObsidianSupBot",
         parse_mode="HTML"
     )
@@ -2399,7 +2442,8 @@ async def process_sell_phone(message: Message, state: FSMContext):
             f"👤 Пользователь: {message.from_user.id} (@{message.from_user.username or '-'})\n"
             f"💸 Продаёт: {amount} {currency}\n"
             f"📬 На наш адрес: <code>{receive_addr}</code>\n"
-            f"💵 Выплатить: {rub_amount:,.2f} RUB\n"
+            + (f"🏷 Метка перевода: <code>{marker}</code>\n" if marker else "")
+            + f"💵 Выплатить: {rub_amount:,.2f} RUB\n"
             f"📱 СБП: {phone}\n\n"
             f"Нажмите «Выплатить» — бот сам проверит приход монет в блокчейне "
             f"и не даст выплатить рубли, пока депозит не подтверждён.",
@@ -4782,13 +4826,17 @@ async def cmd_review_queue(message: Message):
     from core import payout_queue as _pq
     from core import provider_caps
 
-    rows = _pq.queue(limit=15)
+    # Итог считаем по ВСЕЙ очереди, а показываем первые строки: иначе шапка
+    # «долгов 15 на N ₽» описывала бы не долги, а размер экрана — и чем больше
+    # долгов, тем меньше их видно. Нашёл codex.
+    all_rows = _pq.queue(limit=_pq.NO_LIMIT)
+    rows = all_rows[:15]
     if not rows:
         await message.answer("✅ Очередь пуста: заявок с чеком на проверке и "
                              "зависших выплат нет.")
         return
 
-    s = _pq.summary(rows)
+    s = _pq.summary(all_rows)
     head = (f"🗂 <b>Очередь разбора: {s['count']}</b> на "
             f"<b>{s['rub']:,.0f} ₽</b>\n".replace(",", " "))
     if s["breach"]:

@@ -200,6 +200,38 @@ def main():
           "исходящее взято из out_msgs, а не посчитано входящим")
     check(h["items"][0]["ts"] >= h["items"][1]["ts"], "операции отсортированы, свежие сверху")
     check(inc[0]["comment"] == "заказ 42", "комментарий перевода сохранён")
+    check(inc[0].get("failed") is False, "успешная операция не помечена провалившейся")
+
+    # Откат (bounce): сумма во входящем сообщении положительна, но монеты
+    # вернулись отправителю. Не пометить такую — значит выдать рубли за перевод,
+    # которого нет. Признак единый для сверки и стража продажи.
+    check(tw.tx_failed({"description": {"aborted": True}}), "явный откат распознан")
+    check(tw.tx_failed({"description": {"compute_ph": {"success": False}}}),
+          "провал фазы вычисления распознан")
+    check(tw.tx_failed({"description": {"action": {"success": False}}}),
+          "провал фазы действия распознан")
+    check(not tw.tx_failed({"description": {"aborted": False,
+                                            "compute_ph": {"success": True}}}),
+          "успешная транзакция не объявлена откатом")
+    # Описания в ответе может не быть — требовать его значило бы отбросить ВСЕ
+    # переводы разом и молча находить ноль.
+    check(not tw.tx_failed({}), "отсутствие описания не считается откатом")
+    check(not tw.tx_failed({"description": "generic"}), "описание строкой не роняет разбор")
+
+    aborted = {"ok": True, "result": [
+        {"utime": 1785000000, "fee": "3000000",
+         "transaction_id": {"hash": "CCC"},
+         "description": {"aborted": True},
+         "in_msg": {"source": "UQSender", "value": "2500000000", "message": "заказ 42"},
+         "out_msgs": []},
+    ]}
+    tw._get_json = lambda *a, **k: aborted
+    try:
+        h_ab = tw.history("UQMine")
+    finally:
+        tw._get_json = real_get
+    check(h_ab["items"] and h_ab["items"][0].get("failed") is True,
+          "откатившаяся операция помечена в истории")
 
     tw._get_json = lambda *a, **k: {"ok": False, "error": "rate limit"}
     try:

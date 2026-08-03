@@ -4,6 +4,7 @@
 Запуск: python3 tests/test_payout_queue.py
 """
 import os
+import re
 import sqlite3
 import sys
 import tempfile
@@ -140,6 +141,31 @@ def main():
     rows3 = q.queue()
     check({r["order_id"] for r in rows3} >= {1, 2, 3},
           "без таблицы чеков пропала и половина про выплаты")
+
+    # ── итог считается по ДОЛГАМ, а не по размеру экрана ──────────────
+    # summary() честно суммирует то, что ей дали, — значит ошибиться можно
+    # только у вызывающего: срезал список для показа и по нему же посчитал шапку.
+    # Тогда «в очереди 15 на N ₽» описывает экран, и чем больше долгов, тем
+    # меньше их видно. Нашёл codex.
+    many = [{"order_id": i, "rub_amount": 100, "sla": "breach", "age_human": "1 ч"}
+            for i in range(40)]
+    check(q.summary(many)["count"] == 40 and q.summary(many)["rub"] == 4000,
+          "summary считает не всё, что ей дали")
+    check(q.summary(many[:15])["count"] == 15,
+          "срезанный список даёт срезанный итог — значит резать до подсчёта нельзя")
+
+    bot_src = open(os.path.join(ROOT, "bot", "main_bot.py"), encoding="utf-8").read()
+    m = re.search(r"rows\s*=\s*_pq\.queue\(limit=(\d+)\)\s*\n(?:.*\n){0,12}?"
+                  r"\s*s\s*=\s*_pq\.summary\(rows\)", bot_src)
+    check(m is None,
+          "бот считает шапку очереди по срезанному списку — долги сверх экрана "
+          "исчезают из итога")
+
+    main_src = open(os.path.join(ROOT, "relay-fastapi", "main.py"), encoding="utf-8").read()
+    m2 = re.search(r"_delayed_ids[\s\S]{0,900}?_pq\.queue\(limit=(\d+)", main_src)
+    check(m2 is None or int(m2.group(1)) >= 10 ** 5,
+          "признак задержки берётся из первых N строк очереди — при большом "
+          "числе долгов часть клиентов перестанет видеть отметку")
 
     if FAILS:
         print(f"❌ Провалов: {len(FAILS)}\n")

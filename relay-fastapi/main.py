@@ -568,10 +568,15 @@ def _delayed_ids() -> set:
 
     По заявке в цикле это было бы N обращений к БД на отрисовку одной страницы
     истории — цена честности не должна быть такой.
+
+    Потолка на выборку нет намеренно: он отрезал бы задержки «сверх лимита», и
+    ровно в тот момент, когда долгов больше всего, часть клиентов перестала бы
+    видеть отметку о задержке. Очередь и так короткая — в ней только заявки без
+    выдачи. Нашёл codex.
     """
     try:
         from core import payout_queue as _pq
-        return {r["order_id"] for r in _pq.queue(limit=200, kind=_pq.KIND_PAYOUT)
+        return {r["order_id"] for r in _pq.queue(limit=_pq.NO_LIMIT, kind=_pq.KIND_PAYOUT)
                 if r["sla"] != "ok"}
     except Exception:
         logger.warning("payout_queue недоступна при сборке истории")
@@ -843,9 +848,11 @@ async def dashboard_exchange_submit(
     return RedirectResponse(f"/pay/{order_id}", status_code=302)
 
 # --- Продажа крипты → RUB на сайте (зеркало бот-флоу menu_sell) ---
-SELL_ADDRESSES = {c: os.getenv(f'SELL_{c}_ADDRESS', '').strip() for c in ('BTC', 'LTC', 'USDT')}
-SELL_MIN = {'BTC': 0.0005, 'LTC': 0.5, 'USDT': 50}
-SELL_LABELS = {'BTC': '₿ Bitcoin', 'LTC': 'Ł Litecoin', 'USDT': '💵 USDT (TRC20)'}
+SELL_ADDRESSES = {c: os.getenv(f'SELL_{c}_ADDRESS', '').strip()
+                  for c in ('BTC', 'LTC', 'USDT', 'TON')}
+SELL_MIN = {'BTC': 0.0005, 'LTC': 0.5, 'USDT': 50, 'TON': 5}
+SELL_LABELS = {'BTC': '₿ Bitcoin', 'LTC': 'Ł Litecoin', 'USDT': '💵 USDT (TRC20)',
+               'TON': '💎 Toncoin'}
 
 def _sell_context():
     coins, sell_js = [], {}
@@ -925,10 +932,22 @@ async def dashboard_sell_submit(
             [{"text": "❌ Отклонить", "callback_data": f"sell_reject_{sell_id}"}],
         ]})
 
+    # Метка платежа для монет, где перевод её несёт (TON). Адрес приёма один на
+    # все заявки — без метки депозит привязывается к заявке только по размеру и
+    # времени, а это догадка, а не привязка.
+    marker = ""
+    if currency == "TON":
+        try:
+            from core import wallet_send as _ws
+            marker = _ws.marker_for(sell_id)
+        except Exception as e:
+            logger.warning("Метка платежа для продажи #%s не собралась: %s", sell_id, e)
+
     return templates.TemplateResponse(request, "dashboard_sell.html", site_context(
         request, active="sell", sell_coins=coins, sell_js=sell_js,
         created={"id": sell_id, "currency": currency, "amount": f"{amount:g}",
-                 "rub": rub_amount, "phone": phone, "address": receive_addr},
+                 "rub": rub_amount, "phone": phone, "address": receive_addr,
+                 "marker": marker},
     ))
 
 # Анти-спам создания заявок из Mini App: скользящее окно на пользователя + глобально.
@@ -1786,7 +1805,15 @@ async def api_rates():
         if cur in result:
             continue
         try:
-            result[cur] = exchange_calc.get_cached_rate(cur) or 0
+            # Ноль — это НЕ цена. Записав его, мы оставили бы монету и в карте
+            # курсов, и в витрине (фильтр ниже смотрит на наличие ключа), а
+            # фронт показал бы «получите 0» — то есть ровно то молчание, против
+            # которого написан весь этот перебор. Нашёл codex.
+            rate = exchange_calc.get_cached_rate(cur) or 0
+            if rate > 0:
+                result[cur] = rate
+            else:
+                logger.error(f"/api/rates: нулевой курс для {cur} — монета скрыта")
         except Exception as e:
             # Источника цены нет — молчать нельзя: витрина уже предлагает монету.
             logger.error(f"/api/rates: нет курса для {cur}: {e}")
@@ -2039,6 +2066,55 @@ async def api_wallet_disconnect(request: Request):
     from core import wallet_link as _wl
     removed = _wl.forget(user['id'], body.get("chain") or None)
     return {"ok": True, "removed": removed}
+
+
+@app.get("/api/wallet/dues")
+async def api_wallet_dues(request: Request):
+    """Заявки клиента, ждущие перевода монет из его кошелька."""
+    user = verify_init_data(request.headers.get('X-Telegram-Init-Data', ''))
+    if not user:
+        raise HTTPException(status_code=403, detail="Откройте приложение через бота Telegram.")
+    from core import wallet_send as _ws
+    return {"dues": _ws.pending_sells(user['id'])}
+
+
+@app.post("/api/wallet/send-request")
+async def api_wallet_send_request(request: Request):
+    """Запрос на перевод для подписи в кошельке клиента.
+
+    От клиента приходит ТОЛЬКО номер его заявки. Получатель, сумма и метка
+    берутся из заявки на сервере: приняв их из тела, мы построили бы в Telegram
+    удобную кнопку «отправь куда скажут» с нашим оформлением — то есть фишинг
+    от нашего имени. Подписывает клиент, ключа у нас нет.
+    """
+    user = verify_init_data(request.headers.get('X-Telegram-Init-Data', ''))
+    if not user:
+        raise HTTPException(status_code=403, detail="Откройте приложение через бота Telegram.")
+    body = await json_object(request)
+    from core import wallet_send as _ws
+    res = _ws.build_request(user['id'], body.get("sell_id"))
+    logger.info("wallet_send: uid=%s заявка=%s → %s", user['id'], body.get("sell_id"), res["reason"])
+    return res
+
+
+@app.post("/api/wallet/send-signed")
+async def api_wallet_send_signed(request: Request):
+    """Клиент подтвердил перевод в кошельке.
+
+    Отметка времени и ничего больше: кошелёк возвращает подписанное сообщение,
+    а не подтверждение сети. Заявку закрывает только проверка блокчейна
+    (bot/sell_guard.py) — иначе «подписал» означало бы «заплатил», и рубли
+    ушли бы за перевод, который не долетел.
+    """
+    user = verify_init_data(request.headers.get('X-Telegram-Init-Data', ''))
+    if not user:
+        raise HTTPException(status_code=403, detail="Откройте приложение через бота Telegram.")
+    body = await json_object(request)
+    from core import wallet_send as _ws
+    marked = _ws.mark_signed(user['id'], body.get("sell_id"))
+    return {"ok": True, "noted": marked,
+            "message": "Перевод подписан. Ждём подтверждения сети — "
+                       "рубли уйдут после того, как монеты увидит блокчейн."}
 
 
 # --- API эндпоинты ---

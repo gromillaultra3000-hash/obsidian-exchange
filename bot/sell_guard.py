@@ -11,10 +11,18 @@
 от повторного зачёта: txid, уже записанный в другую sell_orders.tx_hash, второй
 раз не засчитывается (иначе один депозит оплатил бы две заявки).
 
+TON — исключение, и в лучшую сторону: у его переводов есть метка (комментарий),
+а у клиента с подключённым кошельком ещё и доказанный подписью адрес
+отправителя (`relay/core/wallet_send.py`). Поэтому депозит в TON засчитывается
+ТОЛЬКО привязанный: совпала метка заявки или отправитель — тот, кто собирался
+платить. Перевод нужного размера без обоих признаков не отвергается молча — он
+получает отдельный вердикт 'unbound', то есть уходит человеку.
+
 Вердикты verify_sell_deposit():
   - 'confirmed'   — депозит найден и подтверждён → можно платить
   - 'pending'     — депозит найден, но мало подтверждений → подождать
   - 'underpaid'   — пришло меньше заявленного (за вычетом допуска) → решает человек
+  - 'unbound'     — сумма сходится, но перевод не привязан к заявке → решает человек
   - 'not_found'   — подходящей транзакции нет → НЕ платить
   - 'unavailable' — эксплорер недоступен/ошибка → НЕ платить (fail-closed)
   - 'unsupported' — валюта без проверки / не задан адрес → НЕ платить
@@ -26,6 +34,7 @@ from __future__ import annotations
 
 import logging
 import sqlite3
+import sys
 import time
 from pathlib import Path
 
@@ -37,7 +46,11 @@ logger = logging.getLogger(__name__)
 HTTP_TIMEOUT = 12
 
 # Сколько подтверждений считаем достаточным для необратимости.
-MIN_CONFIRMATIONS = {"BTC": 1, "LTC": 2, "USDT": 19}
+MIN_CONFIRMATIONS = {"BTC": 1, "LTC": 2, "USDT": 19, "TON": 1}
+
+# TON: обозреватель отдаёт только попавшие в блок переводы, счётчика
+# подтверждений в ответе нет — возрастом блока меряем то же самое, что у TRON.
+TON_MIN_AGE_SEC = 60
 
 # Допуск по сумме: клиенты часто шлют с биржи, которая удерживает сетевую
 # комиссию из суммы вывода → приходит чуть меньше заявленного.
@@ -152,6 +165,82 @@ def _tron_deposits(address: str) -> list:
     return out
 
 
+def _relay_path() -> str:
+    """Каталог relay РЯДОМ С СОБОЙ, а не зашитый /root/relay: копия проекта
+    (git worktree, проверочный клон) обязана исполнять свой код, иначе тест
+    «на копии» проверяет боевой модуль."""
+    return str(Path(__file__).resolve().parent.parent / "relay")
+
+
+def _relay_import(module: str, name: str):
+    path = _relay_path()
+    if path not in sys.path:
+        sys.path.insert(0, path)
+    mod = __import__(module, fromlist=[name])
+    return getattr(mod, name)
+
+
+def _ton_deposits(address: str) -> list:
+    """Входящие переводы TON. Источник — тот же модуль кошелька, что и у
+    остальных поверхностей: два разных клиента к обозревателю означали бы две
+    правды об одном счёте."""
+    history = _relay_import("wallet.ton_wallet", "history")
+    res = history(address, 50) or {}
+    if res.get("status") != "OK":
+        raise _ExplorerError(f"toncenter: {res.get('reason') or res.get('status')}")
+    now = time.time()
+    out = []
+    for it in res.get("items") or []:
+        if it.get("direction") != "in":
+            continue
+        if it.get("failed"):
+            continue   # откат: монеты вернулись отправителю, депозита нет
+        try:
+            amount = float(it.get("amount") or 0)
+        except (TypeError, ValueError):
+            continue
+        if amount <= 0:
+            continue
+        ts = int(it.get("ts") or 0)
+        aged = ts and (now - ts) >= TON_MIN_AGE_SEC
+        out.append({
+            "txid": it.get("txid") or "",
+            "amount": amount,
+            "confirmations": MIN_CONFIRMATIONS["TON"] if aged else 0,
+            "ts": ts,
+            "comment": it.get("comment") or "",
+            "source": it.get("counterparty") or "",
+        })
+    return out
+
+
+def _ton_binding(sell_id: int):
+    """Признаки, по которым перевод TON привязывается к заявке.
+
+    Возвращает функцию-проверку. Сбой чтения намерений не должен ОТКРЫВАТЬ
+    зачёт: тогда останется только метка — она и так самодостаточна.
+    """
+    try:
+        comment_matches = _relay_import("core.wallet_send", "comment_matches")
+        senders_for_order = _relay_import("core.wallet_send", "senders_for_order")
+        same_account = _relay_import("core.wallet_send", "same_account")
+    except Exception as exc:
+        logger.warning("sell_guard: привязка TON недоступна (%s) — только метка", exc)
+        return lambda dep: False
+    try:
+        senders = senders_for_order(sell_id)
+    except Exception:
+        senders = set()
+
+    def bound(dep) -> bool:
+        if comment_matches(dep.get("comment"), sell_id):
+            return True
+        src = dep.get("source") or ""
+        return any(same_account(src, s) for s in senders)
+
+    return bound
+
+
 def _result(verdict, reason, txid=None, received=0.0, expected=0.0, confirmations=0):
     return {
         "verdict": verdict,
@@ -197,12 +286,16 @@ def verify_sell_deposit(sell_id: int) -> dict:
         return _result("unsupported", "у заявки не сохранён адрес приёма")
     if expected <= 0:
         return _result("unsupported", "у заявки нулевая сумма")
-    if currency not in _ESPLORA and currency != "USDT":
+    if currency not in _ESPLORA and currency not in ("USDT", "TON"):
         return _result("unsupported", f"проверка блокчейна для {currency} не реализована")
 
     try:
-        deposits = (_tron_deposits(address) if currency == "USDT"
-                    else _esplora_deposits(currency, address))
+        if currency == "USDT":
+            deposits = _tron_deposits(address)
+        elif currency == "TON":
+            deposits = _ton_deposits(address)
+        else:
+            deposits = _esplora_deposits(currency, address)
     except _ExplorerError as exc:
         logger.warning("sell_guard: эксплорер %s недоступен: %s", currency, exc)
         return _result("unavailable", f"эксплорер {currency} недоступен ({exc})", expected=expected)
@@ -218,6 +311,13 @@ def verify_sell_deposit(sell_id: int) -> dict:
 
     best_pending = None    # сумма подходит, но мало подтверждений
     best_mismatch = None   # депозит есть, но сумма вне окна → решает человек
+    best_unbound = None    # сумма сходится, но перевод не привязан к заявке
+
+    # У TON перевод несёт метку заявки, а у клиента с подключённым кошельком
+    # ещё и доказанный адрес отправителя. Раз признак есть — требуем его: без
+    # него общий адрес приёма означает «зачли чужой перевод, потому что размер
+    # совпал». Для остальных монет признака нет, и правило прежнее.
+    is_bound = _ton_binding(sell_id) if currency == "TON" else None
 
     for d in deposits:
         if not d["txid"] or d["txid"] in claimed:
@@ -228,6 +328,10 @@ def verify_sell_deposit(sell_id: int) -> dict:
             if (best_mismatch is None
                     or abs(d["amount"] - expected) < abs(best_mismatch["amount"] - expected)):
                 best_mismatch = d
+            continue
+        if is_bound is not None and not is_bound(d):
+            if best_unbound is None or d["confirmations"] > best_unbound["confirmations"]:
+                best_unbound = d
             continue
         if d["confirmations"] < min_conf:
             if best_pending is None or d["confirmations"] > best_pending["confirmations"]:
@@ -252,6 +356,13 @@ def verify_sell_deposit(sell_id: int) -> dict:
                        f"транзакция найдена, но подтверждений {best_pending['confirmations']}/{min_conf} — подождите",
                        txid=best_pending["txid"], received=best_pending["amount"],
                        expected=expected, confirmations=best_pending["confirmations"])
+    if best_unbound:
+        return _result("unbound",
+                       f"на адрес пришло {best_unbound['amount']:.9f} {currency} без метки "
+                       f"заявки и не с того счёта, с которого клиент собирался платить — "
+                       f"зачесть автоматически нельзя",
+                       txid=best_unbound["txid"], received=best_unbound["amount"],
+                       expected=expected, confirmations=best_unbound["confirmations"])
     if best_mismatch:
         return _result("amount_mismatch",
                        f"на адрес пришло {best_mismatch['amount']:.8f} {currency}, "
@@ -268,12 +379,14 @@ def describe_verdict(res: dict, currency: str = "") -> str:
     """Человекочитаемая строка для карточки заявки у админа."""
     icon = {
         "confirmed": "✅", "pending": "⏳", "amount_mismatch": "⚠️",
+        "unbound": "⚠️",
         "not_found": "⛔", "unavailable": "🌐", "unsupported": "❓",
     }.get(res["verdict"], "❓")
     head = {
         "confirmed": "Монеты на адресе",
         "pending": "Ждём подтверждений сети",
         "amount_mismatch": "Сумма не сходится",
+        "unbound": "Перевод не привязан к заявке",
         "not_found": "Монеты НЕ поступили",
         "unavailable": "Проверка недоступна",
         "unsupported": "Проверка невозможна",

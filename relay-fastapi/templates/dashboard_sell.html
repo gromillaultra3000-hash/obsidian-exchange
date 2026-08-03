@@ -9,6 +9,14 @@
     <p style="margin:12px 0;">Отправьте <strong>{{ created.amount }} {{ created.currency }}</strong> на наш адрес:</p>
     <div class="fee-box" style="word-break:break-all;font-family:monospace;font-size:14px;" id="recv-addr">{{ created.address }}</div>
     <button class="btn btn-secondary" style="margin-top:10px;" onclick="navigator.clipboard.writeText(document.getElementById('recv-addr').textContent.trim());this.textContent='✓ Скопировано'">📋 Скопировать адрес</button>
+    {% if created.marker %}
+    {# Адрес приёма один на все заявки. Без метки перевод привязывается к заявке
+       только по размеру и времени — это догадка, а не привязка. #}
+    <p style="margin:16px 0 6px;">🏷 Обязательно укажите <strong>комментарий</strong> к переводу — по нему мы узнаем вашу заявку:</p>
+    <div class="fee-box" style="word-break:break-all;font-family:monospace;font-size:14px;" id="recv-marker">{{ created.marker }}</div>
+    <button class="btn btn-secondary" style="margin-top:10px;" onclick="navigator.clipboard.writeText(document.getElementById('recv-marker').textContent.trim());this.textContent='✓ Скопировано'">📋 Скопировать комментарий</button>
+    <p style="opacity:.7;font-size:13px;margin-top:8px;">Перевод без комментария не потеряется, но зачесть его автоматически мы не сможем — потребуется ручная сверка. В Mini App внутри Telegram комментарий подставляется сам: кошелёк подписывает готовый перевод.</p>
+    {% endif %}
     <p style="margin-top:16px;">💵 Выплата: <strong>≈ {{ '%.2f'|format(created.rub) }} ₽</strong> на СБП <strong>{{ created.phone }}</strong></p>
     <p style="opacity:.7;font-size:13px;margin-top:8px;">После подтверждения транзакции в сети рубли поступят в течение 30–60 минут. Статус — в разделе <a href="/dashboard/orders">История</a>.</p>
 </div>

@@ -60,6 +60,26 @@ def _norm(addr) -> str:
     return str(addr or "").strip().lower()
 
 
+def _norm_account(currency, addr) -> str:
+    """Ключ СЧЁТА, а не строки адреса.
+
+    У TON один счёт записывается тремя способами (`0:…`, `UQ…`, `EQ…`), и
+    обозреватель отдаёт не ту форму, что лежит в настройках владельца. Приведение
+    к нижнему регистру их не роднит — наоборот, у base64 оно ломает разбор.
+    Своя выплата TON выглядела бы чужой и не закрывала заявку никогда; нашёл
+    codex. Для остальных валют правило прежнее.
+    """
+    if str(currency or "").upper() == "TON":
+        try:
+            from core.address import ton_account_key
+            key = ton_account_key(addr)
+            if key:
+                return key
+        except Exception:
+            pass
+    return _norm(addr)
+
+
 def _registered_sources() -> dict:
     try:
         p = Path(SOURCES_PATH)
@@ -84,7 +104,7 @@ def add_source(currency: str, address: str, note: str = "") -> dict:
     except Exception:
         data = {}
     src = data.setdefault("sources", {})
-    src.setdefault(cur, {})[_norm(addr)] = {"note": note, "raw": addr}
+    src.setdefault(cur, {})[_norm_account(cur, addr)] = {"note": note, "raw": addr}
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     return {"ok": True, "currency": cur, "address": addr,
@@ -98,7 +118,7 @@ def remove_source(currency: str, address: str) -> dict:
         data = json.loads(p.read_text("utf-8")) if p.exists() else {}
     except Exception:
         return {"ok": False, "error": "список нечитаем"}
-    removed = (data.get("sources") or {}).get(cur, {}).pop(_norm(address), None)
+    removed = (data.get("sources") or {}).get(cur, {}).pop(_norm_account(cur, address), None)
     p.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     return {"ok": bool(removed), "currency": cur, "address": address}
 
@@ -179,7 +199,7 @@ def _own_wallet_addresses(currency: str) -> set:
             # без него своя же выплата выглядит чужой и не закрывает заявку.
             a = os.getenv("TON_PAYOUT_ADDRESS", "").strip()
             if a:
-                out.add(_norm(a))
+                out.add(_norm_account("TON", a))
     except Exception as e:
         logger.warning("payout_discovery: адрес своего кошелька %s: %s", cur, e)
     out = {a for a in out if a}
@@ -193,7 +213,11 @@ def _own_wallet_addresses(currency: str) -> set:
 def trusted_senders(currency: str) -> set:
     """Наши кошельки + внесённые владельцем. Пусто = закрывать нечем."""
     cur = str(currency or "").upper()
-    reg = {_norm(a) for a in (_registered_sources().get(cur) or {})}
+    # Ключ в файле мог быть записан старым правилом (просто нижний регистр),
+    # поэтому берём исходную строку из «raw» — по ней счёт восстанавливается.
+    reg = set()
+    for key, meta in (_registered_sources().get(cur) or {}).items():
+        reg.add(_norm_account(cur, (meta or {}).get("raw") or key))
     return _own_wallet_addresses(cur) | reg
 
 
@@ -472,6 +496,12 @@ def _incoming_ton(address: str, memo=None) -> list[dict]:
     out = []
     for t in rows:
         try:
+            # Откатившаяся транзакция — не выплата: сумма во входящем
+            # сообщении положительна, но монеты вернулись отправителю.
+            # Признак берём у модуля кошелька, чтобы правило было одно на все
+            # чтения TON (сверка и страж продажи). Нашёл codex.
+            if _tw.tx_failed(t):
+                continue
             inp = t.get("in_msg") or {}
             # Нас интересуют только ВХОДЯЩИЕ с суммой: исходящие и служебные
             # сообщения к выплате отношения не имеют.
@@ -491,7 +521,7 @@ def _incoming_ton(address: str, memo=None) -> list[dict]:
                 "txid": _ton_hash_hex(raw_hash),
                 "amount": val / 1e9,          # нанотоны → TON
                 "ts": int(t.get("utime") or 0),
-                "senders": [_norm(inp.get("source"))] if inp.get("source") else [],
+                "senders": [_norm_account("TON", inp.get("source"))] if inp.get("source") else [],
                 # toncenter отдаёт уже включённые в блок транзакции.
                 "confirmed": True,
             })
