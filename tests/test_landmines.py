@@ -2107,6 +2107,202 @@ def check_receipt_beats_the_timer():
                   "подтверждён» там, где не изменилось ни одной строки")
 
 
+# ─────────────────────────────────────────────────────────────────────
+# Проверка подписи ключом из той же посылки = отсутствие проверки
+# ─────────────────────────────────────────────────────────────────────
+# Кошелёк присылает подпись и рядом публичный ключ, которым её предлагается
+# проверять. Взять ключ оттуда — значит принять любую подпись: подписал своим,
+# приложил свой. Внешне это работающая интеграция: честный кошелёк проходит,
+# тесты зелёные, в логах «verified». Поэтому ключ обязан приходить ТОЛЬКО из
+# блокчейна, а положительный вердикт — существовать в единственном месте, за
+# всеми проверками. Заодно: успех не должен рождаться в except-ветке, а адрес
+# в ответе — приходить из тела запроса (тогда клиенту вернётся то, что он сам
+# прислал, с нашей отметкой «подтверждено»).
+def check_wallet_proof_is_checked_against_the_chain():
+    tag = "подпись кошелька проверяется ключом из цепи"
+    path = os.path.join(CANON, "core", "tonconnect.py")
+    src = _read(path)
+    if not src:
+        return                      # модуля ещё нет — проверять нечего
+    tree = ast.parse(src)
+    fns = {n.name: n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)}
+    vp = fns.get("verify_proof")
+    if vp is None:
+        fail(tag, "core/tonconnect.py: нет verify_proof — проверка ослепла")
+        return
+
+    def _is_ok_verdict(node):
+        """Узел означает «подтверждено»?"""
+        if isinstance(node, ast.Constant) and node.value is True:
+            return True
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) \
+                and node.func.id.endswith("verdict") and node.args \
+                and isinstance(node.args[0], ast.Constant) and node.args[0].value == "ok":
+            return True
+        if isinstance(node, ast.Dict):
+            for k, v in zip(node.keys, node.values):
+                if isinstance(k, ast.Constant) and k.value == "verified" \
+                        and isinstance(v, ast.Constant) and v.value is True:
+                    return True
+        return False
+
+    # 1. Ключ — из параметра-источника, а не из проверяемого сообщения.
+    params = {a.arg for a in list(vp.args.args) + list(vp.args.kwonlyargs)}
+    if "public_key_of" not in params:
+        fail(tag, "core/tonconnect.py: verify_proof больше не принимает источник "
+                  "ключа — значит ключ берётся откуда-то изнутри, скорее всего "
+                  "из самой посылки кошелька")
+        return
+    sig_calls = [n for n in ast.walk(vp)
+                 if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
+                 and "ed25519" in n.func.id.lower()]
+    if not sig_calls:
+        fail(tag, "core/tonconnect.py: verify_proof не проверяет подпись ed25519 — "
+                  "вердикт выносится без криптографии")
+        return
+    for call in sig_calls:
+        if not call.args or not isinstance(call.args[0], ast.Name):
+            fail(tag, "core/tonconnect.py: ключ подставляется в проверку подписи "
+                      "выражением на месте — источник не прослеживается")
+            continue
+        keyvar = call.args[0].id
+        sources = [a.value for a in ast.walk(vp)
+                   if isinstance(a, ast.Assign)
+                   and any(isinstance(t, ast.Name) and t.id == keyvar for t in a.targets)]
+        if len(sources) != 1:
+            fail(tag, f"core/tonconnect.py: ключ {keyvar!r} присваивается "
+                      f"{len(sources)} раз — проверить его происхождение нельзя")
+            continue
+        v = sources[0]
+        from_chain = (isinstance(v, ast.Call) and isinstance(v.func, ast.Name)
+                      and v.func.id == "public_key_of")
+        if not from_chain:
+            fail(tag, f"core/tonconnect.py: ключ {keyvar!r} для проверки подписи "
+                      "взят не у блокчейна (public_key_of), а из данных запроса — "
+                      "такая проверка принимает любую подпись")
+
+    # 2. Успех — в одном месте и только в verify_proof.
+    #    Голый `return True` считаем вердиктом лишь там, где функция вообще
+    #    выносит вердикты: у криптопримитива True означает «подпись сошлась»,
+    #    и запрещать его — правило по написанию, а не по смыслу.
+    def _returns_verdicts(fn):
+        return any(isinstance(n, ast.Return) and n.value is not None
+                   and (isinstance(n.value, ast.Dict)
+                        or (isinstance(n.value, ast.Call)
+                            and isinstance(n.value.func, ast.Name)
+                            and n.value.func.id.endswith("verdict")))
+                   for n in ast.walk(fn))
+
+    ok_returns = [(fn.name, n) for fn in fns.values() if _returns_verdicts(fn)
+                  for n in ast.walk(fn)
+                  if isinstance(n, ast.Return) and n.value is not None
+                  and _is_ok_verdict(n.value)]
+    if len(ok_returns) != 1 or ok_returns[0][0] != "verify_proof":
+        fail(tag, "core/tonconnect.py: «подтверждено» возвращается из "
+                  f"{[n for n, _ in ok_returns]} — успешный исход обязан быть "
+                  "единственным и достижимым только после всех проверок")
+
+    # 3. Успех не рождается в обработчике ошибки.
+    for h in ast.walk(tree):
+        if isinstance(h, ast.ExceptHandler):
+            for n in ast.walk(h):
+                if isinstance(n, ast.Return) and n.value is not None and _is_ok_verdict(n.value):
+                    fail(tag, "core/tonconnect.py: сбой при проверке подписи "
+                              "оборачивается в «подтверждено» — fail-open")
+
+    # 4. Поверхность: источник ключа не подсовывается запросом, адрес в ответе —
+    #    из вердикта, а не из тела.
+    mp = os.path.join(ROOT, "relay-fastapi", "main.py")
+    msrc = _read(mp)
+    if not msrc:
+        return
+    mtree = ast.parse(msrc)
+    endpoints = [n for n in ast.walk(mtree)
+                 if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+                 and "tonconnect_verify" in n.name]
+    if not endpoints:
+        fail(tag, "relay-fastapi/main.py: эндпоинта проверки кошелька нет — "
+                  "доказательство владения не доходит ни до одной поверхности")
+        return
+    for ep in endpoints:
+        for call in [n for n in ast.walk(ep) if isinstance(n, ast.Call)]:
+            for kw in call.keywords:
+                if kw.arg == "public_key_of" and not isinstance(kw.value, (ast.Name, ast.Attribute)):
+                    fail(tag, "relay-fastapi/main.py: источник ключа собирается "
+                              "выражением в обработчике — он обязан быть ссылкой "
+                              "на модуль кошелька, иначе туда легко попадёт "
+                              "значение из запроса")
+        for ret in [n for n in ast.walk(ep) if isinstance(n, ast.Return)]:
+            if not isinstance(ret.value, ast.Dict):
+                continue
+            for k, v in zip(ret.value.keys, ret.value.values):
+                if not (isinstance(k, ast.Constant) and k.value == "address"):
+                    continue
+                src_names = {n.id for n in ast.walk(v) if isinstance(n, ast.Name)}
+                if not src_names & {"verdict", "result"}:
+                    fail(tag, "relay-fastapi/main.py: адрес в ответе берётся не из "
+                              "вердикта — клиент получит обратно свою же строку с "
+                              "отметкой «подтверждено»")
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Строка назначения проверяется как голый адрес
+# ─────────────────────────────────────────────────────────────────────
+# У валют с тегом назначение хранится ОДНОЙ строкой (`UQ…#memo`, X-адрес), и в
+# таком же виде клиент вставляет его с биржи — форма это прямо разрешает и
+# прячет отдельное поле тега. Голый валидатор адреса на такой строке отвечает
+# «не прошла контрольную сумму»: клиент получает отказ на правильном адресе при
+# спрятанном поле тега, а страж перед выплатой — «адрес в БД невалиден» на
+# заявке, которую сам же и записал, и уводит её человеку. Проверять назначение
+# имеет право только тот, кто знает про склейку.
+def check_destination_is_not_checked_as_bare_address():
+    tag = "назначение проверяется целиком, а не как голый адрес"
+    for rel, guard in ((os.path.join("bot", "main_bot.py"), None),
+                       (os.path.join("relay", "utils", "exchange_calc.py"), None),
+                       (os.path.join("relay-fastapi", "main.py"), "_resolve_destination")):
+        src = _read(os.path.join(ROOT, rel))
+        if not src:
+            continue
+        tree = ast.parse(src)
+        allowed = set()
+        if guard:
+            for fn in ast.walk(tree):
+                if isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)) and fn.name == guard:
+                    allowed |= {id(n) for n in ast.walk(fn)}
+        for call in ast.walk(tree):
+            if not isinstance(call, ast.Call):
+                continue
+            name = (call.func.attr if isinstance(call.func, ast.Attribute)
+                    else getattr(call.func, "id", ""))
+            if name != "validate_address" or id(call) in allowed:
+                continue
+            where = f" (вне {guard})" if guard else ""
+            fail(tag, f"{rel}: validate_address{where} — назначение с тегом "
+                      f"склеено в одну строку, и голая проверка адреса отвергнет "
+                      f"её как опечатку; нужен validate_destination")
+
+    # Разделитель, объявленный реестром, обязан разбираться ядром: иначе
+    # поверхность прячет поле тега, увидев его, а разбор не состоится.
+    sys.path.insert(0, CANON)
+    try:
+        from core import assets as _as
+        from core import address as _ad
+    except Exception as e:
+        fail(tag, f"реестр валют не импортируется: {type(e).__name__}: {e}")
+        return
+    for cur, sep in getattr(_as, "TAG_SEPARATORS", {}).items():
+        probe = f"ЗАВЕДОМО-НЕ-АДРЕС{sep}1"
+        try:
+            _ad.parse_destination(probe, cur)
+        except Exception as e:
+            fail(tag, f"core.address: разбор {cur}-назначения со склейкой "
+                      f"падает ({type(e).__name__}) — поверхность такую строку "
+                      f"принимает, ядро её не переживает")
+    if not hasattr(_as, "validate_destination"):
+        fail(tag, "core.assets: нет validate_destination — проверять назначение "
+                  "целиком нечем, поверхности вернутся к голому адресу")
+
+
 def main():
     for fn in (check_no_diverging_duplicates, check_config_keys_are_read,
                check_no_fail_open_in_guards, check_session_expiry_uses_expires_at,
@@ -2131,6 +2327,8 @@ def main():
                check_tagged_currencies_use_the_dispatcher,
                check_tag_shape_comes_from_the_registry,
                check_wallet_modules_are_registered,
+               check_wallet_proof_is_checked_against_the_chain,
+               check_destination_is_not_checked_as_bare_address,
                check_receipt_beats_the_timer,
                check_migrations_agree,
                check_debt_queue_is_visible,

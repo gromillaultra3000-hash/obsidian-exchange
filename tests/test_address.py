@@ -193,6 +193,49 @@ try:
 except ImportError:
     print("⏭  Keccak-сверка пропущена: нет pycryptodome (запустите в venv бота)")
 
+# ── Склейка «адрес + тег одной строкой» доходит от формы до стража ───────────
+# Поверхности, увидев разделитель из реестра, прячут поле тега — то есть прямо
+# обещают, что такую строку примут. Дальше она же ложится в заявку и её же
+# перепроверяет страж перед выплатой. Раньше на этом пути стоял голый валидатор
+# адреса: правильное назначение отвергалось как опечатка, а у XRP форма `r…:тег`
+# не разбиралась вовсе — поле тега спрятано, адрес «неверный», выхода нет.
+from core import assets as S  # noqa: E402
+from utils import exchange_calc as EC  # noqa: E402
+
+_TON = "UQCD39VS5jcptHL8vMjEXrzGaRcCVYto7HUn4bpAOg8xqEBI"
+_XRP = "rEb8TK3gBgk5auZkwc6sHnwrGVJH8DuaLh"
+
+for _cur, _addr, _tag in (("TON", _TON, "12345"), ("XRP", _XRP, "101")):
+    _sep = S.TAG_SEPARATORS[_cur]
+    _glued = f"{_addr}{_sep}{_tag}"
+    check(f"{_cur}: склейка распознана как несущая тег",
+          S.address_carries_tag(_cur, _glued))
+    check(f"{_cur}: склейка разбирается на адрес и тег",
+          A.parse_destination(_glued, _cur)[0] == _addr)
+    check(f"{_cur}: склейка проходит проверку назначения",
+          S.validate_destination(_cur, _glued) and EC.validate_crypto_address(_glued, _cur))
+    check(f"{_cur}: склейка приводится к канону хранения",
+          bool(S.canonical_address(_cur, _glued, None)))
+    check(f"{_cur}: канон хранения сам проходит проверку назначения (страж выплаты)",
+          S.validate_destination(_cur, S.canonical_address(_cur, _addr,
+                                                           _tag if _cur == "TON" else int(_tag))))
+    check(f"{_cur}: битый адрес со склейкой отвергнут",
+          not S.validate_destination(_cur, f"{_addr[:-1]}X{_sep}{_tag}"))
+
+check("XRP: тег из склейки не теряется", A.parse_destination(f"{_XRP}:101", "XRP")[1] == 101)
+check("XRP: тег 0 в склейке — это тег, а не «тега нет»",
+      A.parse_destination(f"{_XRP}:0", "XRP")[1] == 0)
+check("XRP: нечисловой тег в склейке отвергнут",
+      A.parse_destination(f"{_XRP}:abc", "XRP") == (None, None))
+check("XRP: тег за границей 32 бит отвергнут",
+      A.parse_destination(f"{_XRP}:4294967296", "XRP") == (None, None))
+check("XRP: пустой тег после разделителя отвергнут",
+      A.parse_destination(f"{_XRP}:", "XRP") == (None, None))
+check("TON: memo не превращается в число",
+      A.parse_destination(f"{_TON}#order-42", "TON")[1] == "order-42")
+check("валюта без тега: склейка остаётся ошибкой",
+      not S.validate_destination("BTC", "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4#memo"))
+
 if failures:
     print(f"\n{len(failures)} провал(ов): {failures}")
     sys.exit(1)

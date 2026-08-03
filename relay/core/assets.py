@@ -299,6 +299,41 @@ def canonical_address(currency, address, tag=None, network=None):
         return None
 
 
+def validate_destination(currency, value, network=None) -> bool:
+    """Годится ли СТРОКА НАЗНАЧЕНИЯ — то, что ввёл клиент или что лежит в заявке.
+
+    Отличается от validate_address тем, что понимает каноническую склейку с
+    тегом (`UQ…#memo`, `r…:12345`). Именно в таком виде адрес хранится у валют
+    с тегом — и проверка голым валидатором отвечала на него «не прошёл
+    контрольную сумму»:
+      • клиент, вставивший адрес с memo одной строкой (форма это прямо
+        разрешает и прячет отдельное поле), получал отказ на ПРАВИЛЬНОМ адресе;
+      • страж перед авто-выплатой видел «адрес в БД невалиден» на заявке,
+        которую сам же и записал, и уводил её человеку.
+    Строгости это не убавляет: склейка принимается только разобранной — адрес
+    обязан пройти контрольную сумму, тег — проверку вида.
+    """
+    c = normalize_currency(currency)
+    v = value.strip() if isinstance(value, str) else ""
+    if validate_address(c, v, network):
+        return True
+    if c not in TAGGED_CURRENCIES or not address_carries_tag(c, v):
+        return False
+    try:
+        from core import address as _addr
+    except Exception:
+        try:
+            import address as _addr
+        except Exception:
+            return False
+    try:
+        clean, tag = _addr.parse_destination(v, c)
+    except Exception:
+        return False
+    return (clean is not None and validate_address(c, clean, network)
+            and validate_tag(c, tag))
+
+
 def validate_tag(currency, tag) -> bool:
     """Тег корректен для этой валюты. Валюта без тегов + непустой тег → False
     (фейл-клоуз: тег, который никуда не поедет, лучше отвергнуть на вводе).

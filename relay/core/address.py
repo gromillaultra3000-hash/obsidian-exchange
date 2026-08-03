@@ -384,6 +384,22 @@ def parse_xrp_destination(address: str):
     addr = address.strip()
 
     if addr.startswith("r"):
+        # `r…:12345` — та же склейка «адрес и тег одной строкой», что у TON.
+        # Поверхности объявляют её поддерживаемой (увидев разделитель, поле тега
+        # прячут), и без разбора здесь клиент получал бы отказ на правильном
+        # назначении при спрятанном поле — тупик без единой подсказки.
+        # Двоеточие в classic-адресе невозможно, разбор однозначен.
+        if ":" in addr:
+            base, _, tail = addr.partition(":")
+            if not is_valid_xrp_classic(base):
+                return (None, None)
+            # Вид значения спрашиваем у общего разборщика тега, а не у своего
+            # `.isdigit()`: правила границ и отказов должны быть одни и те же
+            # везде, где клиент вводит тег.
+            value, err = parse_tag_input(tail, "XRP")
+            if err or value is None:
+                return (None, None)
+            return (base, value)
         return (addr, None) if is_valid_xrp_classic(addr) else (None, None)
 
     if not addr.startswith("X"):
@@ -575,6 +591,27 @@ def is_valid_ton(address: str) -> bool:
     """Адрес TON в любой из двух форм, с проверкой контрольной суммы."""
     wc, _h = parse_ton_address(address)
     return wc is not None
+
+
+def ton_friendly_address(address, bounceable: bool = False) -> str:
+    """Дружественная форма адреса (`UQ…`/`EQ…`) из любой из двух.
+
+    Нужна там, где адрес показывают человеку или кладут в заявку: кошелёк и
+    TON Connect отдают СЫРУЮ форму `0:83df…`, а клиент во всех своих приложениях
+    видит `UQ…`. Показать ему сырую — значит заставить сверять два внешне разных
+    адреса и решать, тот ли это счёт.
+
+    По умолчанию non-bounceable (`UQ…`): именно её кошельки показывают как
+    «мой адрес», и на неё принимают перевод даже не активированные контракты —
+    bounceable-перевод на такой счёт вернулся бы отправителю.
+    """
+    wc, h = parse_ton_address(address)
+    if wc is None:
+        return ""
+    tag = 0x11 if bounceable else 0x51
+    body = bytes([tag, wc & 0xFF]) + h
+    raw = body + _crc16_xmodem(body).to_bytes(2, "big")
+    return base64.urlsafe_b64encode(raw).decode().rstrip("=")
 
 
 def is_valid_ton_memo(memo) -> bool:

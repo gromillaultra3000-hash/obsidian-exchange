@@ -96,6 +96,10 @@ def get_sell_rate(coin):
 
 
 def validate_crypto_address(addr, currency, network=None):
-    """Валидация адреса под валюту И сеть (единый источник — core.assets).
+    """Валидация СТРОКИ НАЗНАЧЕНИЯ под валюту И сеть (единый источник — core.assets).
+
+    Понимает каноническую склейку с тегом (`UQ…#memo`) — в таком виде адрес
+    хранится у валют с тегом и в таком же виде его вставляют клиенты. Голая
+    проверка адреса отвергала бы правильное назначение.
     network=None → сеть по умолчанию валюты (USDT→TRC20) для обратной совместимости."""
-    return _assets.validate_address(currency, addr, network)
+    return _assets.validate_destination(currency, addr, network)

@@ -1866,6 +1866,64 @@ async def webapp():
     except:
         raise HTTPException(status_code=500)
 
+# --- TON Connect: подключение кошелька клиента вместо ввода адреса руками ---
+@app.get("/tonconnect-manifest.json")
+async def tonconnect_manifest():
+    """Манифест приложения. Кошелёк тянет его сам, из любого источника и без
+    авторизации — отсюда CORS `*`, иначе подключение не состоится вовсе.
+
+    Кривой манифест отдаём как ошибку, а не как манифест: кошелёк на него
+    ответит клиенту безымянным сбоем, и причину пришлось бы искать по скриншоту.
+    """
+    from core import tonconnect as _tc
+    m = _tc.manifest()
+    problems = _tc.manifest_problems(m)
+    if problems:
+        logger.error(f"tonconnect: манифест непригоден: {problems}")
+        return JSONResponse({"error": "manifest_invalid", "problems": problems},
+                            status_code=503)
+    return JSONResponse(m, headers={"Access-Control-Allow-Origin": "*",
+                                    "Cache-Control": "public, max-age=300"})
+
+
+@app.get("/api/tonconnect/payload")
+async def tonconnect_payload(request: Request):
+    """Проверочный код для кошелька. Выдаём только опознанному клиенту: код
+    привязан к нему, и по этой привязке чужая подпись потом не пройдёт."""
+    from core import tonconnect as _tc
+    user = verify_init_data(request.headers.get('X-Telegram-Init-Data', ''))
+    if not user:
+        raise HTTPException(status_code=403, detail="Откройте приложение через бота Telegram.")
+    payload = _tc.make_payload(user['id'])
+    if not payload:
+        # RELAY_SECRET не настроен — подписывать код нечем. Молча выдать
+        # неподписанный значило бы принимать потом любой.
+        raise HTTPException(status_code=503, detail="Подключение кошелька временно недоступно.")
+    return {"payload": payload, "ttl": _tc.PAYLOAD_TTL_SEC}
+
+
+@app.post("/api/tonconnect/verify")
+async def tonconnect_verify(request: Request):
+    """Вердикт о владении адресом. Адрес в ответе — ТОЛЬКО из вердикта: взять
+    его из запроса значило бы вернуть клиенту то, что он сам прислал, с нашей
+    отметкой «подтверждено»."""
+    from core import tonconnect as _tc
+    from wallet import ton_wallet as _tw
+    user = verify_init_data(request.headers.get('X-Telegram-Init-Data', ''))
+    if not user:
+        raise HTTPException(status_code=403, detail="Откройте приложение через бота Telegram.")
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Некорректный запрос.")
+    verdict = _tc.verify_proof(body.get("account") or {}, body.get("proof") or {},
+                               subject=user['id'], public_key_of=_tw.public_key)
+    logger.info(f"tonconnect verify uid={user['id']} → {verdict['reason']}")
+    return {"verified": verdict["verified"], "reason": verdict["reason"],
+            "message": verdict["message"], "address": verdict["address"],
+            "currency": "TON"}
+
+
 # --- API эндпоинты ---
 @app.get("/api/history")
 async def api_history(request: Request):

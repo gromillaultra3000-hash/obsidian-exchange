@@ -1068,7 +1068,11 @@ def validate_crypto_address(addr, currency, network=None):
     поведение для существующих вызовов не меняется."""
     try:
         from core import assets as _assets
-        fmt_ok = _assets.validate_address(currency, addr, network)
+        # Строка НАЗНАЧЕНИЯ, а не голый адрес: у валют с тегом она хранится
+        # склейкой (`UQ…#memo`), и её же клиент вставляет одной строкой.
+        # Голый валидатор отвечал на такую строку «не прошла контрольную сумму»
+        # — отказ на правильном адресе и стоп-сигнал стражу перед выплатой.
+        fmt_ok = _assets.validate_destination(currency, addr, network)
     except Exception:
         logger.exception("core.assets недоступен в validate_crypto_address — фейл-клоуз")
         return False

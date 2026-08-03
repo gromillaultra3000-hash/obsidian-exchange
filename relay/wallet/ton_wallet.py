@@ -115,6 +115,68 @@ def _get_json(url: str, params=None, timeout: int = 15):
         raise
 
 
+def _post_json(url: str, body: Dict[str, Any], timeout: int = 15):
+    """То же правило, что и в _get_json: причину отказа читаем из тела."""
+    import requests
+    r = requests.post(url, json=body, timeout=timeout)
+    try:
+        return r.json()
+    except ValueError:
+        r.raise_for_status()
+        raise
+
+
+def public_key_state(address: str) -> Dict[str, Any]:
+    """Публичный ключ счёта ИЗ БЛОКЧЕЙНА: {'key': bytes|None, 'status', 'reason'}.
+
+    Единственный законный источник ключа при проверке ton_proof. Кошелёк
+    присылает свой ключ в том же сообщении, что и подпись, — принять его оттуда
+    значит проверять подпись ключом того, кто её поставил, то есть не проверять
+    ничего.
+
+    Неактивированный кошелёк ключа не отдаёт (контракт не задеплоен): это не
+    сбой и не обман, а честное «доказать нечем» — вызывающий обязан оставить
+    клиенту ручной ввод, а не отказать ему в обмене.
+    """
+    addr = (address or "").strip()
+    if not addr:
+        return {"key": None, "status": "ERROR", "reason": "пустой адрес"}
+    try:
+        data = _post_json(api_url("runGetMethod"),
+                          {"address": addr, "method": "get_public_key", "stack": []}) or {}
+    except Exception as e:
+        return {"key": None, "status": "ERROR", "reason": type(e).__name__}
+    if not data.get("ok"):
+        return {"key": None, "status": "ERROR",
+                "reason": str(data.get("error") or "toncenter отказал")[:160]}
+    result = data.get("result") or {}
+    if result.get("exit_code") not in (0, None):
+        # Типичный случай — кошелёк ещё не активирован в сети.
+        return {"key": None, "status": "NOT_DEPLOYED",
+                "reason": f"get_public_key exit_code={result.get('exit_code')}"}
+    stack = result.get("stack") or []
+    if not stack or not isinstance(stack[0], (list, tuple)) or len(stack[0]) < 2:
+        return {"key": None, "status": "ERROR", "reason": "пустой стек ответа"}
+    try:
+        num = int(str(stack[0][1]), 16 if str(stack[0][1]).lower().startswith("0x") else 10)
+    except (TypeError, ValueError):
+        return {"key": None, "status": "ERROR", "reason": "нечисловой ключ"}
+    try:
+        key = num.to_bytes(32, "big")           # ключ ровно 256 бит, иначе это не он
+    except (OverflowError, ValueError):
+        return {"key": None, "status": "ERROR", "reason": "ключ не 256 бит"}
+    if not any(key):
+        return {"key": None, "status": "ERROR", "reason": "нулевой ключ"}
+    return {"key": key, "status": "OK", "reason": None}
+
+
+def public_key(address: str):
+    """32 байта ключа или None. Различить «нет ключа» и «сеть недоступна»
+    можно только через public_key_state — здесь оба случая одинаково означают
+    «доказательства нет»."""
+    return public_key_state(address).get("key")
+
+
 def account_state(address: str = None) -> Dict[str, Any]:
     """{'balance': float|None, 'status': 'OK'|'ERROR'|'NOT_CONFIGURED', 'reason'}.
 
