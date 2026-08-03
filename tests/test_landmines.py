@@ -2606,7 +2606,14 @@ def check_balance_is_shown_only_for_proven_ownership():
     # Смотрим и сам URL, и тело запроса: адрес может уехать как параметром
     # строки, так и полем JSON — «нет слова address рядом» проще и надёжнее,
     # чем угадывать форму (на угадывании правило один раз уже промолчало).
+    # Единственное исключение — свободный перевод: там адрес получателя и
+    # обязан приходить от клиента, это его деньги. Исключение названо явно, а
+    # не «получилось, потому что поле назвали иначе»: молчаливое совпадение
+    # правило уже один раз обмануло.
+    CLIENT_CHOOSES = ("/api/wallet/transfer-request",)
     for m in re.finditer(r"fetch\('(/api/wallet/[^']*)'([^;]{0,600})", web):
+        if m.group(1) in CLIENT_CHOOSES:
+            continue
         if re.search(r"addr(ess)?", m.group(1) + m.group(2), re.I):
             fail(tag, f"webapp.html: рядом с запросом {m.group(1)} фигурирует адрес — "
                       f"клиентская сторона не должна выбирать, чей баланс смотреть")
@@ -2696,6 +2703,36 @@ def check_transfer_target_is_decided_by_the_server():
             fail(tag, f"wallet_send.build_request() принимает {sorted(leaked)} — "
                       f"значит получателя или сумму перевода задаёт вызывающий, "
                       f"а не заявка в базе")
+
+    # Свободный перевод (кошелёк как самостоятельный сервис) — единственный
+    # путь, где получателя выбирает клиент. Ему позволено ровно два условия:
+    # адрес проверен контрольной суммой (опечатка в адресе TON не лечится
+    # ничем) и ответ помечен как выбранный клиентом — иначе поверхность выдаст
+    # чужой адрес за «оплату заявки №…», то есть за наш собственный счёт.
+    tnode = fns.get("build_transfer")
+    if tnode is not None:
+        # Ищем СМЫСЛ, а не слова. Первая версия правила смотрела, встречается ли
+        # «is_valid_ton» в тексте функции, — и обе мутации прошли мимо: имя
+        # осталось в строке импорта, а «client_chosen» — в собственной строке
+        # документации. Мина, которую обманывает соседний комментарий, не мина.
+        CHECKERS = {"is_valid_ton", "parse_ton_address", "ton_account_key"}
+        guarded = False
+        for n in ast.walk(tnode):
+            if not isinstance(n, ast.If):
+                continue
+            calls = {getattr(c.func, "id", getattr(c.func, "attr", ""))
+                     for c in ast.walk(n.test) if isinstance(c, ast.Call)}
+            if calls & CHECKERS and any(isinstance(b, ast.Return) for b in n.body):
+                guarded = True
+                break
+        if not guarded:
+            fail(tag, "wallet_send.build_transfer() не отказывает по контрольной сумме "
+                      "адреса получателя — опечатка уводит перевод в никуда")
+        marked = any(isinstance(n, ast.keyword) and n.arg == "client_chosen"
+                     for n in ast.walk(tnode))
+        if not marked:
+            fail(tag, "wallet_send.build_transfer() не помечает перевод как выбранный "
+                      "клиентом — поверхность выдаст чужой адрес за оплату нашего счёта")
 
     # Обработчик берёт из тела ТОЛЬКО номер заявки.
     main_src = _read(os.path.join(ROOT, "relay-fastapi", "main.py"))

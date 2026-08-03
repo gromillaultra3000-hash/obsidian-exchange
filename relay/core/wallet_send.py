@@ -58,7 +58,9 @@ REASON_TEXT = {
     "not_pending": "Заявка уже не ждёт перевода",
     "no_address": "У заявки не сохранён адрес приёма",
     "bad_address": "Адрес приёма испорчен — напишите в поддержку",
-    "bad_amount": "У заявки некорректная сумма",
+    "bad_amount": "Некорректная сумма перевода",
+    "bad_destination": "Адрес получателя не прошёл проверку — сверьте его посимвольно",
+    "bad_comment": "Комментарий слишком длинный или содержит перевод строки",
     "unavailable": "Сейчас не получилось — попробуйте позже",
 }
 
@@ -296,6 +298,70 @@ def pending_sells(user_id, currency: str = CHAIN) -> List[Dict[str, Any]]:
              "address": r["receive_address"] or "",
              "marker": marker_for(r["id"]),
              "created_at": r["created_at"]} for r in rows]
+
+
+def build_transfer(user_id, to, amount, comment: str = "", *,
+                   now: float = None, ttl: int = REQUEST_TTL_SEC) -> Dict[str, Any]:
+    """Свободный перевод из кошелька клиента: получателя выбирает ОН.
+
+    Отличие от build_request принципиальное, и его нельзя стирать. Там счёт
+    выставляет сервер, и клиенту незачем знать адрес: он платит нам по заявке.
+    Здесь наоборот — это его кошелёк и его деньги, мы лишь собираем сообщение и
+    отдаём кошельку на подпись. Поэтому наша работа тут другая: проверить адрес
+    контрольной суммой (опечатка в адресе TON не лечится ничем — перевод уходит
+    в никуда) и не дать перепутать «перевод по заявке» с «переводом кому угодно».
+
+    Ответ помечен `client_chosen: True` — по нему поверхность обязана показать
+    адрес получателя целиком, а не «оплатить заявку №…».
+    """
+    from core import wallet_link as _wl
+    from core.address import is_valid_ton, is_valid_ton_memo, ton_friendly_address
+
+    try:
+        uid = int(user_id)
+    except (TypeError, ValueError):
+        return _verdict("not_connected")
+
+    from_address = _wl.address_for(uid, CHAIN)
+    if not from_address:
+        return _verdict("not_connected")
+
+    dest = str(to or "").strip()
+    if not is_valid_ton(dest):
+        # Контрольная сумма, а не «похоже на адрес»: у TON опечатка проходит
+        # глазами и не проходит по чек-сумме — это последняя защита клиента.
+        return _verdict("bad_destination")
+
+    nano = to_nano(amount)
+    if nano is None:
+        return _verdict("bad_amount")
+
+    memo = str(comment or "")
+    if not is_valid_ton_memo(memo):
+        return _verdict("bad_comment")
+    payload = None
+    if memo:
+        try:
+            payload = text_comment_boc(memo)
+        except ValueError:
+            return _verdict("bad_comment")
+
+    message = {"address": ton_friendly_address(dest) or dest, "amount": str(nano)}
+    if payload:
+        message["payload"] = payload
+    return _verdict(
+        "ok",
+        client_chosen=True,
+        amount=float(Decimal(str(nano)) / NANO),
+        address=message["address"],
+        comment=memo,
+        from_address=from_address,
+        request={
+            "validUntil": int((now or time.time())) + int(ttl),
+            "network": MAINNET,
+            "messages": [message],
+        },
+    )
 
 
 def build_request(user_id, sell_id, *, now: float = None,

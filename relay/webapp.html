@@ -70,6 +70,11 @@
         .tab .tab-icon { font-size:19px; display:block; transition:transform .15s, filter .15s; }
         .tab.active { background:rgba(159,103,255,.14); color:var(--purple-2); }
         .tab.active .tab-icon { filter:drop-shadow(0 0 5px rgba(159,103,255,.55)); transform:scale(1.1); }
+        /* Действия кошелька: три равные кнопки, как в кошельковых приложениях */
+        .w-act { background:rgba(159,103,255,.12); border:1px solid rgba(159,103,255,.25);
+                 color:#e2e8f0; border-radius:14px; padding:12px 4px; font-size:13px;
+                 font-weight:700; cursor:pointer; transition:transform .12s, background .15s; }
+        .w-act:active { transform:scale(.97); background:rgba(159,103,255,.2); }
 
         .panel { display: none; }
         .panel.active { display: block; animation: fadeIn 0.3s ease; }
@@ -235,6 +240,7 @@
         <!-- Вкладки — иконка + подпись -->
         <div class="tabs" role="tablist" aria-label="Разделы">
           <div class="tab active" data-tab="exchange" role="tab" tabindex="0" aria-selected="true"><span class="tab-icon">💎</span>Обмен</div>
+          <div class="tab" data-tab="wallet" role="tab" tabindex="0" aria-selected="false"><span class="tab-icon">👛</span>Кошелёк</div>
           <div class="tab" data-tab="history" role="tab" tabindex="0" aria-selected="false"><span class="tab-icon">📋</span>История</div>
           <div class="tab" data-tab="referral" role="tab" tabindex="0" aria-selected="false"><span class="tab-icon">👥</span>Рефералы</div>
           <div class="tab" data-tab="profile" role="tab" tabindex="0" aria-selected="false"><span class="tab-icon">👤</span>Профиль</div>
@@ -375,6 +381,78 @@
             </div>
         </div>
 
+        <!-- Кошелёк как самостоятельный раздел: свои деньги клиента, а не
+             придаток к заявке. Ключ остаётся в его кошельке — мы показываем
+             то, что видно в сети, и собираем сообщения на подпись. -->
+        <div class="panel" id="panel-wallet">
+          <div id="w-empty" style="text-align:center;padding:26px 14px">
+            <div style="font-size:40px;margin-bottom:10px">👛</div>
+            <div style="font-size:15px;font-weight:800;margin-bottom:6px">Кошелёк не подключён</div>
+            <div style="font-size:13px;color:var(--muted);margin-bottom:16px">
+              Подключите TON-кошелёк — баланс, история и переводы будут здесь.
+              Ключ и сид остаются у вас: мы их не видим и не храним.</div>
+            <button type="button" id="w-connect"
+                    style="background:var(--accent);border:none;color:#fff;border-radius:12px;padding:11px 20px;font-size:14px;font-weight:700;cursor:pointer">
+              Подключить кошелёк</button>
+          </div>
+
+          <div id="w-main" style="display:none">
+            <div style="text-align:center;padding:18px 12px 14px;background:linear-gradient(160deg,rgba(159,103,255,.14),rgba(159,103,255,.03));border:1px solid rgba(159,103,255,.22);border-radius:18px">
+              <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Баланс</div>
+              <div id="w-balance" style="font-size:30px;font-weight:800;margin:4px 0 2px">—</div>
+              <div id="w-balance-rub" style="font-size:13px;color:var(--muted)"></div>
+              <div id="w-address" style="margin-top:8px;font-family:monospace;font-size:12px;color:var(--muted);cursor:pointer"></div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:12px 0">
+              <button type="button" id="w-act-send" class="w-act">↑ Отправить</button>
+              <button type="button" id="w-act-recv" class="w-act">↓ Получить</button>
+              <button type="button" id="w-act-buy" class="w-act">＋ Пополнить</button>
+            </div>
+
+            <!-- Отправка: получателя выбирает клиент, поэтому адрес виден
+                 целиком и проверяется контрольной суммой на сервере. -->
+            <div id="w-send" style="display:none;margin-bottom:12px;padding:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px">
+              <div class="input-group"><label>Адрес получателя</label>
+                <input type="text" id="w-to" placeholder="UQ… или EQ…" autocomplete="off"></div>
+              <div class="input-group"><label>Сумма, TON</label>
+                <input type="number" id="w-amount" step="any" min="0" placeholder="1.5"></div>
+              <div class="input-group"><label>Комментарий (для бирж — обязателен)</label>
+                <input type="text" id="w-comment" placeholder="можно оставить пустым"></div>
+              <button type="button" id="w-send-go"
+                      style="width:100%;background:var(--accent);border:none;color:#fff;border-radius:12px;padding:11px;font-size:14px;font-weight:700;cursor:pointer">
+                Подписать в кошельке</button>
+              <div id="w-send-msg" style="font-size:12px;color:var(--muted);margin-top:8px"></div>
+            </div>
+
+            <div id="w-recv" style="display:none;margin-bottom:12px;padding:12px;text-align:center;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px">
+              <img id="w-qr" alt="QR адреса" style="width:180px;height:180px;border-radius:12px;background:#fff;padding:6px">
+              <div id="w-recv-addr" style="font-family:monospace;font-size:12px;word-break:break-all;margin-top:8px"></div>
+              <button type="button" id="w-copy"
+                      style="margin-top:8px;background:none;border:1px solid rgba(255,255,255,.14);color:var(--muted);border-radius:10px;padding:7px 14px;font-size:12px;cursor:pointer">
+                Скопировать адрес</button>
+            </div>
+
+            <!-- Заявки обменника, ждущие перевода: это и есть интеграция —
+                 кошелёк остаётся кошельком, но знает про наши счета. -->
+            <div id="wallet-dues" style="display:none;margin-bottom:12px;padding:12px 14px;background:rgba(255,196,0,.06);border:1px solid rgba(255,196,0,.25);border-radius:14px">
+              <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Ждут перевода</div>
+              <div id="wallet-dues-list"></div>
+            </div>
+
+            <div style="padding:12px 14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:14px">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Операции</div>
+                <button type="button" id="wallet-refresh" style="background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer">🔄</button>
+              </div>
+              <div id="wallet-ops"></div>
+            </div>
+
+            <button type="button" id="wallet-disconnect"
+                    style="margin-top:12px;width:100%;background:none;border:1px solid rgba(255,255,255,.12);color:var(--muted);border-radius:10px;padding:9px;font-size:12px;cursor:pointer">
+              Отключить кошелёк</button>
+          </div>
+        </div>
         <div class="panel" id="panel-history"><div id="history-list"></div></div>
         <div class="panel" id="panel-referral">
             <div class="ref-item">
@@ -408,23 +486,12 @@
                 <div style="font-size:16px;font-weight:800;color:var(--green)" id="profile-volume">—</div>
               </div>
             </div>
-            <!-- Заявки на продажу, ждущие перевода монет. Подписывает клиент
-                 в своём кошельке: получателя, сумму и метку задаёт сервер по
-                 заявке, ключ отсюда не виден и не нужен. -->
-            <div id="wallet-dues" style="display:none;margin-bottom:14px;padding:12px 14px;background:rgba(255,196,0,.06);border:1px solid rgba(255,196,0,.25);border-radius:14px">
-              <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Ждут перевода</div>
-              <div id="wallet-dues-list"></div>
-            </div>
-            <!-- Подключённый кошелёк: только просмотр. Ключ остаётся у клиента,
-                 мы показываем то, что видно в сети по подтверждённому адресу. -->
-            <div id="wallet-box" style="display:none;margin-bottom:14px;padding:12px 14px;background:rgba(159,103,255,.06);border:1px solid rgba(159,103,255,.2);border-radius:14px">
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-                <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Мой кошелёк</div>
-                <button type="button" id="wallet-refresh" style="background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer">🔄</button>
-              </div>
-              <div id="wallet-list"></div>
-              <div id="wallet-ops" style="margin-top:10px;border-top:1px solid rgba(255,255,255,.07);padding-top:8px"></div>
-              <button type="button" id="wallet-disconnect" style="margin-top:10px;background:none;border:1px solid rgba(255,255,255,.12);color:var(--muted);border-radius:10px;padding:7px 12px;font-size:12px;cursor:pointer">Отключить кошелёк</button>
+            <!-- Кошелёк переехал в свой раздел: это самостоятельный сервис, а
+                 не строчка в профиле. Здесь остаётся только указатель. -->
+            <div id="wallet-hint" style="display:none;margin-bottom:14px;padding:11px 14px;background:rgba(159,103,255,.06);border:1px solid rgba(159,103,255,.2);border-radius:14px;font-size:13px">
+              👛 Ваш кошелёк — во вкладке
+              <a href="#" id="wallet-goto" style="color:var(--accent);font-weight:700">«Кошелёк»</a>:
+              баланс, переводы и история.
             </div>
             <div class="input-group"><label>BTC адрес для рефбонусов</label><input type="text" id="btc-address" placeholder="bc1... или 1... или 3..."></div>
             <button class="btn" onclick="saveAddress()">💾 Сохранить адрес</button>
@@ -962,26 +1029,95 @@
             return a.length > 16 ? a.slice(0, 8) + '…' + a.slice(-6) : a;
         }
 
+        let walletAddress = '';
+
         function walletRender(list) {
-            const box = document.getElementById('wallet-box');
-            const el = document.getElementById('wallet-list');
-            if (!box || !el) return;
-            if (!list || !list.length) { box.style.display = 'none'; return; }
+            const empty = document.getElementById('w-empty');
+            const main = document.getElementById('w-main');
+            const hint = document.getElementById('wallet-hint');
+            if (!empty || !main) return;
+            const w = (list && list.length) ? list[0] : null;
+            walletAddress = w ? w.address : '';
+            if (hint) hint.style.display = w ? 'block' : 'none';
+            if (!w) {
+                empty.style.display = 'block';
+                main.style.display = 'none';
+                return;
+            }
+            empty.style.display = 'none';
+            main.style.display = 'block';
+            // «Не знаем» и «ноль» — разные вещи: недоступный обозреватель не
+            // должен выглядеть как пустой кошелёк.
+            const known = typeof w.balance === 'number';
+            const bal = document.getElementById('w-balance');
+            const rub = document.getElementById('w-balance-rub');
+            bal.textContent = known ? (w.balance.toFixed(4) + ' ' + w.chain) : 'недоступен';
+            bal.style.color = known ? '#e2e8f0' : 'var(--muted)';
+            // Рублёвую оценку показываем только когда знаем ОБА числа: курс без
+            // баланса (и наоборот) дал бы уверенное «0 ₽» на пустом месте.
+            const rate = (typeof cachedRates === 'object' && cachedRates) ? cachedRates['TON'] : 0;
+            rub.textContent = (known && rate > 0)
+                ? '≈ ' + Math.round(w.balance * rate).toLocaleString('ru-RU') + ' ₽' : '';
+            const addr = document.getElementById('w-address');
+            addr.textContent = walletShorten(w.address);
+            addr.onclick = () => walletCopy(w.address, addr);
+        }
+
+        function walletCopy(text, el) {
+            try {
+                navigator.clipboard.writeText(text);
+                const was = el.textContent;
+                el.textContent = '✓ скопировано';
+                setTimeout(() => { el.textContent = was; }, 1200);
+                if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+            } catch (e) {}
+        }
+
+        async function walletReceive() {
+            const box = document.getElementById('w-recv');
+            const send = document.getElementById('w-send');
+            if (send) send.style.display = 'none';
+            if (!box) return;
+            if (box.style.display === 'block') { box.style.display = 'none'; return; }
             box.style.display = 'block';
-            el.innerHTML = list.map(w => {
-                // «Не знаем» и «ноль» — разные вещи: недоступный обозреватель
-                // не должен выглядеть как пустой кошелёк.
-                const known = typeof w.balance === 'number';
-                const amount = known
-                    ? (w.balance.toFixed(4) + ' ' + w.chain)
-                    : 'баланс недоступен';
-                const color = known ? '#e2e8f0' : 'var(--muted)';
-                return '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:4px 0">'
-                     + '<span style="font-size:12px;color:var(--muted);font-family:monospace">'
-                     + walletShorten(w.address) + '</span>'
-                     + '<span style="font-size:15px;font-weight:800;color:' + color + '">'
-                     + amount + '</span></div>';
-            }).join('');
+            try {
+                const r = await fetch('/api/wallet/receive', {
+                    headers: { 'X-Telegram-Init-Data': tg.initData || '' } });
+                const d = await r.json().catch(() => ({}));
+                if (!d.ok) { box.style.display = 'none'; return; }
+                document.getElementById('w-recv-addr').textContent = d.address;
+                const img = document.getElementById('w-qr');
+                if (d.qr_image) { img.src = d.qr_image; img.style.display = 'inline-block'; }
+                else { img.style.display = 'none'; }
+            } catch (e) { box.style.display = 'none'; }
+        }
+
+        async function walletTransfer() {
+            const msg = document.getElementById('w-send-msg');
+            const to = (document.getElementById('w-to').value || '').trim();
+            const amount = document.getElementById('w-amount').value;
+            const comment = (document.getElementById('w-comment').value || '').trim();
+            const say = (t) => { if (msg) msg.textContent = t; };
+            if (!tcUI) { say('Кошелёк недоступен'); return; }
+            say('Проверяем адрес…');
+            try {
+                const r = await fetch('/api/wallet/transfer-request', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json',
+                               'X-Telegram-Init-Data': tg.initData || '' },
+                    body: JSON.stringify({ to: to, amount: amount, comment: comment })
+                });
+                const d = await r.json().catch(() => ({}));
+                if (!r.ok || !d.ok || !d.request) { say(d.message || 'Не получилось'); return; }
+                say('Подтвердите в кошельке: ' + d.amount + ' TON → ' + walletShorten(d.address));
+                await tcUI.sendTransaction(d.request);
+                say('✅ Подписано. Операция появится в списке, когда её увидит сеть.');
+                if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+                setTimeout(loadWallets, 4000);
+            } catch (e) {
+                // Отказ в кошельке — обычный исход, а не сбой.
+                say('Перевод не подтверждён');
+            }
         }
 
         function walletOpsRender(d) {
@@ -1122,10 +1258,27 @@
         }
 
         (function () {
-            const rf = document.getElementById('wallet-refresh');
-            const dc = document.getElementById('wallet-disconnect');
-            if (rf) rf.addEventListener('click', loadWallets);
-            if (dc) dc.addEventListener('click', walletDisconnect);
+            const on = (id, fn) => {
+                const el = document.getElementById(id);
+                if (el) el.addEventListener('click', fn);
+            };
+            on('wallet-refresh', loadWallets);
+            on('wallet-disconnect', walletDisconnect);
+            on('w-connect', () => tcConnect());
+            on('w-act-recv', walletReceive);
+            on('w-act-send', () => {
+                const s = document.getElementById('w-send');
+                const rv = document.getElementById('w-recv');
+                if (rv) rv.style.display = 'none';
+                if (s) s.style.display = (s.style.display === 'block') ? 'none' : 'block';
+            });
+            on('w-send-go', walletTransfer);
+            on('w-act-buy', () => switchTab('exchange'));
+            on('wallet-goto', () => switchTab('wallet'));
+            on('w-copy', () => {
+                const el = document.getElementById('w-recv-addr');
+                if (el) walletCopy(el.textContent, el);
+            });
         })();
 
         function selectedNetwork() {
@@ -1507,6 +1660,14 @@
             document.getElementById('profile-result').textContent = 'Адрес сохранён';
         }
 
+        // Переключение вкладки одной функцией: её зовут и кнопки внутри
+        // разделов («Пополнить» из кошелька, ссылка из профиля), а не только
+        // сама полоса вкладок.
+        function switchTab(name) {
+            const tab = document.querySelector(`.tab[data-tab="${name}"]`);
+            if (tab) tab.click();
+        }
+
         document.querySelectorAll('.tab').forEach(tab => {
             const activate = () => {
                 document.querySelectorAll('.tab').forEach(t => { t.classList.remove('active'); t.setAttribute('aria-selected','false'); });
@@ -1517,6 +1678,7 @@
                 if (tab.dataset.tab === 'history') loadHistory();
                 if (tab.dataset.tab === 'referral') loadReferral();
                 if (tab.dataset.tab === 'profile') { loadProfile(); loadWallets(); }
+                if (tab.dataset.tab === 'wallet') loadWallets();
                 if (tab.dataset.tab === 'admin') loadAdmin();
             };
             tab.addEventListener('click', activate);

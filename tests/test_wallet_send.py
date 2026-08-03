@@ -245,6 +245,48 @@ conn.close()
 check("подпись в кошельке НЕ переводит заявку в оплаченную", status == "pending")
 check("чужую заявку подписью не отметить", not WS.mark_signed(OTHER, sid))
 
+# ── свободный перевод: получателя выбирает КЛИЕНТ ────────────────────────────
+# Это и есть «кошелёк как самостоятельный сервис»: деньги клиента, адрес его,
+# наша работа — проверить адрес контрольной суммой и собрать сообщение.
+DEST = ton_friendly_address("0:" + "ef" * 32)
+
+t = WS.build_transfer(UID, DEST, 1.25, "привет")
+check("свободный перевод собирается", t["ok"])
+check("перевод помечен как выбранный клиентом", t.get("client_chosen") is True)
+check("получатель — тот, кого назвал клиент", t["request"]["messages"][0]["address"] == DEST)
+check("сумма клиента переведена в нанотоны",
+      t["request"]["messages"][0]["amount"] == str(1_250_000_000))
+check("комментарий вложен",
+      decode_comment_boc(t["request"]["messages"][0]["payload"])["text"] == "привет")
+
+t2 = WS.build_transfer(UID, DEST, 1.25, "")
+check("без комментария payload не прикладывается",
+      "payload" not in t2["request"]["messages"][0])
+
+# Опечатка в адресе TON не лечится ничем — перевод уходит в никуда. Контрольная
+# сумма здесь последняя защита клиента, и она обязана быть на сервере: фронт
+# можно обойти, отправив запрос напрямую.
+bad = DEST[:-1] + ("A" if DEST[-1] != "A" else "B")
+check("адрес с испорченной контрольной суммой отклонён",
+      WS.build_transfer(UID, bad, 1.0)["reason"] == "bad_destination")
+check("пустой адрес отклонён", WS.build_transfer(UID, "", 1.0)["reason"] == "bad_destination")
+check("адрес чужой сети отклонён",
+      WS.build_transfer(UID, "bc1qexampleaddress", 1.0)["reason"] == "bad_destination")
+check("нулевая сумма отклонена", WS.build_transfer(UID, DEST, 0)["reason"] == "bad_amount")
+check("отрицательная сумма отклонена", WS.build_transfer(UID, DEST, -3)["reason"] == "bad_amount")
+check("нечисловая сумма отклонена", WS.build_transfer(UID, DEST, "мнoго")["reason"] == "bad_amount")
+check("перевод строки в комментарии отклонён",
+      WS.build_transfer(UID, DEST, 1.0, "строка\nвторая")["reason"] == "bad_comment")
+check("слишком длинный комментарий отклонён",
+      WS.build_transfer(UID, DEST, 1.0, "я" * 200)["reason"] == "bad_comment")
+check("без подключённого кошелька перевод не собирается",
+      WS.build_transfer(OTHER, DEST, 1.0)["reason"] == "not_connected")
+
+# Оплата заявки и свободный перевод — РАЗНЫЕ вещи, и различие видно в ответе:
+# иначе поверхность выдаст чужой адрес за «оплату заявки №…».
+check("оплата заявки не помечена выбором клиента",
+      WS.build_request(UID, sid, remember=False).get("client_chosen") is None)
+
 # ── список ждущих перевода ───────────────────────────────────────────────────
 dues = WS.pending_sells(UID)
 ids = {d["sell_id"] for d in dues}

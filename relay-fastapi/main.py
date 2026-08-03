@@ -2097,6 +2097,56 @@ async def api_wallet_send_request(request: Request):
     return res
 
 
+@app.post("/api/wallet/transfer-request")
+async def api_wallet_transfer_request(request: Request):
+    """Свободный перевод из кошелька клиента: получателя выбирает ОН.
+
+    Здесь адрес и сумма приходят из тела осознанно — это кошелёк клиента и его
+    деньги, а мы лишь собираем сообщение на подпись. Наша работа — проверить
+    адрес контрольной суммой и вернуть перевод, помеченный как выбранный
+    клиентом, чтобы поверхность не выдала его за оплату заявки. Оплата заявки
+    живёт отдельным путём, где получателя задаёт сервер.
+    """
+    user = verify_init_data(request.headers.get('X-Telegram-Init-Data', ''))
+    if not user:
+        raise HTTPException(status_code=403, detail="Откройте приложение через бота Telegram.")
+    body = await json_object(request)
+    from core import wallet_send as _ws
+    res = _ws.build_transfer(user['id'], body.get("to"), body.get("amount"),
+                             body.get("comment") or "")
+    logger.info("wallet_transfer: uid=%s → %s", user['id'], res["reason"])
+    return res
+
+
+@app.get("/api/wallet/receive")
+async def api_wallet_receive(request: Request):
+    """Реквизиты клиента для получения TON: его же подтверждённый адрес и QR.
+
+    Адрес снова из хранилища связей, а не из запроса: иначе эндпоинт рисовал бы
+    красивый QR на ЧУЖОЙ адрес от нашего имени — готовый инструмент обмана.
+    """
+    user = verify_init_data(request.headers.get('X-Telegram-Init-Data', ''))
+    if not user:
+        raise HTTPException(status_code=403, detail="Откройте приложение через бота Telegram.")
+    from core import wallet_link as _wl
+    address = _wl.address_for(user['id'], 'TON')
+    if not address:
+        return {"ok": False, "reason": "not_connected",
+                "message": "Кошелёк не подключён"}
+    qr_image = None
+    try:
+        from io import BytesIO as _BIO
+        import base64 as _b64
+        _bio = _BIO()
+        qrcode.make(f"ton://transfer/{address}").save(_bio, "PNG")
+        _bio.seek(0)
+        qr_image = "data:image/png;base64," + _b64.b64encode(_bio.read()).decode()
+    except Exception as e:
+        # QR — удобство, адрес — суть: без картинки экран остаётся рабочим.
+        logger.warning("wallet_receive: QR не собрался: %s", e)
+    return {"ok": True, "address": address, "chain": "TON", "qr_image": qr_image}
+
+
 @app.post("/api/wallet/send-signed")
 async def api_wallet_send_signed(request: Request):
     """Клиент подтвердил перевод в кошельке.
