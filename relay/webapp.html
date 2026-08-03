@@ -311,6 +311,19 @@
                 </label>
               </div>
             </div>
+            <!-- Подключение кошелька: адрес подставляется сам и подтверждается
+                 подписью. Блок появляется только у монет, чей кошелёк это умеет
+                 (признак из витрины), и только если SDK загрузился. Ручной ввод
+                 ниже остаётся всегда — подключение это удобство, а не условие. -->
+            <div class="input-group" id="tc-group" style="display:none">
+                <button type="button" id="tc-connect"
+                        style="width:100%;padding:12px;border-radius:14px;cursor:pointer;
+                               background:rgba(159,103,255,.14);color:#e2e8f0;font-size:13px;
+                               font-weight:700;border:1.5px solid rgba(159,103,255,.45)">
+                    💎 Подключить кошелёк
+                </button>
+                <div class="validation-msg" id="tc-msg"></div>
+            </div>
             <div class="input-group">
                 <label>Ваш адрес</label>
                 <input type="text" id="address" placeholder="Введите адрес кошелька" oninput="validateAddress()">
@@ -456,6 +469,15 @@
     </div>
 
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- TON Connect SDK лежит У НАС, а не на CDN: клиент обменника не должен
+         ходить за кодом на сторонний хост (там видно, кто и когда открывает
+         кошелёк), а `@latest` в кошельковом флоу означает чужой код без версии
+         — его подменят, и мы узнаем последними. Версия зафиксирована, сумма
+         файла проверяется тестом. Если файл не отдался, кнопки просто нет:
+         ручной ввод адреса работает всегда. -->
+    <script src="/static/js/tonconnect-ui-3.0.0.min.js" defer
+            onerror="window.__oeTonConnectFailed=true"
+            onload="try{tcRefresh()}catch(e){}"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         const tg = window.Telegram.WebApp;
@@ -784,6 +806,130 @@
                 'кошелёк</b> тега обычно нет: отметьте галочку ниже.';
         }
 
+        // ── Подключение кошелька (TON Connect) ───────────────────────────
+        // Смысл всего блока: адрес получателя перестаёт быть набранным вручную.
+        // Опечатка в нём необратима, и это самый частый повод обращения в
+        // поддержку. Но подключение — только удобство: ручной ввод остаётся
+        // равноправным путём, и любая неудача здесь возвращает клиента к нему,
+        // а не в тупик.
+        let tcUI = null;
+        let tcPending = false;
+
+        function tcAvailable() {
+            const o = currentOffering();
+            return !!(o && o.wallet_connect && window.TON_CONNECT_UI
+                      && !window.__oeTonConnectFailed);
+        }
+
+        function tcSay(text, kind) {
+            const el = document.getElementById('tc-msg');
+            if (!el) return;
+            el.textContent = text || '';
+            el.className = 'validation-msg' + (kind ? ' ' + kind : '');
+        }
+
+        function tcRefresh() {
+            const g = document.getElementById('tc-group');
+            if (!g) return;
+            const on = tcAvailable();
+            g.style.display = on ? '' : 'none';
+            if (!on) tcSay('');
+        }
+
+        // Всё, что показывается как «подтверждено», приходит ИЗ ОТВЕТА СЕРВЕРА.
+        // Факт подключения кошелька сам по себе ничего не доказывает: подпись
+        // проверяется ключом счёта из блокчейна, и только сервер это видел.
+        async function tcHandleWallet(w) {
+            if (!w || tcPending) return;
+            const proof = w.connectItems && w.connectItems.tonProof
+                          && w.connectItems.tonProof.proof;
+            if (!proof) {
+                tcSay('Кошелёк подключён, но подпись не выдал. Введите адрес вручную.', 'invalid');
+                return;
+            }
+            tcPending = true;
+            tcSay('Проверяем подпись…');
+            try {
+                const res = await fetch('/api/tonconnect/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json',
+                               'X-Telegram-Init-Data': tg.initData || '' },
+                    body: JSON.stringify({ account: w.account, proof: proof })
+                });
+                const data = await res.json().catch(() => ({}));
+                if (data && data.verified && data.address) {
+                    const inp = document.getElementById('address');
+                    inp.value = data.address;
+                    validateAddress();
+                    // Подключённый кошелёк — личный, а не биржевой счёт: memo
+                    // ему не нужен. Отвечаем за клиента на вопрос, ответ на
+                    // который теперь известен, но галочку оставляем видимой —
+                    // снять её можно, и сервер всё равно перепроверит.
+                    const nt = document.getElementById('no_tag');
+                    if (nt) nt.checked = true;
+                    updateTagField();
+                    tcSay('Адрес подставлен из кошелька и подтверждён подписью.', 'valid');
+                    if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+                } else {
+                    tcSay((data && data.message ? data.message : 'Подпись не подтверждена') +
+                          ' Адрес можно ввести вручную.', 'invalid');
+                }
+            } catch (e) {
+                tcSay('Не удалось проверить подпись. Введите адрес вручную.', 'invalid');
+            } finally {
+                tcPending = false;
+            }
+        }
+
+        function tcInit() {
+            if (tcUI) return tcUI;
+            tcUI = new window.TON_CONNECT_UI.TonConnectUI({
+                manifestUrl: window.location.origin + '/tonconnect-manifest.json'
+            });
+            tcUI.onStatusChange(tcHandleWallet);
+            return tcUI;
+        }
+
+        async function tcConnect() {
+            if (!tcAvailable()) return;
+            const btn = document.getElementById('tc-connect');
+            btn.disabled = true;
+            try {
+                const ui = tcInit();
+                // Код одноразовый и живёт минуты: берём его ПЕРЕД каждым
+                // подключением, а не при загрузке страницы.
+                tcSay('Готовим проверочный код…');
+                ui.setConnectRequestParameters({ state: 'loading' });
+                let payload = '';
+                try {
+                    const r = await fetch('/api/tonconnect/payload', {
+                        headers: { 'X-Telegram-Init-Data': tg.initData || '' } });
+                    const d = await r.json().catch(() => ({}));
+                    payload = (d && d.payload) || '';
+                } catch (e) { payload = ''; }
+                if (!payload) {
+                    // Без кода подпись бессмысленна — подключаться «просто так»
+                    // не станем: адрес без доказательства ничем не лучше
+                    // введённого руками, но выглядел бы надёжнее.
+                    ui.setConnectRequestParameters(null);
+                    tcSay('Подключение сейчас недоступно. Введите адрес вручную.', 'invalid');
+                    return;
+                }
+                ui.setConnectRequestParameters({ state: 'ready', value: { tonProof: payload } });
+                // Повторное подключение того же кошелька не выдаст новую подпись,
+                // пока прошлая сессия жива, — сначала отсоединяемся.
+                if (ui.connected) { try { await ui.disconnect(); } catch (e) {} }
+                tcSay('Выберите кошелёк…');
+                await ui.openModal();
+            } catch (e) {
+                tcSay('Не удалось открыть кошелёк. Введите адрес вручную.', 'invalid');
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        document.getElementById('tc-connect').addEventListener('click', tcConnect);
+
         function selectedNetwork() {
             const sel = document.getElementById('network');
             return (sel && sel.value) ? sel.value : '';
@@ -804,6 +950,7 @@
             addrInput.value = saved || '';
             validateAddress();
             updateTagField();
+            tcRefresh();
         }
         // Инициализируем при загрузке
         updateAddressPlaceholder();

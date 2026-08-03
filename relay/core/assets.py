@@ -48,6 +48,13 @@ TAG_KINDS = {"XRP": "number", "TON": "text"}
 # из hex» — то есть отказ на совершенно правильном адресе.
 TAG_SEPARATORS = {"XRP": ":", "TON": "#"}
 
+# Монеты, чей кошелёк умеет подключиться к нам сам и доказать владение адресом
+# подписью (TON Connect). Признак живёт здесь, а не в JS: список монет во фронте
+# отстал бы от реестра на следующей же сети, а цена расхождения — кнопка
+# «Подключить кошелёк» у монеты, для которой она ничего не подключает.
+# Ручной ввод адреса остаётся у ВСЕХ монет, включая эти.
+WALLET_CONNECT_CURRENCIES = {"TON"}
+
 # Синонимы входных значений сети → канон (или None = недопустимо)
 _NET_ALIASES = {
     "TRON": NET_TRC20, "TRC-20": NET_TRC20, "TRC20": NET_TRC20,
@@ -213,6 +220,11 @@ def tag_kind(currency):
 def tag_separator(currency):
     """Чем клиент отделяет тег от адреса в одной строке, или None."""
     return TAG_SEPARATORS.get(normalize_currency(currency))
+
+
+def supports_wallet_connect(currency) -> bool:
+    """Умеет ли кошелёк этой монеты подключиться и подписать владение адресом."""
+    return normalize_currency(currency) in WALLET_CONNECT_CURRENCIES
 
 
 def tag_error_text(currency, code):

@@ -491,6 +491,9 @@ def _offerings_view():
             # клиент с телефона правильное значение просто не набрал бы.
             "tag_kind": _assets.tag_kind(c) or "",
             "tag_sep": _assets.tag_separator(c) or "",
+            # Есть ли у монеты кошелёк, который подставит адрес сам и докажет
+            # владение подписью. Список монет во фронте отстал бы от реестра.
+            "wallet_connect": _assets.supports_wallet_connect(c),
         })
     return out
 

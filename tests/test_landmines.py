@@ -748,6 +748,45 @@ def check_no_tag_is_explicit():
                  f"Поверхность не отличает «тега нет» от «клиент не ответил» — "
                  f"по умолчанию будет принято молчание.")
 
+    # Бот: то же правило, но точек ввода адреса тут несколько, и второстепенные
+    # (подарок, лимитный ордер, DCA, своп) молчание клиента принимали за «тега
+    # нет». Проверка ходит не по списку функций, а по ДЕКОРАТОРУ состояния:
+    # список отстал бы от кода на следующем же потоке, а декоратор `.address`
+    # и есть определение «сюда клиент присылает адрес».
+    bot = _read(os.path.join(ROOT, "bot", "main_bot.py"))
+    if not bot:
+        return
+    try:
+        btree = ast.parse(bot)
+    except SyntaxError:
+        return
+    entries = []
+    for fn in ast.walk(btree):
+        if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        for dec in fn.decorator_list:
+            if not isinstance(dec, ast.Call):
+                continue
+            f = dec.func
+            if not (isinstance(f, ast.Attribute) and f.attr == "message"):
+                continue
+            if any(isinstance(a, ast.Attribute) and a.attr == "address" for a in dec.args):
+                entries.append(fn)
+    if not entries:
+        fail("явный отказ от тега",
+             "bot/main_bot.py: обработчиков ввода адреса не найдено — проверка ослепла")
+    for fn in entries:
+        body = ast.dump(fn)
+        asks_here = "_tag_answer_missing" in body
+        # Основной поток спрашивает тег отдельным шагом — это тот же явный ответ.
+        asks_step = "dest_tag" in body
+        if not (asks_here or asks_step):
+            fail("явный отказ от тега",
+                 f"bot/main_bot.py: {fn.name}() принимает адрес, но про тег не "
+                 f"спрашивает никак. У валюты с тегом молчание клиента станет "
+                 f"«тега нет», и перевод на биржевой адрес не зачислится "
+                 f"получателю — сеть его при этом подтвердит.")
+
 
 # ─────────────────────────────────────────────────────────────────────
 # 18. Меню продажи не предлагает монету, которую некуда принять
@@ -2243,6 +2282,39 @@ def check_wallet_proof_is_checked_against_the_chain():
                     fail(tag, "relay-fastapi/main.py: адрес в ответе берётся не из "
                               "вердикта — клиент получит обратно свою же строку с "
                               "отметкой «подтверждено»")
+
+    # 5. Интерфейс: та же ловушка, только видна клиенту. Подключение кошелька
+    #    ценно ровно доказательством; если поле адреса заполняется из ответа
+    #    КОШЕЛЬКА, клиент получает свой же адрес с нашей отметкой надёжности.
+    app = _read(os.path.join(CANON, "webapp.html"))
+    if not app:
+        return
+    m = re.search(r"async\s+function\s+tcHandleWallet\s*\(", app)
+    if not m:
+        if "tonconnect" in app.lower():
+            fail(tag, "relay/webapp.html: подключение кошелька есть, а обработчика "
+                      "tcHandleWallet нет — проверка ослепла")
+        return
+    i = app.index("{", m.end())
+    depth, j = 0, i
+    while j < len(app):
+        depth += 1 if app[j] == "{" else (-1 if app[j] == "}" else 0)
+        if depth == 0:
+            break
+        j += 1
+    fn = app[m.start():j + 1]
+    assigns = re.findall(r"\.value\s*=\s*([^;\n]+)", fn)
+    for expr in assigns:
+        if "data" not in expr:
+            fail(tag, f"relay/webapp.html: адрес в поле подставляется из {expr.strip()!r} "
+                      f"— в ответе кошелька лежит ровно то, что он сам прислал; "
+                      f"подтвердить его мог только сервер")
+    if not re.search(r"data\s*&&\s*data\.verified|data\?\.verified|data\.verified\s*&&", fn):
+        fail(tag, "relay/webapp.html: подстановка адреса не гейтится вердиктом "
+                  "сервера — «подтверждено» появится и без проверенной подписи")
+    if re.search(r"(account|wallet|w)\.account\.address", fn):
+        fail(tag, "relay/webapp.html: обработчик читает адрес из объекта кошелька — "
+                  "именно эту строку и нельзя показывать как подтверждённую")
 
 
 # ─────────────────────────────────────────────────────────────────────

@@ -677,7 +677,10 @@ def parse_ton_destination(address):
     if "#" in s:
         s, _, memo = s.partition("#")
         s, memo = s.strip(), memo.strip()
-        if not is_valid_ton_memo(memo):
+        # Разделитель есть, а memo за ним пустой — это не «memo указан как
+        # пустая строка», а оборванный ввод. Принять его значило бы записать
+        # ответ «memo не нужен» от имени клиента, который его как раз набирал.
+        if memo == "" or not is_valid_ton_memo(memo):
             return (None, None)
     if not is_valid_ton(s):
         return (None, None)

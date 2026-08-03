@@ -161,11 +161,21 @@ def main():
     # вместо 25 USDT и решить, что выплаты не было.
     UA = "0x00000000000000000000000000000000000000aa"
     seen = {}
+    # Настоящий контракт USDT в Ethereum — тот же, которым мы платим.
+    REAL_USDT = "0xdAC17F958D2ee523a2206206994597C13D831ec7"
     tokentx = {"result": [
         {"hash": "0xU", "to": UA, "from": "0xour", "value": str(25 * 10**6),
-         "tokenSymbol": "USDT", "tokenDecimal": "6", "timeStamp": "1780000000"},
+         "tokenSymbol": "USDT", "tokenDecimal": "6", "timeStamp": "1780000000",
+         "contractAddress": REAL_USDT},
         {"hash": "0xOTHER", "to": UA, "from": "0xx", "value": str(25 * 10**6),
-         "tokenSymbol": "USDC", "tokenDecimal": "6", "timeStamp": "1780000100"},
+         "tokenSymbol": "USDC", "tokenDecimal": "6", "timeStamp": "1780000100",
+         "contractAddress": REAL_USDT},
+        # Поддельный контракт: имя себе выбирает кто угодно, и Transfer он
+        # выпускает с любыми полями — включая НАШ адрес в отправителе. Пройди
+        # он проверку, заявка закрылась бы как выплаченная без единой монеты.
+        {"hash": "0xFAKE", "to": UA, "from": "0xour", "value": str(25 * 10**6),
+         "tokenSymbol": "USDT", "tokenDecimal": "6", "timeStamp": "1780000200",
+         "contractAddress": "0x000000000000000000000000000000000000dead"},
     ]}
     pd._get_json = lambda url, params=None, **k: (
         seen.update(action=(params or {}).get("action")) or tokentx)
@@ -177,7 +187,11 @@ def main():
               "USDT/ERC20 читается как обычные транзакции (txlist) — токен-переводов "
               "там нет вовсе, выплата невидима")
         check([t["txid"] for t in erc] == ["0xU"],
-              f"USDT/ERC20: взято {[t['txid'] for t in erc]} — чужой токен должен отсеяться")
+              f"USDT/ERC20: взято {[t['txid'] for t in erc]} — чужой токен и "
+              f"поддельный контракт с именем USDT должны отсеяться")
+        check("0xFAKE" not in [t["txid"] for t in erc],
+              "USDT/ERC20: перевод с ЛЕВОГО контракта, назвавшегося USDT, принят "
+              "за выплату — заявку можно закрыть, не отправив ни одной монеты")
         check(erc and abs(erc[0]["amount"] - 25.0) < 1e-9,
               f"USDT/ERC20: знаки токена перепутаны с ETH "
               f"({erc[0]['amount'] if erc else '—'} вместо 25.0)")

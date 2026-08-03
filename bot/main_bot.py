@@ -1330,6 +1330,85 @@ def _parse_tag_input(raw, currency=None):
         return None
 
 
+# Явный отказ от тега в потоках, где адрес присылают одной строкой (подарок,
+# лимитный ордер, DCA). В основном потоке заявки для этого есть отдельный шаг с
+# кнопкой «тега нет»; здесь шага нет, и раньше молчание клиента принималось за
+# «тега и не надо». Для личного кошелька это верно, для биржевого — нет: перевод
+# без тега сеть подтвердит, а получателю не зачислит, и вернуть его нечем.
+# Маркер намеренно не «нет» и не «-»: у TON memo текстовый, и такое значение
+# клиент может иметь в виду всерьёз.
+_NO_TAG_MARKERS = {"безтега", "без_тега", "notag", "no_tag"}
+
+
+def _strip_no_tag_marker(currency, address):
+    """(адрес, явный_отказ_от_тега). Клиент пишет «адрес<разделитель>безтега»."""
+    s = (address or "").strip()
+    sep = _tag_separator(currency)
+    if not sep or sep not in s:
+        return s, False
+    base, _, tail = s.rpartition(sep)
+    if tail.strip().lower().replace(" ", "") in _NO_TAG_MARKERS:
+        return base.strip(), True
+    return s, False
+
+
+def _split_entered_destination(currency, address):
+    """Ввод «адрес» или «адрес<разделитель>тег» → (адрес, тег).
+
+    (None, None) — разделитель есть, а тег за ним не разобран: это отказ, а не
+    повод считать, что тега нет. Склейку, которую ядро понимает целиком
+    (X-адрес XRPL, `UQ…#memo`), не трогаем — она поедет в канон как есть.
+    """
+    s = (address or "").strip()
+    sep = _tag_separator(currency)
+    if not (_tag_name(currency) and sep and sep in s):
+        return s, None
+    if _address_carries_tag(currency, s):
+        return s, None
+    base, _, tail = s.rpartition(sep)
+    tag = _parse_tag_input(tail, currency)
+    if tag is None:
+        # Непонятый тег — это отказ. Принять его за «тега нет» значит отправить
+        # монеты на общий счёт биржи: сеть подтвердит, получателю не зачислится.
+        return (None, None)
+    return base.strip(), tag
+
+
+def _tag_answer_missing(currency, address, tag, no_tag=False):
+    """Нужен ответ про тег, а его нет. True → принимать адрес нельзя."""
+    if no_tag or tag is not None:
+        return False
+    return bool(_tag_name(currency)) and not _address_carries_tag(currency, address)
+
+
+def _swap_tag_unsupported(currency, address, tag):
+    """Своп в валюту с тегом на адрес, где тег нужен, — невозможен.
+
+    Монеты отдаёт внешний сервис (SwapUz), а в его запросе есть только `address`:
+    передать тег нечем. Отправить «как есть» значит положить перевод на общий
+    счёт биржи — сеть подтвердит, получателю не зачислится.
+    """
+    if not _tag_name(currency):
+        return False
+    return tag is not None or _address_carries_tag(currency, address)
+
+
+def _tag_required_text(currency):
+    """Что ответить клиенту, который прислал адрес без тега.
+
+    Обе возможности названы явно: тупика («адрес неверный») быть не должно —
+    адрес-то как раз верный.
+    """
+    name = _tag_name(currency) or "тег"
+    sep = _tag_separator(currency) or ":"
+    return (f"🏷 У {currency} есть <b>{name}</b>, и мы обязаны спросить о нём.\n\n"
+            f"• На <b>биржу</b> (Binance, Bybit, OKX и т.п.) — пришлите одной строкой:\n"
+            f"<code>адрес{sep}{name.split()[0]}</code>\n"
+            f"Без него монеты попадут на общий счёт биржи и вам не зачислятся.\n\n"
+            f"• Это <b>ваш личный кошелёк</b> и {name} у него нет — пришлите:\n"
+            f"<code>адрес{sep}безтега</code>")
+
+
 def _split_destination(currency, address):
     """Хранимый адрес → (адрес для кошелька, тег, разобрано ли).
 
@@ -1858,8 +1937,27 @@ async def process_swap_address(message: Message, state: FSMContext):
     coin_to = data['coin_to']
     amount_from = data['amount_from']
     estimated = data.get('estimated_receive')
+    # Своп отдаёт монеты внешний провайдер, и тег ему передать НЕЧЕМ: в запросе
+    # SwapUz есть только address. Поэтому адрес с тегом здесь не «как-нибудь
+    # отправим», а честный отказ — иначе перевод уйдёт на общий счёт биржи.
+    address, _swap_no_tag = _strip_no_tag_marker(coin_to, address)
+    _swap_clean, _swap_tag = _split_entered_destination(coin_to, address)
+    if _swap_clean is None or _swap_tag_unsupported(coin_to, address, _swap_tag):
+        if _tag_name(coin_to):
+            await message.answer(
+                f"❌ <b>Своп в {coin_to} на адрес с {_tag_name(coin_to)}ом невозможен.</b>\n\n"
+                f"Обмен выполняет внешний сервис, и передать {_tag_name(coin_to)} ему нечем — "
+                f"монеты попали бы на общий счёт биржи.\n\n"
+                f"Укажите адрес <b>личного кошелька</b> (без тега) — или создайте "
+                f"обычную заявку через меню: там {_tag_name(coin_to)} поддерживается.",
+                parse_mode="HTML")
+            return
+    address = _swap_clean if _swap_clean is not None else address
     if not validate_crypto_address(address, coin_to):
         await message.answer("❌ <b>Неверный адрес.</b>\n\nПроверьте, что вставили правильный адрес для выбранной валюты и попробуйте ещё раз.", parse_mode="HTML")
+        return
+    if _tag_answer_missing(coin_to, address, _swap_tag, _swap_no_tag):
+        await message.answer(_tag_required_text(coin_to), parse_mode="HTML")
         return
 
     import sys
@@ -2824,12 +2922,29 @@ async def process_captcha(message: Message, state: FSMContext):
         return
     curr = data['currency']
     net = data.get('network')
+    # У монет, чей кошелёк умеет подключиться сам, набирать адрес руками уже не
+    # обязательно — но в переписке кошелёк не подключишь, там нет страницы.
+    # Поэтому не прячем возможность, а показываем, где она есть: опечатка в
+    # адресе необратима, и один тап вместо набора её исключает.
+    _wc = ""
+    _rows = [[InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_menu")]]
+    try:
+        from core import assets as _a
+        if _a.supports_wallet_connect(curr):
+            _wc = ("\n\n💎 <b>Можно не набирать вручную:</b> в личном кабинете "
+                   f"кнопка «Подключить кошелёк» подставит {curr}-адрес сама "
+                   "и подтвердит его подписью вашего кошелька.")
+            _rows.insert(0, [InlineKeyboardButton(
+                text="💎 Подключить кошелёк",
+                web_app=WebAppInfo(url=f"{PUBLIC_RELAY}/webapp"))])
+    except Exception:
+        logger.exception("реестр валют недоступен при подсказке о кошельке")
     await message.answer(
         f"📥 <b>Введите {curr}-адрес</b>\n\n"
         f"Сеть: <b>{_network_label(curr, net)}</b> — адрес другой сети не подойдёт, "
         f"монеты в чужой сети теряются безвозвратно.\n\n"
-        f"Куда отправить монеты после подтверждения оплаты:",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_menu")]]),
+        f"Куда отправить монеты после подтверждения оплаты:{_wc}",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=_rows),
         parse_mode="HTML"
     )
     await state.set_state(Exchange.address)
@@ -6887,9 +7002,26 @@ async def dca_enter_address(message: Message, state: FSMContext):
     addr = message.text.strip()
     data = await state.get_data()
     cur = data["dca_currency"]
+    # Адрес принимаем одной строкой вместе с тегом; «безтега» — явный ответ,
+    # что кошелёк личный. Расписание живёт неделями, и молча зафиксированный
+    # адрес без тега отправлял бы на общий счёт биржи КАЖДУЮ покупку.
+    addr, _no_tag = _strip_no_tag_marker(cur, addr)
+    _tag = None
+    if _tag_name(cur) and not _address_carries_tag(cur, addr):
+        _clean, _tag = _split_entered_destination(cur, addr)
+        if _clean is None:
+            await message.answer(
+                f"❌ {_tag_error_text(cur, 'bad_number' if _tag_kind(cur) == 'number' else 'bad_text')}",
+                parse_mode="HTML")
+            return
+        addr = _clean
     if not validate_crypto_address(addr, cur):
         await message.answer(f"❌ Неверный {cur}-адрес. Проверьте и введите снова.")
         return
+    if _tag_answer_missing(cur, addr, _tag, _no_tag):
+        await message.answer(_tag_required_text(cur), parse_mode="HTML")
+        return
+    addr = _canonical_address(cur, addr, _tag) or addr
     await state.update_data(dca_address=addr)
     amount   = data["dca_amount"]
     interval = data["dca_interval"]
@@ -7351,19 +7483,22 @@ async def gift_enter_recipient_address(message: Message, state: FSMContext):
     # Разделитель берём у валюты: у XRP это ':', у TON '#'. Общего быть не
     # может — сырой адрес TON сам выглядит как `workchain:hex64`, и разрез по
     # двоеточию превратил бы правильный адрес в «адрес 0» и «тег из hex».
-    _tag = None
     _sep = _tag_separator(cur)
-    if _tag_name(cur) and _sep and _sep in addr and not _address_carries_tag(cur, addr):
-        addr, _, _tag_raw = addr.rpartition(_sep)
-        addr = addr.strip()
-        _tag = _parse_tag_input(_tag_raw, cur)
-        if _tag is None:
-            await message.answer(
-                f"❌ {_tag_error_text(cur, 'bad_number' if _tag_kind(cur) == 'number' else 'bad_text')}\n\n"
-                f"Пишите одной строкой: <code>адрес{_sep}тег</code>", parse_mode="HTML")
-            return
+    addr, _no_tag = _strip_no_tag_marker(cur, addr)
+    _clean, _tag = _split_entered_destination(cur, addr)
+    if _clean is None:
+        await message.answer(
+            f"❌ {_tag_error_text(cur, 'bad_number' if _tag_kind(cur) == 'number' else 'bad_text')}\n\n"
+            f"Пишите одной строкой: <code>адрес{_sep}тег</code>", parse_mode="HTML")
+        return
+    addr = _clean
     if not validate_crypto_address(addr, cur):
         await message.answer(f"❌ Неверный {cur}-адрес. Проверьте и введите снова.")
+        return
+    # Молчание про тег — не согласие: в этом потоке отдельного шага с кнопкой
+    # «тега нет» нет, поэтому спрашиваем прямо здесь.
+    if _tag_answer_missing(cur, addr, _tag, _no_tag):
+        await message.answer(_tag_required_text(cur), parse_mode="HTML")
         return
     # Форма для хранения: тег склеен внутрь адреса и дальше неотделим от него.
     addr = _canonical_address(cur, addr, _tag)
@@ -7867,9 +8002,24 @@ async def lo_enter_address(message: Message, state: FSMContext):
     address = message.text.strip()
     data = await state.get_data()
     cur = data["lo_currency"]
+    # Ордер сработает через дни, и переспросить про тег будет негде: клиент к
+    # тому времени о заявке не думает. Поэтому ответ берём сейчас, как и в
+    # остальных потоках.
+    address, _no_tag = _strip_no_tag_marker(cur, address)
+    _clean, _tag = _split_entered_destination(cur, address)
+    if _clean is None:
+        await message.answer(
+            f"❌ {_tag_error_text(cur, 'bad_number' if _tag_kind(cur) == 'number' else 'bad_text')}",
+            parse_mode="HTML")
+        return
+    address = _clean
     if not validate_crypto_address(address, cur):
         await message.answer(f"❌ Неверный {cur}-адрес. Проверьте и введите снова.")
         return
+    if _tag_answer_missing(cur, address, _tag, _no_tag):
+        await message.answer(_tag_required_text(cur), parse_mode="HTML")
+        return
+    address = _canonical_address(cur, address, _tag) or address
     await state.update_data(lo_address=address)
     data = await state.get_data()
     target_rate = data["lo_rate"]

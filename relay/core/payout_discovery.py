@@ -393,9 +393,28 @@ def _incoming_erc20(address: str, token="USDT") -> list[dict]:
         logger.warning("payout_discovery: ERC-20 %s: %s", address[:12], type(e).__name__)
         return []
     want = str(token or "USDT").upper()
+    # Символ токена — это просто строка, которую контракт себе выбрал. Любой
+    # может выпустить свой «USDT» и отправить с него Transfer с нужными нам
+    # получателем, суммой и даже нашим адресом в поле отправителя: сверка
+    # признала бы заявку выплаченной, хотя настоящих USDT никто не переводил.
+    # Поэтому решает АДРЕС КОНТРАКТА, а символ остаётся вторичной проверкой.
+    want_contract = ""
+    if want == "USDT":
+        try:
+            from wallet.evm_wallet import USDT_ERC20 as _usdt
+            want_contract = _norm(_usdt)
+        except Exception:
+            logger.warning("payout_discovery: адрес контракта USDT недоступен — "
+                           "ERC-20 сверка отключена (фейл-клоуз)")
+            return []
+    if not want_contract:
+        # Неизвестный токен: сверять не по чему, а «по имени» — нельзя.
+        return []
     out = []
     for t in rows:
         try:
+            if _norm(t.get("contractAddress")) != want_contract:
+                continue
             if (t.get("tokenSymbol") or "").upper() != want:
                 continue
             if _norm(t.get("to")) != _norm(address):
