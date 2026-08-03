@@ -5944,12 +5944,19 @@ def build_providers_report():
                 if p.strip()}
     # reliability-скоринг + агрегат «слоя доверия» (тот же источник, что сайт/mini app)
     rel_scores, trust = {}, {}
+    # Снятые с эксплуатации каналы (RETIRED_PROVIDERS) на витрине не показываем
+    # вовсе. Источник — тот же, что у роутера: канал, которого нет в выборе,
+    # не должен занимать строку в отчёте. Сбой импорта = показываем всё
+    # (фейл-опен): лучше лишняя строка, чем спрятанный живой провайдер.
+    retired = set()
     try:
         if RELAY_PATH not in sys.path:
             sys.path.insert(0, RELAY_PATH)
-        from services.smart_router import get_health_scores, get_trust_metrics
+        from services.smart_router import (get_health_scores, get_trust_metrics,
+                                           get_retired_providers)
         rel_scores = get_health_scores()
         trust = get_trust_metrics()
+        retired = get_retired_providers()
     except Exception:
         pass
     with db_conn(5) as conn:
@@ -5967,6 +5974,8 @@ def build_providers_report():
     lines, kb_rows = [], []
     for name, healthy, fails, status, blocker, _last in rows:
         short = _PROV_SHORT.get(name, name)
+        if short in retired:
+            continue
         if short in disabled:
             lines.append(f"⚫️ <b>{short}</b> — выключен (DISABLED_PROVIDERS)")
             continue

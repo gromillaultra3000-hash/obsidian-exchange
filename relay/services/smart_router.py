@@ -35,10 +35,46 @@ SHORT_NAMES = {
 }
 CLASS_BY_SHORT = {v: k for k, v in SHORT_NAMES.items()}
 
+# Провайдеры, СНЯТЫЕ С ЭКСПЛУАТАЦИИ решением владельца (03.08.2026: «убери
+# platega и green pay из мониторинга, я их не буду использовать»).
+#
+# Отличие от DISABLED_PROVIDERS: kill-switch — временная мера в env, снимается
+# правкой строки; снятие с эксплуатации — решение о том, что канала больше нет.
+# Поэтому оно в коде и накрывает ОБА конца сразу:
+#   1) денежный путь — выбор, эскалация, порядок выгоды: новых заявок туда не
+#      уходит вообще;
+#   2) витрины — /providers в боте, админ-аналитика, monitor.py, публичный
+#      /api/system-status: мёртвая строка в provider_health больше не мозолит
+#      глаза и не тянет вниз «сколько маршрутов живо».
+# Порядок важен: убрать только с витрины — значит ослепить себя над живым
+# каналом. Поэтому оба конца читают ОДИН этот список (мина
+# check_retired_provider_leaves_the_money_path сторожит именно это).
+#
+# Чего снятие НЕ трогает намеренно: разбор ИСТОРИИ. payout_guard и dispute_watch
+# по-прежнему умеют перепроверить старую сессию снятого провайдера — иначе
+# оплаченная в прошлом заявка осталась бы без доказательства и ушла бы к
+# работнику на ровном месте.
+#
+# Вернуть канал в строй: RETIRED_PROVIDERS в env (пустая строка = никто не снят).
+RETIRED_PROVIDERS_DEFAULT = "platega,greenpay"
+
 # Порядок ВЫГОДЫ для нас (лучшее → худшее), задан оператором. Управляет и
 # авто-выбором (profit_weight), и порядком эскалации (get_escalation_chain), и
 # порядком кнопок в боте. Переопределяется env PROVIDER_PROFIT_ORDER (короткие имена).
-PROVIDER_PROFIT_ORDER_DEFAULT = "vertu,xpay,montera,brabus,stormtrade,fallback,lava,greenpay,platega"
+PROVIDER_PROFIT_ORDER_DEFAULT = "vertu,xpay,montera,brabus,stormtrade,fallback,lava"
+
+
+def get_retired_providers() -> set:
+    """Короткие имена снятых с эксплуатации провайдеров."""
+    raw = os.getenv("RETIRED_PROVIDERS", RETIRED_PROVIDERS_DEFAULT)
+    return {p.strip().lower() for p in raw.split(",") if p.strip()}
+
+
+def is_provider_retired(provider: str) -> bool:
+    """Провайдер снят с эксплуатации: ни новых заявок, ни строки на витрине.
+    Принимает и имя класса, и короткое имя (в т.ч. с суффиксом 'brabus:vietqr')."""
+    short = SHORT_NAMES.get(provider, provider).split(":")[0].lower()
+    return short in get_retired_providers()
 
 # Провайдеры, фактически выдающие РОССИЙСКИЕ реквизиты (проверено по живым
 # payment_sessions 13-16.07: vertu → Сбербанк 2202…, montera → Сбер/Т-Банк/Альфа,
@@ -82,9 +118,10 @@ def get_profit_order() -> List[str]:
     order = []
     for p in raw.split(","):
         s = p.strip().lower()
-        if s in CLASS_BY_SHORT and s not in order:
+        if s in CLASS_BY_SHORT and s not in order and not is_provider_retired(s):
             order.append(s)
-    return order or PROVIDER_PROFIT_ORDER_DEFAULT.split(",")
+    return order or [s for s in PROVIDER_PROFIT_ORDER_DEFAULT.split(",")
+                     if not is_provider_retired(s)]
 
 
 def profit_weight(provider_class: str) -> float:
@@ -322,6 +359,8 @@ def get_escalation_chain() -> List[str]:
     for part in raw.split(","):
         short = part.strip().lower()
         if short in CLASS_BY_SHORT and short not in chain:
+            if is_provider_retired(short):
+                continue  # снят с эксплуатации — не воскрешать через env-цепочку
             chain.append(short)
         elif short:
             logger.warning("ESCALATION_CHAIN: неизвестный провайдер '%s' пропущен", short)
@@ -397,6 +436,11 @@ def get_health_scores() -> Dict[str, dict]:
         rows = conn.execute("SELECT * FROM provider_health").fetchall()
         for r in rows:
             name = r["provider"]
+            if is_provider_retired(name):
+                # снят с эксплуатации: строка в provider_health осталась от
+                # прошлой жизни канала. Отдать её — значит вечно показывать
+                # «нездоров» на всех витринах и портить счёт живых маршрутов.
+                continue
             cfg = PROVIDER_CONFIG.get(name, {})
             fails = r["failed_count"] or 0
             max_fails = cfg.get("max_consecutive_fails", 3)
@@ -453,6 +497,12 @@ def choose_provider(amount: float = 10000) -> Optional[str]:
     candidates = []
 
     for name, cfg in PROVIDER_CONFIG.items():
+        if is_provider_retired(name):
+            # снят с эксплуатации. Проверка ОБЯЗАНА быть здесь, а не только на
+            # витринах: get_health_scores() снятых не отдаёт, а строка ниже
+            # трактует «нет данных» как «здоров» — без этой ветки снятый канал
+            # стал бы невидимым и при этом полноправным получателем заявок.
+            continue
         if cfg.get("last_resort"):
             # невыгодные провайдеры не участвуют в обычном выборе —
             # их подключает PaymentService, когда остальные не выдали реквизиты
@@ -537,7 +587,7 @@ def get_trust_metrics() -> Dict[str, object]:
     scores = get_health_scores()
     live = []  # (name, reliability, avg_rt) — только штатные маршруты выбора
     for name, cfg in PROVIDER_CONFIG.items():
-        if cfg.get("last_resort"):
+        if is_provider_retired(name) or cfg.get("last_resort"):
             continue
         required_env = cfg.get("required_env")
         if required_env and not os.getenv(required_env, ""):

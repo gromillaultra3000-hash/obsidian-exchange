@@ -8,7 +8,8 @@ from services.requisite_guard import test_requisite_reason
 from services.capacity import shortfall_message
 from services.smart_router import (choose_provider, record_outcome, get_health_scores,
                                    get_escalation_chain, CLASS_BY_SHORT, PROVIDER_CONFIG,
-                                   is_provider_disabled, is_no_trader_error)
+                                   is_provider_disabled, is_no_trader_error,
+                                   is_provider_retired)
 
 DB_PATH = os.getenv('DB_PATH', '/root/exchange.db')
 logger = get_logger(__name__)
@@ -95,7 +96,7 @@ class PaymentService:
             cls_name = CLASS_BY_SHORT.get(short)
             if not cls_name or cls_name == current_class:
                 continue
-            if is_provider_disabled(cls_name):
+            if is_provider_disabled(cls_name) or is_provider_retired(cls_name):
                 continue
             required_env = PROVIDER_CONFIG.get(cls_name, {}).get('required_env')
             if required_env and not os.getenv(required_env, ''):

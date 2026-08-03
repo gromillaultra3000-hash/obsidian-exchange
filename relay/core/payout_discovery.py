@@ -700,13 +700,26 @@ def _fetch_transfers(fetch, currency, address, network):
     Сеть добавилась позже — а `fetch` подменяют снаружи (тесты, будущие
     источники). Позвать двухаргументную функцию с тремя значит получить
     TypeError, который выше ловится общим `except` и превращается в «цепочка
-    недоступна»: сверка молча перестала бы находить что-либо вообще. Поэтому
-    сначала пробуем с сетью, а на несовпадение сигнатуры откатываемся.
+    недоступна»: сверка молча перестала бы находить что-либо вообще.
+
+    Сигнатуру СПРАШИВАЕМ, а не выясняем по исключению (замечание codex 03.08):
+    ловля TypeError не отличает «функция принимает два аргумента» от «внутри
+    функции разбор ответа упал с TypeError». Во втором случае повтор без сети
+    ушёл бы искать USDT не в той цепи (ERC-20 → по умолчанию TRC-20) и спрятал
+    бы настоящий сбой. Не удалось разобрать сигнатуру — зовём с сетью и
+    отвечаем за это честной ошибкой наверх.
     """
+    import inspect
     try:
-        return fetch(currency, address, network)
-    except TypeError:
-        return fetch(currency, address)
+        sig = inspect.signature(fetch)
+    except (TypeError, ValueError):
+        sig = None                      # сигнатура недоступна (C-функция и т.п.)
+    if sig is not None:
+        try:
+            sig.bind(currency, address, network)
+        except TypeError:
+            return fetch(currency, address)
+    return fetch(currency, address, network)
 
 
 def discover(rate_fn=None, fetch=None) -> dict:

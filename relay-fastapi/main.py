@@ -2809,6 +2809,22 @@ async def gateway(order_id: str, bank: str = "sber"):
 # --- Вебхуки ---
 @app.post("/greenpay/webhook")
 async def greenpay_webhook(request: Request):
+    # Канал снят с эксплуатации (RETIRED_PROVIDERS) — дверь закрыта раньше
+    # разбора тела. Оставлять её открытой опаснее, чем кажется: подпись тут
+    # считается ключом GREENPAY_API_SECRET, а у неиспользуемого канала ключ
+    # пустой — тогда HMAC от пустого ключа подделывает кто угодно и ставит
+    # ЛЮБОЙ заявке статус «оплачено». 404, а не 503: снятого канала для
+    # внешнего мира просто нет.
+    try:
+        from services.smart_router import is_provider_retired
+        if is_provider_retired('GreenPayProvider'):
+            raise HTTPException(status_code=404)
+    except ImportError:
+        pass
+    if not GREENPAY_API_SECRET:
+        # ключа нет — проверять подпись нечем, принимать нельзя (фейл-клоуз)
+        logger.error("greenpay/webhook: GREENPAY_API_SECRET пуст — запрос отклонён")
+        raise HTTPException(status_code=503)
     raw = await request.body()
     sig = request.headers.get('X-Signature', '')
     expected = hmac.new(GREENPAY_API_SECRET.encode(), raw, hashlib.sha256).hexdigest()
@@ -3120,6 +3136,15 @@ async def analytics_data(request: Request):
         "COALESCE(status,'') AS status, COALESCE(blocker,'') AS blocker "
         "FROM provider_health"
     )
+    # Снятые с эксплуатации каналы (RETIRED_PROVIDERS) с витрины убираем —
+    # тот же источник правды, что у роутера. Короткое имя кладём рядом:
+    # шаблон рисует то, что реально есть в provider_health, а не свой список.
+    try:
+        from services.smart_router import is_provider_retired, SHORT_NAMES
+        by_provider = [dict(p, short=SHORT_NAMES.get(p["provider"], p["provider"]))
+                       for p in by_provider if not is_provider_retired(p["provider"])]
+    except Exception as e:
+        logger.warning("providers: фильтр снятых каналов недоступен (%s) — показываем все", e)
     recent = qry("""
         SELECT o.order_id, o.currency, o.rub_amount, o.status, o.created_at, o.username,
                (SELECT ps.provider FROM payment_sessions ps WHERE ps.order_id=o.order_id ORDER BY ps.id DESC LIMIT 1) as provider

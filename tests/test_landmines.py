@@ -2375,6 +2375,138 @@ def check_destination_is_not_checked_as_bare_address():
                   "целиком нечем, поверхности вернутся к голому адресу")
 
 
+# ─────────────────────────────────────────────────────────────────────
+# Снятый канал уходит и с витрины, и из денежного пути — вместе
+# ─────────────────────────────────────────────────────────────────────
+# Владелец 03.08.2026 снял platega и greenpay. Соблазн — вычеркнуть их из
+# отчётов: строки исчезли, задача «сделана». Но витрина и выбор читаются
+# порознь, и в choose_provider отсутствие данных о здоровье трактуется как
+# «здоров» (scores.get(name, {"is_healthy": True})). Значит канал, убранный
+# ТОЛЬКО с витрины, остаётся полноправным получателем заявок — и теперь
+# невидимым. Мина требует симметрии: кто фильтрует показ, тот фильтрует и
+# выбор, и оба берут один список снятых.
+def check_retired_provider_leaves_the_money_path():
+    tag = "снятый канал остался в денежном пути"
+    src = _read(os.path.join(CANON, "services", "smart_router.py"))
+    if not src:
+        fail(tag, "не читается relay/services/smart_router.py")
+        return
+    tree = ast.parse(src)
+    fns = {n.name: n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)}
+    if "is_provider_retired" not in fns:
+        fail(tag, "в smart_router нет is_provider_retired — снятие канала негде "
+                  "объявить один раз, каждая поверхность заведёт свой список")
+        return
+
+    def calls(fn_name):
+        node = fns.get(fn_name)
+        if node is None:
+            return set()
+        out = set()
+        for n in ast.walk(node):
+            if isinstance(n, ast.Call):
+                f = n.func
+                name = getattr(f, "id", None) or getattr(f, "attr", None)
+                if name:
+                    out.add(name)
+        return out
+
+    def filters_inside_loop(fn_name):
+        """Фильтр должен стоять в САМОМ цикле разбора, а не только в запасной
+        ветке return. Иначе правка «убрать одно условие из перебора» проходит
+        мимо проверки — так эта мина уже один раз промолчала."""
+        node = fns.get(fn_name)
+        if node is None:
+            return False
+        for loop in ast.walk(node):
+            # именно настоящий перебор: фильтр в возвращаемом выражении
+            # (напр. в запасном списке по умолчанию) не защищает основной путь
+            if not isinstance(loop, (ast.For, ast.While)):
+                continue
+            for n in ast.walk(loop):
+                if isinstance(n, ast.Call) and getattr(n.func, "id", None) == "is_provider_retired":
+                    return True
+        return False
+
+    # Обе стороны равенства. Слева — витрины (что видит человек), справа —
+    # денежный путь (куда уходит клиент). Пропуск в любой колонке = асимметрия.
+    for fn_name, why in (
+            ("get_health_scores", "витрина здоровья (бот /providers, monitor.py, "
+                                  "/api/system-status) покажет мёртвый канал"),
+            ("get_trust_metrics", "снятый канал будет считаться живым маршрутом "
+                                  "в публичном слое доверия"),
+            ("choose_provider", "СНЯТЫЙ КАНАЛ ПОЛУЧИТ ЖИВУЮ ЗАЯВКУ — и его не "
+                                "будет видно ни на одной витрине"),
+            ("get_escalation_chain", "снятый канал вернётся через ESCALATION_CHAIN "
+                                     "из env, мимо решения о снятии"),
+            ("get_profit_order", "снятый канал останется в порядке выгоды и "
+                                 "получит вес в выборе")):
+        if "is_provider_retired" not in calls(fn_name):
+            fail(tag, f"smart_router.{fn_name}() не спрашивает is_provider_retired: {why}")
+        elif not filters_inside_loop(fn_name):
+            fail(tag, f"smart_router.{fn_name}(): проверка снятия есть, но не в самом "
+                      f"переборе провайдеров — {why}")
+
+    # Витрины не заводят собственный список снятых: разъедется в первый же день,
+    # когда владелец вернёт канал в строй.
+    for rel in ("bot/main_bot.py", "relay-fastapi/main.py"):
+        s = _read(os.path.join(ROOT, rel))
+        if not s:
+            continue
+        for lit in ("'greenpay', 'platega'", '"greenpay", "platega"',
+                    "'platega', 'greenpay'", '"platega", "greenpay"'):
+            if lit in s:
+                fail(tag, f"{rel}: свой список снятых каналов ({lit}) — должен "
+                          f"спрашивать smart_router.get_retired_providers()")
+    bot = _read(os.path.join(ROOT, "bot", "main_bot.py"))
+    if "def build_providers_report" in bot:
+        try:
+            bot_tree = ast.parse(bot)
+        except SyntaxError as e:
+            fail(tag, f"bot/main_bot.py не разбирается: {e}")
+            bot_tree = None
+        report_fn = None
+        for n in ast.walk(bot_tree) if bot_tree else []:
+            if isinstance(n, ast.FunctionDef) and n.name == "build_providers_report":
+                report_fn = n
+        # Мало ЗНАТЬ про снятые каналы — надо пропускать их строки. Ищем в
+        # переборе provider_health ветку «снят → continue»: раньше проверка
+        # ловилась на самом слове «retired», и удаление пропуска её обмануло.
+        skipped = False
+        for loop in ast.walk(report_fn) if report_fn else []:
+            if not isinstance(loop, ast.For):
+                continue
+            for node in ast.walk(loop):
+                if not isinstance(node, ast.If):
+                    continue
+                names = {getattr(x, "id", "") for x in ast.walk(node.test)}
+                if "retired" in names and any(isinstance(b, ast.Continue) for b in node.body):
+                    skipped = True
+        if not skipped:
+            fail(tag, "бот /providers не пропускает снятые каналы в переборе "
+                      "provider_health — отчёт админа снова про каналы, которых нет")
+
+    # Дверь снятого канала: вебхук, ставящий «оплачено», обязан быть закрыт.
+    # Ключ у неиспользуемого канала пустой, а HMAC от пустого ключа подделывает
+    # кто угодно — оставленный роут превращается в «пометить любую заявку».
+    main_src = _read(os.path.join(ROOT, "relay-fastapi", "main.py"))
+    try:
+        retired_defaults = re.search(r'RETIRED_PROVIDERS_DEFAULT\s*=\s*"([^"]*)"', src).group(1)
+    except AttributeError:
+        retired_defaults = ""
+    for short in [s.strip() for s in retired_defaults.split(",") if s.strip()]:
+        marker = f'@app.post("/{short}/webhook")'
+        if marker not in main_src:
+            continue
+        block = main_src[main_src.index(marker):]
+        nxt = block.find("\n@app.", 1)
+        block = block[:nxt] if nxt > 0 else block
+        if "is_provider_retired" not in block:
+            fail(tag, f"/{short}/webhook жив у снятого канала и не проверяет снятие: "
+                      f"подпись считается пустым ключом — любой запрос ставит "
+                      f"заявке статус «оплачено»")
+
+
 def main():
     for fn in (check_no_diverging_duplicates, check_config_keys_are_read,
                check_no_fail_open_in_guards, check_session_expiry_uses_expires_at,
@@ -2400,6 +2532,7 @@ def main():
                check_tag_shape_comes_from_the_registry,
                check_wallet_modules_are_registered,
                check_wallet_proof_is_checked_against_the_chain,
+               check_retired_provider_leaves_the_money_path,
                check_destination_is_not_checked_as_bare_address,
                check_receipt_beats_the_timer,
                check_migrations_agree,

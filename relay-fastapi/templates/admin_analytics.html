@@ -275,6 +275,12 @@ setInterval(() => {
 }, 1000);
 
 function fmt(n) { return Number(n||0).toLocaleString('ru-RU'); }
+// Текст blocker приходит из ответа провайдера — в innerHTML он идёт только
+// экранированным (чужая строка не должна становиться разметкой дашборда).
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g,
+    ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
 
 async function load(days, btn) {
   if (btn) {
@@ -322,7 +328,7 @@ function render(d, days) {
   const healthy = provs.filter(p=>p.is_healthy).length;
   document.getElementById('k-prov').textContent = healthy;
   const pb = document.getElementById('k-prov-b');
-  pb.textContent = (5-healthy) + ' offline';
+  pb.textContent = (provs.length - healthy) + ' offline';
   pb.className = 'badge ' + (healthy>0 ? (healthy>1?'b-ok':'b-warn') : 'b-crit');
 
   renderConversion(d.conversion, d.evidence);
@@ -336,7 +342,7 @@ function render(d, days) {
   drawHourly(d.hourly||[]);
   drawDonut(d.by_currency||[]);
   renderCurrencies(d.by_currency||[], total_vol);
-  renderProviders(provs);
+  renderProviders(provs, d.smart_router);
   renderInsights(d);
   renderTable(d.recent||[]);
 }
@@ -451,28 +457,41 @@ function renderCurrencies(list, totalVol) {
 }
 
 // ── Providers ──
-function renderProviders(list) {
-  const cfg = {
-    brabus:   {label:'Brabus',    w:75,  desc:'tbank/alfa deeplink'},
-    fallback: {label:'Fallback',  w:90,  desc:'авто-резерв Brabus'},
-    greenpay: {label:'GreenPay', w:18,  desc:'PROCESSORS_UNAVAILABLE'},
-    montera:  {label:'Montera',  w:0,   desc:'аккаунт заблокирован'},
-    platega:  {label:'Platega',  w:0,   desc:'отключён'},
+// Рисуем ТО, ЧТО В provider_health, а не свой список. Раньше здесь висел
+// хардкод из пяти каналов с придуманными процентами (Brabus 75%, GreenPay 18%,
+// «Montera — аккаунт заблокирован») и «0 сессий» у всех: живые Vertu/XPay/
+// StormTrade на дашборд не попадали вовсе, а состояния были из июля. Снятые
+// с эксплуатации каналы сюда уже не доезжают — их отфильтровал сервер.
+function renderProviders(list, health) {
+  const el = document.getElementById('prov-list');
+  if (!list.length) { el.innerHTML = '<div class="prov-stat">Нет данных о провайдерах</div>'; return; }
+  const scores = health || {};
+  const pct = (row) => {
+    const s = scores[row.provider] || {};
+    if (typeof s.reliability === 'number') return Math.round(s.reliability * 100);
+    return row.is_healthy ? 100 : 0;   // нет reliability → бинарно, без выдумок
   };
-  const statusColor = (w) => w>=70?'var(--ok)':w>=20?'var(--warn)':'var(--t3)';
-  const statusChip  = (w) => w>=70?'<span class="pc pc-ok">● Active</span>':w>=20?'<span class="pc pc-warn">⚡ Unstable</span>':w===0?'<span class="pc pc-off">— Offline</span>':'<span class="pc pc-crit">✗ Error</span>';
-  document.getElementById('prov-list').innerHTML = Object.entries(cfg).map(([key,c])=>{
-    const row = list.find(p=>p.provider===key)||{};
-    const score = c.w;
-    const sessions = row.sessions||0;
+  const color = (w, healthy) => !healthy ? 'var(--crit)' : (w >= 70 ? 'var(--ok)' : 'var(--warn)');
+  const chip = (row) => {
+    const st = row.status || (row.is_healthy ? 'READY' : 'DEGRADED');
+    if (!row.is_healthy) return `<span class="pc pc-crit">✗ ${st}</span>`;
+    if (st === 'READY') return '<span class="pc pc-ok">● Active</span>';
+    return `<span class="pc pc-warn">⚡ ${st}</span>`;
+  };
+  el.innerHTML = list.slice().sort((a, b) => (b.is_healthy?1:0) - (a.is_healthy?1:0)).map(row => {
+    const name = row.short || row.provider;
+    const w = pct(row);
+    const rt = row.avg_response_time ? row.avg_response_time.toFixed(1) + 'с' : '—';
+    const detail = row.blocker ? esc(String(row.blocker).slice(0, 90))
+                               : `ошибок подряд: ${row.failed_count || 0} · ответ ${rt}`;
     return `<div class="prov-row">
-      <div class="prov-strip" style="background:${statusColor(score)}"></div>
+      <div class="prov-strip" style="background:${color(w, row.is_healthy)}"></div>
       <div class="prov-info">
-        <div class="prov-name">${c.label}${statusChip(score)}</div>
-        <div class="prov-stat">${sessions} сессий · ${c.desc}</div>
+        <div class="prov-name">${esc(name)}${chip(row)}</div>
+        <div class="prov-stat">${detail}</div>
       </div>
       <div class="prov-score">
-        <div class="prov-num" style="color:${statusColor(score)}">${score}%</div>
+        <div class="prov-num" style="color:${color(w, row.is_healthy)}">${w}%</div>
         <div style="font-size:9px;color:var(--t3)">health</div>
       </div>
     </div>`;
