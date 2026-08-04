@@ -41,6 +41,12 @@ check("USDT без сети — каноническая TRON",
       cc.normalize_network("USDT", None) == "TRON")
 check("незнакомая монета без сети — пусто",
       cc.normalize_network("DOGE", None) == "")
+check("названная, но незнакомая сеть НЕ подменяется канонической",
+      cc.normalize_network("USDT", "BEP20") == "")
+check("порог по незнакомой сети не выдаётся от чужой цепи",
+      cc.required_confirmations("USDT", "BEP20") is None)
+check("«mainnet» — не название сети, а уточнение: остаётся каноническая",
+      cc.normalize_network("BTC", "mainnet") == "BTC")
 
 # ── пороги ────────────────────────────────────────────────────────────
 check("у BTC порог больше одного", cc.required_confirmations("BTC") >= 2)

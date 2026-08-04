@@ -66,10 +66,20 @@ def normalize_network(currency=None, network=None) -> str:
     Сеть из заявки важнее валюты: у USDT их две, и подменять указанную сеть
     канонической значило бы судить перевод по чужому порогу.
     """
-    net = str(network or "").strip().upper()
-    net = _NETWORK_ALIASES.get(net, net)
-    if net in _DEFAULTS:
-        return net
+    raw = str(network or "").strip().upper()
+    if raw:
+        net = _NETWORK_ALIASES.get(raw, raw)
+        if net in _DEFAULTS:
+            return net
+        if net:
+            # Сеть НАЗВАНА, но незнакома. Подставлять сюда каноническую для
+            # монеты нельзя: «USDT/BEP20» получил бы порог TRON — перевод судили
+            # бы по чужой цепи, ровно вопреки правилу «сеть важнее валюты».
+            # Пустая строка означает «не знаем», и вызывающий обязан отказать.
+            # Нашёл codex.
+            return ""
+        # net == "" — это псевдоним-пустышка вроде MAINNET: сеть, по сути,
+        # не названа, и каноническая для монеты здесь уместна.
     cur = str(currency or "").strip().upper()
     return _CANONICAL_NETWORK.get(cur, "")
 
