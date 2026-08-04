@@ -240,6 +240,79 @@ def boom_fetch(currency, address):
 v = pd.candidates_for(10, rate_fn=lambda c, r: 6500000, fetch=boom_fetch)
 check("сбой обозревателя → ошибка, а не пустой список кандидатов", "error" in v)
 
+# --- перевод рядом с суммой перестал быть невидимым -------------------------
+# Живой случай 04.08.2026: владелец выплатил #99955118 руками, перевод лежал на
+# адресе клиента ПЕРВЫМ в списке — сверка ответила «подходящих переводов не
+# найдено», потому что котировка в заявке не зафиксирована и объём пересчитался
+# по курсу восьмью днями позже (0.000642 против 0.00062977, 1.9% при допуске 1%).
+near_tx = tx(amount=0.00102, sender=THEIRS)      # +2% мимо допуска
+v = pd.judge(ORDER, [near_tx], set(), TRUSTED)
+check("перевод мимо допуска НЕ становится кандидатом", not v["candidates"])
+check("перевод мимо допуска не закрывает заявку", v["action"] == "none")
+check("но он попадает в near", len(v.get("near") or []) == 1)
+check("named расхождение считается в процентах",
+      abs((v["near"][0]["off_pct"]) - 2.0) < 0.01)
+check("причина называет найденную сумму, а не «не найдено»",
+      "0.00102" in v["reason"] and "не найдено" not in v["reason"])
+
+v_fixed = pd.judge({**ORDER, "expected_fixed": True}, [near_tx], set(), TRUSTED)
+v_float = pd.judge({**ORDER, "expected_fixed": False}, [near_tx], set(), TRUSTED)
+check("при зафиксированной котировке про курс не выдумывается",
+      "курс" not in v_fixed["reason"])
+check("при незафиксированной — причина расхождения названа прямо",
+      "не зафиксирована" in v_float["reason"])
+
+far = tx(amount=0.01, sender=THEIRS)             # в десять раз больше
+check("далёкий перевод в near не попадает",
+      not (pd.judge(ORDER, [far], set(), TRUSTED).get("near") or []))
+early = tx(amount=0.00102, ts=10, sender=THEIRS)  # до оплаты заявки
+check("перевод ДО оплаты заявки в near не попадает",
+      not (pd.judge(ORDER, [early], set(), TRUSTED).get("near") or []))
+unripe = tx(amount=0.00102, sender=THEIRS, confirmations=1)
+check("незрелый перевод в near не попадает — советовать мемпул нельзя",
+      not (pd.judge(ORDER, [unripe], set(), TRUSTED).get("near") or []))
+check("наш перевод в допуске по-прежнему закрывает заявку сам",
+      pd.judge(ORDER, [tx()], set(), TRUSTED)["action"] == "close")
+
+rep = pd.format_report({"checked": 1, "close": [], "review": [], "errors": [],
+                        "near": [{**v_float, "currency": "BTC", "rub_amount": 4447.0}]})
+check("отчёт показывает находку рядом", "🔍" in rep and "#1" in rep)
+check("в отчёте полный хеш и готовая команда",
+      near_tx["txid"] in rep and "/force_payout 1 " in rep)
+check("пустой проход по-прежнему молчит",
+      pd.format_report({"checked": 3, "close": [], "review": [], "near": [],
+                        "errors": []}) == "")
+
+# --- окно молчания гасит повтор новости, а не новую новость -----------------
+base_res = {"review": [], "near": [{"order_id": 1,
+                                    "near": [{"txid": "b" * 64}]}]}
+same_res = {"review": [], "near": [{"order_id": 1,
+                                    "near": [{"txid": "B" * 64}]}]}
+more_res = {"review": [], "near": [{"order_id": 1,
+                                    "near": [{"txid": "b" * 64},
+                                             {"txid": "c" * 64}]}]}
+check("та же находка — тот же отпечаток, повтор не пробивает окно",
+      pd.alert_fingerprint(base_res) == pd.alert_fingerprint(same_res))
+check("новый перевод по ТОЙ ЖЕ заявке меняет отпечаток",
+      pd.alert_fingerprint(base_res) != pd.alert_fingerprint(more_res))
+check("порядок находок на отпечаток не влияет",
+      pd.alert_fingerprint({"review": [], "near": [
+          {"order_id": 2, "near": [{"txid": "d" * 64}]},
+          {"order_id": 1, "near": [{"txid": "b" * 64}]}]})
+      == pd.alert_fingerprint({"review": [], "near": [
+          {"order_id": 1, "near": [{"txid": "b" * 64}]},
+          {"order_id": 2, "near": [{"txid": "d" * 64}]}]}))
+check("спорные и близкие находки не путаются между собой",
+      pd.alert_fingerprint({"review": [{"order_id": 1,
+                                        "candidates": [{"txid": "b" * 64}]}],
+                            "near": []})
+      != pd.alert_fingerprint(base_res))
+
+check("зафиксированную котировку отличаем от пересчитанной",
+      pd.quote_is_fixed({"agreed_crypto_amount": 0.5}) is True
+      and pd.quote_is_fixed({"agreed_crypto_amount": None}) is False
+      and pd.quote_is_fixed({"agreed_crypto_amount": 0}) is False)
+
 import shutil  # noqa: E402
 
 shutil.rmtree(_TMP, ignore_errors=True)

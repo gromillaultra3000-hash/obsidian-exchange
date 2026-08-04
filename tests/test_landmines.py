@@ -1684,6 +1684,58 @@ def check_chain_finality_is_not_a_boolean():
                   "молча находить ноль")
 
 
+def check_verdict_never_hides_a_transfer_it_saw():
+    """«Не найдено» нельзя говорить, когда перевод лежит на адресе.
+
+    Сверка обязана отказывать по строгому правилу — это денежный гейт, и
+    смягчать его нельзя. Но ОТКАЗ и МОЛЧАНИЕ — разные вещи. Отказ звучит как
+    «перевод есть, но закрыть по нему не вправе», и человек идёт смотреть.
+    Молчание звучит как «ничего нет», и человек перестаёт искать: заявка висит,
+    клиент не получает TXID, а деньги уже ушли.
+
+    04.08.2026 так замолчали две выплаты владельца (#99955118, #99955141):
+    котировка в заявке не зафиксирована, объём пересчитался по курсу восемью
+    днями позже, расхождение 1.9% и 3.3% при допуске 1% — и вердикт сказал
+    «подходящих переводов на адрес клиента не найдено», хотя перевод стоял в
+    ответе обозревателя первым.
+
+    Проверяем поведением: правило «вердикт обязан упомянуть увиденное» текстом
+    не выражается, а обойти текстовую проверку тривиально.
+    """
+    tag = "вердикт скрывает увиденный перевод"
+    relay_dir = os.path.join(ROOT, "relay")
+    if relay_dir not in sys.path:
+        sys.path.insert(0, relay_dir)
+    try:
+        from core import payout_discovery as _pd
+    except Exception as e:
+        fail(tag, f"payout_discovery не импортируется ({type(e).__name__}) — "
+                  f"проверка ослепла")
+        return
+    order = {"order_id": 1, "expected_amount": 0.001, "paid_ts": 1000,
+             "currency": "BTC", "network": "BTC", "expected_fixed": False}
+    near = {"txid": "b" * 64, "amount": 0.00102, "ts": 2000,
+            "senders": {"bc1qsomeonelse"}, "confirmed": True, "confirmations": 6}
+    try:
+        v = _pd.judge(order, [near], set(), {"bc1qourhotwallet"})
+    except Exception as e:
+        fail(tag, f"judge() упал на переводе мимо допуска ({type(e).__name__})")
+        return
+    # Гейт не ослаблен: закрывать по такому переводу по-прежнему нельзя.
+    if v.get("action") != "none" or v.get("candidates"):
+        fail(tag, "перевод мимо допуска стал кандидатом — денежное правило "
+                  "ослаблено, заявку закроют по сумме, которая не совпала")
+        return
+    reason = str(v.get("reason") or "")
+    if "не найдено" in reason or "0.00102" not in reason:
+        fail(tag, f"вердикт по заявке с переводом 0.00102 на адресе звучит как "
+                  f"{reason!r} — человек по такому ответу перестаёт искать, а "
+                  f"выплата теряется вместе с заявкой")
+    if not v.get("near"):
+        fail(tag, "увиденный перевод никуда не записан — отчёт оператора о нём "
+                  "не расскажет, сколько бы правильной ни была причина")
+
+
 def check_guards_compare_accounts_not_strings():
     tag = "страж сравнивает строку"
     relay = os.path.join(ROOT, "relay")
@@ -3129,6 +3181,7 @@ def main():
                check_coin_lists_come_from_the_shopfront,
                check_promises_are_not_retyped,
                check_chain_finality_is_not_a_boolean,
+               check_verdict_never_hides_a_transfer_it_saw,
                check_failed_autopayout_reaches_a_human,
                check_tagged_currencies_use_the_dispatcher,
                check_tag_shape_comes_from_the_registry,

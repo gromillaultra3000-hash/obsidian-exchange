@@ -6455,14 +6455,22 @@ async def payout_discovery_task():
                                 f"<code>{v['txid'][:16]}…</code>" for v in closed)
                     + "\n\nЗаявки закрыты, клиенты уведомлены.",
                     parse_mode="HTML")
-            if res.get("review"):
+            # Находки «рядом с суммой» шлём тем же сообщением, что и спорные.
+            # Отдельным письмом их слать нельзя: два потока про один и тот же
+            # проход — это ровно тот шум, из-за которого 27.07 перестали читать
+            # тревогу. Отпечаток включает обе половины, поэтому новая находка
+            # пробивает окно молчания сразу, а прежняя его не продлевает.
+            if res.get("review") or res.get("near"):
                 from core.alert_throttle import should_send
-                fp = "discovery:review:" + ",".join(
-                    sorted(str(v["order_id"]) for v in res["review"]))
+                # Ключ окна молчания считает сам модуль сверки: это правило
+                # «что считать той же новостью», и оно обязано быть проверяемым
+                # тестом, а не глазами в обработчике.
+                fp = pd.alert_fingerprint(res)
                 if should_send(fp, 21600):
                     await notify_admins(pd.format_report({**res, "close": []}),
                                         parse_mode="HTML",
-                                        reply_markup=_discovery_review_kb(res["review"]))
+                                        reply_markup=_discovery_review_kb(
+                                            res.get("review", [])))
         except Exception as e:
             logger.error(f"payout_discovery_task: {type(e).__name__}: {e}")
         await asyncio.sleep(1800)

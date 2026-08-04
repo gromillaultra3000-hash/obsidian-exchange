@@ -41,6 +41,13 @@ DB_PATH = os.getenv("DB_PATH", "/root/exchange.db")
 # платит отправитель, поэтому расхождение обычно нулевое; допуск нужен на
 # округление и на ручной ввод «примерно столько».
 AMOUNT_TOLERANCE_PCT = float(os.getenv("DISCOVERY_AMOUNT_TOLERANCE_PCT", "1.0") or 1.0)
+# Насколько далеко от ожидаемой суммы перевод ещё СТОИТ ПОКАЗАТЬ человеку.
+# Это НЕ второй допуск: в кандидаты такой перевод не попадает и кнопки закрытия
+# не получает. Он существует потому, что «подходящих переводов не найдено» —
+# самый вредный ответ, какой можно дать, когда перевод лежит на адресе первым в
+# списке: по нему перестают искать. 04.08.2026 так замолчали две выплаты
+# (#99955118 и #99955141), сделанные владельцем руками.
+NEAR_TOLERANCE_PCT = float(os.getenv("DISCOVERY_NEAR_TOLERANCE_PCT", "15.0") or 15.0)
 # Заявку моложе этого возраста не трогаем: авто-выплата ещё могла не отработать.
 MIN_AGE_MIN = int(os.getenv("DISCOVERY_MIN_AGE_MIN", "45") or 45)
 # Глубже в прошлое не смотрим — старые совпадения уже неактуальны.
@@ -720,8 +727,10 @@ def judge(order: dict, transfers: list[dict], used_txids: set,
     paid_ts = int(order.get("paid_ts") or 0)
     cur_for_net = order.get("currency")
     net_for_net = order.get("network")
+    fixed = bool(order.get("expected_fixed", True))
     res = {"order_id": order.get("order_id"), "action": "none",
-           "candidates": [], "reason": ""}
+           "candidates": [], "near": [], "expected": expected,
+           "expected_fixed": fixed, "reason": ""}
     immature = []          # подошли всем, кроме окончательности
     if expected <= 0:
         res["reason"] = "неизвестен ожидаемый объём выплаты"
@@ -742,6 +751,17 @@ def judge(order: dict, transfers: list[dict], used_txids: set,
             continue
         amount = float(t.get("amount") or 0)
         if not (lo <= amount <= hi):
+            # Мимо допуска — но, может быть, рядом. Такой перевод НЕ становится
+            # кандидатом и кнопки закрытия не получает: денежное правило не
+            # смягчается ни на процент. Он только перестаёт быть невидимым.
+            off = abs(amount - expected) / expected * 100.0 if expected else 0.0
+            if (amount > 0 and off <= NEAR_TOLERANCE_PCT
+                    and chain_confirm.is_final(t, cur_for_net, net_for_net)):
+                res["near"].append({
+                    "txid": txid, "amount": amount, "ts": t.get("ts"),
+                    "off_pct": round(off, 2),
+                    "senders": sorted({_norm(s) for s in (t.get("senders") or set()) if s}),
+                })
             continue
         # Окончательность проверяем ПОСЛЕДНЕЙ, уже среди подходящих. Порядок
         # тут не косметика: на адрес клиента прилетает пыль и его собственные
@@ -767,11 +787,26 @@ def judge(order: dict, transfers: list[dict], used_txids: set,
         })
 
     if not res["candidates"]:
-        # Отличаем «ничего нет» от «есть, но рано»: иначе оператор ищет глазами
-        # перевод, который система уже нашла и молча отложила.
-        res["reason"] = (f"перевод найден, но ещё не окончателен ({immature[0]})"
-                         if immature else
-                         "подходящих переводов на адрес клиента не найдено")
+        # Три РАЗНЫХ ответа вместо одного «не найдено». Разница не косметическая:
+        # по «не найдено» человек перестаёт искать, и если перевод при этом
+        # лежит на адресе, выплата теряется вместе с заявкой.
+        if res["near"]:
+            res["near"].sort(key=lambda n: n["off_pct"])
+            n = res["near"][0]
+            why = ("" if fixed else
+                   "; котировка в заявке не зафиксирована, объём пересчитан по "
+                   "СЕГОДНЯШНЕМУ курсу — за дни он ушёл, и расхождение может "
+                   "быть только из-за этого")
+            res["reason"] = (
+                f"перевод на адресе есть — {n['amount']:g}, ждали {expected:g} "
+                f"(расхождение {n['off_pct']:g}%), это мимо допуска {tol:g}%{why}. "
+                f"Закрывать автоматически нельзя, сверьте и решите сами")
+        elif immature:
+            # Отличаем «ничего нет» от «есть, но рано»: иначе оператор ищет
+            # глазами перевод, который система уже нашла и молча отложила.
+            res["reason"] = f"перевод найден, но ещё не окончателен ({immature[0]})"
+        else:
+            res["reason"] = "подходящих переводов на адрес клиента не найдено"
         return res
     if len(res["candidates"]) > 1:
         res["action"] = "review"
@@ -838,6 +873,24 @@ def _used_txids() -> set:
         raise
 
 
+def quote_is_fixed(order: dict) -> bool:
+    """Зафиксирован ли объём выплаты в самой заявке.
+
+    Разница принципиальная для сверки. Зафиксированный объём — это обещание,
+    данное клиенту в момент создания заявки, и перевод обязан совпасть с ним
+    с точностью до допуска. Незафиксированный приходится пересчитывать по
+    СЕГОДНЯШНЕМУ курсу, а выплата могла уйти неделю назад: на волатильной монете
+    расхождение в проценты набегает само, безо всякой ошибки. Сравнивать их
+    одной меркой — значит систематически отвергать верные переводы и молчать
+    об этом.
+    """
+    agreed = order.get("agreed_crypto_amount")
+    try:
+        return bool(agreed) and float(agreed) > 0
+    except (TypeError, ValueError):
+        return False
+
+
 def expected_amount(order: dict, rate_fn=None) -> float:
     """Сколько должно было уйти клиенту: обещанное при создании заявки, а при
     его отсутствии — пересчёт по курсу (для старых заявок)."""
@@ -892,7 +945,8 @@ def discover(rate_fn=None, fetch=None) -> dict:
     Ничего не меняет: возвращает список вердиктов.
     """
     fetch = fetch or incoming_transfers
-    out = {"checked": 0, "close": [], "review": [], "none": 0, "errors": []}
+    out = {"checked": 0, "close": [], "review": [], "near": [], "none": 0,
+           "errors": []}
     try:
         used = _used_txids()
     except Exception as e:
@@ -913,7 +967,8 @@ def discover(rate_fn=None, fetch=None) -> dict:
         except Exception as e:
             out["errors"].append(f"#{o['order_id']}: цепочка недоступна ({type(e).__name__})")
             continue
-        v = judge({**o, "expected_amount": expected_amount(o, rate_fn)},
+        v = judge({**o, "expected_amount": expected_amount(o, rate_fn),
+                   "expected_fixed": quote_is_fixed(o)},
                   transfers, used, trusted_cache[cur])
         v["currency"] = cur
         v["rub_amount"] = o.get("rub_amount")
@@ -926,6 +981,11 @@ def discover(rate_fn=None, fetch=None) -> dict:
         elif v["action"] == "review":
             out["review"].append(v)
         else:
+            # «Ничего не нашли» и «нашли рядом, но закрыть не вправе» — разные
+            # исходы, и второй обязан быть виден. Действие при этом остаётся
+            # `none`: кнопки закрытия такая находка не получает.
+            if v.get("near"):
+                out["near"].append(v)
             out["none"] += 1
     return out
 
@@ -961,7 +1021,8 @@ def candidates_for(order_id: int, rate_fn=None, fetch=None) -> dict:
         transfers = _fetch_transfers(fetch, cur, o.get("crypto_address"), o.get("network"))
     except Exception as e:
         return {"error": f"цепочка недоступна: {type(e).__name__}"}
-    v = judge({**o, "expected_amount": expected_amount(o, rate_fn)},
+    v = judge({**o, "expected_amount": expected_amount(o, rate_fn),
+               "expected_fixed": quote_is_fixed(o)},
               transfers, used, trusted_senders(cur))
     v["currency"] = cur
     v["network"] = o.get("network")
@@ -971,14 +1032,36 @@ def candidates_for(order_id: int, rate_fn=None, fetch=None) -> dict:
     return v
 
 
+def alert_fingerprint(res: dict) -> str:
+    """Отпечаток находок прохода — ключ окна молчания для тревоги.
+
+    Живёт здесь, а не в боте, по одной причине: это правило «что считать той же
+    самой новостью», и проверить его можно только тестом. Внутри обработчика
+    оно проверялось бы глазами, а ошибиться тут легко и незаметно — окно просто
+    съест сообщение, и никто не узнает.
+
+    Считаем по ЗАЯВКАМ И ПЕРЕВОДАМ. По одним номерам заявок второй найденный
+    перевод не менял бы ключ и молчал до конца окна — но окно существует, чтобы
+    гасить повтор одной новости, а не новую. Нашёл codex.
+    """
+    def one(v, key):
+        txs = sorted(_norm(t.get("txid"))[:16] for t in (v.get(key) or []))
+        return f"{v.get('order_id')}:{'+'.join(txs)}"
+    review = sorted(one(v, "candidates") for v in (res.get("review") or []))
+    near = sorted(one(v, "near") for v in (res.get("near") or []))
+    return "discovery:review:" + ",".join(review) + "|near:" + ",".join(near)
+
+
 def format_report(res: dict, max_items: int = 6) -> str:
     """Сводка для Telegram или '' — если рассказывать не о чем."""
-    if not res.get("close") and not res.get("review") and not res.get("errors"):
+    if (not res.get("close") and not res.get("review") and not res.get("near")
+            and not res.get("errors")):
         return ""
     lines = ["⛓ <b>Сверка выдачи с блокчейном</b>\n",
              f"<blockquote>Проверено зависших заявок: <b>{res.get('checked', 0)}</b>\n"
              f"Закрыто по доказательству: <b>{len(res.get('close', []))}</b>\n"
-             f"Требуют решения: <b>{len(res.get('review', []))}</b></blockquote>"]
+             f"Требуют решения: <b>{len(res.get('review', []))}</b>\n"
+             f"Похожи, но мимо допуска: <b>{len(res.get('near', []))}</b></blockquote>"]
     for v in res.get("close", [])[:max_items]:
         lines.append(f"\n✅ #{v['order_id']} — {v.get('amount')} {v['currency']}, "
                      f"tx <code>{(v.get('txid') or '')[:16]}…</code>")
@@ -988,6 +1071,17 @@ def format_report(res: dict, max_items: int = 6) -> str:
         for c in v.get("candidates", [])[:2]:
             lines.append(f"   <code>{c['txid'][:20]}…</code> {c['amount']} "
                          f"от {', '.join(c['senders'])[:48]}")
+    for v in res.get("near", [])[:max_items]:
+        lines.append(f"\n🔍 #{v['order_id']} ({v.get('rub_amount'):g} ₽ → "
+                     f"{v['currency']}): {v['reason']}")
+        for n in v.get("near", [])[:2]:
+            # Хеш ЦЕЛИКОМ, а не обрезанный: по такой находке кнопки нет, и
+            # единственный путь дальше — руками через /force_payout. Обрезанный
+            # хеш превращает подсказку в задание «найди остаток сам».
+            lines.append(f"   <code>{n['txid']}</code>\n"
+                         f"   {n['amount']:g} ({n['off_pct']:g}% мимо) от "
+                         f"{', '.join(n['senders'])[:48]}\n"
+                         f"   <code>/force_payout {v['order_id']} {n['txid']}</code>")
     for e in res.get("errors", [])[:3]:
         lines.append(f"\n⚠️ {e}")
     return "\n".join(lines)
