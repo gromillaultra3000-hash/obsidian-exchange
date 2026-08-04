@@ -1578,6 +1578,112 @@ def check_promises_are_not_retyped():
             break     # одного примера на файл достаточно
 
 
+def check_chain_finality_is_not_a_boolean():
+    """Денежное решение по переводу принимается по ПОРОГУ сети, не по флагу.
+
+    Флаг `confirmed` в записи обозревателя означает «попал в блок» — то есть
+    одно подтверждение или неизвестно сколько. У BTC одно подтверждение
+    отменяется рядовым реоргом, у TRON блок становится необратимым только
+    после круга из 19 подписей, у Ethereum биржи держат 12. Закрыть заявку или
+    принять оплату по такому переводу — записать деньги, которых может не
+    оказаться. Порог живёт в `core/chain_confirm.py`, один на проект.
+
+    Проверяем ВЫЗОВ (`is_final`), а не наличие импорта: импорт рядом с
+    `if not t.get("confirmed")` уже выглядел бы как соблюдение правила.
+    """
+    tag = "окончательность по флагу"
+    src = _read(os.path.join(ROOT, "relay", "core", "chain_confirm.py"))
+    if not src:
+        fail(tag, "relay/core/chain_confirm.py отсутствует — порогов нет "
+                  "нигде, а решения по переводам принимаются")
+        return
+    if "def is_final(" not in src or "def required_confirmations(" not in src:
+        fail(tag, "relay/core/chain_confirm.py: нет is_final/"
+                  "required_confirmations — модуль перестал быть источником")
+
+    # Тот, кто судит о выплате по переводу, обязан спросить порог.
+    for rel, fn in ((os.path.join("relay", "core", "payout_discovery.py"), "judge"),):
+        body = _read(os.path.join(ROOT, rel))
+        if not body:
+            fail(tag, f"{rel} не прочитан — проверка ослепла")
+            continue
+        try:
+            tree = ast.parse(body)
+        except SyntaxError:
+            continue
+        node = next((n for n in ast.walk(tree)
+                     if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+                     and n.name == fn), None)
+        if node is None:
+            fail(tag, f"{rel}: {fn}() не найдена — проверка ослепла")
+            continue
+        calls = {_call_name(n) for n in ast.walk(node) if isinstance(n, ast.Call)}
+        if not ({"is_final", "chain_confirm.is_final"} & calls):
+            fail(tag, f"{rel}: {fn}() решает судьбу выплаты, не спросив порог "
+                      f"сети (chain_confirm.is_final) — «в блоке» будет принято "
+                      f"за «окончательно»")
+        # …и не должен решать это сам, по сырому флагу.
+        for cmp_node in ast.walk(node):
+            if not isinstance(cmp_node, ast.Call):
+                continue
+            if _call_name(cmp_node) not in ("t.get", "record.get", "tx.get"):
+                continue
+            arg = cmp_node.args[0] if cmp_node.args else None
+            if isinstance(arg, ast.Constant) and arg.value == "confirmed":
+                fail(tag, f"{rel}: {fn}() читает сырой флаг confirmed — решение "
+                          f"о деньгах снова принимается мимо порога сети")
+                break
+
+    # Читатели цепочек обязаны сообщать ЧИСЛО там, где обозреватель его даёт.
+    reader = _read(os.path.join(ROOT, "relay", "core", "payout_discovery.py"))
+    if reader and '"confirmations"' not in reader:
+        fail(tag, "relay/core/payout_discovery.py: ни один читатель не кладёт "
+                  "число подтверждений — судить о пороге будет нечем, и "
+                  "fail-closed молча остановит закрытие заявок")
+
+    # …и обязаны уметь посчитать его САМИ, когда обозреватель поля не прислал.
+    # Это отдельный класс дефекта, а не придирка: набор полей у публичных
+    # обозревателей меняется без предупреждения, порог в Ethereum — двенадцать,
+    # и стоит полю пропасть, как fail-closed отвергает КАЖДЫЙ перевод. Снаружи
+    # это выглядит идеально: ошибок нет, проход отрабатывает, находок ноль
+    # всегда. Проверяем поведением, а не текстом: правило про «умеет посчитать»
+    # текстом не выражается, а подделать вызов легко.
+    relay_dir = os.path.join(ROOT, "relay")
+    if relay_dir not in sys.path:
+        sys.path.insert(0, relay_dir)
+    try:
+        from core import payout_discovery as _pd
+    except Exception as e:
+        fail(tag, f"payout_discovery не импортируется ({type(e).__name__}) — "
+                  f"проверка порогов ослепла")
+        return
+    addr = "0x00000000000000000000000000000000000000aa"
+    row = {"hash": "0xE", "to": addr, "from": "0xour", "value": str(10 ** 18),
+           "timeStamp": "1780000000", "isError": "0", "txreceipt_status": "1",
+           "blockNumber": "1000000"}          # confirmations НЕТ намеренно
+
+    def _fake(base, params=None, *a, **k):
+        if (params or {}).get("action") == "eth_blockNumber":
+            return {"result": "0xF4288"}       # вершина цепи — 1 000 072
+        return {"result": [row]}
+
+    real = _pd._get_json
+    _pd._get_json = _fake
+    try:
+        got = _pd._incoming_evm(addr)
+    except Exception as e:
+        got = []
+        fail(tag, f"читатель EVM упал на ответе без confirmations "
+                  f"({type(e).__name__}) — путь ETH мёртв")
+    finally:
+        _pd._get_json = real
+    if got and not isinstance(got[0].get("confirmations"), int):
+        fail(tag, "читатель EVM не считает подтверждения сам: обозреватель не "
+                  "прислал поле — и перевод навсегда «не окончателен». Порог "
+                  "Ethereum в 12 не возьмёт ни один перевод, сверка ETH будет "
+                  "молча находить ноль")
+
+
 def check_guards_compare_accounts_not_strings():
     tag = "страж сравнивает строку"
     relay = os.path.join(ROOT, "relay")
@@ -3022,6 +3128,7 @@ def main():
                check_guards_compare_accounts_not_strings,
                check_coin_lists_come_from_the_shopfront,
                check_promises_are_not_retyped,
+               check_chain_finality_is_not_a_boolean,
                check_failed_autopayout_reaches_a_human,
                check_tagged_currencies_use_the_dispatcher,
                check_tag_shape_comes_from_the_registry,

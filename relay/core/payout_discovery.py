@@ -231,11 +231,84 @@ def _get_json(url: str, params=None, timeout: int = 15):
     return r.json()
 
 
+def _int_or_none(value):
+    """Целое или None. None означает «источник не сообщил», и это НЕ ноль."""
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _tip_height(base: str):
+    """Высота вершины цепи — чтобы посчитать подтверждения. None при сбое.
+
+    Отдельный запрос на всю выборку, а не на каждый перевод: обозреватель
+    отдаёт в транзакции высоту БЛОКА, а подтверждения — это расстояние до
+    вершины, и без неё их не узнать. Сбой → None: тогда честнее сказать
+    «подтверждений не знаем», чем выдумать число.
+    """
+    try:
+        import requests
+        r = requests.get(f"{base}/blocks/tip/height", timeout=10)
+        if r.status_code == 200:
+            return int(r.text.strip())
+    except Exception as e:
+        logger.warning("payout_discovery: вершина цепи %s недоступна: %s",
+                       base, type(e).__name__)
+    return None
+
+
+def _evm_tip_block(base: str):
+    """Номер последнего блока EVM. None при сбое.
+
+    Обозреватель ОБЫЧНО кладёт `confirmations` в каждую строку, но полагаться на
+    это нельзя: набор полей у Blockscout меняется от версии к версии, а порог в
+    Ethereum — двенадцать подтверждений. Пропадёт поле — и сверка, честно
+    отказывая по каждому переводу, замолчит целиком: путь ETH будет всегда
+    находить ноль и выглядеть исправным. Поэтому расстояние до вершины умеем
+    считать сами, как в BTC.
+    """
+    try:
+        data = _get_json(base, {"module": "proxy", "action": "eth_blockNumber"}) or {}
+        raw = data.get("result")
+        if isinstance(raw, str) and raw.strip().lower().startswith("0x"):
+            return int(raw, 16)
+        return _int_or_none(raw)
+    except Exception as e:
+        logger.warning("payout_discovery: вершина EVM %s недоступна: %s",
+                       base, type(e).__name__)
+    return None
+
+
+def _evm_confirmations(row: dict, tip):
+    """Подтверждения строки EVM: из поля обозревателя, иначе от вершины цепи.
+
+    None означает «узнать не удалось» — и это не ноль: решение о том, что делать
+    с молчанием источника, принимает `chain_confirm`, а не читатель.
+    """
+    confs = _int_or_none(row.get("confirmations"))
+    if confs is not None:
+        return confs
+    height = _int_or_none(row.get("blockNumber"))
+    if tip is None or height is None:
+        return None
+    return max(0, tip - height + 1)
+
+
+def _evm_tip_if_needed(rows, base: str):
+    """Вершина цепи — одним запросом на всю выборку и только если она нужна."""
+    if any(isinstance(r, dict) and _int_or_none(r.get("confirmations")) is None
+           for r in rows):
+        return _evm_tip_block(base)
+    return None
+
+
 def _incoming_btc_like(address: str, coin: str) -> list[dict]:
     """Входящие переводы BTC/LTC. Отправителями считаем адреса всех входов."""
     base = ("https://mempool.space/api" if coin == "BTC"
             else "https://litecoinspace.org/api")
     txs = _get_json(f"{base}/address/{address}/txs") or []
+    tip = _tip_height(base) if txs else None
     out = []
     for t in txs:
         value = sum(v.get("value", 0) for v in (t.get("vout") or [])
@@ -245,21 +318,39 @@ def _incoming_btc_like(address: str, coin: str) -> list[dict]:
         senders = {_norm((v.get("prevout") or {}).get("scriptpubkey_address"))
                    for v in (t.get("vin") or [])}
         st = t.get("status") or {}
+        # Подтверждения = расстояние до вершины цепи. Одно подтверждение здесь
+        # не финал: короткая развилка отменяет блок, а вместе с ним и перевод.
+        height = st.get("block_height")
+        confs = None
+        if tip is not None and st.get("confirmed") and height:
+            confs = max(0, int(tip) - int(height) + 1)
         out.append({
             "txid": t.get("txid"),
             "senders": {s for s in senders if s},
             "amount": value / 1e8,
             "ts": st.get("block_time") or 0,
             "confirmed": bool(st.get("confirmed")),
+            "confirmations": confs,
         })
     return out
 
 
 def _incoming_trc20(address: str) -> list[dict]:
-    """Входящие USDT (TRC-20)."""
+    """Входящие USDT (TRC-20). Только необратимые переводы.
+
+    ⚠️ Возраст блока — НЕ доказательство необратимости, хотя блок у TRON и идёт
+    раз в 3 секунды. «Прошла минута» значит лишь, что прошла минута: если
+    производство блоков встало, за неё их выпустили меньше девятнадцати, и
+    перевод всё ещё откатывается. Расчёт по часам был здесь до 04.08.2026 и мог
+    закрыть заявку по обратимому переводу — забраковал codex, и по делу.
+    Спрашиваем у самой цепи: `only_confirmed=true` возвращает переводы из
+    несократимых (solid) блоков, то есть решение принимает TRON, а не наши часы.
+    Цена — перевод не виден первую минуту; она несопоставима с ценой ошибки.
+    """
     data = _get_json("https://api.trongrid.io/v1/accounts/"
                      f"{address}/transactions/trc20",
-                     {"limit": 50, "only_to": "true"}) or {}
+                     {"limit": 50, "only_to": "true",
+                      "only_confirmed": "true"}) or {}
     out = []
     for t in data.get("data") or []:
         info = t.get("token_info") or {}
@@ -273,6 +364,11 @@ def _incoming_trc20(address: str) -> list[dict]:
             "ts": int(t.get("block_timestamp") or 0) // 1000,
             # trongrid отдаёт только попавшие в блок переводы
             "confirmed": True,
+            # Числа подтверждений в этом ответе нет вовсе, но оно и не нужно:
+            # выборка ограничена несократимыми блоками, то есть сама цепь
+            # говорит «откатить нельзя». Считать подтверждения по часам,
+            # подменяя это утверждение своей оценкой, мы не будем.
+            "irreversible": True,
         })
     return out
 
@@ -375,6 +471,7 @@ def _incoming_evm(address: str) -> list[dict]:
     except Exception as e:
         logger.warning("payout_discovery: EVM %s: %s", address[:12], type(e).__name__)
         return []
+    tip = _evm_tip_if_needed(rows, base)
     out = []
     for t in rows:
         try:
@@ -398,6 +495,10 @@ def _incoming_evm(address: str) -> list[dict]:
                 # Провалившиеся отсеяны выше, значит эти — исполненные. Без
                 # поля judge() отбрасывает их все, и путь ETH мёртв молча.
                 "confirmed": True,
+                # Подтверждения: поле обозревателя, а если его нет — расстояние
+                # до вершины. В Ethereum порог двенадцать, и «в блоке» про него
+                # не говорит ничего.
+                "confirmations": _evm_confirmations(t, tip),
             })
         except (TypeError, ValueError):
             continue
@@ -442,6 +543,7 @@ def _incoming_erc20(address: str, token="USDT") -> list[dict]:
     if not want_contract:
         # Неизвестный токен: сверять не по чему, а «по имени» — нельзя.
         return []
+    tip = _evm_tip_if_needed(rows, base)
     out = []
     for t in rows:
         try:
@@ -463,6 +565,7 @@ def _incoming_erc20(address: str, token="USDT") -> list[dict]:
                 "senders": [_norm(t.get("from"))] if t.get("from") else [],
                 # В tokentx попадают только исполненные переводы.
                 "confirmed": True,
+                "confirmations": _evm_confirmations(t, tip),
             })
         except (TypeError, ValueError):
             continue
@@ -611,11 +714,15 @@ def judge(order: dict, transfers: list[dict], used_txids: set,
 
     Вынесена отдельно от сети, чтобы проверяться тестами без обозревателей.
     """
+    from core import chain_confirm
     tol = AMOUNT_TOLERANCE_PCT if tolerance_pct is None else float(tolerance_pct)
     expected = float(order.get("expected_amount") or 0)
     paid_ts = int(order.get("paid_ts") or 0)
+    cur_for_net = order.get("currency")
+    net_for_net = order.get("network")
     res = {"order_id": order.get("order_id"), "action": "none",
            "candidates": [], "reason": ""}
+    immature = []          # подошли всем, кроме окончательности
     if expected <= 0:
         res["reason"] = "неизвестен ожидаемый объём выплаты"
         return res
@@ -629,14 +736,25 @@ def judge(order: dict, transfers: list[dict], used_txids: set,
         # перевод закрыл бы две заявки.
         if not txid or _norm(txid) in {_norm(u) for u in used_txids}:
             continue
-        if not t.get("confirmed"):
-            continue
         # Перевод обязан быть ПОСЛЕ оплаты заявки: приход на адрес клиента
         # до неё — его собственные деньги, а не наша выплата.
         if paid_ts and int(t.get("ts") or 0) < paid_ts:
             continue
         amount = float(t.get("amount") or 0)
         if not (lo <= amount <= hi):
+            continue
+        # Окончательность проверяем ПОСЛЕДНЕЙ, уже среди подходящих. Порядок
+        # тут не косметика: на адрес клиента прилетает пыль и его собственные
+        # переводы, и если спрашивать порог первым, любой чужой незрелый перевод
+        # попадёт в `immature` — оператору скажут «ваш перевод найден, но ещё не
+        # окончателен», хотя нашего перевода там нет вовсе. Ложное «уже нашли»
+        # хуже честного «не нашли»: по нему перестают искать. Забраковал codex.
+        if not chain_confirm.is_final(t, cur_for_net, net_for_net):
+            # Сам флаг «в блоке» здесь НЕ читаем: решение об окончательности
+            # целиком за chain_confirm — иначе рядом с ним заводится второе,
+            # своё правило.
+            immature.append(chain_confirm.finality_note(
+                t, cur_for_net, net_for_net))
             continue
         # Нормализуем здесь ТОЖЕ, хотя источники это уже делают: иначе новый
         # добытчик цепочки, забывший про регистр, молча перестал бы узнавать
@@ -649,7 +767,11 @@ def judge(order: dict, transfers: list[dict], used_txids: set,
         })
 
     if not res["candidates"]:
-        res["reason"] = "подходящих переводов на адрес клиента не найдено"
+        # Отличаем «ничего нет» от «есть, но рано»: иначе оператор ищет глазами
+        # перевод, который система уже нашла и молча отложила.
+        res["reason"] = (f"перевод найден, но ещё не окончателен ({immature[0]})"
+                         if immature else
+                         "подходящих переводов на адрес клиента не найдено")
         return res
     if len(res["candidates"]) > 1:
         res["action"] = "review"

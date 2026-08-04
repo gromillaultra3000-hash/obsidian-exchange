@@ -190,13 +190,17 @@ def main():
          "tokenSymbol": "USDT", "tokenDecimal": "6", "timeStamp": "1780000200",
          "contractAddress": "0x000000000000000000000000000000000000dead"},
     ]}
+    # Запоминаем ВСЕ обращения, а не последнее: читатель ходит к обозревателю
+    # ещё и за вершиной цепи, и «последний вызов» перестал бы говорить о том,
+    # спросили ли мы вообще про токен-переводы.
     pd._get_json = lambda url, params=None, **k: (
-        seen.update(action=(params or {}).get("action")) or tokentx)
+        seen.setdefault("actions", []).append((params or {}).get("action"))
+        or tokentx)
     real_trc = pd._incoming_trc20
     pd._incoming_trc20 = lambda a: (seen.update(chain="TRON") or [])
     try:
         erc = pd.incoming_transfers("USDT", UA, "ERC20")
-        check(seen.get("action") == "tokentx",
+        check("tokentx" in seen.get("actions", []),
               "USDT/ERC20 читается как обычные транзакции (txlist) — токен-переводов "
               "там нет вовсе, выплата невидима")
         check([t["txid"] for t in erc] == ["0xU"],
@@ -255,17 +259,52 @@ def main():
           "проверка бессмысленна: чужой тег не воспроизвёлся")
 
     ETH_ADDR = "0x00000000000000000000000000000000000000aa"
-    pd._get_json = lambda *a, **k: {"result": [
-        {"hash": "0xE", "to": ETH_ADDR, "from": "0xour", "value": str(10**18),
-         "timeStamp": "1780000000", "isError": "0", "txreceipt_status": "1"}]}
-    try:
-        v_eth = pd.judge({"order_id": 2, "currency": "ETH", "crypto_address": ETH_ADDR,
-                       "expected_amount": 1.0, "paid_ts": 1700000000},
-                      pd._incoming_evm(ETH_ADDR), set(), trusted={"0xour"})
-    finally:
-        pd._get_json = real_get
-    check(v_eth["action"] != "none",
-          "EVM: перевод не дошёл до вердикта — без флага confirmed путь ETH мёртв")
+    ETH_ORDER = {"order_id": 2, "currency": "ETH", "crypto_address": ETH_ADDR,
+                 "expected_amount": 1.0, "paid_ts": 1700000000}
+
+    def _erow(**extra):
+        row = {"hash": "0xE", "to": ETH_ADDR, "from": "0xour", "value": str(10**18),
+               "timeStamp": "1780000000", "isError": "0", "txreceipt_status": "1",
+               "blockNumber": "1000000"}
+        row.update(extra)
+        return row
+
+    def _eth_verdict(row, tip=None):
+        """Прогон читатель→judge с подставным обозревателем.
+
+        Вершину цепи отдаём отдельным ответом: `_incoming_evm` спрашивает её
+        вторым запросом и только когда в строке нет подтверждений.
+        """
+        def fake(base, params=None, *a, **k):
+            if (params or {}).get("action") == "eth_blockNumber":
+                return {"result": tip} if tip is not None else {}
+            return {"result": [row]}
+        pd._get_json = fake
+        try:
+            return pd.judge(ETH_ORDER, pd._incoming_evm(ETH_ADDR), set(),
+                            trusted={"0xour"})
+        finally:
+            pd._get_json = real_get
+
+    # 1. Обычный ответ обозревателя: подтверждения есть в строке.
+    check(_eth_verdict(_erow(confirmations="40"))["action"] != "none",
+          "EVM: перевод не дошёл до вердикта — путь ETH мёртв")
+    # 2. Поля confirmations нет (набор полей Blockscout меняется от версии к
+    #    версии). Без счёта от вершины цепи порог в 12 подтверждений не взять
+    #    НИКОГДА — и сверка ETH молча находила бы ноль всегда.
+    check(_eth_verdict(_erow(), tip="0xF4288")["action"] != "none",
+          "EVM: обозреватель не прислал confirmations — считать от вершины цепи "
+          "некому, и путь ETH молча мёртв")
+    # 3. Ни поля, ни вершины: закрывать заявку нельзя, но и молчать нельзя —
+    #    причина обязана быть названа человеку.
+    blind = _eth_verdict(_erow())
+    check(blind["action"] == "none" and "окончател" in str(blind.get("reason", "")),
+          f"EVM: без подтверждений и без вершины вердикт {blind.get('action')} "
+          f"с причиной {blind.get('reason')!r} — молчание вместо объяснения")
+    # 4. Свежий блок — перевод ещё не окончателен, закрывать рано.
+    fresh = _eth_verdict(_erow(confirmations="3"))
+    check(fresh["action"] == "none",
+          "EVM: три подтверждения в Ethereum приняты за окончательные")
 
     # ── TON: один счёт в разных формах записи — один и тот же счёт ────
     # Обозреватель отдаёт отправителя сырым (`0:…`), а TON_PAYOUT_ADDRESS

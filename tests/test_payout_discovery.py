@@ -32,13 +32,18 @@ def check(name, cond):
 
 OUR = "bc1qourhotwallet"
 THEIRS = "bc1qsomeonelse"
-ORDER = {"order_id": 1, "expected_amount": 0.001, "paid_ts": 1000}
+ORDER = {"order_id": 1, "expected_amount": 0.001, "paid_ts": 1000,
+         "currency": "BTC", "network": "BTC"}
 TRUSTED = {OUR}
 
 
-def tx(txid="a" * 64, amount=0.001, ts=2000, sender=OUR, confirmed=True):
+# confirmations по умолчанию с запасом: у BTC порог два, и перевод «в блоке»
+# сам по себе окончательным не считается (core.chain_confirm).
+def tx(txid="a" * 64, amount=0.001, ts=2000, sender=OUR, confirmed=True,
+       confirmations=6):
     return {"txid": txid, "amount": amount, "ts": ts,
-            "senders": {sender}, "confirmed": confirmed}
+            "senders": {sender}, "confirmed": confirmed,
+            "confirmations": confirmations}
 
 
 # --- закрываем только по переводу из нашего кошелька ------------------------
@@ -76,6 +81,39 @@ check("неподтверждённый перевод → не закрывае
 
 r = pd.judge(ORDER, [tx()], {"a" * 64}, TRUSTED)
 check("перевод уже закреплён за другой заявкой → пропускаем", r["action"] == "none")
+
+# --- окончательность в сети -------------------------------------------------
+# Закрыть заявку по переводу, который сеть ещё может отменить, — записать
+# клиенту выплату, которой не будет. Пороги — в core.chain_confirm.
+r = pd.judge(ORDER, [tx(confirmations=1)], set(), TRUSTED)
+check("BTC с одним подтверждением → рано закрывать", r["action"] == "none")
+check("и сказано, что перевод НАЙДЕН, а не отсутствует",
+      "не окончателен" in r["reason"])
+
+r = pd.judge(ORDER, [tx(confirmations=2)], set(), TRUSTED)
+check("BTC с двумя подтверждениями → закрываем", r["action"] == "close")
+
+r = pd.judge(ORDER, [tx(confirmations=None)], set(), TRUSTED)
+check("источник промолчал о подтверждениях → не закрываем", r["action"] == "none")
+
+# У сетей, где консенсус финализирует леджер сразу, порог единица — там флага
+# «в блоке» достаточно, и требовать счётчик значило бы не закрывать никогда.
+XRP_ORDER = dict(ORDER, currency="XRP", network="XRP")
+r = pd.judge(XRP_ORDER, [tx(confirmations=None)], set(), TRUSTED)
+check("XRP: подтверждение одно и оно же окончательное → закрываем",
+      r["action"] == "close")
+
+# USDT: сеть решает порог, а не монета.
+r = pd.judge(dict(ORDER, currency="USDT", network="TRC20"),
+             [tx(confirmations=5)], set(), TRUSTED)
+check("USDT-TRC20 с пятью подтверждениями → рано (нужно 19)", r["action"] == "none")
+r = pd.judge(dict(ORDER, currency="USDT", network="TRC20"),
+             [tx(confirmations=25)], set(), TRUSTED)
+check("USDT-TRC20 с 25 подтверждениями → закрываем", r["action"] == "close")
+
+r = pd.judge(dict(ORDER, currency="DOGE", network=None),
+             [tx(confirmations=100)], set(), TRUSTED)
+check("незнакомая сеть → судить нечем, не закрываем", r["action"] == "none")
 
 r = pd.judge({**ORDER, "expected_amount": 0}, [tx()], set(), TRUSTED)
 check("неизвестен ожидаемый объём → ничего не решаем", r["action"] == "none")
