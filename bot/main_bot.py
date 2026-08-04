@@ -6415,12 +6415,25 @@ async def cmd_paysrc(message: Message):
              "(вывод с Binance и т.п.) вносить НЕЛЬЗЯ: с него уходят переводы "
              "тысячам людей, и случайное совпадение суммы закроет заявку, по "
              "которой клиент ничего не получил.\n"]
-    reg = pd._registered_sources()
-    for cur in sorted(reg):
-        for _norm_addr, meta in (reg[cur] or {}).items():
-            lines.append(f"• <b>{cur}</b> <code>{meta.get('raw', _norm_addr)}</code>"
-                         + (f" — {meta['note']}" if meta.get("note") else ""))
-    if len(lines) == 2:
+    # Список идёт со статусом: запись, сделанная до проверки адреса, выглядит
+    # как внесённый кошелёк, а работает как невнесённый. Молчать о ней — значит
+    # узнать о подмене в день, когда выплата не закроется.
+    bad = shown = 0
+    for s in pd.sources_with_status():
+        shown += 1
+        mark = "⚠️ " if s["error"] else "• "
+        lines.append(f"{mark}<b>{s['currency']}</b> <code>{s['address']}</code>"
+                     + (f" — {s['note']}" if s["note"] else "")
+                     + (f"\n   <b>{s['error']}</b>; удалите: "
+                        f"<code>/paysrc del {s['currency']} {s['address']}</code>"
+                        if s["error"] else ""))
+        bad += 1 if s["error"] else 0
+    if bad:
+        lines.append(f"\n⚠️ Негодных записей: <b>{bad}</b> — по ним сверка ничего "
+                     f"не найдёт, настоящий кошелёк этой сети не внесён.")
+    if not shown:
+        # Считали по длине `lines`, а вступление занимает три элемента — условие
+        # не выполнялось никогда, и пустой список молча выглядел как список.
         lines.append("<i>Список пуст.</i>")
     lines.append("\n<code>/paysrc add BTC bc1q… заметка</code>\n<code>/paysrc del BTC bc1q…</code>")
     await message.answer("\n".join(lines), parse_mode="HTML")

@@ -1736,6 +1736,66 @@ def check_verdict_never_hides_a_transfer_it_saw():
                   "не расскажет, сколько бы правильной ни была причина")
 
 
+def check_trusted_sender_list_refuses_foreign_network():
+    """Список доверенных отправителей — денежное правило: совпадение по нему
+    закрывает заявку без человека. Адрес чужой сети в нём не крадёт деньги, он
+    хуже — выглядит внесённым кошельком, работая как невнесённый. 04.08.2026
+    под LTC записали TON-адрес: команда согласилась молча, настоящий
+    LTC-кошелёк остался вне списка, и выплаты с него продолжали уходить на
+    ручной разбор. Ошибку ловит только тот, кто сверит список глазами.
+    """
+    tag = "доверенным отправителем стал адрес чужой сети"
+    relay_dir = os.path.join(ROOT, "relay")
+    if relay_dir not in sys.path:
+        sys.path.insert(0, relay_dir)
+    try:
+        from core import payout_discovery as _pd
+    except Exception as e:
+        fail(tag, f"payout_discovery не импортируется ({type(e).__name__}) — "
+                  f"проверка ослепла")
+        return
+    ton = "UQAX50pTuHS9yAMVzVbewzHaWiIgP7NWEbiPSQIW6uqBehCK"
+    btc = "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4"
+    if not hasattr(_pd, "source_address_error"):
+        fail(tag, "проверки адреса при внесении в доверенные нет вовсе")
+        return
+    try:
+        err = _pd.source_address_error("LTC", ton)
+        own = _pd.source_address_error("BTC", btc)
+    except Exception as e:
+        fail(tag, f"проверка адреса упала ({type(e).__name__}: {e})")
+        return
+    if not err:
+        fail(tag, "TON-адрес принят как кошелёк LTC — запись выглядит рабочей, "
+                  "но в LTC-транзакциях такой отправитель не встретится никогда")
+    elif "TON" not in err:
+        fail(tag, f"отказ звучит как {err!r} и не называет настоящую сеть — "
+                  f"владелец не поймёт, что перепутал строку")
+    if own:
+        fail(tag, f"нормальный BTC-адрес отвергнут ({own!r}) — проверка мешает "
+                  f"внести кошелёк, а не защищает список")
+    # Тот же класс с другой стороны: адрес СВОЕЙ сети, но со встроенным тегом.
+    # X-адрес XRP валиден как адрес, а ключ из него выходит не тот, что у
+    # отправителя на цепи (там classic из поля Account) — запись мёртвая.
+    try:
+        from core.address import xrp_xaddress
+        classic = "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh"
+        xaddr = xrp_xaddress(classic, 1)
+    except Exception:
+        xaddr = classic = ""
+    if xaddr and _pd._norm_account("XRP", xaddr) != _pd._norm_account("XRP", classic):
+        if not _pd.source_address_error("XRP", xaddr):
+            fail(tag, "XRP-адрес с тегом внутри принят как отправитель — на цепи "
+                      "отправитель виден обычным r-адресом, и такая запись не "
+                      "совпадёт никогда")
+        if _pd.source_address_error("XRP", classic):
+            fail(tag, "обычный r-адрес отвергнут — вносить стало нечего")
+    # Записанное ДО проверки она не лечит: такие записи обязаны быть видны.
+    if not hasattr(_pd, "sources_with_status"):
+        fail(tag, "уже записанный адрес чужой сети никак не показывается — о нём "
+                  "узнают в день, когда выплата не закроется")
+
+
 def check_guards_compare_accounts_not_strings():
     tag = "страж сравнивает строку"
     relay = os.path.join(ROOT, "relay")
@@ -3182,6 +3242,7 @@ def main():
                check_promises_are_not_retyped,
                check_chain_finality_is_not_a_boolean,
                check_verdict_never_hides_a_transfer_it_saw,
+               check_trusted_sender_list_refuses_foreign_network,
                check_failed_autopayout_reaches_a_human,
                check_tagged_currencies_use_the_dispatcher,
                check_tag_shape_comes_from_the_registry,

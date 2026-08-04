@@ -99,12 +99,128 @@ def _registered_sources() -> dict:
         return {}
 
 
+# Сети, в которых сверка умеет искать для каждой валюты (см. incoming_transfers).
+# У USDT их две, и адреса в них разного вида — кошелёк владельца может быть
+# любым из двух, поэтому годным считаем адрес, подходящий хотя бы одной.
+_SOURCE_NETWORKS = {"BTC": (None,), "LTC": (None,), "ETH": (None,),
+                    "XRP": (None,), "TON": (None,), "USDT": ("TRC20", "ERC20")}
+
+
+def _tagged_source_error(cur: str, addr: str) -> str:
+    """Отправитель обязан быть ГОЛЫМ счётом, без тега и комментария.
+
+    Строка назначения с тегом — правильный адрес (её и проверяет
+    `validate_destination`), но ключ из неё получается другой, чем у счёта:
+    X-адрес XRP лежит в списке как `x…`, а цепочка отдаёт отправителя полем
+    `Account` — обычным `r…`; у TON `UQ…#memo` не разбирается в счёт вообще и
+    падает в запасной ключ-строку, тогда как голый адрес даёт `0:…`. Обе записи
+    выглядят внесёнными и не совпадают никогда — ровно та тихая пустышка, ради
+    которой вся проверка и затевалась. Нашёл codex.
+    """
+    try:
+        from core import address as _addr
+    except Exception:
+        return "проверить адрес нечем — кошелёк не внесён"
+    try:
+        if cur == "XRP" and not _addr.is_valid_xrp_classic(addr):
+            return ("у XRP вносите обычный r-адрес без тега: на цепи отправитель "
+                    "виден именно так, и запись с тегом не совпадёт никогда")
+        if cur == "TON" and not _addr.ton_account_key(addr):
+            return ("у TON вносите адрес кошелька без комментария: на цепи "
+                    "отправитель виден именно так, и запись с комментарием не "
+                    "совпадёт никогда")
+    except Exception:
+        return "проверить адрес нечем — кошелёк не внесён"
+    return ""
+
+
+def source_address_error(currency, address) -> str:
+    """Пусто — адрес годится отправителем этой валюты. Иначе — текст отказа.
+
+    Список доверенных отправителей — денежное правило: совпадение по нему
+    закрывает заявку без человека. Адрес ЧУЖОЙ сети опасен не подлогом (в
+    транзакциях этой сети он не встретится никогда), а тем, что выглядит как
+    внесённый кошелёк, работая как невнесённый. 04.08.2026 так и вышло: под
+    LTC записали TON-адрес, команда молча согласилась, и настоящий LTC-кошелёк
+    остался вне списка — выплаты с него по-прежнему шли человеку на разбор.
+
+    Отказ фейл-клоузный: нечем проверить — не вносим. Незаписанный кошелёк
+    стоит ручного разбора, записанный неверно — тишины.
+    """
+    cur = str(currency or "").strip().upper()
+    addr = str(address or "").strip()
+    if not cur or not addr:
+        return "нужны валюта и адрес"
+    nets = _SOURCE_NETWORKS.get(cur)
+    if nets is None:
+        return (f"по {cur} сверка не смотрит цепочку — вносить кошелёк некуда "
+                f"(умеем: {', '.join(sorted(_SOURCE_NETWORKS))})")
+    try:
+        from core import assets as _assets
+    except Exception as e:
+        logger.warning("payout_discovery: проверка адреса недоступна: %s", e)
+        return "проверить адрес нечем — кошелёк не внесён"
+    for net in nets:
+        try:
+            if _assets.validate_destination(cur, addr, net):
+                return _tagged_source_error(cur, addr)
+        except Exception:
+            return "проверить адрес нечем — кошелёк не внесён"
+    body = addr[2:] if addr.lower().startswith("0x") else ""
+    evm_shape = (len(body) == 40
+                 and all(c in "0123456789abcdefABCDEF" for c in body))
+    # 0x-адрес в одном регистре под EVM-валютой — это ЭТА сеть, но без
+    # контрольной суммы EIP-55 (политика core.address, общая для проекта).
+    # Ответ «это не адрес ETH» тут звучал бы ложью: адрес тот, не хватает формы
+    # записи, а обозреватели часто показывают его строчными. Под НЕ-EVM
+    # валютой тот же ответ был бы ложью наоборот — отправлял бы искать
+    # «BTC-адрес с контрольной суммой», которого не бывает. Нашёл codex.
+    if evm_shape and cur in ("ETH", "USDT") and body in (body.lower(), body.upper()):
+        return (f"адрес {cur} записан в одном регистре — без контрольной суммы "
+                f"EIP-55 опечатка в нём неотличима от настоящего адреса. "
+                f"Скопируйте его из кошелька в смешанном регистре")
+    looks = ""
+    for other, other_nets in _SOURCE_NETWORKS.items():
+        if other == cur:
+            continue
+        try:
+            if any(_assets.validate_destination(other, addr, n) for n in other_nets):
+                looks = other
+                break
+        except Exception:
+            break
+    # По форме узнаём и то, что строгую проверку не прошло: 0x-строка под BTC —
+    # это перепутанная валюта, а не «плохой BTC-адрес», и сказать надо именно так.
+    if not looks and evm_shape:
+        looks = "ETH или USDT (ERC-20)"
+    return f"это не адрес {cur}" + (f" — похоже на адрес {looks}" if looks else "")
+
+
+def sources_with_status() -> list[dict]:
+    """Доверенные отправители с отметкой негодных.
+
+    Проверка на входе не лечит уже записанное: запись, сделанная до неё,
+    останется тихой пустышкой. Поэтому негодные видны в самом списке — иначе
+    о них узнают в тот день, когда выплата не закроется.
+    """
+    reg = _registered_sources()
+    out = []
+    for cur in sorted(reg):
+        for key, meta in (reg[cur] or {}).items():
+            raw = (meta or {}).get("raw") or key
+            out.append({"currency": cur, "address": raw,
+                        "note": (meta or {}).get("note") or "",
+                        "error": source_address_error(cur, raw)})
+    return out
+
+
 def add_source(currency: str, address: str, note: str = "") -> dict:
     """Внести кошелёк, из которого владелец платит клиентам, в доверенные."""
     cur = str(currency or "").upper()
     addr = str(address or "").strip()
-    if not cur or not addr:
-        return {"ok": False, "error": "нужны валюта и адрес"}
+    err = source_address_error(cur, addr)
+    if err:
+        return {"ok": False, "error": err}
     p = Path(SOURCES_PATH)
     try:
         data = json.loads(p.read_text("utf-8")) if p.exists() else {}
