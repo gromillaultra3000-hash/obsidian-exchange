@@ -17,6 +17,7 @@ import sys
 import ast
 import json
 import hashlib
+import subprocess
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CANON = os.path.join(ROOT, "relay")
@@ -33,6 +34,49 @@ def _read(p):
             return f.read()
     except Exception:
         return ""
+
+
+_TRACKED = ...   # ... = ещё не считали; None = git не ответил
+
+
+def tracked_files():
+    """Пути под контролем версий — ровно то, что доедет до сервера.
+
+    Правила ниже ходят по каталогу, а каталог и репозиторий — разные вещи.
+    Боевой /root это одновременно и то и другое: рядом с раскатанным кодом
+    там лежат бэкапы (bot/gold_v2, gold_v21, gold_v3) и отключённый легаси
+    (relay/app.py от выключенного exchange-relay). В git их нет, деплой их
+    не везёт, ни один сервис их не исполняет.
+
+    Обход каталога портил правила в обе стороны. Ложная тревога: «зашитый
+    боевой путь» находил 12 нарушений в этих файлах и валил deploy.sh на
+    его же гейте — исправный код не раскатывался бы молча, в лог, каждые
+    15 минут. Пропуск: «мёртвый конфиг» ищет чтение ключа во всём blob'е,
+    и забытая копия, которая ключ читает, оправдывала бы поле, мёртвое в
+    живом коде.
+
+    Git не ответил → возвращаем None, и фильтр не применяется: лишний шум
+    в чужом окружении честнее слепого пятна в гейте денег.
+    """
+    global _TRACKED
+    if _TRACKED is not ...:
+        return _TRACKED
+    _TRACKED = None
+    try:
+        out = subprocess.run(["git", "-C", ROOT, "ls-files", "-z"],
+                             capture_output=True, timeout=60)
+        if out.returncode == 0:
+            names = out.stdout.decode("utf-8", "replace").split("\0")
+            _TRACKED = {n for n in names if n}
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return _TRACKED
+
+
+def is_deployed(rel):
+    """Путь относительно ROOT доедет до сервера?"""
+    tracked = tracked_files()
+    return tracked is None or rel in tracked
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -89,6 +133,9 @@ def check_config_keys_are_read():
             if "venv" in dp or "__pycache__" in dp:
                 continue
             py += [os.path.join(dp, f) for f in fs if f.endswith(".py")]
+    # Только раскатываемые файлы: забытая копия, читающая ключ, оправдала бы
+    # поле, мёртвое в живом коде (см. tracked_files).
+    py = [p for p in py if is_deployed(os.path.relpath(p, ROOT))]
     blob = "\n".join(_read(p) for p in py)
     for key in sorted(keys):
         if key in ("weight",):
@@ -584,6 +631,8 @@ def check_no_code_loaded_from_hardcoded_path():
                     continue
                 full = os.path.join(dirpath, fn)
                 rel = os.path.relpath(full, ROOT)
+                if not is_deployed(rel):
+                    continue      # бэкап/легаси вне git — на сервер не едет
                 src = _read(full)
                 if not src:
                     continue
@@ -618,6 +667,40 @@ def check_no_code_loaded_from_hardcoded_path():
 
 
 # ─────────────────────────────────────────────────────────────────────
+# 14b. Гейт деплоя судит только о том, что деплоится
+# ─────────────────────────────────────────────────────────────────────
+# Было: правила ходили по каталогу os.walk'ом, а deploy.sh запускает их в
+# боевом /root, где рядом с раскатанным кодом лежат бэкапы и отключённый
+# легаси, которых нет в git. «Зашитый боевой путь» нашёл там 12 нарушений
+# и остановил деплой — исправный код не поехал бы на сервер молча, в лог,
+# каждые 15 минут. Обратная ошибка тише и хуже: «мёртвый конфиг» ищет
+# чтение ключа во всём тексте, и забытая копия оправдала бы поле, мёртвое
+# в живом коде. Оба раза причина одна — каталог принят за репозиторий.
+def check_deploy_gate_judges_only_deployed_code():
+    """Каждый обход боевых каталогов ограничен файлами под контролем версий."""
+    src = _read(os.path.join(ROOT, "tests", "test_landmines.py"))
+    try:
+        tree = ast.parse(src)
+    except SyntaxError:
+        return
+    for fn in ast.walk(tree):
+        if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        calls = [_call_name(n) for n in ast.walk(fn) if isinstance(n, ast.Call)]
+        if "os.walk" not in calls:
+            continue
+        # Проверяем ВЫЗОВ фильтра, а не упоминание: комментарий рядом с
+        # обходом уже однажды сходил за доказательство.
+        if not ({"is_deployed", "tracked_files"} & set(calls)):
+            fail("гейт судит о нераскатанном коде",
+                 f"tests/test_landmines.py: {fn.name}() обходит боевые каталоги "
+                 f"os.walk'ом без is_deployed(). В боевом /root рядом с живым "
+                 f"кодом лежат бэкапы и отключённый легаси вне git: правило "
+                 f"либо остановит деплой исправного кода, либо примет чужой "
+                 f"файл за оправдание мёртвого поля.")
+
+
+# ─────────────────────────────────────────────────────────────────────
 # 15. Ссылка на обозреватель — только из core.txid
 # ─────────────────────────────────────────────────────────────────────
 # Карта «валюта → обозреватель» жила в четырёх местах: бот (/mystatus и
@@ -645,7 +728,7 @@ def check_explorer_links_have_one_source():
                 if not fn.endswith((".py", ".html", ".j2", ".jinja2")):
                     continue
                 rel = os.path.relpath(os.path.join(dirpath, fn), ROOT)
-                if rel == owner:
+                if rel == owner or not is_deployed(rel):
                     continue
                 src = _read(os.path.join(dirpath, fn))
                 # Комментарий, объясняющий беду, не должен считаться бедой:
@@ -2824,6 +2907,7 @@ def main():
                check_every_currency_has_a_price_source,
                check_tagless_surfaces_refuse_tagged_currencies,
                check_no_code_loaded_from_hardcoded_path,
+               check_deploy_gate_judges_only_deployed_code,
                check_explorer_links_have_one_source,
                check_rates_api_follows_the_showcase,
                check_no_tag_is_explicit,
