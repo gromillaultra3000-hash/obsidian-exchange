@@ -10,12 +10,10 @@
         <span class="eyebrow">без KYC • автовыплаты 24/7</span>
         <h1 class="title">Обменяйте крипту
             <span class="accent">быстро, безопасно и без лишних шагов</span></h1>
-        <p class="lead">Покупка BTC, LTC и USDT&nbsp;(TRC‑20) с оплатой через СБП. Живые курсы, умный роутинг оплаты и автоматические выплаты на ваш кошелёк.</p>
+        <p class="lead">Покупка {{ offered_currencies|join(', ') }} с оплатой через СБП. Живые курсы, умный роутинг оплаты и автоматические выплаты на ваш кошелёк.</p>
         <div class="tags">
-            <span class="tag">BTC</span>
-            <span class="tag">LTC</span>
-            <span class="tag">USDT TRC‑20</span>
-            <span class="tag">Swap 2%</span>
+            {% for c in offered_currencies %}<span class="tag">{{ c }}</span>
+            {% endfor %}<span class="tag">Swap 2%</span>
             <span class="tag">Рефералка 1%</span>
             <span class="tag">Ваучеры</span>
         </div>
@@ -105,12 +103,15 @@
     <div class="card">
         <div class="kicker">Основные направления</div>
         <h2>Монеты без дешёвых иконок</h2>
-        <p>Детализированные фирменные 3D‑медальоны BTC, LTC и USDT — единый визуальный язык на сайте, в Mini App и рекламе.</p>
+        {# Без перечисления монет намеренно: фраза про КАРТИНКИ, а медальоны
+   нарисованы не для всех монет витрины. Подставлять сюда список — значит
+   обещать изображение, которого нет. #}
+        <p>Детализированные фирменные 3D‑медальоны — единый визуальный язык на сайте, в Mini App и рекламе.</p>
     </div>
     <div class="card">
         <div class="kicker">Swap</div>
         <h2>Всего 2%</h2>
-        <p>Отдельный сценарий обмена BTC, LTC и USDT между собой внутри единой экосистемы, некастодиально.</p>
+        <p>Отдельный сценарий обмена {{ swap_currencies|join(', ') }} между собой внутри единой экосистемы, некастодиально.</p>
     </div>
     <div class="card">
         <div class="kicker">Экосистема</div>
@@ -134,7 +135,7 @@
                 <div class="fee-desc">{{ t.label }}<small>{{ t.hint }}</small></div>
             </div>
             {% endfor %}
-            <div class="fee-row"><div class="fee-rate">2%</div><div class="fee-desc">swap монет<small>BTC ↔ LTC ↔ USDT</small></div></div>
+            <div class="fee-row"><div class="fee-rate">2%</div><div class="fee-desc">swap монет<small>{{ swap_currencies|join(' ↔ ') }}</small></div></div>
         </div>
     </div>
     <div class="card">

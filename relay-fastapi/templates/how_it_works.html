@@ -21,7 +21,7 @@
             <div class="num">2</div>
             <div>
                 <h3>Выберите валюту и сумму</h3>
-                <p>Укажите, что хотите получить — BTC, LTC или USDT (TRC20), и сумму обмена в RUB (от {{ "{:,.0f}".format(min_amount) }} до {{ "{:,.0f}".format(max_amount) }} ₽).</p>
+                <p>Укажите, что хотите получить — {{ offered_currencies|join(', ') }}, и сумму обмена в RUB (от {{ "{:,.0f}".format(min_amount) }} до {{ "{:,.0f}".format(max_amount) }} ₽).</p>
             </div>
         </div>
         <div class="timeline-step">
@@ -54,13 +54,16 @@
 
 <section class="section">
     <h2 class="section-title">Как продать крипту за рубли</h2>
-    <p class="section-sub">BTC, LTC или USDT → рубли на ваш СБП. Без сложных шагов, без верификации.</p>
+    {# Продажа идёт по своему списку (sell_currencies): монета доступна, только
+   если задан адрес приёма. Общий список звал продавать USDT, которого в боте
+   нет, — клиент упирался в тупик. #}
+    <p class="section-sub">{{ sell_currencies|join(', ') }} → рубли на ваш СБП. Без сложных шагов, без верификации.</p>
     <div class="timeline">
         <div class="timeline-step">
             <div class="num">1</div>
             <div>
                 <h3>Нажмите «💰 Продать крипту» в боте</h3>
-                <p>Выберите валюту: BTC, LTC или USDT (TRC20).</p>
+                <p>Выберите валюту: {{ sell_currencies|join(', ') }}.</p>
             </div>
         </div>
         <div class="timeline-step">
@@ -92,13 +95,13 @@
 
 <section class="section">
     <h2 class="section-title">Как работает своп крипта → крипта</h2>
-    <p class="section-sub">Обменяйте BTC, LTC или USDT напрямую — без рублей, без верификации, ~1% комиссии.</p>
+    <p class="section-sub">Обменяйте {{ swap_currencies|join(', ') }} напрямую — без рублей, без верификации, ~1% комиссии.</p>
     <div class="timeline">
         <div class="timeline-step">
             <div class="num">1</div>
             <div>
                 <h3>Выберите пару</h3>
-                <p>В боте нажмите «🔄 Своп криптовалют» и выберите пару: BTC → LTC, LTC → USDT и т.д. Доступны все комбинации.</p>
+                <p>В боте нажмите «🔄 Своп криптовалют» и выберите пару из доступных монет ({{ swap_currencies|join(', ') }}). Доступны все комбинации.</p>
             </div>
         </div>
         <div class="timeline-step">

@@ -345,7 +345,7 @@ def generate_rates_card(btc_rate: float, ltc_rate: float, usdt_rate: float) -> B
     # Подзаголовок
     draw.text((56, 128), f'За {EXAMPLE:,} ₽ вы получите'.replace(',', ' '),
               fill=WHITE, font=fnt(26), anchor='lm')
-    draw.text((56, 160), f'комиссия {comm_btc}%  ·  BTC · LTC · USDT  ·  без верификации',
+    draw.text((56, 160), f'комиссия {comm_btc}%  ·  {coins_line()}  ·  без верификации',
               fill=MUTED, font=fnt(16, False), anchor='lm')
 
     # Три карточки монет в ряд
@@ -387,7 +387,8 @@ def generate_rates_card(btc_rate: float, ltc_rate: float, usdt_rate: float) -> B
         draw.text((ccx, vy+34), ticker, fill=MUTED, font=fnt(15, False), anchor='mm')
 
     # Футер: чипы преимуществ
-    chips = ['Non-KYC', 'выплата ~15 мин', 'своп BTC · LTC · USDT', 'от 2 000 ₽']
+    chips = ['Non-KYC', 'выплата ~15 мин', f'своп {" · ".join(SWAP_COINS)}',
+             f'от {MIN_AMOUNT:,.0f} ₽'.replace(',', ' ')]
     fy = 578
     total = sum(draw.textlength(c, font=fnt(16, False)) + 48 for c in chips) + 20 * (len(chips)-1)
     fx = (W - total) / 2
@@ -427,12 +428,9 @@ def build_welcome_caption(btc_rate: float, ltc_rate: float, usdt_rate: float, vi
         f"💵 1 USDT ≈  <b>{usdt_str} ₽</b>"
         f"</blockquote>\n\n"
         f"<blockquote expandable>"
-        f"📈 Комиссия BTC / LTC:\n"
-        f"2 000 – 5 000 ₽  →  27%\n"
-        f"5 000 – 10 000 ₽  →  25%\n"
-        f"10 000 – 20 000 ₽  →  23%\n"
-        f"от 20 000 ₽  →  19%\n\n"
-        f"💵 {coins_line()} — тарифы по сумме\n\n"
+        f"📈 Комиссия по сумме обмена:\n"
+        f"{tariff_lines('{label}  →  {percent}%')}\n\n"
+        f"💵 {coins_line()} — тариф единый\n\n"
         f"🔒 Non-KYC · Без верификации\n"
         f"⚡ Мин. сумма 2 000 ₽"
         f"</blockquote>\n\n"
@@ -900,12 +898,10 @@ _usdt_cache = {"rate": 0, "ts": 0}
 
 
 # ---------- ПРОГРЕССИВНАЯ КОМИССИЯ ----------
-VIP_TIERS = [
-    (300_000, 'Platinum', -10),
-    (100_000, 'Gold',     -6),
-    (30_000,  'Silver',   -3),
-    (0,       'Standard',  0),
-]
+# Лестница скидки — в core.pricing вместе с тарифной: её обещает и сайт, а свою
+# копию текста он держал вручную. Здесь только чтение оборота из БД.
+from core.pricing import VIP_TIERS, vip_tier_for as _vip_tier_for
+
 
 def get_user_vip(user_id: int) -> tuple:
     """Возвращает (tier_name, discount_pct) для пользователя."""
@@ -917,10 +913,7 @@ def get_user_vip(user_id: int) -> tuple:
         total = row[0] if row else 0
     except Exception:
         total = 0
-    for threshold, name, disc in VIP_TIERS:
-        if total >= threshold:
-            return name, disc
-    return 'Standard', 0
+    return _vip_tier_for(total)
 
 async def update_user_vip_volume(user_id: int, rub_amount: float):
     """Прибавляет объём к накопительному VIP-счётчику и уведомляет о повышении тира."""
@@ -1643,6 +1636,52 @@ def coins_line(sep=" · ", fallback="BTC · LTC · USDT"):
         return fallback
 
 
+def tariff_lines(fmt="{label} → {percent}%", sep="\n", fallback=""):
+    """Ступени комиссии для КЛИЕНТСКОГО текста — из core.pricing, а не руками.
+
+    Копии лестницы жили в приветствии, в рекламном посте, в справке и в FAQ, и
+    все набирались вручную. Правка границ 27.07 (границы полуоткрытые: на
+    5 000 ₽ считается уже СЛЕДУЮЩАЯ ступень) прошла только по расчёту — тексты
+    остались обещать «до 5 000 ₽ → 27%». Рекламный пост при этом называл вовсе
+    третий набор чисел (25/23/21%), которого не было никогда.
+
+    Пустая строка при сбое честнее устаревших чисел: цену клиент всё равно
+    увидит в калькуляторе, а неверная цена в тексте — это обещание.
+    """
+    try:
+        from core.pricing import tiers_for_display
+        rows = [fmt.format(**t) for t in tiers_for_display()]
+        return sep.join(rows) if rows else fallback
+    except Exception as e:
+        logger.error(f"тарифная лестница недоступна для текста: {e}")
+        return fallback
+
+
+_VIP_ICONS = {"Silver": "🥈", "Gold": "🥇", "Platinum": "💎"}
+
+
+def _vip_display():
+    """Ступени накопительной скидки из core.pricing; сбой → пусто."""
+    try:
+        from core.pricing import vip_tiers_for_display
+        return vip_tiers_for_display()
+    except Exception as e:
+        logger.error(f"VIP-лестница недоступна для текста: {e}")
+        return []
+
+
+def _max_vip_discount():
+    """Максимальная скидка, о которой можно обещать «до N%»."""
+    return max((t["discount"] for t in _vip_display()), default=0)
+
+
+def vip_lines(fmt="{icon} {name} (от {from_label}) → −{discount}%", sep="\n", fallback=""):
+    """Ступени накопительной скидки — из того же источника, что и начисление."""
+    rows = [fmt.format(icon=_VIP_ICONS.get(t["name"], "•"), **t)
+            for t in _vip_display()]
+    return sep.join(rows) if rows else fallback
+
+
 def offered_coins():
     """Монеты, которые сейчас реально можно купить (есть чем выдать).
     Единый источник — services.offerings; сбой → исторические направления.
@@ -1678,8 +1717,7 @@ def build_currency_kb(prefix: str, back_cb: str = "back_to_menu") -> InlineKeybo
         # ликвидность не нужна — нужны адрес приёма и цена. Гейт по витрине
         # означал бы «чтобы продать TON, откройте заодно покупку TON», причём
         # только в боте: сайт показывает продажу по одному адресу приёма.
-        coins = [c for c, addr in SELL_RECEIVE_ADDRESSES.items()
-                 if addr and _rate_coin_key(c) in _COIN_SOURCES]
+        coins = sell_coins()
     rates = {c: get_cached_rate(c) or 0 for c in coins}
     def lbl(code):
         rt = _fmt_rate_compact(rates.get(code, 0))
@@ -1877,7 +1915,7 @@ async def menu_swap(callback: CallbackQuery, state: FSMContext):
     kb = InlineKeyboardMarkup(inline_keyboard=rows)
     await callback.message.answer(
         "🔄 <b>Своп криптовалют</b>\n\n"
-        "<blockquote expandable>Прямой обмен BTC, LTC и USDT (TRC20) без рублей — вы отправляете монеты на указанный адрес и сразу получаете выбранную монету на свой кошелёк.\n\n💰 Комиссия ~1% включена в курс, скрытых сборов нет\n🔒 Без регистрации и KYC</blockquote>\n\n"
+        f"<blockquote expandable>Прямой обмен {', '.join(SWAP_COINS)} без рублей — вы отправляете монеты на указанный адрес и сразу получаете выбранную монету на свой кошелёк.\n\n💰 Комиссия ~1% включена в курс, скрытых сборов нет\n🔒 Без регистрации и KYC</blockquote>\n\n"
         "Выберите пару обмена:",
         reply_markup=kb,
         parse_mode="HTML"
@@ -2222,12 +2260,42 @@ async def menu_about(callback: CallbackQuery):
     await callback.answer()
 
 
-_OFFER_TEXT = (
+def sell_coins():
+    """Монеты, которые клиент реально может ПРОДАТЬ: есть адрес приёма и цена.
+
+    Направление своё, и список покупки для него неверен в обе стороны. Тексты
+    «принимаем X, Y, Z» набирались руками и звали продавать монету, которой в
+    меню продажи нет, — клиент доходил до кнопки и упирался в тупик.
+    """
+    return [c for c, addr in SELL_RECEIVE_ADDRESSES.items()
+            if addr and _rate_coin_key(c) in _COIN_SOURCES]
+
+
+def _documented_coins():
+    """Перечень монет для оферты — объединение покупки, продажи и свопа.
+
+    Оферта описывает предмет договора целиком, поэтому список любого одного
+    направления сделал бы её у́же реальности. Вбитый руками, он устареет при
+    первом новом направлении — и разойдётся именно документ, на который
+    ссылается клиент в споре.
+    """
+    seen = []
+    groups = (offered_coins(), sell_coins(), SWAP_COINS)
+    for group in groups:
+        for c in group:
+            if c not in seen:
+                seen.append(c)
+    return ", ".join(seen) or "—"
+
+
+def _offer_text():
+    return (
     "📜 <b>Пользовательское соглашение (публичная оферта)</b>\n\n"
     "<b>1. Общие положения</b>\n"
     "<blockquote expandable>1.1. Сервис «ObsidianExchange» (далее — Сервис) предоставляет пользователям возможность "
-    "обмена рублей на криптовалюту (BTC, LTC, USDT TRC-20), обратного обмена криптовалюты на рубли "
-    "и свопа криптовалют через Telegram-бота и сайт obsidian-exchange.org.\n"
+    f"обмена рублей на криптовалюту ({_documented_coins()}), обратного обмена криптовалюты на рубли "
+    "и свопа криптовалют через Telegram-бота и сайт obsidian-exchange.org. "
+    "Актуальный перечень доступных направлений публикуется в Сервисе.\n"
     "1.2. Взаимодействие с пользователем осуществляется автоматически через Telegram-бота Сервиса. "
     "По вопросам работы Сервиса пользователь может обратиться в поддержку.\n"
     "1.3. Используя Сервис, пользователь подтверждает согласие с условиями настоящего соглашения.</blockquote>\n\n"
@@ -2260,11 +2328,11 @@ _OFFER_TEXT = (
     "<b>6. Прочие условия</b>\n"
     "<blockquote expandable>6.1. Использование Сервиса означает полное согласие пользователя с настоящим соглашением.\n"
     "6.2. Все споры разрешаются путём переговоров через поддержку Сервиса.</blockquote>"
-)
+    )
 
 @router.message(Command("offer"))
 async def cmd_offer(message: Message):
-    await message.answer(_OFFER_TEXT, parse_mode="HTML")
+    await message.answer(_offer_text(), parse_mode="HTML")
 
 # ---------- ПРОДАЖА КРИПТЫ (крипта → RUB) ----------
 SELL_RECEIVE_ADDRESSES = {'BTC': SELL_BTC_ADDRESS, 'LTC': SELL_LTC_ADDRESS,
@@ -7868,7 +7936,8 @@ async def cmd_limits(message: Message):
         f"Мин: {MIN_AMOUNT:,.0f} RUB\n"
         f"Макс: {MAX_AMOUNT:,.0f} RUB\n"
         f"Крупная заявка: {HIGH_AMOUNT:,.0f} RUB\n"
-        f"Комиссия (BTC/LTC/USDT): 27% (до 5000), 25% (5000-9999), 23% (10000-19999), 19% (от 20000 RUB)"
+        f"Комиссия ({coins_line(', ')}): "
+        + tariff_lines("{percent}% ({label})", sep=", ", fallback="источник тарифов недоступен")
     )
 
 # ---------- УЛУЧШЕННЫЙ МОНИТОРИНГ ----------
@@ -9529,9 +9598,9 @@ async def compose_daily_post() -> str:
         + f"Оплата по СБП, зачисление сразу после перевода"
         f"</blockquote>\n\n"
 
-        f"₿ Также BTC от <b>{fmt(btc_buy)} ₽</b> · LTC от <b>{fmt(ltc_buy)} ₽</b> · своп BTC⇄LTC⇄USDT\n"
-        f"⚡️ От 2 000 ₽ → СБП или карта → крипта на твоём адресе за ~15 минут\n"
-        f"💎 VIP до −10% · 🎁 рефералка 10% · 🔥 каждый 5-й обмен от 5 000 ₽ — минус 1 000 ₽\n"
+        f"₿ Также BTC от <b>{fmt(btc_buy)} ₽</b> · LTC от <b>{fmt(ltc_buy)} ₽</b> · своп {'⇄'.join(SWAP_COINS)}\n"
+        f"⚡️ От {MIN_AMOUNT:,.0f} ₽ → СБП или карта → крипта на твоём адресе за ~15 минут\n".replace(',', ' ')
+        + f"💎 VIP до −{_max_vip_discount()}% · 🎁 рефералка 10% · 🔥 каждый 5-й обмен от 5 000 ₽ — минус 1 000 ₽\n"
         f"{res_line}\n"
 
         f"👉 <b>Нажми «Начать обмен» и укажи сумму</b>"
@@ -9722,15 +9791,21 @@ async def send_daily_post(target_id: int = None):
         pass
 
 
-_RATE_TIPS = [
-    "💡 <b>VIP-статус</b> даёт скидку до 10% — накапливается автоматически от суммы всех обменов.",
-    "🔄 <b>Своп</b> BTC ↔ LTC ↔ USDT без регистрации и верификации — комиссия всего ~1%.",
-    "🎁 <b>Реферальная программа:</b> приглашай друзей и получай 10% от нашей комиссии в BTC навсегда.",
-    "🔒 <b>Non-KYC:</b> мы не запрашиваем документы. Никогда. Это принцип, а не временная акция.",
-    "⚡ <b>Скорость:</b> среднее время обработки заявки — 5–15 минут в рабочее время.",
-    "💰 <b>Продажа крипты:</b> принимаем BTC, LTC, USDT TRC20 → выплата рублями на СБП.",
-    "⭐ <b>Каждый 5-й обмен</b> от 5 000 ₽ — автоматическая скидка 1 000 ₽.",
-]
+def _rate_tips():
+    """Подсказки к посту с курсами. Собираются при отправке: подсказка про
+    ассортимент, вбитая в константу, замерзает на моменте импорта."""
+    max_vip = _max_vip_discount()
+    sell = ", ".join(sell_coins())
+    return [
+        f"💡 <b>VIP-статус</b> даёт скидку до {max_vip}% — накапливается автоматически от суммы всех обменов.",
+        f"🔄 <b>Своп</b> {' ↔ '.join(SWAP_COINS)} без регистрации и верификации — комиссия всего ~1%.",
+        "🎁 <b>Реферальная программа:</b> приглашай друзей и получай 10% от нашей комиссии в BTC навсегда.",
+        "🔒 <b>Non-KYC:</b> мы не запрашиваем документы. Никогда. Это принцип, а не временная акция.",
+        "⚡ <b>Скорость:</b> среднее время обработки заявки — 5–15 минут в рабочее время.",
+        (f"💰 <b>Продажа крипты:</b> принимаем {sell} → выплата рублями на СБП."
+         if sell else "💰 <b>Продажа крипты:</b> направления уточняйте в боте."),
+        "⭐ <b>Каждый 5-й обмен</b> от 5 000 ₽ — автоматическая скидка 1 000 ₽.",
+    ]
 _rate_tip_index = 0
 
 
@@ -9792,7 +9867,8 @@ async def rate_alert_scheduler():
                         return ''
                     return ' 📈' if cur > prev else ' 📉'
 
-                tip = _RATE_TIPS[_rate_tip_index % len(_RATE_TIPS)]
+                _tips = _rate_tips()
+                tip = _tips[_rate_tip_index % len(_tips)]
                 _rate_tip_index += 1
 
                 text = (
@@ -9865,26 +9941,84 @@ async def daily_post_scheduler():
 # Раз в 4 недели — тарифная сетка целиком.
 # ══════════════════════════════════════════════════════════════════
 
-_TARIFF_TEXT = """💎 <b>Тарифная сетка ObsidianExchange</b>
+def _tariff_text():
+    """Тарифная сетка из тех же источников, что и расчёт заявки.
+
+    Была третьей копией лестницы, вбитой руками: пережила правку границ 27.07
+    и обещала «2 000 — 4 999 ₽ → 27%», хотя нижняя граница берётся из
+    MIN_AMOUNT, а не из тарифа. Текст — обещание про деньги, и расходиться с
+    расчётом ему нельзя. Сбой источника → строка о тарифах опускается целиком,
+    а не подставляются старые числа.
+    """
+    rows = tariff_lines("• {label} → <b>{percent}%</b>",
+                        fallback="• Актуальные тарифы — в калькуляторе при создании заявки")
+    vip = vip_lines("{name} — от {from_label} оборота → <b>−{discount}%</b>")
+    coins = " · ".join(offered_coins()) or "—"
+    return f"""💎 <b>Тарифная сетка ObsidianExchange</b>
 
 <blockquote><b>Комиссия зависит от суммы:</b>
-• 2 000 — 4 999 ₽ → <b>27%</b>
-• 5 000 — 9 999 ₽ → <b>25%</b>
-• 10 000 — 19 999 ₽ → <b>23%</b>
-• от 20 000 ₽ → <b>19%</b>
-• Тарифы едины для BTC · LTC · USDT (TRC-20)</blockquote>
+{rows}
+• Тарифы едины для {coins}</blockquote>
 
 <blockquote><b>VIP-скидки (накопительно):</b>
-🥈 Silver — от 30 000 ₽ оборота → <b>−3%</b>
-🥇 Gold — от 100 000 ₽ → <b>−6%</b>
-💎 Platinum — от 300 000 ₽ → <b>−10%</b></blockquote>
+{vip}</blockquote>
 
 <blockquote><b>Специальные тарифы:</b>
 ⏳ Лимитная заявка → <b>+1%</b> к стандарту
 🔒 Фиксация курса на 15 мин → <b>100 ₽</b>
 🎁 Промокод → скидка до <b>−5%</b> к комиссии</blockquote>
 
-Обмен BTC, LTC, USDT TRC-20 · Оплата СБП / карта · Без KYC"""
+Обмен {coins} · Оплата СБП / карта · Без KYC"""
+
+
+def _dca_post_text():
+    """Пост про DCA. Список монет — из витрины: автопокупка работает ровно там,
+    где работает покупка, и отставший текст обещал бы её для чужой монеты."""
+    return (
+        "📅 <b>DCA — копите крипту без стресса</b>\n\n"
+        "Профессиональная стратегия усреднения теперь в вашем кармане.\n\n"
+        "Настройте регулярную покупку — бот будет автоматически создавать заявку "
+        "каждые 3, 7, 14 или 30 дней. Вы просто оплачиваете.\n\n"
+        "<blockquote>💡 Покупки по разным ценам = ниже средняя стоимость\n"
+        "⚡ Без мониторинга рынка\n"
+        f"🔄 Подходит для {coins_line(', ')}</blockquote>\n\n"
+        "👉 Нажмите <b>📅 DCA-автопокупка</b> в меню бота."
+    )
+
+
+def _summary_post_text():
+    """Сводка возможностей. Монеты, минимум и потолок скидки — из источников."""
+    max_vip = _max_vip_discount()
+    return (
+        "🟣 <b>ObsidianExchange — всё в одном боте</b>\n\n"
+        "<blockquote>"
+        f"💱 Купить {coins_line(', ')} — от {MIN_AMOUNT:,.0f} ₽\n".replace(",", " ")
+        + "⏳ Лимитная заявка — по нужному курсу\n"
+        "📅 DCA — автопокупка по расписанию\n"
+        "🔒 Фиксация курса на 15 минут\n"
+        "🎁 Крипто-подарки для друзей\n"
+        f"💎 VIP-скидки до −{max_vip}%\n"
+        "🎟 Промокоды\n"
+        "📋 История и экспорт заявок\n"
+        "🆘 Поддержка 24/7"
+        "</blockquote>\n\n"
+        "Оплата: СБП или карта. Без KYC. Работаем с 2024 года.\n\n"
+        "👉 Начать обмен →"
+    )
+
+
+def _vip_post_text():
+    """Пост про VIP — пороги и скидки из core.pricing, а не второй копией текста."""
+    rows = vip_lines("{icon} {name} (от {from_label} оборота) → комиссия −{discount}%")
+    ladder = f"<blockquote>{rows}</blockquote>\n\n" if rows else ""
+    return (
+        "💎 <b>VIP-статус — меньше комиссия, больше выгода</b>\n\n"
+        "Чем больше вы обмениваете — тем дешевле каждый следующий обмен.\n\n"
+        f"{ladder}"
+        "Статус начисляется автоматически. Проверить — в разделе <b>👤 Профиль</b>.\n\n"
+        "👉 Ваш статус и текущий объём — /profile"
+    )
+
 
 _FEATURE_POSTS = [
     # 0 — лимитные заявки
@@ -9900,17 +10034,7 @@ _FEATURE_POSTS = [
         "menu_limit"
     ),
     # 1 — DCA
-    (
-        "📅 <b>DCA — копите крипту без стресса</b>\n\n"
-        "Профессиональная стратегия усреднения теперь в вашем кармане.\n\n"
-        "Настройте регулярную покупку — бот будет автоматически создавать заявку "
-        "каждые 3, 7, 14 или 30 дней. Вы просто оплачиваете.\n\n"
-        "<blockquote>💡 Покупки по разным ценам = ниже средняя стоимость\n"
-        "⚡ Без мониторинга рынка\n"
-        "🔄 Подходит для BTC, LTC, USDT</blockquote>\n\n"
-        "👉 Нажмите <b>📅 DCA-автопокупка</b> в меню бота.",
-        "menu_dca"
-    ),
+    (_dca_post_text, "menu_dca"),
     # 2 — подарки
     (
         "🎁 <b>Крипто-подарок — оригинальный способ поздравить</b>\n\n"
@@ -9923,8 +10047,10 @@ _FEATURE_POSTS = [
         "👉 Нажмите <b>🎁 Подарить крипту</b> в меню бота.",
         "menu_gift"
     ),
-    # 3 — тарифная сетка (раз в 4 недели)
-    (_TARIFF_TEXT, "menu_exchange"),
+    # 3 — тарифная сетка (раз в 4 недели). Функция, а не строка: пост уходит
+    # раз в четыре недели, и текст должен собираться в момент отправки, иначе
+    # рассылка увековечит тарифы, действовавшие при старте процесса.
+    (_tariff_text, "menu_exchange"),
     # 4 — фиксация курса
     (
         "🔒 <b>Гарантированный курс — оплачивайте без спешки</b>\n\n"
@@ -9950,34 +10076,9 @@ _FEATURE_POSTS = [
         "menu_ref"
     ),
     # 6 — VIP
-    (
-        "💎 <b>VIP-статус — меньше комиссия, больше выгода</b>\n\n"
-        "Чем больше вы обмениваете — тем дешевле каждый следующий обмен.\n\n"
-        "<blockquote>🥈 Silver (от 30 000 ₽) → комиссия −3%\n"
-        "🥇 Gold (от 100 000 ₽) → комиссия −6%\n"
-        "💎 Platinum (от 300 000 ₽) → комиссия −10%</blockquote>\n\n"
-        "Статус начисляется автоматически. Проверить — в разделе <b>👤 Профиль</b>.\n\n"
-        "👉 Ваш статус и текущий объём — /profile",
-        "menu_profile"
-    ),
+    (_vip_post_text, "menu_profile"),
     # 7 — полный функционал (сводка)
-    (
-        "🟣 <b>ObsidianExchange — всё в одном боте</b>\n\n"
-        "<blockquote>"
-        "💱 Купить BTC, LTC, USDT — от 2 000 ₽\n"
-        "⏳ Лимитная заявка — по нужному курсу\n"
-        "📅 DCA — автопокупка по расписанию\n"
-        "🔒 Фиксация курса на 15 минут\n"
-        "🎁 Крипто-подарки для друзей\n"
-        "💎 VIP-скидки до −10%\n"
-        "🎟 Промокоды\n"
-        "📋 История и экспорт заявок\n"
-        "🆘 Поддержка 24/7"
-        "</blockquote>\n\n"
-        "Оплата: СБП или карта. Без KYC. Работаем с 2024 года.\n\n"
-        "👉 Начать обмен →",
-        "menu_exchange"
-    ),
+    (_summary_post_text, "menu_exchange"),
 ]
 
 # Глобальный счётчик ротации (сохраняем между перезапусками в файле)
@@ -10000,6 +10101,8 @@ async def feature_broadcast(target_id: int = None):
     """Рассылка одного поста из ротации всем пользователям (или target_id для теста)."""
     idx = _get_feature_index()
     text, btn_data = _FEATURE_POSTS[idx % len(_FEATURE_POSTS)]
+    if callable(text):
+        text = text()          # пост со свежими тарифами собирается сейчас
     _set_feature_index((idx + 1) % len(_FEATURE_POSTS))
 
     kb = InlineKeyboardMarkup(inline_keyboard=[[
@@ -10066,7 +10169,22 @@ async def feature_broadcast_scheduler():
         await asyncio.sleep(600)  # проверяем каждые 10 минут
 
 
-_PROMO_POST_HTML = """🔮💜💎⚡🌑⚡🟣✨💫
+def _promo_post_text():
+    """Рекламный пост в канал. Собирается в момент отправки, а не при импорте.
+
+    Раньше это была константа с ЧЕТВЁРТЫМ набором процентов (25/23/21% на
+    границах 500/2 000/10 000 ₽) — такой лестницы не существовало никогда ни в
+    одном расчёте. Пост уходит в публичный канал: это самое дорогое из наших
+    обещаний, и оно расходилось с кассой сильнее всех остальных.
+    """
+    coins = coins_line(" / ")
+    swap_line = " → ".join(SWAP_COINS) if SWAP_COINS else coins
+    tiers = tariff_lines("• {label} → <b>{percent}%</b>")
+    ladder = (f"<blockquote>{tiers}\n\n"
+              f"<i>Чем больше объём — тем ниже комиссия</i></blockquote>\n\n"
+              if tiers else "")
+    vip_names = vip_lines("{icon} {name}", sep=" · ")
+    return f"""🔮💜💎⚡🌑⚡🟣✨💫
 <b>ObsidianExchange</b> — крипто-обменник нового поколения
 
 Без паспорта · Без ожидания · Бот работает сам круглосуточно
@@ -10075,9 +10193,9 @@ _PROMO_POST_HTML = """🔮💜💎⚡🌑⚡🟣✨💫
 
 ⚡ <b>ЧТО УМЕЕТ НАШ БОТ</b>
 
-▸ <b>Покупка и продажа</b> — платишь рублями по СБП или картой, бот автоматически отправляет BTC / LTC / USDT на твой адрес сразу после оплаты
+▸ <b>Покупка и продажа</b> — платишь рублями по СБП или картой, бот автоматически отправляет {coins} на твой адрес сразу после оплаты
 
-▸ <b>Своп</b> — меняешь BTC → LTC → USDT напрямую, без конвертации в рубли
+▸ <b>Своп</b> — меняешь {swap_line} напрямую, без конвертации в рубли
 
 ▸ <b>Лимитные заявки</b> — выставляешь целевой курс и забываешь. Бот сам исполнит сделку когда цена достигнет нужной отметки. Работает 7 дней
 
@@ -10085,20 +10203,13 @@ _PROMO_POST_HTML = """🔮💜💎⚡🌑⚡🟣✨💫
 
 ▸ <b>Фиксация курса</b> — заморозь текущий курс на 15 минут пока ищешь средства. Рынок хоть на 5% улетит — курс твой
 
-▸ <b>Крипто-подарок</b> — отправь BTC, LTC или USDT другу прямо в боте, одной кнопкой. Получи красивую карточку с кодом
+▸ <b>Крипто-подарок</b> — отправь {coins} другу прямо в боте, одной кнопкой. Получи красивую карточку с кодом
 
 〰〰〰〰〰〰〰〰〰〰〰〰〰
 
 📊 <b>ПРОГРЕССИВНАЯ КОМИССИЯ</b>
 
-<blockquote>• 500 – 2 000 ₽ → <b>25%</b>
-• 2 000 – 10 000 ₽ → <b>23%</b>
-• от 10 000 ₽ → <b>21%</b>
-• 💎 VIP Platinum → <b>от 19%</b>
-
-<i>Чем больше объём — тем ниже комиссия</i></blockquote>
-
-💎 <b>VIP-статусы:</b> 🥈 Silver · 🥇 Gold · 💎 Platinum — присваивается автоматически по объёму, скидка без заявок
+{ladder}💎 <b>VIP-статусы:</b> {vip_names} — присваивается автоматически по объёму, скидка без заявок
 
 👥 <b>Реферальная программа</b> — получай <b>1%</b> с каждого обмена приглашённых навсегда. Статистика в разделе Профиль
 
@@ -10117,7 +10228,7 @@ _PROMO_POST_HTML = """🔮💜💎⚡🌑⚡🟣✨💫
 👉 <b>@Obsidian666999bot</b>
 🌐 obsidian-exchange.org
 
-<i>BTC · LTC · USDT TRC-20 · СБП · Карта · Работаем без выходных</i>"""
+<i>{coins_line()} · СБП · Карта · Работаем без выходных</i>"""
 
 
 @router.message(Command("postpromo"))
@@ -10146,7 +10257,7 @@ async def cmd_postpromo(message: Message):
         # Полный рекламный текст отдельным сообщением
         await bot.send_message(
             target,
-            _PROMO_POST_HTML,
+            _promo_post_text(),
             parse_mode="HTML",
             disable_web_page_preview=True,
         )
@@ -10170,6 +10281,8 @@ async def cmd_featurepost(message: Message):
     else:
         idx = _get_feature_index()
         text, btn_data = _FEATURE_POSTS[idx % len(_FEATURE_POSTS)]
+        if callable(text):
+            text = text()      # превью показывает ровно то, что уйдёт в рассылку
         kb = InlineKeyboardMarkup(inline_keyboard=[[
             InlineKeyboardButton(text="💱 Открыть", callback_data=btn_data)
         ]])
@@ -10182,7 +10295,7 @@ async def cmd_tariff(message: Message):
     kb = InlineKeyboardMarkup(inline_keyboard=[[
         InlineKeyboardButton(text="💱 Обменять", callback_data="menu_exchange")
     ]])
-    await message.answer(_TARIFF_TEXT, parse_mode="HTML", reply_markup=kb)
+    await message.answer(_tariff_text(), parse_mode="HTML", reply_markup=kb)
 
 
 async def recall_inactive_users():

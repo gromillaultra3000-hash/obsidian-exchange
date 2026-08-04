@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Курсы и тарифы — ObsidianExchange{% endblock %}
-{% block description %}Актуальные курсы BTC, LTC и USDT, тарифная сетка комиссий и калькулятор обмена ObsidianExchange.{% endblock %}
+{% block description %}Актуальные курсы {{ offered_currencies|join(', ') }}, тарифная сетка комиссий и калькулятор обмена ObsidianExchange.{% endblock %}
 
 {% block content %}
 <section class="hero" style="padding-top:50px;">
@@ -28,11 +28,13 @@
    тарифах, и клиент читает, что мы её не продаём. #}
                 <tr><th>Сумма заявки</th><th>{{ offered_currencies|join(' · ') }}</th></tr>
             </thead>
+            {# Ступени — из core.pricing (tiers_for_display), как и расчёт заявки.
+   Своя копия пережила правку границ 27.07 и до 04.08 обещала «до 5 000 ₽ →
+   27%», хотя на 5 000 ₽ считается уже следующая ступень. #}
             <tbody>
-                <tr><td>до 5 000 ₽</td><td class="highlight">27%</td></tr>
-                <tr><td>5 000 – 9 999 ₽</td><td class="highlight">25%</td></tr>
-                <tr><td>10 000 – 19 999 ₽</td><td class="highlight">23%</td></tr>
-                <tr><td>от 20 000 ₽</td><td class="highlight">19%</td></tr>
+                {% for t in commission_tiers %}
+                <tr><td>{{ t.label }}</td><td class="highlight">{{ t.percent }}%</td></tr>
+                {% endfor %}
             </tbody>
         </table>
     </div>

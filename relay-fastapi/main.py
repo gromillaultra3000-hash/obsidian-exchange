@@ -188,11 +188,58 @@ def site_context(request: Request, **extra):
         # Витрина и тарифы — из единых источников (services.offerings, core.pricing),
         # чтобы шаблоны не держали собственных копий цен и списка монет.
         "offered_currencies": _allowed_currencies(),
+        # Продажа и своп — ДРУГИЕ направления с другими гейтами, и общий список
+        # монет для них неверен. Продажа открыта только там, где задан адрес
+        # приёма (SELL_*_ADDRESS): на 04.08 у USDT его нет, а страница «как это
+        # работает» звала продавать USDT — клиент шёл в бота и не находил
+        # монету. Своп ограничен SWAP_COINS.
+        "sell_currencies": _sell_currencies(),
+        "swap_currencies": _swap_currencies(),
+        "documented_currencies": _documented_currencies(),
         "commission_tiers": _commission_tiers(),
+        "vip_tiers": _vip_tiers(),
         "offerings_json": _offerings_view(),
     }
     ctx.update(extra)
     return ctx
+
+
+def _sell_currencies():
+    """Монеты, которые клиент реально может продать — те, где есть куда принять.
+
+    Fail-closed: сбой → пусто. Текст «продайте X» без адреса приёма ведёт
+    клиента в тупик, а пустой перечень честно скажет, что направление закрыто.
+    """
+    try:
+        return tuple(c for c, addr in SELL_ADDRESSES.items() if addr)
+    except Exception as e:
+        logger.error(f"список продажи недоступен: {e}")
+        return ()
+
+
+def _swap_currencies():
+    """Монеты свопа — свой список, не пересекается с витриной покупки."""
+    try:
+        return tuple(exchange_calc.SWAP_COINS)
+    except Exception as e:
+        logger.error(f"список свопа недоступен: {e}")
+        return ()
+
+
+def _documented_currencies():
+    """Все монеты, о которых Сервис говорит клиенту, — для оферты.
+
+    Оферта описывает предмет договора целиком: покупку, продажу и своп. Один
+    список любого направления сделал бы её у́же реальности, а перечень, вбитый
+    руками, устареет при первом же новом направлении — и разойдётся именно тот
+    документ, на который клиент ссылается в споре.
+    """
+    seen = []
+    for group in (_allowed_currencies(), _sell_currencies(), _swap_currencies()):
+        for c in group:
+            if c not in seen:
+                seen.append(c)
+    return tuple(seen)
 
 
 def _commission_tiers():
@@ -201,6 +248,21 @@ def _commission_tiers():
         return tiers_for_display()
     except Exception as e:
         logger.error(f"core.pricing недоступен: {e}")
+        return []
+
+
+def _vip_tiers():
+    """Накопительные скидки — из того же модуля, откуда их начисляет бот.
+
+    Сайт обещал VIP-скидку собственным вручную набранным списком, то есть
+    условие сделки описывал ОДИН процесс, а исполнял ДРУГОЙ, и сверить их было
+    нечем. Сбой источника → пусто: блок скидок просто не отрисуется.
+    """
+    try:
+        from core.pricing import vip_tiers_for_display
+        return vip_tiers_for_display()
+    except Exception as e:
+        logger.error(f"VIP-лестница недоступна: {e}")
         return []
 
 # Функция аудита

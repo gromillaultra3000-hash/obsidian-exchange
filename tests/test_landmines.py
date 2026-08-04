@@ -892,7 +892,18 @@ def check_sell_menu_offers_only_receivable_coins():
                 node.name == "build_currency_kb":
             body = "\n".join(src.splitlines()[node.lineno - 1:node.end_lineno])
             code = "\n".join(re.sub(r"#.*$", "", ln) for ln in body.splitlines())
-            if "SELL_RECEIVE_ADDRESSES" not in code:
+            # Фильтр может стоять здесь же или в общем sell_coins() — тексты
+            # про продажу берут список оттуда же. Тогда проверяем, что
+            # отсеивает САМ хелпер, а не только что его позвали: иначе
+            # достаточно было бы назвать функцию правильно.
+            if "sell_coins" in code:
+                helper = _slice(src, "def sell_coins(", "\ndef ", "\nasync def ")
+                if "SELL_RECEIVE_ADDRESSES" not in _nodoc(helper):
+                    fail("меню продажи",
+                         f"{rel}: sell_coins() не отсеивает монеты без адреса "
+                         f"приёма — меню продажи снова предложит монету, "
+                         f"которую принять некуда")
+            elif "SELL_RECEIVE_ADDRESSES" not in code:
                 fail("меню продажи",
                      f"{rel}: build_currency_kb() (стр. {node.lineno}) не отсеивает "
                      f"монеты без адреса приёма. Клавиатура общая на покупку и "
@@ -1457,21 +1468,114 @@ def check_coin_lists_come_from_the_shopfront():
                       f"останется, и клиент прочитает, что монету мы не продаём, "
                       f"рядом с кнопкой, которая её предлагает")
 
-    for rel, human in ((os.path.join("relay-fastapi", "templates", "rates.html"),
-                        "таблица тарифов на сайте"),
-                       (os.path.join("relay-fastapi", "templates", "dashboard_sell.html"),
-                        "описание продажи в кабинете")):
-        src = _read(os.path.join(ROOT, rel))
-        if not src:
+    # Перебираем ВСЕ страницы сайта, а не заранее названные две: правило по
+    # списку файлов не видит страницу, которую заведут завтра, — а заведут её
+    # копипастом с той, что уже перечисляет монеты руками.
+    tdir = os.path.join(ROOT, "relay-fastapi", "templates")
+    pages = [os.path.join("relay-fastapi", "templates", n)
+             for n in sorted(os.listdir(tdir))] if os.path.isdir(tdir) else []
+    pages.append(os.path.join("relay", "webapp.html"))
+    sources = ("offered_currencies", "sell_currencies", "swap_currencies",
+               "documented_currencies", "offerings")
+    for rel in pages:
+        if not rel.endswith(".html") or not is_deployed(rel):
             continue
-        body = re.sub(r"\{#.*?#\}", "", src, flags=re.S)
-        if not re.search(r"(?:BTC|LTC|USDT|ETH|XRP)\s*(?:·|,|/)\s*(?:BTC|LTC|USDT|ETH|XRP)",
-                         body):
+        # Судим КАЖДУЮ строку отдельно. По файлу целиком одна честная вставка
+        # {{ offered_currencies }} наверху отбеливала бы вручную набранный
+        # перечень внизу — так и жил «своп BTC ↔ LTC ↔ USDT» на странице,
+        # которая тарифы уже брала из контекста.
+        for i, line in enumerate(_client_texts(rel).split("\n"), 1):
+            if not re.search(r"(?:BTC|LTC|USDT|ETH|XRP|TON)\s*(?:·|,|/|↔|⇄)\s*"
+                             r"(?:BTC|LTC|USDT|ETH|XRP|TON)", line):
+                continue      # ассортимент здесь не перечисляется — и хорошо
+            if not any(s in line for s in sources):
+                fail(tag, f"{rel}:{i}: перечень монет набран руками вместо "
+                          f"списка из общего контекста (offered/sell/"
+                          f"swap_currencies) — он отстанет от витрины при первой "
+                          f"же новой монете, и клиент прочитает, что монету мы "
+                          f"не продаём, рядом с кнопкой, которая её предлагает")
+                break
+
+
+def _client_texts(rel):
+    """Текст файла без того, чего клиент не видит: комментариев и докстрок.
+
+    Правило судит ОБЕЩАНИЯ. Пояснение рядом с кодом («обещали 27% до 5 000 ₽»)
+    обещанием не является, а без вычета докстрок объяснение самой мины валило
+    бы мину.
+    """
+    src = _read(os.path.join(ROOT, rel))
+    if not src:
+        return ""
+    if rel.endswith(".py"):
+        try:
+            tree = ast.parse(src)
+        except SyntaxError:
+            return src
+        docs = set()
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.Module, ast.ClassDef,
+                                 ast.FunctionDef, ast.AsyncFunctionDef)):
+                body = getattr(node, "body", None) or []
+                first = body[0] if body else None
+                if (isinstance(first, ast.Expr)
+                        and isinstance(first.value, ast.Constant)
+                        and isinstance(first.value.value, str)):
+                    docs.add(id(first.value))
+        keep = [n.value for n in ast.walk(tree)
+                if isinstance(n, ast.Constant) and isinstance(n.value, str)
+                and id(n) not in docs]
+        # f-строки распадаются на куски: их текстовые части тоже здесь.
+        return "\n".join(keep)
+    src = re.sub(r"\{#.*?#\}", "", src, flags=re.S)      # Jinja
+    src = re.sub(r"<!--.*?-->", "", src, flags=re.S)      # HTML
+    src = re.sub(r"/\*.*?\*/", "", src, flags=re.S)       # JS блочные
+    src = re.sub(r"^\s*//.*$", "", src, flags=re.M)       # JS строчные
+    return src
+
+
+# Процент и сумма в рублях внутри ОДНОГО высказывания. «·» и перевод строки
+# разделяют высказывания: «рефералка 10% · каждый 5-й обмен от 5 000 ₽» — два
+# разных обещания, а не ступень, и ловить его нечестно.
+_LADDER = re.compile(
+    r"\d{1,2}\s*%[^\n·]{0,40}?\d[\d   ]{2,}\s*₽"
+    r"|\d[\d   ]{2,}\s*₽[^\n·]{0,40}?\d{1,2}\s*%")
+
+
+def check_promises_are_not_retyped():
+    """Проценты и списки монет в клиентских текстах — из расчёта, не руками.
+
+    Класс дефекта проверен живьём 04.08: границы тарифа правились 27.07 в
+    core.pricing, а ЧЕТЫРЕ копии лестницы (FAQ сайта, Mini App, приветствие
+    бота, справка) продолжали обещать «27% до 5 000 ₽» — на 5 000 ₽ считается
+    уже следующая ступень. Рекламный пост в канал называл вовсе пятый набор
+    чисел (25/23/21%), которого не было ни в одном расчёте. Тем же способом
+    сайт звал продавать USDT, для которого нет адреса приёма.
+
+    Общее правило: текст, который называет цену или ассортимент, обязан
+    спрашивать об этом тот же модуль, который цену считает и товар выдаёт.
+    """
+    tag = "обещание набрано руками"
+    surfaces = [os.path.join("relay", "webapp.html")]
+    tdir = os.path.join(ROOT, "relay-fastapi", "templates")
+    for name in sorted(os.listdir(tdir)) if os.path.isdir(tdir) else []:
+        if name.endswith(".html"):
+            surfaces.append(os.path.join("relay-fastapi", "templates", name))
+    surfaces.append(os.path.join("bot", "main_bot.py"))
+
+    for rel in surfaces:
+        if not is_deployed(rel):
             continue
-        if "offered_currencies" not in body:
-            fail(tag, f"{rel}: «{human}» перечисляет монеты руками вместо "
-                      f"offered_currencies из общего контекста — список отстанет "
-                      f"от витрины при первой же новой монете")
+        text = _client_texts(rel)
+        if not text:
+            continue
+        for m in _LADDER.finditer(text):
+            fail(tag, f"{rel}: «{m.group(0).strip()}» — ступень тарифа "
+                      f"набрана в тексте. Лестница живёт в core.pricing "
+                      f"(tiers_for_display/vip_tiers_for_display); копия "
+                      f"переживёт правку границ и станет обещанием цены, "
+                      f"которой нет в расчёте")
+            break     # одного примера на файл достаточно
 
 
 def check_guards_compare_accounts_not_strings():
@@ -2917,6 +3021,7 @@ def main():
                check_blocklist_matches_account_not_string,
                check_guards_compare_accounts_not_strings,
                check_coin_lists_come_from_the_shopfront,
+               check_promises_are_not_retyped,
                check_failed_autopayout_reaches_a_human,
                check_tagged_currencies_use_the_dispatcher,
                check_tag_shape_comes_from_the_registry,

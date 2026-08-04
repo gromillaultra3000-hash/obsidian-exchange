@@ -31,6 +31,48 @@ COMMISSION_TIERS = (
 
 MIN_COMMISSION_PERCENT = 2   # пол для VIP/промо-скидок
 
+# Накопительная скидка за оборот: (порог оборота в ₽, название, скидка в п.п.).
+# Жила только в боте, а сайт обещал её отдельным вручную набранным списком —
+# то есть скидку, которую начисляет ОДИН процесс, описывал текст в ДРУГОМ, и
+# сверить их было нечем. Порядок — по убыванию порога, первый подошедший тир
+# и есть ответ.
+VIP_TIERS = (
+    (300_000, "Platinum", -10),
+    (100_000, "Gold", -6),
+    (30_000, "Silver", -3),
+    (0, "Standard", 0),
+)
+
+
+def vip_tier_for(total_rub) -> tuple:
+    """(название, скидка в п.п.) по накопленному обороту."""
+    try:
+        total = float(total_rub or 0)
+    except (TypeError, ValueError):
+        total = 0.0
+    for threshold, name, disc in VIP_TIERS:
+        if total >= threshold:
+            return name, disc
+    return "Standard", 0
+
+
+def vip_tiers_for_display():
+    """Ступени скидки для витрин — без «Standard», о нём говорить нечего.
+
+    from_rub — порог оборота, discount — скидка в процентных пунктах
+    (положительное число: «минус N%»).
+    """
+    return [
+        {
+            "name": name,
+            "from_rub": threshold,
+            "from_label": f"{_ru(threshold)} ₽",
+            "discount": abs(disc),
+        }
+        for threshold, name, disc in sorted(VIP_TIERS)
+        if disc
+    ]
+
 
 def commission_percent(amount_rub) -> int:
     """Базовая комиссия обменника для суммы в рублях (без VIP/промо)."""

@@ -505,7 +505,7 @@
             </div>
             <div class="faq-item">
                 <button class="faq-question">Какая комиссия?<span class="arrow">▾</span></button>
-                <div class="faq-answer"><div class="faq-answer-inner">BTC/LTC/USDT (TRC20): 27% (до 5 000 ₽), 25% (5 000–9 999 ₽), 23% (10 000–19 999 ₽), 19% (от 20 000 ₽).</div></div>
+                <div class="faq-answer"><div class="faq-answer-inner" id="faq-fee">Загружаем актуальные тарифы…</div></div>
             </div>
             <div class="faq-item">
                 <button class="faq-question">Способы оплаты?<span class="arrow">▾</span></button>
@@ -682,6 +682,21 @@
             return tiers[tiers.length - 1].percent;
         }
 
+        // Ответ FAQ про комиссию — из тех же данных, что и расчёт заявки.
+        // Раньше он был вписан руками и стал ЧЕТВЁРТОЙ копией лестницы: пережил
+        // правку границ 27.07 и до сегодня обещал «27% до 5 000 ₽», хотя на
+        // 5 000 ₽ считается уже следующая ступень. Пока ответа нет — честное
+        // «загружаем», а не устаревшие числа.
+        function renderFeeFaq() {
+            const el = document.getElementById('faq-fee');
+            if (!el) return;
+            const tiers = window.__oeTiers;
+            if (!tiers || !tiers.length) return;
+            const coins = (cachedRates.offerings || []).map(o => o.code);
+            const steps = tiers.map(t => `${t.percent}% — ${t.label}`).join('; ');
+            el.textContent = (coins.length ? coins.join(', ') + ': ' : '') + steps + '.';
+        }
+
         // Live расчёт крипты
         let cachedRates = {};
         async function loadRates() {
@@ -692,6 +707,7 @@
                 // чтобы витрина Mini App не расходилась с расчётом на сервере.
                 if (cachedRates.commission_tiers) window.__oeTiers = cachedRates.commission_tiers;
                 if (cachedRates.offerings) applyOfferings(cachedRates.offerings);
+                renderFeeFaq();
                 calculateFee();
             } catch(e) {}
         }
