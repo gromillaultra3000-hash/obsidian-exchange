@@ -83,6 +83,17 @@ def _valid(currency, address, network=None) -> bool:
         return False
 
 
+def _link_network(chain) -> str:
+    """Каноническая сеть монеты подключённого кошелька. Не знаем — пусто:
+    пустая сеть в книге означает «не сужаем», и это безопаснее выдуманной."""
+    try:
+        from core import assets as _assets
+        return str(_assets.normalize_network(chain, None) or "").upper()
+    except Exception as e:
+        logger.warning("address_book: сеть связи не определена: %s", e)
+        return ""
+
+
 def short(address, head: int = 8, tail: int = 6) -> str:
     """Адрес для показа. Середину прячем, но КОНЕЦ оставляем: подменённый
     адрес отличается именно хвостом, и обрезка «…» после начала — старый
@@ -181,8 +192,13 @@ def entries_for(user_id, currency=None, network=None, limit: int = MAX_ENTRIES,
                     "last_at": last_at or "", "uses": int(uses or 0)})
 
     for link in links:
-        add(link.get("chain"), link.get("chain"), link.get("address"),
-            "connected", True, link.get("verified_at"), 0)
+        # Сеть берём каноническую для монеты, а НЕ имя цепи. У TON они
+        # совпадают, поэтому подмена долго ничего не ломала, но у BTC/LTC сеть
+        # называется MAINNET: запись с сетью «BTC» не проходит проверку адреса
+        # (сеть недопустима для валюты) и подтверждённый подписью адрес тихо
+        # исчезал бы из книги — ровно там, где клиент его и ждёт.
+        add(link.get("chain"), _link_network(link.get("chain")),
+            link.get("address"), "connected", True, link.get("verified_at"), 0)
     for r in rows:
         add(r["currency"], r["network"], r["crypto_address"],
             "used", False, r["last_at"], r["uses"])

@@ -476,6 +476,46 @@
               Получено от обменника</div>
             <div id="w-deliv-list"></div>
           </div>
+
+          <!-- Подтверждение владения подписью. Без него книга адресов у нового
+               клиента пуста: сервер знает только те адреса, на которые УЖЕ
+               отправлял. Принять адрес просто так нельзя (чужой адрес в чужой
+               книге = пробник остатков), поэтому единственный честный путь —
+               подпись. Список монет приходит с сервера: захардить его здесь
+               значило бы отстать от реестра на следующей же сети. -->
+          <div id="w-proof" style="display:none;margin-top:16px;padding:12px 14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px">
+            <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">
+              Подтвердить свой адрес</div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:10px">
+              Подпишите короткий текст в своём кошельке («Подписать сообщение» есть
+              в Electrum, BlueWallet, Sparrow, Bitcoin Core, Trezor) — и адрес
+              появится в списке с галочкой, а подставлять его в заявку можно будет
+              одним тапом. Подпись ничего не переводит.</div>
+            <div class="input-group"><label>Монета</label>
+              <select id="w-proof-cur"></select></div>
+            <div class="input-group"><label>Ваш адрес</label>
+              <input type="text" id="w-proof-addr" autocomplete="off" placeholder="bc1… / 1… / ltc1…"></div>
+            <button type="button" id="w-proof-get"
+                    style="width:100%;background:var(--accent);border:none;color:#fff;border-radius:12px;padding:11px;font-size:14px;font-weight:700;cursor:pointer">
+              Получить текст для подписи</button>
+            <div id="w-proof-step2" style="display:none;margin-top:10px">
+              <div style="font-size:12px;color:var(--muted);margin-bottom:6px">
+                1. Скопируйте текст и подпишите его в кошельке этим адресом:</div>
+              <textarea id="w-proof-msg" readonly rows="5"
+                        style="width:100%;font-family:monospace;font-size:11px;background:rgba(0,0,0,.25);color:var(--text,#fff);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:8px"></textarea>
+              <button type="button" id="w-proof-copy"
+                      style="margin:6px 0 10px;background:none;border:1px solid rgba(255,255,255,.14);color:var(--muted);border-radius:10px;padding:7px 14px;font-size:12px;cursor:pointer">
+                Скопировать текст</button>
+              <div style="font-size:12px;color:var(--muted);margin-bottom:6px">
+                2. Вставьте сюда подпись из кошелька:</div>
+              <textarea id="w-proof-sig" rows="3" placeholder="H…/I…"
+                        style="width:100%;font-family:monospace;font-size:11px;background:rgba(0,0,0,.25);color:var(--text,#fff);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:8px"></textarea>
+              <button type="button" id="w-proof-go"
+                      style="width:100%;margin-top:8px;background:var(--accent);border:none;color:#fff;border-radius:12px;padding:11px;font-size:14px;font-weight:700;cursor:pointer">
+                Проверить подпись</button>
+            </div>
+            <div id="w-proof-out" style="font-size:12px;margin-top:8px"></div>
+          </div>
         </div>
         <div class="panel" id="panel-history"><div id="history-list"></div></div>
         <div class="panel" id="panel-referral">
@@ -1412,6 +1452,96 @@
                 });
                 dBox.style.display = deliv.length ? '' : 'none';
             }
+
+            proofRenderCurrencies(data.proof_currencies || []);
+        }
+
+        // ── подтверждение владения адресом ──────────────────────────────────
+        // Текст на подпись собирает СЕРВЕР и он же проверяет подпись: свой
+        // вариант текста здесь дал бы «подпись неверна» на честном кошельке.
+        function proofRenderCurrencies(list) {
+            const box = document.getElementById('w-proof');
+            const sel = document.getElementById('w-proof-cur');
+            if (!box || !sel) return;
+            if (!list.length) { box.style.display = 'none'; return; }
+            const prev = sel.value;
+            sel.innerHTML = '';
+            list.forEach(c => {
+                const o = document.createElement('option');
+                o.value = c; o.textContent = c;
+                sel.appendChild(o);
+            });
+            if (list.indexOf(prev) >= 0) sel.value = prev;
+            box.style.display = '';
+        }
+
+        function proofSay(text, good) {
+            const out = document.getElementById('w-proof-out');
+            if (out) {
+                out.textContent = text || '';
+                out.style.color = good ? 'var(--green,#34d399)' : 'var(--muted)';
+            }
+        }
+
+        async function proofGetMessage() {
+            const cur = (document.getElementById('w-proof-cur') || {}).value || '';
+            const addr = ((document.getElementById('w-proof-addr') || {}).value || '').trim();
+            const step2 = document.getElementById('w-proof-step2');
+            if (!addr) { proofSay('Введите адрес.'); return; }
+            proofSay('Готовим текст…');
+            try {
+                const r = await fetch('/api/proof/message?currency=' + encodeURIComponent(cur)
+                                      + '&address=' + encodeURIComponent(addr),
+                    { headers: { 'X-Telegram-Init-Data': tg.initData || '' } });
+                const d = await r.json().catch(() => ({}));
+                if (!r.ok) { proofSay(d.detail || 'Не получилось.'); return; }
+                document.getElementById('w-proof-msg').value = d.message || '';
+                // Код живёт внутри текста; отдельно храним его, чтобы проверка
+                // шла ровно по тому коду, который клиент и подписывал.
+                step2.dataset.payload = d.payload || '';
+                step2.dataset.currency = d.currency || '';
+                step2.dataset.address = d.address || '';
+                step2.style.display = '';
+                proofSay('Подпишите текст в кошельке и вставьте подпись ниже.');
+            } catch (e) { proofSay('Сеть не ответила.'); }
+        }
+
+        async function proofVerify() {
+            const step2 = document.getElementById('w-proof-step2');
+            const sig = ((document.getElementById('w-proof-sig') || {}).value || '').trim();
+            if (!sig) { proofSay('Вставьте подпись.'); return; }
+            proofSay('Проверяем…');
+            try {
+                const r = await fetch('/api/proof/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json',
+                               'X-Telegram-Init-Data': tg.initData || '' },
+                    body: JSON.stringify({
+                        currency: step2.dataset.currency || '',
+                        address: step2.dataset.address || '',
+                        payload: step2.dataset.payload || '',
+                        signature: sig })
+                });
+                const d = await r.json().catch(() => ({}));
+                if (!r.ok) { proofSay(d.detail || 'Не получилось.'); return; }
+                proofSay(d.message || '', !!d.verified);
+                // Протухший или чужой код не лечится повторной вставкой той же
+                // подписи — возвращаем клиента к шагу «получить текст», иначе
+                // он будет присылать безупречную подпись по кругу.
+                if (!d.verified && ['payload_expired', 'payload_alien', 'bad_payload']
+                        .indexOf(d.reason) >= 0) {
+                    step2.style.display = 'none';
+                    document.getElementById('w-proof-sig').value = '';
+                    return;
+                }
+                if (d.verified) {
+                    if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+                    step2.style.display = 'none';
+                    document.getElementById('w-proof-sig').value = '';
+                    loadWalletBook();
+                    loadWallets();
+                }
+            } catch (e) { proofSay('Сеть не ответила.'); }
         }
 
         async function loadWallets() {
@@ -1463,6 +1593,13 @@
                 if (s) s.style.display = (s.style.display === 'block') ? 'none' : 'block';
             });
             on('w-send-go', walletTransfer);
+            on('w-proof-get', proofGetMessage);
+            on('w-proof-go', proofVerify);
+            on('w-proof-copy', () => {
+                const t = document.getElementById('w-proof-msg');
+                const b = document.getElementById('w-proof-copy');
+                if (t && b) walletCopy(t.value, b);
+            });
             on('w-act-buy', () => switchTab('exchange'));
             on('wallet-goto', () => switchTab('wallet'));
             on('w-copy', () => {

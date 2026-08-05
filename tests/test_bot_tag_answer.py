@@ -130,8 +130,22 @@ for state, fn in entries:
     m = re.search(r"async def %s\(.*?(?=\n@router|\nasync def |\ndef )" % re.escape(fn),
                   SRC, re.S)
     body = m.group(0) if m else ""
-    ok = "_tag_answer_missing" in body or "dest_tag" in body
-    check(f"{fn} ({state}) получает ответ про тег", ok)
+    # Спрашивать про тег обязан тот, кто принимает адрес НАЗНАЧЕНИЯ. С 05.08
+    # есть шаг, где адрес присылают, чтобы доказать владение им подписью
+    # (/verify): туда мы ничего не переводим, а склейка «адрес#тег» там прямо
+    # вредна — подписью подтверждается голый адрес. Назначение узнаём по делу,
+    # а не по имени: адрес проверяют как получателя выплаты либо сразу заводят
+    # заявку.
+    asks = "_tag_answer_missing" in body or "dest_tag" in body
+    is_destination = "validate_crypto_address" in body or "_finalize_order" in body
+    # Обратная сторона послабления: кто спрашивает про тег — тот принимает
+    # назначение, и адрес обязан пройти контрольную сумму. Иначе из-под правила
+    # уходили бы, просто перестав проверять адрес.
+    ok = (asks and "validate_crypto_address" in body) if (is_destination or asks) \
+        else not asks
+    check(f"{fn} ({state}) " + ("получает ответ про тег и проверку адреса"
+                                if (is_destination or asks)
+                                else "не назначение — тег не спрашивается"), ok)
 
 if failures:
     print(f"\n{len(failures)} провал(ов): {failures}")

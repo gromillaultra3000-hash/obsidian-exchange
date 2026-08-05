@@ -747,6 +747,11 @@ class Exchange(StatesGroup):
 class Review(StatesGroup):
     comment = State()
 
+class AddressProof(StatesGroup):
+    """Подтверждение владения адресом подписью кошелька (/verify)."""
+    address = State()
+    signature = State()
+
 class Swap(StatesGroup):
     amount = State()
     address = State()
@@ -7034,11 +7039,22 @@ def _my_wallet_text(uid) -> str:
     # Последние операции — тем же источником. Пустая история и недоступная
     # сеть звучат по-разному: клиент, который ищет свой перевод, не должен
     # услышать «операций нет» вместо «мы не смогли спросить».
+    # Спрашиваем только ту сеть, где историю есть чем читать: у подтверждённой
+    # подписью BTC/LTC-связи ответ был бы «не поддержано», а клиент прочитал бы
+    # «история недоступна» — выдуманный сбой вместо честного молчания.
+    hist = None
     try:
-        hist = _wl.history_for(uid, chain=wallets[0]["chain"], limit=5)
+        for w in wallets:
+            if w["chain"] in _wl.HISTORY_SOURCES:
+                hist = _wl.history_for(uid, chain=w["chain"], limit=5)
+                break
     except Exception:
         hist = {"status": "ERROR", "items": []}
-    if hist.get("status") == "OK" and hist.get("items"):
+    if hist is None:
+        # Читать историю нечем ни у одной связи — молчим. «Операций нет» здесь
+        # было бы утверждением, которого мы не проверяли.
+        pass
+    elif hist.get("status") == "OK" and hist.get("items"):
         ops = ["<b>Последние операции</b>"]
         for op in hist["items"][:5]:
             when = datetime.fromtimestamp(op["ts"]).strftime("%d.%m %H:%M") if op.get("ts") else ""
@@ -7097,6 +7113,14 @@ def _wallet_book_lines(uid) -> list:
             rows.append(f"+{amount} {d['currency']} → <code>{d['short']}</code>"
                         f" (#{d['order_id']}){link}")
         out.append("\n".join(rows))
+    # Подсказка про /verify — в обеих ветках: у клиента без заявок раздел иначе
+    # пуст и не объясняет, как в нём вообще что-то появляется.
+    sp = _sig_proof()
+    curs = sorted(sp.currencies()) if sp else []
+    if curs:
+        out.append("🔏 Подтвердить свой адрес подписью кошелька (" + ", ".join(curs)
+                   + ") — /verify. Адрес получит галочку и будет подставляться "
+                     "в заявку одним нажатием.")
     return out
 
 
@@ -7104,6 +7128,171 @@ def _wallet_book_lines(uid) -> list:
 async def cmd_mywallet(message: Message):
     """/mywallet — подключённый кошелёк и его баланс."""
     await message.answer(_my_wallet_text(message.from_user.id), parse_mode="HTML")
+
+
+def _sig_proof():
+    """Движок доказательства владения или None, если ядро недоступно."""
+    try:
+        if RELAY_PATH not in sys.path:
+            sys.path.insert(0, RELAY_PATH)
+        from core import sig_proof as _sp
+        return _sp
+    except Exception as e:
+        logger.warning("sig_proof недоступен: %s", e)
+        return None
+
+
+def _proof_currency_kb(currencies) -> InlineKeyboardMarkup:
+    rows = [[InlineKeyboardButton(text=c, callback_data=f"vrf_{c}")]
+            for c in sorted(currencies)]
+    rows.append([InlineKeyboardButton(text="✖️ Отмена", callback_data="vrf_cancel")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+@router.message(Command("verify"))
+async def cmd_verify(message: Message, state: FSMContext):
+    """/verify — подтвердить владение своим адресом подписью кошелька.
+
+    Зачем это в боте, а не только на сайте. Подпись сообщения умеют делать
+    Electrum, BlueWallet, Sparrow, Bitcoin Core, Trezor — а вставить её можно
+    откуда угодно, браузер с расширением для этого не нужен. Значит, самая
+    массовая поверхность сервиса ничем не хуже сайта, и запирать подтверждение
+    в кабинете, куда клиент из Telegram не заходит, было бы отказом ему в
+    единственном честном способе завести адрес заранее.
+    """
+    sp = _sig_proof()
+    curs = sp.currencies() if sp else set()
+    if not curs:
+        await message.answer("Подтверждение адреса сейчас недоступно. Попробуйте позже.")
+        return
+    await state.clear()
+    await message.answer(
+        "🔏 <b>Подтверждение владения адресом</b>\n\n"
+        "Вы подпишете короткий текст в своём кошельке, а мы проверим, что ключ "
+        "ваш. Подпись <b>ничего не переводит</b> и доступа к средствам не даёт.\n\n"
+        "После подтверждения адрес получит галочку и будет подставляться "
+        "в заявку одним нажатием.\n\nВыберите монету:",
+        parse_mode="HTML", reply_markup=_proof_currency_kb(curs))
+
+
+@router.callback_query(F.data == "vrf_cancel")
+async def proof_cancel(callback: CallbackQuery, state: FSMContext):
+    await state.clear()
+    await callback.message.edit_text("Подтверждение отменено.")
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("vrf_"))
+async def proof_pick_currency(callback: CallbackQuery, state: FSMContext):
+    sp = _sig_proof()
+    cur = callback.data.split("_", 1)[1].upper()
+    if not sp or cur not in sp.currencies():
+        await callback.answer("Для этой монеты подпись не поддерживается.", show_alert=True)
+        return
+    await state.update_data(proof_currency=cur)
+    await state.set_state(AddressProof.address)
+    await callback.message.edit_text(
+        f"Пришлите ваш <b>{cur}</b>-адрес — тот, которым будете подписывать.",
+        parse_mode="HTML")
+    await callback.answer()
+
+
+@router.message(AddressProof.address)
+async def proof_take_address(message: Message, state: FSMContext):
+    sp = _sig_proof()
+    if not sp:
+        await state.clear()
+        await message.answer("Подтверждение сейчас недоступно. Попробуйте позже.")
+        return
+    data = await state.get_data()
+    cur = data.get("proof_currency", "")
+    # Адрес проверяет ядро: там же решается, что на подпись идёт ГОЛЫЙ адрес,
+    # а не назначение перевода со склеенным тегом. Причина отказа приходит
+    # готовой — «адрес не тот» и «сервер не настроен» звучат по-разному.
+    ready = sp.prepare(cur, message.text or "", message.from_user.id)
+    if not ready["ok"]:
+        await message.answer(ready["error"])
+        return
+    text, addr = ready["message"], ready["address"]
+    await state.update_data(proof_address=addr, proof_payload=ready["payload"])
+    await state.set_state(AddressProof.signature)
+    # Текст отдельным сообщением и без разметки — его копируют целиком, и
+    # лишний символ в буфере ломает подпись.
+    import html as _html
+    await message.answer(
+        "1️⃣ Скопируйте этот текст и подпишите его в кошельке "
+        f"({cur}-адресом, который прислали):")
+    await message.answer(f"<pre>{_html.escape(text)}</pre>", parse_mode="HTML")
+    # Кнопка выхода обязательна: в этом состоянии бот ждёт ЛЮБОЕ сообщение как
+    # подпись, а команды `/cancel` в боте нет — обещать её значило бы запереть
+    # клиента в сценарии.
+    await message.answer(
+        "2️⃣ Пришлите подпись из кошелька одним сообщением.",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(text="✖️ Отмена", callback_data="vrf_cancel")]]))
+
+
+@router.message(AddressProof.signature)
+async def proof_take_signature(message: Message, state: FSMContext):
+    sp = _sig_proof()
+    if not sp:
+        await state.clear()
+        await message.answer("Подтверждение сейчас недоступно. Попробуйте позже.")
+        return
+    data = await state.get_data()
+    verdict = sp.verify(data.get("proof_currency", ""), data.get("proof_address", ""),
+                        data.get("proof_payload", ""), (message.text or "").strip(),
+                        subject=message.from_user.id)
+    logger.info("proof verify uid=%s %s → %s", message.from_user.id,
+                data.get("proof_currency"), verdict["reason"])
+    if not verdict["verified"]:
+        cancel_kb = InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(text="✖️ Отмена", callback_data="vrf_cancel")]])
+        # Код живёт 15 минут, а подпись в аппаратном кошельке делается дольше.
+        # С протухшим кодом ЛЮБАЯ подпись обречена, и просьба «пришлите ещё
+        # раз» запирает клиента в бесконечном круге: он присылает безупречную
+        # подпись, получает отказ и присылает снова. Выдаём новый текст сами —
+        # адрес уже известен, спрашивать его заново незачем. Нашёл codex.
+        if verdict["reason"] in ("payload_expired", "payload_alien", "bad_payload"):
+            again = sp.prepare(data.get("proof_currency", ""),
+                               data.get("proof_address", ""), message.from_user.id)
+            if not again["ok"]:
+                await state.clear()
+                await message.answer(f"❌ {again['error']}")
+                return
+            await state.update_data(proof_payload=again["payload"])
+            import html as _html
+            await message.answer(f"⌛ {verdict['message']}\n\nВот новый текст — "
+                                 f"подпишите его и пришлите подпись:")
+            await message.answer(f"<pre>{_html.escape(again['message'])}</pre>",
+                                 parse_mode="HTML", reply_markup=cancel_kb)
+            return
+        # Остальные отказы лечатся повторной вставкой подписи, и заставлять
+        # клиента заново вводить адрес — наказание за опечатку.
+        await message.answer(f"❌ {verdict['message']}\n\nПришлите подпись ещё раз.",
+                             reply_markup=cancel_kb)
+        return
+    saved = False
+    try:
+        if RELAY_PATH not in sys.path:
+            sys.path.insert(0, RELAY_PATH)
+        from core import wallet_link as _wl
+        # Связь пишем ТОЛЬКО под вердиктом — в единственной точке, где он есть.
+        if verdict["verified"] and verdict["address"]:
+            saved = _wl.remember(message.from_user.id, data.get("proof_currency", ""),
+                                 verdict["address"])
+    except Exception:
+        logger.exception("proof: связь не сохранена")
+    if not saved:
+        await state.clear()
+        await message.answer("Подпись верна, но сохранить не удалось. Попробуйте позже.")
+        return
+    await state.clear()
+    import html as _html
+    await message.answer(
+        f"✅ {verdict['message']}\n\n<code>{_html.escape(verdict['address'] or '')}</code>\n\n"
+        "Адрес добавлен в ваши — посмотреть: /mywallet",
+        parse_mode="HTML")
 
 
 @router.message(Command("mystatus"))
@@ -10850,6 +11039,7 @@ async def main():
             BotCommand(command="mystatus",  description="👤 Мой VIP-статус и скидка"),
             BotCommand(command="myhistory", description="📋 История заявок"),
             BotCommand(command="mywallet",  description="🔌 Мой подключённый кошелёк"),
+            BotCommand(command="verify",    description="🔏 Подтвердить свой адрес"),
             BotCommand(command="mydca",     description="📅 Мои DCA-планы"),
             BotCommand(command="redeem",    description="🎁 Активировать подарочный код"),
             BotCommand(command="offer",     description="📜 Пользовательское соглашение"),

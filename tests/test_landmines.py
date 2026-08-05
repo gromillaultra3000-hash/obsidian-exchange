@@ -16,6 +16,8 @@ import re
 import sys
 import ast
 import json
+import time
+import base64
 import hashlib
 import subprocess
 
@@ -863,12 +865,33 @@ def check_no_tag_is_explicit():
         asks_here = "_tag_answer_missing" in body
         # Основной поток спрашивает тег отдельным шагом — это тот же явный ответ.
         asks_step = "dest_tag" in body
-        if not (asks_here or asks_step):
+        # Не всякий адрес, присланный клиентом, — НАЗНАЧЕНИЕ перевода. С 05.08
+        # есть шаг, где адрес присылают, чтобы ДОКАЗАТЬ владение им подписью
+        # (`/verify`): туда мы ничего не отправляем, а тег там не просто лишний
+        # — подписью подтверждается голый адрес, и склейка `UQ…#memo` сломала бы
+        # проверку. Признак назначения берём поведенческий, а не по имени
+        # функции: адрес проверяют как получателя выплаты (`validate_crypto_
+        # address`) либо сразу заводят заявку (`_finalize_order`). Список имён
+        # отстал бы от кода на следующем же потоке — именно поэтому обход идёт
+        # по декоратору состояния.
+        is_destination = ("validate_crypto_address" in body
+                          or "_finalize_order" in body)
+        if is_destination and not (asks_here or asks_step):
             fail("явный отказ от тега",
-                 f"bot/main_bot.py: {fn.name}() принимает адрес, но про тег не "
-                 f"спрашивает никак. У валюты с тегом молчание клиента станет "
-                 f"«тега нет», и перевод на биржевой адрес не зачислится "
-                 f"получателю — сеть его при этом подтвердит.")
+                 f"bot/main_bot.py: {fn.name}() принимает адрес НАЗНАЧЕНИЯ, но "
+                 f"про тег не спрашивает никак. У валюты с тегом молчание "
+                 f"клиента станет «тега нет», и перевод на биржевой адрес не "
+                 f"зачислится получателю — сеть его при этом подтвердит.")
+        if not is_destination and (asks_here or asks_step):
+            # Обратная сторона того же правила: если обработчик СПРАШИВАЕТ про
+            # тег, значит адрес всё-таки назначение — и он обязан быть проверен
+            # как получатель выплаты. Без этой ветки послабление выше стало бы
+            # лазейкой: достаточно перестать валидировать адрес, чтобы уйти
+            # из-под мины вместе с вопросом про тег.
+            fail("явный отказ от тега",
+                 f"bot/main_bot.py: {fn.name}() спрашивает про тег, но адрес "
+                 f"как получателя выплаты не проверяет — назначение уходит в "
+                 f"заявку без контрольной суммы.")
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -2645,6 +2668,199 @@ def check_receipt_beats_the_timer():
 # всеми проверками. Заодно: успех не должен рождаться в except-ветке, а адрес
 # в ответе — приходить из тела запроса (тогда клиенту вернётся то, что он сам
 # прислал, с нашей отметкой «подтверждено»).
+# ─────────────────────────────────────────────────────────────────────
+# Доказательство владения принадлежит ТОМУ, кому выдан код
+# ─────────────────────────────────────────────────────────────────────
+# Подпись адреса ходит по проводу: её видит наш лог, наш обратный прокси, а при
+# копировании из кошелька — буфер обмена и всё, что в него смотрит. Если
+# проверка не сверяет, КОМУ был выдан код, то подсмотренная тройка
+# «адрес + код + подпись» вставляется в чужой запрос — и адрес жертвы
+# становится подтверждённым кошельком постороннего: с балансом, историей и
+# подстановкой в заявку. Проверка поведенческая, с настоящей криптографией:
+# сверять исходник на слово «subject» бессмысленно — параметр может быть и
+# просто не использован.
+def check_proof_belongs_to_the_client_it_was_issued_to():
+    tag = "чужое доказательство владения"
+    if os.environ.get("RELAY_SECRET", "") == "":
+        os.environ["RELAY_SECRET"] = "landmine-proof-secret"
+    sys.path.insert(0, CANON)
+    try:
+        from core import sig_proof as sp
+        from core import address as ad
+        from coincurve import PrivateKey
+    except Exception as e:
+        fail(tag, f"движок доказательства не импортируется: {type(e).__name__}: {e}")
+        return
+
+    alice, bob = 500101, 500102
+    priv = PrivateKey.from_hex("33" * 32)
+    pub = priv.public_key.format(compressed=True)
+    addr = ad._b58check_encode_with(b"\x00" + sp._hash160(pub), ad._B58_ALPHABET)
+
+    ready = sp.prepare("BTC", addr, alice)
+    if not ready["ok"]:
+        fail(tag, f"код для проверки не выдан: {ready['reason']}")
+        return
+    dig = sp.message_digest("BTC", ready["message"])
+    raw = priv.sign_recoverable(dig, hasher=None)
+    sig = base64.b64encode(bytes([31 + raw[64]]) + raw[:64]).decode()
+
+    if not sp.verify("BTC", addr, ready["payload"], sig, subject=alice)["verified"]:
+        fail(tag, "честная подпись владельца не проходит — проверка ослепла")
+        return
+    # То же доказательство от имени другого клиента.
+    stolen = sp.verify("BTC", addr, ready["payload"], sig, subject=bob)
+    if stolen["verified"]:
+        fail(tag, "доказательство, выданное одному клиенту, принято от другого — "
+                  "подсмотренная подпись привяжет чужой адрес к чужому кабинету, "
+                  "вместе с балансом и историей")
+    # И протухший код: окно жизни должно кончаться.
+    old = sp.verify("BTC", addr, ready["payload"], sig, subject=alice,
+                    now=time.time() + 24 * 3600)
+    if old["verified"]:
+        fail(tag, "код проверки не истекает — подпись годится вечно, а вместе с "
+                  "ней и однажды утёкшее доказательство")
+    # Подпись другим ключом при верном коде — не владелец.
+    other = PrivateKey.from_hex("44" * 32)
+    raw2 = other.sign_recoverable(dig, hasher=None)
+    sig2 = base64.b64encode(bytes([31 + raw2[64]]) + raw2[:64]).decode()
+    if sp.verify("BTC", addr, ready["payload"], sig2, subject=alice)["verified"]:
+        fail(tag, "подпись чужим ключом принята как доказательство владения")
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Зависимость, которой нет у боевого интерпретатора
+# ─────────────────────────────────────────────────────────────────────
+# `relay-fastapi` запускается СИСТЕМНЫМ python (`/usr/bin/python3`), а тесты и
+# бот — из `/root/bot/venv`. Библиотеки у них разные: в venv есть eth_account,
+# в системном нет. Значит зелёный прогон тестов ничего не говорит о том,
+# заведётся ли модуль в бою: импорт упадёт при первом же запросе, а на глаз
+# это выглядит как «эндпоинт отдаёт 500 без причины». Мина сама ходит боевым
+# интерпретатором. На CI второго интерпретатора нет — там она молчит, и это
+# честнее выдуманного вердикта.
+def check_core_imports_with_the_production_interpreter():
+    tag = "зависимость мимо боевого интерпретатора"
+    prod = "/usr/bin/python3"
+    if not os.path.exists(prod):
+        return
+    # Сравнивать надо ОКРУЖЕНИЯ, а не пути: python из venv — символическая
+    # ссылка на тот же /usr/bin/python3.12, и `realpath` объявил бы их одним и
+    # тем же. Именно на этом первая версия мины молча пропустила подложенный
+    # eth_account. Разные окружения = разные наборы библиотек.
+    try:
+        r = subprocess.run([prod, "-c", "import sys; print(sys.prefix)"],
+                           capture_output=True, text=True, timeout=60)
+    except Exception:
+        return
+    if (r.stdout or "").strip() == sys.prefix:
+        return                      # один и тот же набор библиотек — сравнивать нечего
+    core_dir = os.path.join(CANON, "core")
+    mods = sorted(f[:-3] for f in os.listdir(core_dir)
+                  if f.endswith(".py") and f != "__init__.py")
+    if not mods:
+        fail(tag, "модулей ядра не найдено — проверка ослепла")
+        return
+    code = ("import sys; sys.path.insert(0, %r)\n" % CANON +
+            "import importlib\nbad=[]\n"
+            "for m in %r:\n" % mods +
+            "    try: importlib.import_module('core.'+m)\n"
+            "    except Exception as e: bad.append(m+': '+type(e).__name__+': '+str(e)[:120])\n"
+            "print('\\n'.join(bad))")
+    try:
+        r = subprocess.run([prod, "-c", code], capture_output=True, text=True, timeout=180)
+    except Exception as e:
+        fail(tag, f"боевой интерпретатор не запустился: {type(e).__name__}: {e}")
+        return
+    broken = [l for l in (r.stdout or "").splitlines() if l.strip()]
+    for line in broken:
+        fail(tag, f"core.{line} — модуль не импортируется боевым {prod}, "
+                  f"хотя в venv тестов он есть. В проде это 500 на первом запросе.")
+
+    # Объявленные зависимости ядра обязаны стоять у обоих интерпретаторов.
+    # Импорт модуля этого не ловит: библиотека, которую подключают ЛЕНИВО
+    # (внутри функции, как coincurve в sig_proof), пропущена при импорте и
+    # отвалится только в момент работы — с сообщением, похожим на ошибку
+    # клиента. Нашёл codex.
+    req = _read(os.path.join(CANON, "core", "requirements.txt"))
+    if not req:
+        return
+    pkgs = []
+    for line in req.splitlines():
+        line = line.split("#")[0].strip()
+        if line:
+            pkgs.append(re.split(r"[<>=!~\[ ]", line)[0].replace("-", "_"))
+    if not pkgs:
+        return
+    code = ("import importlib\nbad=[]\n"
+            "for m in %r:\n" % pkgs +
+            "    try: importlib.import_module(m)\n"
+            "    except Exception as e: bad.append(m)\n"
+            "print(' '.join(bad))")
+    for interp in (prod, sys.executable):
+        try:
+            rr = subprocess.run([interp, "-c", code], capture_output=True,
+                                text=True, timeout=120)
+        except Exception:
+            continue
+        for miss in (rr.stdout or "").split():
+            fail(tag, f"{miss} объявлен в relay/core/requirements.txt, но не "
+                      f"установлен для {interp} — путь, который его лениво "
+                      f"импортирует, молча откажет в бою")
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Протухший код проверки не запирает клиента в круге
+# ─────────────────────────────────────────────────────────────────────
+# Код на подпись живёт 15 минут, а подпись в аппаратном кошельке делается
+# дольше. С протухшим кодом ЛЮБАЯ подпись обречена — и поверхность, которая на
+# отказ отвечает «пришлите подпись ещё раз», отправляет клиента присылать
+# безупречную подпись по кругу до полного отчаяния. Каждая поверхность обязана
+# отличать «подпись не та» (лечится повтором) от «код устарел» (лечится только
+# новым текстом). Нашёл codex.
+# ─────────────────────────────────────────────────────────────────────
+# Витрина адресов режется по каждой монете, а не общим счётом
+# ─────────────────────────────────────────────────────────────────────
+# Общий лимит на весь список теряет монеты целиком: восемь свежих BTC-заявок
+# вытесняют единственный LTC-адрес, и клиент, у которого он есть, видит пустое
+# место. Правило один раз уже чинили на сайте — и оно тут же осталось нарушенным
+# в Mini App: одна и та же ошибка в двух местах, и второе никто не проверял.
+# Мина сторожит обе витрины сразу.
+def check_wallet_showcase_keeps_every_currency():
+    tag = "витрина теряет монету из-за общего лимита"
+    src = _read(os.path.join(ROOT, "relay-fastapi", "main.py"))
+    if not src or "entries_by_currency" not in src:
+        return                       # книги ещё нет — проверять нечего
+    tree = ast.parse(src)
+    for fn in ast.walk(tree):
+        if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        seg = ast.get_source_segment(src, fn) or ""
+        # Витрина — там, где рядом с адресами отдаются приходы: это признак
+        # «показываем кошелёк целиком», а не «подсказываем под заявку».
+        if "deliveries_for" not in seg or "entries_" not in seg:
+            continue
+        if "entries_by_currency" not in seg:
+            fail(tag, f"{fn.name}(): витрина кошелька собирает адреса общим "
+                      f"списком с одним лимитом — монета, по которой заявок "
+                      f"меньше, исчезнет целиком")
+
+
+def check_stale_proof_code_is_not_a_dead_end():
+    tag = "протухший код проверки — тупик"
+    STALE = ("payload_expired", "payload_alien", "bad_payload")
+    for rel, marker in ((os.path.join("bot", "main_bot.py"), "verdict"),
+                        (os.path.join("relay", "webapp.html"), "proofVerify"),
+                        (os.path.join("relay-fastapi", "templates",
+                                      "dashboard_profile.html"), "proof-go")):
+        src = _read(os.path.join(ROOT, rel))
+        if not src or "sig_proof" not in src and "/api/proof/verify" not in src:
+            continue                # поверхность подтверждением не занимается
+        if not all(r in src for r in STALE):
+            fail(tag, f"{rel}: отказ по устаревшему коду не отличается от "
+                      f"неверной подписи ({marker}) — клиенту предложат "
+                      f"прислать ту же подпись ещё раз, и так до бесконечности")
+
+
 def check_wallet_proof_is_checked_against_the_chain():
     tag = "подпись кошелька проверяется ключом из цепи"
     path = os.path.join(CANON, "core", "tonconnect.py")
@@ -3354,6 +3570,10 @@ def main():
                check_tag_shape_comes_from_the_registry,
                check_wallet_modules_are_registered,
                check_wallet_proof_is_checked_against_the_chain,
+               check_proof_belongs_to_the_client_it_was_issued_to,
+               check_stale_proof_code_is_not_a_dead_end,
+               check_wallet_showcase_keeps_every_currency,
+               check_core_imports_with_the_production_interpreter,
                check_retired_provider_leaves_the_money_path,
                check_balance_is_shown_only_for_proven_ownership,
                check_transfer_target_is_decided_by_the_server,

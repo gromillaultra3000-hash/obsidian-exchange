@@ -42,7 +42,11 @@
             <td style="font-family:monospace;font-size:12px">{{ w.address }}</td>
             {# «Не знаем» и «ноль» — разные вещи: недоступная сеть не должна
                выглядеть как пустой кошелёк. #}
+            {# «Сеть не читаем» ≠ «обозреватель молчит»: у подтверждённого
+               подписью BTC/LTC-адреса баланса пока просто нет в интерфейсе, и
+               выдавать это за сбой — врать о поломке, которой нет. #}
             <td>{% if w.balance is number %}{{ '%.4f'|format(w.balance) }} {{ w.chain }}
+                {% elif w.status == 'UNSUPPORTED' %}<span style="color:var(--t3, #94a3b8)">владение подтверждено</span>
                 {% else %}<span style="color:var(--t3, #94a3b8)">баланс недоступен</span>{% endif %}</td>
         </tr>
         {% endfor %}
@@ -97,6 +101,89 @@
         {% endfor %}
         </tbody>
     </table>
+    {% endif %}
+
+    {# Подтверждение владения подписью. Единственный честный способ добавить
+       адрес по просьбе клиента: принять его «на слово» значило бы завести
+       чужой адрес в чужую книгу, а потом показывать по нему баланс. #}
+    {% if web_user.telegram_id and proof_currencies %}
+    <h3 style="margin-top:18px">🔏 Подтвердить свой адрес</h3>
+    <p style="font-size:13px;opacity:.8">Подпишите короткий текст в своём кошельке
+       («Подписать сообщение» есть в Electrum, BlueWallet, Sparrow, Bitcoin Core,
+       Trezor) — адрес получит галочку и будет подставляться в заявку одним
+       нажатием. Подпись ничего не переводит и доступа к средствам не даёт.</p>
+    <div class="input-group">
+        <label for="proof-cur">Монета</label>
+        <select id="proof-cur">
+            {% for c in proof_currencies %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+        </select>
+    </div>
+    <div class="input-group">
+        <label for="proof-addr">Ваш адрес</label>
+        <input type="text" id="proof-addr" autocomplete="off" placeholder="bc1… / 1… / ltc1…">
+    </div>
+    <button class="btn btn-secondary" type="button" id="proof-get">Получить текст для подписи</button>
+    <div id="proof-step2" style="display:none;margin-top:12px">
+        <p style="font-size:13px;opacity:.8">1. Скопируйте текст и подпишите его этим адресом:</p>
+        <textarea id="proof-msg" readonly rows="5" style="width:100%;font-family:monospace;font-size:12px"></textarea>
+        <p style="font-size:13px;opacity:.8;margin-top:10px">2. Вставьте подпись из кошелька:</p>
+        <textarea id="proof-sig" rows="3" placeholder="H…/I…" style="width:100%;font-family:monospace;font-size:12px"></textarea>
+        <button class="btn btn-primary" type="button" id="proof-go" style="margin-top:8px">Проверить подпись</button>
+    </div>
+    <p id="proof-out" style="font-size:13px;margin-top:8px"></p>
+    <script>
+    (function () {
+        var csrf = {{ web_user.csrf_token | tojson }};
+        var out = document.getElementById('proof-out');
+        var step2 = document.getElementById('proof-step2');
+        function say(t, good) { out.textContent = t || ''; out.style.color = good ? '#34d399' : ''; }
+        document.getElementById('proof-get').addEventListener('click', async function () {
+            var cur = document.getElementById('proof-cur').value;
+            var addr = document.getElementById('proof-addr').value.trim();
+            if (!addr) { say('Введите адрес.'); return; }
+            say('Готовим текст…');
+            try {
+                // Текст собирает сервер — он же будет проверять подпись.
+                var r = await fetch('/api/proof/message?currency=' + encodeURIComponent(cur)
+                                    + '&address=' + encodeURIComponent(addr));
+                var d = await r.json().catch(function () { return {}; });
+                if (!r.ok) { say(d.detail || 'Не получилось.'); return; }
+                document.getElementById('proof-msg').value = d.message || '';
+                step2.dataset.payload = d.payload || '';
+                step2.dataset.currency = d.currency || '';
+                step2.dataset.address = d.address || '';
+                step2.style.display = '';
+                say('Подпишите текст в кошельке и вставьте подпись ниже.');
+            } catch (e) { say('Сеть не ответила.'); }
+        });
+        document.getElementById('proof-go').addEventListener('click', async function () {
+            var sig = document.getElementById('proof-sig').value.trim();
+            if (!sig) { say('Вставьте подпись.'); return; }
+            say('Проверяем…');
+            try {
+                var r = await fetch('/api/proof/verify', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ csrf_token: csrf,
+                        currency: step2.dataset.currency, address: step2.dataset.address,
+                        payload: step2.dataset.payload, signature: sig })
+                });
+                var d = await r.json().catch(function () { return {}; });
+                if (!r.ok) { say(d.detail || 'Не получилось.'); return; }
+                say(d.message || '', !!d.verified);
+                // Протухший код повторной вставкой той же подписи не лечится —
+                // возвращаем к шагу «получить текст».
+                if (!d.verified && ['payload_expired', 'payload_alien', 'bad_payload']
+                        .indexOf(d.reason) >= 0) {
+                    step2.style.display = 'none';
+                    document.getElementById('proof-sig').value = '';
+                    return;
+                }
+                // Страницу перечитываем: адрес и его галочка рисуются сервером.
+                if (d.verified) setTimeout(function () { location.reload(); }, 900);
+            } catch (e) { say('Сеть не ответила.'); }
+        });
+    })();
+    </script>
     {% endif %}
 
     {% if deliveries %}
