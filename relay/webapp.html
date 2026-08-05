@@ -1158,13 +1158,22 @@
         }
 
         let walletAddress = '';
+        // Монета кошелька на карточке. Нужна и истории, и отключению: раньше
+        // обе были прибиты к TON, а связей теперь несколько.
+        let walletChain = 'TON';
 
         function walletRender(list) {
             const empty = document.getElementById('w-empty');
             const main = document.getElementById('w-main');
             const hint = document.getElementById('wallet-hint');
             if (!empty || !main) return;
-            const w = (list && list.length) ? list[0] : null;
+            // Карточку отдаём TON-кошельку, если он есть: только он умеет
+            // подписывать переводы прямо отсюда. Иначе показываем первый
+            // подтверждённый — раньше здесь всегда стоял list[0], и с приходом
+            // BTC/LTC-связей карточка досталась бы сети, у которой ни отправки,
+            // ни отключения нет.
+            const w = (list || []).find(x => x.chain === 'TON') || (list || [])[0] || null;
+            walletChain = w ? w.chain : 'TON';
             walletAddress = w ? w.address : '';
             if (hint) hint.style.display = w ? 'block' : 'none';
             if (!w) {
@@ -1181,14 +1190,39 @@
             const rub = document.getElementById('w-balance-rub');
             bal.textContent = known ? (w.balance.toFixed(4) + ' ' + w.chain) : 'недоступен';
             bal.style.color = known ? '#e2e8f0' : 'var(--muted)';
-            // Рублёвую оценку показываем только когда знаем ОБА числа: курс без
-            // баланса (и наоборот) дал бы уверенное «0 ₽» на пустом месте.
-            const rate = (typeof cachedRates === 'object' && cachedRates) ? cachedRates['TON'] : 0;
+            // Курс берём СВОЕЙ монеты. Раньше здесь стоял cachedRates['TON'] —
+            // с балансом BTC это дало бы уверенную рублёвую оценку по цене
+            // другой монеты, то есть ошибку в тысячи раз в поле «≈ ₽».
+            const rate = (typeof cachedRates === 'object' && cachedRates)
+                ? cachedRates[w.chain] : 0;
             rub.textContent = (known && rate > 0)
                 ? '≈ ' + Math.round(w.balance * rate).toLocaleString('ru-RU') + ' ₽' : '';
+            // Ожидающее подтверждения — отдельной строкой: складывать его с
+            // остатком нельзя (может не состояться), молчать о нём — значит
+            // показать ноль тому, кто только что получил перевод.
+            if (typeof w.pending === 'number' && Math.abs(w.pending) > 1e-12) {
+                rub.textContent += (rub.textContent ? ' · ' : '')
+                    + (w.pending > 0 ? '+' : '') + w.pending.toFixed(4)
+                    + ' ждёт подтверждения';
+            }
             const addr = document.getElementById('w-address');
             addr.textContent = walletShorten(w.address);
             addr.onclick = () => walletCopy(w.address, addr);
+            // Отправка, пополнение и отключение живут только у кошелька,
+            // который подключён по-настоящему (TON Connect). У адреса,
+            // подтверждённого подписью, ключа у нас нет и быть не может —
+            // кнопка «Отправить» там обещала бы невозможное.
+            const owned = w.chain === 'TON';
+            ['w-act-send', 'w-act-recv', 'wallet-disconnect'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = owned ? '' : 'none';
+            });
+            if (!owned) {
+                const s = document.getElementById('w-send');
+                const rv = document.getElementById('w-recv');
+                if (s) s.style.display = 'none';
+                if (rv) rv.style.display = 'none';
+            }
         }
 
         function walletCopy(text, el) {
@@ -1271,7 +1305,8 @@
                      + '<span style="color:var(--muted)">' + when + ' · '
                      + walletShorten(op.counterparty) + '</span>'
                      + '<span style="font-weight:700;color:' + (inc ? 'var(--green)' : '#e2e8f0') + '">'
-                     + (inc ? '+' : '−') + Number(op.amount || 0).toFixed(4) + '</span></div>';
+                     + (inc ? '+' : '−') + Number(op.amount || 0).toFixed(4)
+                     + ' ' + esc(d.chain || '') + '</span></div>';
             }).join('');
         }
 
@@ -1553,7 +1588,11 @@
                 const list = (d && d.wallets) || [];
                 walletRender(list);
                 if (!list.length) { walletOpsRender(null); return; }
-                const h = await fetch('/api/wallet/history', {
+                // Историю спрашиваем у ТОЙ монеты, что стоит на карточке:
+                // запрос без сети всегда уходил за TON, и у клиента с одной
+                // лишь BTC-связью раздел молчал бы «недоступно».
+                const h = await fetch('/api/wallet/history?chain='
+                        + encodeURIComponent(walletChain), {
                     headers: { 'X-Telegram-Init-Data': tg.initData || '' } });
                 walletOpsRender(h.ok ? await h.json().catch(() => null) : null);
             } catch (e) {
@@ -1571,7 +1610,7 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json',
                                'X-Telegram-Init-Data': tg.initData || '' },
-                    body: JSON.stringify({ chain: 'TON' })
+                    body: JSON.stringify({ chain: walletChain })
                 });
             } catch (e) {}
             loadWallets();

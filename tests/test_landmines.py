@@ -2825,6 +2825,36 @@ def check_core_imports_with_the_production_interpreter():
 # место. Правило один раз уже чинили на сайте — и оно тут же осталось нарушенным
 # в Mini App: одна и та же ошибка в двух местах, и второе никто не проверял.
 # Мина сторожит обе витрины сразу.
+# ─────────────────────────────────────────────────────────────────────
+# Остаток оценивается курсом СВОЕЙ монеты
+# ─────────────────────────────────────────────────────────────────────
+# Карточка кошелька писала «≈ N ₽», беря курс из `cachedRates['TON']` — пока
+# подключался только TON, это было верно. С первой же связью другой монеты
+# (BTC подтверждается подписью) та же строка объявила бы биткоин по цене
+# тонкоина: ошибка в тысячи раз, набранная уверенным шрифтом рядом с настоящим
+# балансом. Курс обязан выбираться монетой самой записи.
+def check_balance_is_priced_in_its_own_coin():
+    tag = "остаток оценён курсом чужой монеты"
+    src = _read(os.path.join(CANON, "webapp.html"))
+    if not src or "cachedRates" not in src:
+        return
+    m = re.search(r"function walletRender\s*\(.*?\n        \}", src, re.S)
+    if not m:
+        fail(tag, "relay/webapp.html: walletRender не найден — проверка ослепла")
+        return
+    # Комментарии вырезаем: разбирать надо КОД. Пояснение «раньше здесь стоял
+    # cachedRates['TON']» — правда о прошлом, и мина, спотыкающаяся об неё,
+    # заставила бы стирать объяснения ради зелёного прогона.
+    body = re.sub(r"//[^\n]*", "", m.group(0))
+    for lit in re.findall(r"cachedRates\s*\[\s*['\"]([A-Z]{2,6})['\"]\s*\]", body):
+        fail(tag, f"relay/webapp.html: walletRender берёт курс cachedRates['{lit}'] "
+                  f"жёстко — остаток другой монеты будет пересчитан в рубли по "
+                  f"цене {lit}")
+    if "cachedRates" in body and not re.search(r"cachedRates\s*\[\s*w\.chain\s*\]", body):
+        fail(tag, "relay/webapp.html: walletRender не берёт курс по монете записи — "
+                  "рублёвая оценка перестала зависеть от того, что показывает")
+
+
 def check_wallet_showcase_keeps_every_currency():
     tag = "витрина теряет монету из-за общего лимита"
     src = _read(os.path.join(ROOT, "relay-fastapi", "main.py"))
@@ -3573,6 +3603,7 @@ def main():
                check_proof_belongs_to_the_client_it_was_issued_to,
                check_stale_proof_code_is_not_a_dead_end,
                check_wallet_showcase_keeps_every_currency,
+               check_balance_is_priced_in_its_own_coin,
                check_core_imports_with_the_production_interpreter,
                check_retired_provider_leaves_the_money_path,
                check_balance_is_shown_only_for_proven_ownership,

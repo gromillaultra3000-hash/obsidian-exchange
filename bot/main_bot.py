@@ -7033,6 +7033,12 @@ def _my_wallet_text(uid) -> str:
         # разные новости для того, кто собрался платить.
         if isinstance(w.get("balance"), (int, float)):
             amount = f"{w['balance']:.4f} {w['chain']}"
+            # Ожидающее подтверждения — рядом, но НЕ в остатке: перевод в
+            # мемпуле ещё может не состояться, а промолчать о нём значит
+            # показать ноль тому, кто только что получил деньги.
+            pend = w.get("pending")
+            if isinstance(pend, (int, float)) and abs(pend) > 1e-12:
+                amount += f" ({pend:+.4f} ждёт подтверждения)"
         else:
             amount = f"баланс недоступен ({w.get('reason') or 'сеть не ответила'})"
         lines.append(f"<b>{w['chain']}</b> · <code>{w['address']}</code>\n{amount}")
@@ -7061,7 +7067,10 @@ def _my_wallet_text(uid) -> str:
             sign = "+" if op.get("direction") == "in" else "−"
             who = op.get("counterparty") or ""
             who = (who[:8] + "…" + who[-6:]) if len(who) > 16 else who
-            ops.append(f"{when} · {sign}{op.get('amount', 0):.4f} · <code>{who}</code>")
+            # Монету называем: связей теперь несколько, и «+0.0031» без неё
+            # читается как угодно.
+            ops.append(f"{when} · {sign}{op.get('amount', 0):.4f} "
+                       f"{hist.get('chain', '')} · <code>{who}</code>")
         lines.append("\n".join(ops))
     elif hist.get("status") == "OK":
         lines.append("Операций по кошельку пока нет.")

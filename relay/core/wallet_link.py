@@ -31,10 +31,17 @@ DB_PATH = os.getenv("DB_PATH", "/root/exchange.db")
 # иначе адрес попадёт в таблицу без подтверждения.
 BALANCE_SOURCES = {
     "TON": ("wallet.ton_wallet", "account_state"),
+    # BTC/LTC подключаются не сами (кошелёк к нам не ходит) — владение
+    # доказывается подписью сообщения, `core/sig_proof`. Для баланса это
+    # ничего не меняет: адрес всё равно берётся из таблицы связей.
+    "BTC": ("core.chain_watch", "btc_account_state"),
+    "LTC": ("core.chain_watch", "ltc_account_state"),
 }
 
 HISTORY_SOURCES = {
     "TON": ("wallet.ton_wallet", "history"),
+    "BTC": ("core.chain_watch", "btc_history"),
+    "LTC": ("core.chain_watch", "ltc_history"),
 }
 
 _DDL = ("CREATE TABLE IF NOT EXISTS wallet_links ("
@@ -149,9 +156,14 @@ def _account_state(chain: str, address: str, source=None) -> dict:
     if not isinstance(bal, (int, float)):
         # «не знаем» остаётся «не знаем»: подставить 0 здесь — соврать клиенту
         # про пустой кошелёк при недоступном обозревателе.
-        return {"balance": None, "status": st.get("status") or "ERROR",
+        return {"balance": None, "pending": None, "status": st.get("status") or "ERROR",
                 "reason": st.get("reason") or "баланс недоступен"}
-    return {"balance": float(bal), "status": "OK", "reason": None}
+    # Ожидающее в мемпуле проносим отдельным числом: сложить его с остатком
+    # значило бы назвать своим то, что ещё может не состояться, а промолчать —
+    # ответить «ноль» тому, кто только что получил перевод.
+    pend = st.get("pending")
+    return {"balance": float(bal), "status": "OK", "reason": None,
+            "pending": float(pend) if isinstance(pend, (int, float)) else None}
 
 
 def history_for(user_id, chain: str = "TON", limit: int = 20, source=None) -> dict:
@@ -210,6 +222,7 @@ def balances_for(user_id, source=None) -> list:
             "address": link["address"],
             "verified_at": link["verified_at"],
             "balance": st["balance"],
+            "pending": st.get("pending"),
             "status": st["status"],
             "reason": st["reason"],
         })

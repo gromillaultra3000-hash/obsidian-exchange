@@ -46,6 +46,12 @@
                подписью BTC/LTC-адреса баланса пока просто нет в интерфейсе, и
                выдавать это за сбой — врать о поломке, которой нет. #}
             <td>{% if w.balance is number %}{{ '%.4f'|format(w.balance) }} {{ w.chain }}
+                {# Ожидающее в мемпуле — отдельной строкой: в остаток оно не
+                   входит (может не состояться), но и молчать о нём нельзя. #}
+                {% if w.pending and w.pending|abs > 1e-12 %}
+                <div style="font-size:12px;color:var(--t3, #94a3b8)">
+                    {{ '+' if w.pending > 0 else '' }}{{ '%.4f'|format(w.pending) }} ждёт подтверждения</div>
+                {% endif %}
                 {% elif w.status == 'UNSUPPORTED' %}<span style="color:var(--t3, #94a3b8)">владение подтверждено</span>
                 {% else %}<span style="color:var(--t3, #94a3b8)">баланс недоступен</span>{% endif %}</td>
         </tr>
