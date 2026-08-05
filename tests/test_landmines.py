@@ -3099,12 +3099,34 @@ def check_balance_is_shown_only_for_proven_ownership():
     # не «получилось, потому что поле назвали иначе»: молчаливое совпадение
     # правило уже один раз обмануло.
     CLIENT_CHOOSES = ("/api/wallet/transfer-request",)
-    for m in re.finditer(r"fetch\('(/api/wallet/[^']*)'([^;]{0,600})", web):
-        if m.group(1) in CLIENT_CHOOSES:
+    # Смотрим ЗАПРОС целиком — от `fetch(` до его закрывающей скобки, — а не
+    # окно в 600 символов после: в окно попадал разбор ОТВЕТА, где адреса
+    # клиента и должны появляться (витрина «мои адреса» их рисует). Внутри
+    # запроса правило прежнее и такое же формо-независимое: ни в строке
+    # адреса, ни в теле слова «адрес» быть не должно.
+    for m in re.finditer(r"fetch\(\s*[`'\"](/api/wallet/[^`'\"]*)", web):
+        path = m.group(1).split("?")[0]
+        if path in CLIENT_CHOOSES:
             continue
-        if re.search(r"addr(ess)?", m.group(1) + m.group(2), re.I):
-            fail(tag, f"webapp.html: рядом с запросом {m.group(1)} фигурирует адрес — "
-                      f"клиентская сторона не должна выбирать, чей баланс смотреть")
+        # Скобки считаем от `fetch(`: конец запроса — там, где она закрылась.
+        start = m.start()
+        depth, end = 0, len(web)
+        for i in range(web.index("(", start), min(len(web), start + 4000)):
+            if web[i] == "(":
+                depth += 1
+            elif web[i] == ")":
+                depth -= 1
+                if depth == 0:
+                    end = i
+                    break
+        call = web[start:end]
+        # Путь эндпоинта из проверки исключаем: он константа, и в имени
+        # `/api/wallet/addresses` слово «address» — это НАЗВАНИЕ ресурса, а не
+        # выбор чужого кошелька. Всё остальное в запросе — под правилом.
+        rest = call.replace(path, "", 1)
+        if re.search(r"addr(ess)?", rest, re.I):
+            fail(tag, f"webapp.html: запрос {path} несёт адрес — клиентская "
+                      f"сторона не должна выбирать, чей кошелёк смотреть")
 
 
 # ─────────────────────────────────────────────────────────────────────

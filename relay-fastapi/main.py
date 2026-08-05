@@ -815,7 +815,10 @@ async def dashboard_exchange_page(request: Request):
     if web_user.get("telegram_id"):
         try:
             from core import address_book as _ab
-            book = _ab.entries_for(web_user["telegram_id"])
+            # Отбор по монете делает страница, поэтому ограничение — на каждую
+            # монету, а не на весь список: иначе свежие заявки по другим
+            # монетам вытесняют единственный адрес нужной.
+            book = _ab.entries_by_currency(web_user["telegram_id"])
         except Exception:
             logger.exception("адресная книга недоступна на сайте")
     return templates.TemplateResponse(request, "dashboard_exchange.html", site_context(
@@ -1351,9 +1354,20 @@ async def dashboard_profile_page(request: Request):
                                              chain=wallets[0]["chain"], limit=10)
         except Exception as e:
             logger.warning(f"dashboard profile: кошельки недоступны: {e}")
+    # Адреса и приходы — тем же источником, что бот и Mini App. Нужны и без
+    # подключённого кошелька: подключение есть только у TON, а получают
+    # клиенты на все монеты.
+    book, deliveries = [], []
+    if web_user['telegram_id']:
+        try:
+            from core import address_book as _ab
+            book = _ab.entries_by_currency(web_user['telegram_id'])
+            deliveries = _ab.deliveries_for(web_user['telegram_id'])
+        except Exception as e:
+            logger.warning(f"dashboard profile: адресная книга недоступна: {e}")
     return templates.TemplateResponse(request, "dashboard_profile.html", site_context(
         request, active="profile", ref_address=ref_address, wallets=wallets,
-        wallet_ops=wallet_ops,
+        wallet_ops=wallet_ops, address_book=book, deliveries=deliveries,
         error=request.query_params.get('error'), success=request.query_params.get('success'),
     ))
 
@@ -2141,7 +2155,12 @@ async def api_wallet_addresses(request: Request):
     from core import address_book as _ab
     cur = (request.query_params.get('currency') or '').upper()[:8]
     net = (request.query_params.get('network') or '').upper()[:12]
-    return {"addresses": _ab.entries_for(user['id'], cur or None, net or None)}
+    # Приходы отдаём только когда список НЕ сужен под форму заявки: там они
+    # лишний вес на каждое переключение монеты, а в витрине кошелька — главное.
+    out = {"addresses": _ab.entries_for(user['id'], cur or None, net or None)}
+    if not cur:
+        out["deliveries"] = _ab.deliveries_for(user['id'])
+    return out
 
 
 @app.post("/api/wallet/address/note")

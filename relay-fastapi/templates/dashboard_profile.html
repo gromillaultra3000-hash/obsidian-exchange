@@ -74,9 +74,49 @@
     <p style="font-size:13px;opacity:.75">Ключи остаются у вас: мы видим только
        адрес и его публичный баланс. Отключить кошелёк можно в Telegram-приложении.</p>
     {% else %}
-    <p>Кошелёк не подключён. Откройте приложение в Telegram и нажмите
+    <p>Внешний кошелёк не подключён. Откройте приложение в Telegram и нажмите
        «Подключить кошелёк» при создании заявки — адрес получателя перестанет
        набираться руками.</p>
+    {% endif %}
+
+    {# Адреса и приходы показываем ВНЕ зависимости от подключения: подключение
+       есть только у TON, а получают клиенты на все монеты. Балансов здесь нет
+       намеренно — владение адресом из прошлой заявки не доказано. #}
+    {% if address_book %}
+    <h3 style="margin-top:16px">📇 Мои адреса</h3>
+    <table class="dash-table">
+        <thead><tr><th>Монета</th><th>Адрес</th><th>Заметка</th></tr></thead>
+        <tbody>
+        {% for a in address_book %}
+        <tr>
+            <td>{{ '✅ ' if a.verified else '' }}{{ a.currency }}{% if a.network %}
+                <span style="opacity:.6;font-size:12px">{{ a.network }}</span>{% endif %}</td>
+            <td style="font-family:monospace;font-size:12px" title="{{ a.address }}">{{ a.short }}</td>
+            <td>{{ a.label or '—' }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    {% if deliveries %}
+    <h3 style="margin-top:16px">⬇️ Получено от обменника</h3>
+    <table class="dash-table">
+        <thead><tr><th>Сумма</th><th>Куда</th><th>Заявка</th><th>Транзакция</th></tr></thead>
+        <tbody>
+        {% for d in deliveries %}
+        <tr>
+            <td style="color:var(--green,#34d399)">
+                {% if d.amount %}+{{ '%.8f'|format(d.amount) }}{% else %}—{% endif %} {{ d.currency }}</td>
+            <td style="font-family:monospace;font-size:12px" title="{{ d.address }}">{{ d.short }}</td>
+            <td>#{{ d.order_id }}</td>
+            <td>{% if d.tx_url %}<a href="{{ d.tx_url }}" target="_blank" rel="noopener">🔍 в блокчейне</a>
+                {% elif d.evidence == 'manual' %}<span style="opacity:.7">выдано вручную, хеша нет</span>
+                {% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
     {% endif %}
 </div>
 

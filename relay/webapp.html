@@ -460,6 +460,22 @@
                     style="margin-top:12px;width:100%;background:none;border:1px solid rgba(255,255,255,.12);color:var(--muted);border-radius:10px;padding:9px;font-size:12px;cursor:pointer">
               Отключить кошелёк</button>
           </div>
+
+          <!-- Адреса и приходы. Живут ВНЕ разделения «подключён / не подключён»:
+               подключение есть только у TON, а получают клиенты на все монеты.
+               Без этого блока вкладка «Кошелёк» пуста у того, кто уже полгода
+               меняет на свой BTC-кошелёк. Балансов здесь нет намеренно —
+               владение адресом из заявки не доказано (см. core/address_book). -->
+          <div id="w-book" style="display:none;margin-top:16px">
+            <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">
+              Мои адреса</div>
+            <div id="w-book-list"></div>
+          </div>
+          <div id="w-deliv" style="display:none;margin-top:16px">
+            <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">
+              Получено от обменника</div>
+            <div id="w-deliv-list"></div>
+          </div>
         </div>
         <div class="panel" id="panel-history"><div id="history-list"></div></div>
         <div class="panel" id="panel-referral">
@@ -1296,6 +1312,108 @@
             }
         }
 
+        // ── Витрина кошелька: адреса клиента и приходы от нас ─────────────
+        // Показываем даже когда внешний кошелёк не подключён: подключение есть
+        // только у TON, а получают клиенты на все монеты. Иначе вкладка пуста у
+        // того, кто полгода меняет на свой BTC-адрес.
+        function esc(s) {
+            return String(s == null ? '' : s).replace(/[&<>"']/g,
+                c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;',
+                        '"': '&quot;', "'": '&#39;' }[c]));
+        }
+
+        async function loadWalletBook() {
+            const box = document.getElementById('w-book');
+            const list = document.getElementById('w-book-list');
+            const dBox = document.getElementById('w-deliv');
+            const dList = document.getElementById('w-deliv-list');
+            if (!box || !list) return;
+            let data = {};
+            try {
+                const r = await fetch('/api/wallet/addresses',
+                    { headers: { 'X-Telegram-Init-Data': tg.initData || '' } });
+                if (!r.ok) return;
+                data = await r.json();
+            } catch (e) { return; }
+
+            const addrs = data.addresses || [];
+            list.innerHTML = '';
+            addrs.forEach(a => {
+                const row = document.createElement('div');
+                row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:10px 12px;'
+                    + 'margin-bottom:8px;background:rgba(255,255,255,.04);'
+                    + 'border:1px solid rgba(255,255,255,.08);border-radius:12px';
+                row.innerHTML =
+                    '<div style="flex:1;min-width:0">'
+                    + '<div style="font-size:13px;font-weight:700">'
+                    + (a.verified ? '✅ ' : '') + esc(a.currency)
+                    + (a.network ? ' <span style="font-size:11px;color:var(--muted)">'
+                                   + esc(a.network) + '</span>' : '')
+                    + (a.label ? ' · ' + esc(a.label) : '') + '</div>'
+                    + '<div style="font-family:monospace;font-size:11px;color:var(--muted);'
+                    + 'overflow:hidden;text-overflow:ellipsis">' + esc(a.short) + '</div></div>';
+                const use = document.createElement('button');
+                use.type = 'button';
+                use.textContent = 'Обменять';
+                use.style.cssText = 'padding:7px 12px;border-radius:10px;cursor:pointer;'
+                    + 'font-size:12px;font-weight:700;color:#fff;border:none;background:var(--accent)';
+                use.onclick = () => {
+                    // Уводим в форму заявки с уже подставленным адресом: смысл
+                    // витрины в том, чтобы отсюда МОЖНО БЫЛО начать обмен.
+                    const cur = document.getElementById('currency');
+                    if (cur) { cur.value = a.currency; onCurrencyChange(); }
+                    const net = document.getElementById('network');
+                    // Сеть ставим ПОСЛЕ onCurrencyChange (он пересобирает список
+                    // сетей и сбрасывает выбор на первую), но подсказки после
+                    // этого обязаны перезагрузиться: иначе форма стоит на ERC20,
+                    // а чипы под ней — от TRC20, и следующий тап подставит адрес
+                    // чужой сети. Нашёл codex.
+                    if (net && a.network && net.value !== a.network) {
+                        net.value = a.network;
+                        loadAddressBook();
+                    }
+                    const inp = document.getElementById('address');
+                    if (inp) { inp.value = a.address; validateAddress(); }
+                    // Поле тега пересчитываем ПОСЛЕ подстановки: у адреса с
+                    // тегом внутри (X-формат XRPL, «UQ…#memo») отдельный тег
+                    // спрашивать не нужно, а onCurrencyChange отработал до
+                    // того, как адрес появился. Нашёл codex.
+                    if (typeof updateTagField === 'function') updateTagField();
+                    switchTab('exchange');
+                };
+                row.appendChild(use);
+                list.appendChild(row);
+            });
+            box.style.display = addrs.length ? '' : 'none';
+
+            const deliv = data.deliveries || [];
+            if (dList) {
+                dList.innerHTML = '';
+                deliv.forEach(d => {
+                    const el = document.createElement('div');
+                    el.style.cssText = 'padding:10px 12px;margin-bottom:8px;'
+                        + 'background:rgba(52,211,153,.06);border:1px solid rgba(52,211,153,.18);'
+                        + 'border-radius:12px';
+                    const amount = (d.amount || d.amount === 0)
+                        ? (+d.amount).toFixed(8).replace(/0+$/, '').replace(/\.$/, '')
+                        : '';
+                    el.innerHTML =
+                        '<div style="font-size:13px;font-weight:700;color:var(--green)">+ '
+                        + esc(amount) + ' ' + esc(d.currency) + '</div>'
+                        + '<div style="font-size:11px;color:var(--muted)">на ' + esc(d.short)
+                        + ' · заявка #' + esc(d.order_id) + '</div>'
+                        + (d.tx_url
+                            ? '<a href="' + esc(d.tx_url) + '" target="_blank" '
+                              + 'style="font-size:11px;color:var(--accent)">🔍 транзакция</a>'
+                            : (d.evidence === 'manual'
+                                ? '<div style="font-size:11px;color:var(--muted)">'
+                                  + 'выдано вручную, хеша нет</div>' : ''));
+                    dList.appendChild(el);
+                });
+                dBox.style.display = deliv.length ? '' : 'none';
+            }
+        }
+
         async function loadWallets() {
             try {
                 const r = await fetch('/api/wallet/links', {
@@ -1750,7 +1868,7 @@
                 if (tab.dataset.tab === 'history') loadHistory();
                 if (tab.dataset.tab === 'referral') loadReferral();
                 if (tab.dataset.tab === 'profile') { loadProfile(); loadWallets(); }
-                if (tab.dataset.tab === 'wallet') loadWallets();
+                if (tab.dataset.tab === 'wallet') { loadWallets(); loadWalletBook(); }
                 if (tab.dataset.tab === 'admin') loadAdmin();
             };
             tab.addEventListener('click', activate);

@@ -167,5 +167,121 @@ ab._valid = lambda *a, **k: False
 check("нечем проверить адрес — не предлагаем ничего", ab.entries_for(ME) == [])
 ab._valid = _saved
 
+
+# --- приходы: что МЫ отправили на адреса клиента -----------------------------
+# Витрина кошелька без этого — список строк, по которым ничего не происходило.
+conn.execute("ALTER TABLE orders ADD COLUMN agreed_crypto_amount REAL")
+conn.execute("ALTER TABLE orders ADD COLUMN paid_btc_tx TEXT")
+conn.execute("ALTER TABLE orders ADD COLUMN updated_at TEXT")
+conn.commit()
+TX = "c" * 64
+conn.execute("INSERT INTO orders (user_id, currency, network, rub_amount,"
+             " crypto_address, status, created_at, agreed_crypto_amount,"
+             " paid_btc_tx, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+             (ME, "BTC", "MAINNET", 5000, BTC1, "sent", "2026-08-05 10:00:00",
+              0.00096, TX, "2026-08-05 10:05:00"))
+# Выплата «обещана», но хеша нет — это не приход, а обещание.
+cur_ins = conn.execute("INSERT INTO orders (user_id, currency, network, rub_amount,"
+             " crypto_address, status, created_at, agreed_crypto_amount,"
+             " paid_btc_tx, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+             (ME, "BTC", "MAINNET", 5000, BTC1, "sent", "2026-08-05 11:00:00",
+              0.001, "", "2026-08-05 11:05:00"))
+NO_TX_ORDER = cur_ins.lastrowid
+# Ручная выдача: в колонке пометка, а не хеш. Спрятать строку нельзя (выдача
+# была), выдать за транзакцию — тоже (клиент пойдёт искать её в обозревателе).
+cur_ins = conn.execute("INSERT INTO orders (user_id, currency, network, rub_amount,"
+             " crypto_address, status, created_at, agreed_crypto_amount,"
+             " paid_btc_tx, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+             (ME, "BTC", "MAINNET", 5000, BTC1, "sent", "2026-08-05 09:00:00",
+              0.0005, "manual payout by admin", "2026-08-05 09:05:00"))
+MANUAL_ORDER = cur_ins.lastrowid
+# Чужая выплата: в кошельке клиента ей не место.
+conn.execute("INSERT INTO orders (user_id, currency, network, rub_amount,"
+             " crypto_address, status, created_at, agreed_crypto_amount,"
+             " paid_btc_tx, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+             (OTHER, "BTC", "MAINNET", 5000, BTC2, "sent", "2026-08-05 12:00:00",
+              0.002, "d" * 64, "2026-08-05 12:05:00"))
+conn.commit()
+
+d = ab.deliveries_for(ME)
+check("приход с хешем виден", any(x["txid"] == TX for x in d))
+# Ручная отправка в боте помечает заявку sent, не заполняя хеш. Спрятать такую
+# выдачу — значит умолчать о собственном платеже; показываем как ручную.
+_no_tx = next((x for x in d if x["order_id"] == NO_TX_ORDER), None)
+check("выдача без хеша видна клиенту", _no_tx is not None)
+check("выдача без хеша помечена ручной и без ссылки",
+      _no_tx and _no_tx["evidence"] == "manual" and not _no_tx["tx_url"]
+      and _no_tx["txid"] == "")
+check("чужой приход в кошелёк не попал", all(x["txid"] != "d" * 64 for x in d))
+check("у прихода есть ссылка на обозреватель",
+      next(x for x in d if x["txid"] == TX)["tx_url"].startswith("http"))
+check("сумма прихода — из зафиксированной котировки",
+      next(x for x in d if x["txid"] == TX)["amount"] == 0.00096)
+manual = next((x for x in d if x["order_id"] == MANUAL_ORDER), None)
+check("ручная выдача видна клиенту", manual is not None)
+check("ручная выдача не выдаётся за транзакцию",
+      manual and manual["txid"] == "" and manual["tx_url"] == ""
+      and manual["evidence"] == "manual")
+check("настоящий хеш помечен как цепочка",
+      next(x for x in d if x["txid"] == TX)["evidence"] == "chain")
+check("чужой user_id не отдаёт приходы", ab.deliveries_for(999999) == [])
+check("нечисловой user_id не роняет приходы", ab.deliveries_for("x") == [])
+
+
+# --- заметка ложится под ТУ ЖЕ сеть, что и запись ----------------------------
+# У старых заявок колонки network не было. Если заметку положить под сеть,
+# выбранную на экране, ключ разойдётся с записью: команда ответит «сохранено»,
+# а в списке ничего не изменится. Нашёл codex.
+LEGACY = "bc1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qccfmv3"
+conn.execute("INSERT INTO orders (user_id, currency, network, rub_amount,"
+             " crypto_address, status, created_at) VALUES (?,?,?,?,?,?,?)",
+             (ME, "BTC", None, 5000, LEGACY, "sent", "2026-08-02 08:00:00"))
+conn.commit()
+check("заявка без сети попадает в книгу",
+      any(e["address"] == LEGACY for e in ab.entries_for(ME, "BTC")))
+check("имя для записи без сети сохраняется",
+      ab.set_label(ME, "BTC", LEGACY, "старый кошелёк", "MAINNET"))
+check("имя ВИДНО в книге, а не потерялось под другой сетью",
+      next(e for e in ab.entries_for(ME, "BTC") if e["address"] == LEGACY)["label"]
+      == "старый кошелёк")
+check("скрытие записи без сети действительно скрывает",
+      ab.hide(ME, "BTC", LEGACY, "MAINNET")
+      and all(e["address"] != LEGACY for e in ab.entries_for(ME, "BTC")))
+ab.unhide(ME, "BTC", LEGACY, "MAINNET")
+check("возврат записи без сети работает",
+      any(e["address"] == LEGACY for e in ab.entries_for(ME, "BTC")))
+
+
+# --- витрина сайта: ограничение на каждую монету, а не на весь список --------
+# Страница фильтрует чипы на клиенте. С общим лимитом свежие заявки по другим
+# монетам вытесняли бы единственный адрес нужной — и он бы просто исчез.
+for _i in range(12):
+    conn.execute("INSERT INTO orders (user_id, currency, network, rub_amount,"
+                 " crypto_address, status, created_at) VALUES (?,?,?,?,?,?,?)",
+                 (ME, "BTC", "MAINNET", 5000, BTC1 if _i % 2 else BTC2, "sent",
+                  f"2026-08-06 {10 + _i:02d}:00:00"))
+conn.commit()
+by_cur = ab.entries_by_currency(ME)
+check("LTC-адрес не вытеснен свежими BTC-заявками",
+      any(e["address"] == LTC1 for e in by_cur))
+check("на каждую монету не больше лимита",
+      all(sum(1 for e in by_cur if e["currency"] == c) <= ab.MAX_ENTRIES
+          for c in {e["currency"] for e in by_cur}))
+
+
+# Легаси-статус `completed` — те же успешные заявки (так их считают бот и
+# payment_service). Иначе у давнего клиента книга пуста.
+LEGACY_DONE = "ltc1qw508d6qejxtdg4y5r3zarvary0c5xw7kgmn4n9"
+conn.execute("INSERT INTO orders (user_id, currency, network, rub_amount,"
+             " crypto_address, status, created_at, agreed_crypto_amount,"
+             " paid_btc_tx, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+             (OTHER, "LTC", "MAINNET", 5000, LEGACY_DONE, "completed",
+              "2026-07-01 10:00:00", 0.4, "e" * 64, "2026-07-01 10:05:00"))
+conn.commit()
+check("адрес заявки со статусом completed попадает в книгу",
+      any(e["address"] == LEGACY_DONE for e in ab.entries_for(OTHER, "LTC")))
+check("приход по заявке completed виден",
+      any(x["txid"] == "e" * 64 for x in ab.deliveries_for(OTHER)))
+
 print(f"address_book: зелёных {ok}, упавших {fail}")
 sys.exit(1 if fail else 0)

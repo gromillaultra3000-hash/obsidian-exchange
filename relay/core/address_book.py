@@ -41,7 +41,10 @@ DB_PATH = os.getenv("DB_PATH", "/root/exchange.db")
 # заявки делают адрес «уже проверенным на деле»: pending/expired/cancelled/failed
 # ничего о судьбе адреса не говорят, а отменённая заявка нередко отменена
 # именно из-за неверного адреса.
-DELIVERED_STATUSES = ("sent",)
+# `completed` — легаси-статус тех же успешных заявок: он живёт в подсчётах
+# бота и payment_service. Признать только `sent` значило бы, что у давнего
+# клиента книга пуста. Нашёл codex.
+DELIVERED_STATUSES = ("sent", "completed")
 _DELIVERED_SQL = "(" + ",".join(f"'{s}'" for s in DELIVERED_STATUSES) + ")"
 
 # Сколько адресов отдаём поверхности. Список — подсказка, а не архив: длинный
@@ -187,6 +190,93 @@ def entries_for(user_id, currency=None, network=None, limit: int = MAX_ENTRIES,
     return out[:max(1, int(limit or MAX_ENTRIES))]
 
 
+def entries_by_currency(user_id, per_currency: int = MAX_ENTRIES) -> list[dict]:
+    """Книга для витрин, где отбор по монете делает САМА страница.
+
+    Сайт получает список целиком и прячет чужие монеты на клиенте. С общим
+    ограничением в восемь записей это тихо теряло адреса: восемь свежих заявок
+    по другим монетам вытесняли единственный LTC-адрес, и клиент, у которого он
+    есть, видел пустое место. Нашёл codex. Поэтому ограничение здесь — на
+    КАЖДУЮ пару «монета + сеть», а не на весь список.
+    """
+    seen, out = {}, []
+    for e in entries_for(user_id, limit=1000):
+        key = (e["currency"], e["network"])
+        seen[key] = seen.get(key, 0) + 1
+        if seen[key] <= max(1, int(per_currency or MAX_ENTRIES)):
+            out.append(e)
+    return out
+
+
+def deliveries_for(user_id, limit: int = 10) -> list[dict]:
+    """Что МЫ отправили на адреса клиента: приход глазами получателя.
+
+    Витрина кошелька без этого — список строк, по которым ничего не происходило.
+    Приход берём из СВОИХ заявок, а не из цепочки: у нас есть и сумма, и адрес,
+    и хеш, а обозреватель по чужому адресу нам не отвечает и не должен —
+    показывать остаток чужого адреса мы не вправе (см. шапку модуля).
+
+    Только `sent` и только с хешем: «отправлено» без хеша — это обещание, а не
+    приход, и в кошельке ему не место.
+    """
+    try:
+        uid = int(user_id)
+    except (TypeError, ValueError):
+        return []
+    if uid <= 0:
+        return []
+    try:
+        with _conn() as conn:
+            rows = conn.execute(
+                "SELECT order_id, currency, COALESCE(network,'') AS network,"
+                "       crypto_address, agreed_crypto_amount, paid_btc_tx,"
+                "       COALESCE(updated_at, created_at) AS ts"
+                "  FROM orders"
+                # Все выданные заявки, в том числе без хеша: путь ручной отправки
+                # в боте помечает заявку `sent`, не заполняя `paid_btc_tx`
+                # (main_bot.py). Отсечь их по «нет хеша» значило бы спрятать от
+                # клиента выдачу, которая состоялась. Нашёл codex.
+                " WHERE user_id = ? AND LOWER(COALESCE(status,'')) IN "
+                + _DELIVERED_SQL +
+                " ORDER BY ts DESC LIMIT ?",
+                (uid, max(1, int(limit or 10)))).fetchall()
+    except Exception as e:
+        logger.warning("address_book: приходы не прочитаны: %s", e)
+        return []
+
+    out = []
+    for r in rows:
+        cur = str(r["currency"] or "").upper()
+        raw = str(r["paid_btc_tx"] or "").strip()
+        # Колонка историческая: кроме хешей в ней встречаются ссылки и пометки
+        # ручной выдачи. Выдать такую пометку за транзакцию нельзя — клиент
+        # пойдёт искать её в обозревателе и не найдёт. Но и спрятать строку
+        # нельзя: выдача БЫЛА, а «получено» без записи — это молчание о
+        # собственном платеже. Поэтому показываем, честно помечая, чем
+        # подтверждено. Нашёл codex.
+        chain = False
+        try:
+            from core import txid as _txid
+            chain = bool(_txid.is_txid(raw, cur))
+        except Exception:
+            chain = False
+        url = ""
+        if chain:
+            try:
+                url = _txid.explorer_url(cur, raw, r["network"] or None) or ""
+            except Exception:
+                url = ""
+        out.append({"order_id": r["order_id"], "currency": cur,
+                    "network": str(r["network"] or "").upper(),
+                    "address": str(r["crypto_address"] or ""),
+                    "short": short(str(r["crypto_address"] or "")),
+                    "amount": r["agreed_crypto_amount"],
+                    "txid": raw if chain else "",
+                    "evidence": "chain" if chain else "manual",
+                    "tx_url": url, "ts": r["ts"] or ""})
+    return out
+
+
 def set_label(user_id, currency, address, label, network="") -> bool:
     """Подписать адрес именем («мой Ledger», «Binance»). Пустое имя — снять."""
     return _note(user_id, currency, address, network, label=str(label or "")[:40])
@@ -201,16 +291,31 @@ def unhide(user_id, currency, address, network="") -> bool:
     return _note(user_id, currency, address, network, hidden=0)
 
 
+def _resolve_network(user_id, currency, address, network) -> str:
+    """Сеть, под которой адрес РЕАЛЬНО лежит в книге.
+
+    У старых заявок колонки `network` не было, и такие записи живут с пустой
+    сетью. Поверхность же присылает сеть выбранную — заметка легла бы под ключ,
+    которого в книге нет: команда отвечает «сохранено», а в списке ничего не
+    меняется. Нашёл codex.
+    """
+    addr = str(address or "").strip()
+    for e in entries_for(user_id, currency, None, limit=200, include_hidden=True):
+        if e["address"] == addr:
+            return e["network"]
+    return str(network or "").strip().upper()
+
+
 def _note(user_id, currency, address, network, label=None, hidden=None) -> bool:
     try:
         uid = int(user_id)
     except (TypeError, ValueError):
         return False
     cur = str(currency or "").strip().upper()
-    net = str(network or "").strip().upper()
     addr = str(address or "").strip()
     if uid <= 0 or not cur or not addr:
         return False
+    net = _resolve_network(uid, cur, addr, network)
     try:
         with _conn() as conn:
             row = conn.execute(

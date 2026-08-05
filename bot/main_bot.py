@@ -7015,10 +7015,13 @@ def _my_wallet_text(uid) -> str:
         return ("🔌 <b>Мой кошелёк</b>\n\nСейчас не удалось получить данные. "
                 "Попробуйте позже.")
     if not wallets:
-        return ("🔌 <b>Мой кошелёк</b>\n\nКошелёк не подключён. Подключить можно "
-                "в приложении: «Личный кабинет» → создание заявки → «Подключить "
-                "кошелёк». Ключи остаются у вас — мы видим только адрес и его "
-                "публичный баланс.")
+        # Кошелёк не подключён — но адреса и приходы у клиента есть, и раздел
+        # без них выглядел бы пустым у того, кто полгода получает на свой BTC.
+        head = ("🔌 <b>Мой кошелёк</b>\n\nВнешний кошелёк не подключён. Подключить "
+                "можно в приложении: «Личный кабинет» → создание заявки → "
+                "«Подключить кошелёк». Ключи остаются у вас — мы видим только "
+                "адрес и его публичный баланс.")
+        return "\n\n".join([head] + _wallet_book_lines(uid))
     lines = ["🔌 <b>Мой кошелёк</b>\n"]
     for w in wallets:
         # «Не знаем» не превращаем в ноль: пустой кошелёк и недоступная сеть —
@@ -7049,7 +7052,52 @@ def _my_wallet_text(uid) -> str:
     else:
         lines.append("История сейчас недоступна — попробуйте позже.")
     lines.append("Отключить кошелёк можно в приложении, вкладка «Профиль».")
-    return "\n\n".join(lines)
+    return "\n\n".join(lines + _wallet_book_lines(uid))
+
+
+def _wallet_book_lines(uid) -> list:
+    """Адреса клиента и приходы от нас — тем же источником, что сайт и Mini App.
+
+    Отдельной функцией, потому что нужны в ОБЕИХ ветках `/mywallet`: у клиента
+    без подключённого кошелька раздел «Мой кошелёк» иначе пуст, хотя он полгода
+    получает на свой BTC-адрес. Подключение есть только у TON — кошелёк клиента
+    шире, чем одна сеть.
+    """
+    try:
+        if RELAY_PATH not in sys.path:
+            sys.path.insert(0, RELAY_PATH)
+        from core import address_book as _ab
+        book = _ab.entries_for(uid, limit=6)
+        deliv = _ab.deliveries_for(uid, limit=5)
+    except Exception:
+        logger.exception("адресная книга недоступна в /mywallet")
+        return []
+    # Имя адреса задаёт КЛИЕНТ. В сообщении с parse_mode=HTML незакрытый тег в
+    # имени рушит всю выдачу «/mywallet» — Telegram отвергает сообщение целиком,
+    # и раздел выглядит сломанным без причины. Нашёл codex.
+    import html as _html
+    out = []
+    if book:
+        rows = ["📇 <b>Ваши адреса</b>"]
+        for e in book:
+            title = f" — {_html.escape(e['label'])}" if e["label"] else ""
+            rows.append(f"{'✅' if e['verified'] else '•'} <b>{e['currency']}</b>"
+                        f"{' ' + e['network'] if e['network'] else ''} "
+                        f"<code>{e['short']}</code>{title}")
+        out.append("\n".join(rows))
+    if deliv:
+        rows = ["⬇️ <b>Получено от обменника</b>"]
+        for d in deliv:
+            amount = f"{d['amount']:.8f}".rstrip("0").rstrip(".") if d["amount"] else "—"
+            # «Выдано вручную» и «есть хеш» — разные новости для того, кто
+            # пойдёт искать перевод в обозревателе.
+            link = (f" · <a href=\"{d['tx_url']}\">транзакция</a>" if d["tx_url"]
+                    else (" · выдано вручную, хеша нет"
+                          if d.get("evidence") == "manual" else ""))
+            rows.append(f"+{amount} {d['currency']} → <code>{d['short']}</code>"
+                        f" (#{d['order_id']}){link}")
+        out.append("\n".join(rows))
+    return out
 
 
 @router.message(Command("mywallet"))
