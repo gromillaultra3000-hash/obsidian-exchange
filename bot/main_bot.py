@@ -963,13 +963,17 @@ def get_commission_percent(amount_rub, user_id: int = None):
     return base
 # Источники курса по монете. Новая монета = одна строка здесь.
 #   cg      — id на coingecko (vs_currencies=rub);
-#   binance — символ к USDT (умножаем на USDTRUB); None = сам котируется в RUB (USDT);
+#   binance — символ пары. Оканчивается на RUB → цена УЖЕ в рублях (USDTRUB);
+#             иначе умножаем на USDTRUB. None = резервного источника НЕТ.
+#             ⚠️ Раньше None означало «котируется в RUB напрямую», и монета без
+#             пары на Binance (XMR снят в 2024) получила бы цену тезера: Monero
+#             ушла бы по 91 ₽ вместо ~30 000. Нет источника — это отказ;
 #   fallback— аварийная цена в RUB, если оба источника недоступны.
 # USDT любой сети (TRC20/ERC20) котируется одинаково — это тот же tether.
 _COIN_SOURCES = {
     "BTC": {"cg": "bitcoin",  "binance": "BTCUSDT", "fallback": 6500000},
     "LTC": {"cg": "litecoin", "binance": "LTCUSDT", "fallback": 4000},
-    "USDT": {"cg": "tether",  "binance": None,      "fallback": 85},
+    "USDT": {"cg": "tether",  "binance": "USDTRUB", "fallback": 85},
     "ETH": {"cg": "ethereum", "binance": "ETHUSDT", "fallback": 250000},
     "XRP": {"cg": "ripple",   "binance": "XRPUSDT", "fallback": 95},
     # На CoinGecko монета TON называется the-open-network (не «toncoin»),
@@ -977,6 +981,11 @@ _COIN_SOURCES = {
     # он нужен, только когда оба источника молчат, и всё равно уводит заявку
     # к человеку (страж котировки не пустит расхождение).
     "TON": {"cg": "the-open-network", "binance": "TONUSDT", "fallback": 260},
+    # Monero: на Binance пары НЕТ (снята в 2024) — резервного источника нет, и
+    # это записано явно. Фолбэк — грубый порядок величины: он нужен, только
+    # когда CoinGecko молчит, и всё равно уводит заявку к человеку (страж
+    # котировки не пустит расхождение).
+    "XMR": {"cg": "monero",   "binance": None,      "fallback": 30000},
 }
 _RATE_CACHE = {}  # module-level, живёт между вызовами: {coin: {"rate", "ts"}}
 
@@ -1006,14 +1015,17 @@ def get_cached_rate(coin):
         r = requests.get(f"https://api.coingecko.com/api/v3/simple/price?ids={src['cg']}&vs_currencies=rub", timeout=8)
         rate = r.json()[src["cg"]]["rub"]
     except Exception:
-        try:  # binance: <COIN>USDT × USDTRUB (для USDT — просто USDTRUB)
-            if src["binance"]:
-                r1 = requests.get(f"https://api.binance.com/api/v3/ticker/price?symbol={src['binance']}")
-                r2 = requests.get("https://api.binance.com/api/v3/ticker/price?symbol=USDTRUB")
-                rate = float(r1.json()["price"]) * float(r2.json()["price"])
+        try:  # binance: пара в рублях как есть, иначе <COIN>USDT × USDTRUB
+            sym = src["binance"]
+            if not sym:
+                raise LookupError(f"нет резервного источника цены для {key}")
+            r1 = requests.get(f"https://api.binance.com/api/v3/ticker/price?symbol={sym}")
+            price = float(r1.json()["price"])
+            if sym.endswith("RUB"):
+                rate = price
             else:
-                r = requests.get("https://api.binance.com/api/v3/ticker/price?symbol=USDTRUB")
-                rate = float(r.json()["price"])
+                r2 = requests.get("https://api.binance.com/api/v3/ticker/price?symbol=USDTRUB")
+                rate = price * float(r2.json()["price"])
         except Exception:
             return cache.get("rate") or src["fallback"]
     cache["rate"] = rate
@@ -1621,7 +1633,8 @@ def _fmt_rate_compact(r) -> str:
         return f"{r/1000:.1f}к ₽"
     return f"{r:.0f} ₽"
 
-COIN_ICONS = {"BTC": "₿", "LTC": "Ł", "USDT": "💵", "ETH": "Ξ", "XRP": "✕"}
+COIN_ICONS = {"BTC": "₿", "LTC": "Ł", "USDT": "💵", "ETH": "Ξ", "XRP": "✕",
+              "TON": "💎", "XMR": "ɱ"}
 
 
 def coins_line(sep=" · ", fallback="BTC · LTC · USDT"):
@@ -6545,7 +6558,11 @@ async def payout_discovery_task():
             # проход — это ровно тот шум, из-за которого 27.07 перестали читать
             # тревогу. Отпечаток включает обе половины, поэтому новая находка
             # пробивает окно молчания сразу, а прежняя его не продлевает.
-            if res.get("review") or res.get("near"):
+            # Заявки в нечитаемой цепи (Monero) идут тем же письмом: автомат
+            # их не закроет никогда, и если о них не сказать, они просто
+            # исчезнут из поля зрения — сверка «прошла успешно», а деньги
+            # клиента так и не выданы.
+            if res.get("review") or res.get("near") or res.get("manual"):
                 from core.alert_throttle import should_send
                 # Ключ окна молчания считает сам модуль сверки: это правило
                 # «что считать той же новостью», и оно обязано быть проверяемым

@@ -756,8 +756,40 @@ def _incoming_ton(address: str, memo=None) -> list[dict]:
     return [t for t in out if t["txid"]]
 
 
+class ChainUnreadable(RuntimeError):
+    """Цепь прочитать нечем. Это НЕ «переводов нет».
+
+    Разница вся в том, что делает человек дальше. Пустой список означает
+    «смотрели и не нашли» — по нему сверка спокойно идёт к следующей заявке, а
+    зависшая так и висит. Исключение означает «не смотрели и не сможем» — такая
+    заявка обязана попасть человеку в руки, потому что автомат её не закроет
+    никогда, сколько бы проходов ни сделал.
+    """
+
+    def __init__(self, currency: str, why: str):
+        self.currency = str(currency or "").upper()
+        self.why = why
+        super().__init__(f"{self.currency}: {why}")
+
+
+# Монеты, чью цепь прочитать НЕЛЬЗЯ в принципе — не «пока не написали читателя»,
+# а по устройству сети. Список существует, чтобы такая монета не выглядела
+# забытой: без записи здесь она молча получала бы пустой список и навсегда
+# считалась бы проверенной. Причина обязана быть человеческой — её показывают
+# персоналу в отчёте вместо находки.
+UNREADABLE_CHAINS = {
+    "XMR": "у Monero суммы, отправитель и получатель скрыты устройством сети — "
+           "публичного обозревателя, который покажет чужой перевод, не бывает; "
+           "выдачу подтверждает человек по ключу транзакции от получателя",
+}
+
+
 def incoming_transfers(currency: str, address: str, network=None) -> list[dict]:
     cur = str(currency or "").upper()
+    if cur in UNREADABLE_CHAINS:
+        # Именно исключение, а не []: см. ChainUnreadable — пустой список здесь
+        # означал бы «искали, не нашли», и заявка тихо осталась бы висеть.
+        raise ChainUnreadable(cur, UNREADABLE_CHAINS[cur])
     if cur in ("BTC", "LTC"):
         return _incoming_btc_like(address, cur)
     if cur == "USDT":
@@ -1062,7 +1094,7 @@ def discover(rate_fn=None, fetch=None) -> dict:
     """
     fetch = fetch or incoming_transfers
     out = {"checked": 0, "close": [], "review": [], "near": [], "none": 0,
-           "errors": []}
+           "manual": [], "errors": []}
     try:
         used = _used_txids()
     except Exception as e:
@@ -1080,6 +1112,16 @@ def discover(rate_fn=None, fetch=None) -> dict:
             trusted_cache[cur] = trusted_senders(cur)
         try:
             transfers = _fetch_transfers(fetch, cur, addr, o.get("network"))
+        except ChainUnreadable as e:
+            # Отдельная ветка от «цепочка недоступна»: та говорит «сейчас не
+            # достучались, попробуем через полчаса», а здесь ждать нечего —
+            # следующий проход даст ровно то же. Заявку обязан увидеть человек.
+            out["manual"].append({
+                "order_id": o.get("order_id"), "currency": cur,
+                "rub_amount": o.get("rub_amount"), "user_id": o.get("user_id"),
+                "address": addr, "reason": e.why,
+            })
+            continue
         except Exception as e:
             out["errors"].append(f"#{o['order_id']}: цепочка недоступна ({type(e).__name__})")
             continue
@@ -1135,6 +1177,10 @@ def candidates_for(order_id: int, rate_fn=None, fetch=None) -> dict:
     cur = (o.get("currency") or "").upper()
     try:
         transfers = _fetch_transfers(fetch, cur, o.get("crypto_address"), o.get("network"))
+    except ChainUnreadable as e:
+        # «Попробуйте позже» здесь было бы враньём: позже будет то же самое.
+        return {"error": f"{cur}: {e.why}. Закрывать заявку — только "
+                         f"/force_payout {order_id} <TXID> по ключу от клиента"}
     except Exception as e:
         return {"error": f"цепочка недоступна: {type(e).__name__}"}
     v = judge({**o, "expected_amount": expected_amount(o, rate_fn),
@@ -1165,19 +1211,26 @@ def alert_fingerprint(res: dict) -> str:
         return f"{v.get('order_id')}:{'+'.join(txs)}"
     review = sorted(one(v, "candidates") for v in (res.get("review") or []))
     near = sorted(one(v, "near") for v in (res.get("near") or []))
-    return "discovery:review:" + ",".join(review) + "|near:" + ",".join(near)
+    # Заявки в нечитаемой цепи входят в отпечаток по своему составу: одна и та
+    # же висящая заявка не должна продлевать тревогу каждые полчаса, а вот
+    # НОВАЯ обязана пробить окно молчания сразу — иначе выйдет ровно тот шум
+    # 27.07, из-за которого сигнал перестали читать.
+    manual = sorted(str(v.get("order_id")) for v in (res.get("manual") or []))
+    return ("discovery:review:" + ",".join(review) + "|near:" + ",".join(near)
+            + "|manual:" + ",".join(manual))
 
 
 def format_report(res: dict, max_items: int = 6) -> str:
     """Сводка для Telegram или '' — если рассказывать не о чем."""
     if (not res.get("close") and not res.get("review") and not res.get("near")
-            and not res.get("errors")):
+            and not res.get("manual") and not res.get("errors")):
         return ""
     lines = ["⛓ <b>Сверка выдачи с блокчейном</b>\n",
              f"<blockquote>Проверено зависших заявок: <b>{res.get('checked', 0)}</b>\n"
              f"Закрыто по доказательству: <b>{len(res.get('close', []))}</b>\n"
              f"Требуют решения: <b>{len(res.get('review', []))}</b>\n"
-             f"Похожи, но мимо допуска: <b>{len(res.get('near', []))}</b></blockquote>"]
+             f"Похожи, но мимо допуска: <b>{len(res.get('near', []))}</b>\n"
+             f"Цепь не читается, только руками: <b>{len(res.get('manual', []))}</b></blockquote>"]
     for v in res.get("close", [])[:max_items]:
         lines.append(f"\n✅ #{v['order_id']} — {v.get('amount')} {v['currency']}, "
                      f"tx <code>{(v.get('txid') or '')[:16]}…</code>")
@@ -1198,6 +1251,13 @@ def format_report(res: dict, max_items: int = 6) -> str:
                          f"   {n['amount']:g} ({n['off_pct']:g}% мимо) от "
                          f"{', '.join(n['senders'])[:48]}\n"
                          f"   <code>/force_payout {v['order_id']} {n['txid']}</code>")
+    for v in res.get("manual", [])[:max_items]:
+        # Кнопки закрытия здесь нет и быть не может: доказательства у нас нет
+        # вовсе. Поэтому сразу даём готовую команду — иначе подсказка звучит
+        # как «разберись сам», и заявка останется висеть.
+        lines.append(f"\n🖐 #{v['order_id']} ({(v.get('rub_amount') or 0):g} ₽ → "
+                     f"{v['currency']}): {v['reason']}\n"
+                     f"   <code>/force_payout {v['order_id']} &lt;TXID&gt;</code>")
     for e in res.get("errors", [])[:3]:
         lines.append(f"\n⚠️ {e}")
     return "\n".join(lines)

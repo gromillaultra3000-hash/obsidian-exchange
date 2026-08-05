@@ -876,7 +876,8 @@
         // Список не хардкодим — направление может быть закрыто по ликвидности.
         const COIN_LABEL = { BTC: '₿ Bitcoin (BTC)', LTC: 'Ł Litecoin (LTC)',
                              USDT: '💵 Tether (USDT)', ETH: 'Ξ Ethereum (ETH)',
-                             XRP: '✕ XRP (Ripple)' };
+                             XRP: '✕ XRP (Ripple)', TON: '💎 Toncoin (TON)',
+                             XMR: 'ɱ Monero (XMR)' };
         function applyOfferings(offerings) {
             if (!offerings || !offerings.length) return;
             window.__oeOfferings = offerings;
@@ -1660,7 +1661,10 @@
                           USDT: net === 'ERC20' ? '0x... (ERC-20 / Ethereum)' : 'T... (TRC20 / Tron)',
                           ETH: '0x... (ERC-20 / Ethereum)',
                           XRP: 'r... или X... (X-адрес уже содержит тег)',
-                          TON: 'EQ... / UQ... или 0:... (можно адрес#memo)' };
+                          TON: 'EQ... / UQ... или 0:... (можно адрес#memo)',
+                          // У Monero отдельного поля тега нет: payment id живёт
+                          // внутри integrated-адреса (он длиннее обычного).
+                          XMR: '4... или 8... (integrated-адрес тоже подойдёт)' };
             const addrInput = document.getElementById('address');
             addrInput.placeholder = ph[cur] || 'Введите адрес кошелька';
             const saved = localStorage.getItem('lastAddress_' + cur + '_' + net);
@@ -2260,6 +2264,12 @@
                 // Контрольную сумму здесь не считаем: это подсказка ввода,
                 // проверяет сервер (core.address.is_valid_ton).
                 TON:  /^(?:[A-Za-z0-9+/_-]{48}|-?\d+:[0-9a-fA-F]{64})(?:#[^\r\n]{0,127})?$/,
+                // Monero: обычный/субадрес — 95 символов, integrated — 106
+                // (в нём лежит payment id). Второй символ не ограничиваем: он
+                // кодирует префикс ВМЕСТЕ с началом ключа траты и пробегает
+                // широкий диапазон — перечисление «по виду» красило верный
+                // адрес красным. Контрольную сумму (keccak) считает сервер.
+                XMR:  /^(?:[48][1-9A-HJ-NP-Za-km-z]{94}|4[1-9A-HJ-NP-Za-km-z]{105})$/,
             };
             // Монеты нет в таблице — молчим, а НЕ проверяем шаблоном биткойна.
             // Прежний фолбэк `|| patterns.BTC` красил валидный адрес новой

@@ -283,5 +283,49 @@ check("адрес заявки со статусом completed попадает 
 check("приход по заявке completed виден",
       any(x["txid"] == "e" * 64 for x in ab.deliveries_for(OTHER)))
 
+
+# ── один адрес под двумя ключами ─────────────────────────────────────────────
+# У старых заявок колонки `network` не было, у подтверждённой подписью связи
+# сеть каноническая. Один и тот же адрес приходил в книгу дважды, и — хуже —
+# пометка «скрыть» ложилась только на одну из записей: клиент убирал адрес, а
+# безсетевой близнец продолжал предлагаться в один тап. Нашёл codex.
+TWIN = 333
+conn.execute("""CREATE TABLE IF NOT EXISTS wallet_links (
+    user_id INTEGER, chain TEXT, address TEXT, verified_at TEXT)""")
+conn.execute("INSERT INTO orders (user_id, currency, network, rub_amount,"
+             " crypto_address, status, created_at) VALUES (?,?,?,?,?,?,?)",
+             (TWIN, "BTC", None, 5000, BTC1, "sent", "2026-07-10 10:00:00"))
+conn.execute("INSERT INTO wallet_links (user_id, chain, address, verified_at)"
+             " VALUES (?,?,?,?)", (TWIN, "BTC", BTC1, "2026-08-01 10:00:00"))
+conn.commit()
+
+twin = ab.entries_for(TWIN, "BTC")
+check("адрес показан один раз, а не в двух видах",
+      [e["address"] for e in twin].count(BTC1) == 1)
+check("показан именно подтверждённый вид записи",
+      any(e["address"] == BTC1 and e["verified"] for e in twin))
+check("у показанной записи названа сеть",
+      all(e["network"] for e in twin if e["address"] == BTC1))
+
+check("скрытие принято", ab.hide(TWIN, "BTC", BTC1))
+after = ab.entries_for(TWIN, "BTC")
+check("скрытый адрес не возвращается ни в каком виде",
+      not any(e["address"] == BTC1 for e in after))
+check("и не предлагается как «свой» для подстановки",
+      not ab.owns(TWIN, "BTC", BTC1))
+check("а с явной просьбой показать скрытое — виден один раз",
+      [e["address"] for e in ab.entries_for(TWIN, "BTC", include_hidden=True)
+       ].count(BTC1) == 1)
+
+# Пометка, записанная под ПУСТОЙ сетью (так её сохранили бы до канонизации),
+# обязана исполняться и после того, как запись получила каноническую сеть.
+conn.execute("DELETE FROM client_address_notes WHERE user_id=?", (TWIN,))
+conn.execute("INSERT INTO client_address_notes (user_id, currency, network,"
+             " address, label, hidden, updated_at) VALUES (?,?,?,?,?,?,?)",
+             (TWIN, "BTC", "", BTC1, "", 1, "2026-08-05 10:00:00"))
+conn.commit()
+check("старая пометка «скрыть» без сети всё ещё исполняется",
+      not any(e["address"] == BTC1 for e in ab.entries_for(TWIN, "BTC")))
+
 print(f"address_book: зелёных {ok}, упавших {fail}")
 sys.exit(1 if fail else 0)

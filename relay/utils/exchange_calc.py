@@ -22,11 +22,18 @@ SWAP_NETWORKS = {"BTC": "Mainnet", "LTC": "Mainnet", "USDT": "TRC20"}
 _COINGECKO_IDS = {"BTC": "bitcoin", "LTC": "litecoin", "USDT": "tether",
                   "ETH": "ethereum", "XRP": "ripple",
                   # На CoinGecko TON — the-open-network, не «toncoin».
-                  "TON": "the-open-network"}
+                  "TON": "the-open-network",
+                  "XMR": "monero"}
 _FALLBACK_RATES = {"BTC": 6500000, "LTC": 4000, "USDT": 85, "ETH": 250000,
-                   "XRP": 95, "TON": 260}
-_BINANCE_USDT = {"BTC": "BTCUSDT", "LTC": "LTCUSDT", "ETH": "ETHUSDT",
-                 "XRP": "XRPUSDT", "TON": "TONUSDT"}
+                   "XRP": 95, "TON": 260, "XMR": 30000}
+# Резервный источник — пара на Binance. Символ, оканчивающийся на RUB, УЖЕ в
+# рублях; остальные умножаются на USDTRUB.
+# ⚠️ Монеты здесь может не быть вовсе (XMR снят с Binance в 2024): тогда
+# резервного источника просто НЕТ. Раньше отсутствие пары означало ветку
+# «значит, это USDT» и монета получала цену тезера — Monero ушла бы по 91 ₽
+# вместо ~30 000. Отсутствие источника — отказ, а не догадка.
+_BINANCE_SYMBOL = {"BTC": "BTCUSDT", "LTC": "LTCUSDT", "ETH": "ETHUSDT",
+                   "XRP": "XRPUSDT", "TON": "TONUSDT", "USDT": "USDTRUB"}
 
 # Кеш заводится ОТ списка котируемых монет, а не отдельным литералом: раньше
 # это были два независимых перечня, и монета, забытая в кеше, роняла
@@ -55,14 +62,16 @@ def get_cached_rate(coin):
         rate = r.json()[cg_id]["rub"]
     except Exception:
         try:
-            sym = _BINANCE_USDT.get(coin)
-            if sym:  # BTC/LTC/ETH — цена в USDT × курс USDT/RUB
-                r1 = requests.get(f"https://api.binance.com/api/v3/ticker/price?symbol={sym}", timeout=8)
+            sym = _BINANCE_SYMBOL.get(coin)
+            if not sym:
+                raise LookupError(f"нет резервного источника цены для {coin}")
+            r1 = requests.get(f"https://api.binance.com/api/v3/ticker/price?symbol={sym}", timeout=8)
+            price = float(r1.json()["price"])
+            if sym.endswith("RUB"):
+                rate = price          # пара уже в рублях (USDTRUB)
+            else:
                 r2 = requests.get("https://api.binance.com/api/v3/ticker/price?symbol=USDTRUB", timeout=8)
-                rate = float(r1.json()["price"]) * float(r2.json()["price"])
-            else:  # USDT
-                r = requests.get("https://api.binance.com/api/v3/ticker/price?symbol=USDTRUB", timeout=8)
-                rate = float(r.json()["price"])
+                rate = price * float(r2.json()["price"])
         except Exception:
             return cache["rate"] or _FALLBACK_RATES[coin]
     cache["rate"] = rate

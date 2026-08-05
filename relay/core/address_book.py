@@ -94,6 +94,36 @@ def _link_network(chain) -> str:
         return ""
 
 
+def _row_network(currency, network) -> str:
+    """Сеть заявки в каноническом виде. Пустую сеть достраиваем ТОЛЬКО у монет
+    с единственной сетью: там она однозначна. У USDT сетей две, и подстановка
+    «наверное, TRC-20» была бы догадкой о том, куда уходят деньги."""
+    net = str(network or "").strip().upper()
+    if net:
+        return net
+    try:
+        from core import assets as _assets
+        nets = _assets.CURRENCY_NETWORKS.get(
+            _assets.normalize_currency(currency)) or []
+        return str(nets[0]) if len(nets) == 1 else ""
+    except Exception as e:
+        logger.warning("address_book: сеть заявки не определена: %s", e)
+        return ""
+
+
+def _note_by_address(notes: dict, cur: str, addr: str):
+    """Пометка по АДРЕСУ, в какой бы сети её ни записали.
+
+    Клиент прячет адрес, а не строку реестра. Запись могла лечь и с пустой
+    сетью (старая заявка), и с канонической — искать только по точному ключу
+    значит иногда не исполнить его решение вовсе.
+    """
+    for (c, _n, a), note in notes.items():
+        if c == cur and a == addr:
+            return note
+    return None
+
+
 def short(address, head: int = 8, tail: int = 6) -> str:
     """Адрес для показа. Середину прячем, но КОНЕЦ оставляем: подменённый
     адрес отличается именно хвостом, и обрезка «…» после начала — старый
@@ -159,6 +189,28 @@ def entries_for(user_id, currency=None, network=None, limit: int = MAX_ENTRIES,
         logger.warning("address_book: связи кошелька недоступны: %s", e)
 
     out, seen = [], set()
+    # Один и тот же адрес приходит сюда в двух видах: у подтверждённой связи и
+    # свежих заявок сеть каноническая (MAINNET), у старых заявок колонки network
+    # не было вовсе и она пустая. Ключи разные — записи считались разными, и
+    # книга показывала адрес дважды. Хуже дубля было другое: пометка «скрыть»
+    # ложится на КАНОНИЧЕСКУЮ запись, а безсетевой близнец её не видел и
+    # оставался предложением в один тап. То есть решение клиента «этот адрес
+    # больше не подсказывать» тихо не исполнялось. Нашёл codex.
+    #
+    # Лечим с двух сторон. Первая: у монеты с ЕДИНСТВЕННОЙ сетью пустая сеть
+    # старой заявки не двусмысленна — это она и есть, приводим к канону. У
+    # USDT так делать нельзя: там сетей две, и «по умолчанию TRC-20» было бы
+    # догадкой о чужих деньгах.
+    precise = {(str(l.get("chain") or "").upper(), str(l.get("address") or "").strip())
+               for l in links if _link_network(l.get("chain"))}
+    for r in rows:
+        r["network"] = _row_network(r.get("currency"), r.get("network"))
+        if r["network"]:
+            precise.add((str(r["currency"]).upper(), str(r["crypto_address"]).strip()))
+    # Вторая: если у адреса ЕСТЬ представление с названной сетью, безсетевое —
+    # тот же адрес, только менее точный. Считаем по всему набору, а не по
+    # порядку обхода: иначе исход зависел бы от того, какая заявка свежее.
+    decided = {}
 
     def add(cur, net, addr, source, verified, last_at=None, uses=0):
         cur = str(cur or "").upper()
@@ -176,8 +228,16 @@ def entries_for(user_id, currency=None, network=None, limit: int = MAX_ENTRIES,
         key = (cur, net, addr)
         if key in seen:
             return
-        note = notes.get(key) or notes.get((cur, "", addr)) or {}
+        if not net and (cur, addr) in precise:
+            return
+        if not net and (cur, addr) in decided:
+            return
+        # Пометку ищем и по безсетевому виду: клиент прячет АДРЕС, а не запись
+        # о нём, и в каком виде она в тот момент лежала — его не касается.
+        note = (notes.get(key) or notes.get((cur, "", addr))
+                or _note_by_address(notes, cur, addr) or {})
         hidden = bool(note.get("hidden"))
+        decided[(cur, addr)] = net
         if hidden and not include_hidden:
             seen.add(key)
             return

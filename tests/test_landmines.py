@@ -2121,17 +2121,48 @@ def check_every_currency_is_reconcilable():
         return
     for name in readers:
         setattr(pd, name, (lambda n: (lambda *a, **k: seen.append(n) or []))(name))
+    # Единственная законная причина не читать цепь — что её нельзя прочитать в
+    # принципе (Monero). Такая монета обязана быть ОБЪЯВЛЕНА и обязана громко
+    # отказываться, а не отдавать пустой список: «не смотрели» и «не нашли» —
+    # разные ответы, и по второму человек перестаёт искать.
+    unreadable = getattr(pd, "UNREADABLE_CHAINS", {})
+    unreadable_exc = getattr(pd, "ChainUnreadable", None)
     for cur in known:
         seen.clear()
+        declared = cur in unreadable
         try:
             pd.incoming_transfers(cur, "адрес-клиента")
         except Exception as e:
+            if declared and unreadable_exc is not None and isinstance(e, unreadable_exc):
+                if not str(unreadable[cur] or "").strip():
+                    fail(tag, f"{cur}: объявлена нечитаемой без причины — персоналу "
+                              f"в отчёте будет сказано «не смотрели» и ни слова о том, "
+                              f"почему и что делать вместо этого")
+                continue
             fail(tag, f"{cur}: сверка падает на чтении цепи: {type(e).__name__}: {e}")
             continue
-        if not seen:
+        if declared:
+            fail(tag, f"{cur}: объявлена нечитаемой, но сверка отдаёт по ней список "
+                      f"вместо отказа — заявка молча посчитается проверенной и "
+                      f"останется висеть навсегда")
+        elif not seen:
             fail(tag, f"{cur}: продаём, но выплату по ней сверка не читает ни из "
                       f"одной цепи — выдача «мимо бота» останется невидимой "
                       f"навсегда, а заявка «paid» вечной")
+
+    # Объявить монету нечитаемой мало: проход сверки обязан отличать этот отказ
+    # от «сейчас не достучались». Иначе заявка попадёт в общую корзину ошибок,
+    # где сказано «попробуем позже» — а позже будет ровно то же самое.
+    if unreadable:
+        disc = _nodoc(_slice(_read(os.path.join(relay, "core", "payout_discovery.py")),
+                             "def discover(", "\ndef "))
+        if "ChainUnreadable" not in disc:
+            fail(tag, "discover() не отличает нечитаемую цепь от временного сбоя — "
+                      f"заявка по {', '.join(sorted(unreadable))} будет вечно ждать "
+                      f"следующей попытки, которой не поможет ничего")
+        elif '"manual"' not in disc and "'manual'" not in disc:
+            fail(tag, "нечитаемая цепь не попадает в отдельный список отчёта — "
+                      "персонал не увидит заявку, которую автомат не закроет никогда")
 
     # Свой кошелёк тоже должен быть известен: без него ни одна выплата не
     # опознаётся как НАША, и авто-закрытие не сработает ни разу.
@@ -2159,6 +2190,10 @@ def check_every_currency_is_reconcilable():
 
     own = _slice(src, "def _own_wallet_addresses(", "\ndef ")
     for cur in known:
+        # У нечитаемой цепи своего адреса знать неоткуда и незачем: там нет
+        # запроса, в котором его можно было бы сравнить с отправителем.
+        if cur in unreadable:
+            continue
         if f'"{cur}"' not in own and cur not in ("BTC", "LTC"):
             fail(tag, f"{cur}: _own_wallet_addresses не знает адреса нашего "
                       f"кошелька — своя же выплата будет выглядеть чужой и "
@@ -2833,6 +2868,89 @@ def check_core_imports_with_the_production_interpreter():
 # (BTC подтверждается подписью) та же строка объявила бы биткоин по цене
 # тонкоина: ошибка в тысячи раз, набранная уверенным шрифтом рядом с настоящим
 # балансом. Курс обязан выбираться монетой самой записи.
+# ─────────────────────────────────────────────────────────────────────
+# Монета без резервного источника цены не получает чужую цену
+# ─────────────────────────────────────────────────────────────────────
+# Резервный источник курса — пара на Binance, и отсутствие пары долго означало
+# ветку «значит, это USDT»: цена бралась из USDTRUB. Пока единственной такой
+# монетой был сам тезер, это работало. Первая монета без пары (XMR снят с
+# Binance в 2024) получила бы ~91 ₽ вместо ~30 000 — то есть клиент забрал бы
+# триста монет за цену одной, и выглядело бы это как обычная сделка.
+# Проверка поведенческая: подменяем сеть и смотрим, ЧТО вернёт код.
+def check_coin_without_backup_price_is_refused_not_guessed():
+    tag = "монета котируется по цене чужой монеты"
+    sys.path.insert(0, CANON)
+    try:
+        from utils import exchange_calc as calc
+    except Exception as e:
+        fail(tag, f"расчёт курса не импортируется: {type(e).__name__}: {e}")
+        return
+
+    class R:
+        def __init__(self, p):
+            self.p = p
+
+        def json(self):
+            return {"price": self.p}
+
+    def fake(url, timeout=8):
+        if "coingecko" in url:
+            raise RuntimeError("основной источник молчит")
+        if "USDTRUB" in url:
+            return R("91.5")
+        raise RuntimeError("пары нет")
+
+    real = calc.requests.get
+    calc.requests.get = fake
+    try:
+        usdt_price = 91.5
+        for coin in sorted(calc._COINGECKO_IDS):
+            if coin in calc._BINANCE_SYMBOL:
+                continue                # у монеты есть свой резервный источник
+            calc._rate_cache[coin] = {"rate": 0, "ts": 0}
+            got = calc.get_cached_rate(coin)
+            if abs(got - usdt_price) < 1e-6 and calc._FALLBACK_RATES.get(coin) != usdt_price:
+                fail(tag, f"{coin}: при недоступном основном источнике цена "
+                          f"совпала с USDTRUB ({got}) — монета без своей пары "
+                          f"получает цену тезера, и клиент заберёт её в сотни "
+                          f"раз дешевле")
+    finally:
+        calc.requests.get = real
+        for coin in calc._COINGECKO_IDS:
+            calc._rate_cache[coin] = {"rate": 0, "ts": 0}
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Прайс-листы бота и сайта знают одни и те же монеты
+# ─────────────────────────────────────────────────────────────────────
+# Источников цены два — свой в боте и свой на сайте, — и монета, добавленная в
+# один, молча отсутствует в другом. Витрина при этом общая: клиент видит монету
+# на обеих поверхностях, а цену получает только на одной. Вторая либо откажет,
+# либо (хуже) посчитает по аварийной константе.
+def check_price_lists_agree():
+    tag = "прайс-листы поверхностей разошлись"
+    sys.path.insert(0, CANON)
+    try:
+        from utils import exchange_calc as calc
+    except Exception as e:
+        fail(tag, f"расчёт курса не импортируется: {type(e).__name__}: {e}")
+        return
+    bot = _read(os.path.join(ROOT, "bot", "main_bot.py"))
+    if not bot or "_COIN_SOURCES" not in bot:
+        return
+    m = re.search(r"_COIN_SOURCES\s*=\s*\{(.*?)\n\}", bot, re.S)
+    if not m:
+        fail(tag, "bot/main_bot.py: _COIN_SOURCES не разобран — проверка ослепла")
+        return
+    bot_coins = set(re.findall(r'"([A-Z0-9]{2,6})":\s*\{', m.group(1)))
+    site_coins = set(calc._COINGECKO_IDS)
+    for coin in sorted(bot_coins - site_coins):
+        fail(tag, f"{coin} котируется в боте, но не на сайте: одна и та же "
+                  f"монета с витрины получит цену только в Telegram")
+    for coin in sorted(site_coins - bot_coins):
+        fail(tag, f"{coin} котируется на сайте, но не в боте")
+
+
 def check_balance_is_priced_in_its_own_coin():
     tag = "остаток оценён курсом чужой монеты"
     src = _read(os.path.join(CANON, "webapp.html"))
@@ -3569,6 +3687,106 @@ def check_signature_is_not_payment():
                   "депозит по ней значит платить за неподтверждённый перевод")
 
 
+# ─────────────────────────────────────────────────────────────────────
+# 30. Предварительная регулярка строже настоящей проверки
+# ─────────────────────────────────────────────────────────────────────
+# Было 05.08.2026 (нашёл codex): у Monero перед подсчётом контрольной суммы
+# стоит регулярка «по виду адреса», и в ней были перечислены первые ДВА
+# символа. Второй символ кодирует не тип адреса, а префикс вместе с началом
+# ключа траты, и у integrated-адресов он пробегает B…M. Перечисление
+# отвергало большинство верных integrated-адресов и часть субадресов — до
+# того, как их вообще кто-то посчитает. Клиент с исправным кошельком видел
+# «неверный формат» и уходил.
+# Дефект такого рода не ловится примерами из документации: тот единственный
+# адрес, который взят в тест, обычно как раз проходит. Ловится он только
+# перебором по всему пространству ключей — этим проверка и занимается.
+# Правило: предфильтр вправе отсекать длину и алфавит, но НЕ вправе решать
+# то, что решает контрольная сумма.
+def check_prefilter_is_not_stricter_than_the_real_check():
+    tag = "предфильтр строже правды"
+    relay = os.path.join(ROOT, "relay")
+    if relay not in sys.path:
+        sys.path.insert(0, relay)
+    try:
+        from core import assets as _assets
+        from core import address as _addr
+    except Exception as e:
+        fail(tag, f"реестр валют не загружается: {type(e).__name__}: {e}")
+        return
+
+    # Генераторы заведомо ВЕРНЫХ адресов. Пока такой есть только у Monero —
+    # у остальных монет предфильтр совпадает с проверкой посимвольно. Добавляя
+    # монету со своим кодированием, добавляйте сюда и генератор: без него
+    # проверка про неё просто ничего не знает и молчит.
+    def _xmr_samples(rng):
+        out = []
+        alpha = _addr._B58_ALPHABET
+        for prefix, extra in ((_addr.XMR_PREFIX_STANDARD, 0),
+                              (_addr.XMR_PREFIX_SUBADDRESS, 0),
+                              (_addr.XMR_PREFIX_INTEGRATED, 8)):
+            for _ in range(120):
+                body = (bytes([prefix]) + bytes(rng.getrandbits(8) for _ in range(64 + extra)))
+                raw = body + _addr.keccak256(body)[:4]
+                s = ""
+                for i in range(0, len(raw), 8):
+                    block = raw[i:i + 8]
+                    num = int.from_bytes(block, "big")
+                    size = _addr._XMR_BLOCK_ENCODED[len(block)]
+                    chunk = ""
+                    while num:
+                        num, rem = divmod(num, 58)
+                        chunk = alpha[rem] + chunk
+                    s += chunk.rjust(size, alpha[0])
+                out.append(s)
+        return out
+
+    import random
+    rng = random.Random(20260805)
+    generators = {"XMR": _xmr_samples}
+    for cur, gen in generators.items():
+        if cur not in _assets.CURRENCY_NETWORKS:
+            continue
+        try:
+            samples = gen(rng)
+        except Exception as e:
+            fail(tag, f"{cur}: не удалось собрать образцы адресов: "
+                      f"{type(e).__name__}: {e}")
+            continue
+        if not samples:
+            fail(tag, f"{cur}: генератор образцов ничего не дал — проверка ослепла")
+            continue
+        bad = [a for a in samples if not _assets.validate_address(cur, a)]
+        if bad:
+            fail(tag, f"{cur}: {len(bad)} из {len(samples)} ВЕРНЫХ адресов отвергнуты "
+                      f"(напр. {bad[0][:12]}…) — клиент с исправным кошельком получит "
+                      f"«неверный формат» и уйдёт, а мы не узнаем об этом никогда")
+
+    # Та же строгость на клиенте — отдельная беда: сервер бы адрес принял, но
+    # поле красное и кнопка не даётся, до сервера дело не доходит.
+    web = _read(os.path.join(relay, "webapp.html"))
+    m = re.search(r"^\s*XMR:\s*(/.+/)\s*,\s*$", web, re.M)
+    if "XMR" in _assets.CURRENCY_NETWORKS and web and not m:
+        fail(tag, "webapp.html: у XMR нет подсказки формата — поле молчит там, "
+                  "где у остальных монет клиент видит «формат верный»")
+    elif m:
+        # Тот же перебор прогоняем через браузерную регулярку — она обязана
+        # быть НЕ строже серверной.
+        import json as _json
+        import subprocess as _sp
+        try:
+            samples = _xmr_samples(random.Random(7))
+            js = ("const re=%s;const a=%s;let bad=a.filter(x=>!re.test(x));"
+                  "console.log(bad.length+' '+(bad[0]||''));"
+                  % (m.group(1), _json.dumps(samples)))
+            r = _sp.run(["node", "-e", js], capture_output=True, text=True, timeout=30)
+            n = int((r.stdout or "0 ").split()[0]) if r.returncode == 0 else -1
+            if n > 0:
+                fail(tag, f"webapp.html: подсказка формата XMR отвергает {n} верных "
+                          f"адресов — поле красное, клиент до сервера не дойдёт")
+        except (OSError, ValueError, _sp.SubprocessError):
+            pass                       # node недоступен — молча, это не наш дефект
+
+
 def main():
     for fn in (check_no_diverging_duplicates, check_config_keys_are_read,
                check_no_fail_open_in_guards, check_session_expiry_uses_expires_at,
@@ -3604,6 +3822,8 @@ def main():
                check_stale_proof_code_is_not_a_dead_end,
                check_wallet_showcase_keeps_every_currency,
                check_balance_is_priced_in_its_own_coin,
+               check_coin_without_backup_price_is_refused_not_guessed,
+               check_price_lists_agree,
                check_core_imports_with_the_production_interpreter,
                check_retired_provider_leaves_the_money_path,
                check_balance_is_shown_only_for_proven_ownership,
@@ -3616,7 +3836,8 @@ def main():
                check_debt_queue_is_visible,
                check_attempt_id_is_symmetric,
                check_dead_deal_is_not_silent,
-               check_every_currency_is_reconcilable):
+               check_every_currency_is_reconcilable,
+               check_prefilter_is_not_stricter_than_the_real_check):
         try:
             fn()
         except Exception as e:
