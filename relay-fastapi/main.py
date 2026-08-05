@@ -807,8 +807,19 @@ async def dashboard_exchange_page(request: Request):
     prefill = {}
     if q.get("repeat"):
         prefill = {"currency": q.get("currency","BTC"), "amount": q.get("amount",""), "address": q.get("address","")}
+    # Книга адресов клиента — тем же источником, что бот и Mini App. Привязка
+    # к Telegram обязательна: заявки лежат под telegram_id, и без неё показать
+    # нечего (а брать адреса по web-аккаунту значило бы склеить двух разных
+    # людей, если Telegram к кабинету ещё не привязан).
+    book = []
+    if web_user.get("telegram_id"):
+        try:
+            from core import address_book as _ab
+            book = _ab.entries_for(web_user["telegram_id"])
+        except Exception:
+            logger.exception("адресная книга недоступна на сайте")
     return templates.TemplateResponse(request, "dashboard_exchange.html", site_context(
-        request, active="exchange", prefill=prefill,
+        request, active="exchange", prefill=prefill, address_book=book,
     ))
 
 @app.post("/dashboard/exchange", response_class=HTMLResponse)
@@ -2111,6 +2122,52 @@ async def api_wallet_history(request: Request):
     from core import wallet_link as _wl
     chain = (request.query_params.get('chain') or 'TON').upper()[:12]
     return _wl.history_for(user['id'], chain=chain, limit=20)
+
+
+@app.get("/api/wallet/addresses")
+async def api_wallet_addresses(request: Request):
+    """Адреса клиента для подстановки в заявку.
+
+    Список строит СЕРВЕР по собственным заявкам клиента и подтверждённым
+    подписью связям; адрес из запроса сюда не принимается — иначе чужой адрес
+    попал бы в чью-то книгу как «ваш сохранённый» (см. core/address_book).
+
+    Балансов здесь нет намеренно: владение адресом из прошлой заявки не
+    доказано, а остаток по нему — не дело того, кто однажды на него отправил.
+    """
+    user = verify_init_data(request.headers.get('X-Telegram-Init-Data', ''))
+    if not user:
+        raise HTTPException(status_code=403, detail="Откройте приложение через бота Telegram.")
+    from core import address_book as _ab
+    cur = (request.query_params.get('currency') or '').upper()[:8]
+    net = (request.query_params.get('network') or '').upper()[:12]
+    return {"addresses": _ab.entries_for(user['id'], cur or None, net or None)}
+
+
+@app.post("/api/wallet/address/note")
+async def api_wallet_address_note(request: Request):
+    """Подписать адрес именем или убрать его из подсказок.
+
+    Клиент правит ТОЛЬКО свою заметку: сам адрес отсюда не появляется — если
+    его нет в книге, заметка ни к чему не привяжется и в подсказках ничего
+    не возникнет.
+    """
+    user = verify_init_data(request.headers.get('X-Telegram-Init-Data', ''))
+    if not user:
+        raise HTTPException(status_code=403, detail="Откройте приложение через бота Telegram.")
+    body = await json_object(request)
+    from core import address_book as _ab
+    cur = str(body.get("currency") or "").upper()[:8]
+    net = str(body.get("network") or "").upper()[:12]
+    addr = str(body.get("address") or "").strip()[:120]
+    # Скрытый адрес остаётся СВОИМ: иначе вернуть его из скрытых было бы нечем.
+    if not _ab.owns(user['id'], cur, addr, net or None, include_hidden=True):
+        raise HTTPException(status_code=404, detail="Такого адреса в вашей книге нет.")
+    if body.get("hidden") is True:
+        return {"ok": _ab.hide(user['id'], cur, addr, net)}
+    if body.get("hidden") is False:
+        return {"ok": _ab.unhide(user['id'], cur, addr, net)}
+    return {"ok": _ab.set_label(user['id'], cur, addr, body.get("label"), net)}
 
 
 @app.post("/api/wallet/disconnect")

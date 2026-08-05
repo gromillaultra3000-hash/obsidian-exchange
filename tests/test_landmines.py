@@ -1736,6 +1736,89 @@ def check_verdict_never_hides_a_transfer_it_saw():
                   "не расскажет, сколько бы правильной ни была причина")
 
 
+def check_address_book_serves_only_its_owner():
+    """Подсказка «ваш адрес» — это адрес, на который уйдут деньги в один тап.
+
+    Класс дефекта: список строится не по владельцу. Достаточно перепутать
+    фильтр или взять адрес из запроса — и клиент получит чужой адрес под
+    подписью «вы уже им пользовались». Проверка контрольной суммы такое
+    пропускает: чужой адрес совершенно валиден, а выдача необратима.
+
+    Проверяем поведением на временной базе, а не чтением кода: правило
+    «только свои» обязано выполняться, как бы фильтр ни был написан.
+    """
+    tag = "адресная книга отдаёт чужое"
+    import sqlite3 as _sq
+    import tempfile as _tf
+    relay_dir = os.path.join(ROOT, "relay")
+    if relay_dir not in sys.path:
+        sys.path.insert(0, relay_dir)
+    try:
+        from core import address_book as _ab
+    except Exception as e:
+        fail(tag, f"address_book не импортируется ({type(e).__name__}) — проверка ослепла")
+        return
+    tmp = os.path.join(_tf.mkdtemp(prefix="mine_addrbook_"), "t.db")
+    mine_addr = "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4"
+    theirs = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"
+    cancelled = "3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy"
+    try:
+        cn = _sq.connect(tmp)
+        cn.execute("CREATE TABLE orders (order_id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                   " user_id INTEGER, currency TEXT, network TEXT, rub_amount REAL,"
+                   " crypto_address TEXT, status TEXT, created_at TEXT)")
+        for uid, addr, st in ((1001, mine_addr, "sent"), (2002, theirs, "sent"),
+                              (1001, cancelled, "cancelled")):
+            cn.execute("INSERT INTO orders (user_id, currency, network, rub_amount,"
+                       " crypto_address, status, created_at) VALUES (?,?,?,?,?,?,?)",
+                       (uid, "BTC", "MAINNET", 5000, addr, st, "2026-08-01 10:00:00"))
+        cn.commit()
+        cn.close()
+    except Exception as e:
+        fail(tag, f"временную базу не собрали ({type(e).__name__}) — проверка ослепла")
+        return
+    saved = _ab.DB_PATH
+    _ab.DB_PATH = tmp
+    try:
+        got = [e["address"] for e in _ab.entries_for(1001)]
+        if theirs in got:
+            fail(tag, "в книге клиента лежит адрес из ЧУЖОЙ заявки — один тап, и "
+                      "выплата уйдёт постороннему")
+        if mine_addr not in got:
+            fail(tag, "своего адреса в книге нет — подсказка не работает вовсе")
+        if _ab.owns(1001, "BTC", theirs):
+            fail(tag, "чужой адрес признан своим: проверка владения пропустит "
+                      "подделанный колбэк")
+        if not _ab.owns(1001, "BTC", mine_addr):
+            fail(tag, "свой адрес не признан своим — подстановка сломана")
+        # Отменённая заявка нередко отменена ИМЕННО из-за неверного адреса.
+        if cancelled in got or _ab.owns(1001, "BTC", cancelled):
+            fail(tag, "адрес из заявки, по которой монеты не уходили, предложен "
+                      "как проверенный — клиент отменил её, чтобы туда не "
+                      "отправлять, а мы это подсказали")
+    except Exception as e:
+        fail(tag, f"книга упала на обычной выборке ({type(e).__name__}: {e})")
+    finally:
+        _ab.DB_PATH = saved
+
+    # Вторая половина того же класса: адрес, пришедший НАЗАД от клиента, обязан
+    # проверяться и на владение, и на форму. Колбэк подделывается.
+    bot_src = _read(os.path.join(ROOT, "bot", "main_bot.py"))
+    m = re.search(r'@router\.callback_query\([^)]*useaddr_.*?\n(?=@router|\Z)',
+                  bot_src, re.S)
+    if not m:
+        fail(tag, "обработчика выбора сохранённого адреса не нашли — подсказка "
+                  "либо исчезла, либо переименована мимо проверки")
+    else:
+        body = m.group(0)
+        if ".owns(" not in body:
+            fail(tag, "выбор сохранённого адреса не сверяется с книгой клиента — "
+                      "подделанный колбэк подставит любой адрес")
+        if "validate_crypto_address" not in body:
+            fail(tag, "выбранный адрес не проходит проверку формы — в книге может "
+                      "лежать адрес, который сегодняшняя проверка уже не принимает")
+
+
 def check_trusted_sender_list_refuses_foreign_network():
     """Список доверенных отправителей — денежное правило: совпадение по нему
     закрывает заявку без человека. Адрес чужой сети в нём не крадёт деньги, он
@@ -3243,6 +3326,7 @@ def main():
                check_chain_finality_is_not_a_boolean,
                check_verdict_never_hides_a_transfer_it_saw,
                check_trusted_sender_list_refuses_foreign_network,
+               check_address_book_serves_only_its_owner,
                check_failed_autopayout_reaches_a_human,
                check_tagged_currencies_use_the_dispatcher,
                check_tag_shape_comes_from_the_registry,

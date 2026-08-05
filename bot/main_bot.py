@@ -3051,11 +3051,32 @@ async def process_captcha(message: Message, state: FSMContext):
                 web_app=WebAppInfo(url=f"{PUBLIC_RELAY}/webapp"))])
     except Exception:
         logger.exception("реестр валют недоступен при подсказке о кошельке")
+    # Адреса, на которые клиент УЖЕ получал. Один тап вместо набора убирает
+    # целый класс потерь: проверка контрольной суммы подтверждает, что адрес
+    # существует, а не что он ваш, — опечатка в чужой валидный адрес проходит
+    # её насквозь и необратима.
+    _book = []
+    try:
+        if RELAY_PATH not in sys.path:
+            sys.path.insert(0, RELAY_PATH)
+        from core import address_book as _ab
+        _book = _ab.entries_for(message.from_user.id, curr, net, limit=3)
+    except Exception:
+        logger.exception("адресная книга недоступна")
+    _saved_hint = ""
+    if _book:
+        await state.update_data(addr_book=[e["address"] for e in _book])
+        _saved_hint = "\n\n📇 <b>Ваши адреса</b> — кнопки ниже, набирать заново не нужно."
+        for _i, _e in enumerate(_book):
+            _mark = "✅ " if _e["verified"] else "📇 "
+            _title = _e["label"] or _e["short"]
+            _rows.insert(_i, [InlineKeyboardButton(
+                text=f"{_mark}{_title}", callback_data=f"useaddr_{_i}")])
     await message.answer(
         f"📥 <b>Введите {curr}-адрес</b>\n\n"
         f"Сеть: <b>{_network_label(curr, net)}</b> — адрес другой сети не подойдёт, "
         f"монеты в чужой сети теряются безвозвратно.\n\n"
-        f"Куда отправить монеты после подтверждения оплаты:{_wc}",
+        f"Куда отправить монеты после подтверждения оплаты:{_saved_hint}{_wc}",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=_rows),
         parse_mode="HTML"
     )
@@ -3554,6 +3575,52 @@ async def cmd_unblock(message: Message):
 
 
 
+
+
+@router.callback_query(F.data.startswith("useaddr_"), Exchange.address)
+async def process_saved_address(callback: CallbackQuery, state: FSMContext):
+    """Клиент выбрал адрес, на который уже получал.
+
+    Данным из кнопки не доверяем ни в одном звене: индекс сверяется со списком
+    ЭТОЙ сессии, адрес — с книгой ЭТОГО клиента и с сегодняшней проверкой формы.
+    Колбэк подделывается, и без этих трёх проверок чужой адрес подставился бы в
+    заявку под видом «вы уже им пользовались» — а выдача необратима.
+    """
+    data = await state.get_data()
+    book = data.get("addr_book") or []
+    currency, network = data.get("currency"), data.get("network")
+    try:
+        address = book[int(callback.data.split("_")[1])]
+    except (ValueError, IndexError):
+        await callback.answer("Подсказка устарела — пришлите адрес сообщением",
+                              show_alert=True)
+        return
+    uid = callback.from_user.id
+    try:
+        if RELAY_PATH not in sys.path:
+            sys.path.insert(0, RELAY_PATH)
+        from core import address_book as _ab
+        mine = _ab.owns(uid, currency, address, network)
+    except Exception:
+        logger.exception("адресная книга недоступна при выборе адреса")
+        mine = False
+    if not mine or not validate_crypto_address(address, currency, network):
+        await callback.answer("Адрес не подтвердился — пришлите его сообщением",
+                              show_alert=True)
+        return
+    if not _direction_open(currency, network):
+        await callback.answer("Это направление сейчас недоступно", show_alert=True)
+        await state.clear()
+        return
+    await callback.answer()
+    try:
+        await callback.message.edit_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+    # Тег отдельным шагом не спрашиваем: в книге лежит адрес в том виде, в
+    # каком он уже уходил в заявку, то есть с тегом внутри, если тег был.
+    await _finalize_order(callback.message, state, currency, network, address,
+                          user_id=uid, username=callback.from_user.username)
 
 
 @router.message(Exchange.address)

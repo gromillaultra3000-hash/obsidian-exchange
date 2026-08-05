@@ -288,7 +288,7 @@
             <!-- Сеть: показывается только когда выбор реально есть (USDT) -->
             <div class="input-group" id="network-group" style="display:none">
                 <label>Сеть</label>
-                <select id="network" onchange="updateAddressPlaceholder()"></select>
+                <select id="network" onchange="updateAddressPlaceholder(); loadAddressBook()"></select>
                 <div style="margin-top:6px;font-size:11px;color:#f0a" id="network-warn">
                     Монеты уйдут именно в этой сети — адрес другой сети не подойдёт.
                 </div>
@@ -333,6 +333,14 @@
             <div class="input-group">
                 <label>Ваш адрес</label>
                 <input type="text" id="address" placeholder="Введите адрес кошелька" oninput="validateAddress()">
+                <!-- Адреса, на которые клиент уже получал. Список приходит с
+                     сервера по подписанному initData: адрес отсюда не
+                     принимается, поэтому чужой сюда не попадёт. -->
+                <div id="addr-book" style="display:none;margin-top:8px">
+                  <div style="font-size:11px;color:var(--muted);margin-bottom:6px">
+                    📇 Ваши адреса — нажмите, чтобы подставить</div>
+                  <div id="addr-book-chips" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+                </div>
                 <div class="validation-msg" id="address-msg"></div>
             </div>
             <!-- Тег назначения: только у валют, где он есть (XRP). Прячется,
@@ -845,6 +853,54 @@
             calculateFee();
             updateAddressPlaceholder();
             updateTagField();
+            loadAddressBook();
+        }
+
+        // ── Книга адресов ────────────────────────────────────────────────
+        // Показываем только адреса ЭТОЙ монеты и сети: подставить BTC-адрес
+        // там, где просят LTC, — необратимая потеря, а разница между двумя
+        // длинными строками на экране телефона не читается.
+        let addrBookReq = 0;
+        async function loadAddressBook() {
+            const box = document.getElementById('addr-book');
+            const chips = document.getElementById('addr-book-chips');
+            if (!box || !chips) return;
+            const cur = document.getElementById('currency').value;
+            const net = (typeof selectedNetwork === 'function') ? selectedNetwork() : '';
+            const my = ++addrBookReq;
+            box.style.display = 'none';
+            chips.innerHTML = '';
+            if (!cur || !(tg.initData || '')) return;
+            let list = [];
+            try {
+                const r = await fetch(`/api/wallet/addresses?currency=${encodeURIComponent(cur)}`
+                                      + (net ? `&network=${encodeURIComponent(net)}` : ''),
+                    { headers: { 'X-Telegram-Init-Data': tg.initData || '' } });
+                if (!r.ok) return;
+                list = (await r.json()).addresses || [];
+            } catch (e) { return; }
+            // Пока ходили за списком, клиент мог переключить монету. Показать
+            // ответ на устаревший запрос — значит предложить адрес чужой сети.
+            if (my !== addrBookReq) return;
+            if (!list.length) return;
+            list.slice(0, 4).forEach(a => {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.textContent = (a.verified ? '✅ ' : '📇 ') + (a.label || a.short);
+                b.title = a.address;
+                b.style.cssText = 'padding:7px 11px;border-radius:11px;cursor:pointer;'
+                    + 'font-size:12px;font-weight:600;color:#e2e8f0;'
+                    + 'background:rgba(159,103,255,.12);border:1px solid rgba(159,103,255,.35)';
+                b.onclick = () => {
+                    const inp = document.getElementById('address');
+                    inp.value = a.address;
+                    validateAddress();
+                    if (typeof updateTagField === 'function') updateTagField();
+                    if (tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
+                };
+                chips.appendChild(b);
+            });
+            box.style.display = '';
         }
 
         // Нужен ли тег — решает сервер (assets.TAGGED_CURRENCIES), значение
