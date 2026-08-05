@@ -63,6 +63,11 @@ def _reserves() -> dict:
 # лежит USDT. Ставится админом: /setreserve USDT_ERC20 <кол-во>.
 RESERVE_USDT_ERC20 = "USDT_ERC20"
 
+# Монеты, открываемые ТОЛЬКО собственным курируемым резервом. Новая монета —
+# одна строка здесь (сеть берётся из реестра `core.assets`, второй раз её
+# называть негде и незачем).
+SELF_RESERVED = ("XRP", "TON", "XMR")
+
 
 def _compute() -> dict:
     reserves = _reserves()
@@ -84,26 +89,22 @@ def _compute() -> dict:
         if reserves.get(RESERVE_USDT_ERC20, 0) > 0:
             networks["USDT"] = [_assets.NET_TRC20, _assets.NET_ERC20]
 
-    # XRP — самостоятельное направление со своим признаком ликвидности.
-    # Сознательно НЕ под MULTICHAIN_UI_ENABLED: тот флаг про ETH и выбор сети
-    # USDT, и связывать их значило бы «чтобы открыть XRP, включи заодно ETH».
-    # Один выключатель — один смысл: /setreserve XRP <кол-во>.
-    if reserves.get("XRP", 0) > 0:
-        currencies.append("XRP")
-        networks["XRP"] = [_assets.NET_XRPL]
-
-    # TON — то же правило, свой резерв. Без этой ветки этапы 1-2 (сеть, memo,
-    # проверка адреса, TON Connect) существовали, но клиент не мог создать
-    # заявку: витрина TON не отдавала, а _allowed_currencies() её отбрасывал.
-    # Нашёл codex: возможность, до которой не доходит живой клиент, не сделана.
-    if reserves.get("TON", 0) > 0:
-        currencies.append("TON")
-        networks["TON"] = [_assets.NET_TON]
+    # Самостоятельные направления: у каждого СВОЙ признак ликвидности и ничего
+    # больше. Сознательно НЕ под MULTICHAIN_UI_ENABLED — тот флаг про ETH и
+    # выбор сети USDT, и связывать их значило бы «чтобы открыть XRP, включи
+    # заодно ETH». Один выключатель — один смысл: /setreserve <монета> <кол-во>.
+    #
+    # Список, а не три одинаковых ветки: монету надо внести И в `currencies`,
+    # И в `networks`, и раньше это писалось руками каждый раз. Забыть вторую
+    # половину — значит отдать монету витрине без сети: клиент её видит,
+    # а заявка не создаётся (сеть не проходит fail-closed проверку).
+    for code in SELF_RESERVED:
+        if reserves.get(code, 0) > 0:
+            currencies.append(code)
+            networks[code] = _assets.networks_for(code)[:1]
 
     eth_on = "ETH" in currencies
-    xrp_on = "XRP" in currencies
-    ton_on = "TON" in currencies
-    return {
+    out = {
         "currencies": tuple(currencies),
         "networks": networks,
         "eth_enabled": eth_on,
@@ -112,17 +113,15 @@ def _compute() -> dict:
             else ("MULTICHAIN_UI_ENABLED выключен" if not _assets.multichain_ui_enabled()
                   else "нет подтверждённой ликвидности ETH: задайте /setreserve ETH <кол-во>")
         ),
-        "xrp_enabled": xrp_on,
-        "reason_xrp_off": (
-            "" if xrp_on
-            else "нет подтверждённой ликвидности XRP: задайте /setreserve XRP <кол-во>"
-        ),
-        "ton_enabled": ton_on,
-        "reason_ton_off": (
-            "" if ton_on
-            else "нет подтверждённой ликвидности TON: задайте /setreserve TON <кол-во>"
-        ),
     }
+    for code in SELF_RESERVED:
+        on = code in currencies
+        out[f"{code.lower()}_enabled"] = on
+        out[f"reason_{code.lower()}_off"] = (
+            "" if on
+            else f"нет подтверждённой ликвидности {code}: задайте /setreserve {code} <кол-во>"
+        )
+    return out
 
 
 def _safe_default() -> dict:
@@ -134,10 +133,9 @@ def _safe_default() -> dict:
                      "USDT": [_assets.NET_TRC20]},
         "eth_enabled": False,
         "reason_eth_off": "витрина недоступна — направление закрыто",
-        "xrp_enabled": False,
-        "reason_xrp_off": "витрина недоступна — направление закрыто",
-        "ton_enabled": False,
-        "reason_ton_off": "витрина недоступна — направление закрыто",
+        **{f"{c.lower()}_enabled": False for c in SELF_RESERVED},
+        **{f"reason_{c.lower()}_off": "витрина недоступна — направление закрыто"
+           for c in SELF_RESERVED},
     }
 
 

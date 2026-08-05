@@ -3,6 +3,7 @@
 
 Сеть не трогаем — переводы подаются на вход как данные.
 """
+import json
 import os
 import sys
 import tempfile
@@ -142,13 +143,89 @@ check("сбой курса не роняет проход",
                          lambda c, r: (_ for _ in ()).throw(RuntimeError())) == 0.0)
 
 # --- доверенные источники ---------------------------------------------------
-pd.add_source("BTC", "bc1qMyPersonalWallet", "личный кошелёк владельца")
-check("источник добавлен", "bc1qmypersonalwallet" in {a for a in pd._registered_sources().get("BTC", {})})
+# Адреса синтетические, но настоящей формы: список доверенных теперь проверяет
+# принадлежность адреса сети, и выдуманная строка в него не попадёт.
+BTC_SRC = "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4"
+LTC_SRC = "ltc1qw508d6qejxtdg4y5r3zarvary0c5xw7kgmn4n9"
+TON_SRC = "UQAX50pTuHS9yAMVzVbewzHaWiIgP7NWEbiPSQIW6uqBehCK"
+TRON_SRC = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"
+EVM_SRC = "0xdAC17F958D2ee523a2206206994597C13D831ec7"
+
+pd.add_source("BTC", BTC_SRC, "личный кошелёк владельца")
+check("источник добавлен", BTC_SRC.lower() in set(pd._registered_sources().get("BTC", {})))
 check("регистр не мешает совпадению",
-      pd.judge(ORDER, [tx(sender="BC1QMYPERSONALWALLET")], set(),
-               {"bc1qmypersonalwallet"})["action"] == "close")
-pd.remove_source("BTC", "bc1qmypersonalwallet")
+      pd.judge(ORDER, [tx(sender=BTC_SRC.upper())], set(),
+               {BTC_SRC.lower()})["action"] == "close")
+pd.remove_source("BTC", BTC_SRC)
 check("источник удалён", not pd._registered_sources().get("BTC"))
+
+# Адрес чужой сети в доверенных не опасен подлогом — он опасен тем, что
+# выглядит внесённым кошельком, работая как невнесённый (04.08.2026: под LTC
+# записали TON-адрес, настоящий LTC-кошелёк остался вне списка).
+check("TON-адрес под LTC отвергнут", not pd.add_source("LTC", TON_SRC).get("ok"))
+check("отказ называет настоящую сеть",
+      "TON" in pd.source_address_error("LTC", TON_SRC))
+check("после отказа в списке ничего не появилось",
+      not pd._registered_sources().get("LTC"))
+check("свой адрес сети принят", pd.add_source("LTC", LTC_SRC).get("ok"))
+pd.remove_source("LTC", LTC_SRC)
+
+check("выдуманная строка вместо адреса отвергнута",
+      not pd.add_source("BTC", "bc1qMyPersonalWallet").get("ok"))
+check("валюта, по которой не смотрим цепочку, отвергнута",
+      "SOL" in pd.source_address_error("SOL", "So11111111111111111111111111111111111111112"))
+check("у USDT годится обе сети",
+      not pd.source_address_error("USDT", TRON_SRC)
+      and not pd.source_address_error("USDT", EVM_SRC))
+check("0x в одном регистре — отказ объясняет ПОЧЕМУ, а не «это не адрес»",
+      "EIP-55" in pd.source_address_error("ETH", EVM_SRC.lower()))
+# Тот же 0x-адрес под НЕ-EVM валютой — перепутанная валюта, а не «плохая форма
+# записи»: совет про контрольную сумму отправил бы искать несуществующее.
+check("0x под BTC — отказ про перепутанную сеть, а не про EIP-55",
+      "EIP-55" not in pd.source_address_error("BTC", EVM_SRC.lower())
+      and "ETH" in pd.source_address_error("BTC", EVM_SRC.lower()))
+check("0x со смешанным регистром под LTC узнан как ETH",
+      "ETH" in pd.source_address_error("LTC", EVM_SRC))
+check("пустой ввод по-прежнему отвергается",
+      bool(pd.source_address_error("BTC", "")) and bool(pd.source_address_error("", BTC_SRC)))
+
+# Отправитель на цепи виден БЕЗ тега: XRP отдаёт classic-адрес полем Account,
+# TON — счёт. Строка назначения с тегом как адрес верна, но ключ из неё выходит
+# другой, и совпадения не будет никогда. Нашёл codex.
+from core.address import xrp_xaddress  # noqa: E402
+XRP_SRC = "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh"
+check("XRP: голый r-адрес принят", not pd.source_address_error("XRP", XRP_SRC))
+check("XRP: X-адрес (тег внутри) отвергнут",
+      bool(pd.source_address_error("XRP", xrp_xaddress(XRP_SRC, 1))))
+check("XRP: адрес с тегом через двоеточие отвергнут",
+      bool(pd.source_address_error("XRP", XRP_SRC + ":5")))
+check("XRP: отказ объясняет, что вносить",
+      "r-адрес" in pd.source_address_error("XRP", xrp_xaddress(XRP_SRC, 1)))
+check("TON: адрес с комментарием отвергнут",
+      bool(pd.source_address_error("TON", TON_SRC + "#memo123")))
+check("TON: голый адрес принят и в дружественной, и в сырой форме",
+      not pd.source_address_error("TON", TON_SRC)
+      and not pd.source_address_error(
+          "TON", "0:17e74a53b874bdc80315cd56dec331da5a22203fb35611b88f490216eaea0179"))
+# Суть отказа: ключ записи обязан совпадать с ключом отправителя на цепи.
+check("ключ X-адреса и правда не совпал бы с classic",
+      pd._norm_account("XRP", xrp_xaddress(XRP_SRC, 1)) != pd._norm_account("XRP", XRP_SRC))
+check("ключ TON с комментарием и правда не совпал бы со счётом",
+      pd._norm_account("TON", TON_SRC + "#memo123") != pd._norm_account("TON", TON_SRC))
+
+# Проверка на входе не лечит записанное ДО неё: такие записи обязаны быть
+# видны в списке, иначе о них узнают в день, когда выплата не закроется.
+_raw = {"sources": {"LTC": {pd._norm_account("LTC", TON_SRC):
+                            {"note": "внесено до проверки", "raw": TON_SRC}},
+                    "BTC": {pd._norm_account("BTC", BTC_SRC):
+                            {"note": "", "raw": BTC_SRC}}}}
+from pathlib import Path as _P  # noqa: E402
+_P(pd.SOURCES_PATH).write_text(json.dumps(_raw, ensure_ascii=False), encoding="utf-8")
+_st = {s["currency"]: s for s in pd.sources_with_status()}
+check("негодная запись помечена в списке", bool(_st["LTC"]["error"]))
+check("годная запись не помечена", not _st["BTC"]["error"])
+check("в списке виден адрес, а не только ключ", _st["LTC"]["address"] == TON_SRC)
+_P(pd.SOURCES_PATH).write_text("{}", encoding="utf-8")
 
 # --- fail-closed: не зная занятых txid, не закрываем ------------------------
 _saved = pd._used_txids

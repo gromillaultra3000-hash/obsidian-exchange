@@ -20,7 +20,7 @@
         </div>
         <div class="input-group" id="network-group" style="display:none">
             <label>Сеть</label>
-            <select id="network" name="network"></select>
+            <select id="network" name="network" onchange="refreshAddressBook()"></select>
             <p style="margin-top:6px;font-size:12px;opacity:.7">
                 Монеты уйдут именно в этой сети — адрес другой сети не подойдёт.</p>
         </div>
@@ -44,6 +44,29 @@
             <input type="text" id="address" name="address" placeholder="Введите адрес кошелька"
                    value="{{ form.address if form else (prefill.address if prefill else '') }}"
                    oninput="onAddressChange()" required>
+            {# Адреса, на которые клиент уже получал: один клик вместо набора.
+               Список считает СЕРВЕР по заявкам этого клиента — со страницы
+               адрес сюда не попадает, поэтому чужого здесь быть не может.
+               Показываем только адреса выбранной монеты: подставить BTC-адрес
+               там, где просят LTC, — необратимая потеря. #}
+            {% if address_book %}
+            <div id="addr-book" style="margin-top:8px">
+                <div style="font-size:12px;opacity:.7;margin-bottom:6px">📇 Ваши адреса</div>
+                <div id="addr-book-chips" style="display:flex;flex-wrap:wrap;gap:6px">
+                {% for a in address_book %}
+                    <button type="button" class="addr-chip" data-currency="{{ a.currency }}"
+                            data-network="{{ a.network }}"
+                            data-address="{{ a.address }}" title="{{ a.address }}"
+                            style="padding:7px 11px;border-radius:11px;cursor:pointer;font-size:12px;
+                                   font-weight:600;color:var(--t1,#e2e8f0);
+                                   background:rgba(124,58,237,.12);
+                                   border:1px solid rgba(124,58,237,.35)">
+                        {{ '✅ ' if a.verified else '📇 ' }}{{ a.label or a.short }}
+                    </button>
+                {% endfor %}
+                </div>
+            </div>
+            {% endif %}
         </div>
         {# Тег назначения. Показывается только у валют, где он есть (XRP), и
            прячется, если адрес уже несёт тег внутри себя (X-формат) — иначе
@@ -161,7 +184,38 @@ function onCurrencyChange() {
     grp.style.display = nets.length > 1 ? '' : 'none';
     onAddressChange();
     calculateFee();
+    refreshAddressBook();
 }
+
+// Книга адресов: показываем только адреса ВЫБРАННОЙ монеты. Чипы отрисованы
+// сервером целиком, здесь только отбор — иначе список пришлось бы дозапрашивать
+// на каждое переключение, а он и так у нас на руках.
+function refreshAddressBook() {
+    const box = document.getElementById('addr-book');
+    if (!box) return;
+    const cur = document.getElementById('currency').value;
+    // Сеть важна не меньше монеты: у USDT адреса TRC20 и ERC20 разные, и
+    // предложить не ту сеть — потерять перевод целиком. Пустая сеть у старых
+    // заявок ограничением не считается: там колонки просто не было.
+    const selNet = (document.getElementById('network') || {}).value || '';
+    let shown = 0;
+    box.querySelectorAll('.addr-chip').forEach(b => {
+        const chipNet = b.dataset.network || '';
+        const fit = b.dataset.currency === cur
+                    && (!chipNet || !selNet || chipNet === selNet);
+        b.style.display = fit ? '' : 'none';
+        if (fit) shown++;
+    });
+    box.style.display = shown ? '' : 'none';
+}
+
+document.addEventListener('click', function (e) {
+    const chip = e.target.closest ? e.target.closest('.addr-chip') : null;
+    if (!chip) return;
+    const input = document.getElementById('address');
+    input.value = chip.dataset.address || '';
+    onAddressChange();
+});
 
 function calculateFee() {
     const amount = parseFloat(document.getElementById('amount').value) || 0;

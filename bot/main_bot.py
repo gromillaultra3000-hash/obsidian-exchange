@@ -747,6 +747,11 @@ class Exchange(StatesGroup):
 class Review(StatesGroup):
     comment = State()
 
+class AddressProof(StatesGroup):
+    """Подтверждение владения адресом подписью кошелька (/verify)."""
+    address = State()
+    signature = State()
+
 class Swap(StatesGroup):
     amount = State()
     address = State()
@@ -958,13 +963,17 @@ def get_commission_percent(amount_rub, user_id: int = None):
     return base
 # Источники курса по монете. Новая монета = одна строка здесь.
 #   cg      — id на coingecko (vs_currencies=rub);
-#   binance — символ к USDT (умножаем на USDTRUB); None = сам котируется в RUB (USDT);
+#   binance — символ пары. Оканчивается на RUB → цена УЖЕ в рублях (USDTRUB);
+#             иначе умножаем на USDTRUB. None = резервного источника НЕТ.
+#             ⚠️ Раньше None означало «котируется в RUB напрямую», и монета без
+#             пары на Binance (XMR снят в 2024) получила бы цену тезера: Monero
+#             ушла бы по 91 ₽ вместо ~30 000. Нет источника — это отказ;
 #   fallback— аварийная цена в RUB, если оба источника недоступны.
 # USDT любой сети (TRC20/ERC20) котируется одинаково — это тот же tether.
 _COIN_SOURCES = {
     "BTC": {"cg": "bitcoin",  "binance": "BTCUSDT", "fallback": 6500000},
     "LTC": {"cg": "litecoin", "binance": "LTCUSDT", "fallback": 4000},
-    "USDT": {"cg": "tether",  "binance": None,      "fallback": 85},
+    "USDT": {"cg": "tether",  "binance": "USDTRUB", "fallback": 85},
     "ETH": {"cg": "ethereum", "binance": "ETHUSDT", "fallback": 250000},
     "XRP": {"cg": "ripple",   "binance": "XRPUSDT", "fallback": 95},
     # На CoinGecko монета TON называется the-open-network (не «toncoin»),
@@ -972,6 +981,11 @@ _COIN_SOURCES = {
     # он нужен, только когда оба источника молчат, и всё равно уводит заявку
     # к человеку (страж котировки не пустит расхождение).
     "TON": {"cg": "the-open-network", "binance": "TONUSDT", "fallback": 260},
+    # Monero: на Binance пары НЕТ (снята в 2024) — резервного источника нет, и
+    # это записано явно. Фолбэк — грубый порядок величины: он нужен, только
+    # когда CoinGecko молчит, и всё равно уводит заявку к человеку (страж
+    # котировки не пустит расхождение).
+    "XMR": {"cg": "monero",   "binance": None,      "fallback": 30000},
 }
 _RATE_CACHE = {}  # module-level, живёт между вызовами: {coin: {"rate", "ts"}}
 
@@ -1001,14 +1015,17 @@ def get_cached_rate(coin):
         r = requests.get(f"https://api.coingecko.com/api/v3/simple/price?ids={src['cg']}&vs_currencies=rub", timeout=8)
         rate = r.json()[src["cg"]]["rub"]
     except Exception:
-        try:  # binance: <COIN>USDT × USDTRUB (для USDT — просто USDTRUB)
-            if src["binance"]:
-                r1 = requests.get(f"https://api.binance.com/api/v3/ticker/price?symbol={src['binance']}")
-                r2 = requests.get("https://api.binance.com/api/v3/ticker/price?symbol=USDTRUB")
-                rate = float(r1.json()["price"]) * float(r2.json()["price"])
+        try:  # binance: пара в рублях как есть, иначе <COIN>USDT × USDTRUB
+            sym = src["binance"]
+            if not sym:
+                raise LookupError(f"нет резервного источника цены для {key}")
+            r1 = requests.get(f"https://api.binance.com/api/v3/ticker/price?symbol={sym}")
+            price = float(r1.json()["price"])
+            if sym.endswith("RUB"):
+                rate = price
             else:
-                r = requests.get("https://api.binance.com/api/v3/ticker/price?symbol=USDTRUB")
-                rate = float(r.json()["price"])
+                r2 = requests.get("https://api.binance.com/api/v3/ticker/price?symbol=USDTRUB")
+                rate = price * float(r2.json()["price"])
         except Exception:
             return cache.get("rate") or src["fallback"]
     cache["rate"] = rate
@@ -1616,7 +1633,8 @@ def _fmt_rate_compact(r) -> str:
         return f"{r/1000:.1f}к ₽"
     return f"{r:.0f} ₽"
 
-COIN_ICONS = {"BTC": "₿", "LTC": "Ł", "USDT": "💵", "ETH": "Ξ", "XRP": "✕"}
+COIN_ICONS = {"BTC": "₿", "LTC": "Ł", "USDT": "💵", "ETH": "Ξ", "XRP": "✕",
+              "TON": "💎", "XMR": "ɱ"}
 
 
 def coins_line(sep=" · ", fallback="BTC · LTC · USDT"):
@@ -3051,11 +3069,32 @@ async def process_captcha(message: Message, state: FSMContext):
                 web_app=WebAppInfo(url=f"{PUBLIC_RELAY}/webapp"))])
     except Exception:
         logger.exception("реестр валют недоступен при подсказке о кошельке")
+    # Адреса, на которые клиент УЖЕ получал. Один тап вместо набора убирает
+    # целый класс потерь: проверка контрольной суммы подтверждает, что адрес
+    # существует, а не что он ваш, — опечатка в чужой валидный адрес проходит
+    # её насквозь и необратима.
+    _book = []
+    try:
+        if RELAY_PATH not in sys.path:
+            sys.path.insert(0, RELAY_PATH)
+        from core import address_book as _ab
+        _book = _ab.entries_for(message.from_user.id, curr, net, limit=3)
+    except Exception:
+        logger.exception("адресная книга недоступна")
+    _saved_hint = ""
+    if _book:
+        await state.update_data(addr_book=[e["address"] for e in _book])
+        _saved_hint = "\n\n📇 <b>Ваши адреса</b> — кнопки ниже, набирать заново не нужно."
+        for _i, _e in enumerate(_book):
+            _mark = "✅ " if _e["verified"] else "📇 "
+            _title = _e["label"] or _e["short"]
+            _rows.insert(_i, [InlineKeyboardButton(
+                text=f"{_mark}{_title}", callback_data=f"useaddr_{_i}")])
     await message.answer(
         f"📥 <b>Введите {curr}-адрес</b>\n\n"
         f"Сеть: <b>{_network_label(curr, net)}</b> — адрес другой сети не подойдёт, "
         f"монеты в чужой сети теряются безвозвратно.\n\n"
-        f"Куда отправить монеты после подтверждения оплаты:{_wc}",
+        f"Куда отправить монеты после подтверждения оплаты:{_saved_hint}{_wc}",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=_rows),
         parse_mode="HTML"
     )
@@ -3554,6 +3593,52 @@ async def cmd_unblock(message: Message):
 
 
 
+
+
+@router.callback_query(F.data.startswith("useaddr_"), Exchange.address)
+async def process_saved_address(callback: CallbackQuery, state: FSMContext):
+    """Клиент выбрал адрес, на который уже получал.
+
+    Данным из кнопки не доверяем ни в одном звене: индекс сверяется со списком
+    ЭТОЙ сессии, адрес — с книгой ЭТОГО клиента и с сегодняшней проверкой формы.
+    Колбэк подделывается, и без этих трёх проверок чужой адрес подставился бы в
+    заявку под видом «вы уже им пользовались» — а выдача необратима.
+    """
+    data = await state.get_data()
+    book = data.get("addr_book") or []
+    currency, network = data.get("currency"), data.get("network")
+    try:
+        address = book[int(callback.data.split("_")[1])]
+    except (ValueError, IndexError):
+        await callback.answer("Подсказка устарела — пришлите адрес сообщением",
+                              show_alert=True)
+        return
+    uid = callback.from_user.id
+    try:
+        if RELAY_PATH not in sys.path:
+            sys.path.insert(0, RELAY_PATH)
+        from core import address_book as _ab
+        mine = _ab.owns(uid, currency, address, network)
+    except Exception:
+        logger.exception("адресная книга недоступна при выборе адреса")
+        mine = False
+    if not mine or not validate_crypto_address(address, currency, network):
+        await callback.answer("Адрес не подтвердился — пришлите его сообщением",
+                              show_alert=True)
+        return
+    if not _direction_open(currency, network):
+        await callback.answer("Это направление сейчас недоступно", show_alert=True)
+        await state.clear()
+        return
+    await callback.answer()
+    try:
+        await callback.message.edit_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+    # Тег отдельным шагом не спрашиваем: в книге лежит адрес в том виде, в
+    # каком он уже уходил в заявку, то есть с тегом внутри, если тег был.
+    await _finalize_order(callback.message, state, currency, network, address,
+                          user_id=uid, username=callback.from_user.username)
 
 
 @router.message(Exchange.address)
@@ -6415,12 +6500,25 @@ async def cmd_paysrc(message: Message):
              "(вывод с Binance и т.п.) вносить НЕЛЬЗЯ: с него уходят переводы "
              "тысячам людей, и случайное совпадение суммы закроет заявку, по "
              "которой клиент ничего не получил.\n"]
-    reg = pd._registered_sources()
-    for cur in sorted(reg):
-        for _norm_addr, meta in (reg[cur] or {}).items():
-            lines.append(f"• <b>{cur}</b> <code>{meta.get('raw', _norm_addr)}</code>"
-                         + (f" — {meta['note']}" if meta.get("note") else ""))
-    if len(lines) == 2:
+    # Список идёт со статусом: запись, сделанная до проверки адреса, выглядит
+    # как внесённый кошелёк, а работает как невнесённый. Молчать о ней — значит
+    # узнать о подмене в день, когда выплата не закроется.
+    bad = shown = 0
+    for s in pd.sources_with_status():
+        shown += 1
+        mark = "⚠️ " if s["error"] else "• "
+        lines.append(f"{mark}<b>{s['currency']}</b> <code>{s['address']}</code>"
+                     + (f" — {s['note']}" if s["note"] else "")
+                     + (f"\n   <b>{s['error']}</b>; удалите: "
+                        f"<code>/paysrc del {s['currency']} {s['address']}</code>"
+                        if s["error"] else ""))
+        bad += 1 if s["error"] else 0
+    if bad:
+        lines.append(f"\n⚠️ Негодных записей: <b>{bad}</b> — по ним сверка ничего "
+                     f"не найдёт, настоящий кошелёк этой сети не внесён.")
+    if not shown:
+        # Считали по длине `lines`, а вступление занимает три элемента — условие
+        # не выполнялось никогда, и пустой список молча выглядел как список.
         lines.append("<i>Список пуст.</i>")
     lines.append("\n<code>/paysrc add BTC bc1q… заметка</code>\n<code>/paysrc del BTC bc1q…</code>")
     await message.answer("\n".join(lines), parse_mode="HTML")
@@ -6460,7 +6558,11 @@ async def payout_discovery_task():
             # проход — это ровно тот шум, из-за которого 27.07 перестали читать
             # тревогу. Отпечаток включает обе половины, поэтому новая находка
             # пробивает окно молчания сразу, а прежняя его не продлевает.
-            if res.get("review") or res.get("near"):
+            # Заявки в нечитаемой цепи (Monero) идут тем же письмом: автомат
+            # их не закроет никогда, и если о них не сказать, они просто
+            # исчезнут из поля зрения — сверка «прошла успешно», а деньги
+            # клиента так и не выданы.
+            if res.get("review") or res.get("near") or res.get("manual"):
                 from core.alert_throttle import should_send
                 # Ключ окна молчания считает сам модуль сверки: это правило
                 # «что считать той же новостью», и оно обязано быть проверяемым
@@ -6935,47 +7037,288 @@ def _my_wallet_text(uid) -> str:
         return ("🔌 <b>Мой кошелёк</b>\n\nСейчас не удалось получить данные. "
                 "Попробуйте позже.")
     if not wallets:
-        return ("🔌 <b>Мой кошелёк</b>\n\nКошелёк не подключён. Подключить можно "
-                "в приложении: «Личный кабинет» → создание заявки → «Подключить "
-                "кошелёк». Ключи остаются у вас — мы видим только адрес и его "
-                "публичный баланс.")
+        # Кошелёк не подключён — но адреса и приходы у клиента есть, и раздел
+        # без них выглядел бы пустым у того, кто полгода получает на свой BTC.
+        head = ("🔌 <b>Мой кошелёк</b>\n\nВнешний кошелёк не подключён. Подключить "
+                "можно в приложении: «Личный кабинет» → создание заявки → "
+                "«Подключить кошелёк». Ключи остаются у вас — мы видим только "
+                "адрес и его публичный баланс.")
+        return "\n\n".join([head] + _wallet_book_lines(uid))
     lines = ["🔌 <b>Мой кошелёк</b>\n"]
     for w in wallets:
         # «Не знаем» не превращаем в ноль: пустой кошелёк и недоступная сеть —
         # разные новости для того, кто собрался платить.
         if isinstance(w.get("balance"), (int, float)):
             amount = f"{w['balance']:.4f} {w['chain']}"
+            # Ожидающее подтверждения — рядом, но НЕ в остатке: перевод в
+            # мемпуле ещё может не состояться, а промолчать о нём значит
+            # показать ноль тому, кто только что получил деньги.
+            pend = w.get("pending")
+            if isinstance(pend, (int, float)) and abs(pend) > 1e-12:
+                amount += f" ({pend:+.4f} ждёт подтверждения)"
         else:
             amount = f"баланс недоступен ({w.get('reason') or 'сеть не ответила'})"
         lines.append(f"<b>{w['chain']}</b> · <code>{w['address']}</code>\n{amount}")
     # Последние операции — тем же источником. Пустая история и недоступная
     # сеть звучат по-разному: клиент, который ищет свой перевод, не должен
     # услышать «операций нет» вместо «мы не смогли спросить».
+    # Спрашиваем только ту сеть, где историю есть чем читать: у подтверждённой
+    # подписью BTC/LTC-связи ответ был бы «не поддержано», а клиент прочитал бы
+    # «история недоступна» — выдуманный сбой вместо честного молчания.
+    hist = None
     try:
-        hist = _wl.history_for(uid, chain=wallets[0]["chain"], limit=5)
+        for w in wallets:
+            if w["chain"] in _wl.HISTORY_SOURCES:
+                hist = _wl.history_for(uid, chain=w["chain"], limit=5)
+                break
     except Exception:
         hist = {"status": "ERROR", "items": []}
-    if hist.get("status") == "OK" and hist.get("items"):
+    if hist is None:
+        # Читать историю нечем ни у одной связи — молчим. «Операций нет» здесь
+        # было бы утверждением, которого мы не проверяли.
+        pass
+    elif hist.get("status") == "OK" and hist.get("items"):
         ops = ["<b>Последние операции</b>"]
         for op in hist["items"][:5]:
             when = datetime.fromtimestamp(op["ts"]).strftime("%d.%m %H:%M") if op.get("ts") else ""
             sign = "+" if op.get("direction") == "in" else "−"
             who = op.get("counterparty") or ""
             who = (who[:8] + "…" + who[-6:]) if len(who) > 16 else who
-            ops.append(f"{when} · {sign}{op.get('amount', 0):.4f} · <code>{who}</code>")
+            # Монету называем: связей теперь несколько, и «+0.0031» без неё
+            # читается как угодно.
+            ops.append(f"{when} · {sign}{op.get('amount', 0):.4f} "
+                       f"{hist.get('chain', '')} · <code>{who}</code>")
         lines.append("\n".join(ops))
     elif hist.get("status") == "OK":
         lines.append("Операций по кошельку пока нет.")
     else:
         lines.append("История сейчас недоступна — попробуйте позже.")
     lines.append("Отключить кошелёк можно в приложении, вкладка «Профиль».")
-    return "\n\n".join(lines)
+    return "\n\n".join(lines + _wallet_book_lines(uid))
+
+
+def _wallet_book_lines(uid) -> list:
+    """Адреса клиента и приходы от нас — тем же источником, что сайт и Mini App.
+
+    Отдельной функцией, потому что нужны в ОБЕИХ ветках `/mywallet`: у клиента
+    без подключённого кошелька раздел «Мой кошелёк» иначе пуст, хотя он полгода
+    получает на свой BTC-адрес. Подключение есть только у TON — кошелёк клиента
+    шире, чем одна сеть.
+    """
+    try:
+        if RELAY_PATH not in sys.path:
+            sys.path.insert(0, RELAY_PATH)
+        from core import address_book as _ab
+        book = _ab.entries_for(uid, limit=6)
+        deliv = _ab.deliveries_for(uid, limit=5)
+    except Exception:
+        logger.exception("адресная книга недоступна в /mywallet")
+        return []
+    # Имя адреса задаёт КЛИЕНТ. В сообщении с parse_mode=HTML незакрытый тег в
+    # имени рушит всю выдачу «/mywallet» — Telegram отвергает сообщение целиком,
+    # и раздел выглядит сломанным без причины. Нашёл codex.
+    import html as _html
+    out = []
+    if book:
+        rows = ["📇 <b>Ваши адреса</b>"]
+        for e in book:
+            title = f" — {_html.escape(e['label'])}" if e["label"] else ""
+            rows.append(f"{'✅' if e['verified'] else '•'} <b>{e['currency']}</b>"
+                        f"{' ' + e['network'] if e['network'] else ''} "
+                        f"<code>{e['short']}</code>{title}")
+        out.append("\n".join(rows))
+    if deliv:
+        rows = ["⬇️ <b>Получено от обменника</b>"]
+        for d in deliv:
+            amount = f"{d['amount']:.8f}".rstrip("0").rstrip(".") if d["amount"] else "—"
+            # «Выдано вручную» и «есть хеш» — разные новости для того, кто
+            # пойдёт искать перевод в обозревателе.
+            link = (f" · <a href=\"{d['tx_url']}\">транзакция</a>" if d["tx_url"]
+                    else (" · выдано вручную, хеша нет"
+                          if d.get("evidence") == "manual" else ""))
+            rows.append(f"+{amount} {d['currency']} → <code>{d['short']}</code>"
+                        f" (#{d['order_id']}){link}")
+        out.append("\n".join(rows))
+    # Подсказка про /verify — в обеих ветках: у клиента без заявок раздел иначе
+    # пуст и не объясняет, как в нём вообще что-то появляется.
+    sp = _sig_proof()
+    curs = sorted(sp.currencies()) if sp else []
+    if curs:
+        out.append("🔏 Подтвердить свой адрес подписью кошелька (" + ", ".join(curs)
+                   + ") — /verify. Адрес получит галочку и будет подставляться "
+                     "в заявку одним нажатием.")
+    return out
 
 
 @router.message(Command("mywallet"))
 async def cmd_mywallet(message: Message):
     """/mywallet — подключённый кошелёк и его баланс."""
     await message.answer(_my_wallet_text(message.from_user.id), parse_mode="HTML")
+
+
+def _sig_proof():
+    """Движок доказательства владения или None, если ядро недоступно."""
+    try:
+        if RELAY_PATH not in sys.path:
+            sys.path.insert(0, RELAY_PATH)
+        from core import sig_proof as _sp
+        return _sp
+    except Exception as e:
+        logger.warning("sig_proof недоступен: %s", e)
+        return None
+
+
+def _proof_currency_kb(currencies) -> InlineKeyboardMarkup:
+    rows = [[InlineKeyboardButton(text=c, callback_data=f"vrf_{c}")]
+            for c in sorted(currencies)]
+    rows.append([InlineKeyboardButton(text="✖️ Отмена", callback_data="vrf_cancel")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+@router.message(Command("verify"))
+async def cmd_verify(message: Message, state: FSMContext):
+    """/verify — подтвердить владение своим адресом подписью кошелька.
+
+    Зачем это в боте, а не только на сайте. Подпись сообщения умеют делать
+    Electrum, BlueWallet, Sparrow, Bitcoin Core, Trezor — а вставить её можно
+    откуда угодно, браузер с расширением для этого не нужен. Значит, самая
+    массовая поверхность сервиса ничем не хуже сайта, и запирать подтверждение
+    в кабинете, куда клиент из Telegram не заходит, было бы отказом ему в
+    единственном честном способе завести адрес заранее.
+    """
+    sp = _sig_proof()
+    curs = sp.currencies() if sp else set()
+    if not curs:
+        await message.answer("Подтверждение адреса сейчас недоступно. Попробуйте позже.")
+        return
+    await state.clear()
+    await message.answer(
+        "🔏 <b>Подтверждение владения адресом</b>\n\n"
+        "Вы подпишете короткий текст в своём кошельке, а мы проверим, что ключ "
+        "ваш. Подпись <b>ничего не переводит</b> и доступа к средствам не даёт.\n\n"
+        "После подтверждения адрес получит галочку и будет подставляться "
+        "в заявку одним нажатием.\n\nВыберите монету:",
+        parse_mode="HTML", reply_markup=_proof_currency_kb(curs))
+
+
+@router.callback_query(F.data == "vrf_cancel")
+async def proof_cancel(callback: CallbackQuery, state: FSMContext):
+    await state.clear()
+    await callback.message.edit_text("Подтверждение отменено.")
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("vrf_"))
+async def proof_pick_currency(callback: CallbackQuery, state: FSMContext):
+    sp = _sig_proof()
+    cur = callback.data.split("_", 1)[1].upper()
+    if not sp or cur not in sp.currencies():
+        await callback.answer("Для этой монеты подпись не поддерживается.", show_alert=True)
+        return
+    await state.update_data(proof_currency=cur)
+    await state.set_state(AddressProof.address)
+    await callback.message.edit_text(
+        f"Пришлите ваш <b>{cur}</b>-адрес — тот, которым будете подписывать.",
+        parse_mode="HTML")
+    await callback.answer()
+
+
+@router.message(AddressProof.address)
+async def proof_take_address(message: Message, state: FSMContext):
+    sp = _sig_proof()
+    if not sp:
+        await state.clear()
+        await message.answer("Подтверждение сейчас недоступно. Попробуйте позже.")
+        return
+    data = await state.get_data()
+    cur = data.get("proof_currency", "")
+    # Адрес проверяет ядро: там же решается, что на подпись идёт ГОЛЫЙ адрес,
+    # а не назначение перевода со склеенным тегом. Причина отказа приходит
+    # готовой — «адрес не тот» и «сервер не настроен» звучат по-разному.
+    ready = sp.prepare(cur, message.text or "", message.from_user.id)
+    if not ready["ok"]:
+        await message.answer(ready["error"])
+        return
+    text, addr = ready["message"], ready["address"]
+    await state.update_data(proof_address=addr, proof_payload=ready["payload"])
+    await state.set_state(AddressProof.signature)
+    # Текст отдельным сообщением и без разметки — его копируют целиком, и
+    # лишний символ в буфере ломает подпись.
+    import html as _html
+    await message.answer(
+        "1️⃣ Скопируйте этот текст и подпишите его в кошельке "
+        f"({cur}-адресом, который прислали):")
+    await message.answer(f"<pre>{_html.escape(text)}</pre>", parse_mode="HTML")
+    # Кнопка выхода обязательна: в этом состоянии бот ждёт ЛЮБОЕ сообщение как
+    # подпись, а команды `/cancel` в боте нет — обещать её значило бы запереть
+    # клиента в сценарии.
+    await message.answer(
+        "2️⃣ Пришлите подпись из кошелька одним сообщением.",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(text="✖️ Отмена", callback_data="vrf_cancel")]]))
+
+
+@router.message(AddressProof.signature)
+async def proof_take_signature(message: Message, state: FSMContext):
+    sp = _sig_proof()
+    if not sp:
+        await state.clear()
+        await message.answer("Подтверждение сейчас недоступно. Попробуйте позже.")
+        return
+    data = await state.get_data()
+    verdict = sp.verify(data.get("proof_currency", ""), data.get("proof_address", ""),
+                        data.get("proof_payload", ""), (message.text or "").strip(),
+                        subject=message.from_user.id)
+    logger.info("proof verify uid=%s %s → %s", message.from_user.id,
+                data.get("proof_currency"), verdict["reason"])
+    if not verdict["verified"]:
+        cancel_kb = InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(text="✖️ Отмена", callback_data="vrf_cancel")]])
+        # Код живёт 15 минут, а подпись в аппаратном кошельке делается дольше.
+        # С протухшим кодом ЛЮБАЯ подпись обречена, и просьба «пришлите ещё
+        # раз» запирает клиента в бесконечном круге: он присылает безупречную
+        # подпись, получает отказ и присылает снова. Выдаём новый текст сами —
+        # адрес уже известен, спрашивать его заново незачем. Нашёл codex.
+        if verdict["reason"] in ("payload_expired", "payload_alien", "bad_payload"):
+            again = sp.prepare(data.get("proof_currency", ""),
+                               data.get("proof_address", ""), message.from_user.id)
+            if not again["ok"]:
+                await state.clear()
+                await message.answer(f"❌ {again['error']}")
+                return
+            await state.update_data(proof_payload=again["payload"])
+            import html as _html
+            await message.answer(f"⌛ {verdict['message']}\n\nВот новый текст — "
+                                 f"подпишите его и пришлите подпись:")
+            await message.answer(f"<pre>{_html.escape(again['message'])}</pre>",
+                                 parse_mode="HTML", reply_markup=cancel_kb)
+            return
+        # Остальные отказы лечатся повторной вставкой подписи, и заставлять
+        # клиента заново вводить адрес — наказание за опечатку.
+        await message.answer(f"❌ {verdict['message']}\n\nПришлите подпись ещё раз.",
+                             reply_markup=cancel_kb)
+        return
+    saved = False
+    try:
+        if RELAY_PATH not in sys.path:
+            sys.path.insert(0, RELAY_PATH)
+        from core import wallet_link as _wl
+        # Связь пишем ТОЛЬКО под вердиктом — в единственной точке, где он есть.
+        if verdict["verified"] and verdict["address"]:
+            saved = _wl.remember(message.from_user.id, data.get("proof_currency", ""),
+                                 verdict["address"])
+    except Exception:
+        logger.exception("proof: связь не сохранена")
+    if not saved:
+        await state.clear()
+        await message.answer("Подпись верна, но сохранить не удалось. Попробуйте позже.")
+        return
+    await state.clear()
+    import html as _html
+    await message.answer(
+        f"✅ {verdict['message']}\n\n<code>{_html.escape(verdict['address'] or '')}</code>\n\n"
+        "Адрес добавлен в ваши — посмотреть: /mywallet",
+        parse_mode="HTML")
 
 
 @router.message(Command("mystatus"))
@@ -10722,6 +11065,7 @@ async def main():
             BotCommand(command="mystatus",  description="👤 Мой VIP-статус и скидка"),
             BotCommand(command="myhistory", description="📋 История заявок"),
             BotCommand(command="mywallet",  description="🔌 Мой подключённый кошелёк"),
+            BotCommand(command="verify",    description="🔏 Подтвердить свой адрес"),
             BotCommand(command="mydca",     description="📅 Мои DCA-планы"),
             BotCommand(command="redeem",    description="🎁 Активировать подарочный код"),
             BotCommand(command="offer",     description="📜 Пользовательское соглашение"),

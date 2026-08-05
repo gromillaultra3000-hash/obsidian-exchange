@@ -99,12 +99,128 @@ def _registered_sources() -> dict:
         return {}
 
 
+# Сети, в которых сверка умеет искать для каждой валюты (см. incoming_transfers).
+# У USDT их две, и адреса в них разного вида — кошелёк владельца может быть
+# любым из двух, поэтому годным считаем адрес, подходящий хотя бы одной.
+_SOURCE_NETWORKS = {"BTC": (None,), "LTC": (None,), "ETH": (None,),
+                    "XRP": (None,), "TON": (None,), "USDT": ("TRC20", "ERC20")}
+
+
+def _tagged_source_error(cur: str, addr: str) -> str:
+    """Отправитель обязан быть ГОЛЫМ счётом, без тега и комментария.
+
+    Строка назначения с тегом — правильный адрес (её и проверяет
+    `validate_destination`), но ключ из неё получается другой, чем у счёта:
+    X-адрес XRP лежит в списке как `x…`, а цепочка отдаёт отправителя полем
+    `Account` — обычным `r…`; у TON `UQ…#memo` не разбирается в счёт вообще и
+    падает в запасной ключ-строку, тогда как голый адрес даёт `0:…`. Обе записи
+    выглядят внесёнными и не совпадают никогда — ровно та тихая пустышка, ради
+    которой вся проверка и затевалась. Нашёл codex.
+    """
+    try:
+        from core import address as _addr
+    except Exception:
+        return "проверить адрес нечем — кошелёк не внесён"
+    try:
+        if cur == "XRP" and not _addr.is_valid_xrp_classic(addr):
+            return ("у XRP вносите обычный r-адрес без тега: на цепи отправитель "
+                    "виден именно так, и запись с тегом не совпадёт никогда")
+        if cur == "TON" and not _addr.ton_account_key(addr):
+            return ("у TON вносите адрес кошелька без комментария: на цепи "
+                    "отправитель виден именно так, и запись с комментарием не "
+                    "совпадёт никогда")
+    except Exception:
+        return "проверить адрес нечем — кошелёк не внесён"
+    return ""
+
+
+def source_address_error(currency, address) -> str:
+    """Пусто — адрес годится отправителем этой валюты. Иначе — текст отказа.
+
+    Список доверенных отправителей — денежное правило: совпадение по нему
+    закрывает заявку без человека. Адрес ЧУЖОЙ сети опасен не подлогом (в
+    транзакциях этой сети он не встретится никогда), а тем, что выглядит как
+    внесённый кошелёк, работая как невнесённый. 04.08.2026 так и вышло: под
+    LTC записали TON-адрес, команда молча согласилась, и настоящий LTC-кошелёк
+    остался вне списка — выплаты с него по-прежнему шли человеку на разбор.
+
+    Отказ фейл-клоузный: нечем проверить — не вносим. Незаписанный кошелёк
+    стоит ручного разбора, записанный неверно — тишины.
+    """
+    cur = str(currency or "").strip().upper()
+    addr = str(address or "").strip()
+    if not cur or not addr:
+        return "нужны валюта и адрес"
+    nets = _SOURCE_NETWORKS.get(cur)
+    if nets is None:
+        return (f"по {cur} сверка не смотрит цепочку — вносить кошелёк некуда "
+                f"(умеем: {', '.join(sorted(_SOURCE_NETWORKS))})")
+    try:
+        from core import assets as _assets
+    except Exception as e:
+        logger.warning("payout_discovery: проверка адреса недоступна: %s", e)
+        return "проверить адрес нечем — кошелёк не внесён"
+    for net in nets:
+        try:
+            if _assets.validate_destination(cur, addr, net):
+                return _tagged_source_error(cur, addr)
+        except Exception:
+            return "проверить адрес нечем — кошелёк не внесён"
+    body = addr[2:] if addr.lower().startswith("0x") else ""
+    evm_shape = (len(body) == 40
+                 and all(c in "0123456789abcdefABCDEF" for c in body))
+    # 0x-адрес в одном регистре под EVM-валютой — это ЭТА сеть, но без
+    # контрольной суммы EIP-55 (политика core.address, общая для проекта).
+    # Ответ «это не адрес ETH» тут звучал бы ложью: адрес тот, не хватает формы
+    # записи, а обозреватели часто показывают его строчными. Под НЕ-EVM
+    # валютой тот же ответ был бы ложью наоборот — отправлял бы искать
+    # «BTC-адрес с контрольной суммой», которого не бывает. Нашёл codex.
+    if evm_shape and cur in ("ETH", "USDT") and body in (body.lower(), body.upper()):
+        return (f"адрес {cur} записан в одном регистре — без контрольной суммы "
+                f"EIP-55 опечатка в нём неотличима от настоящего адреса. "
+                f"Скопируйте его из кошелька в смешанном регистре")
+    looks = ""
+    for other, other_nets in _SOURCE_NETWORKS.items():
+        if other == cur:
+            continue
+        try:
+            if any(_assets.validate_destination(other, addr, n) for n in other_nets):
+                looks = other
+                break
+        except Exception:
+            break
+    # По форме узнаём и то, что строгую проверку не прошло: 0x-строка под BTC —
+    # это перепутанная валюта, а не «плохой BTC-адрес», и сказать надо именно так.
+    if not looks and evm_shape:
+        looks = "ETH или USDT (ERC-20)"
+    return f"это не адрес {cur}" + (f" — похоже на адрес {looks}" if looks else "")
+
+
+def sources_with_status() -> list[dict]:
+    """Доверенные отправители с отметкой негодных.
+
+    Проверка на входе не лечит уже записанное: запись, сделанная до неё,
+    останется тихой пустышкой. Поэтому негодные видны в самом списке — иначе
+    о них узнают в тот день, когда выплата не закроется.
+    """
+    reg = _registered_sources()
+    out = []
+    for cur in sorted(reg):
+        for key, meta in (reg[cur] or {}).items():
+            raw = (meta or {}).get("raw") or key
+            out.append({"currency": cur, "address": raw,
+                        "note": (meta or {}).get("note") or "",
+                        "error": source_address_error(cur, raw)})
+    return out
+
+
 def add_source(currency: str, address: str, note: str = "") -> dict:
     """Внести кошелёк, из которого владелец платит клиентам, в доверенные."""
     cur = str(currency or "").upper()
     addr = str(address or "").strip()
-    if not cur or not addr:
-        return {"ok": False, "error": "нужны валюта и адрес"}
+    err = source_address_error(cur, addr)
+    if err:
+        return {"ok": False, "error": err}
     p = Path(SOURCES_PATH)
     try:
         data = json.loads(p.read_text("utf-8")) if p.exists() else {}
@@ -640,8 +756,40 @@ def _incoming_ton(address: str, memo=None) -> list[dict]:
     return [t for t in out if t["txid"]]
 
 
+class ChainUnreadable(RuntimeError):
+    """Цепь прочитать нечем. Это НЕ «переводов нет».
+
+    Разница вся в том, что делает человек дальше. Пустой список означает
+    «смотрели и не нашли» — по нему сверка спокойно идёт к следующей заявке, а
+    зависшая так и висит. Исключение означает «не смотрели и не сможем» — такая
+    заявка обязана попасть человеку в руки, потому что автомат её не закроет
+    никогда, сколько бы проходов ни сделал.
+    """
+
+    def __init__(self, currency: str, why: str):
+        self.currency = str(currency or "").upper()
+        self.why = why
+        super().__init__(f"{self.currency}: {why}")
+
+
+# Монеты, чью цепь прочитать НЕЛЬЗЯ в принципе — не «пока не написали читателя»,
+# а по устройству сети. Список существует, чтобы такая монета не выглядела
+# забытой: без записи здесь она молча получала бы пустой список и навсегда
+# считалась бы проверенной. Причина обязана быть человеческой — её показывают
+# персоналу в отчёте вместо находки.
+UNREADABLE_CHAINS = {
+    "XMR": "у Monero суммы, отправитель и получатель скрыты устройством сети — "
+           "публичного обозревателя, который покажет чужой перевод, не бывает; "
+           "выдачу подтверждает человек по ключу транзакции от получателя",
+}
+
+
 def incoming_transfers(currency: str, address: str, network=None) -> list[dict]:
     cur = str(currency or "").upper()
+    if cur in UNREADABLE_CHAINS:
+        # Именно исключение, а не []: см. ChainUnreadable — пустой список здесь
+        # означал бы «искали, не нашли», и заявка тихо осталась бы висеть.
+        raise ChainUnreadable(cur, UNREADABLE_CHAINS[cur])
     if cur in ("BTC", "LTC"):
         return _incoming_btc_like(address, cur)
     if cur == "USDT":
@@ -946,7 +1094,7 @@ def discover(rate_fn=None, fetch=None) -> dict:
     """
     fetch = fetch or incoming_transfers
     out = {"checked": 0, "close": [], "review": [], "near": [], "none": 0,
-           "errors": []}
+           "manual": [], "errors": []}
     try:
         used = _used_txids()
     except Exception as e:
@@ -964,6 +1112,16 @@ def discover(rate_fn=None, fetch=None) -> dict:
             trusted_cache[cur] = trusted_senders(cur)
         try:
             transfers = _fetch_transfers(fetch, cur, addr, o.get("network"))
+        except ChainUnreadable as e:
+            # Отдельная ветка от «цепочка недоступна»: та говорит «сейчас не
+            # достучались, попробуем через полчаса», а здесь ждать нечего —
+            # следующий проход даст ровно то же. Заявку обязан увидеть человек.
+            out["manual"].append({
+                "order_id": o.get("order_id"), "currency": cur,
+                "rub_amount": o.get("rub_amount"), "user_id": o.get("user_id"),
+                "address": addr, "reason": e.why,
+            })
+            continue
         except Exception as e:
             out["errors"].append(f"#{o['order_id']}: цепочка недоступна ({type(e).__name__})")
             continue
@@ -1019,6 +1177,10 @@ def candidates_for(order_id: int, rate_fn=None, fetch=None) -> dict:
     cur = (o.get("currency") or "").upper()
     try:
         transfers = _fetch_transfers(fetch, cur, o.get("crypto_address"), o.get("network"))
+    except ChainUnreadable as e:
+        # «Попробуйте позже» здесь было бы враньём: позже будет то же самое.
+        return {"error": f"{cur}: {e.why}. Закрывать заявку — только "
+                         f"/force_payout {order_id} <TXID> по ключу от клиента"}
     except Exception as e:
         return {"error": f"цепочка недоступна: {type(e).__name__}"}
     v = judge({**o, "expected_amount": expected_amount(o, rate_fn),
@@ -1049,19 +1211,26 @@ def alert_fingerprint(res: dict) -> str:
         return f"{v.get('order_id')}:{'+'.join(txs)}"
     review = sorted(one(v, "candidates") for v in (res.get("review") or []))
     near = sorted(one(v, "near") for v in (res.get("near") or []))
-    return "discovery:review:" + ",".join(review) + "|near:" + ",".join(near)
+    # Заявки в нечитаемой цепи входят в отпечаток по своему составу: одна и та
+    # же висящая заявка не должна продлевать тревогу каждые полчаса, а вот
+    # НОВАЯ обязана пробить окно молчания сразу — иначе выйдет ровно тот шум
+    # 27.07, из-за которого сигнал перестали читать.
+    manual = sorted(str(v.get("order_id")) for v in (res.get("manual") or []))
+    return ("discovery:review:" + ",".join(review) + "|near:" + ",".join(near)
+            + "|manual:" + ",".join(manual))
 
 
 def format_report(res: dict, max_items: int = 6) -> str:
     """Сводка для Telegram или '' — если рассказывать не о чем."""
     if (not res.get("close") and not res.get("review") and not res.get("near")
-            and not res.get("errors")):
+            and not res.get("manual") and not res.get("errors")):
         return ""
     lines = ["⛓ <b>Сверка выдачи с блокчейном</b>\n",
              f"<blockquote>Проверено зависших заявок: <b>{res.get('checked', 0)}</b>\n"
              f"Закрыто по доказательству: <b>{len(res.get('close', []))}</b>\n"
              f"Требуют решения: <b>{len(res.get('review', []))}</b>\n"
-             f"Похожи, но мимо допуска: <b>{len(res.get('near', []))}</b></blockquote>"]
+             f"Похожи, но мимо допуска: <b>{len(res.get('near', []))}</b>\n"
+             f"Цепь не читается, только руками: <b>{len(res.get('manual', []))}</b></blockquote>"]
     for v in res.get("close", [])[:max_items]:
         lines.append(f"\n✅ #{v['order_id']} — {v.get('amount')} {v['currency']}, "
                      f"tx <code>{(v.get('txid') or '')[:16]}…</code>")
@@ -1082,6 +1251,13 @@ def format_report(res: dict, max_items: int = 6) -> str:
                          f"   {n['amount']:g} ({n['off_pct']:g}% мимо) от "
                          f"{', '.join(n['senders'])[:48]}\n"
                          f"   <code>/force_payout {v['order_id']} {n['txid']}</code>")
+    for v in res.get("manual", [])[:max_items]:
+        # Кнопки закрытия здесь нет и быть не может: доказательства у нас нет
+        # вовсе. Поэтому сразу даём готовую команду — иначе подсказка звучит
+        # как «разберись сам», и заявка останется висеть.
+        lines.append(f"\n🖐 #{v['order_id']} ({(v.get('rub_amount') or 0):g} ₽ → "
+                     f"{v['currency']}): {v['reason']}\n"
+                     f"   <code>/force_payout {v['order_id']} &lt;TXID&gt;</code>")
     for e in res.get("errors", [])[:3]:
         lines.append(f"\n⚠️ {e}")
     return "\n".join(lines)

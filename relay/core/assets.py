@@ -18,6 +18,7 @@ NET_TRC20 = "TRC20"       # USDT на TRON
 NET_ERC20 = "ERC20"       # ETH mainnet и USDT на Ethereum
 NET_XRPL = "XRPL"         # XRP Ledger — своя сеть, не MAINNET (тот код занят BTC/LTC)
 NET_TON = "TON"           # The Open Network — своя цепь, не EVM и не TRON
+NET_MONERO = "MONERO"     # Monero — своя цепь; код MAINNET занят BTC/LTC
 
 # Валюта → допустимые сети (первая = сеть по умолчанию)
 CURRENCY_NETWORKS = {
@@ -27,6 +28,7 @@ CURRENCY_NETWORKS = {
     "ETH": [NET_ERC20],   # для ETH «ERC20» = Ethereum mainnet (единый EVM-контур)
     "XRP": [NET_XRPL],
     "TON": [NET_TON],
+    "XMR": [NET_MONERO],
 }
 
 # Валюты, где адрес может сопровождаться тегом/мемо. Пропуск тега при переводе
@@ -55,6 +57,14 @@ TAG_SEPARATORS = {"XRP": ":", "TON": "#"}
 # Ручной ввод адреса остаётся у ВСЕХ монет, включая эти.
 WALLET_CONNECT_CURRENCIES = {"TON"}
 
+# Монеты, где владение адресом доказывается ПОДПИСЬЮ СООБЩЕНИЯ: клиент
+# подписывает наш текст в своём кошельке и присылает подпись (core.sig_proof).
+# Механизм другой, чем у TON Connect (там кошелёк отвечает нам сам), а роль та
+# же — единственный способ добавить адрес по просьбе клиента, не превращая
+# сервис в пробник чужих кошельков. Список здесь по той же причине, что и выше:
+# поверхность, знающая его из своего кода, отстанет от сервера.
+SIGNED_MESSAGE_CURRENCIES = {"BTC", "LTC"}
+
 # Синонимы входных значений сети → канон (или None = недопустимо)
 _NET_ALIASES = {
     "TRON": NET_TRC20, "TRC-20": NET_TRC20, "TRC20": NET_TRC20,
@@ -63,6 +73,7 @@ _NET_ALIASES = {
     "MAIN": NET_MAINNET, "MAINNET": NET_MAINNET,
     "XRPL": NET_XRPL, "XRP": NET_XRPL, "RIPPLE": NET_XRPL,
     "TON": NET_TON, "TONCOIN": NET_TON, "THE OPEN NETWORK": NET_TON,
+    "XMR": NET_MONERO, "MONERO": NET_MONERO,
     "BEP20": None, "BSC": None, "POLYGON": None, "MATIC": None,
 }
 
@@ -82,6 +93,19 @@ _ADDR_RE = {
                r'^X[rpshnaf39wBUDNEGHJKLM4PQRST7VWXYZ2bcdeCg65jkm8oFqi1tuvAxyz]{40,50}$'],
     # TON: «дружественная» форма (48 символов base64url) и «сырая» (workchain:hex64).
     NET_TON: [r'^[A-Za-z0-9+/_-]{48}$', r'^-?\d+:[0-9a-fA-F]{64}$'],
+    # Monero: обычный адрес и субадрес — 95 символов («4…» / «8…»),
+    # integrated — 106 («4…», внутри уже лежит payment id). Алфавит base58
+    # биткойновый, но разбор блочный — вердикт даёт core.address.
+    #
+    # Второй символ здесь НЕ ограничен, хотя по нему видно тип адреса. Первые
+    # два символа кодируют не один префиксный байт, а весь первый блок из
+    # восьми байтов — то есть префикс ВМЕСТЕ с началом ключа траты. У
+    # integrated-адресов второй символ пробегает B…M, у субадресов 2…C, и
+    # попытка перечислить их «по виду» отвергала верные адреса ДО подсчёта
+    # контрольной суммы: клиент с исправным кошельком получал «неверный
+    # формат». Нашёл codex. Тип и сумму решает core.address.is_valid_xmr.
+    NET_MONERO: [r'^[48][1-9A-HJ-NP-Za-km-z]{94}$',
+                 r'^4[1-9A-HJ-NP-Za-km-z]{105}$'],
 }
 
 
@@ -164,6 +188,8 @@ def validate_address(currency, address, network=None) -> bool:
         pats = _ADDR_RE[NET_XRPL]
     elif c == "TON":
         pats = _ADDR_RE[NET_TON]
+    elif c == "XMR":
+        pats = _ADDR_RE[NET_MONERO]
     else:
         return False
     if not any(re.match(p, addr) for p in pats):
@@ -195,6 +221,8 @@ def _checksum_ok(currency, addr, net) -> bool:
             return _addr.is_valid_xrp(addr)
         if currency == "TON":
             return _addr.is_valid_ton(addr)
+        if currency == "XMR":
+            return _addr.is_valid_xmr(addr)
     except Exception:
         return False
     return False
@@ -203,7 +231,8 @@ def _checksum_ok(currency, addr, net) -> bool:
 def network_label(currency, network=None) -> str:
     """Человекочитаемая метка сети для UI, напр. 'TRC-20', 'ERC-20', 'Mainnet'."""
     net = normalize_network(currency, network)
-    return {NET_TRC20: "TRC-20", NET_ERC20: "ERC-20", NET_MAINNET: "Mainnet",
+    return {NET_MONERO: "Monero",
+            NET_TRC20: "TRC-20", NET_ERC20: "ERC-20", NET_MAINNET: "Mainnet",
             NET_XRPL: "XRP Ledger", NET_TON: "TON"}.get(net, "")
 
 

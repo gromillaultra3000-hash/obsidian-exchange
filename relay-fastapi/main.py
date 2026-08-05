@@ -807,8 +807,22 @@ async def dashboard_exchange_page(request: Request):
     prefill = {}
     if q.get("repeat"):
         prefill = {"currency": q.get("currency","BTC"), "amount": q.get("amount",""), "address": q.get("address","")}
+    # Книга адресов клиента — тем же источником, что бот и Mini App. Привязка
+    # к Telegram обязательна: заявки лежат под telegram_id, и без неё показать
+    # нечего (а брать адреса по web-аккаунту значило бы склеить двух разных
+    # людей, если Telegram к кабинету ещё не привязан).
+    book = []
+    if web_user.get("telegram_id"):
+        try:
+            from core import address_book as _ab
+            # Отбор по монете делает страница, поэтому ограничение — на каждую
+            # монету, а не на весь список: иначе свежие заявки по другим
+            # монетам вытесняют единственный адрес нужной.
+            book = _ab.entries_by_currency(web_user["telegram_id"])
+        except Exception:
+            logger.exception("адресная книга недоступна на сайте")
     return templates.TemplateResponse(request, "dashboard_exchange.html", site_context(
-        request, active="exchange", prefill=prefill,
+        request, active="exchange", prefill=prefill, address_book=book,
     ))
 
 @app.post("/dashboard/exchange", response_class=HTMLResponse)
@@ -1335,14 +1349,39 @@ async def dashboard_profile_page(request: Request):
         try:
             from core import wallet_link as _wl
             wallets = _wl.balances_for(web_user['telegram_id'])
-            if wallets:
-                wallet_ops = _wl.history_for(web_user['telegram_id'],
-                                             chain=wallets[0]["chain"], limit=10)
+            # История — только у сетей, где есть чем её читать. Спросить за
+            # BTC/LTC-связь значило бы получить «не поддержано» и показать его
+            # клиенту как «сеть не ответила»: выдуманный сбой вместо честного
+            # молчания.
+            for w in wallets:
+                if w["chain"] in _wl.HISTORY_SOURCES:
+                    wallet_ops = _wl.history_for(web_user['telegram_id'],
+                                                 chain=w["chain"], limit=10)
+                    break
         except Exception as e:
             logger.warning(f"dashboard profile: кошельки недоступны: {e}")
+    # Адреса и приходы — тем же источником, что бот и Mini App. Нужны и без
+    # подключённого кошелька: подключение есть только у TON, а получают
+    # клиенты на все монеты.
+    book, deliveries = [], []
+    if web_user['telegram_id']:
+        try:
+            from core import address_book as _ab
+            book = _ab.entries_by_currency(web_user['telegram_id'])
+            deliveries = _ab.deliveries_for(web_user['telegram_id'])
+        except Exception as e:
+            logger.warning(f"dashboard profile: адресная книга недоступна: {e}")
+    # Монеты с подтверждением подписью — из реестра сервера, не из шаблона.
+    try:
+        from core import sig_proof as _sp
+        proof_currencies = sorted(_sp.currencies())
+    except Exception as e:
+        logger.warning(f"dashboard profile: реестр подписей недоступен: {e}")
+        proof_currencies = []
     return templates.TemplateResponse(request, "dashboard_profile.html", site_context(
         request, active="profile", ref_address=ref_address, wallets=wallets,
-        wallet_ops=wallet_ops,
+        wallet_ops=wallet_ops, address_book=book, deliveries=deliveries,
+        proof_currencies=proof_currencies,
         error=request.query_params.get('error'), success=request.query_params.get('success'),
     ))
 
@@ -2081,6 +2120,78 @@ async def tonconnect_verify(request: Request):
             "currency": "TON"}
 
 
+def _proof_subject(request: Request, csrf: str = None):
+    """Кто просит доказать владение: id из подписанного initData или из сессии
+    кабинета. Один клиент — один subject, потому что код проверки привязан
+    именно к нему, и связь кошелька живёт на telegram_id.
+
+    Живёт отдельно от `/api/wallet/*` (там адрес в запросе запрещён как класс —
+    иначе эндпоинт становится пробником чужих остатков). Здесь адрес нужен: без
+    него нечего вписать в подписываемый текст. Ничего о чужом адресе этот путь
+    не рассказывает — только повторяет присланное и отвечает «да/нет».
+    """
+    user = verify_init_data(request.headers.get('X-Telegram-Init-Data', ''))
+    if user:
+        return user['id']
+    web_user = auth.get_web_user(request)
+    if not web_user or not web_user['telegram_id']:
+        return None
+    # Сессия кабинета живёт в куке, поэтому изменяющий запрос требует CSRF;
+    # у initData такой проблемы нет — заголовок чужой сайт не подставит.
+    if csrf is not None and not auth.verify_csrf(web_user, csrf):
+        return None
+    return web_user['telegram_id']
+
+
+@app.get("/api/proof/message")
+async def api_proof_message(request: Request):
+    """Текст, который клиент подписывает в своём кошельке, и код проверки.
+
+    Текст собирает СЕРВЕР (core.sig_proof.message_for) — тот же код потом
+    проверяет подпись. Если бы поверхность составляла его сама, расхождение в
+    один пробел давало бы «подпись неверна» на честном кошельке.
+    """
+    from core import sig_proof as _sp
+    uid = _proof_subject(request)
+    if not uid:
+        raise HTTPException(status_code=403, detail="Войдите в кабинет или откройте приложение через бота.")
+    ready = _sp.prepare((request.query_params.get('currency') or '')[:8],
+                        (request.query_params.get('address') or '')[:120], uid)
+    if not ready["ok"]:
+        raise HTTPException(status_code=503 if ready["reason"] == "not_configured" else 400,
+                            detail=ready["error"])
+    from core import tonconnect as _tc
+    return {"currency": ready["currency"], "address": ready["address"],
+            "payload": ready["payload"], "message": ready["message"],
+            "ttl": _tc.PAYLOAD_TTL_SEC}
+
+
+@app.post("/api/proof/verify")
+async def api_proof_verify(request: Request):
+    """Вердикт о владении адресом и — только при положительном — связь кошелька.
+
+    Связь создаётся ровно здесь и ровно под `verified`: это единственная точка,
+    где есть вердикт. Адрес в ответе берётся из вердикта, а не из запроса,
+    чтобы клиенту нельзя было вернуть его же строку с нашей отметкой.
+    """
+    from core import sig_proof as _sp
+    body = await json_object(request)
+    uid = _proof_subject(request, csrf=str(body.get("csrf_token") or ""))
+    if not uid:
+        raise HTTPException(status_code=403, detail="Войдите в кабинет или откройте приложение через бота.")
+    cur = str(body.get("currency") or "").upper()[:8]
+    verdict = _sp.verify(cur, str(body.get("address") or "")[:120],
+                         str(body.get("payload") or "")[:200],
+                         str(body.get("signature") or "")[:400], subject=uid)
+    logger.info(f"proof verify uid={uid} {cur} → {verdict['reason']}")
+    if verdict["verified"] and verdict["address"]:
+        from core import wallet_link as _wl
+        _wl.remember(uid, cur, verdict["address"])
+    return {"verified": verdict["verified"], "reason": verdict["reason"],
+            "message": verdict["message"], "address": verdict["address"],
+            "currency": cur}
+
+
 @app.get("/api/wallet/links")
 async def api_wallet_links(request: Request):
     """Подключённые кошельки клиента и их балансы.
@@ -2111,6 +2222,67 @@ async def api_wallet_history(request: Request):
     from core import wallet_link as _wl
     chain = (request.query_params.get('chain') or 'TON').upper()[:12]
     return _wl.history_for(user['id'], chain=chain, limit=20)
+
+
+@app.get("/api/wallet/addresses")
+async def api_wallet_addresses(request: Request):
+    """Адреса клиента для подстановки в заявку.
+
+    Список строит СЕРВЕР по собственным заявкам клиента и подтверждённым
+    подписью связям; адрес из запроса сюда не принимается — иначе чужой адрес
+    попал бы в чью-то книгу как «ваш сохранённый» (см. core/address_book).
+
+    Балансов здесь нет намеренно: владение адресом из прошлой заявки не
+    доказано, а остаток по нему — не дело того, кто однажды на него отправил.
+    """
+    user = verify_init_data(request.headers.get('X-Telegram-Init-Data', ''))
+    if not user:
+        raise HTTPException(status_code=403, detail="Откройте приложение через бота Telegram.")
+    from core import address_book as _ab
+    cur = (request.query_params.get('currency') or '').upper()[:8]
+    net = (request.query_params.get('network') or '').upper()[:12]
+    # Приходы отдаём только когда список НЕ сужен под форму заявки: там они
+    # лишний вес на каждое переключение монеты, а в витрине кошелька — главное.
+    # Витрина кошелька (монета не задана) режется ПО КАЖДОЙ монете, а не общим
+    # счётом: восемь свежих BTC-заявок иначе вытесняют единственный LTC-адрес,
+    # и клиент, у которого он есть, видит пустое место. На сайте это уже
+    # исправлено — здесь тот же список собирался по-старому. Нашёл codex.
+    out = {"addresses": (_ab.entries_for(user['id'], cur, net or None) if cur
+                         else _ab.entries_by_currency(user['id']))}
+    if not cur:
+        out["deliveries"] = _ab.deliveries_for(user['id'])
+        # Монеты, чей адрес можно подтвердить подписью, — из реестра сервера.
+        # Список во фронте отстал бы от него на следующей же сети, а цена
+        # расхождения — форма подтверждения у монеты, где её нечем обслужить.
+        from core import sig_proof as _sp
+        out["proof_currencies"] = sorted(_sp.currencies())
+    return out
+
+
+@app.post("/api/wallet/address/note")
+async def api_wallet_address_note(request: Request):
+    """Подписать адрес именем или убрать его из подсказок.
+
+    Клиент правит ТОЛЬКО свою заметку: сам адрес отсюда не появляется — если
+    его нет в книге, заметка ни к чему не привяжется и в подсказках ничего
+    не возникнет.
+    """
+    user = verify_init_data(request.headers.get('X-Telegram-Init-Data', ''))
+    if not user:
+        raise HTTPException(status_code=403, detail="Откройте приложение через бота Telegram.")
+    body = await json_object(request)
+    from core import address_book as _ab
+    cur = str(body.get("currency") or "").upper()[:8]
+    net = str(body.get("network") or "").upper()[:12]
+    addr = str(body.get("address") or "").strip()[:120]
+    # Скрытый адрес остаётся СВОИМ: иначе вернуть его из скрытых было бы нечем.
+    if not _ab.owns(user['id'], cur, addr, net or None, include_hidden=True):
+        raise HTTPException(status_code=404, detail="Такого адреса в вашей книге нет.")
+    if body.get("hidden") is True:
+        return {"ok": _ab.hide(user['id'], cur, addr, net)}
+    if body.get("hidden") is False:
+        return {"ok": _ab.unhide(user['id'], cur, addr, net)}
+    return {"ok": _ab.set_label(user['id'], cur, addr, body.get("label"), net)}
 
 
 @app.post("/api/wallet/disconnect")

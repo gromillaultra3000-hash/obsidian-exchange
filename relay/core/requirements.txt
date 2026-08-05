@@ -1,0 +1,13 @@
+# Зависимости ЯДРА (relay/core) — то, без чего не работает боевой путь.
+#
+# Ставить в ОБА интерпретатора: relay-fastapi запускается системным python
+# (/usr/bin/python3), бот — из /root/bot/venv. Библиотека, поставленная только
+# в venv, зелёная на тестах и мёртвая в проде:
+#   /usr/bin/pip3 install -r relay/core/requirements.txt
+#   /root/bot/venv/bin/pip install -r relay/core/requirements.txt
+# Расхождение сторожит мина «зависимость мимо боевого интерпретатора».
+#
+# coincurve — восстановление публичного ключа из подписи сообщения
+# (core/sig_proof: доказательство владения BTC/LTC-адресом). Без неё монеты
+# просто не предлагаются к подтверждению — см. sig_proof.currencies().
+coincurve>=18,<22

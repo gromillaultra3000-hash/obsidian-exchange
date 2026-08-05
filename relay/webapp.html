@@ -288,7 +288,7 @@
             <!-- Сеть: показывается только когда выбор реально есть (USDT) -->
             <div class="input-group" id="network-group" style="display:none">
                 <label>Сеть</label>
-                <select id="network" onchange="updateAddressPlaceholder()"></select>
+                <select id="network" onchange="updateAddressPlaceholder(); loadAddressBook()"></select>
                 <div style="margin-top:6px;font-size:11px;color:#f0a" id="network-warn">
                     Монеты уйдут именно в этой сети — адрес другой сети не подойдёт.
                 </div>
@@ -333,6 +333,14 @@
             <div class="input-group">
                 <label>Ваш адрес</label>
                 <input type="text" id="address" placeholder="Введите адрес кошелька" oninput="validateAddress()">
+                <!-- Адреса, на которые клиент уже получал. Список приходит с
+                     сервера по подписанному initData: адрес отсюда не
+                     принимается, поэтому чужой сюда не попадёт. -->
+                <div id="addr-book" style="display:none;margin-top:8px">
+                  <div style="font-size:11px;color:var(--muted);margin-bottom:6px">
+                    📇 Ваши адреса — нажмите, чтобы подставить</div>
+                  <div id="addr-book-chips" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+                </div>
                 <div class="validation-msg" id="address-msg"></div>
             </div>
             <!-- Тег назначения: только у валют, где он есть (XRP). Прячется,
@@ -451,6 +459,62 @@
             <button type="button" id="wallet-disconnect"
                     style="margin-top:12px;width:100%;background:none;border:1px solid rgba(255,255,255,.12);color:var(--muted);border-radius:10px;padding:9px;font-size:12px;cursor:pointer">
               Отключить кошелёк</button>
+          </div>
+
+          <!-- Адреса и приходы. Живут ВНЕ разделения «подключён / не подключён»:
+               подключение есть только у TON, а получают клиенты на все монеты.
+               Без этого блока вкладка «Кошелёк» пуста у того, кто уже полгода
+               меняет на свой BTC-кошелёк. Балансов здесь нет намеренно —
+               владение адресом из заявки не доказано (см. core/address_book). -->
+          <div id="w-book" style="display:none;margin-top:16px">
+            <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">
+              Мои адреса</div>
+            <div id="w-book-list"></div>
+          </div>
+          <div id="w-deliv" style="display:none;margin-top:16px">
+            <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">
+              Получено от обменника</div>
+            <div id="w-deliv-list"></div>
+          </div>
+
+          <!-- Подтверждение владения подписью. Без него книга адресов у нового
+               клиента пуста: сервер знает только те адреса, на которые УЖЕ
+               отправлял. Принять адрес просто так нельзя (чужой адрес в чужой
+               книге = пробник остатков), поэтому единственный честный путь —
+               подпись. Список монет приходит с сервера: захардить его здесь
+               значило бы отстать от реестра на следующей же сети. -->
+          <div id="w-proof" style="display:none;margin-top:16px;padding:12px 14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px">
+            <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">
+              Подтвердить свой адрес</div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:10px">
+              Подпишите короткий текст в своём кошельке («Подписать сообщение» есть
+              в Electrum, BlueWallet, Sparrow, Bitcoin Core, Trezor) — и адрес
+              появится в списке с галочкой, а подставлять его в заявку можно будет
+              одним тапом. Подпись ничего не переводит.</div>
+            <div class="input-group"><label>Монета</label>
+              <select id="w-proof-cur"></select></div>
+            <div class="input-group"><label>Ваш адрес</label>
+              <input type="text" id="w-proof-addr" autocomplete="off" placeholder="bc1… / 1… / ltc1…"></div>
+            <button type="button" id="w-proof-get"
+                    style="width:100%;background:var(--accent);border:none;color:#fff;border-radius:12px;padding:11px;font-size:14px;font-weight:700;cursor:pointer">
+              Получить текст для подписи</button>
+            <div id="w-proof-step2" style="display:none;margin-top:10px">
+              <div style="font-size:12px;color:var(--muted);margin-bottom:6px">
+                1. Скопируйте текст и подпишите его в кошельке этим адресом:</div>
+              <textarea id="w-proof-msg" readonly rows="5"
+                        style="width:100%;font-family:monospace;font-size:11px;background:rgba(0,0,0,.25);color:var(--text,#fff);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:8px"></textarea>
+              <button type="button" id="w-proof-copy"
+                      style="margin:6px 0 10px;background:none;border:1px solid rgba(255,255,255,.14);color:var(--muted);border-radius:10px;padding:7px 14px;font-size:12px;cursor:pointer">
+                Скопировать текст</button>
+              <div style="font-size:12px;color:var(--muted);margin-bottom:6px">
+                2. Вставьте сюда подпись из кошелька:</div>
+              <textarea id="w-proof-sig" rows="3" placeholder="H…/I…"
+                        style="width:100%;font-family:monospace;font-size:11px;background:rgba(0,0,0,.25);color:var(--text,#fff);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:8px"></textarea>
+              <button type="button" id="w-proof-go"
+                      style="width:100%;margin-top:8px;background:var(--accent);border:none;color:#fff;border-radius:12px;padding:11px;font-size:14px;font-weight:700;cursor:pointer">
+                Проверить подпись</button>
+            </div>
+            <div id="w-proof-out" style="font-size:12px;margin-top:8px"></div>
           </div>
         </div>
         <div class="panel" id="panel-history"><div id="history-list"></div></div>
@@ -812,7 +876,8 @@
         // Список не хардкодим — направление может быть закрыто по ликвидности.
         const COIN_LABEL = { BTC: '₿ Bitcoin (BTC)', LTC: 'Ł Litecoin (LTC)',
                              USDT: '💵 Tether (USDT)', ETH: 'Ξ Ethereum (ETH)',
-                             XRP: '✕ XRP (Ripple)' };
+                             XRP: '✕ XRP (Ripple)', TON: '💎 Toncoin (TON)',
+                             XMR: 'ɱ Monero (XMR)' };
         function applyOfferings(offerings) {
             if (!offerings || !offerings.length) return;
             window.__oeOfferings = offerings;
@@ -845,6 +910,54 @@
             calculateFee();
             updateAddressPlaceholder();
             updateTagField();
+            loadAddressBook();
+        }
+
+        // ── Книга адресов ────────────────────────────────────────────────
+        // Показываем только адреса ЭТОЙ монеты и сети: подставить BTC-адрес
+        // там, где просят LTC, — необратимая потеря, а разница между двумя
+        // длинными строками на экране телефона не читается.
+        let addrBookReq = 0;
+        async function loadAddressBook() {
+            const box = document.getElementById('addr-book');
+            const chips = document.getElementById('addr-book-chips');
+            if (!box || !chips) return;
+            const cur = document.getElementById('currency').value;
+            const net = (typeof selectedNetwork === 'function') ? selectedNetwork() : '';
+            const my = ++addrBookReq;
+            box.style.display = 'none';
+            chips.innerHTML = '';
+            if (!cur || !(tg.initData || '')) return;
+            let list = [];
+            try {
+                const r = await fetch(`/api/wallet/addresses?currency=${encodeURIComponent(cur)}`
+                                      + (net ? `&network=${encodeURIComponent(net)}` : ''),
+                    { headers: { 'X-Telegram-Init-Data': tg.initData || '' } });
+                if (!r.ok) return;
+                list = (await r.json()).addresses || [];
+            } catch (e) { return; }
+            // Пока ходили за списком, клиент мог переключить монету. Показать
+            // ответ на устаревший запрос — значит предложить адрес чужой сети.
+            if (my !== addrBookReq) return;
+            if (!list.length) return;
+            list.slice(0, 4).forEach(a => {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.textContent = (a.verified ? '✅ ' : '📇 ') + (a.label || a.short);
+                b.title = a.address;
+                b.style.cssText = 'padding:7px 11px;border-radius:11px;cursor:pointer;'
+                    + 'font-size:12px;font-weight:600;color:#e2e8f0;'
+                    + 'background:rgba(159,103,255,.12);border:1px solid rgba(159,103,255,.35)';
+                b.onclick = () => {
+                    const inp = document.getElementById('address');
+                    inp.value = a.address;
+                    validateAddress();
+                    if (typeof updateTagField === 'function') updateTagField();
+                    if (tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
+                };
+                chips.appendChild(b);
+            });
+            box.style.display = '';
         }
 
         // Нужен ли тег — решает сервер (assets.TAGGED_CURRENCIES), значение
@@ -1046,13 +1159,22 @@
         }
 
         let walletAddress = '';
+        // Монета кошелька на карточке. Нужна и истории, и отключению: раньше
+        // обе были прибиты к TON, а связей теперь несколько.
+        let walletChain = 'TON';
 
         function walletRender(list) {
             const empty = document.getElementById('w-empty');
             const main = document.getElementById('w-main');
             const hint = document.getElementById('wallet-hint');
             if (!empty || !main) return;
-            const w = (list && list.length) ? list[0] : null;
+            // Карточку отдаём TON-кошельку, если он есть: только он умеет
+            // подписывать переводы прямо отсюда. Иначе показываем первый
+            // подтверждённый — раньше здесь всегда стоял list[0], и с приходом
+            // BTC/LTC-связей карточка досталась бы сети, у которой ни отправки,
+            // ни отключения нет.
+            const w = (list || []).find(x => x.chain === 'TON') || (list || [])[0] || null;
+            walletChain = w ? w.chain : 'TON';
             walletAddress = w ? w.address : '';
             if (hint) hint.style.display = w ? 'block' : 'none';
             if (!w) {
@@ -1069,14 +1191,39 @@
             const rub = document.getElementById('w-balance-rub');
             bal.textContent = known ? (w.balance.toFixed(4) + ' ' + w.chain) : 'недоступен';
             bal.style.color = known ? '#e2e8f0' : 'var(--muted)';
-            // Рублёвую оценку показываем только когда знаем ОБА числа: курс без
-            // баланса (и наоборот) дал бы уверенное «0 ₽» на пустом месте.
-            const rate = (typeof cachedRates === 'object' && cachedRates) ? cachedRates['TON'] : 0;
+            // Курс берём СВОЕЙ монеты. Раньше здесь стоял cachedRates['TON'] —
+            // с балансом BTC это дало бы уверенную рублёвую оценку по цене
+            // другой монеты, то есть ошибку в тысячи раз в поле «≈ ₽».
+            const rate = (typeof cachedRates === 'object' && cachedRates)
+                ? cachedRates[w.chain] : 0;
             rub.textContent = (known && rate > 0)
                 ? '≈ ' + Math.round(w.balance * rate).toLocaleString('ru-RU') + ' ₽' : '';
+            // Ожидающее подтверждения — отдельной строкой: складывать его с
+            // остатком нельзя (может не состояться), молчать о нём — значит
+            // показать ноль тому, кто только что получил перевод.
+            if (typeof w.pending === 'number' && Math.abs(w.pending) > 1e-12) {
+                rub.textContent += (rub.textContent ? ' · ' : '')
+                    + (w.pending > 0 ? '+' : '') + w.pending.toFixed(4)
+                    + ' ждёт подтверждения';
+            }
             const addr = document.getElementById('w-address');
             addr.textContent = walletShorten(w.address);
             addr.onclick = () => walletCopy(w.address, addr);
+            // Отправка, пополнение и отключение живут только у кошелька,
+            // который подключён по-настоящему (TON Connect). У адреса,
+            // подтверждённого подписью, ключа у нас нет и быть не может —
+            // кнопка «Отправить» там обещала бы невозможное.
+            const owned = w.chain === 'TON';
+            ['w-act-send', 'w-act-recv', 'wallet-disconnect'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = owned ? '' : 'none';
+            });
+            if (!owned) {
+                const s = document.getElementById('w-send');
+                const rv = document.getElementById('w-recv');
+                if (s) s.style.display = 'none';
+                if (rv) rv.style.display = 'none';
+            }
         }
 
         function walletCopy(text, el) {
@@ -1159,7 +1306,8 @@
                      + '<span style="color:var(--muted)">' + when + ' · '
                      + walletShorten(op.counterparty) + '</span>'
                      + '<span style="font-weight:700;color:' + (inc ? 'var(--green)' : '#e2e8f0') + '">'
-                     + (inc ? '+' : '−') + Number(op.amount || 0).toFixed(4) + '</span></div>';
+                     + (inc ? '+' : '−') + Number(op.amount || 0).toFixed(4)
+                     + ' ' + esc(d.chain || '') + '</span></div>';
             }).join('');
         }
 
@@ -1240,6 +1388,198 @@
             }
         }
 
+        // ── Витрина кошелька: адреса клиента и приходы от нас ─────────────
+        // Показываем даже когда внешний кошелёк не подключён: подключение есть
+        // только у TON, а получают клиенты на все монеты. Иначе вкладка пуста у
+        // того, кто полгода меняет на свой BTC-адрес.
+        function esc(s) {
+            return String(s == null ? '' : s).replace(/[&<>"']/g,
+                c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;',
+                        '"': '&quot;', "'": '&#39;' }[c]));
+        }
+
+        async function loadWalletBook() {
+            const box = document.getElementById('w-book');
+            const list = document.getElementById('w-book-list');
+            const dBox = document.getElementById('w-deliv');
+            const dList = document.getElementById('w-deliv-list');
+            if (!box || !list) return;
+            let data = {};
+            try {
+                const r = await fetch('/api/wallet/addresses',
+                    { headers: { 'X-Telegram-Init-Data': tg.initData || '' } });
+                if (!r.ok) return;
+                data = await r.json();
+            } catch (e) { return; }
+
+            const addrs = data.addresses || [];
+            list.innerHTML = '';
+            addrs.forEach(a => {
+                const row = document.createElement('div');
+                row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:10px 12px;'
+                    + 'margin-bottom:8px;background:rgba(255,255,255,.04);'
+                    + 'border:1px solid rgba(255,255,255,.08);border-radius:12px';
+                row.innerHTML =
+                    '<div style="flex:1;min-width:0">'
+                    + '<div style="font-size:13px;font-weight:700">'
+                    + (a.verified ? '✅ ' : '') + esc(a.currency)
+                    + (a.network ? ' <span style="font-size:11px;color:var(--muted)">'
+                                   + esc(a.network) + '</span>' : '')
+                    + (a.label ? ' · ' + esc(a.label) : '') + '</div>'
+                    + '<div style="font-family:monospace;font-size:11px;color:var(--muted);'
+                    + 'overflow:hidden;text-overflow:ellipsis">' + esc(a.short) + '</div></div>';
+                const use = document.createElement('button');
+                use.type = 'button';
+                use.textContent = 'Обменять';
+                use.style.cssText = 'padding:7px 12px;border-radius:10px;cursor:pointer;'
+                    + 'font-size:12px;font-weight:700;color:#fff;border:none;background:var(--accent)';
+                use.onclick = () => {
+                    // Уводим в форму заявки с уже подставленным адресом: смысл
+                    // витрины в том, чтобы отсюда МОЖНО БЫЛО начать обмен.
+                    const cur = document.getElementById('currency');
+                    if (cur) { cur.value = a.currency; onCurrencyChange(); }
+                    const net = document.getElementById('network');
+                    // Сеть ставим ПОСЛЕ onCurrencyChange (он пересобирает список
+                    // сетей и сбрасывает выбор на первую), но подсказки после
+                    // этого обязаны перезагрузиться: иначе форма стоит на ERC20,
+                    // а чипы под ней — от TRC20, и следующий тап подставит адрес
+                    // чужой сети. Нашёл codex.
+                    if (net && a.network && net.value !== a.network) {
+                        net.value = a.network;
+                        loadAddressBook();
+                    }
+                    const inp = document.getElementById('address');
+                    if (inp) { inp.value = a.address; validateAddress(); }
+                    // Поле тега пересчитываем ПОСЛЕ подстановки: у адреса с
+                    // тегом внутри (X-формат XRPL, «UQ…#memo») отдельный тег
+                    // спрашивать не нужно, а onCurrencyChange отработал до
+                    // того, как адрес появился. Нашёл codex.
+                    if (typeof updateTagField === 'function') updateTagField();
+                    switchTab('exchange');
+                };
+                row.appendChild(use);
+                list.appendChild(row);
+            });
+            box.style.display = addrs.length ? '' : 'none';
+
+            const deliv = data.deliveries || [];
+            if (dList) {
+                dList.innerHTML = '';
+                deliv.forEach(d => {
+                    const el = document.createElement('div');
+                    el.style.cssText = 'padding:10px 12px;margin-bottom:8px;'
+                        + 'background:rgba(52,211,153,.06);border:1px solid rgba(52,211,153,.18);'
+                        + 'border-radius:12px';
+                    const amount = (d.amount || d.amount === 0)
+                        ? (+d.amount).toFixed(8).replace(/0+$/, '').replace(/\.$/, '')
+                        : '';
+                    el.innerHTML =
+                        '<div style="font-size:13px;font-weight:700;color:var(--green)">+ '
+                        + esc(amount) + ' ' + esc(d.currency) + '</div>'
+                        + '<div style="font-size:11px;color:var(--muted)">на ' + esc(d.short)
+                        + ' · заявка #' + esc(d.order_id) + '</div>'
+                        + (d.tx_url
+                            ? '<a href="' + esc(d.tx_url) + '" target="_blank" '
+                              + 'style="font-size:11px;color:var(--accent)">🔍 транзакция</a>'
+                            : (d.evidence === 'manual'
+                                ? '<div style="font-size:11px;color:var(--muted)">'
+                                  + 'выдано вручную, хеша нет</div>' : ''));
+                    dList.appendChild(el);
+                });
+                dBox.style.display = deliv.length ? '' : 'none';
+            }
+
+            proofRenderCurrencies(data.proof_currencies || []);
+        }
+
+        // ── подтверждение владения адресом ──────────────────────────────────
+        // Текст на подпись собирает СЕРВЕР и он же проверяет подпись: свой
+        // вариант текста здесь дал бы «подпись неверна» на честном кошельке.
+        function proofRenderCurrencies(list) {
+            const box = document.getElementById('w-proof');
+            const sel = document.getElementById('w-proof-cur');
+            if (!box || !sel) return;
+            if (!list.length) { box.style.display = 'none'; return; }
+            const prev = sel.value;
+            sel.innerHTML = '';
+            list.forEach(c => {
+                const o = document.createElement('option');
+                o.value = c; o.textContent = c;
+                sel.appendChild(o);
+            });
+            if (list.indexOf(prev) >= 0) sel.value = prev;
+            box.style.display = '';
+        }
+
+        function proofSay(text, good) {
+            const out = document.getElementById('w-proof-out');
+            if (out) {
+                out.textContent = text || '';
+                out.style.color = good ? 'var(--green,#34d399)' : 'var(--muted)';
+            }
+        }
+
+        async function proofGetMessage() {
+            const cur = (document.getElementById('w-proof-cur') || {}).value || '';
+            const addr = ((document.getElementById('w-proof-addr') || {}).value || '').trim();
+            const step2 = document.getElementById('w-proof-step2');
+            if (!addr) { proofSay('Введите адрес.'); return; }
+            proofSay('Готовим текст…');
+            try {
+                const r = await fetch('/api/proof/message?currency=' + encodeURIComponent(cur)
+                                      + '&address=' + encodeURIComponent(addr),
+                    { headers: { 'X-Telegram-Init-Data': tg.initData || '' } });
+                const d = await r.json().catch(() => ({}));
+                if (!r.ok) { proofSay(d.detail || 'Не получилось.'); return; }
+                document.getElementById('w-proof-msg').value = d.message || '';
+                // Код живёт внутри текста; отдельно храним его, чтобы проверка
+                // шла ровно по тому коду, который клиент и подписывал.
+                step2.dataset.payload = d.payload || '';
+                step2.dataset.currency = d.currency || '';
+                step2.dataset.address = d.address || '';
+                step2.style.display = '';
+                proofSay('Подпишите текст в кошельке и вставьте подпись ниже.');
+            } catch (e) { proofSay('Сеть не ответила.'); }
+        }
+
+        async function proofVerify() {
+            const step2 = document.getElementById('w-proof-step2');
+            const sig = ((document.getElementById('w-proof-sig') || {}).value || '').trim();
+            if (!sig) { proofSay('Вставьте подпись.'); return; }
+            proofSay('Проверяем…');
+            try {
+                const r = await fetch('/api/proof/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json',
+                               'X-Telegram-Init-Data': tg.initData || '' },
+                    body: JSON.stringify({
+                        currency: step2.dataset.currency || '',
+                        address: step2.dataset.address || '',
+                        payload: step2.dataset.payload || '',
+                        signature: sig })
+                });
+                const d = await r.json().catch(() => ({}));
+                if (!r.ok) { proofSay(d.detail || 'Не получилось.'); return; }
+                proofSay(d.message || '', !!d.verified);
+                // Протухший или чужой код не лечится повторной вставкой той же
+                // подписи — возвращаем клиента к шагу «получить текст», иначе
+                // он будет присылать безупречную подпись по кругу.
+                if (!d.verified && ['payload_expired', 'payload_alien', 'bad_payload']
+                        .indexOf(d.reason) >= 0) {
+                    step2.style.display = 'none';
+                    document.getElementById('w-proof-sig').value = '';
+                    return;
+                }
+                if (d.verified) {
+                    if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+                    step2.style.display = 'none';
+                    document.getElementById('w-proof-sig').value = '';
+                    loadWalletBook();
+                    loadWallets();
+                }
+            } catch (e) { proofSay('Сеть не ответила.'); }
+        }
+
         async function loadWallets() {
             try {
                 const r = await fetch('/api/wallet/links', {
@@ -1249,7 +1589,11 @@
                 const list = (d && d.wallets) || [];
                 walletRender(list);
                 if (!list.length) { walletOpsRender(null); return; }
-                const h = await fetch('/api/wallet/history', {
+                // Историю спрашиваем у ТОЙ монеты, что стоит на карточке:
+                // запрос без сети всегда уходил за TON, и у клиента с одной
+                // лишь BTC-связью раздел молчал бы «недоступно».
+                const h = await fetch('/api/wallet/history?chain='
+                        + encodeURIComponent(walletChain), {
                     headers: { 'X-Telegram-Init-Data': tg.initData || '' } });
                 walletOpsRender(h.ok ? await h.json().catch(() => null) : null);
             } catch (e) {
@@ -1267,7 +1611,7 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json',
                                'X-Telegram-Init-Data': tg.initData || '' },
-                    body: JSON.stringify({ chain: 'TON' })
+                    body: JSON.stringify({ chain: walletChain })
                 });
             } catch (e) {}
             loadWallets();
@@ -1289,6 +1633,13 @@
                 if (s) s.style.display = (s.style.display === 'block') ? 'none' : 'block';
             });
             on('w-send-go', walletTransfer);
+            on('w-proof-get', proofGetMessage);
+            on('w-proof-go', proofVerify);
+            on('w-proof-copy', () => {
+                const t = document.getElementById('w-proof-msg');
+                const b = document.getElementById('w-proof-copy');
+                if (t && b) walletCopy(t.value, b);
+            });
             on('w-act-buy', () => switchTab('exchange'));
             on('wallet-goto', () => switchTab('wallet'));
             on('w-copy', () => {
@@ -1310,7 +1661,10 @@
                           USDT: net === 'ERC20' ? '0x... (ERC-20 / Ethereum)' : 'T... (TRC20 / Tron)',
                           ETH: '0x... (ERC-20 / Ethereum)',
                           XRP: 'r... или X... (X-адрес уже содержит тег)',
-                          TON: 'EQ... / UQ... или 0:... (можно адрес#memo)' };
+                          TON: 'EQ... / UQ... или 0:... (можно адрес#memo)',
+                          // У Monero отдельного поля тега нет: payment id живёт
+                          // внутри integrated-адреса (он длиннее обычного).
+                          XMR: '4... или 8... (integrated-адрес тоже подойдёт)' };
             const addrInput = document.getElementById('address');
             addrInput.placeholder = ph[cur] || 'Введите адрес кошелька';
             const saved = localStorage.getItem('lastAddress_' + cur + '_' + net);
@@ -1694,7 +2048,7 @@
                 if (tab.dataset.tab === 'history') loadHistory();
                 if (tab.dataset.tab === 'referral') loadReferral();
                 if (tab.dataset.tab === 'profile') { loadProfile(); loadWallets(); }
-                if (tab.dataset.tab === 'wallet') loadWallets();
+                if (tab.dataset.tab === 'wallet') { loadWallets(); loadWalletBook(); }
                 if (tab.dataset.tab === 'admin') loadAdmin();
             };
             tab.addEventListener('click', activate);
@@ -1910,6 +2264,12 @@
                 // Контрольную сумму здесь не считаем: это подсказка ввода,
                 // проверяет сервер (core.address.is_valid_ton).
                 TON:  /^(?:[A-Za-z0-9+/_-]{48}|-?\d+:[0-9a-fA-F]{64})(?:#[^\r\n]{0,127})?$/,
+                // Monero: обычный/субадрес — 95 символов, integrated — 106
+                // (в нём лежит payment id). Второй символ не ограничиваем: он
+                // кодирует префикс ВМЕСТЕ с началом ключа траты и пробегает
+                // широкий диапазон — перечисление «по виду» красило верный
+                // адрес красным. Контрольную сумму (keccak) считает сервер.
+                XMR:  /^(?:[48][1-9A-HJ-NP-Za-km-z]{94}|4[1-9A-HJ-NP-Za-km-z]{105})$/,
             };
             // Монеты нет в таблице — молчим, а НЕ проверяем шаблоном биткойна.
             // Прежний фолбэк `|| patterns.BTC` красил валидный адрес новой

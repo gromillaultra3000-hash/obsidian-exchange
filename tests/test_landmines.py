@@ -16,6 +16,8 @@ import re
 import sys
 import ast
 import json
+import time
+import base64
 import hashlib
 import subprocess
 
@@ -863,12 +865,33 @@ def check_no_tag_is_explicit():
         asks_here = "_tag_answer_missing" in body
         # Основной поток спрашивает тег отдельным шагом — это тот же явный ответ.
         asks_step = "dest_tag" in body
-        if not (asks_here or asks_step):
+        # Не всякий адрес, присланный клиентом, — НАЗНАЧЕНИЕ перевода. С 05.08
+        # есть шаг, где адрес присылают, чтобы ДОКАЗАТЬ владение им подписью
+        # (`/verify`): туда мы ничего не отправляем, а тег там не просто лишний
+        # — подписью подтверждается голый адрес, и склейка `UQ…#memo` сломала бы
+        # проверку. Признак назначения берём поведенческий, а не по имени
+        # функции: адрес проверяют как получателя выплаты (`validate_crypto_
+        # address`) либо сразу заводят заявку (`_finalize_order`). Список имён
+        # отстал бы от кода на следующем же потоке — именно поэтому обход идёт
+        # по декоратору состояния.
+        is_destination = ("validate_crypto_address" in body
+                          or "_finalize_order" in body)
+        if is_destination and not (asks_here or asks_step):
             fail("явный отказ от тега",
-                 f"bot/main_bot.py: {fn.name}() принимает адрес, но про тег не "
-                 f"спрашивает никак. У валюты с тегом молчание клиента станет "
-                 f"«тега нет», и перевод на биржевой адрес не зачислится "
-                 f"получателю — сеть его при этом подтвердит.")
+                 f"bot/main_bot.py: {fn.name}() принимает адрес НАЗНАЧЕНИЯ, но "
+                 f"про тег не спрашивает никак. У валюты с тегом молчание "
+                 f"клиента станет «тега нет», и перевод на биржевой адрес не "
+                 f"зачислится получателю — сеть его при этом подтвердит.")
+        if not is_destination and (asks_here or asks_step):
+            # Обратная сторона того же правила: если обработчик СПРАШИВАЕТ про
+            # тег, значит адрес всё-таки назначение — и он обязан быть проверен
+            # как получатель выплаты. Без этой ветки послабление выше стало бы
+            # лазейкой: достаточно перестать валидировать адрес, чтобы уйти
+            # из-под мины вместе с вопросом про тег.
+            fail("явный отказ от тега",
+                 f"bot/main_bot.py: {fn.name}() спрашивает про тег, но адрес "
+                 f"как получателя выплаты не проверяет — назначение уходит в "
+                 f"заявку без контрольной суммы.")
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -1736,6 +1759,149 @@ def check_verdict_never_hides_a_transfer_it_saw():
                   "не расскажет, сколько бы правильной ни была причина")
 
 
+def check_address_book_serves_only_its_owner():
+    """Подсказка «ваш адрес» — это адрес, на который уйдут деньги в один тап.
+
+    Класс дефекта: список строится не по владельцу. Достаточно перепутать
+    фильтр или взять адрес из запроса — и клиент получит чужой адрес под
+    подписью «вы уже им пользовались». Проверка контрольной суммы такое
+    пропускает: чужой адрес совершенно валиден, а выдача необратима.
+
+    Проверяем поведением на временной базе, а не чтением кода: правило
+    «только свои» обязано выполняться, как бы фильтр ни был написан.
+    """
+    tag = "адресная книга отдаёт чужое"
+    import sqlite3 as _sq
+    import tempfile as _tf
+    relay_dir = os.path.join(ROOT, "relay")
+    if relay_dir not in sys.path:
+        sys.path.insert(0, relay_dir)
+    try:
+        from core import address_book as _ab
+    except Exception as e:
+        fail(tag, f"address_book не импортируется ({type(e).__name__}) — проверка ослепла")
+        return
+    tmp = os.path.join(_tf.mkdtemp(prefix="mine_addrbook_"), "t.db")
+    mine_addr = "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4"
+    theirs = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"
+    cancelled = "3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy"
+    try:
+        cn = _sq.connect(tmp)
+        cn.execute("CREATE TABLE orders (order_id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                   " user_id INTEGER, currency TEXT, network TEXT, rub_amount REAL,"
+                   " crypto_address TEXT, status TEXT, created_at TEXT)")
+        for uid, addr, st in ((1001, mine_addr, "sent"), (2002, theirs, "sent"),
+                              (1001, cancelled, "cancelled")):
+            cn.execute("INSERT INTO orders (user_id, currency, network, rub_amount,"
+                       " crypto_address, status, created_at) VALUES (?,?,?,?,?,?,?)",
+                       (uid, "BTC", "MAINNET", 5000, addr, st, "2026-08-01 10:00:00"))
+        cn.commit()
+        cn.close()
+    except Exception as e:
+        fail(tag, f"временную базу не собрали ({type(e).__name__}) — проверка ослепла")
+        return
+    saved = _ab.DB_PATH
+    _ab.DB_PATH = tmp
+    try:
+        got = [e["address"] for e in _ab.entries_for(1001)]
+        if theirs in got:
+            fail(tag, "в книге клиента лежит адрес из ЧУЖОЙ заявки — один тап, и "
+                      "выплата уйдёт постороннему")
+        if mine_addr not in got:
+            fail(tag, "своего адреса в книге нет — подсказка не работает вовсе")
+        if _ab.owns(1001, "BTC", theirs):
+            fail(tag, "чужой адрес признан своим: проверка владения пропустит "
+                      "подделанный колбэк")
+        if not _ab.owns(1001, "BTC", mine_addr):
+            fail(tag, "свой адрес не признан своим — подстановка сломана")
+        # Отменённая заявка нередко отменена ИМЕННО из-за неверного адреса.
+        if cancelled in got or _ab.owns(1001, "BTC", cancelled):
+            fail(tag, "адрес из заявки, по которой монеты не уходили, предложен "
+                      "как проверенный — клиент отменил её, чтобы туда не "
+                      "отправлять, а мы это подсказали")
+    except Exception as e:
+        fail(tag, f"книга упала на обычной выборке ({type(e).__name__}: {e})")
+    finally:
+        _ab.DB_PATH = saved
+
+    # Вторая половина того же класса: адрес, пришедший НАЗАД от клиента, обязан
+    # проверяться и на владение, и на форму. Колбэк подделывается.
+    bot_src = _read(os.path.join(ROOT, "bot", "main_bot.py"))
+    m = re.search(r'@router\.callback_query\([^)]*useaddr_.*?\n(?=@router|\Z)',
+                  bot_src, re.S)
+    if not m:
+        fail(tag, "обработчика выбора сохранённого адреса не нашли — подсказка "
+                  "либо исчезла, либо переименована мимо проверки")
+    else:
+        body = m.group(0)
+        if ".owns(" not in body:
+            fail(tag, "выбор сохранённого адреса не сверяется с книгой клиента — "
+                      "подделанный колбэк подставит любой адрес")
+        if "validate_crypto_address" not in body:
+            fail(tag, "выбранный адрес не проходит проверку формы — в книге может "
+                      "лежать адрес, который сегодняшняя проверка уже не принимает")
+
+
+def check_trusted_sender_list_refuses_foreign_network():
+    """Список доверенных отправителей — денежное правило: совпадение по нему
+    закрывает заявку без человека. Адрес чужой сети в нём не крадёт деньги, он
+    хуже — выглядит внесённым кошельком, работая как невнесённый. 04.08.2026
+    под LTC записали TON-адрес: команда согласилась молча, настоящий
+    LTC-кошелёк остался вне списка, и выплаты с него продолжали уходить на
+    ручной разбор. Ошибку ловит только тот, кто сверит список глазами.
+    """
+    tag = "доверенным отправителем стал адрес чужой сети"
+    relay_dir = os.path.join(ROOT, "relay")
+    if relay_dir not in sys.path:
+        sys.path.insert(0, relay_dir)
+    try:
+        from core import payout_discovery as _pd
+    except Exception as e:
+        fail(tag, f"payout_discovery не импортируется ({type(e).__name__}) — "
+                  f"проверка ослепла")
+        return
+    ton = "UQAX50pTuHS9yAMVzVbewzHaWiIgP7NWEbiPSQIW6uqBehCK"
+    btc = "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4"
+    if not hasattr(_pd, "source_address_error"):
+        fail(tag, "проверки адреса при внесении в доверенные нет вовсе")
+        return
+    try:
+        err = _pd.source_address_error("LTC", ton)
+        own = _pd.source_address_error("BTC", btc)
+    except Exception as e:
+        fail(tag, f"проверка адреса упала ({type(e).__name__}: {e})")
+        return
+    if not err:
+        fail(tag, "TON-адрес принят как кошелёк LTC — запись выглядит рабочей, "
+                  "но в LTC-транзакциях такой отправитель не встретится никогда")
+    elif "TON" not in err:
+        fail(tag, f"отказ звучит как {err!r} и не называет настоящую сеть — "
+                  f"владелец не поймёт, что перепутал строку")
+    if own:
+        fail(tag, f"нормальный BTC-адрес отвергнут ({own!r}) — проверка мешает "
+                  f"внести кошелёк, а не защищает список")
+    # Тот же класс с другой стороны: адрес СВОЕЙ сети, но со встроенным тегом.
+    # X-адрес XRP валиден как адрес, а ключ из него выходит не тот, что у
+    # отправителя на цепи (там classic из поля Account) — запись мёртвая.
+    try:
+        from core.address import xrp_xaddress
+        classic = "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh"
+        xaddr = xrp_xaddress(classic, 1)
+    except Exception:
+        xaddr = classic = ""
+    if xaddr and _pd._norm_account("XRP", xaddr) != _pd._norm_account("XRP", classic):
+        if not _pd.source_address_error("XRP", xaddr):
+            fail(tag, "XRP-адрес с тегом внутри принят как отправитель — на цепи "
+                      "отправитель виден обычным r-адресом, и такая запись не "
+                      "совпадёт никогда")
+        if _pd.source_address_error("XRP", classic):
+            fail(tag, "обычный r-адрес отвергнут — вносить стало нечего")
+    # Записанное ДО проверки она не лечит: такие записи обязаны быть видны.
+    if not hasattr(_pd, "sources_with_status"):
+        fail(tag, "уже записанный адрес чужой сети никак не показывается — о нём "
+                  "узнают в день, когда выплата не закроется")
+
+
 def check_guards_compare_accounts_not_strings():
     tag = "страж сравнивает строку"
     relay = os.path.join(ROOT, "relay")
@@ -1955,17 +2121,48 @@ def check_every_currency_is_reconcilable():
         return
     for name in readers:
         setattr(pd, name, (lambda n: (lambda *a, **k: seen.append(n) or []))(name))
+    # Единственная законная причина не читать цепь — что её нельзя прочитать в
+    # принципе (Monero). Такая монета обязана быть ОБЪЯВЛЕНА и обязана громко
+    # отказываться, а не отдавать пустой список: «не смотрели» и «не нашли» —
+    # разные ответы, и по второму человек перестаёт искать.
+    unreadable = getattr(pd, "UNREADABLE_CHAINS", {})
+    unreadable_exc = getattr(pd, "ChainUnreadable", None)
     for cur in known:
         seen.clear()
+        declared = cur in unreadable
         try:
             pd.incoming_transfers(cur, "адрес-клиента")
         except Exception as e:
+            if declared and unreadable_exc is not None and isinstance(e, unreadable_exc):
+                if not str(unreadable[cur] or "").strip():
+                    fail(tag, f"{cur}: объявлена нечитаемой без причины — персоналу "
+                              f"в отчёте будет сказано «не смотрели» и ни слова о том, "
+                              f"почему и что делать вместо этого")
+                continue
             fail(tag, f"{cur}: сверка падает на чтении цепи: {type(e).__name__}: {e}")
             continue
-        if not seen:
+        if declared:
+            fail(tag, f"{cur}: объявлена нечитаемой, но сверка отдаёт по ней список "
+                      f"вместо отказа — заявка молча посчитается проверенной и "
+                      f"останется висеть навсегда")
+        elif not seen:
             fail(tag, f"{cur}: продаём, но выплату по ней сверка не читает ни из "
                       f"одной цепи — выдача «мимо бота» останется невидимой "
                       f"навсегда, а заявка «paid» вечной")
+
+    # Объявить монету нечитаемой мало: проход сверки обязан отличать этот отказ
+    # от «сейчас не достучались». Иначе заявка попадёт в общую корзину ошибок,
+    # где сказано «попробуем позже» — а позже будет ровно то же самое.
+    if unreadable:
+        disc = _nodoc(_slice(_read(os.path.join(relay, "core", "payout_discovery.py")),
+                             "def discover(", "\ndef "))
+        if "ChainUnreadable" not in disc:
+            fail(tag, "discover() не отличает нечитаемую цепь от временного сбоя — "
+                      f"заявка по {', '.join(sorted(unreadable))} будет вечно ждать "
+                      f"следующей попытки, которой не поможет ничего")
+        elif '"manual"' not in disc and "'manual'" not in disc:
+            fail(tag, "нечитаемая цепь не попадает в отдельный список отчёта — "
+                      "персонал не увидит заявку, которую автомат не закроет никогда")
 
     # Свой кошелёк тоже должен быть известен: без него ни одна выплата не
     # опознаётся как НАША, и авто-закрытие не сработает ни разу.
@@ -1993,6 +2190,10 @@ def check_every_currency_is_reconcilable():
 
     own = _slice(src, "def _own_wallet_addresses(", "\ndef ")
     for cur in known:
+        # У нечитаемой цепи своего адреса знать неоткуда и незачем: там нет
+        # запроса, в котором его можно было бы сравнить с отправителем.
+        if cur in unreadable:
+            continue
         if f'"{cur}"' not in own and cur not in ("BTC", "LTC"):
             fail(tag, f"{cur}: _own_wallet_addresses не знает адреса нашего "
                       f"кошелька — своя же выплата будет выглядеть чужой и "
@@ -2502,6 +2703,312 @@ def check_receipt_beats_the_timer():
 # всеми проверками. Заодно: успех не должен рождаться в except-ветке, а адрес
 # в ответе — приходить из тела запроса (тогда клиенту вернётся то, что он сам
 # прислал, с нашей отметкой «подтверждено»).
+# ─────────────────────────────────────────────────────────────────────
+# Доказательство владения принадлежит ТОМУ, кому выдан код
+# ─────────────────────────────────────────────────────────────────────
+# Подпись адреса ходит по проводу: её видит наш лог, наш обратный прокси, а при
+# копировании из кошелька — буфер обмена и всё, что в него смотрит. Если
+# проверка не сверяет, КОМУ был выдан код, то подсмотренная тройка
+# «адрес + код + подпись» вставляется в чужой запрос — и адрес жертвы
+# становится подтверждённым кошельком постороннего: с балансом, историей и
+# подстановкой в заявку. Проверка поведенческая, с настоящей криптографией:
+# сверять исходник на слово «subject» бессмысленно — параметр может быть и
+# просто не использован.
+def check_proof_belongs_to_the_client_it_was_issued_to():
+    tag = "чужое доказательство владения"
+    if os.environ.get("RELAY_SECRET", "") == "":
+        os.environ["RELAY_SECRET"] = "landmine-proof-secret"
+    sys.path.insert(0, CANON)
+    try:
+        from core import sig_proof as sp
+        from core import address as ad
+        from coincurve import PrivateKey
+    except Exception as e:
+        fail(tag, f"движок доказательства не импортируется: {type(e).__name__}: {e}")
+        return
+
+    alice, bob = 500101, 500102
+    priv = PrivateKey.from_hex("33" * 32)
+    pub = priv.public_key.format(compressed=True)
+    addr = ad._b58check_encode_with(b"\x00" + sp._hash160(pub), ad._B58_ALPHABET)
+
+    ready = sp.prepare("BTC", addr, alice)
+    if not ready["ok"]:
+        fail(tag, f"код для проверки не выдан: {ready['reason']}")
+        return
+    dig = sp.message_digest("BTC", ready["message"])
+    raw = priv.sign_recoverable(dig, hasher=None)
+    sig = base64.b64encode(bytes([31 + raw[64]]) + raw[:64]).decode()
+
+    if not sp.verify("BTC", addr, ready["payload"], sig, subject=alice)["verified"]:
+        fail(tag, "честная подпись владельца не проходит — проверка ослепла")
+        return
+    # То же доказательство от имени другого клиента.
+    stolen = sp.verify("BTC", addr, ready["payload"], sig, subject=bob)
+    if stolen["verified"]:
+        fail(tag, "доказательство, выданное одному клиенту, принято от другого — "
+                  "подсмотренная подпись привяжет чужой адрес к чужому кабинету, "
+                  "вместе с балансом и историей")
+    # И протухший код: окно жизни должно кончаться.
+    old = sp.verify("BTC", addr, ready["payload"], sig, subject=alice,
+                    now=time.time() + 24 * 3600)
+    if old["verified"]:
+        fail(tag, "код проверки не истекает — подпись годится вечно, а вместе с "
+                  "ней и однажды утёкшее доказательство")
+    # Подпись другим ключом при верном коде — не владелец.
+    other = PrivateKey.from_hex("44" * 32)
+    raw2 = other.sign_recoverable(dig, hasher=None)
+    sig2 = base64.b64encode(bytes([31 + raw2[64]]) + raw2[:64]).decode()
+    if sp.verify("BTC", addr, ready["payload"], sig2, subject=alice)["verified"]:
+        fail(tag, "подпись чужим ключом принята как доказательство владения")
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Зависимость, которой нет у боевого интерпретатора
+# ─────────────────────────────────────────────────────────────────────
+# `relay-fastapi` запускается СИСТЕМНЫМ python (`/usr/bin/python3`), а тесты и
+# бот — из `/root/bot/venv`. Библиотеки у них разные: в venv есть eth_account,
+# в системном нет. Значит зелёный прогон тестов ничего не говорит о том,
+# заведётся ли модуль в бою: импорт упадёт при первом же запросе, а на глаз
+# это выглядит как «эндпоинт отдаёт 500 без причины». Мина сама ходит боевым
+# интерпретатором. На CI второго интерпретатора нет — там она молчит, и это
+# честнее выдуманного вердикта.
+def check_core_imports_with_the_production_interpreter():
+    tag = "зависимость мимо боевого интерпретатора"
+    prod = "/usr/bin/python3"
+    if not os.path.exists(prod):
+        return
+    # Сравнивать надо ОКРУЖЕНИЯ, а не пути: python из venv — символическая
+    # ссылка на тот же /usr/bin/python3.12, и `realpath` объявил бы их одним и
+    # тем же. Именно на этом первая версия мины молча пропустила подложенный
+    # eth_account. Разные окружения = разные наборы библиотек.
+    try:
+        r = subprocess.run([prod, "-c", "import sys; print(sys.prefix)"],
+                           capture_output=True, text=True, timeout=60)
+    except Exception:
+        return
+    if (r.stdout or "").strip() == sys.prefix:
+        return                      # один и тот же набор библиотек — сравнивать нечего
+    core_dir = os.path.join(CANON, "core")
+    mods = sorted(f[:-3] for f in os.listdir(core_dir)
+                  if f.endswith(".py") and f != "__init__.py")
+    if not mods:
+        fail(tag, "модулей ядра не найдено — проверка ослепла")
+        return
+    code = ("import sys; sys.path.insert(0, %r)\n" % CANON +
+            "import importlib\nbad=[]\n"
+            "for m in %r:\n" % mods +
+            "    try: importlib.import_module('core.'+m)\n"
+            "    except Exception as e: bad.append(m+': '+type(e).__name__+': '+str(e)[:120])\n"
+            "print('\\n'.join(bad))")
+    try:
+        r = subprocess.run([prod, "-c", code], capture_output=True, text=True, timeout=180)
+    except Exception as e:
+        fail(tag, f"боевой интерпретатор не запустился: {type(e).__name__}: {e}")
+        return
+    broken = [l for l in (r.stdout or "").splitlines() if l.strip()]
+    for line in broken:
+        fail(tag, f"core.{line} — модуль не импортируется боевым {prod}, "
+                  f"хотя в venv тестов он есть. В проде это 500 на первом запросе.")
+
+    # Объявленные зависимости ядра обязаны стоять у обоих интерпретаторов.
+    # Импорт модуля этого не ловит: библиотека, которую подключают ЛЕНИВО
+    # (внутри функции, как coincurve в sig_proof), пропущена при импорте и
+    # отвалится только в момент работы — с сообщением, похожим на ошибку
+    # клиента. Нашёл codex.
+    req = _read(os.path.join(CANON, "core", "requirements.txt"))
+    if not req:
+        return
+    pkgs = []
+    for line in req.splitlines():
+        line = line.split("#")[0].strip()
+        if line:
+            pkgs.append(re.split(r"[<>=!~\[ ]", line)[0].replace("-", "_"))
+    if not pkgs:
+        return
+    code = ("import importlib\nbad=[]\n"
+            "for m in %r:\n" % pkgs +
+            "    try: importlib.import_module(m)\n"
+            "    except Exception as e: bad.append(m)\n"
+            "print(' '.join(bad))")
+    for interp in (prod, sys.executable):
+        try:
+            rr = subprocess.run([interp, "-c", code], capture_output=True,
+                                text=True, timeout=120)
+        except Exception:
+            continue
+        for miss in (rr.stdout or "").split():
+            fail(tag, f"{miss} объявлен в relay/core/requirements.txt, но не "
+                      f"установлен для {interp} — путь, который его лениво "
+                      f"импортирует, молча откажет в бою")
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Протухший код проверки не запирает клиента в круге
+# ─────────────────────────────────────────────────────────────────────
+# Код на подпись живёт 15 минут, а подпись в аппаратном кошельке делается
+# дольше. С протухшим кодом ЛЮБАЯ подпись обречена — и поверхность, которая на
+# отказ отвечает «пришлите подпись ещё раз», отправляет клиента присылать
+# безупречную подпись по кругу до полного отчаяния. Каждая поверхность обязана
+# отличать «подпись не та» (лечится повтором) от «код устарел» (лечится только
+# новым текстом). Нашёл codex.
+# ─────────────────────────────────────────────────────────────────────
+# Витрина адресов режется по каждой монете, а не общим счётом
+# ─────────────────────────────────────────────────────────────────────
+# Общий лимит на весь список теряет монеты целиком: восемь свежих BTC-заявок
+# вытесняют единственный LTC-адрес, и клиент, у которого он есть, видит пустое
+# место. Правило один раз уже чинили на сайте — и оно тут же осталось нарушенным
+# в Mini App: одна и та же ошибка в двух местах, и второе никто не проверял.
+# Мина сторожит обе витрины сразу.
+# ─────────────────────────────────────────────────────────────────────
+# Остаток оценивается курсом СВОЕЙ монеты
+# ─────────────────────────────────────────────────────────────────────
+# Карточка кошелька писала «≈ N ₽», беря курс из `cachedRates['TON']` — пока
+# подключался только TON, это было верно. С первой же связью другой монеты
+# (BTC подтверждается подписью) та же строка объявила бы биткоин по цене
+# тонкоина: ошибка в тысячи раз, набранная уверенным шрифтом рядом с настоящим
+# балансом. Курс обязан выбираться монетой самой записи.
+# ─────────────────────────────────────────────────────────────────────
+# Монета без резервного источника цены не получает чужую цену
+# ─────────────────────────────────────────────────────────────────────
+# Резервный источник курса — пара на Binance, и отсутствие пары долго означало
+# ветку «значит, это USDT»: цена бралась из USDTRUB. Пока единственной такой
+# монетой был сам тезер, это работало. Первая монета без пары (XMR снят с
+# Binance в 2024) получила бы ~91 ₽ вместо ~30 000 — то есть клиент забрал бы
+# триста монет за цену одной, и выглядело бы это как обычная сделка.
+# Проверка поведенческая: подменяем сеть и смотрим, ЧТО вернёт код.
+def check_coin_without_backup_price_is_refused_not_guessed():
+    tag = "монета котируется по цене чужой монеты"
+    sys.path.insert(0, CANON)
+    try:
+        from utils import exchange_calc as calc
+    except Exception as e:
+        fail(tag, f"расчёт курса не импортируется: {type(e).__name__}: {e}")
+        return
+
+    class R:
+        def __init__(self, p):
+            self.p = p
+
+        def json(self):
+            return {"price": self.p}
+
+    def fake(url, timeout=8):
+        if "coingecko" in url:
+            raise RuntimeError("основной источник молчит")
+        if "USDTRUB" in url:
+            return R("91.5")
+        raise RuntimeError("пары нет")
+
+    real = calc.requests.get
+    calc.requests.get = fake
+    try:
+        usdt_price = 91.5
+        for coin in sorted(calc._COINGECKO_IDS):
+            if coin in calc._BINANCE_SYMBOL:
+                continue                # у монеты есть свой резервный источник
+            calc._rate_cache[coin] = {"rate": 0, "ts": 0}
+            got = calc.get_cached_rate(coin)
+            if abs(got - usdt_price) < 1e-6 and calc._FALLBACK_RATES.get(coin) != usdt_price:
+                fail(tag, f"{coin}: при недоступном основном источнике цена "
+                          f"совпала с USDTRUB ({got}) — монета без своей пары "
+                          f"получает цену тезера, и клиент заберёт её в сотни "
+                          f"раз дешевле")
+    finally:
+        calc.requests.get = real
+        for coin in calc._COINGECKO_IDS:
+            calc._rate_cache[coin] = {"rate": 0, "ts": 0}
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Прайс-листы бота и сайта знают одни и те же монеты
+# ─────────────────────────────────────────────────────────────────────
+# Источников цены два — свой в боте и свой на сайте, — и монета, добавленная в
+# один, молча отсутствует в другом. Витрина при этом общая: клиент видит монету
+# на обеих поверхностях, а цену получает только на одной. Вторая либо откажет,
+# либо (хуже) посчитает по аварийной константе.
+def check_price_lists_agree():
+    tag = "прайс-листы поверхностей разошлись"
+    sys.path.insert(0, CANON)
+    try:
+        from utils import exchange_calc as calc
+    except Exception as e:
+        fail(tag, f"расчёт курса не импортируется: {type(e).__name__}: {e}")
+        return
+    bot = _read(os.path.join(ROOT, "bot", "main_bot.py"))
+    if not bot or "_COIN_SOURCES" not in bot:
+        return
+    m = re.search(r"_COIN_SOURCES\s*=\s*\{(.*?)\n\}", bot, re.S)
+    if not m:
+        fail(tag, "bot/main_bot.py: _COIN_SOURCES не разобран — проверка ослепла")
+        return
+    bot_coins = set(re.findall(r'"([A-Z0-9]{2,6})":\s*\{', m.group(1)))
+    site_coins = set(calc._COINGECKO_IDS)
+    for coin in sorted(bot_coins - site_coins):
+        fail(tag, f"{coin} котируется в боте, но не на сайте: одна и та же "
+                  f"монета с витрины получит цену только в Telegram")
+    for coin in sorted(site_coins - bot_coins):
+        fail(tag, f"{coin} котируется на сайте, но не в боте")
+
+
+def check_balance_is_priced_in_its_own_coin():
+    tag = "остаток оценён курсом чужой монеты"
+    src = _read(os.path.join(CANON, "webapp.html"))
+    if not src or "cachedRates" not in src:
+        return
+    m = re.search(r"function walletRender\s*\(.*?\n        \}", src, re.S)
+    if not m:
+        fail(tag, "relay/webapp.html: walletRender не найден — проверка ослепла")
+        return
+    # Комментарии вырезаем: разбирать надо КОД. Пояснение «раньше здесь стоял
+    # cachedRates['TON']» — правда о прошлом, и мина, спотыкающаяся об неё,
+    # заставила бы стирать объяснения ради зелёного прогона.
+    body = re.sub(r"//[^\n]*", "", m.group(0))
+    for lit in re.findall(r"cachedRates\s*\[\s*['\"]([A-Z]{2,6})['\"]\s*\]", body):
+        fail(tag, f"relay/webapp.html: walletRender берёт курс cachedRates['{lit}'] "
+                  f"жёстко — остаток другой монеты будет пересчитан в рубли по "
+                  f"цене {lit}")
+    if "cachedRates" in body and not re.search(r"cachedRates\s*\[\s*w\.chain\s*\]", body):
+        fail(tag, "relay/webapp.html: walletRender не берёт курс по монете записи — "
+                  "рублёвая оценка перестала зависеть от того, что показывает")
+
+
+def check_wallet_showcase_keeps_every_currency():
+    tag = "витрина теряет монету из-за общего лимита"
+    src = _read(os.path.join(ROOT, "relay-fastapi", "main.py"))
+    if not src or "entries_by_currency" not in src:
+        return                       # книги ещё нет — проверять нечего
+    tree = ast.parse(src)
+    for fn in ast.walk(tree):
+        if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        seg = ast.get_source_segment(src, fn) or ""
+        # Витрина — там, где рядом с адресами отдаются приходы: это признак
+        # «показываем кошелёк целиком», а не «подсказываем под заявку».
+        if "deliveries_for" not in seg or "entries_" not in seg:
+            continue
+        if "entries_by_currency" not in seg:
+            fail(tag, f"{fn.name}(): витрина кошелька собирает адреса общим "
+                      f"списком с одним лимитом — монета, по которой заявок "
+                      f"меньше, исчезнет целиком")
+
+
+def check_stale_proof_code_is_not_a_dead_end():
+    tag = "протухший код проверки — тупик"
+    STALE = ("payload_expired", "payload_alien", "bad_payload")
+    for rel, marker in ((os.path.join("bot", "main_bot.py"), "verdict"),
+                        (os.path.join("relay", "webapp.html"), "proofVerify"),
+                        (os.path.join("relay-fastapi", "templates",
+                                      "dashboard_profile.html"), "proof-go")):
+        src = _read(os.path.join(ROOT, rel))
+        if not src or "sig_proof" not in src and "/api/proof/verify" not in src:
+            continue                # поверхность подтверждением не занимается
+        if not all(r in src for r in STALE):
+            fail(tag, f"{rel}: отказ по устаревшему коду не отличается от "
+                      f"неверной подписи ({marker}) — клиенту предложат "
+                      f"прислать ту же подпись ещё раз, и так до бесконечности")
+
+
 def check_wallet_proof_is_checked_against_the_chain():
     tag = "подпись кошелька проверяется ключом из цепи"
     path = os.path.join(CANON, "core", "tonconnect.py")
@@ -2956,12 +3463,34 @@ def check_balance_is_shown_only_for_proven_ownership():
     # не «получилось, потому что поле назвали иначе»: молчаливое совпадение
     # правило уже один раз обмануло.
     CLIENT_CHOOSES = ("/api/wallet/transfer-request",)
-    for m in re.finditer(r"fetch\('(/api/wallet/[^']*)'([^;]{0,600})", web):
-        if m.group(1) in CLIENT_CHOOSES:
+    # Смотрим ЗАПРОС целиком — от `fetch(` до его закрывающей скобки, — а не
+    # окно в 600 символов после: в окно попадал разбор ОТВЕТА, где адреса
+    # клиента и должны появляться (витрина «мои адреса» их рисует). Внутри
+    # запроса правило прежнее и такое же формо-независимое: ни в строке
+    # адреса, ни в теле слова «адрес» быть не должно.
+    for m in re.finditer(r"fetch\(\s*[`'\"](/api/wallet/[^`'\"]*)", web):
+        path = m.group(1).split("?")[0]
+        if path in CLIENT_CHOOSES:
             continue
-        if re.search(r"addr(ess)?", m.group(1) + m.group(2), re.I):
-            fail(tag, f"webapp.html: рядом с запросом {m.group(1)} фигурирует адрес — "
-                      f"клиентская сторона не должна выбирать, чей баланс смотреть")
+        # Скобки считаем от `fetch(`: конец запроса — там, где она закрылась.
+        start = m.start()
+        depth, end = 0, len(web)
+        for i in range(web.index("(", start), min(len(web), start + 4000)):
+            if web[i] == "(":
+                depth += 1
+            elif web[i] == ")":
+                depth -= 1
+                if depth == 0:
+                    end = i
+                    break
+        call = web[start:end]
+        # Путь эндпоинта из проверки исключаем: он константа, и в имени
+        # `/api/wallet/addresses` слово «address» — это НАЗВАНИЕ ресурса, а не
+        # выбор чужого кошелька. Всё остальное в запросе — под правилом.
+        rest = call.replace(path, "", 1)
+        if re.search(r"addr(ess)?", rest, re.I):
+            fail(tag, f"webapp.html: запрос {path} несёт адрес — клиентская "
+                      f"сторона не должна выбирать, чей кошелёк смотреть")
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -3158,6 +3687,106 @@ def check_signature_is_not_payment():
                   "депозит по ней значит платить за неподтверждённый перевод")
 
 
+# ─────────────────────────────────────────────────────────────────────
+# 30. Предварительная регулярка строже настоящей проверки
+# ─────────────────────────────────────────────────────────────────────
+# Было 05.08.2026 (нашёл codex): у Monero перед подсчётом контрольной суммы
+# стоит регулярка «по виду адреса», и в ней были перечислены первые ДВА
+# символа. Второй символ кодирует не тип адреса, а префикс вместе с началом
+# ключа траты, и у integrated-адресов он пробегает B…M. Перечисление
+# отвергало большинство верных integrated-адресов и часть субадресов — до
+# того, как их вообще кто-то посчитает. Клиент с исправным кошельком видел
+# «неверный формат» и уходил.
+# Дефект такого рода не ловится примерами из документации: тот единственный
+# адрес, который взят в тест, обычно как раз проходит. Ловится он только
+# перебором по всему пространству ключей — этим проверка и занимается.
+# Правило: предфильтр вправе отсекать длину и алфавит, но НЕ вправе решать
+# то, что решает контрольная сумма.
+def check_prefilter_is_not_stricter_than_the_real_check():
+    tag = "предфильтр строже правды"
+    relay = os.path.join(ROOT, "relay")
+    if relay not in sys.path:
+        sys.path.insert(0, relay)
+    try:
+        from core import assets as _assets
+        from core import address as _addr
+    except Exception as e:
+        fail(tag, f"реестр валют не загружается: {type(e).__name__}: {e}")
+        return
+
+    # Генераторы заведомо ВЕРНЫХ адресов. Пока такой есть только у Monero —
+    # у остальных монет предфильтр совпадает с проверкой посимвольно. Добавляя
+    # монету со своим кодированием, добавляйте сюда и генератор: без него
+    # проверка про неё просто ничего не знает и молчит.
+    def _xmr_samples(rng):
+        out = []
+        alpha = _addr._B58_ALPHABET
+        for prefix, extra in ((_addr.XMR_PREFIX_STANDARD, 0),
+                              (_addr.XMR_PREFIX_SUBADDRESS, 0),
+                              (_addr.XMR_PREFIX_INTEGRATED, 8)):
+            for _ in range(120):
+                body = (bytes([prefix]) + bytes(rng.getrandbits(8) for _ in range(64 + extra)))
+                raw = body + _addr.keccak256(body)[:4]
+                s = ""
+                for i in range(0, len(raw), 8):
+                    block = raw[i:i + 8]
+                    num = int.from_bytes(block, "big")
+                    size = _addr._XMR_BLOCK_ENCODED[len(block)]
+                    chunk = ""
+                    while num:
+                        num, rem = divmod(num, 58)
+                        chunk = alpha[rem] + chunk
+                    s += chunk.rjust(size, alpha[0])
+                out.append(s)
+        return out
+
+    import random
+    rng = random.Random(20260805)
+    generators = {"XMR": _xmr_samples}
+    for cur, gen in generators.items():
+        if cur not in _assets.CURRENCY_NETWORKS:
+            continue
+        try:
+            samples = gen(rng)
+        except Exception as e:
+            fail(tag, f"{cur}: не удалось собрать образцы адресов: "
+                      f"{type(e).__name__}: {e}")
+            continue
+        if not samples:
+            fail(tag, f"{cur}: генератор образцов ничего не дал — проверка ослепла")
+            continue
+        bad = [a for a in samples if not _assets.validate_address(cur, a)]
+        if bad:
+            fail(tag, f"{cur}: {len(bad)} из {len(samples)} ВЕРНЫХ адресов отвергнуты "
+                      f"(напр. {bad[0][:12]}…) — клиент с исправным кошельком получит "
+                      f"«неверный формат» и уйдёт, а мы не узнаем об этом никогда")
+
+    # Та же строгость на клиенте — отдельная беда: сервер бы адрес принял, но
+    # поле красное и кнопка не даётся, до сервера дело не доходит.
+    web = _read(os.path.join(relay, "webapp.html"))
+    m = re.search(r"^\s*XMR:\s*(/.+/)\s*,\s*$", web, re.M)
+    if "XMR" in _assets.CURRENCY_NETWORKS and web and not m:
+        fail(tag, "webapp.html: у XMR нет подсказки формата — поле молчит там, "
+                  "где у остальных монет клиент видит «формат верный»")
+    elif m:
+        # Тот же перебор прогоняем через браузерную регулярку — она обязана
+        # быть НЕ строже серверной.
+        import json as _json
+        import subprocess as _sp
+        try:
+            samples = _xmr_samples(random.Random(7))
+            js = ("const re=%s;const a=%s;let bad=a.filter(x=>!re.test(x));"
+                  "console.log(bad.length+' '+(bad[0]||''));"
+                  % (m.group(1), _json.dumps(samples)))
+            r = _sp.run(["node", "-e", js], capture_output=True, text=True, timeout=30)
+            n = int((r.stdout or "0 ").split()[0]) if r.returncode == 0 else -1
+            if n > 0:
+                fail(tag, f"webapp.html: подсказка формата XMR отвергает {n} верных "
+                          f"адресов — поле красное, клиент до сервера не дойдёт")
+        except (OSError, ValueError, _sp.SubprocessError):
+            pass                       # node недоступен — молча, это не наш дефект
+
+
 def main():
     for fn in (check_no_diverging_duplicates, check_config_keys_are_read,
                check_no_fail_open_in_guards, check_session_expiry_uses_expires_at,
@@ -3182,11 +3811,20 @@ def main():
                check_promises_are_not_retyped,
                check_chain_finality_is_not_a_boolean,
                check_verdict_never_hides_a_transfer_it_saw,
+               check_trusted_sender_list_refuses_foreign_network,
+               check_address_book_serves_only_its_owner,
                check_failed_autopayout_reaches_a_human,
                check_tagged_currencies_use_the_dispatcher,
                check_tag_shape_comes_from_the_registry,
                check_wallet_modules_are_registered,
                check_wallet_proof_is_checked_against_the_chain,
+               check_proof_belongs_to_the_client_it_was_issued_to,
+               check_stale_proof_code_is_not_a_dead_end,
+               check_wallet_showcase_keeps_every_currency,
+               check_balance_is_priced_in_its_own_coin,
+               check_coin_without_backup_price_is_refused_not_guessed,
+               check_price_lists_agree,
+               check_core_imports_with_the_production_interpreter,
                check_retired_provider_leaves_the_money_path,
                check_balance_is_shown_only_for_proven_ownership,
                check_transfer_target_is_decided_by_the_server,
@@ -3198,7 +3836,8 @@ def main():
                check_debt_queue_is_visible,
                check_attempt_id_is_symmetric,
                check_dead_deal_is_not_silent,
-               check_every_currency_is_reconcilable):
+               check_every_currency_is_reconcilable,
+               check_prefilter_is_not_stricter_than_the_real_check):
         try:
             fn()
         except Exception as e:

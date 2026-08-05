@@ -306,6 +306,90 @@ _LTC_VERSIONS = {0x30, 0x32}
 _TRON_VERSION = 0x41
 
 
+# ─────────────────────────── Monero ───────────────────────────
+# У Monero свой base58: строка режется на блоки по 11 символов (8 байт), а
+# хвост — по таблице длин. Обычный Base58Check здесь не годится ни в одну
+# сторону: и разбор другой, и контрольная сумма считается keccak-ом, а не
+# двойным SHA-256. Именно поэтому монеро-адрес нельзя проверить «как биткойн» —
+# такая проверка молча пропустит опечатку.
+_XMR_BLOCK_ENCODED = [0, 2, 3, 5, 6, 7, 9, 10, 11]   # байт 0..8 → символов
+
+# Префиксы сети. Держим ТОЛЬКО mainnet: адрес testnet/stagenet разбирается и
+# сходится по контрольной сумме, но перевод по нему в основной сети уходит в
+# никуда, и отличить его можно единственно здесь.
+XMR_PREFIX_STANDARD = 18
+XMR_PREFIX_INTEGRATED = 19
+XMR_PREFIX_SUBADDRESS = 42
+_XMR_PREFIXES = {
+    XMR_PREFIX_STANDARD: ("standard", 69),
+    XMR_PREFIX_INTEGRATED: ("integrated", 77),   # +8 байт payment id внутри
+    XMR_PREFIX_SUBADDRESS: ("subaddress", 69),
+}
+
+
+def _xmr_b58_decode(address: str):
+    """Байты монеро-адреса или None. Строгий разбор: любая неожиданность — None."""
+    if not address or not isinstance(address, str):
+        return None
+    out = bytearray()
+    for i in range(0, len(address), 11):
+        chunk = address[i:i + 11]
+        try:
+            size = _XMR_BLOCK_ENCODED.index(len(chunk))
+        except ValueError:
+            return None            # длина блока не из таблицы — не монеро-адрес
+        if size == 0:
+            return None
+        num = 0
+        for ch in chunk:
+            idx = _B58_INDEX.get(ch)
+            if idx is None:
+                return None
+            num = num * 58 + idx
+        if num >= 1 << (8 * size):
+            return None            # блок не помещается в свои байты
+        out += num.to_bytes(size, "big")
+    return bytes(out)
+
+
+def parse_monero_address(address: str):
+    """(вид, payment_id_hex) для валидного адреса XMR, иначе (None, None).
+
+    Вид: 'standard' | 'integrated' | 'subaddress'. У integrated внутри адреса
+    уже лежит payment id — отдельным полем его спрашивать не нужно и нельзя:
+    два разных идентификатора в одной заявке противоречили бы друг другу.
+    """
+    # Нестроковый вход — отказ, а не исключение: у вызывающих проверка адреса
+    # часто стоит внутри try/except, и падение здесь МОЛЧА превратилось бы в
+    # «адрес не проверяли» на пути, где адрес и есть последняя защита.
+    if not isinstance(address, str):
+        return (None, None)
+    raw = _xmr_b58_decode(address.strip())
+    if not raw or len(raw) < 5:
+        return (None, None)
+    prefix = raw[0]
+    # Префиксы mainnet укладываются в один байт varint (18/19/42 < 128).
+    # Проверка на старший бит нужна, чтобы многобайтовый префикс чужой сети не
+    # был прочитан как один из наших.
+    if prefix & 0x80:
+        return (None, None)
+    kind_len = _XMR_PREFIXES.get(prefix)
+    if not kind_len:
+        return (None, None)
+    kind, expect = kind_len
+    if len(raw) != expect:
+        return (None, None)
+    if keccak256(raw[:-4])[:4] != raw[-4:]:
+        return (None, None)
+    pid = raw[65:73].hex() if kind == "integrated" else ""
+    return (kind, pid)
+
+
+def is_valid_xmr(address: str) -> bool:
+    kind, _ = parse_monero_address(address)
+    return kind is not None
+
+
 def _b58_ok(address, versions):
     payload = b58check_decode(address)
     return bool(payload) and len(payload) == 21 and payload[0] in versions
