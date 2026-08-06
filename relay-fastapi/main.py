@@ -1,7 +1,7 @@
 from dotenv import load_dotenv
 load_dotenv("/root/bot/.env")
 
-import os, json, sqlite3, qrcode, logging, re, asyncio, time, hmac, hashlib
+import os, json, sqlite3, qrcode, logging, re, asyncio, time, hmac, hashlib, math
 from contextlib import contextmanager, asynccontextmanager
 from io import BytesIO
 from datetime import datetime, timedelta
@@ -952,6 +952,170 @@ async def dashboard_sell_page(request: Request):
         request, active="sell", sell_coins=coins, sell_js=sell_js,
     ))
 
+def _marker_machinery_ready() -> bool:
+    """Умеем ли мы прямо сейчас выдать метку платежа.
+
+    Проба ДО записи заявки: у монеты с меткой перевод без неё к заявке не
+    привязать, поэтому заявка без метки — обещание, которое мы не сдержим.
+    Пробуем на заведомом номере, настоящую метку считаем после вставки.
+    """
+    try:
+        from core import wallet_send as _ws
+        return bool(_ws.marker_for(1))
+    except Exception as e:
+        logger.error("метка платежа недоступна: %s", e)
+        return False
+
+
+def _sell_rate(currency: str) -> float:
+    """Курс выкупа монеты или 0, если его сейчас нет. Ноль — отказ, не цена."""
+    try:
+        rate = float(exchange_calc.get_sell_rate(currency) or 0)
+    except Exception as e:
+        logger.warning("курс продажи %s недоступен: %s", currency, e)
+        return 0.0
+    return rate if math.isfinite(rate) and rate > 0 else 0.0
+
+
+def sell_order_refuse(currency: str, amount, phone: str):
+    """Причина отказа в заявке на продажу или '' — она же для сайта и Mini App.
+
+    Одна функция на обе поверхности намеренно: правило, записанное дважды,
+    расходится первой же правкой, а расхождение здесь означает заявку, которую
+    одна поверхность не приняла бы, а вторая приняла — с переводом клиента на
+    адрес, которого мы не ждём.
+    """
+    cur = (currency or "").upper().strip()
+    # Сначала — открыта ли монета ЦЕЛИКОМ. Форму и запрос можно отправить в
+    # обход выпадающего списка, а часть условий реестра адресом и минимумом не
+    # проверяется: XRP закрыт потому, что мы не умеем выдать destination tag,
+    # и заявка на него велела бы клиенту перевести монеты без метки. Нашёл codex.
+    if cur not in _sell_currencies():
+        return "Продажа этой монеты временно недоступна."
+    if not _sell_assets.receive_address(cur):
+        return "Продажа этой монеты временно недоступна."
+    min_amount = _sell_assets.minimum(cur)
+    if min_amount is None:
+        # Минимум не объявлен — не подставляем догадку: 0.001 XMR это ~30 ₽,
+        # то есть заявка на пыль, за которую мы платим комиссию СБП.
+        return "Продажа этой монеты временно недоступна."
+    try:
+        amt = float(amount)
+    except (TypeError, ValueError):
+        return "Введите количество монет числом."
+    # NaN и Infinity — тоже float, и любое сравнение с ними ложно: без этой
+    # строки `{"amount": NaN}` проходит и минимум, и «больше нуля», и в базу
+    # ложится заявка с нечисловым объёмом, которую персонал увидит как рабочую.
+    # JSON их принимает по умолчанию. Нашёл codex.
+    if not math.isfinite(amt):
+        return "Введите количество монет числом."
+    if amt <= 0:
+        return "Количество должно быть больше нуля."
+    if amt < min_amount:
+        return f"Минимальная сумма: {min_amount} {cur}."
+    if not re.match(r'^7\d{10}$', (phone or "").strip()):
+        return "Неверный формат телефона. Пример: 79001234567."
+    # Цена — такое же условие продажи, как адрес приёма. Список монет её уже
+    # фильтрует, но запрос можно отправить мимо списка: без этой проверки
+    # заявка легла бы в базу с нулевой или отрицательной выплатой. Нашёл codex.
+    rate = _sell_rate(cur)
+    if rate <= 0:
+        return "Курс этой монеты сейчас недоступен — попробуйте позже."
+    # Объём конечен, а произведение уже может переполниться: 1e308 монет
+    # проходит все проверки выше, а выплата становится бесконечностью — и
+    # ложится в базу как настоящая. Нашёл codex.
+    if not math.isfinite(amt * rate):
+        return "Слишком большая сумма."
+    return ""
+
+
+def sell_order_create(user_id, currency: str, amount: float, phone: str, source: str,
+                      who: str = ""):
+    """Завести заявку на продажу. Возвращает всё, что нужно показать клиенту.
+
+    Проверки НЕ повторяет — их делает `sell_order_refuse()` у вызывающего;
+    здесь только запись, уведомление персоналу и метка платежа.
+    """
+    cur = currency.upper().strip()
+    receive_addr = _sell_assets.receive_address(cur)
+    # Последний рубеж: цена могла пропасть между проверкой и записью. Заявка с
+    # нулевой выплатой — это обещание отдать монеты даром, и лучше отказ.
+    sell_rate = _sell_rate(cur)
+    if sell_rate <= 0 or not receive_addr:
+        logger.error("продажа %s: отказ в момент записи (курс=%s, адрес=%s)",
+                     cur, sell_rate, bool(receive_addr))
+        return None
+    rub_amount = round(float(amount) * sell_rate, 2)
+    if not math.isfinite(rub_amount):
+        logger.error("продажа %s: выплата не число (%s × %s)", cur, amount, sell_rate)
+        return None
+    # Метку проверяем ДО записи. У монеты с меткой перевод без неё к заявке не
+    # привязать: адрес приёма один на всех. Заявка, созданная с пустой меткой,
+    # велит клиенту перевести монеты, которые мы потом не опознаем. Нашёл codex.
+    needs_marker = _sell_assets.can_mark(cur)
+    if needs_marker and not _marker_machinery_ready():
+        logger.error("продажа %s: метка платежа недоступна — заявку не заводим", cur)
+        return None
+
+    with db_conn(5) as conn:
+        c = conn.cursor()
+        c.execute("""INSERT INTO sell_orders
+            (user_id, currency, crypto_amount, rub_amount, sbp_phone, receive_address, status, created_at, updated_at)
+            VALUES (?,?,?,?,?,?,'pending',datetime('now'),datetime('now'))""",
+            (user_id, cur, amount, rub_amount, phone, receive_addr))
+        conn.commit()
+        sell_id = c.lastrowid
+
+    # Признак живой, а не проба: между пробой и этой строкой могло измениться
+    # что угодно. Не вышло — заявку закрываем сразу, чтобы никто не переводил
+    # по ней монеты и персонал не увидел её рабочей.
+    marker = ""
+    if needs_marker:
+        try:
+            from core import wallet_send as _ws
+            marker = _ws.marker_for(sell_id)
+        except Exception as e:
+            logger.error("Метка платежа для продажи #%s не собралась: %s", sell_id, e)
+            marker = ""
+        if not marker:
+            with db_conn(5) as conn:
+                conn.execute("UPDATE sell_orders SET status='cancelled',"
+                             " updated_at=datetime('now') WHERE id=?", (sell_id,))
+                conn.commit()
+            return None
+
+    audit_log(f"{source}_sell_created", f"sell_id={sell_id} {who}")
+    # Кнопки sell_confirm_/sell_reject_ обрабатывает бот — те же, что для бот-заявок
+    notify_admins_tg(
+        f"💰 <b>Новая заявка на ПРОДАЖУ #{sell_id}</b> ({source})\n"
+        f"👤 {who or user_id}\n"
+        f"💸 Продаёт: {amount:g} {cur}\n"
+        f"📬 На наш адрес: <code>{receive_addr}</code>\n"
+        f"💵 Выплатить: {rub_amount:,.2f} RUB\n"
+        f"📱 СБП: {phone}\n\n"
+        f"После получения монет нажмите «Выплатить».",
+        reply_markup={"inline_keyboard": [
+            [{"text": "✅ Выплатить (подтвердить)", "callback_data": f"sell_confirm_{sell_id}"}],
+            [{"text": "❌ Отклонить", "callback_data": f"sell_reject_{sell_id}"}],
+        ]})
+
+    # Метка платежа для монет, чей перевод её несёт. Признак берётся у реестра,
+    # а не сравнением с «TON»: перечисление здесь означало бы, что следующая
+    # монета с меткой молча останется без неё, а депозит без метки к заявке не
+    # привязать — адрес приёма один на всех.
+    return {
+        "sell_id": sell_id, "currency": cur, "amount": float(amount),
+        "rub": rub_amount, "rate": sell_rate, "phone": phone,
+        "address": receive_addr, "marker": marker,
+        # Сеть рядом с адресом обязательна там, где сетей несколько:
+        # USDT-ERC20, отправленный на TRON-адрес, теряется.
+        "network": (_sell_assets.receive_network(cur)
+                    if len(_assets.networks_for(cur)) > 1 else None),
+        # Срок выплаты зависит от того, кто подтверждает зачисление.
+        "manual": _sell_assets.needs_manual_check(cur),
+    }
+
+
 @app.post("/dashboard/sell", response_class=HTMLResponse)
 async def dashboard_sell_submit(
     request: Request,
@@ -968,81 +1132,31 @@ async def dashboard_sell_submit(
 
     currency = currency.upper().strip()
     phone = sbp_phone.strip().replace(' ', '').replace('-', '').lstrip('+')
-    receive_addr = _sell_assets.receive_address(currency)
-    min_amount = _sell_assets.minimum(currency)
     coins, sell_js = _sell_context()
-    error = None
-    # Сначала — открыта ли монета ЦЕЛИКОМ. Форму можно отправить в обход
-    # выпадающего списка, а часть условий реестра адресом и минимумом не
-    # проверяется: XRP закрыт потому, что мы не умеем выдать destination tag,
-    # и заявка на него велела бы клиенту перевести монеты без метки. Нашёл codex.
-    if currency not in _sell_currencies():
-        error = "Продажа этой монеты временно недоступна."
-    elif not receive_addr:
-        error = "Продажа этой монеты временно недоступна."
-    elif min_amount is None:
-        # Минимум не объявлен — не подставляем догадку: 0.001 XMR это ~30 ₽,
-        # то есть заявка на пыль, за которую мы платим комиссию СБП.
-        error = "Продажа этой монеты временно недоступна."
-    elif amount < min_amount:
-        error = f"Минимальная сумма: {min_amount} {currency}."
-    elif not re.match(r'^7\d{10}$', phone):
-        error = "Неверный формат телефона. Пример: 79001234567."
+    error = sell_order_refuse(currency, amount, phone)
     if error:
         return templates.TemplateResponse(request, "dashboard_sell.html", site_context(
             request, active="sell", sell_coins=coins, sell_js=sell_js, error=error,
             form={"currency": currency, "amount": amount, "sbp_phone": sbp_phone},
         ), status_code=400)
 
-    sell_rate = exchange_calc.get_sell_rate(currency)
-    rub_amount = round(amount * sell_rate, 2)
     user_id = web_user['telegram_id'] if web_user['telegram_id'] else -web_user['id']
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute("""INSERT INTO sell_orders
-            (user_id, currency, crypto_amount, rub_amount, sbp_phone, receive_address, status, created_at, updated_at)
-            VALUES (?,?,?,?,?,?,'pending',datetime('now'),datetime('now'))""",
-            (user_id, currency, amount, rub_amount, phone, receive_addr))
-        conn.commit()
-        sell_id = c.lastrowid
-
-    audit_log("web_sell_created", f"sell_id={sell_id} web_user_id={web_user['id']}")
-    # Кнопки sell_confirm_/sell_reject_ обрабатывает бот — те же, что для бот-заявок
-    notify_admins_tg(
-        f"💰 <b>Новая заявка на ПРОДАЖУ #{sell_id}</b> (сайт)\n"
-        f"👤 Аккаунт: {web_user['email']}\n"
-        f"💸 Продаёт: {amount:g} {currency}\n"
-        f"📬 На наш адрес: <code>{receive_addr}</code>\n"
-        f"💵 Выплатить: {rub_amount:,.2f} RUB\n"
-        f"📱 СБП: {phone}\n\n"
-        f"После получения монет нажмите «Выплатить».",
-        reply_markup={"inline_keyboard": [
-            [{"text": "✅ Выплатить (подтвердить)", "callback_data": f"sell_confirm_{sell_id}"}],
-            [{"text": "❌ Отклонить", "callback_data": f"sell_reject_{sell_id}"}],
-        ]})
-
-    # Метка платежа для монет, где перевод её несёт (TON). Адрес приёма один на
-    # все заявки — без метки депозит привязывается к заявке только по размеру и
-    # времени, а это догадка, а не привязка.
-    marker = ""
-    if currency == "TON":
-        try:
-            from core import wallet_send as _ws
-            marker = _ws.marker_for(sell_id)
-        except Exception as e:
-            logger.warning("Метка платежа для продажи #%s не собралась: %s", sell_id, e)
+    created = sell_order_create(user_id, currency, amount, phone, "сайт",
+                                who=f"Аккаунт: {web_user['email']}")
+    if created is None:
+        return templates.TemplateResponse(request, "dashboard_sell.html", site_context(
+            request, active="sell", sell_coins=coins, sell_js=sell_js,
+            error="Продажа этой монеты сейчас недоступна — попробуйте позже.",
+            form={"currency": currency, "amount": amount, "sbp_phone": sbp_phone},
+        ), status_code=503)
 
     return templates.TemplateResponse(request, "dashboard_sell.html", site_context(
         request, active="sell", sell_coins=coins, sell_js=sell_js,
-        created={"id": sell_id, "currency": currency, "amount": f"{amount:g}",
-                 "rub": rub_amount, "phone": phone, "address": receive_addr,
-                 "marker": marker,
-                 # Сеть рядом с адресом обязательна там, где сетей несколько:
-                 # USDT-ERC20, отправленный на TRON-адрес, теряется.
-                 "network": _sell_assets.receive_network(currency)
-                            if len(_assets.networks_for(currency)) > 1 else None,
-                 # Срок выплаты зависит от того, кто подтверждает зачисление.
-                 "manual": _sell_assets.needs_manual_check(currency)},
+        created={"id": created["sell_id"], "currency": created["currency"],
+                 "amount": f"{created['amount']:g}", "rub": created["rub"],
+                 "phone": created["phone"], "address": created["address"],
+                 "marker": created["marker"], "network": created["network"],
+                 "manual": created["manual"]},
     ))
 
 # Анти-спам создания заявок из Mini App: скользящее окно на пользователя + глобально.
@@ -2332,6 +2446,108 @@ async def api_wallet_disconnect(request: Request):
     from core import wallet_link as _wl
     removed = _wl.forget(user['id'], body.get("chain") or None)
     return {"ok": True, "removed": removed}
+
+
+@app.get("/api/sell/options")
+async def api_sell_options():
+    """Что и на каких условиях можно продать — для Mini App.
+
+    Источник тот же, что у бота и сайта (`core.sell_assets` + курс продажи):
+    третья копия правил означала бы третий набор монет и третий минимум.
+    Публичный, как и `/api/rates`: секрета в списке направлений нет, а адрес
+    приёма отсюда НЕ отдаётся — он появляется только вместе с заявкой.
+    """
+    coins = []
+    for code in _sell_currencies():
+        rate = _sell_rate(code)
+        if rate <= 0:
+            continue        # без цены заявка ушла бы с нулевой выплатой
+        coins.append({
+            "code": code,
+            "label": _sell_assets.label(code),
+            "rate": rate,
+            "min": _sell_assets.minimum(code),
+            "manual": _sell_assets.needs_manual_check(code),
+            "network": (_sell_assets.receive_network(code)
+                        if len(_assets.networks_for(code)) > 1 else None),
+        })
+    return {"coins": coins}
+
+
+@app.get("/api/sell/pending")
+async def api_sell_pending(request: Request):
+    """Заявки клиента на продажу, ждущие его перевода. Только СВОИ.
+
+    Без этого список был бы тупиком: клиент создаёт заявку, закрывает окно и
+    больше нигде не видит ни адреса, ни метки. Существующий `/api/wallet/dues`
+    не годится — он показывает только TON (там кошелёк умеет ещё и платить).
+
+    `user_id` берётся из подписанного initData, а не из запроса: иначе по
+    чужому номеру отдавались бы чужие суммы и телефон.
+    """
+    user = verify_init_data(request.headers.get('X-Telegram-Init-Data', ''))
+    if not user:
+        raise HTTPException(status_code=403, detail="Откройте приложение через бота Telegram.")
+    uid = int(user['id'])
+    with db_conn(5) as conn:
+        rows = conn.execute(
+            "SELECT id, currency, crypto_amount, rub_amount, sbp_phone, receive_address,"
+            " created_at FROM sell_orders WHERE user_id=? AND status='pending'"
+            " ORDER BY id DESC LIMIT 10", (uid,)).fetchall()
+    items = []
+    for r in rows:
+        cur = (r[1] or "").upper()
+        marker = ""
+        if _sell_assets.can_mark(cur):
+            try:
+                from core import wallet_send as _ws
+                marker = _ws.marker_for(r[0])
+            except Exception:
+                marker = ""
+        items.append({
+            "sell_id": r[0], "currency": cur, "amount": float(r[2] or 0),
+            "rub": float(r[3] or 0), "phone": r[4] or "", "address": r[5] or "",
+            "marker": marker, "created_at": r[6],
+            # Сеть считается по адресу САМОЙ заявки, а не по сегодняшней
+            # настройке: адрес приёма мог смениться после её создания.
+            "network": (_sell_assets.network_of(cur, r[5] or "")
+                        if len(_assets.networks_for(cur)) > 1 else None),
+            "manual": _sell_assets.needs_manual_check(cur),
+        })
+    return {"items": items}
+
+
+@app.post("/api/sell/create")
+async def api_sell_create(request: Request):
+    """Заявка на продажу из Mini App. Авторизация — подпись initData.
+
+    Проверки и запись — те же функции, что у формы на сайте. Отдельная копия
+    правил здесь означала бы поверхность, которая принимает заявку, отвергнутую
+    соседней, — с переводом клиента на адрес, которого мы не ждём.
+    """
+    user = verify_init_data(request.headers.get('X-Telegram-Init-Data', ''))
+    if not user:
+        raise HTTPException(status_code=403, detail="Откройте приложение через бота Telegram.")
+    body = await json_object(request)
+    currency = str(body.get("currency") or "").upper().strip()
+    phone = str(body.get("phone") or "").strip().replace(' ', '').replace('-', '').lstrip('+')
+    amount = body.get("amount")
+    error = sell_order_refuse(currency, amount, phone)
+    if error:
+        return {"ok": False, "error": error}
+    # Счётчик тратится ПОСЛЕ проверок и только на годную заявку. Он общий с
+    # покупкой и глобальный: считай мы отказы, любой желающий выбивал бы 60
+    # мусорных запросов в минуту и закрывал Mini App всем сразу. Нашёл codex.
+    if not _check_order_rate(int(user['id'])):
+        logger.warning("[sell] rate limit hit user=%s", user['id'])
+        raise HTTPException(status_code=429, detail="Слишком много заявок подряд. Подождите немного.")
+    created = sell_order_create(int(user['id']), currency, float(amount), phone,
+                                "Mini App",
+                                who=f"tg:{user['id']} @{user.get('username') or '-'}")
+    if created is None:
+        return {"ok": False, "error": "Курс этой монеты сейчас недоступен — попробуйте позже."}
+    logger.info("sell: Mini App uid=%s заявка #%s %s", user['id'], created["sell_id"], currency)
+    return {"ok": True, **created}
 
 
 @app.get("/api/wallet/dues")

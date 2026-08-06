@@ -4126,13 +4126,31 @@ def check_sell_direction_grows_from_its_registry():
                 fail(tag, f"{rel}: {name}() не спрашивает общий реестр продажи — "
                           f"это вторая копия списка, и она разойдётся с первой")
 
+    # Mini App — третья поверхность продажи, и своего списка монет у неё быть
+    # не должно тем более: фронт правится отдельно от сервера и разойдётся
+    # первым же изменением. Список приходит из /api/sell/options.
+    wa = _read(os.path.join(ROOT, "relay", "webapp.html"))
+    if wa and "/api/sell/create" in wa:
+        # Берём только код продажи, чтобы не спотыкаться о список покупки.
+        start = wa.find("Продажа: крипта → рубли")
+        chunk = wa[start:start + 6000] if start >= 0 else ""
+        lits = {c for c in codes if f"'{c}'" in chunk or f'"{c}"' in chunk}
+        if len(lits) >= 2:
+            fail(tag, f"relay/webapp.html: раздел продажи перечисляет монеты сам "
+                      f"({', '.join(sorted(lits))}) — новая монета в Mini App не "
+                      f"появится, сколько адресов ни заводи")
+        if "/api/sell/options" not in wa:
+            fail(tag, "relay/webapp.html: раздел продажи не спрашивает список у "
+                      "сервера — это третья копия правил")
+
     # Создание заявки спрашивает реестр ЦЕЛИКОМ, а не по кускам. Форму и колбэк
     # можно отправить в обход выпадающего списка, а часть условий (умеем ли
     # выдать метку) ни адресом, ни минимумом не проверяется: заявка на XRP
     # велела бы клиенту перевести монеты без destination tag. Нашёл codex.
     for rel, fn_name, gate in (
             ("bot/main_bot.py", "process_sell_currency", "sell_coins()"),
-            ("relay-fastapi/main.py", "dashboard_sell_submit", "_sell_currencies()")):
+            ("relay-fastapi/main.py", "dashboard_sell_submit", "sell_order_refuse("),
+            ("relay-fastapi/main.py", "api_sell_create", "sell_order_refuse(")):
         src = _read(os.path.join(ROOT, rel))
         if not src:
             continue
@@ -4232,6 +4250,126 @@ def check_sell_direction_grows_from_its_registry():
                   "сайт пообещает автоматику там, где страж скажет «не умею»")
 
 
+# ─────────────────────────────────────────────────────────────────────
+# 35. Поверхность заводит заявку и тут же теряет её
+# ─────────────────────────────────────────────────────────────────────
+# У заявки на продажу вся суть в том, что клиент должен перевести монеты на наш
+# адрес. Показать адрес один раз и убрать — значит потребовать перевода и
+# спрятать реквизиты: закрыл окно, вернулся через час, а идти некуда. Это тот
+# же тупик, что К1, только с другой стороны. Правило: поверхность, умеющая
+# ЗАВЕСТИ заявку, обязана уметь и ПОКАЗАТЬ незакрытые.
+def check_a_surface_that_creates_orders_can_show_them():
+    tag = "заявку завели и потеряли"
+    main_src = _read(os.path.join(ROOT, "relay-fastapi", "main.py"))
+    wa = _read(os.path.join(ROOT, "relay", "webapp.html"))
+    if not main_src or not wa:
+        return
+    if "/api/sell/create" not in main_src:
+        return                       # Mini App заявок продажи не заводит
+
+    # Сервер отдаёт незакрытые заявки — и только СВОИ (по подписи, а не по
+    # номеру из запроса, иначе это утечка чужих сумм и телефона).
+    import ast as _ast
+    try:
+        tree = _ast.parse(main_src)
+    except SyntaxError as e:
+        fail(tag, f"relay-fastapi/main.py не разбирается: {e}")
+        return
+    listing = None
+    for node in _ast.walk(tree):
+        if not isinstance(node, (_ast.FunctionDef, _ast.AsyncFunctionDef)):
+            continue
+        for dec in node.decorator_list:
+            src = _ast.get_source_segment(main_src, dec) or ""
+            if "/api/sell/pending" in src:
+                listing = node
+    if listing is None:
+        fail(tag, "Mini App умеет создать заявку на продажу, но не умеет показать "
+                  "незакрытые: клиент закроет окно и потеряет адрес перевода")
+        return
+    body = _ast.get_source_segment(main_src, listing) or ""
+    if "verify_init_data" not in body:
+        fail(tag, "/api/sell/pending отдаёт заявки без проверки подписи — по "
+                  "чужому номеру уедут чужие суммы и телефон")
+    if "user['id']" not in body and 'user["id"]' not in body:
+        fail(tag, "/api/sell/pending берёт владельца НЕ из подписи — значит "
+                  "номер можно подставить в запросе")
+    # Список должен быть привязан к незакрытым: отдать всё подряд означает
+    # звать переводить по уже закрытой заявке.
+    if "'pending'" not in body and '"pending"' not in body:
+        fail(tag, "/api/sell/pending не ограничен незакрытыми заявками — клиент "
+                  "получит адрес по уже завершённой и переведёт второй раз")
+
+    # Заявку нельзя завести на нечисловой объём. NaN и Infinity — законные
+    # float, любое сравнение с ними ложно, и JSON принимает их по умолчанию:
+    # без явной проверки `{"amount": NaN}` проходит и минимум, и «больше нуля»,
+    # а в базе оказывается заявка, которую персонал увидит рабочей. Нашёл codex.
+    refuse = next((n for n in _ast.walk(tree)
+                   if isinstance(n, _ast.FunctionDef) and n.name == "sell_order_refuse"), None)
+    if refuse is None:
+        fail(tag, "sell_order_refuse() исчезла — проверка ослепла")
+    else:
+        rb = _ast.get_source_segment(main_src, refuse) or ""
+        if "isfinite" not in rb:
+            fail(tag, "объём заявки не проверяется на конечность — NaN и "
+                      "Infinity пройдут все сравнения и лягут в базу")
+        # Цена — такое же условие продажи, как адрес приёма. Список монет её
+        # фильтрует, но запрос можно послать мимо списка. Нашёл codex.
+        if "_sell_rate" not in rb:
+            fail(tag, "цена не проверяется при приёме заявки — запрос мимо "
+                      "списка монет заведёт заявку с нулевой выплатой")
+        # Объём конечен, а произведение уже может переполниться: 1e308 монет
+        # проходят все проверки, а выплата становится бесконечностью.
+        if rb.count("isfinite") < 2:
+            fail(tag, "проверяется конечность объёма, но не выплаты — при "
+                      "огромном объёме в базу ляжет бесконечная сумма")
+
+    # Метка платежа у монеты, где она обязательна, — условие СОЗДАНИЯ заявки.
+    # Если её не выдать, клиенту велят перевести на общий адрес без метки, и
+    # такой депозит уже не привязать. Нашёл codex.
+    maker = next((n for n in _ast.walk(tree)
+                  if isinstance(n, _ast.FunctionDef) and n.name == "sell_order_create"), None)
+    if maker is not None:
+        mb = _ast.get_source_segment(main_src, maker) or ""
+        # Смотреть надо ХВОСТ после записи в базу: до неё проверок хватает, а
+        # опасен именно промежуток «строка уже есть — метки ещё нет». Проверка
+        # «где-то в функции есть return None» тут бесполезна: её удовлетворяет
+        # предварительный гейт, и мина зеленеет на сломанном коде.
+        if "marker_for" in mb and "INSERT INTO sell_orders" in mb:
+            tail = mb.split("INSERT INTO sell_orders", 1)[1]
+            if "cancelled" not in tail:
+                fail(tag, "сбой выдачи метки не отменяет заявку — клиент переведёт "
+                          "монеты на общий адрес без метки, и мы их не опознаем")
+            if "return None" not in tail:
+                fail(tag, "заявка без метки возвращается наверх как рабочая — "
+                          "поверхность покажет клиенту адрес приёма без метки")
+
+    # Счётчик заявок общий с покупкой и глобальный. Потрать его на ОТКАЗЫ — и
+    # любой желающий шлёт 60 мусорных запросов в минуту, закрывая Mini App
+    # всем сразу. Нашёл codex.
+    creator = next((n for n in _ast.walk(tree)
+                    if isinstance(n, (_ast.FunctionDef, _ast.AsyncFunctionDef))
+                    and n.name == "api_sell_create"), None)
+    if creator is not None:
+        cb = _ast.get_source_segment(main_src, creator) or ""
+        if "_check_order_rate" in cb and "sell_order_refuse" in cb \
+                and cb.index("_check_order_rate") < cb.index("sell_order_refuse"):
+            fail(tag, "лимит заявок тратится ДО проверки — мусорными запросами "
+                      "можно закрыть Mini App всем пользователям сразу")
+
+    # Поверхность его действительно зовёт, а не просто эндпоинт существует.
+    if "/api/sell/pending" not in wa:
+        fail(tag, "relay/webapp.html не спрашивает незакрытые заявки продажи — "
+                  "эндпоинт есть, а клиент его не видит")
+    # И адрес в этом списке показывается: список без адреса — не выход из
+    # тупика, а напоминание о нём.
+    start = wa.find("loadSellPending")
+    chunk = wa[start:start + 3000] if start >= 0 else ""
+    if "it.address" not in chunk and "address" not in chunk:
+        fail(tag, "список незакрытых заявок не показывает адрес перевода — "
+                  "клиент видит долг и не видит, куда платить")
+
+
 def main():
     for fn in (check_no_diverging_duplicates, check_config_keys_are_read,
                check_no_fail_open_in_guards, check_session_expiry_uses_expires_at,
@@ -4265,6 +4403,7 @@ def main():
                check_wallet_proof_is_checked_against_the_chain,
                check_amount_is_labelled_by_its_own_asset,
                check_sell_direction_grows_from_its_registry,
+               check_a_surface_that_creates_orders_can_show_them,
                check_proof_belongs_to_the_client_it_was_issued_to,
                check_stale_proof_code_is_not_a_dead_end,
                check_wallet_showcase_keeps_every_currency,
