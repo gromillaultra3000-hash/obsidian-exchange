@@ -919,14 +919,19 @@ def check_sell_menu_offers_only_receivable_coins():
             # про продажу берут список оттуда же. Тогда проверяем, что
             # отсеивает САМ хелпер, а не только что его позвали: иначе
             # достаточно было бы назвать функцию правильно.
+            # Отсев по адресу приёма живёт либо здесь (легаси-словарь), либо в
+            # общем реестре `core.sell_assets` — что тот РЕАЛЬНО отсеивает
+            # монету без адреса, проверяется поведением в мине 34, здесь же
+            # важно, что список идёт из отсеивающего источника, а не мимо него.
+            _filters = ("SELL_RECEIVE_ADDRESSES", "sell_assets")
             if "sell_coins" in code:
                 helper = _slice(src, "def sell_coins(", "\ndef ", "\nasync def ")
-                if "SELL_RECEIVE_ADDRESSES" not in _nodoc(helper):
+                if not any(f in _nodoc(helper) for f in _filters):
                     fail("меню продажи",
                          f"{rel}: sell_coins() не отсеивает монеты без адреса "
                          f"приёма — меню продажи снова предложит монету, "
                          f"которую принять некуда")
-            elif "SELL_RECEIVE_ADDRESSES" not in code:
+            elif not any(f in code for f in _filters):
                 fail("меню продажи",
                      f"{rel}: build_currency_kb() (стр. {node.lineno}) не отсеивает "
                      f"монеты без адреса приёма. Клавиатура общая на покупку и "
@@ -4015,6 +4020,218 @@ def check_amount_is_labelled_by_its_own_asset():
         fail(tag, "реестр кошельков теряет имя актива по дороге наружу")
 
 
+# ─────────────────────────────────────────────────────────────────────
+# 34. Направление продажи перечислено руками и не растёт от настройки
+# ─────────────────────────────────────────────────────────────────────
+# Список продаваемых монет жил двумя рукописными копиями: словарь из четырёх
+# строк в боте и кортеж из тех же четырёх на сайте. Владелец заводил адрес
+# приёма Monero и не получал НИЧЕГО — монеты нет в словаре, значит её нет в
+# меню, и узнать это можно было только чтением кода. Две копии одного списка
+# вдобавок уже расходились: сайт звал продавать монету, которой в боте нет.
+def check_sell_direction_grows_from_its_registry():
+    tag = "продажа не растёт от настройки"
+    relay = os.path.join(ROOT, "relay")
+    if relay not in sys.path:
+        sys.path.insert(0, relay)
+    try:
+        from core import sell_assets as _sa
+        from core import assets as _as
+    except Exception as e:
+        fail(tag, f"реестр продажи не загружается: {type(e).__name__}: {e}")
+        return
+
+    # ── поведение: настройка включает монету, а не правка кода ──
+    XMR_OK = ("4AdUndXHHZ6cfufTMvppY6JwXNouMBzSkbLYfpAV5Usx3skxNgYeYTRj5Uzqt"
+              "ReoS44qo9mtmXCqY45DJ852K5Jv2684Rge")
+    BTC_OK = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"
+    saved = {k: os.environ.get(k) for k in
+             ("SELL_XMR_ADDRESS", "SELL_BTC_ADDRESS", "SELL_LTC_ADDRESS")}
+    try:
+        for k in saved:
+            os.environ.pop(k, None)
+        if "XMR" in _sa.sell_currencies():
+            fail(tag, "монета без адреса приёма предлагается к продаже — "
+                      "клиенту некуда отправлять монеты")
+        os.environ["SELL_XMR_ADDRESS"] = XMR_OK
+        if "XMR" not in _sa.sell_currencies():
+            fail(tag, f"адрес приёма задан, а монеты в продаже нет: "
+                      f"{_sa.closed_reason('XMR') or 'причина не названа'}")
+        # Монета с адресом, но без объявленного минимума не должна проходить:
+        # умолчание здесь означало бы приём пыли, за которую мы платим
+        # комиссию СБП больше, чем получаем.
+        _min = _sa.MINIMUMS.pop("XMR", None)
+        try:
+            if "XMR" in _sa.sell_currencies():
+                fail(tag, "монета без объявленного минимума ушла в продажу — "
+                          "заявка на пыль обойдётся нам дороже выручки")
+        finally:
+            if _min is not None:
+                _sa.MINIMUMS["XMR"] = _min
+        # Адрес чужой сети в настройке — это не «недоступно», это перевод
+        # клиента в пустоту без возврата.
+        os.environ["SELL_LTC_ADDRESS"] = BTC_OK
+        if "LTC" in _sa.sell_currencies():
+            fail(tag, "адрес ЧУЖОЙ сети в настройке приёма не остановил продажу — "
+                      "монеты клиента ушли бы в никуда")
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+
+    # Минимум не подставляется умолчанием: 0.001 XMR — это ~30 ₽, заявка на
+    # пыль, за которую мы платим комиссию СБП.
+    missing = [c for c in _sa.sell_currencies() if _sa.minimum(c) is None]
+    if missing:
+        fail(tag, f"монеты предлагаются к продаже без объявленного минимума: "
+                  f"{', '.join(missing)}")
+    for cur in _as.CURRENCY_NETWORKS:
+        if _sa.minimum(cur) is None and "минимум" not in _sa.closed_reason(cur):
+            fail(tag, f"{cur}: минимума нет, а причина закрытия про другое "
+                      f"(«{_sa.closed_reason(cur)}») — админ будет искать не там")
+
+    # ── структура: у поверхностей нет собственных списков ──
+    import ast as _ast
+    codes = set(_as.CURRENCY_NETWORKS)
+    for rel, fns in (("bot/main_bot.py", ("sell_coins",)),
+                     ("relay-fastapi/main.py", ("_sell_currencies", "_sell_context"))):
+        path = os.path.join(ROOT, rel)
+        src = _read(path)
+        if not src:
+            continue
+        try:
+            tree = _ast.parse(src)
+        except SyntaxError as e:
+            fail(tag, f"{rel} не разбирается: {e}")
+            continue
+        found = {n.name: n for n in _ast.walk(tree)
+                 if isinstance(n, (_ast.FunctionDef, _ast.AsyncFunctionDef))}
+        for name in fns:
+            node = found.get(name)
+            if node is None:
+                fail(tag, f"{rel}: {name}() исчезла — проверка ослепла")
+                continue
+            body = _ast.get_source_segment(src, node) or ""
+            # Перечисление кодов монет внутри = свой список. Комментарии в AST
+            # не попадают, поэтому пояснение рядом мину не обманет.
+            lits = {c.value for c in _ast.walk(node)
+                    if isinstance(c, _ast.Constant) and isinstance(c.value, str)
+                    and c.value in codes}
+            if len(lits) >= 2:
+                fail(tag, f"{rel}: {name}() перечисляет монеты сама "
+                          f"({', '.join(sorted(lits))}) — новая монета в этот "
+                          f"список не попадёт, сколько адресов ни заводи")
+            if "sell_assets" not in body:
+                fail(tag, f"{rel}: {name}() не спрашивает общий реестр продажи — "
+                          f"это вторая копия списка, и она разойдётся с первой")
+
+    # Создание заявки спрашивает реестр ЦЕЛИКОМ, а не по кускам. Форму и колбэк
+    # можно отправить в обход выпадающего списка, а часть условий (умеем ли
+    # выдать метку) ни адресом, ни минимумом не проверяется: заявка на XRP
+    # велела бы клиенту перевести монеты без destination tag. Нашёл codex.
+    for rel, fn_name, gate in (
+            ("bot/main_bot.py", "process_sell_currency", "sell_coins()"),
+            ("relay-fastapi/main.py", "dashboard_sell_submit", "_sell_currencies()")):
+        src = _read(os.path.join(ROOT, rel))
+        if not src:
+            continue
+        try:
+            tree = _ast.parse(src)
+        except SyntaxError:
+            continue
+        node = next((n for n in _ast.walk(tree)
+                     if isinstance(n, (_ast.FunctionDef, _ast.AsyncFunctionDef))
+                     and n.name == fn_name), None)
+        if node is None:
+            fail(tag, f"{rel}: {fn_name}() исчезла — проверка ослепла")
+            continue
+        body = _ast.get_source_segment(src, node) or ""
+        if gate not in body:
+            fail(tag, f"{rel}: {fn_name}() создаёт заявку, не спросив полный "
+                      f"список продажи ({gate}) — монета, закрытая не адресом "
+                      f"и не минимумом, пройдёт в обход формы")
+
+    # Сеть у монеты с несколькими сетями названа клиенту. USDT-ERC20,
+    # отправленный на наш TRON-адрес, теряется целиком и не возвращается,
+    # а по одному коду «USDT» клиент сеть не угадает. Нашёл codex.
+    _key = "SELL_USDT_ADDRESS"
+    _was = os.environ.get(_key)
+    try:
+        os.environ[_key] = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"
+        net = _sa.receive_network("USDT")
+        if net != "TRC20":
+            fail(tag, f"сеть TRON-адреса USDT определена как {net!r} — клиенту "
+                      f"нечего написать рядом с адресом")
+        if "TRC" not in _sa.label("USDT"):
+            fail(tag, f"подпись USDT («{_sa.label('USDT')}») не называет сеть — "
+                      f"перевод в другой сети на этот адрес не вернуть")
+        # Адрес проверяется по КАЖДОЙ сети монеты, а не по первой в реестре:
+        # у USDT первой стоит TRC-20, и проверка «по умолчанию» отвергала бы
+        # верный ERC-20 адрес — направление молча не открывалось бы. Нашёл codex.
+        os.environ[_key] = "0x000000000000000000000000000000000000dEaD"
+        if _sa.receive_network("USDT") != "ERC20":
+            fail(tag, "ERC-20 адрес приёма USDT не опознан — монета проверяется "
+                      "только по сети по умолчанию, вторая сеть недостижима")
+        if "USDT" not in _sa.sell_currencies():
+            fail(tag, f"USDT с верным ERC-20 адресом закрыт: "
+                      f"«{_sa.closed_reason('USDT')}»")
+        # Список открытых монет и выдача адреса обязаны сойтись: расхождение
+        # даёт монету в меню и «временно недоступно» сразу за кнопкой.
+        for cur in _sa.sell_currencies():
+            if not _sa.receive_address(cur):
+                fail(tag, f"{cur} в списке продажи, но адрес приёма не выдаётся — "
+                          f"клиент выберет монету и упрётся в «недоступно»")
+        # Обещание автоматики привязано к СЕТИ адреса, а не к монете: страж
+        # читает у USDT только TRON, и на ERC-20 адресе автоматика — обещание,
+        # которого он не выполнит никогда. Нашёл codex.
+        if _sa.deposit_check_available("USDT"):
+            fail(tag, "USDT на ERC-20 адресе объявлен автоматически проверяемым — "
+                      "страж ищет депозит в TRON и не найдёт его никогда, "
+                      "а клиенту обещаны 30–60 минут")
+        if len(_as.networks_for("BTC")) == 1 and "(" in _sa.label("BTC"):
+            fail(tag, "у монеты с единственной сетью в подписи появилась сеть — "
+                      "лишний шум там, где выбора нет")
+    finally:
+        if _was is None:
+            os.environ.pop(_key, None)
+        else:
+            os.environ[_key] = _was
+
+    # Срок выплаты обещается по тому, КТО подтверждает зачисление. У монет без
+    # проверки депозита в цепи это человек, и «30–60 минут» рядом с ними —
+    # обещание, которого мы не сдержим.
+    for rel, fn_name in (("bot/main_bot.py", "process_sell_phone"),):
+        src = _read(os.path.join(ROOT, rel))
+        if not src:
+            continue
+        try:
+            node = next(n for n in _ast.walk(_ast.parse(src))
+                        if isinstance(n, (_ast.FunctionDef, _ast.AsyncFunctionDef))
+                        and n.name == fn_name)
+        except (StopIteration, SyntaxError):
+            fail(tag, f"{rel}: {fn_name}() исчезла — проверка ослепла")
+            continue
+        lits = [c.value for c in _ast.walk(node)
+                if isinstance(c, _ast.Constant) and isinstance(c.value, str)
+                and "30–60" in c.value]
+        if lits:
+            fail(tag, f"{rel}: {fn_name}() обещает «30–60 минут» безусловно — "
+                      f"у монеты, зачисление которой подтверждает человек, это "
+                      f"обещание не выполняется")
+    tpl = _read(os.path.join(ROOT, "relay-fastapi", "templates", "dashboard_sell.html"))
+    if tpl and "30–60" in tpl and "created.manual" not in tpl:
+        fail(tag, "страница созданной заявки обещает 30–60 минут всем монетам — "
+                  "у монеты с ручным подтверждением это неправда")
+
+    # Способность найти депозит в цепи объявлена в ОДНОМ месте: страж и текст
+    # для клиента должны говорить об одной и той же монете одно и то же.
+    guard = _read(os.path.join(ROOT, "bot", "sell_guard.py"))
+    if guard and "sell_assets" not in guard:
+        fail(tag, "bot/sell_guard.py держит свой список проверяемых цепей — "
+                  "сайт пообещает автоматику там, где страж скажет «не умею»")
+
+
 def main():
     for fn in (check_no_diverging_duplicates, check_config_keys_are_read,
                check_no_fail_open_in_guards, check_session_expiry_uses_expires_at,
@@ -4047,6 +4264,7 @@ def main():
                check_wallet_modules_are_registered,
                check_wallet_proof_is_checked_against_the_chain,
                check_amount_is_labelled_by_its_own_asset,
+               check_sell_direction_grows_from_its_registry,
                check_proof_belongs_to_the_client_it_was_issued_to,
                check_stale_proof_code_is_not_a_dead_end,
                check_wallet_showcase_keeps_every_currency,

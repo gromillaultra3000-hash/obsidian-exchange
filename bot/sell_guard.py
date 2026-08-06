@@ -65,6 +65,35 @@ _ESPLORA = {
     "LTC": "https://litecoinspace.org/api",
 }
 
+def _auto_checked(currency: str, address: str = "") -> bool:
+    """Умеем ли мы найти депозит по ЭТОМУ адресу в цепи.
+
+    Список живёт в общем реестре продажи (`relay/core/sell_assets.py`), потому
+    что его читают ещё и поверхности — чтобы честно сказать клиенту, кто
+    подтвердит зачисление. Своя копия здесь означала бы, что новая монета
+    получает автоматическую проверку в тексте на сайте и `unsupported` в
+    страже — или наоборот.
+
+    Судим по адресу ЗАЯВКИ, а не по монете: у USDT сетей две, читать мы умеем
+    только TRON, и адрес `0x…` в заявке означает депозит в Ethereum, которого
+    мы не найдём никогда.
+    """
+    try:
+        relay = str(Path(__file__).resolve().parent.parent / "relay")
+        if relay not in sys.path:
+            sys.path.insert(0, relay)
+        from core import sell_assets
+        net = sell_assets.network_of(currency, address) if address else None
+        return sell_assets.deposit_check_available(currency, net)
+    except Exception as e:
+        # Fail-closed: реестр не прочитан — считаем, что проверить не можем.
+        # Ложное «умеем» здесь означало бы попытку читать цепь, которой у нас
+        # нет, и вердикт «депозита нет» вместо «решает человек».
+        logger.error("sell_guard: реестр продажи недоступен (%s) — %s без авто-проверки",
+                     e, currency)
+        return False
+
+
 _TRONGRID = "https://api.trongrid.io"
 _USDT_TRC20 = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"
 
@@ -286,7 +315,7 @@ def verify_sell_deposit(sell_id: int) -> dict:
         return _result("unsupported", "у заявки не сохранён адрес приёма")
     if expected <= 0:
         return _result("unsupported", "у заявки нулевая сумма")
-    if currency not in _ESPLORA and currency not in ("USDT", "TON"):
+    if not _auto_checked(currency, address):
         return _result("unsupported", f"проверка блокчейна для {currency} не реализована")
 
     try:

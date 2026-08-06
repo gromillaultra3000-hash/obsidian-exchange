@@ -6,7 +6,12 @@
 {% if created %}
 <div class="dash-card">
     <h2>✅ Заявка на продажу #{{ created.id }} принята</h2>
-    <p style="margin:12px 0;">Отправьте <strong>{{ created.amount }} {{ created.currency }}</strong> на наш адрес:</p>
+    <p style="margin:12px 0;">Отправьте <strong>{{ created.amount }} {{ created.currency }}</strong>{% if created.network %} <strong>в сети {{ created.network }}</strong>{% endif %} на наш адрес:</p>
+    {% if created.network %}
+    {# Сеть названа отдельной строкой, а не только в подписи монеты: перевод
+       USDT-ERC20 на TRON-адрес теряется целиком и не возвращается. #}
+    <p style="opacity:.8;font-size:13px;margin:-6px 0 10px;">⚠️ Только сеть <strong>{{ created.network }}</strong>. Перевод в другой сети на этот адрес вернуть невозможно.</p>
+    {% endif %}
     <div class="fee-box" style="word-break:break-all;font-family:monospace;font-size:14px;" id="recv-addr">{{ created.address }}</div>
     <button class="btn btn-secondary" style="margin-top:10px;" onclick="navigator.clipboard.writeText(document.getElementById('recv-addr').textContent.trim());this.textContent='✓ Скопировано'">📋 Скопировать адрес</button>
     {% if created.marker %}
@@ -18,7 +23,10 @@
     <p style="opacity:.7;font-size:13px;margin-top:8px;">Перевод без комментария не потеряется, но зачесть его автоматически мы не сможем — потребуется ручная сверка. В Mini App внутри Telegram комментарий подставляется сам: кошелёк подписывает готовый перевод.</p>
     {% endif %}
     <p style="margin-top:16px;">💵 Выплата: <strong>≈ {{ '%.2f'|format(created.rub) }} ₽</strong> на СБП <strong>{{ created.phone }}</strong></p>
-    <p style="opacity:.7;font-size:13px;margin-top:8px;">После подтверждения транзакции в сети рубли поступят в течение 30–60 минут. Статус — в разделе <a href="/dashboard/orders">История</a>.</p>
+    {# Срок называем по тому, кто подтверждает зачисление. У монет без проверки
+       депозита в цепи (Monero, ETH) это человек, и обещать те же 30–60 минут
+       значило бы соврать в самом заметном месте. #}
+    <p style="opacity:.7;font-size:13px;margin-top:8px;">{% if created.manual %}Зачисление этой монеты подтверждает оператор вручную — выплата занимает дольше обычного.{% else %}После подтверждения транзакции в сети рубли поступят в течение 30–60 минут.{% endif %} Статус — в разделе <a href="/dashboard/orders">История</a>.</p>
 </div>
 {% else %}
 <div class="dash-card">
@@ -41,6 +49,12 @@
             <div style="font-size:12px;opacity:.6;margin-top:4px;" id="sell-min"></div>
         </div>
         <div class="fee-box" id="sell-calc">💵 Вы получите: <strong>—</strong></div>
+        {# Правда о сроке до создания заявки: у монет без проверки депозита в
+           цепи (Monero, ETH) зачисление подтверждает человек, и обещать те же
+           30–60 минут, что по биткойну, было бы враньём. #}
+        <div id="sell-manual" style="display:none;font-size:12px;opacity:.75;margin-top:8px;">
+            ⏱ Зачисление этой монеты подтверждает оператор вручную — выплата занимает дольше обычного.
+        </div>
         <div class="input-group">
             <label>Телефон для выплаты по СБП</label>
             <input type="text" name="sbp_phone" placeholder="79001234567" pattern="\+?7\d{10}"
@@ -62,8 +76,12 @@ const SELL = {{ sell_js|safe }};
 function calcSell() {
     const cur = document.getElementById('sell-currency').value;
     const amt = parseFloat(document.getElementById('sell-amount').value) || 0;
-    const info = SELL[cur] || {rate: 0, min: 0};
-    document.getElementById('sell-min').textContent = 'Минимум: ' + info.min + ' ' + cur;
+    const info = SELL[cur] || {rate: 0, min: null};
+    document.getElementById('sell-min').textContent =
+        (info.min === null || info.min === undefined)
+            ? 'Минимум для этой монеты не задан — продажа недоступна'
+            : 'Минимум: ' + info.min + ' ' + cur;
+    document.getElementById('sell-manual').style.display = info.manual ? '' : 'none';
     document.getElementById('sell-calc').innerHTML =
         '💵 Вы получите: <strong>' + (amt > 0 ? (amt * info.rate).toLocaleString('ru', {maximumFractionDigits: 2}) + ' ₽' : '—') + '</strong>';
 }
