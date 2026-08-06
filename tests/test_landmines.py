@@ -2968,8 +2968,12 @@ def check_balance_is_priced_in_its_own_coin():
         fail(tag, f"relay/webapp.html: walletRender берёт курс cachedRates['{lit}'] "
                   f"жёстко — остаток другой монеты будет пересчитан в рубли по "
                   f"цене {lit}")
-    if "cachedRates" in body and not re.search(r"cachedRates\s*\[\s*w\.chain\s*\]", body):
-        fail(tag, "relay/webapp.html: walletRender не берёт курс по монете записи — "
+    # Курс берётся по АКТИВУ записи. На цепи TRON остаток посчитан в USDT, и
+    # оценка по «курсу TRON» была бы ценой другой монеты — то есть ровно тем,
+    # от чего эта мина и стоит.
+    if "cachedRates" in body and not re.search(
+            r"cachedRates\s*\[\s*(?:asset|w\.asset|w\.chain)\b", body):
+        fail(tag, "relay/webapp.html: walletRender не берёт курс по активу записи — "
                   "рублёвая оценка перестала зависеть от того, что показывает")
 
 
@@ -3787,6 +3791,230 @@ def check_prefilter_is_not_stricter_than_the_real_check():
             pass                       # node недоступен — молча, это не наш дефект
 
 
+# ─────────────────────────────────────────────────────────────────────
+# 31. Счёт принадлежит цепи, а хранится под именем монеты
+# ─────────────────────────────────────────────────────────────────────
+# Появилось 05.08.2026 вместе с подтверждением EVM- и TRON-адресов. Связь
+# подключённого кошелька лежит под ключом «клиент + цепь». Пока цепь совпадала
+# с монетой (BTC, LTC, TON), разницы не было. С USDT она стала решающей: одна
+# монета живёт в ДВУХ цепях, и запись по монете означает, что доказанный
+# TRC-20-адрес затирается ERC-20-адресом того же клиента — молча, вторым
+# подтверждением. Дальше по этому адресу показывается баланс и он же
+# подставляется в заявку: деньги уходят в сеть, где счёта нет.
+def _call_args(src: str, needle: str):
+    """Тело каждого вызова `needle…)` целиком, со вложенными скобками.
+
+    Регулярка `\\(([^)]*)\\)` обрывается на первой закрывающей скобке, и вызов
+    вида `remember(uid, data.get("x", ""), addr)` разбирается неверно — ровно
+    на таком виде проверка молча пропустила подставленный дефект.
+    """
+    out = []
+    at = src.find(needle)
+    while at >= 0:
+        i, depth = at + len(needle), 1
+        while i < len(src) and depth:
+            if src[i] == "(":
+                depth += 1
+            elif src[i] == ")":
+                depth -= 1
+            i += 1
+        if depth == 0:
+            out.append(src[at + len(needle):i - 1])
+        at = src.find(needle, at + len(needle))
+    return out
+
+
+def _split_args(args: str):
+    """Аргументы верхнего уровня: запятые внутри скобок не разделяют."""
+    parts, depth, cur = [], 0, ""
+    for ch in args:
+        if ch in "([{":
+            depth += 1
+        elif ch in ")]}":
+            depth -= 1
+        if ch == "," and depth == 0:
+            parts.append(cur.strip())
+            cur = ""
+            continue
+        cur += ch
+    if cur.strip():
+        parts.append(cur.strip())
+    return parts
+
+
+def check_wallet_link_is_keyed_by_chain():
+    tag = "связь кошелька под именем монеты"
+    relay = os.path.join(ROOT, "relay")
+    if relay not in sys.path:
+        sys.path.insert(0, relay)
+    try:
+        from core import assets as _assets
+    except Exception as e:
+        fail(tag, f"реестр валют не загружается: {type(e).__name__}: {e}")
+        return
+
+    # Монета с несколькими сетями обязана давать РАЗНЫЕ цепи: одинаковая цепь
+    # у двух сетей — тот же затирающий ключ, только этажом ниже.
+    for cur, nets in _assets.CURRENCY_NETWORKS.items():
+        if len(nets) < 2:
+            continue
+        chains = [_assets.chain_of(cur, n) for n in nets]
+        if None in chains:
+            fail(tag, f"{cur}: у сети {nets[chains.index(None)]} нет цепи — "
+                      f"подтверждённый адрес ляжет в никуда")
+        elif len(set(chains)) != len(chains):
+            fail(tag, f"{cur}: сети {nets} сведены в одну цепь {chains} — "
+                      f"второе подтверждение затрёт первое, и клиент увидит "
+                      f"баланс чужой сети под своим адресом")
+
+    # Обе поверхности обязаны писать ЦЕПЬ ИЗ ВЕРДИКТА, а не монету из запроса:
+    # монета приходит от клиента, цепь считает сервер по реестру.
+    for path, what in ((os.path.join(ROOT, "relay-fastapi", "main.py"), "сайт и Mini App"),
+                       (os.path.join(ROOT, "bot", "main_bot.py"), "бот")):
+        src = _read(path)
+        if not src or "sig_proof" not in src:
+            continue
+        for args in _call_args(_nodoc(src), "remember("):
+            if "verdict" not in args:
+                continue                      # не путь доказательства подписью
+            parts = _split_args(args)
+            key = parts[1] if len(parts) > 1 else ""
+            lit = re.fullmatch(r"""['"]([A-Za-z0-9_-]+)['"]""", key)
+            if lit:
+                # Литерал допустим, только если это ИМЯ ЦЕПИ. Код монеты здесь
+                # выглядит так же безобидно («USDT»), но означает совсем другое.
+                if not _assets.pairs_on_chain(lit.group(1)):
+                    fail(tag, f"{what}: связь сохраняется под «{lit.group(1)}» — "
+                              f"это не цепь, а код монеты; у монеты с двумя сетями "
+                              f"одно подтверждение затрёт другое")
+                continue
+            if "chain" not in key:
+                fail(tag, f"{what}: ключ связи — «{' '.join(key.split())[:60]}», "
+                          f"а не цепь из вердикта: монета приходит из запроса, "
+                          f"и в двух сетях она даст один ключ на два разных счёта")
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 32. Одна подпись годится сразу в двух цепях
+# ─────────────────────────────────────────────────────────────────────
+# Ethereum и TRON считают адрес одинаково: secp256k1, keccak-256, младшие 20
+# байт. Один и тот же ключ даёт счёт в обеих сетях. Разводит их только обёртка
+# подписываемого текста (EIP-191 против TIP-191). Совпади обёртки — подпись,
+# сделанная для одной цепи, подтверждала бы владение и в другой; человек,
+# подписавший что-то в Ethereum, задним числом «доказал» бы нам TRON-адрес.
+def check_one_signature_does_not_fit_two_chains():
+    tag = "подпись годится в двух цепях"
+    relay = os.path.join(ROOT, "relay")
+    if relay not in sys.path:
+        sys.path.insert(0, relay)
+    try:
+        from core import sig_proof as _sp
+    except Exception as e:
+        fail(tag, f"движок подписи не загружается: {type(e).__name__}: {e}")
+        return
+
+    prefixes = getattr(_sp, "_EIP191_PREFIX", {})
+    if len(prefixes) < 2:
+        return                                # одна схема — разводить нечего
+    if len(set(prefixes.values())) != len(prefixes):
+        fail(tag, "у двух цепей ОДНА обёртка сообщения — подпись из одной "
+                  "подтвердит владение в другой")
+
+    # Проверка не по константам, а по результату: важно, что расходятся
+    # ХЕШИ, а не то, что строки разные.
+    text = "ObsidianExchange address proof\ncode: 1"
+    seen = {}
+    for cur, net in (("BTC", None), ("LTC", None), ("ETH", None),
+                     ("USDT", "TRC20"), ("USDT", "ERC20")):
+        try:
+            d = _sp.message_digest(cur, text, net)
+        except Exception as e:
+            fail(tag, f"{cur}/{net}: хеш сообщения не считается: {type(e).__name__}: {e}")
+            continue
+        if d is None:
+            continue
+        scheme = _sp._scheme_for(cur, net)
+        if d in seen and seen[d] != scheme:
+            fail(tag, f"{cur}/{net or '—'} и {seen[d]} дают ОДИН хеш одного "
+                      f"текста — подпись из одной цепи подойдёт к адресу в другой")
+        seen[d] = scheme
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 33. Сумма подписана именем цепи, а не своего актива
+# ─────────────────────────────────────────────────────────────────────
+# У BTC и LTC цепь и монета — одно и то же, и подписать остаток именем цепи
+# было безобидно. В TRON на одном счёте лежат TRX и USDT, в EVM — эфир и
+# десяток токенов. «28.0780 TRON» клиент прочитает как свои USDT и решит, что
+# видит их; а если однажды покажем TRX теми же цифрами — решит, что деньги
+# пропали. Правило: сумму подписывает актив, который её и посчитал; имя цепи —
+# только запасной вариант там, где актив один.
+def check_amount_is_labelled_by_its_own_asset():
+    tag = "сумма подписана цепью вместо актива"
+
+    # Поверхности: где рисуется сумма кошелька, рядом должно стоять имя актива.
+    for rel, marker in (("relay/webapp.html", "toFixed(4)"),
+                        ("relay-fastapi/templates/dashboard_profile.html", "'%.4f'|format")):
+        path = os.path.join(ROOT, rel)
+        if not os.path.exists(path):
+            continue
+        lines = open(path, encoding="utf-8").read().splitlines()
+        for i, line in enumerate(lines):
+            if marker not in line:
+                continue
+            # Подпись может стоять на следующей строке — смотрим окно.
+            window = "\n".join(lines[i:i + 3])
+            if "chain" in window and "asset" not in window:
+                fail(tag, f"{rel}:{i + 1} подписывает сумму именем цепи "
+                          f"({line.strip()[:70]}…) — на многоактивной цепи это "
+                          f"чужое имя над деньгами клиента")
+
+    # Источник: если имя цепи не совпадает с монетой, которую мы на ней торгуем
+    # (цепь TRON — монета USDT), читатель обязан сам назвать актив: поверхность
+    # знает только цепь и подпишет сумму ею.
+    relay = os.path.join(ROOT, "relay")
+    if relay not in sys.path:
+        sys.path.insert(0, relay)
+    try:
+        from core import wallet_link as _wl
+        from core import assets as _as
+    except Exception as e:
+        fail(tag, f"реестр кошельков не загружается: {type(e).__name__}: {e}")
+        return
+
+    import ast as _ast
+    import inspect as _inspect
+    import textwrap as _textwrap
+    for chain, (mod_name, fn_name) in sorted(_wl.BALANCE_SOURCES.items()):
+        try:
+            pairs = _as.pairs_on_chain(chain)
+        except Exception:
+            pairs = []
+        foreign = sorted({c for c, _n in pairs if c != chain})
+        if not foreign:
+            continue                     # цепь зовут как монету — путать нечего
+        try:
+            fn = getattr(__import__(mod_name, fromlist=[fn_name]), fn_name)
+            tree = _ast.parse(_textwrap.dedent(_inspect.getsource(fn)))
+        except Exception as e:
+            fail(tag, f"{chain}: источник баланса не прочитан: {type(e).__name__}: {e}")
+            continue
+        # Разбор через AST, а не поиск по тексту: комментарий со словом «asset»
+        # рядом не должен выдавать себя за настоящее поле ответа.
+        names = {n.value for n in _ast.walk(tree)
+                 if isinstance(n, _ast.Constant) and isinstance(n.value, str)}
+        if "asset" not in names:
+            fail(tag, f"{chain}: на цепи торгуется {', '.join(foreign)}, а читатель "
+                      f"{mod_name}.{fn_name} не называет актив — сумма уйдёт на "
+                      f"поверхность под именем цепи «{chain}»")
+
+    # И само сквозное правило: имя актива не теряется по дороге к поверхности.
+    st = _wl._account_state("TRON", "T…", source=lambda a: {
+        "balance": 1.0, "status": "OK", "asset": "USDT"})
+    if st.get("asset") != "USDT":
+        fail(tag, "реестр кошельков теряет имя актива по дороге наружу")
+
+
 def main():
     for fn in (check_no_diverging_duplicates, check_config_keys_are_read,
                check_no_fail_open_in_guards, check_session_expiry_uses_expires_at,
@@ -3818,6 +4046,7 @@ def main():
                check_tag_shape_comes_from_the_registry,
                check_wallet_modules_are_registered,
                check_wallet_proof_is_checked_against_the_chain,
+               check_amount_is_labelled_by_its_own_asset,
                check_proof_belongs_to_the_client_it_was_issued_to,
                check_stale_proof_code_is_not_a_dead_end,
                check_wallet_showcase_keeps_every_currency,
@@ -3837,7 +4066,9 @@ def main():
                check_attempt_id_is_symmetric,
                check_dead_deal_is_not_silent,
                check_every_currency_is_reconcilable,
-               check_prefilter_is_not_stricter_than_the_real_check):
+               check_prefilter_is_not_stricter_than_the_real_check,
+               check_wallet_link_is_keyed_by_chain,
+               check_one_signature_does_not_fit_two_chains):
         try:
             fn()
         except Exception as e:

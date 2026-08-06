@@ -1375,13 +1375,16 @@ async def dashboard_profile_page(request: Request):
     try:
         from core import sig_proof as _sp
         proof_currencies = sorted(_sp.currencies())
+        # Сети идут вместе с монетами: у USDT их две, и выбрать за клиента
+        # значило бы подтвердить адрес в той сети, где его нет.
+        proof_networks = {c: _sp.proof_networks(c) for c in proof_currencies}
     except Exception as e:
         logger.warning(f"dashboard profile: реестр подписей недоступен: {e}")
-        proof_currencies = []
+        proof_currencies, proof_networks = [], {}
     return templates.TemplateResponse(request, "dashboard_profile.html", site_context(
         request, active="profile", ref_address=ref_address, wallets=wallets,
         wallet_ops=wallet_ops, address_book=book, deliveries=deliveries,
-        proof_currencies=proof_currencies,
+        proof_currencies=proof_currencies, proof_networks=proof_networks,
         error=request.query_params.get('error'), success=request.query_params.get('success'),
     ))
 
@@ -2156,12 +2159,14 @@ async def api_proof_message(request: Request):
     if not uid:
         raise HTTPException(status_code=403, detail="Войдите в кабинет или откройте приложение через бота.")
     ready = _sp.prepare((request.query_params.get('currency') or '')[:8],
-                        (request.query_params.get('address') or '')[:120], uid)
+                        (request.query_params.get('address') or '')[:120], uid,
+                        network=(request.query_params.get('network') or '')[:12] or None)
     if not ready["ok"]:
         raise HTTPException(status_code=503 if ready["reason"] == "not_configured" else 400,
                             detail=ready["error"])
     from core import tonconnect as _tc
     return {"currency": ready["currency"], "address": ready["address"],
+            "network": ready.get("network"), "scheme": ready.get("scheme"),
             "payload": ready["payload"], "message": ready["message"],
             "ttl": _tc.PAYLOAD_TTL_SEC}
 
@@ -2180,16 +2185,22 @@ async def api_proof_verify(request: Request):
     if not uid:
         raise HTTPException(status_code=403, detail="Войдите в кабинет или откройте приложение через бота.")
     cur = str(body.get("currency") or "").upper()[:8]
+    net = str(body.get("network") or "")[:12] or None
     verdict = _sp.verify(cur, str(body.get("address") or "")[:120],
                          str(body.get("payload") or "")[:200],
-                         str(body.get("signature") or "")[:400], subject=uid)
-    logger.info(f"proof verify uid={uid} {cur} → {verdict['reason']}")
+                         str(body.get("signature") or "")[:400], subject=uid,
+                         network=net)
+    logger.info(f"proof verify uid={uid} {cur}/{net or '—'} → {verdict['reason']}")
     if verdict["verified"] and verdict["address"]:
         from core import wallet_link as _wl
-        _wl.remember(uid, cur, verdict["address"])
+        # Ключ связи — ЦЕПЬ из вердикта, а не монета из запроса: один `T…`-адрес
+        # держит и USDT, и TRX, один `0x…` — и ETH, и USDT-ERC20. Записав по
+        # монете, мы затирали бы доказанный адрес соседней сети того же клиента.
+        _wl.remember(uid, verdict.get("chain") or cur, verdict["address"])
     return {"verified": verdict["verified"], "reason": verdict["reason"],
             "message": verdict["message"], "address": verdict["address"],
-            "currency": cur}
+            "currency": cur, "network": verdict.get("network"),
+            "chain": verdict.get("chain")}
 
 
 @app.get("/api/wallet/links")
@@ -2256,6 +2267,8 @@ async def api_wallet_addresses(request: Request):
         # расхождения — форма подтверждения у монеты, где её нечем обслужить.
         from core import sig_proof as _sp
         out["proof_currencies"] = sorted(_sp.currencies())
+        out["proof_networks"] = {c: _sp.proof_networks(c)
+                                 for c in out["proof_currencies"]}
     return out
 
 

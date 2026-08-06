@@ -749,6 +749,7 @@ class Review(StatesGroup):
 
 class AddressProof(StatesGroup):
     """Подтверждение владения адресом подписью кошелька (/verify)."""
+    network = State()
     address = State()
     signature = State()
 
@@ -7175,6 +7176,27 @@ def _proof_currency_kb(currencies) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
+_PROOF_NET_LABEL = {"TRC20": "TRON (TRC-20)", "ERC20": "Ethereum (ERC-20)"}
+
+
+def _proof_network_kb(networks) -> InlineKeyboardMarkup:
+    """Выбор сети. Спрашиваем только там, где сетей несколько: у USDT адрес в
+    TRON и в Ethereum разный, подписывается по-разному, и выбрать за клиента
+    значило бы подтвердить счёт, которого у него в этой сети нет."""
+    rows = [[InlineKeyboardButton(text=_PROOF_NET_LABEL.get(n, n),
+                                  callback_data=f"vrfn_{n}")] for n in networks]
+    rows.append([InlineKeyboardButton(text="✖️ Отмена", callback_data="vrf_cancel")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+async def _proof_ask_address(edit_or_msg, state, cur, net):
+    label = f"{cur}" + (f" ({_PROOF_NET_LABEL.get(net, net)})" if net else "")
+    await state.update_data(proof_currency=cur, proof_network=net or "")
+    await state.set_state(AddressProof.address)
+    await edit_or_msg(f"Пришлите ваш <b>{label}</b>-адрес — тот, которым будете "
+                      f"подписывать.", parse_mode="HTML")
+
+
 @router.message(Command("verify"))
 async def cmd_verify(message: Message, state: FSMContext):
     """/verify — подтвердить владение своим адресом подписью кошелька.
@@ -7215,11 +7237,30 @@ async def proof_pick_currency(callback: CallbackQuery, state: FSMContext):
     if not sp or cur not in sp.currencies():
         await callback.answer("Для этой монеты подпись не поддерживается.", show_alert=True)
         return
-    await state.update_data(proof_currency=cur)
-    await state.set_state(AddressProof.address)
-    await callback.message.edit_text(
-        f"Пришлите ваш <b>{cur}</b>-адрес — тот, которым будете подписывать.",
-        parse_mode="HTML")
+    nets = sp.proof_networks(cur)
+    if len(nets) > 1:
+        await state.update_data(proof_currency=cur)
+        await state.set_state(AddressProof.network)
+        await callback.message.edit_text(
+            f"У <b>{cur}</b> несколько сетей. Выберите ту, в которой ваш адрес:",
+            parse_mode="HTML", reply_markup=_proof_network_kb(nets))
+        await callback.answer()
+        return
+    await _proof_ask_address(callback.message.edit_text, state, cur,
+                             nets[0] if nets else "")
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("vrfn_"))
+async def proof_pick_network(callback: CallbackQuery, state: FSMContext):
+    sp = _sig_proof()
+    net = callback.data.split("_", 1)[1].upper()
+    data = await state.get_data()
+    cur = data.get("proof_currency", "")
+    if not sp or net not in sp.proof_networks(cur):
+        await callback.answer("Эта сеть подписью не подтверждается.", show_alert=True)
+        return
+    await _proof_ask_address(callback.message.edit_text, state, cur, net)
     await callback.answer()
 
 
@@ -7235,7 +7276,8 @@ async def proof_take_address(message: Message, state: FSMContext):
     # Адрес проверяет ядро: там же решается, что на подпись идёт ГОЛЫЙ адрес,
     # а не назначение перевода со склеенным тегом. Причина отказа приходит
     # готовой — «адрес не тот» и «сервер не настроен» звучат по-разному.
-    ready = sp.prepare(cur, message.text or "", message.from_user.id)
+    ready = sp.prepare(cur, message.text or "", message.from_user.id,
+                       network=data.get("proof_network") or None)
     if not ready["ok"]:
         await message.answer(ready["error"])
         return
@@ -7268,7 +7310,8 @@ async def proof_take_signature(message: Message, state: FSMContext):
     data = await state.get_data()
     verdict = sp.verify(data.get("proof_currency", ""), data.get("proof_address", ""),
                         data.get("proof_payload", ""), (message.text or "").strip(),
-                        subject=message.from_user.id)
+                        subject=message.from_user.id,
+                        network=data.get("proof_network") or None)
     logger.info("proof verify uid=%s %s → %s", message.from_user.id,
                 data.get("proof_currency"), verdict["reason"])
     if not verdict["verified"]:
@@ -7281,7 +7324,8 @@ async def proof_take_signature(message: Message, state: FSMContext):
         # адрес уже известен, спрашивать его заново незачем. Нашёл codex.
         if verdict["reason"] in ("payload_expired", "payload_alien", "bad_payload"):
             again = sp.prepare(data.get("proof_currency", ""),
-                               data.get("proof_address", ""), message.from_user.id)
+                               data.get("proof_address", ""), message.from_user.id,
+                               network=data.get("proof_network") or None)
             if not again["ok"]:
                 await state.clear()
                 await message.answer(f"❌ {again['error']}")
@@ -7305,7 +7349,11 @@ async def proof_take_signature(message: Message, state: FSMContext):
         from core import wallet_link as _wl
         # Связь пишем ТОЛЬКО под вердиктом — в единственной точке, где он есть.
         if verdict["verified"] and verdict["address"]:
-            saved = _wl.remember(message.from_user.id, data.get("proof_currency", ""),
+            # Ключ связи — ЦЕПЬ из вердикта, а не монета: один `T…`-адрес держит
+            # и USDT, и TRX, один `0x…` — и ETH, и USDT-ERC20. По монете запись
+            # затирала бы доказанный адрес соседней сети того же клиента.
+            saved = _wl.remember(message.from_user.id,
+                                 verdict.get("chain") or data.get("proof_currency", ""),
                                  verdict["address"])
     except Exception:
         logger.exception("proof: связь не сохранена")

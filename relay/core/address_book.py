@@ -94,6 +94,30 @@ def _link_network(chain) -> str:
         return ""
 
 
+def _link_pairs(chain):
+    """Пары «монета + сеть», для которых годен адрес из этой цепи.
+
+    У BTC/LTC/TON имя цепи совпадает с кодом монеты, и раньше сеть выводилась
+    прямо из него. С приходом TRON и Ethereum это перестало работать: «TRON» —
+    не монета, `normalize_network` про неё ничего не знает, и доказанный
+    подписью адрес молча исчезал бы из книги — ровно там, где клиент его ждёт.
+    Разворачиваем через реестр цепей; пустой ответ — цепь нам незнакома, и
+    выдумывать за неё монету нельзя.
+    """
+    try:
+        from core import assets as _assets
+        pairs = _assets.pairs_on_chain(chain)
+    except Exception as e:
+        logger.warning("address_book: цепь связи не разобрана: %s", e)
+        return []
+    if pairs:
+        return pairs
+    # Запасной путь для связей, записанных до реестра цепей: имя цепи там
+    # совпадало с кодом монеты.
+    net = _link_network(chain)
+    return [(str(chain or "").upper(), net)] if net else []
+
+
 def _row_network(currency, network) -> str:
     """Сеть заявки в каноническом виде. Пустую сеть достраиваем ТОЛЬКО у монет
     с единственной сетью: там она однозначна. У USDT сетей две, и подстановка
@@ -252,13 +276,14 @@ def entries_for(user_id, currency=None, network=None, limit: int = MAX_ENTRIES,
                     "last_at": last_at or "", "uses": int(uses or 0)})
 
     for link in links:
-        # Сеть берём каноническую для монеты, а НЕ имя цепи. У TON они
-        # совпадают, поэтому подмена долго ничего не ломала, но у BTC/LTC сеть
-        # называется MAINNET: запись с сетью «BTC» не проходит проверку адреса
-        # (сеть недопустима для валюты) и подтверждённый подписью адрес тихо
-        # исчезал бы из книги — ровно там, где клиент его и ждёт.
-        add(link.get("chain"), _link_network(link.get("chain")),
-            link.get("address"), "connected", True, link.get("verified_at"), 0)
+        # Связь хранится по ЦЕПИ, а книга живёт парами «монета + сеть», и одно в
+        # другое разворачивается не один в один: доказав `0x…`, клиент доказал
+        # его и для ETH, и для USDT-ERC20 — это буквально один счёт. Показать
+        # такой адрес только под одной монетой значило бы прятать его там, где
+        # он полностью годен.
+        for cur, net in _link_pairs(link.get("chain")):
+            add(cur, net, link.get("address"), "connected", True,
+                link.get("verified_at"), 0)
     for r in rows:
         add(r["currency"], r["network"], r["crypto_address"],
             "used", False, r["last_at"], r["uses"])

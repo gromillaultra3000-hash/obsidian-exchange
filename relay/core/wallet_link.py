@@ -36,12 +36,18 @@ BALANCE_SOURCES = {
     # ничего не меняет: адрес всё равно берётся из таблицы связей.
     "BTC": ("core.chain_watch", "btc_account_state"),
     "LTC": ("core.chain_watch", "ltc_account_state"),
+    # TRON — цепь, а не монета: на одном счёте живут и TRX, и USDT. Читаем и
+    # показываем USDT (единственный актив, которым мы здесь торгуем), и сам
+    # ответ называет актив полем `asset` — иначе клиент решит, что «баланс
+    # TRON» это его USDT, и увидит не те деньги.
+    "TRON": ("core.chain_watch", "tron_account_state"),
 }
 
 HISTORY_SOURCES = {
     "TON": ("wallet.ton_wallet", "history"),
     "BTC": ("core.chain_watch", "btc_history"),
     "LTC": ("core.chain_watch", "ltc_history"),
+    "TRON": ("core.chain_watch", "tron_history"),
 }
 
 _DDL = ("CREATE TABLE IF NOT EXISTS wallet_links ("
@@ -162,7 +168,11 @@ def _account_state(chain: str, address: str, source=None) -> dict:
     # значило бы назвать своим то, что ещё может не состояться, а промолчать —
     # ответить «ноль» тому, кто только что получил перевод.
     pend = st.get("pending")
+    # Актив называет сам источник: в цепи TRON на одном счёте лежат TRX и USDT,
+    # и «баланс TRON» без имени актива клиент прочитает как свои USDT. По
+    # умолчанию актив совпадает с цепью — так было у BTC/LTC/TON.
     return {"balance": float(bal), "status": "OK", "reason": None,
+            "asset": str(st.get("asset") or chain).upper(),
             "pending": float(pend) if isinstance(pend, (int, float)) else None}
 
 
@@ -222,6 +232,7 @@ def balances_for(user_id, source=None) -> list:
             "address": link["address"],
             "verified_at": link["verified_at"],
             "balance": st["balance"],
+            "asset": st.get("asset") or link["chain"],
             "pending": st.get("pending"),
             "status": st["status"],
             "reason": st["reason"],
