@@ -39,6 +39,8 @@ MONTERA_API_TOKEN = os.getenv('MONTERA_API_TOKEN', '')
 BRABUS_NOTIFICATION_TOKEN = os.getenv('BRABUS_NOTIFICATION_TOKEN', '')
 STORMTRADE_NOTIFICATION_TOKEN = os.getenv('STORMTRADE_NOTIFICATION_TOKEN', '')
 XPAY_API_KEY = os.getenv('XPAY_API_KEY', '')
+# Вебхук RSPay подписан секретом МЕРЧАНТА, а не ключом магазина.
+RSPAY_API_SECRET = os.getenv('RSPAY_API_SECRET', '')
 MIN_AMOUNT = float(os.getenv('MIN_AMOUNT', 2000))
 MAX_AMOUNT = float(os.getenv('MAX_AMOUNT', 500000))
 REFERRAL_BONUS_PERCENT = float(os.getenv('REFERRAL_BONUS_PERCENT', 10))
@@ -3768,6 +3770,62 @@ async def xpay_webhook(request: Request):
             ))
     audit_log("xpay_webhook_processed", f"order={order_id} status={status}")
     return JSONResponse(status_code=200, content={})
+
+@app.post("/rspay/webhook")
+async def rspay_webhook(request: Request):
+    """RSPay: POST на callback_url при смене статуса транзакции.
+
+    Подпись — HMAC-SHA256 (hex) от СЫРОГО тела, ключ = секрет мерчанта. Читаем
+    именно байты запроса: любая пересборка JSON (порядок ключей, пробелы,
+    экранирование) даст другую подпись, и настоящий вебхук будет отвергнут.
+
+    Сопоставление с заявкой — только по merchant_transaction_id: поле
+    external_id RSPay мерчанту не шлёт, о чём сказано в их доке.
+    """
+    secret = webhook_secret('rspay', RSPAY_API_SECRET)
+    body_bytes = await request.body()
+    from providers.rspay import verify_webhook_signature, _STATUS_MAP
+    if not verify_webhook_signature(body_bytes, request.headers.get('X-Signature', ''), secret):
+        logger.warning("RSPay webhook: подпись не сошлась")
+        raise HTTPException(status_code=401)
+    try:
+        data = json.loads(body_bytes)
+    except Exception:
+        raise HTTPException(status_code=400)
+    if not isinstance(data, dict):
+        raise HTTPException(status_code=400)
+    audit_log("rspay_webhook_received", str(data))
+
+    order_id = attempt_id.parse(data.get('merchant_transaction_id'))
+    raw_status = data.get('status')
+    status = _STATUS_MAP.get(raw_status, 'unknown')
+    if order_id and status == 'paid':
+        with db_conn(5) as conn:
+            c = conn.cursor()
+            c.execute("UPDATE orders SET status='paid', updated_at=datetime('now')"
+                      " WHERE order_id=? AND status='pending'", (order_id,))
+            conn.commit()
+            c.execute("SELECT user_id FROM orders WHERE order_id=?", (order_id,))
+            row = c.fetchone()
+        if row and row[0] and int(row[0]) > 0:
+            notify_telegram(row[0], (
+                f"✅ <b>Оплата подтверждена!</b>\n\n"
+                f"Заявка <b>#{order_id}</b> принята — выплата будет произведена в ближайшее время."
+            ))
+    elif order_id and status == 'refunded':
+        # Возврат по уже оплаченной заявке — деньги ушли обратно клиенту. Сами
+        # статус не переписываем: крипта могла быть выдана, и «откат» вслепую
+        # сделает хуже. Но молчать нельзя — это прямой убыток, зовём человека.
+        with db_conn(5) as conn:
+            row = conn.execute("SELECT status FROM orders WHERE order_id=?",
+                               (order_id,)).fetchone()
+        notify_admins_tg(
+            f"↩️ <b>RSPay сообщил о возврате</b> по заявке <b>#{order_id}</b>\n"
+            f"Статус у нас сейчас: <code>{(row or ['?'])[0]}</code>, у них: "
+            f"<code>{raw_status}</code>\nПроверить, не выдана ли крипта."
+        )
+    audit_log("rspay_webhook_processed", f"order={order_id} status={raw_status}")
+    return JSONResponse(status_code=200, content={"ok": True})
 
 @app.post("/payment/callback")
 async def payment_callback(request: Request):

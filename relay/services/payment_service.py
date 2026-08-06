@@ -9,7 +9,7 @@ from services.capacity import shortfall_message
 from services.smart_router import (choose_provider, record_outcome, get_health_scores,
                                    get_escalation_chain, CLASS_BY_SHORT, PROVIDER_CONFIG,
                                    is_provider_disabled, is_no_trader_error,
-                                   is_provider_retired)
+                                   is_provider_retired, has_required_env)
 
 DB_PATH = os.getenv('DB_PATH', '/root/exchange.db')
 logger = get_logger(__name__)
@@ -70,6 +70,9 @@ class PaymentService:
             elif name == 'XPayConnectProvider':
                 from providers.xpayconnect import XPayConnectProvider
                 return XPayConnectProvider()
+            elif name == 'RSPayProvider':
+                from providers.rspay import RSPayProvider
+                return RSPayProvider()
             else:
                 from providers.fallback import FallbackProvider
                 return FallbackProvider()
@@ -98,8 +101,7 @@ class PaymentService:
                 continue
             if is_provider_disabled(cls_name) or is_provider_retired(cls_name):
                 continue
-            required_env = PROVIDER_CONFIG.get(cls_name, {}).get('required_env')
-            if required_env and not os.getenv(required_env, ''):
+            if not has_required_env(cls_name):
                 continue
             provider = self._load_provider(cls_name)
             if provider.__class__.__name__ != cls_name and cls_name != 'FallbackProvider':
@@ -160,7 +162,7 @@ class PaymentService:
                 break
             start_time = time.time()
             extra = {}
-            if self.provider.__class__.__name__ in ('MonteraProvider', 'VertuProvider', 'StormTradeProvider', 'XPayConnectProvider'):
+            if self.provider.__class__.__name__ in ('MonteraProvider', 'VertuProvider', 'StormTradeProvider', 'XPayConnectProvider', 'RSPayProvider'):
                 extra['user_id'] = telegram_id
             invoice = self.provider.create_invoice(order_id, amount, payment_method=payment_method, **extra)
             elapsed = time.time() - start_time
@@ -237,7 +239,8 @@ class PaymentService:
                 provider_names = {'PlategaProvider': 'platega', 'GreenPayProvider': 'greenpay',
                                   'MonteraProvider': 'montera', 'LavaProvider': 'lava',
                                   'VertuProvider': 'vertu', 'StormTradeProvider': 'stormtrade',
-                                  'XPayConnectProvider': 'xpay'}
+                                  'XPayConnectProvider': 'xpay',
+                                  'RSPayProvider': 'rspay'}
                 provider_name = provider_names.get(self.provider.__class__.__name__, 'platega')
 
         c.execute("INSERT INTO payment_sessions (session_token, order_id, amount, provider, status, expires_at, client_ip, user_agent, telegram_id) VALUES (?,?,?,?,'invoice_created',?,?,?,?)",

@@ -27,6 +27,7 @@ SHORT_NAMES = {
     "BrabusProvider": "brabus",
     "VertuProvider": "vertu",
     "XPayConnectProvider": "xpay",
+    "RSPayProvider": "rspay",
     "LavaProvider": "lava",
     "GreenPayProvider": "greenpay",
     "StormTradeProvider": "stormtrade",
@@ -61,7 +62,10 @@ RETIRED_PROVIDERS_DEFAULT = "platega,greenpay"
 # Порядок ВЫГОДЫ для нас (лучшее → худшее), задан оператором. Управляет и
 # авто-выбором (profit_weight), и порядком эскалации (get_escalation_chain), и
 # порядком кнопок в боте. Переопределяется env PROVIDER_PROFIT_ORDER (короткие имена).
-PROVIDER_PROFIT_ORDER_DEFAULT = "vertu,xpay,montera,brabus,stormtrade,fallback,lava"
+#
+# rspay стоит ПОСЛЕ проверенных каналов и до запасных: ставка ещё не подтверждена
+# живым потоком, а место в этом списке — утверждение о выгоде, а не о надежде.
+PROVIDER_PROFIT_ORDER_DEFAULT = "vertu,xpay,montera,brabus,rspay,stormtrade,fallback,lava"
 
 
 def get_retired_providers() -> set:
@@ -90,6 +94,19 @@ def is_provider_retired(provider: str) -> bool:
 # Зарубежные не выключены — они запасной вариант, когда РФ-маршрутов нет
 # (решение оператора 16.07.2026). PREFER_RU_REQUISITES=0 — вернуть старое
 # поведение; RU_PROVIDERS — переопределить состав тира.
+#
+# rspay сюда НЕ внесён намеренно, и это не забывчивость (codex 06.08.2026
+# предлагал внести — отклонено). Членство в тире — утверждение о том, ЧТО
+# провайдер реально выдаёт живому клиенту, а у RSPay нет ни одной живой
+# сессии: в их доке примеры с Альфой и Сбером, но доке XPay мы тоже верили,
+# пока не увидели ссылки на банки Душанбе. Цена ошибки несимметрична: внести
+# ошибочно — поднять непроверенный канал ВЫШЕ Vertu и Montera и повторить
+# нулевую конверсию 16.07 (16 зарубежных реквизитов против 2 российских);
+# не внести ошибочно — канал просто реже выбирается, пока владелец не
+# посмотрит первую выдачу. Решается это данными, а не мнением:
+# requisite_origin.classify_requisites уже разбирает реквизиты каждой сессии,
+# и после первой живой выдачи RSPay ответ будет фактом. Тогда — RU_PROVIDERS
+# в env или строка ниже.
 RU_PROVIDERS_DEFAULT = "vertu,montera,stormtrade"
 
 
@@ -105,6 +122,22 @@ def is_ru_provider(provider_class: str) -> bool:
 
 def prefer_ru_enabled() -> bool:
     return os.getenv("PREFER_RU_REQUISITES", "1") != "0"
+
+
+def has_required_env(provider_class: str) -> bool:
+    """Заданы ли ВСЕ учётные данные провайдера.
+
+    `required_env` может перечислять несколько переменных через запятую: у
+    RSPay ключ магазина и секрет мерчанта лежат в разных разделах кабинета, и
+    половина учётных данных — это не «канал настроен наполовину», а
+    гарантированный отказ по подписи. Проверять только первую переменную
+    значило бы отдавать таким провайдерам живые заявки и штрафовать им
+    здоровье за нашу же недонастройку.
+    """
+    required = PROVIDER_CONFIG.get(provider_class, {}).get("required_env")
+    if not required:
+        return True
+    return all(os.getenv(v.strip(), "") for v in str(required).split(",") if v.strip())
 
 # эскалация по умолчанию = порядок выгоды: при «нет трейдера» у выбранного
 # каскадим к СЛЕДУЮЩЕМУ выгодному, а не сразу к худшему. Заканчивается fallback
@@ -165,6 +198,18 @@ PROVIDER_CONFIG = {
         "cooldown_seconds": 180,
         "max_consecutive_fails": 3,
         "required_env": "XPAY_API_KEY",  # не выбирать, пока нет учётных данных
+    },
+    "RSPayProvider": {
+        # Вес здесь исторический, как и у XPay: реальный выбор считает
+        # profit_weight() по PROVIDER_PROFIT_ORDER. Оставлен для единообразия.
+        "weight": 0.30,        # СБП / карта / QR, реквизиты сразу в ответе
+        "min_amount": 1000,
+        "cooldown_seconds": 180,
+        "max_consecutive_fails": 3,
+        # Ключ магазина и секрет мерчанта — из РАЗНЫХ разделов кабинета RSPay.
+        # Нужны ОБА: с одним из них каждый запрос отвалится по подписи, а канал
+        # выглядел бы настроенным (см. has_required_env — список через запятую).
+        "required_env": "RSPAY_SHOP_API_KEY,RSPAY_API_SECRET",
     },
     "LavaProvider": {
         "weight": 0.10,        # SBP + card via hosted payment page
@@ -511,9 +556,9 @@ def choose_provider(amount: float = 10000) -> Optional[str]:
             logger.debug("Provider %s skipped: amount %.0f < min %.0f",
                          name, amount, cfg.get("min_amount", 0))
             continue
-        required_env = cfg.get("required_env")
-        if required_env and not os.getenv(required_env, ""):
-            logger.debug("Provider %s skipped: env %s not set", name, required_env)
+        if not has_required_env(name):
+            logger.debug("Provider %s skipped: env %s not set",
+                         name, cfg.get("required_env"))
             continue
         if is_provider_disabled(name):
             logger.debug("Provider %s skipped: DISABLED_PROVIDERS", name)
@@ -589,8 +634,7 @@ def get_trust_metrics() -> Dict[str, object]:
     for name, cfg in PROVIDER_CONFIG.items():
         if is_provider_retired(name) or cfg.get("last_resort"):
             continue
-        required_env = cfg.get("required_env")
-        if required_env and not os.getenv(required_env, ""):
+        if not has_required_env(name):
             continue
         if is_provider_disabled(name):
             continue

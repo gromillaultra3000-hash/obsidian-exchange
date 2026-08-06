@@ -55,7 +55,8 @@ def seed():
 
 seed()
 # Учётные данные, чтобы required_env не выкинул провайдеров раньше снятия.
-for env in ("VERTU_LOGIN", "XPAY_API_KEY", "LAVA_SHOP_ID", "STORMTRADE_API_KEY"):
+for env in ("VERTU_LOGIN", "XPAY_API_KEY", "LAVA_SHOP_ID", "STORMTRADE_API_KEY",
+            "RSPAY_SHOP_API_KEY", "RSPAY_API_SECRET"):
     os.environ[env] = "test"
 os.environ.pop("DISABLED_PROVIDERS", None)
 os.environ.pop("RETIRED_PROVIDERS", None)

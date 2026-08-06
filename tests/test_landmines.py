@@ -4370,6 +4370,147 @@ def check_a_surface_that_creates_orders_can_show_them():
                   "клиент видит долг и не видит, куда платить")
 
 
+# ─────────────────────────────────────────────────────────────────────
+# 36. Новый платёжный канал заведён наполовину
+# ─────────────────────────────────────────────────────────────────────
+# Провайдер живёт не в одном файле, а в шести реестрах: роутер его выбирает,
+# PaymentService создаёт, payout_guard перепроверяет оплату, receipts решает
+# судьбу чека, provider_caps говорит персоналу, чего ждать. Пропуск любого
+# реестра НЕ ломает сборку и НЕ виден в логах — он выглядит как работающий
+# канал с чужим поведением. Так уже было с Lava: роутер её выбирал, а
+# _load_provider не знал — заявки молча уходили в Fallback (08.07.2026).
+#
+# Здесь же караулятся три способа тихо ослабить подписанный канал: половина
+# учётных данных, подпись не от отправленных байтов и возврат, посчитанный
+# оплатой.
+def check_new_provider_is_wired_into_every_registry():
+    tag = "канал заведён наполовину"
+
+    def _dict_keys(src, name):
+        """Ключи-строки словаря верхнего уровня — по дереву, а не по тексту."""
+        try:
+            tree = ast.parse(src)
+        except SyntaxError:
+            return None
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Assign) and isinstance(node.value, ast.Dict):
+                for t in node.targets:
+                    if getattr(t, "id", None) == name:
+                        return {k.value for k in node.value.keys
+                                if isinstance(k, ast.Constant) and isinstance(k.value, str)}
+        return None
+
+    router_src = _read(os.path.join(CANON, "services", "smart_router.py"))
+    ps_src = _read(os.path.join(CANON, "services", "payment_service.py"))
+    guard_src = _read(os.path.join(CANON, "services", "payout_guard.py"))
+    caps_src = _read(os.path.join(CANON, "core", "provider_caps.py"))
+    rec_src = _read(os.path.join(CANON, "core", "receipts.py"))
+    if not all((router_src, ps_src, guard_src, caps_src, rec_src)):
+        fail(tag, "не читается один из файлов реестров провайдеров")
+        return
+
+    classes = _dict_keys(router_src, "PROVIDER_CONFIG")
+    shorts = _dict_keys(router_src, "SHORT_NAMES")
+    if not classes or not shorts:
+        fail(tag, "в smart_router не разобрать PROVIDER_CONFIG/SHORT_NAMES")
+        return
+
+    # 1) роутер выбирает — PaymentService обязан уметь создать именно его
+    ps_tree = ast.parse(ps_src)
+    loader = next((n for n in ast.walk(ps_tree) if isinstance(n, ast.FunctionDef)
+                   and n.name == "_load_provider"), None)
+    known = {n.value for n in ast.walk(loader) if isinstance(n, ast.Constant)
+             and isinstance(n.value, str)} if loader else set()
+    guard_shorts = _dict_keys(guard_src, "SHORT_TO_CLASS") or set()
+    caps_shorts = _dict_keys(caps_src, "_VERIFICATION_CHANNEL") or set()
+    rec_shorts = set(_dict_keys(rec_src, "_ROUTES") or set())
+    for node in ast.walk(ast.parse(rec_src)):
+        if isinstance(node, ast.Assign) and isinstance(node.value, ast.Set):
+            for t in node.targets:
+                if getattr(t, "id", None) == "_NO_CHANNEL":
+                    rec_shorts |= {e.value for e in node.value.elts
+                                   if isinstance(e, ast.Constant)}
+
+    for cls in sorted(classes):
+        if cls not in shorts:
+            fail(tag, f"{cls} нет в SHORT_NAMES")
+            continue
+        m = re.search(r'"%s"\s*:\s*"([a-z]+)"' % re.escape(cls), router_src)
+        short = m.group(1) if m else None
+        if not short:
+            fail(tag, f"{cls} нет в SHORT_NAMES — короткое имя пишется в "
+                      f"payment_sessions, без него сессию не связать с провайдером")
+            continue
+        # FallbackProvider — это и есть ветка «иначе» в _load_provider: по имени
+        # его не выбирают, им заканчивают. Остальных обязаны звать поимённо.
+        if cls not in known and cls != "FallbackProvider":
+            fail(tag, f"роутер выбирает {cls}, а PaymentService его не создаёт — "
+                      f"заявки молча уйдут в Fallback, как было с Lava")
+        if short not in caps_shorts:
+            fail(tag, f"{short} нет в provider_caps — персоналу пообещают "
+                      f"поведение по умолчанию вместо правды о канале")
+        if short not in rec_shorts:
+            fail(tag, f"{short} нет ни в receipts._ROUTES, ни в _NO_CHANNEL — "
+                      f"чек клиента уйдёт в никуда, и это не будет видно")
+        # fallback перепроверять нечем: это ручной/резервный путь, у него нет
+        # своего API статуса. Остальные обязаны быть в стороже выплаты.
+        if short not in guard_shorts and short != "fallback":
+            fail(tag, f"{short} нет в payout_guard — оплату по нему нечем "
+                      f"подтвердить в момент выплаты")
+
+    # 2) половина учётных данных ≠ настроенный канал
+    if "def has_required_env" not in router_src:
+        fail(tag, "нет has_required_env — проверка учётных данных разъедется по "
+                  "трём местам, и половина ключей сойдёт за настроенный канал")
+    else:
+        body = router_src.split("def has_required_env", 1)[1].split("\ndef ", 1)[0]
+        if '","' not in body and "','" not in body and '","' not in body \
+                and 'split(",")' not in body.replace(" ", ""):
+            fail(tag, "has_required_env не разбирает список переменных через "
+                      "запятую — провайдеру с двумя ключами хватит одного, и "
+                      "каждый запрос упадёт по подписи")
+    for name, src in (("smart_router", router_src), ("payment_service", ps_src)):
+        if re.search(r"os\.getenv\(\s*required_env", src):
+            fail(tag, f"{name} читает required_env напрямую мимо has_required_env — "
+                      f"список из двух переменных проверится как одна строка")
+
+    # 3) подписывается ровно то, что отправляется
+    rspay_src = _read(os.path.join(CANON, "providers", "rspay.py"))
+    if rspay_src:
+        rt = ast.parse(rspay_src)
+        post = next((n for n in ast.walk(rt) if isinstance(n, ast.FunctionDef)
+                     and n.name == "_post"), None)
+        signed = sent = None
+        for n in ast.walk(post) if post else []:
+            if isinstance(n, ast.Call) and getattr(n.func, "attr", "") == "post":
+                for kw in n.keywords:
+                    if kw.arg == "data":
+                        sent = getattr(kw.value, "id", None)
+                    if kw.arg == "headers" and isinstance(kw.value, ast.Call):
+                        a = kw.value.args[0] if kw.value.args else None
+                        signed = getattr(a, "id", None)
+        if not signed or not sent or signed != sent:
+            fail(tag, f"подписывается {signed!r}, а отправляется {sent!r} — вторая "
+                      f"сериализация даст другие байты, RSPay ответит 401, и это "
+                      f"будет выглядеть как неверный ключ")
+
+        # 4) возврат — не оплата
+        smap = _dict_keys(rspay_src, "_STATUS_MAP") or set()
+        if "refunded" not in smap:
+            fail(tag, "статус refunded не разбирается — возврат приедет как "
+                      "unknown и потеряется")
+        paid_set = set()
+        for node in ast.walk(ast.parse(guard_src)):
+            if isinstance(node, ast.Assign) and isinstance(node.value, ast.Set):
+                for t in node.targets:
+                    if getattr(t, "id", None) == "_PAID":
+                        paid_set = {e.value for e in node.value.elts
+                                    if isinstance(e, ast.Constant)}
+        if "refunded" in paid_set:
+            fail(tag, "возврат числится подтверждением оплаты — крипта уйдёт по "
+                      "заявке, деньги за которую уже вернули клиенту")
+
+
 def main():
     for fn in (check_no_diverging_duplicates, check_config_keys_are_read,
                check_no_fail_open_in_guards, check_session_expiry_uses_expires_at,
@@ -4404,6 +4545,7 @@ def main():
                check_amount_is_labelled_by_its_own_asset,
                check_sell_direction_grows_from_its_registry,
                check_a_surface_that_creates_orders_can_show_them,
+               check_new_provider_is_wired_into_every_registry,
                check_proof_belongs_to_the_client_it_was_issued_to,
                check_stale_proof_code_is_not_a_dead_end,
                check_wallet_showcase_keeps_every_currency,
