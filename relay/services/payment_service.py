@@ -9,39 +9,19 @@ from services.capacity import shortfall_message
 from services.smart_router import (choose_provider, record_outcome, get_health_scores,
                                    get_escalation_chain, CLASS_BY_SHORT, PROVIDER_CONFIG,
                                    is_provider_disabled, is_no_trader_error,
-                                   is_provider_retired, has_required_env)
+                                   is_provider_retired, has_required_env,
+                                   client_trust_refusal)
 
 DB_PATH = os.getenv('DB_PATH', '/root/exchange.db')
 logger = get_logger(__name__)
 
 
-def _user_has_success(telegram_id) -> bool:
-    """≥1 успешно оплаченной заявки — то же определение, что в боте
-    (build_payment_methods_kb). Montera выдаём только таким клиентам —
-    требование трейдеров Montera. Гарантирует единую логику для бота и сайта."""
-    if not telegram_id:
-        return False
-    try:
-        tid = int(telegram_id)
-    except (TypeError, ValueError):
-        return False
-    if tid < 0:  # web-only пользователь (нет привязки Telegram) — не доверенный
-        return False
-    try:
-        conn = sqlite3.connect(DB_PATH, timeout=5)
-        n = conn.execute(
-            "SELECT COUNT(*) FROM orders WHERE user_id=? AND status IN ('paid','sent','completed')",
-            (tid,)
-        ).fetchone()[0]
-        conn.close()
-        return int(n or 0) >= 1
-    except Exception:
-        return False
-
 class PaymentService:
-    def __init__(self, provider=None, amount=None):
+    def __init__(self, provider=None, amount=None, telegram_id=None):
         if provider is None:
-            provider_name = choose_provider(amount or 10000)
+            # Клиент нужен уже на выборе: часть провайдеров работает только с
+            # повторными (core.client_trust). Не назван — считаем новым.
+            provider_name = choose_provider(amount or 10000, telegram_id=telegram_id)
             self.provider = self._load_provider(provider_name)
         else:
             self.provider = provider
@@ -103,6 +83,14 @@ class PaymentService:
                 continue
             if not has_required_env(cls_name):
                 continue
+            # Порог доверия обязателен и здесь. Эскалация — это ещё одна дверь
+            # к тому же трейдеру: провайдер, попросивший «только повторных
+            # клиентов», получил бы новичка запасным путём и увидел бы ровно
+            # то, на что жаловался, — просто реже.
+            trust_block = client_trust_refusal(cls_name, telegram_id)
+            if trust_block:
+                logger.info(f"Эскалация order {order_id} мимо {short}: {trust_block}")
+                continue
             provider = self._load_provider(cls_name)
             if provider.__class__.__name__ != cls_name and cls_name != 'FallbackProvider':
                 # _load_provider упал и вернул Fallback вместо запрошенного — не
@@ -153,16 +141,18 @@ class PaymentService:
         max_retries = 3
         invoice = None
         last_error = None
-        # Montera — только клиентам с ≥1 успешной сделкой (консистентно с ботом).
-        # Для новых клиентов пропускаем Montera → эскалация на другой провайдер,
-        # реквизиты всё равно выдаются (StormTrade/Fallback).
-        montera_blocked = (self.provider.__class__.__name__ == 'MonteraProvider'
-                           and not _user_has_success(telegram_id))
-        if montera_blocked:
-            logger.info(f"Montera пропущена для order {order_id}: клиент без успешных сделок")
+        # Порог доверия — последний рубеж, а не дубль кнопки. Сюда приходит и
+        # провайдер, выбранный роутером (там порог уже проверен), и провайдер,
+        # НАВЯЗАННЫЙ кнопкой бота: без этой проверки клиент с двумя сделками
+        # получал бы реквизиты Vertu по прямой ссылке из старого сообщения —
+        # ровно то, на что Vertu жалуется. Дальше заявка уходит в эскалацию и
+        # реквизиты всё равно выдаются другим каналом.
+        trust_block = client_trust_refusal(self.provider.__class__.__name__, telegram_id)
+        if trust_block:
+            logger.info(f"order {order_id}: {trust_block}")
         for attempt in range(max_retries):
-            if montera_blocked:
-                invoice = {"error": "Montera доступна только клиентам с успешной сделкой"}
+            if trust_block:
+                invoice = {"error": trust_block}
                 break
             start_time = time.time()
             extra = {}

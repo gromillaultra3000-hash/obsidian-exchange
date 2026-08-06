@@ -4752,6 +4752,107 @@ def check_the_payer_gets_a_usable_requisite():
                       f"заявка встанет молча")
 
 
+# ─────────────────────────────────────────────────────────────────────
+# 40. Порог провайдера стоит только на кнопке
+# ─────────────────────────────────────────────────────────────────────
+# Провайдеры P2P просят направлять к их трейдерам только повторных клиентов —
+# у Montera ≥1 сделка, у Vertu с 06.08.2026 ≥4 (жалобы на поддельные чеки).
+# Спрятать кнопку в боте НЕДОСТАТОЧНО: к тому же трейдеру ведут ещё три двери
+# — авто-выбор роутера, цепочка эскалации и скопированный callback из старого
+# сообщения. Порог, стоящий на одной двери, ничего не меняет для провайдера:
+# новичок доедет другой. Именно так требование Montera и работало вполсилы —
+# правило жило двумя копиями (кнопка и PaymentService) и не касалось выбора.
+#
+# Вторая половина мины — про то, что порог обязан РАЗЛИЧАТЬ клиентов: гейт,
+# который не спрашивает, кто перед ним, закрывает канал всем сразу.
+def check_client_threshold_guards_every_door():
+    tag = "порог только на кнопке"
+    trust = _read(os.path.join(ROOT, "relay", "core", "client_trust.py"))
+    router = _read(os.path.join(ROOT, "relay", "services", "smart_router.py"))
+    svc = _read(os.path.join(ROOT, "relay", "services", "payment_service.py"))
+    if not (trust and router and svc):
+        fail(tag, "реестр порогов доверия или путь оплаты не на месте — "
+                  "проверка ослепла")
+        return
+
+    # У порога должен быть один вход, и его обязаны звать все три двери.
+    def _calls(src):
+        try:
+            tree = ast.parse(src)
+        except SyntaxError:
+            return set()
+        out = set()
+        for n in ast.walk(tree):
+            if isinstance(n, ast.Call):
+                name = getattr(n.func, "attr", None) or getattr(n.func, "id", None)
+                if name:
+                    out.add(name)
+        return out
+
+    gate = {"client_trust_refusal", "allows", "refuse_reason"}
+    # Смотреть надо ВНУТРЬ choose_provider, а не по модулю: сам общий вход
+    # объявлен здесь же и зовёт refuse_reason, поэтому проверка «есть ли такой
+    # вызов в файле» зеленела бы на роутере, который его не спрашивает.
+    try:
+        pick = next(n for n in ast.walk(ast.parse(router))
+                    if isinstance(n, ast.FunctionDef) and n.name == "choose_provider")
+    except (StopIteration, SyntaxError):
+        pick = None
+    if pick is None:
+        fail(tag, "smart_router.choose_provider() исчезла — проверка ослепла")
+    elif not (_calls(ast.get_source_segment(router, pick) or "") & gate):
+        fail(tag, "выбор провайдера не спрашивает порог доверия — авто-роутер "
+                  "отдаст канал для повторных клиентов новичку, и провайдер "
+                  "увидит ровно то, на что жаловался")
+    elif pick is not None:
+        who = {a.arg for a in pick.args.args} | {a.arg for a in pick.args.kwonlyargs}
+        if not ({"telegram_id", "user_id", "client_id"} & who):
+            fail(tag, "choose_provider() не знает, для кого выбирает — порог "
+                      "внутри неё может проверять только пустоту")
+
+    try:
+        tree = ast.parse(svc)
+    except SyntaxError:
+        tree = None
+    if tree is not None:
+        for fname in ("create_session", "_escalate"):
+            try:
+                node = next(n for n in ast.walk(tree)
+                            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+                            and n.name == fname)
+            except StopIteration:
+                fail(tag, f"payment_service.{fname}() исчезла — проверка ослепла")
+                continue
+            if not (_calls(ast.get_source_segment(svc, node) or "") & gate):
+                fail(tag, f"{fname}() не проверяет порог доверия — к трейдеру "
+                          f"ведёт дверь без гейта")
+
+    # Порог обязан зависеть от клиента: гейт, не спрашивающий, кто перед ним,
+    # либо закрывает канал всем, либо не закрывает никому.
+    try:
+        node = next(n for n in ast.walk(ast.parse(trust))
+                    if isinstance(n, ast.FunctionDef) and n.name == "allows")
+        args = {a.arg for a in node.args.args}
+    except (StopIteration, SyntaxError):
+        args = set()
+    if not ({"telegram_id", "user_id", "client_id"} & args):
+        fail(tag, "решение о доступе принимается без клиента — такой «порог» "
+                  "либо закрывает канал всем, либо не закрывает никому")
+
+    # Кнопки бота обязаны согласовываться с тем же реестром, а не со своим
+    # числом рядом: разойдясь, они показывают способ, за которым ждёт отказ.
+    bot_src = _read(os.path.join(ROOT, "bot", "main_bot.py"))
+    if bot_src:
+        if "client_trust" not in bot_src:
+            fail(tag, "бот решает видимость платёжных кнопок сам, мимо реестра "
+                      "порогов — кнопка разойдётся с тем, что ответит сервер")
+        for stale in ("user_success_count(callback.from_user.id) < 1",
+                      "user_success_count(user_id) >= 1"):
+            if stale in bot_src:
+                fail(tag, f"в боте осталась своя копия порога ({stale}) — "
+                          f"держать её в согласии с реестром некому")
+
+
 def main():
     for fn in (check_no_diverging_duplicates, check_config_keys_are_read,
                check_no_fail_open_in_guards, check_session_expiry_uses_expires_at,
@@ -4811,7 +4912,8 @@ def main():
                check_one_signature_does_not_fit_two_chains,
                check_payout_is_marked_after_the_money_moves,
                check_payout_directions_come_from_the_registry,
-               check_the_payer_gets_a_usable_requisite):
+               check_the_payer_gets_a_usable_requisite,
+               check_client_threshold_guards_every_door):
         try:
             fn()
         except Exception as e:

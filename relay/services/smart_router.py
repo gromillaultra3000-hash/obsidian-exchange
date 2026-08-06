@@ -107,7 +107,17 @@ def is_provider_retired(provider: str) -> bool:
 # requisite_origin.classify_requisites уже разбирает реквизиты каждой сессии,
 # и после первой живой выдачи RSPay ответ будет фактом. Тогда — RU_PROVIDERS
 # в env или строка ниже.
-RU_PROVIDERS_DEFAULT = "vertu,montera,stormtrade"
+#
+# 06.08.2026 в тир добавлены brabus и fallback (fallback — тот же Brabus,
+# вариант tbank_deeplink). Причина не в мнении о выгоде, а в дыре, которую
+# открыл порог доверия Vertu: тир состоял из vertu, montera и stormtrade, из
+# них stormtrade вне обычного выбора, а vertu и montera закрыты для клиента
+# без закрытых сделок. То есть у НОВИЧКА российский тир становился пустым, и
+# выбор проваливался в общий котёл, где выше всех стоит XPay с ссылками на
+# банки Душанбе — 21 показ, 0 оплат. Brabus вносится по тому самому правилу,
+# по которому не внесён RSPay: живая выдача проверена (11.07 — настоящие
+# карты 9762…, живые имена; фактический основной канал), а не обещана докой.
+RU_PROVIDERS_DEFAULT = "vertu,montera,brabus,fallback,stormtrade"
 
 
 def get_ru_providers() -> set:
@@ -173,6 +183,10 @@ PROVIDER_CONFIG = {
         "min_amount": 1000,
         "cooldown_seconds": 240,
         "max_consecutive_fails": 3,
+        # Требование трейдеров Montera: только повторные клиенты. Раньше это
+        # правило жило двумя копиями — в кнопке бота и в PaymentService — и
+        # мимо авто-роутера с эскалацией не работало вовсе.
+        "min_client_deals": 1,
     },
     "BrabusProvider": {
         "weight": 0.20,        # deeplinks: tbank / alfa / vietqr
@@ -186,6 +200,13 @@ PROVIDER_CONFIG = {
         "cooldown_seconds": 180,
         "max_consecutive_fails": 3,
         "required_env": "VERTU_LOGIN",  # не выбирать, пока нет учётных данных
+        # 06.08.2026, письмо Vertu: поток заявок с поддельными PDF-чеками, их
+        # трейдеры жалуются на скам. Их условие продолжения работы — выдавать
+        # реквизиты только клиентам от 4 закрытых сделок. Vertu стоит первым
+        # в порядке выгоды, поэтому важно, что порог отсекает его ДО выбора:
+        # иначе каждая заявка новичка сгорала бы в попытке и уходила в
+        # эскалацию. Порог переопределяется MIN_DEALS_VERTU.
+        "min_client_deals": 4,
     },
     "XPayConnectProvider": {
         # ⚠️ "weight" НИКЕМ НЕ ЧИТАЕТСЯ (проверено 19.07.2026) — реальный вес даёт
@@ -532,11 +553,35 @@ def get_health_scores() -> Dict[str, dict]:
     return scores
 
 
-def choose_provider(amount: float = 10000) -> Optional[str]:
+def client_trust_refusal(provider_class: str, telegram_id) -> str:
+    """Почему этому клиенту нельзя к этому провайдеру, или ''.
+
+    Обёртка ровно затем, чтобы у выбора, эскалации и кнопок бота был ОДИН
+    вход. Импорт внутри — `core` знает про `services`, а обратная связь на
+    уровне модуля замкнула бы их друг на друга.
+    """
+    try:
+        from core.client_trust import refuse_reason
+    except Exception as e:                       # noqa: BLE001
+        # Реестр порогов не загрузился — считаем, что ограничений нет: иначе
+        # опечатка в импорте выключила бы ВСЕХ провайдеров разом и обменник
+        # перестал бы выдавать реквизиты кому бы то ни было.
+        logger.warning("реестр порогов доверия недоступен: %s", e)
+        return ""
+    return refuse_reason(provider_class, telegram_id)
+
+
+def choose_provider(amount: float = 10000, telegram_id=None) -> Optional[str]:
     """
     Choose the best available provider for the given amount.
     Uses weighted random selection biased toward healthier providers.
     Returns provider class name or None if all unavailable.
+
+    `telegram_id` — клиент, для которого выбираем. Часть провайдеров работает
+    только с повторными клиентами (см. `min_client_deals` и core.client_trust);
+    отсекать их надо ЗДЕСЬ, а не в момент запроса реквизитов: Vertu стоит
+    первым по выгоде, и без этого каждая заявка новичка сгорала бы в попытке
+    и уходила в эскалацию. Клиент не назван — считаем его новым (fail-closed).
     """
     scores = get_health_scores()
     candidates = []
@@ -562,6 +607,10 @@ def choose_provider(amount: float = 10000) -> Optional[str]:
             continue
         if is_provider_disabled(name):
             logger.debug("Provider %s skipped: DISABLED_PROVIDERS", name)
+            continue
+        why = client_trust_refusal(name, telegram_id)
+        if why:
+            logger.debug("Provider %s skipped: %s", name, why)
             continue
         info = scores.get(name, {"is_healthy": True, "health_score": 0.5})
         probation = False

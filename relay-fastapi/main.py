@@ -947,7 +947,11 @@ async def dashboard_exchange_submit(
     try:
         from services.payment_service import PaymentService
         pm = payment_method if payment_method in ("sbp", "card") else "sbp"
-        payment_service = PaymentService(amount=amount)
+        # Клиент называется уже на выборе провайдера: часть каналов работает
+        # только с повторными клиентами, и узнать об этом в момент запроса
+        # реквизитов значит сжечь попытку и уйти в эскалацию.
+        payment_service = PaymentService(amount=amount,
+                                         telegram_id=web_user['telegram_id'])
         session = payment_service.create_session(
             order_id, amount, client_ip=request.client.host,
             telegram_id=web_user['telegram_id'], payment_method=pm,
@@ -1387,7 +1391,7 @@ async def api_create_order(request: Request):
     requisites = None
     try:
         from services.payment_service import PaymentService
-        payment_service = PaymentService(amount=amount)
+        payment_service = PaymentService(amount=amount, telegram_id=tg_id)
         session = payment_service.create_session(
             order_id, amount, client_ip=request.client.host,
             telegram_id=tg_id, payment_method=pay_method,

@@ -524,6 +524,38 @@ def user_success_count(user_id: int) -> int:
         return 0
 
 
+def _provider_open_to(user_id, provider_class: str) -> bool:
+    """Открыт ли этот канал такому клиенту — по общему реестру порогов.
+
+    Кнопка и сам запрос реквизитов обязаны решать это одинаково: показать
+    кнопку, за которой ждёт отказ, значит отправить клиента в тупик, а
+    спрятать кнопку, оставив канал в авто-выборе, — вообще ничего не изменить
+    для провайдера, который об этом просил.
+    """
+    try:
+        import sys
+        sys.path.insert(0, RELAY_PATH)
+        from core.client_trust import allows
+        return allows(provider_class, user_id)
+    except Exception as e:
+        # Реестр не загрузился — не прячем кнопки: отказ всё равно случится на
+        # стороне PaymentService, а меню без единого способа оплаты выглядит
+        # как поломка сервиса.
+        logger.warning(f"реестр порогов доверия недоступен: {e}")
+        return True
+
+
+def _min_deals_for(provider_class: str) -> int:
+    """Порог канала — чтобы объяснить клиенту отказ его же числом."""
+    try:
+        import sys
+        sys.path.insert(0, RELAY_PATH)
+        from core.client_trust import min_deals
+        return min_deals(provider_class)
+    except Exception:
+        return 0
+
+
 async def build_payment_methods_kb(order_id: int, amount: float, user_id: int = None) -> InlineKeyboardMarkup:
     """Клавиатура способов оплаты — показывает только методы, реально доступные для данной суммы."""
     import sys
@@ -537,7 +569,7 @@ async def build_payment_methods_kb(order_id: int, amount: float, user_id: int = 
     # (smart_router profit_weight) и в эскалации (get_escalation_chain).
 
     # 1) Vertu — самый выгодный. СБП / Карта, авто-подтверждение (без чека)
-    if os.getenv('VERTU_LOGIN', ''):
+    if os.getenv('VERTU_LOGIN', '') and _provider_open_to(user_id, 'VertuProvider'):
         rows.append([InlineKeyboardButton(
             text="⚡ СБП — авто-подтверждение",
             callback_data=f"pm_vertu_sbp_{order_id}"
@@ -557,10 +589,10 @@ async def build_payment_methods_kb(order_id: int, amount: float, user_id: int = 
             callback_data=f"pm_xpay_link_{order_id}"
         )])
 
-    # 3) Montera — показываем ТОЛЬКО клиентам с ≥1 успешно оплаченной сделкой
-    # (требование трейдеров Montera — доверенные/повторные клиенты).
-    montera_allowed = user_success_count(user_id) >= 1
-    if montera_allowed:
+    # 3) Montera — только повторным клиентам (требование её трейдеров). Порог
+    # берётся из общего реестра, а не из числа рядом: раньше он стоял здесь и
+    # ещё раз в PaymentService, и держать их в согласии было некому.
+    if _provider_open_to(user_id, 'MonteraProvider'):
         rows.append([InlineKeyboardButton(
             text="📱 СБП — по номеру телефона",
             callback_data=f"pm_montera_sbp_{order_id}"
@@ -4337,12 +4369,20 @@ async def process_payment_method(callback: CallbackQuery, state: FSMContext):
         await callback.answer()
         return
 
-    # Montera — только доверенным клиентам (≥1 успешная сделка). Защита от
-    # подделки callback_data: кнопок у новичков нет, но callback можно скопировать.
-    if (pm.startswith("pm_montera_sbp_") or pm.startswith("pm_gp_")) \
-            and user_success_count(callback.from_user.id) < 1:
-        await callback.answer("Этот способ доступен после первой успешной сделки.", show_alert=True)
-        return
+    # Кнопки, которые открываются только повторным клиентам. Спрятать их мало:
+    # callback_data можно скопировать из чужого сообщения или нажать кнопку из
+    # своего старого. Порог тот же, что у меню и у PaymentService, — из общего
+    # реестра, а не третьим числом здесь.
+    _gated = (("pm_montera_sbp_", "pm_gp_"), 'MonteraProvider'), (("pm_vertu_",), 'VertuProvider')
+    for prefixes, cls in _gated:
+        if any(pm.startswith(p) for p in prefixes) \
+                and not _provider_open_to(callback.from_user.id, cls):
+            need = _min_deals_for(cls)
+            await callback.answer(
+                f"Этот способ открывается после {need} успешных сделок — "
+                f"так просит платёжный партнёр. Другие способы доступны.",
+                show_alert=True)
+            return
 
     if pm.startswith("pm_montera_sbp_"):
         try:
@@ -9814,8 +9854,12 @@ async def handle_webapp(message: Message, state: FSMContext):
     payment_link = f"{PUBLIC_RELAY}/pay/{order_id}"  # fallback
     try:
         from services.payment_service import PaymentService
-        payment_service = PaymentService()
-        session = payment_service.create_session(order_id, amount)
+        # Клиент называется и здесь: без него выбор считает его новым и не
+        # покажет каналы для повторных — то есть постоянный клиент терял бы
+        # лучший маршрут на ровном месте.
+        uid = message.from_user.id
+        payment_service = PaymentService(amount=amount, telegram_id=uid)
+        session = payment_service.create_session(order_id, amount, telegram_id=uid)
         if 'session_token' in session:
             payment_link = f"{PUBLIC_RELAY}/pay/{session['session_token']}"
     except Exception as e:
