@@ -433,10 +433,26 @@
                 <div id="sell-manual" style="display:none;font-size:12px;color:#f0a;margin:8px 0">
                     ⏱ Зачисление этой монеты подтверждает оператор вручную — выплата занимает дольше обычного.
                 </div>
+                <!-- Способ выплаты: список приходит с сервера вместе с
+                     монетами. Зашитый здесь, он показал бы «на карту» и тогда,
+                     когда рельс выплат выключен и платить нечем. -->
+                <div class="input-group" id="sell-method-group" style="display:none">
+                    <label>Куда получить рубли</label>
+                    <select id="sell-method" onchange="sellMethodSwitch()"></select>
+                </div>
                 <div class="input-group">
-                    <label>Телефон для выплаты по СБП</label>
+                    <label id="sell-phone-label">Телефон для выплаты по СБП</label>
                     <input type="tel" id="sell-phone" inputmode="numeric" placeholder="79001234567">
                     <div class="validation-msg" id="sell-phone-msg"></div>
+                </div>
+                <div class="input-group" id="sell-bank-group" style="display:none">
+                    <label>Банк получателя</label>
+                    <select id="sell-bank"></select>
+                </div>
+                <div class="input-group" id="sell-name-group" style="display:none">
+                    <label>ФИО получателя как в банке</label>
+                    <input type="text" id="sell-name" placeholder="Иван Иванов">
+                    <div style="margin-top:6px;font-size:11px;color:var(--muted)">Этого требует платёжный партнёр: перевод без имени получателя он не примет.</div>
                 </div>
                 <button class="btn btn-breathe" id="sell-submit">💰 Создать заявку на продажу</button>
                 <div class="result" id="sell-result"></div>
@@ -1420,6 +1436,9 @@
         // сервера из общего реестра. Своего списка здесь нет намеренно: фронт,
         // решающий что продаётся, разошёлся бы с ботом и сайтом первой правкой.
         let sellOptions = {};
+        // Направления выплаты и банки — с сервера, из того же реестра, что
+        // решает при приёме заявки, каких полей не хватает.
+        let sellPayoutWays = [], sellPayoutBanks = [];
 
         function sellSide(side) {
             document.querySelectorAll('#deal-side .side-btn').forEach(b =>
@@ -1478,6 +1497,27 @@
                 // и клиенту честнее сказать это, чем оставить пустой список.
                 document.getElementById('sell-empty').style.display = coins.length ? 'none' : '';
                 document.getElementById('sell-submit').disabled = !coins.length;
+                sellPayoutWays = (d && d.payout_ways) || [];
+                sellPayoutBanks = (d && d.payout_banks) || [];
+                const msel = document.getElementById('sell-method');
+                msel.innerHTML = '';
+                sellPayoutWays.forEach(w => {
+                    const o = document.createElement('option');
+                    o.value = w.code; o.textContent = w.label;
+                    msel.appendChild(o);
+                });
+                const bsel = document.getElementById('sell-bank');
+                bsel.innerHTML = '<option value="">— выберите банк —</option>';
+                sellPayoutBanks.forEach(b => {
+                    const o = document.createElement('option');
+                    o.value = b.code; o.textContent = b.label;
+                    bsel.appendChild(o);
+                });
+                // Пикер из одного пункта — лишний шаг, за который клиент
+                // платит вниманием: показываем только когда способов больше.
+                document.getElementById('sell-method-group').style.display =
+                    sellPayoutWays.length > 1 ? '' : 'none';
+                sellMethodSwitch();
                 sellCalc();
             } catch (e) {
                 document.getElementById('sell-empty').textContent =
@@ -1501,13 +1541,51 @@
             document.getElementById('sell-manual').style.display = info.manual ? '' : 'none';
         }
 
+        function sellPayoutWay() {
+            const code = (document.getElementById('sell-method') || {}).value || 'sbp';
+            return sellPayoutWays.find(w => w.code === code)
+                   // Способов ещё не знаем — считаем открытым только СБП: это
+                   // единственный путь, который работает без рельса выплат.
+                   || {code: 'sbp', details_label: 'Номер телефона',
+                       needs_bank: false, needs_name: false};
+        }
+
+        function sellMethodSwitch() {
+            const w = sellPayoutWay();
+            const card = w.code === 'card';
+            document.getElementById('sell-phone-label').textContent =
+                card ? 'Номер карты для выплаты' : 'Телефон для выплаты по СБП';
+            const inp = document.getElementById('sell-phone');
+            inp.placeholder = card ? '2200 0000 0000 0000' : '79001234567';
+            inp.type = card ? 'text' : 'tel';
+            document.getElementById('sell-bank-group').style.display = w.needs_bank ? '' : 'none';
+            document.getElementById('sell-name-group').style.display = w.needs_name ? '' : 'none';
+        }
+
+        // Контрольная сумма Луна — та же проверка, что на сервере. Здесь она
+        // ловит опечатку до отправки: перевод по номеру с одной изменённой
+        // цифрой ушёл бы живому чужому человеку.
+        function luhnOk(d) {
+            let sum = 0;
+            const parity = d.length % 2;
+            for (let i = 0; i < d.length; i++) {
+                let n = d.charCodeAt(i) - 48;
+                if (i % 2 === parity) { n *= 2; if (n > 9) n -= 9; }
+                sum += n;
+            }
+            return sum % 10 === 0;
+        }
+
         async function createSellOrder() {
             const btn = document.getElementById('sell-submit');
             const res = document.getElementById('sell-result');
             const cur = document.getElementById('sell-currency').value;
             const amt = parseFloat(document.getElementById('sell-amount').value) || 0;
+            const way = sellPayoutWay();
             const phone = (document.getElementById('sell-phone').value || '')
                           .replace(/[\s-]/g, '').replace(/^\+/, '');
+            const bank = (document.getElementById('sell-bank').value || '');
+            const fullName = (document.getElementById('sell-name').value || '').trim();
             res.style.display = 'none';
             const fail = (msg) => {
                 res.textContent = msg;
@@ -1519,7 +1597,17 @@
             // Решение принимает сервер: те же правила, что у бота и сайта.
             if (!cur) { fail('Выберите монету.'); return; }
             if (amt <= 0) { fail('Введите количество монет.'); return; }
-            if (!/^7\d{10}$/.test(phone)) { fail('Телефон вида 79001234567.'); return; }
+            if (way.code === 'card') {
+                if (!/^\d{13,19}$/.test(phone) || !luhnOk(phone)) {
+                    fail('Проверьте номер карты — он не проходит контрольную сумму.'); return;
+                }
+            } else if (!/^7\d{10}$/.test(phone)) {
+                fail('Телефон вида 79001234567.'); return;
+            }
+            if (way.needs_bank && !bank) { fail('Выберите банк получателя.'); return; }
+            if (way.needs_name && fullName.split(/\s+/).filter(Boolean).length < 2) {
+                fail('Укажите ФИО получателя как в банке — два-три слова.'); return;
+            }
             btn.disabled = true;
             const was = btn.textContent;
             btn.textContent = 'Создаём заявку…';
@@ -1528,7 +1616,9 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json',
                                'X-Telegram-Init-Data': tg.initData || '' },
-                    body: JSON.stringify({ currency: cur, amount: amt, phone: phone })
+                    body: JSON.stringify({ currency: cur, amount: amt, phone: phone,
+                                           method: way.code, bank: bank,
+                                           full_name: fullName })
                 });
                 const d = await r.json().catch(() => ({}));
                 if (!r.ok || !d.ok) {
@@ -1571,8 +1661,12 @@
                       + 'border-radius:10px;word-break:break-all;font-family:monospace;font-size:12px">'
                       + esc(d.marker) + '</div>';
             }
+            // Реквизит и способ берём из ответа сервера, а не из полей формы:
+            // сервер их нормализовал, а поле могли поправить между отправкой и
+            // ответом. Номер приходит уже замаскированным.
             html += '💵 Выплата: <b>≈ ' + Math.round(d.rub).toLocaleString('ru-RU') + ' ₽</b>'
-                  + ' на СБП <b>' + esc(d.phone) + '</b><br>'
+                  + ' — ' + esc(d.method_label || 'СБП') + ' <b>' + esc(d.phone) + '</b>'
+                  + (d.bank ? ' (' + esc(d.bank) + ')' : '') + '<br>'
                   + (d.manual
                         ? '⏱ Зачисление подтверждает оператор вручную — выплата занимает дольше обычного.'
                         : '⏳ После подтверждения перевода в сети рубли поступят в течение 30–60 минут.');

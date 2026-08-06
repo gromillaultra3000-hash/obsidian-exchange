@@ -67,6 +67,8 @@ jobs:
         run: python3 tests/test_rspay.py
       - name: Направление продажи — реестр вместо рукописных списков
         run: python3 tests/test_sell_assets.py
+      - name: Выплата рублей за продажу — карта, банк, защита от второго перевода
+        run: python3 tests/test_sell_payout.py
       - name: Остаток и операции чужого адреса в цепи (BTC/LTC/TRON)
         run: python3 tests/test_chain_watch.py
       - name: Адресная книга клиента

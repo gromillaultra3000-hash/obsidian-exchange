@@ -22,7 +22,7 @@
     <button class="btn btn-secondary" style="margin-top:10px;" onclick="navigator.clipboard.writeText(document.getElementById('recv-marker').textContent.trim());this.textContent='✓ Скопировано'">📋 Скопировать комментарий</button>
     <p style="opacity:.7;font-size:13px;margin-top:8px;">Перевод без комментария не потеряется, но зачесть его автоматически мы не сможем — потребуется ручная сверка. В Mini App внутри Telegram комментарий подставляется сам: кошелёк подписывает готовый перевод.</p>
     {% endif %}
-    <p style="margin-top:16px;">💵 Выплата: <strong>≈ {{ '%.2f'|format(created.rub) }} ₽</strong> на СБП <strong>{{ created.phone }}</strong></p>
+    <p style="margin-top:16px;">💵 Выплата: <strong>≈ {{ '%.2f'|format(created.rub) }} ₽</strong> — {{ created.method_label }} <strong>{{ created.phone }}</strong>{% if created.bank %} ({{ created.bank }}){% endif %}</p>
     {# Срок называем по тому, кто подтверждает зачисление. У монет без проверки
        депозита в цепи (Monero, ETH) это человек, и обещать те же 30–60 минут
        значило бы соврать в самом заметном месте. #}
@@ -55,10 +55,42 @@
         <div id="sell-manual" style="display:none;font-size:12px;opacity:.75;margin-top:8px;">
             ⏱ Зачисление этой монеты подтверждает оператор вручную — выплата занимает дольше обычного.
         </div>
+        {# Способ выплаты показывается только когда их больше одного: пикер из
+           одного пункта — лишний шаг, за который клиент платит вниманием. #}
+        {% if payout_ways|length > 1 %}
         <div class="input-group">
-            <label>Телефон для выплаты по СБП</label>
-            <input type="text" name="sbp_phone" placeholder="79001234567" pattern="\+?7\d{10}"
+            <label>Куда получить рубли</label>
+            <select id="payout-method" name="payout_method" onchange="payoutSwitch()">
+                {% for w in payout_ways %}
+                <option value="{{ w.code }}" {{ 'selected' if form and form.payout_method == w.code }}>{{ w.label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% else %}
+        <input type="hidden" id="payout-method" name="payout_method" value="{{ payout_ways[0].code if payout_ways else 'sbp' }}">
+        {% endif %}
+        <div class="input-group">
+            {# Подпись и пример меняются вместе со способом: «79001234567» над
+               полем для номера карты — прямая инструкция ввести не то. #}
+            <label id="payout-details-label">Телефон для выплаты по СБП</label>
+            <input type="text" id="payout-details" name="sbp_phone" placeholder="79001234567"
                    value="{{ form.sbp_phone if form else '' }}" required>
+            <div style="font-size:12px;opacity:.6;margin-top:4px;" id="payout-details-hint"></div>
+        </div>
+        <div class="input-group" id="payout-bank-group" style="display:none;">
+            <label>Банк получателя</label>
+            <select id="payout-bank" name="payout_bank">
+                <option value="">— выберите банк —</option>
+                {% for b in payout_banks %}
+                <option value="{{ b.code }}" {{ 'selected' if form and form.payout_bank == b.code }}>{{ b.label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="input-group" id="payout-name-group" style="display:none;">
+            <label>ФИО получателя как в банке</label>
+            <input type="text" id="payout-name" name="payout_name" placeholder="Иван Иванов"
+                   value="{{ form.payout_name if form else '' }}">
+            <div style="font-size:12px;opacity:.6;margin-top:4px;">Этого требует платёжный партнёр: перевод без имени получателя он не примет.</div>
         </div>
         <button class="btn btn-primary btn-block" type="submit">💰 Создать заявку на продажу</button>
         <p style="margin-top:10px;font-size:12px;opacity:.6;">Создавая заявку, вы принимаете условия <a href="/offer" target="_blank">пользовательского соглашения</a>.</p>
@@ -86,6 +118,32 @@ function calcSell() {
         '💵 Вы получите: <strong>' + (amt > 0 ? (amt * info.rate).toLocaleString('ru', {maximumFractionDigits: 2}) + ' ₽' : '—') + '</strong>';
 }
 calcSell();
+
+// Какие поля обязательны для выбранного способа — с сервера, из того же
+// реестра, что решает это при приёме заявки. Список, зашитый здесь, разошёлся
+// бы с сервером первой же правкой, и клиент получал бы отказ на форме, которая
+// показала ему все нужные поля заполненными.
+const PAYOUT = {{ payout_js|safe }};
+function payoutSwitch() {
+    const el = document.getElementById('payout-method');
+    if (!el) return;
+    const w = PAYOUT[el.value] || {};
+    const details = document.getElementById('payout-details');
+    document.getElementById('payout-details-label').textContent = w.details_label || 'Реквизиты';
+    details.placeholder = el.value === 'card' ? '2200 0000 0000 0000' : '79001234567';
+    document.getElementById('payout-details-hint').textContent = el.value === 'card'
+        ? 'Номер проверяется контрольной суммой — опечатка в одной цифре не пройдёт.'
+        : '';
+    // Скрытое поле с required браузер валидировать не может и молча блокирует
+    // отправку формы: признак снимается вместе с показом.
+    const bankGroup = document.getElementById('payout-bank-group');
+    const nameGroup = document.getElementById('payout-name-group');
+    bankGroup.style.display = w.needs_bank ? '' : 'none';
+    document.getElementById('payout-bank').required = !!w.needs_bank;
+    nameGroup.style.display = w.needs_name ? '' : 'none';
+    document.getElementById('payout-name').required = !!w.needs_name;
+}
+payoutSwitch();
 </script>
 {% endif %}
 {% endblock %}

@@ -71,7 +71,7 @@
     {% if sell_orders %}
     <table class="dash-table">
         <thead>
-            <tr><th>№</th><th>Валюта</th><th>Крипта</th><th>≈ RUB</th><th>СБП-телефон</th><th>Статус</th><th>Дата</th></tr>
+            <tr><th>№</th><th>Валюта</th><th>Крипта</th><th>≈ RUB</th><th>Выплата</th><th>Статус</th><th>Дата</th></tr>
         </thead>
         <tbody>
             {% for s in sell_orders %}
@@ -80,7 +80,7 @@
                 <td>{{ s.currency }}</td>
                 <td>{{ s.crypto_amount }}</td>
                 <td>{{ '%.2f'|format(s.rub_amount) }}</td>
-                <td>{{ s.sbp_phone }}</td>
+                <td>{{ s.payout_label }} {{ s.sbp_phone }}</td>
                 <td><span class="status-badge status-{{ s.status }}">{{ s.status }}</span></td>
                 <td>{{ s.created_at }}</td>
             </tr>

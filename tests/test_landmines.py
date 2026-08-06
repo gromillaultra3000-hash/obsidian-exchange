@@ -4219,7 +4219,11 @@ def check_sell_direction_grows_from_its_registry():
     # Срок выплаты обещается по тому, КТО подтверждает зачисление. У монет без
     # проверки депозита в цепи это человек, и «30–60 минут» рядом с ними —
     # обещание, которого мы не сдержим.
-    for rel, fn_name in (("bot/main_bot.py", "process_sell_phone"),):
+    # Карточку заявки в боте рисует _finish_sell_order (раньше это делал
+    # process_sell_phone — шагов ввода стало больше, и запись переехала в конец
+    # цепочки). Имя здесь одно, потому что и функция одна: расползись она на
+    # две, дубль текста был бы отдельной бедой.
+    for rel, fn_name in (("bot/main_bot.py", "_finish_sell_order"),):
         src = _read(os.path.join(ROOT, rel))
         if not src:
             continue
@@ -4511,6 +4515,243 @@ def check_new_provider_is_wired_into_every_registry():
                       "заявке, деньги за которую уже вернули клиенту")
 
 
+# ─────────────────────────────────────────────────────────────────────
+# 37. «Выплачено» сказано раньше, чем деньги ушли
+# ─────────────────────────────────────────────────────────────────────
+# Пока рубли за проданную крипту переводил человек, порядок «пометить →
+# сказать клиенту → перевести самому» был безобиден: перевод делал тот же, кто
+# нажал кнопку. С появлением рельса выплат (Vertu) между кнопкой и деньгами
+# встал чужой сервис, который может ответить отказом. Пометить заявку до его
+# ответа — значит сказать клиенту «выплачено» по переводу, которого не было, и
+# больше к этой заявке никто не вернётся: она уже `paid`.
+#
+# Вторая половина той же беды — двойная отправка. У рельса нет идемпотентности
+# по нашему идентификатору: каждый вызов создаёт НОВУЮ выплату. Два админа,
+# нажавшие кнопку одновременно, стоят ровно двух переводов клиенту, и
+# «прочитать статус, потом обновить» от этого не спасает — между чтением и
+# записью успевает пройти вторая корутина. Спасает только захват строки одним
+# UPDATE с проверкой rowcount.
+def check_payout_is_marked_after_the_money_moves():
+    tag = "«выплачено» раньше денег"
+    src = _read(os.path.join(ROOT, "bot", "main_bot.py"))
+    if not src:
+        return
+    try:
+        fn = next(n for n in ast.walk(ast.parse(src))
+                  if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+                  and n.name == "_do_sell_payout")
+    except (StopIteration, SyntaxError):
+        fail(tag, "bot/main_bot.py: _do_sell_payout() исчезла — проверка ослепла")
+        return
+    body = ast.get_source_segment(src, fn) or ""
+
+    # Захват строки. Ищем именно UPDATE с условием на текущий статус: без
+    # условия «занять» строку невозможно, вторая кнопка обновит её так же
+    # успешно, как первая.
+    # Запрос собран из соседних строковых литералов, поэтому склеиваем текст
+    # функции: искать по одному литералу значило бы, что мина падает от
+    # переноса строки, а не от беды.
+    glued = re.sub(r"[\"']\s*[\"']", "", body)
+    claim = re.search(r"UPDATE sell_orders SET status='paying'.{0,120}?"
+                      r"WHERE id=\?\s*AND status NOT IN", glued, re.S)
+    if not claim:
+        fail(tag, "заявка не занимается одним UPDATE с проверкой текущего "
+                  "статуса — две одновременные кнопки создадут ДВА перевода "
+                  "одному клиенту, у рельса нет идемпотентности по нашему id")
+    elif "rowcount" not in body:
+        fail(tag, "результат захвата строки не проверяется (нет rowcount) — "
+                  "проигравшая гонку кнопка пойдёт платить как ни в чём "
+                  "не бывало")
+
+    # Порядок. «Сказать выплачено» обязано стоять ПОСЛЕ вызова отправки.
+    # Сравниваем не по первому вхождению строки 'paid' — она встречается уже в
+    # условии захвата (`status NOT IN ('paid','paying')`), и такая мина падала
+    # бы на исправном коде, — а по тому, ЧТО написано до вызова и что после.
+    send = glued.find("send_rub")
+    if send < 0:
+        fail(tag, "_do_sell_payout() больше не зовёт отправку рублей — "
+                  "кнопка «Выплатить» только помечает строку, а деньги "
+                  "клиенту не уходят ниоткуда")
+    else:
+        pre, post = glued[:send], glued[send:]
+        if re.search(r"SET status='paid'", pre):
+            fail(tag, "заявка помечается выплаченной ДО отправки рублей — при "
+                      "отказе рельса клиент получит «выплачено» без денег, а "
+                      "заявка уйдёт из всех очередей разбора")
+        if "update_user_vip_volume" in pre:
+            fail(tag, "объём начисляется до отправки рублей — за перевод, "
+                      "которого может не быть")
+        if "SET status=" not in post:
+            fail(tag, "_do_sell_payout() не помечает заявку выплаченной — она "
+                      "останется в захваченном состоянии навсегда")
+        # И этого мало: рельс отвечает на создание выплаты «Pending». Закрыть
+        # заявку по факту СОЗДАНИЯ — значит закрыть её до денег; отклонённая
+        # позже выплата оставит её в paid навсегда, вне очереди и сторожа.
+        if "is_settled" not in post:
+            fail(tag, "заявка закрывается по факту создания выплаты, а не по "
+                      "подтверждению зачисления — рельс отвечает Pending и "
+                      "может отклонить перевод позже, а paid обратно уже "
+                      "никто не снимет")
+
+    # Тот, кто закрывает заявку по подтверждению, обязан уметь и открыть её
+    # обратно по отказу: иначе единственным следом отказа остаётся сообщение
+    # в чате, а заявка навсегда застревает между состояниями.
+    # Смотрим на ВЫЗОВЫ, а не на упоминания: имена этих функций стоят и в
+    # соседнем комментарии, и мина, которой хватает текста, зеленеет на коде,
+    # где обход только пишет в чат и ничего не двигает.
+    relay_src = _read(os.path.join(ROOT, "relay-fastapi", "main.py"))
+    if relay_src:
+        try:
+            tree = ast.parse(relay_src)
+        except SyntaxError:
+            tree = None
+        called = set()
+        if tree is not None:
+            for n in ast.walk(tree):
+                if isinstance(n, ast.Call):
+                    f = n.func
+                    name = getattr(f, "attr", None) or getattr(f, "id", None)
+                    if name:
+                        called.add(name)
+        if tree is not None and "_vertu_payout_sweep" in called:
+            if "mark_settled" not in called:
+                fail(tag, "обход выплат не закрывает подтверждённую заявку — "
+                          "она навсегда останется занятой, а клиент не узнает, "
+                          "что деньги дошли")
+            if "mark_rejected" not in called:
+                fail(tag, "обход выплат не возвращает отклонённую заявку в "
+                          "очередь — монеты клиента у нас, а долг не видит "
+                          "ни один список")
+
+    # Неудача обязана вернуть заявку в работу. Строка, застрявшая в 'paying',
+    # не видна ни как ждущая, ни как оплаченная — это тихая потеря заявки.
+    if claim and "paying" in body:
+        tail = body[send:] if send >= 0 else body
+        if "_release" not in tail and "status='pending'" not in tail:
+            fail(tag, "после неудачной отправки заявка остаётся занятой — "
+                      "она пропадёт и из очереди выплат, и из списка оплаченных")
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 38. Поверхность сама решает, куда можно получить рубли
+# ─────────────────────────────────────────────────────────────────────
+# Список направлений выплаты зависит от того, включён ли рельс: карта
+# появляется только когда есть чем платить. Поверхность, знающая этот список
+# сама (зашитый `<option value="card">`), покажет «на карту» и при выключенном
+# рельсе — клиент отдаст монеты и будет ждать перевода, которого сделать
+# нечем. Ровно так же опасна и своя проверка реквизита: форма с
+# `pattern="\+?7\d{10}"` над полем, куда теперь вводят номер карты, отвергает
+# верный номер, и никакой сервер об этом не узнает.
+def check_payout_directions_come_from_the_registry():
+    tag = "поверхность сама открывает выплату"
+    reg = _read(os.path.join(ROOT, "relay", "core", "sell_payout.py"))
+    if not reg:
+        return
+    # Смотреть надо ВНУТРЬ функции-гейта, а не по всему файлу: имя переменной
+    # осталось бы в соседней строке и в собственном комментарии, и мина
+    # зеленела бы на гейте, который всегда возвращает «включено».
+    try:
+        gate = next(n for n in ast.walk(ast.parse(reg))
+                    if isinstance(n, ast.FunctionDef)
+                    and n.name == "vertu_payout_enabled")
+    except (StopIteration, SyntaxError):
+        fail(tag, "relay/core/sell_payout.py: vertu_payout_enabled() исчезла — "
+                  "проверка ослепла")
+        gate = None
+    if gate is not None:
+        read = {c.value for c in ast.walk(gate)
+                if isinstance(c, ast.Constant) and isinstance(c.value, str)}
+        if "VERTU_PAYOUT" not in read:
+            fail(tag, "гейт рельса выплат не смотрит на VERTU_PAYOUT — карта "
+                      "откроется клиентам раньше, чем владелец увидит баланс, "
+                      "с которого её платить")
+        if not (read & {"VERTU_API_KEY", "VERTU_LOGIN", "VERTU_PASSWORD"}):
+            fail(tag, "гейт рельса выплат доверяет одному флагу и не проверяет "
+                      "учётные данные — вызов упадёт уже с криптой клиента у нас")
+
+    tpl = _read(os.path.join(ROOT, "relay-fastapi", "templates", "dashboard_sell.html"))
+    wa = _read(os.path.join(ROOT, "relay", "webapp.html"))
+    for name, src in (("сайт", tpl), ("Mini App", wa)):
+        if not src:
+            continue
+        if re.search(r"""<option[^>]*value=["']card["']""", src):
+            fail(tag, f"{name}: направление «на карту» вписано в разметку — "
+                      f"оно останется на экране и при выключенном рельсе, "
+                      f"а платить будет нечем")
+
+    # Форма продажи не имеет права навязывать полю выплаты свой формат:
+    # телефон и номер карты живут в одном поле, и зашитая маска телефона
+    # отвергает верную карту ещё до отправки.
+    if tpl:
+        m = re.search(r"""name=["']sbp_phone["'][^>]*""", tpl)
+        if m and "pattern=" in m.group(0):
+            fail(tag, "сайт: поле реквизита выплаты держит свою маску — при "
+                      "выборе карты форма отвергнет верный номер, и сервер "
+                      "об этом не узнает")
+
+    # Реквизит показывается через общий разбор: у заявки на карту легаси-поле
+    # `sbp_phone` пусто, и «выплата на ___» с пустотой — это заявка, по которой
+    # клиент не понимает, куда придут деньги.
+    main_src = _read(os.path.join(ROOT, "relay-fastapi", "main.py"))
+    if main_src and "sbp_phone" in main_src and "sell_payout" not in main_src:
+        fail(tag, "relay-fastapi читает легаси-колонку реквизита в обход "
+                  "core.sell_payout — по заявке на карту поверхность покажет "
+                  "пустое поле выплаты")
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 39. Маска дошла до того, кто платит по ней руками
+# ─────────────────────────────────────────────────────────────────────
+# Реквизит выплаты маскируется — и правильно: карточка заявки живёт в истории
+# клиента и в переписке. Но по `79•••••4567` перевод не сделать, а на ручном
+# пути перевод делает человек, читающий сообщение персоналу. Маска, дошедшая
+# до него, останавливает выплату молча: заявка выглядит заведённой, оператор
+# не может ничего сделать и не понимает почему. Нашёл codex.
+def check_the_payer_gets_a_usable_requisite():
+    tag = "маска дошла до плательщика"
+    reg = _read(os.path.join(ROOT, "relay", "core", "sell_payout.py"))
+    if not reg or "def staff_details" not in reg:
+        fail(tag, "нет отдельного вида реквизита для персонала — либо клиент "
+                  "видит полный номер карты, либо оператор не видит ничего, "
+                  "чем можно заплатить")
+        return
+
+    src = _read(os.path.join(ROOT, "bot", "main_bot.py"))
+    if not src:
+        return
+    try:
+        fn = next(n for n in ast.walk(ast.parse(src))
+                  if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+                  and n.name == "_finish_sell_order")
+    except (StopIteration, SyntaxError):
+        fail(tag, "bot/main_bot.py: _finish_sell_order() исчезла — проверка ослепла")
+        return
+
+    # Имена, в которые положили МАСКУ. Их и ищем в сообщении персоналу — так
+    # проверка не зависит от того, как переменную назвали.
+    masked = set()
+    for node in ast.walk(fn):
+        if isinstance(node, ast.Assign) and isinstance(node.value, ast.Call):
+            called = getattr(node.value.func, "attr", None) or getattr(node.value.func, "id", None)
+            if called == "mask_details":
+                for t in node.targets:
+                    if getattr(t, "id", None):
+                        masked.add(t.id)
+    for node in ast.walk(fn):
+        if not isinstance(node, ast.Call):
+            continue
+        name = getattr(node.func, "attr", None) or getattr(node.func, "id", None)
+        if name != "notify_admins":
+            continue
+        used = {n.id for n in ast.walk(node) if isinstance(n, ast.Name)}
+        leaked = masked & used
+        if leaked:
+            fail(tag, f"сообщение персоналу о новой продаже подставляет "
+                      f"замаскированный реквизит ({', '.join(sorted(leaked))}) — "
+                      f"на ручном пути по нему невозможно сделать перевод, и "
+                      f"заявка встанет молча")
+
+
 def main():
     for fn in (check_no_diverging_duplicates, check_config_keys_are_read,
                check_no_fail_open_in_guards, check_session_expiry_uses_expires_at,
@@ -4567,7 +4808,10 @@ def main():
                check_every_currency_is_reconcilable,
                check_prefilter_is_not_stricter_than_the_real_check,
                check_wallet_link_is_keyed_by_chain,
-               check_one_signature_does_not_fit_two_chains):
+               check_one_signature_does_not_fit_two_chains,
+               check_payout_is_marked_after_the_money_moves,
+               check_payout_directions_come_from_the_registry,
+               check_the_payer_gets_a_usable_requisite):
         try:
             fn()
         except Exception as e:

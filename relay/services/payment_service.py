@@ -112,8 +112,12 @@ class PaymentService:
             logger.warning(f"Эскалация order {order_id} на {short}: {invoice.get('error')}")
             start_time = time.time()
             extra = {}
+            # Тот же список, что на основном пути. RSPay здесь отсутствовал:
+            # при эскалации канал получал `web_<order>` вместо телефона клиента
+            # и терял его счётчики сделок — то есть ровно те данные, по которым
+            # провайдер отличает знакомого клиента от скамера. Нашёл codex.
             if cls_name in ('MonteraProvider', 'VertuProvider', 'StormTradeProvider',
-                            'XPayConnectProvider'):
+                            'XPayConnectProvider', 'RSPayProvider'):
                 extra['user_id'] = telegram_id
             next_invoice = provider.create_invoice(order_id, amount,
                                                    payment_method=payment_method, **extra)

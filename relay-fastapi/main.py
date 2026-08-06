@@ -98,16 +98,41 @@ def _ensure_orders_columns():
         "receipt_sent_at": "TEXT",
         "receipt_deadline": "TEXT",
     }
+    # Куда клиенту уходят рубли за проданную крипту. До появления выплаты на
+    # карту способ был один (СБП руками) и жил в единственной колонке sbp_phone.
+    # Реквизит рельса Vertu — это тройка «банк + номер + ФИО», и хранить её
+    # надо целиком: половина тройки в момент выплаты означает отказ 422 уже
+    # после того, как крипта клиента у нас.
+    sell_needed = {
+        "payout_method": "TEXT",     # card | sbp
+        "payout_bank": "TEXT",       # код банка рельса (sber, t-bank, …)
+        "payout_details": "TEXT",    # номер карты либо телефон
+        "payout_name": "TEXT",       # ФИО получателя
+        "payout_provider": "TEXT",   # чем платили: vertu | manual
+        "payout_ref": "TEXT",        # platform_id выплаты у провайдера
+        "payout_status": "TEXT",     # его статус выплаты
+    }
     with db_conn(5) as conn:
         # Журнал одноразовых уведомлений: его читают и пишут оба процесса, а
         # создавал — никто. Кто стартовал первым, тот и заводит схему.
         conn.execute("CREATE TABLE IF NOT EXISTS sent_notifications ("
                      " order_id INTEGER, event TEXT, PRIMARY KEY (order_id, event))")
+        # sell_orders — та же история: пишут оба процесса, создавала руками
+        # чья-то консоль. На свежей базе первая же заявка на продажу упала бы.
+        conn.execute("""CREATE TABLE IF NOT EXISTS sell_orders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, currency TEXT,
+            crypto_amount REAL, rub_amount REAL, sbp_phone TEXT, receive_address TEXT,
+            status TEXT, tx_hash TEXT, created_at TEXT, updated_at TEXT)""")
         cols = [r[1] for r in conn.execute("PRAGMA table_info(orders)").fetchall()]
         for name, typ in needed.items():
             if name not in cols:
                 conn.execute(f"ALTER TABLE orders ADD COLUMN {name} {typ}")
                 logger.info(f"Миграция: добавлена колонка orders.{name}")
+        sell_cols = [r[1] for r in conn.execute("PRAGMA table_info(sell_orders)").fetchall()]
+        for name, typ in sell_needed.items():
+            if name not in sell_cols:
+                conn.execute(f"ALTER TABLE sell_orders ADD COLUMN {name} {typ}")
+                logger.info(f"Миграция: добавлена колонка sell_orders.{name}")
         conn.commit()
 
 @asynccontextmanager
@@ -447,15 +472,24 @@ def get_user_sell_orders(web_user, limit=20):
         conditions = ["user_id = ?"]
         params = [web_user['telegram_id'] if web_user['telegram_id'] else -web_user['id']]
         c.execute(
-            f"SELECT id, currency, crypto_amount, rub_amount, sbp_phone, status, created_at FROM sell_orders WHERE {' OR '.join(conditions)} ORDER BY created_at DESC LIMIT ?",
+            f"SELECT id, currency, crypto_amount, rub_amount, sbp_phone, status, created_at,"
+            f" payout_method, payout_details, payout_bank FROM sell_orders"
+            f" WHERE {' OR '.join(conditions)} ORDER BY created_at DESC LIMIT ?",
             params + [limit]
         )
         rows = c.fetchall()
-    return [
-        {"id": r[0], "currency": r[1], "crypto_amount": r[2], "rub_amount": r[3],
-         "sbp_phone": r[4], "status": r[5], "created_at": r[6]}
-        for r in rows
-    ]
+    # Реквизит выплаты разбирает core.sell_payout.target(): у старых заявок он
+    # лежит в sbp_phone, у новых — в payout_details, и брать здесь одну колонку
+    # значило бы показать клиенту пустое поле по заявке на карту.
+    out = []
+    for r in rows:
+        dst = _sell_payout.target({"payout_method": r[7], "payout_details": r[8],
+                                   "payout_bank": r[9], "sbp_phone": r[4]})
+        out.append({"id": r[0], "currency": r[1], "crypto_amount": r[2],
+                    "rub_amount": r[3], "sbp_phone": dst["shown"],
+                    "payout_label": _sell_payout.label(dst["method"]),
+                    "status": r[5], "created_at": r[6]})
+    return out
 
 @app.get("/register", response_class=HTMLResponse)
 async def register_page(request: Request):
@@ -932,6 +966,9 @@ async def dashboard_exchange_submit(
 # включал ничего, а расхождение двух копий уже случалось (сайт звал продавать
 # монету, которой в меню бота не было).
 from core import sell_assets as _sell_assets
+# Куда клиенту приходят рубли за проданную монету (карта через Vertu / СБП /
+# ручная выплата) — единый реестр, общий с ботом.
+from core import sell_payout as _sell_payout
 
 def _sell_context():
     coins, sell_js = [], {}
@@ -944,6 +981,27 @@ def _sell_context():
                          "manual": manual}
     return coins, json.dumps(sell_js)
 
+
+def _sell_payout_context() -> dict:
+    """Направления выплаты для формы продажи — из общего реестра, не из шаблона.
+
+    Список открытых способов зависит от того, включён ли рельс Vertu; шаблон,
+    знающий этот список сам, показал бы «на карту» и там, где платить нечем.
+    Правила «когда нужен банк и ФИО» уезжают в JS одним объектом, чтобы форма
+    и сервер не расходились в том, какие поля обязательны.
+    """
+    ways = []
+    for m in _sell_payout.methods():
+        ways.append({"code": m, "label": _sell_payout.label(m),
+                     "details_label": _sell_payout.details_label(m),
+                     "needs_bank": _sell_payout.needs_bank(m),
+                     "needs_name": _sell_payout.needs_full_name(m),
+                     "auto": _sell_payout.route(m) == "vertu"})
+    return {"payout_ways": ways,
+            "payout_banks": [{"code": c, "label": n} for c, n in _sell_payout.banks()],
+            "payout_js": json.dumps({w["code"]: w for w in ways})}
+
+
 @app.get("/dashboard/sell", response_class=HTMLResponse)
 async def dashboard_sell_page(request: Request):
     web_user = auth.get_web_user(request)
@@ -952,6 +1010,7 @@ async def dashboard_sell_page(request: Request):
     coins, sell_js = _sell_context()
     return templates.TemplateResponse(request, "dashboard_sell.html", site_context(
         request, active="sell", sell_coins=coins, sell_js=sell_js,
+        **_sell_payout_context(),
     ))
 
 def _marker_machinery_ready() -> bool:
@@ -979,13 +1038,18 @@ def _sell_rate(currency: str) -> float:
     return rate if math.isfinite(rate) and rate > 0 else 0.0
 
 
-def sell_order_refuse(currency: str, amount, phone: str):
+def sell_order_refuse(currency: str, amount, phone: str,
+                      method: str = "sbp", bank: str = "", full_name: str = ""):
     """Причина отказа в заявке на продажу или '' — она же для сайта и Mini App.
 
     Одна функция на обе поверхности намеренно: правило, записанное дважды,
     расходится первой же правкой, а расхождение здесь означает заявку, которую
     одна поверхность не приняла бы, а вторая приняла — с переводом клиента на
     адрес, которого мы не ждём.
+
+    `phone` — реквизит выплаты: телефон для СБП либо номер карты. Что именно
+    считать годным и каких полей ещё не хватает, решает core.sell_payout, а не
+    эта функция: рельс у бота и сайта один, значит и правило одно.
     """
     cur = (currency or "").upper().strip()
     # Сначала — открыта ли монета ЦЕЛИКОМ. Форму и запрос можно отправить в
@@ -1015,8 +1079,9 @@ def sell_order_refuse(currency: str, amount, phone: str):
         return "Количество должно быть больше нуля."
     if amt < min_amount:
         return f"Минимальная сумма: {min_amount} {cur}."
-    if not re.match(r'^7\d{10}$', (phone or "").strip()):
-        return "Неверный формат телефона. Пример: 79001234567."
+    payout_error = _sell_payout.refuse(method, phone, bank, full_name)
+    if payout_error:
+        return payout_error
     # Цена — такое же условие продажи, как адрес приёма. Список монет её уже
     # фильтрует, но запрос можно отправить мимо списка: без этой проверки
     # заявка легла бы в базу с нулевой или отрицательной выплатой. Нашёл codex.
@@ -1032,13 +1097,28 @@ def sell_order_refuse(currency: str, amount, phone: str):
 
 
 def sell_order_create(user_id, currency: str, amount: float, phone: str, source: str,
-                      who: str = ""):
+                      who: str = "", method: str = "sbp", bank: str = "",
+                      full_name: str = ""):
     """Завести заявку на продажу. Возвращает всё, что нужно показать клиенту.
 
     Проверки НЕ повторяет — их делает `sell_order_refuse()` у вызывающего;
     здесь только запись, уведомление персоналу и метка платежа.
+
+    `phone` — реквизит выплаты (телефон СБП либо номер карты), `method`/`bank`/
+    `full_name` — куда и как её отправлять. Реквизит нормализуется здесь, а не у
+    вызывающего: в базу должно лечь ровно то, что примет рельс выплаты, иначе
+    отказ вскроется в момент перевода — с криптой клиента уже у нас.
     """
     cur = currency.upper().strip()
+    method = (method or "sbp").lower()
+    details = _sell_payout.normalize_details(method, phone)
+    bank = _sell_payout.normalize_bank(bank)
+    full_name = _sell_payout.normalize_full_name(full_name) if full_name else ""
+    # Последний рубеж перед записью: реквизит, который рельс не примет, — это
+    # заявка, по которой клиент переведёт монеты, а рубли за них не уйдут.
+    if not details:
+        logger.error("продажа %s: реквизит выплаты не прошёл нормализацию", cur)
+        return None
     receive_addr = _sell_assets.receive_address(cur)
     # Последний рубеж: цена могла пропасть между проверкой и записью. Заявка с
     # нулевой выплатой — это обещание отдать монеты даром, и лучше отказ.
@@ -1061,10 +1141,17 @@ def sell_order_create(user_id, currency: str, amount: float, phone: str, source:
 
     with db_conn(5) as conn:
         c = conn.cursor()
+        # sbp_phone заполняется только для СБП: колонка легаси, и её читают
+        # старые места как «телефон». Номер карты, попавший туда, кто-нибудь
+        # однажды наберёт как телефон.
         c.execute("""INSERT INTO sell_orders
-            (user_id, currency, crypto_amount, rub_amount, sbp_phone, receive_address, status, created_at, updated_at)
-            VALUES (?,?,?,?,?,?,'pending',datetime('now'),datetime('now'))""",
-            (user_id, cur, amount, rub_amount, phone, receive_addr))
+            (user_id, currency, crypto_amount, rub_amount, sbp_phone, receive_address,
+             payout_method, payout_bank, payout_details, payout_name,
+             status, created_at, updated_at)
+            VALUES (?,?,?,?,?,?,?,?,?,?,'pending',datetime('now'),datetime('now'))""",
+            (user_id, cur, amount, rub_amount,
+             details if method == _sell_payout.SBP else "", receive_addr,
+             method, bank, details, full_name))
         conn.commit()
         sell_id = c.lastrowid
 
@@ -1094,8 +1181,14 @@ def sell_order_create(user_id, currency: str, amount: float, phone: str, source:
         f"💸 Продаёт: {amount:g} {cur}\n"
         f"📬 На наш адрес: <code>{receive_addr}</code>\n"
         f"💵 Выплатить: {rub_amount:,.2f} RUB\n"
-        f"📱 СБП: {phone}\n\n"
-        f"После получения монет нажмите «Выплатить».",
+        # Персоналу — реквизит, которым можно воспользоваться: на ручном пути
+        # перевод делает человек, читающий это сообщение. Нашёл codex.
+        f"{_sell_payout.label(method)}: <code>{_sell_payout.staff_details(method, details)}</code>"
+        + (f" · {_sell_payout.bank_label(bank)}" if bank else "")
+        + (f" · {full_name}" if full_name else "")
+        + ("\n⚙️ Уйдут автоматически через Vertu"
+           if _sell_payout.route(method) == "vertu" else "\n✋ Перевод руками")
+        + "\n\nПосле получения монет нажмите «Выплатить».",
         reply_markup={"inline_keyboard": [
             [{"text": "✅ Выплатить (подтвердить)", "callback_data": f"sell_confirm_{sell_id}"}],
             [{"text": "❌ Отклонить", "callback_data": f"sell_reject_{sell_id}"}],
@@ -1107,7 +1200,13 @@ def sell_order_create(user_id, currency: str, amount: float, phone: str, source:
     # привязать — адрес приёма один на всех.
     return {
         "sell_id": sell_id, "currency": cur, "amount": float(amount),
-        "rub": rub_amount, "rate": sell_rate, "phone": phone,
+        "rub": rub_amount, "rate": sell_rate,
+        # Клиенту показываем реквизит замаскированным: карточка заявки живёт в
+        # истории и в переписке, а полный номер карты там ни к чему.
+        "phone": _sell_payout.mask_details(method, details),
+        "method": method, "method_label": _sell_payout.label(method),
+        "bank": _sell_payout.bank_label(bank), "full_name": full_name,
+        "auto_payout": _sell_payout.route(method) == "vertu",
         "address": receive_addr, "marker": marker,
         # Сеть рядом с адресом обязательна там, где сетей несколько:
         # USDT-ERC20, отправленный на TRON-адрес, теряется.
@@ -1125,6 +1224,9 @@ async def dashboard_sell_submit(
     currency: str = Form(...),
     amount: float = Form(...),
     sbp_phone: str = Form(...),
+    payout_method: str = Form("sbp"),
+    payout_bank: str = Form(""),
+    payout_name: str = Form(""),
 ):
     web_user = auth.get_web_user(request)
     if not web_user:
@@ -1134,22 +1236,30 @@ async def dashboard_sell_submit(
 
     currency = currency.upper().strip()
     phone = sbp_phone.strip().replace(' ', '').replace('-', '').lstrip('+')
+    method = (payout_method or "sbp").strip().lower()
+    bank = (payout_bank or "").strip().lower()
+    full_name = (payout_name or "").strip()
     coins, sell_js = _sell_context()
-    error = sell_order_refuse(currency, amount, phone)
+    # Введённое возвращаем в форму при любом отказе: перенабирать номер карты
+    # из-за опечатки в количестве монет — верный способ потерять клиента.
+    form = {"currency": currency, "amount": amount, "sbp_phone": sbp_phone,
+            "payout_method": method, "payout_bank": bank, "payout_name": full_name}
+    error = sell_order_refuse(currency, amount, phone, method, bank, full_name)
     if error:
         return templates.TemplateResponse(request, "dashboard_sell.html", site_context(
             request, active="sell", sell_coins=coins, sell_js=sell_js, error=error,
-            form={"currency": currency, "amount": amount, "sbp_phone": sbp_phone},
+            form=form, **_sell_payout_context(),
         ), status_code=400)
 
     user_id = web_user['telegram_id'] if web_user['telegram_id'] else -web_user['id']
     created = sell_order_create(user_id, currency, amount, phone, "сайт",
-                                who=f"Аккаунт: {web_user['email']}")
+                                who=f"Аккаунт: {web_user['email']}",
+                                method=method, bank=bank, full_name=full_name)
     if created is None:
         return templates.TemplateResponse(request, "dashboard_sell.html", site_context(
             request, active="sell", sell_coins=coins, sell_js=sell_js,
             error="Продажа этой монеты сейчас недоступна — попробуйте позже.",
-            form={"currency": currency, "amount": amount, "sbp_phone": sbp_phone},
+            form=form, **_sell_payout_context(),
         ), status_code=503)
 
     return templates.TemplateResponse(request, "dashboard_sell.html", site_context(
@@ -1158,7 +1268,10 @@ async def dashboard_sell_submit(
                  "amount": f"{created['amount']:g}", "rub": created["rub"],
                  "phone": created["phone"], "address": created["address"],
                  "marker": created["marker"], "network": created["network"],
-                 "manual": created["manual"]},
+                 "manual": created["manual"],
+                 "method_label": created["method_label"], "bank": created["bank"],
+                 "auto_payout": created["auto_payout"]},
+        **_sell_payout_context(),
     ))
 
 # Анти-спам создания заявок из Mini App: скользящее окно на пользователя + глобально.
@@ -2473,7 +2586,12 @@ async def api_sell_options():
             "network": (_sell_assets.receive_network(code)
                         if len(_assets.networks_for(code)) > 1 else None),
         })
-    return {"coins": coins}
+    # Направления выплаты идут вместе с монетами и из того же реестра, что у
+    # сайта: список открытых способов зависит от того, включён ли рельс Vertu,
+    # а зашитый во фронт список показал бы «на карту» там, где платить нечем.
+    pc = _sell_payout_context()
+    return {"coins": coins, "payout_ways": pc["payout_ways"],
+            "payout_banks": pc["payout_banks"]}
 
 
 @app.get("/api/sell/pending")
@@ -2494,8 +2612,9 @@ async def api_sell_pending(request: Request):
     with db_conn(5) as conn:
         rows = conn.execute(
             "SELECT id, currency, crypto_amount, rub_amount, sbp_phone, receive_address,"
-            " created_at FROM sell_orders WHERE user_id=? AND status='pending'"
-            " ORDER BY id DESC LIMIT 10", (uid,)).fetchall()
+            " created_at, payout_method, payout_details, payout_bank FROM sell_orders"
+            " WHERE user_id=? AND status='pending' ORDER BY id DESC LIMIT 10",
+            (uid,)).fetchall()
     items = []
     for r in rows:
         cur = (r[1] or "").upper()
@@ -2506,9 +2625,15 @@ async def api_sell_pending(request: Request):
                 marker = _ws.marker_for(r[0])
             except Exception:
                 marker = ""
+        # Реквизит — через общий разбор: у заявки на карту sbp_phone пуст, и
+        # клиент увидел бы «выплата на » с пустотой после предлога.
+        dst = _sell_payout.target({"payout_method": r[7], "payout_details": r[8],
+                                   "payout_bank": r[9], "sbp_phone": r[4]})
         items.append({
             "sell_id": r[0], "currency": cur, "amount": float(r[2] or 0),
-            "rub": float(r[3] or 0), "phone": r[4] or "", "address": r[5] or "",
+            "rub": float(r[3] or 0), "phone": dst["shown"], "address": r[5] or "",
+            "method_label": _sell_payout.label(dst["method"]),
+            "bank": _sell_payout.bank_label(dst["bank"]),
             "marker": marker, "created_at": r[6],
             # Сеть считается по адресу САМОЙ заявки, а не по сегодняшней
             # настройке: адрес приёма мог смениться после её создания.
@@ -2534,7 +2659,10 @@ async def api_sell_create(request: Request):
     currency = str(body.get("currency") or "").upper().strip()
     phone = str(body.get("phone") or "").strip().replace(' ', '').replace('-', '').lstrip('+')
     amount = body.get("amount")
-    error = sell_order_refuse(currency, amount, phone)
+    method = str(body.get("method") or "sbp").strip().lower()
+    bank = str(body.get("bank") or "").strip().lower()
+    full_name = str(body.get("full_name") or "").strip()
+    error = sell_order_refuse(currency, amount, phone, method, bank, full_name)
     if error:
         return {"ok": False, "error": error}
     # Счётчик тратится ПОСЛЕ проверок и только на годную заявку. Он общий с
@@ -2545,7 +2673,8 @@ async def api_sell_create(request: Request):
         raise HTTPException(status_code=429, detail="Слишком много заявок подряд. Подождите немного.")
     created = sell_order_create(int(user['id']), currency, float(amount), phone,
                                 "Mini App",
-                                who=f"tg:{user['id']} @{user.get('username') or '-'}")
+                                who=f"tg:{user['id']} @{user.get('username') or '-'}",
+                                method=method, bank=bank, full_name=full_name)
     if created is None:
         return {"ok": False, "error": "Курс этой монеты сейчас недоступен — попробуйте позже."}
     logger.info("sell: Mini App uid=%s заявка #%s %s", user['id'], created["sell_id"], currency)
@@ -3771,6 +3900,38 @@ async def xpay_webhook(request: Request):
     audit_log("xpay_webhook_processed", f"order={order_id} status={status}")
     return JSONResponse(status_code=200, content={})
 
+@app.post("/vertu/payout-callback")
+async def vertu_payout_callback(request: Request):
+    """Vertu дёргает этот адрес при смене статуса выплаты (callback_url).
+
+    Формат тела и подпись в их спеке НЕ описаны, поэтому телу мы не верим
+    вообще: из него берётся только идентификатор, по которому находится НАША
+    заявка, а статус заново спрашивается у API. Максимум, чего добьётся чужой
+    запрос, — заставит нас лишний раз опросить провайдера.
+    """
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+    if not isinstance(data, dict):
+        data = {}
+    ref = str(data.get("platform_id") or data.get("deal_id") or "").strip()
+    if not ref:
+        return JSONResponse(status_code=200, content={"ok": True})
+    with db_conn(5) as conn:
+        row = conn.execute(
+            "SELECT id, user_id, rub_amount, payout_status FROM sell_orders"
+            " WHERE payout_ref=? OR payout_ref=?",
+            (ref, ref.split("_")[-1])).fetchone()
+    if not row:
+        logger.info("vertu payout-callback: выплата %s не наша", ref[:32])
+        return JSONResponse(status_code=200, content={"ok": True})
+    # Тот же разбор исхода, что у фонового обхода: обратный вызов только
+    # ускоряет его, а решение об исходе принимается в одном месте.
+    audit_log("vertu_payout_callback", f"sell={row[0]} ref={ref}")
+    await _vertu_payout_settle(row[0], row[1], row[2], ref, row[3])
+    return JSONResponse(status_code=200, content={"ok": True})
+
 @app.post("/rspay/webhook")
 async def rspay_webhook(request: Request):
     """RSPay: POST на callback_url при смене статуса транзакции.
@@ -3804,10 +3965,15 @@ async def rspay_webhook(request: Request):
             c = conn.cursor()
             c.execute("UPDATE orders SET status='paid', updated_at=datetime('now')"
                       " WHERE order_id=? AND status='pending'", (order_id,))
+            # Письмо клиенту — только тому вызову, который ПЕРЕВЁЛ заявку в
+            # оплаченные. Вебхук приходит повторно (ретраи провайдера), и без
+            # этой проверки клиент получал бы «оплата подтверждена» столько
+            # раз, сколько раз RSPay постучится. Нашёл codex.
+            changed = c.rowcount
             conn.commit()
             c.execute("SELECT user_id FROM orders WHERE order_id=?", (order_id,))
             row = c.fetchone()
-        if row and row[0] and int(row[0]) > 0:
+        if changed and row and row[0] and int(row[0]) > 0:
             notify_telegram(row[0], (
                 f"✅ <b>Оплата подтверждена!</b>\n\n"
                 f"Заявка <b>#{order_id}</b> принята — выплата будет произведена в ближайшее время."
@@ -4251,7 +4417,119 @@ async def vertu_poll_task():
                                             detail=f"сделка {inv_id} отклонена/отозвана")
         except Exception as e:
             logger.error(f"[vertu_poll] Error: {e}")
+        try:
+            await _vertu_payout_sweep()
+        except Exception as e:
+            logger.error(f"[vertu_payout] Error: {e}")
         await asyncio.sleep(30)
+
+
+async def _vertu_payout_sweep():
+    """Доводит до конца выплаты рублей, отправленные в рельс Vertu.
+
+    Рельс отвечает на создание выплаты «Pending»: деньги в этот момент ещё не
+    у клиента, и заявка ждёт в состоянии 'paying'. Довести её до конца может
+    только фактический статус — здесь он и спрашивается. Подтверждение
+    закрывает заявку и начисляет объём; отказ возвращает её в очередь выплат
+    и зовёт человека. Молчание — худший исход из трёх.
+    """
+    # Список законченных исходов берётся у того же модуля, который их и
+    # распознаёт. Перечисли мы их здесь руками — «declined» и «revoked»
+    # остались бы в выборке навсегда, и каждые 30 секунд по одной и той же
+    # отклонённой выплате уходила бы новая тревога. Так уже тонули алерты
+    # 27.07.2026, только по другой причине. Нашёл codex.
+    from core import sell_payout as _sp
+    done = (_sp.SETTLED,) + tuple(_sp.REJECTED)
+    holes = ",".join("?" * len(done))
+    with db_conn(5) as conn:
+        rows = conn.execute(
+            "SELECT id, user_id, rub_amount, payout_ref, payout_status FROM sell_orders"
+            " WHERE payout_provider='vertu' AND payout_ref IS NOT NULL AND payout_ref != ''"
+            f"   AND (payout_status IS NULL OR lower(payout_status) NOT IN ({holes}))"
+            "   AND datetime(updated_at) > datetime('now', '-3 days')", done).fetchall()
+    for sell_id, user_id, rub, ref, was in rows:
+        await _vertu_payout_settle(sell_id, user_id, rub, ref, was)
+    await _vertu_payout_stuck_claims()
+
+
+async def _vertu_payout_stuck_claims():
+    """Зовёт человека к заявкам, занятым под выплату и брошенным на полпути.
+
+    Такая строка не видна ни кнопке (заявка «уже выплачивается»), ни обходу
+    статусов (номера выплаты нет) — а долг перед клиентом настоящий. Сами не
+    разжимаем: запрос мог уйти к провайдеру до того, как процесс умер, и
+    автоматический повтор стоил бы второго перевода. Решает человек кнопкой.
+    """
+    from core import sell_payout as _sp
+    from core import alert_throttle
+    for row in _sp.stale_claims(15):
+        sell_id = row["id"]
+        # Раз в 6 часов на заявку: тревога, повторяемая каждые 30 секунд,
+        # топит сама себя — так уже было 27.07.2026.
+        if not alert_throttle.should_send(f"sell_stuck_claim:{sell_id}", 6 * 3600):
+            continue
+        notify_admins_tg(
+            f"⚠️ <b>Продажа #{sell_id} застряла в выплате</b>\n"
+            f"Заявка занята под выплату с {row['updated_at']}, номера выплаты "
+            f"у партнёра нет — похоже, бот перезапустился в момент перевода.\n"
+            f"Сумма {float(row['rub_amount'] or 0):,.2f} ₽.\n\n"
+            f"Сверьтесь с кабинетом Vertu: если выплаты там НЕТ — верните "
+            f"заявку в очередь кнопкой ниже. Если ЕСТЬ — не трогайте, она "
+            f"закроется сама.",
+            reply_markup={"inline_keyboard": [
+                [{"text": "↩️ Выплаты у партнёра нет — вернуть в очередь",
+                  "callback_data": f"sell_unclaim_{sell_id}"}],
+            ]})
+        audit_log("sell_stuck_claim", f"sell={sell_id}")
+
+
+async def _vertu_payout_settle(sell_id, user_id, rub, ref, was=None):
+    """Спросить рельс о выплате и довести заявку до её фактического исхода.
+
+    Общая для фонового обхода и обратного вызова провайдера: два входа в одно
+    и то же решение неизбежно разъедутся, а «начислить объём» и «сказать
+    клиенту» должны случиться ровно один раз — это обеспечивает возвращаемое
+    значение mark_settled/mark_rejected, а не порядок вызовов.
+    """
+    from core import sell_payout as _sp
+    info = await asyncio.to_thread(_sp.refresh_status, sell_id)
+    now = info.get("status")
+    if not now or now == "unknown":
+        return
+    if now != was:
+        audit_log("vertu_payout_status", f"sell={sell_id} ref={ref} {was}→{now}")
+    rub = float(rub or 0)
+
+    if _sp.is_settled(now):
+        if not _sp.mark_settled(sell_id):
+            return                     # заявку уже закрыл кто-то другой
+        with db_conn(5) as conn:
+            conn.execute("""INSERT INTO user_vip_volume (user_id, total_rub, updated_at)
+                VALUES (?,?,datetime('now'))
+                ON CONFLICT(user_id) DO UPDATE SET
+                    total_rub=total_rub+excluded.total_rub,
+                    updated_at=datetime('now')""", (user_id, rub))
+            conn.commit()
+        if user_id and int(user_id) > 0:
+            notify_telegram(user_id, (
+                f"✅ <b>Заявка #{sell_id} выполнена!</b>\n"
+                f"💰 {rub:,.2f} RUB зачислены — банк подтвердил перевод."))
+        audit_log("vertu_payout_settled", f"sell={sell_id} ref={ref} {rub}")
+        return
+
+    if _sp.is_rejected(now):
+        # Заявка возвращается в очередь: монеты клиента у нас, долг остался.
+        # Тревога — только тому вызову, который её вернул: обход и обратный
+        # вызов приходят к одному отказу, и второй сигнал об уже известной
+        # беде лишь топит первый.
+        if not _sp.mark_rejected(sell_id):
+            return
+        notify_admins_tg(
+            f"🚨 <b>Выплата по продаже #{sell_id} ОТКЛОНЕНА</b>\n"
+            f"Партнёр вернул статус <code>{info.get('raw_status')}</code> по выплате "
+            f"<code>{ref}</code> на {rub:,.2f} ₽.\n"
+            f"Деньги клиенту НЕ ушли, заявка снова ждёт выплаты. Нужен человек: "
+            f"повторить кнопкой «Выплатить» или перевести вручную.")
 
 
 async def health_check_task():
