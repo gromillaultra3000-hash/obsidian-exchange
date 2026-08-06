@@ -51,6 +51,21 @@ MAGIC = {
     "LTC": b"Litecoin Signed Message:\n",
 }
 
+# Схема подписи — свойство ЦЕПИ, а не монеты: USDT в TRON подписывается как
+# TRON, а в Ethereum — как Ethereum, и это разные обёртки, разные кодировки
+# подписи и разный вывод адреса из ключа. Поэтому всё ниже разветвляется по
+# схеме, а схема выбирается по (монета, сеть) — см. `_scheme_for`.
+SCHEME_BTC, SCHEME_EVM, SCHEME_TRON = "btc", "evm", "tron"
+
+# Обёртка сообщения у EIP-191 и TIP-191 одинакова по форме и различается ровно
+# строкой сети. Это не косметика: подпись, сделанная в Ethereum, не должна
+# подходить к адресу в TRON, даже если ключ один и тот же (а он бывает один и
+# тот же — обе цепи используют secp256k1 и keccak).
+_EIP191_PREFIX = {
+    SCHEME_EVM: b"\x19Ethereum Signed Message:\n",
+    SCHEME_TRON: b"\x19TRON Signed Message:\n",
+}
+
 # Версии Base58 по типам адреса. Держим отдельно от `core.address` (там они
 # слиты в один набор «валидный адрес валюты»), потому что здесь нужно знать
 # ИМЕННО тип: у P2PKH и P2SH из одного ключа получаются разные хеши.
@@ -95,6 +110,52 @@ def recovery_available() -> bool:
         return False
 
 
+def _scheme_for(currency: str, network=None) -> Optional[str]:
+    """Схема подписи для (монета, сеть) или None — подписью не подтверждаем.
+
+    Сеть решает, а не монета: у USDT адрес `T…` живёт в TRON, а `0x…` — в
+    Ethereum, и подпись у них разная во всём. Пустую сеть достраиваем через
+    реестр (`normalize_network`), но ТОЛЬКО его ответом: угадывать по виду
+    адреса нельзя — тогда клиент, выбравший ERC-20 и вставивший TRON-адрес,
+    получил бы «подтверждено» на адрес не в той сети.
+    """
+    cur = str(currency or "").strip().upper()
+    if cur in MAGIC:
+        return SCHEME_BTC
+    try:
+        from core import assets as _assets
+        net = _assets.normalize_network(cur, network)
+    except Exception as e:
+        logger.warning("sig_proof: сеть не определена: %s", e)
+        return None
+    if not net:
+        return None
+    if net in (_TRON_NETWORKS):
+        return SCHEME_TRON
+    if net in _EVM_NETWORKS:
+        return SCHEME_EVM
+    return None
+
+
+# Каноничные коды сетей, за которыми стоит соответствующая схема подписи.
+# Списки короткие и named явно: «всё остальное — EVM» однажды подписало бы
+# адрес в сети, о которой мы ничего не знаем.
+_TRON_NETWORKS = {"TRC20", "TRON"}
+_EVM_NETWORKS = {"ERC20", "ETH", "ETHEREUM", "EVM"}
+
+
+def _chain(currency: str, network=None) -> Optional[str]:
+    """Цепь связи кошелька. Отдаётся в вердикте, чтобы вызывающий не выводил её
+    сам: два вывода одного и того же неизбежно разойдутся, а по этому ключу
+    лежит адрес, чей баланс мы потом показываем клиенту."""
+    try:
+        from core import assets as _assets
+        return _assets.chain_of(currency, network)
+    except Exception as e:
+        logger.warning("sig_proof: цепь не определена: %s", e)
+        return None
+
+
 def currencies() -> set:
     """Монеты, для которых доказательство подписью включено. Источник — реестр
     `core.assets`, чтобы список во фронте не разошёлся с проверкой на сервере.
@@ -112,11 +173,50 @@ def currencies() -> set:
         return set()
     try:
         from core import assets as _assets
-        return {c for c in _assets.SIGNED_MESSAGE_CURRENCIES
-                if c not in getattr(_assets, "TAGGED_CURRENCIES", {})}
+        known = {c for c in _assets.SIGNED_MESSAGE_CURRENCIES
+                 if c not in getattr(_assets, "TAGGED_CURRENCIES", {})
+                 and any(_scheme_for(c, n) for n in _assets.networks_for(c))}
     except Exception as e:
         logger.warning("sig_proof: реестр монет недоступен: %s", e)
         return set()
+    # Предлагаем подтвердить адрес только там, куда клиент реально может
+    # получить монеты. Витрина — тот же источник, что у формы заявки: она
+    # учитывает и курируемый резерв, и гейт MULTICHAIN_UI_ENABLED. Иначе форма
+    # звала бы подтверждать адрес монеты, которую мы сегодня не отдаём, — и
+    # подтверждённый адрес некуда было бы подставить. Нашёл codex.
+    try:
+        from services import offerings as _off
+        return {c for c in known if _off.is_offered(c)}
+    except Exception as e:
+        # Витрина недоступна — не прячем форму совсем: подтверждение адреса
+        # деньгами не распоряжается, а `prepare` всё равно проверит всё.
+        logger.warning("sig_proof: витрина недоступна (%s) — список монет из реестра", e)
+        return known
+
+
+def proof_networks(currency: str) -> list:
+    """Сети монеты, в которых подпись мы проверять умеем.
+
+    Отдаётся поверхностям вместе со списком монет: у USDT сетей две, и без
+    выбора сети форма молча подтверждала бы адрес в той, которую выбрали за
+    клиента. Пустой список = монету подписью не подтверждаем.
+    """
+    try:
+        from core import assets as _assets
+        if currency not in currencies():
+            return []
+        nets = [n for n in _assets.networks_for(currency) if _scheme_for(currency, n)]
+    except Exception as e:
+        logger.warning("sig_proof: сети монеты недоступны: %s", e)
+        return []
+    try:
+        # Та же витрина, что и у монет: сеть, в которой мы не отдаём монету,
+        # предлагать к подтверждению незачем — адрес в ней некуда подставить.
+        from services import offerings as _off
+        return [n for n in nets if _off.is_offered(currency, n)]
+    except Exception as e:
+        logger.warning("sig_proof: витрина сетей недоступна: %s", e)
+        return nets
 
 
 def challenge(subject: Any) -> Optional[str]:
@@ -129,7 +229,7 @@ def challenge(subject: Any) -> Optional[str]:
         return None
 
 
-def message_for(currency: str, address: str, payload: str) -> Optional[str]:
+def message_for(currency: str, address: str, payload: str, network=None) -> Optional[str]:
     """Ровно тот текст, который подписывает кошелёк.
 
     Одна функция на показ и на проверку — намеренно. Если бы поверхность
@@ -140,16 +240,29 @@ def message_for(currency: str, address: str, payload: str) -> Optional[str]:
     cur = str(currency or "").strip().upper()
     addr = str(address or "").strip()
     code = str(payload or "").strip()
-    if cur not in MAGIC or not addr or not code:
+    if not _scheme_for(cur, network) or not addr or not code:
+        return None
+    # Сеть попадает в подписанный текст только у монет, где сетей несколько.
+    # Там она обязательна: одна и та же подпись иначе годилась бы и для
+    # TRC-20, и для ERC-20, а это разные деньги в разных цепях. У монеты с
+    # единственной сетью строка была бы шумом на экране аппаратного кошелька.
+    net_line = ""
+    try:
+        from core import assets as _assets
+        if len(_assets.networks_for(cur)) > 1:
+            net_line = f"network: {_assets.normalize_network(cur, network)}\n"
+    except Exception as e:
+        logger.warning("sig_proof: сеть в тексте не указана: %s", e)
         return None
     return ("ObsidianExchange address proof\n"
             f"currency: {cur}\n"
+            + net_line +
             f"address: {addr}\n"
             f"code: {code}\n"
             "This signature proves ownership only. It moves no funds.")
 
 
-def prepare(currency: str, address: str, subject: Any) -> Dict[str, Any]:
+def prepare(currency: str, address: str, subject: Any, network=None) -> Dict[str, Any]:
     """Всё, что нужно поверхности для шага «подпишите текст»:
     {'ok', 'reason', 'error', 'message', 'payload', 'currency', 'address'}.
     `message` — только текст НА ПОДПИСЬ и только при `ok`; человеческая причина
@@ -164,25 +277,29 @@ def prepare(currency: str, address: str, subject: Any) -> Dict[str, Any]:
     """
     cur = str(currency or "").strip().upper()
     addr = str(address or "").strip()
-    if cur not in currencies():
+    if cur not in currencies() or not _scheme_for(cur, network):
         return {"ok": False, "reason": "bad_currency",
                 "error": reason_text("bad_currency")}
     try:
         from core import assets as _assets
-        good = _assets.validate_address(cur, addr)
+        net = _assets.normalize_network(cur, network)
+        # Сеть передаём в проверку адреса: у USDT формы адресов разные, и без
+        # неё `T…` прошёл бы как «адрес USDT», хотя клиент выбрал ERC-20.
+        good = _assets.validate_address(cur, addr, net)
     except Exception as e:
         logger.warning("sig_proof: проверка адреса недоступна: %s", e)
-        good = False
+        good, net = False, None
     if not good:
         return {"ok": False, "reason": "bad_address",
                 "error": reason_text("bad_address")}
     payload = challenge(subject)
-    message = message_for(cur, addr, payload) if payload else None
+    message = message_for(cur, addr, payload, net) if payload else None
     if not message:
         return {"ok": False, "reason": "not_configured",
                 "error": reason_text("not_configured")}
     return {"ok": True, "reason": "ok", "message": message, "payload": payload,
-            "currency": cur, "address": addr}
+            "currency": cur, "address": addr, "network": net,
+            "scheme": _scheme_for(cur, net)}
 
 
 def _hash160(data: bytes) -> bytes:
@@ -199,14 +316,24 @@ def _varint(n: int) -> bytes:
     return b"\xff" + n.to_bytes(8, "little")
 
 
-def message_digest(currency: str, message: str) -> Optional[bytes]:
-    """Двойной SHA-256 от сообщения в обёртке кошельков. None — монета чужая."""
-    magic = MAGIC.get(str(currency or "").strip().upper())
-    if magic is None:
-        return None
-    body = message.encode("utf-8")
-    blob = _varint(len(magic)) + magic + _varint(len(body)) + body
-    return hashlib.sha256(hashlib.sha256(blob).digest()).digest()
+def message_digest(currency: str, message: str, network=None) -> Optional[bytes]:
+    """Хеш сообщения в обёртке кошельков этой цепи. None — цепь нам чужая.
+
+    У биткойн-семейства это двойной SHA-256 с двумя префиксами длины, у
+    Ethereum и TRON — keccak-256 от строки-обёртки EIP-191/TIP-191. Обёртка
+    существует затем, чтобы подписанное сообщение НЕ могло оказаться
+    транзакцией: ни один валидный перевод не начинается с этих байтов.
+    """
+    scheme = _scheme_for(currency, network)
+    body = str(message or "").encode("utf-8")
+    if scheme == SCHEME_BTC:
+        magic = MAGIC[str(currency).strip().upper()]
+        blob = _varint(len(magic)) + magic + _varint(len(body)) + body
+        return hashlib.sha256(hashlib.sha256(blob).digest()).digest()
+    if scheme in _EIP191_PREFIX:
+        from core.address import keccak256
+        return keccak256(_EIP191_PREFIX[scheme] + str(len(body)).encode() + body)
+    return None
 
 
 def _address_targets(currency: str, address: str):
@@ -244,6 +371,79 @@ def _address_targets(currency: str, address: str):
     except Exception as e:
         logger.warning("sig_proof: адрес не разобран: %s", e)
     return (None, None)
+
+
+def _keccak_account(pub_uncompressed: bytes) -> Optional[bytes]:
+    """20 байт счёта из НЕсжатого публичного ключа — общий шаг Ethereum и TRON.
+
+    Обе цепи выводят адрес одинаково (keccak-256 от 64 байт координат, младшие
+    20 байт) и различаются лишь тем, как эти байты записывают: Ethereum — hex
+    с контрольной суммой регистром, TRON — Base58Check с префиксом 0x41.
+    """
+    if not pub_uncompressed or len(pub_uncompressed) != 65 or pub_uncompressed[0] != 0x04:
+        return None
+    from core.address import keccak256
+    return keccak256(pub_uncompressed[1:])[-20:]
+
+
+def _account_target(scheme: str, address: str) -> Optional[bytes]:
+    """20 байт счёта из заявленного адреса или None (адрес не разобран)."""
+    addr = str(address or "").strip()
+    if not addr:
+        return None
+    try:
+        if scheme == SCHEME_EVM:
+            if not addr.lower().startswith("0x") or len(addr) != 42:
+                return None
+            return bytes.fromhex(addr[2:])
+        if scheme == SCHEME_TRON:
+            from core import address as _addr
+            payload = _addr.b58check_decode(addr)
+            # 0x41 — версия mainnet TRON. Без этой проверки адрес из чужой сети
+            # с тем же алфавитом сравнивался бы по «хвосту» и мог совпасть.
+            if not payload or len(payload) != 21 or payload[0] != 0x41:
+                return None
+            return payload[1:]
+    except (ValueError, TypeError) as e:
+        logger.warning("sig_proof: счёт не разобран: %s", e)
+    return None
+
+
+def _recover_keys_rsv(signature: str, digest: bytes) -> list:
+    """Ключи из подписи в форме r||s||v (Ethereum, TRON) или [].
+
+    `v` кошельки пишут по-разному: MetaMask отдаёт 27/28, часть библиотек и
+    TronLink — 0/1. Принимаем оба вида, но НЕ «любой байт»: recid вне 0..3
+    означает, что подпись не отсюда, и молча брать младшие два бита значило бы
+    принять испорченную подпись как годную.
+    """
+    raw = "".join(str(signature or "").split())
+    if raw.lower().startswith("0x"):
+        raw = raw[2:]
+    try:
+        blob = bytes.fromhex(raw)
+    except ValueError:
+        return []
+    if len(blob) != 65:
+        return []
+    v = blob[64]
+    if v in (27, 28):
+        recid = v - 27
+    elif v in (0, 1):
+        recid = v
+    else:
+        return []
+    try:
+        from coincurve import PublicKey
+    except Exception as e:
+        logger.warning("sig_proof: восстановление ключа недоступно: %s", e)
+        return []
+    try:
+        pub = PublicKey.from_signature_and_message(blob[:64] + bytes([recid]),
+                                                   digest, hasher=None)
+        return [pub.format(compressed=False)]
+    except Exception:
+        return []
 
 
 def _recover_keys(signature: str, digest: bytes) -> list:
@@ -294,7 +494,7 @@ def _verdict(reason: str, address: str = None, **extra) -> Dict[str, Any]:
 
 
 def verify(currency: str, address: str, payload: str, signature: str, *,
-           subject: Any, now: float = None) -> Dict[str, Any]:
+           subject: Any, now: float = None, network=None) -> Dict[str, Any]:
     """Вердикт о владении: {'verified','reason','message','address'}.
 
     Положительный вердикт возможен единственным путём — восстановленный из
@@ -306,7 +506,8 @@ def verify(currency: str, address: str, payload: str, signature: str, *,
     addr = str(address or "").strip()
     if not cur or not addr or not payload or not signature:
         return _verdict("bad_request", addr)
-    if cur not in MAGIC or cur not in currencies():
+    scheme = _scheme_for(cur, network)
+    if not scheme or cur not in currencies():
         return _verdict("bad_currency", addr)
 
     # Контрольная сумма адреса — до всякой криптографии: на испорченном адресе
@@ -314,7 +515,8 @@ def verify(currency: str, address: str, payload: str, signature: str, *,
     # а не «ключ не тот».
     try:
         from core import assets as _assets
-        if not _assets.validate_address(cur, addr):
+        net = _assets.normalize_network(cur, network)
+        if not _assets.validate_address(cur, addr, net):
             return _verdict("bad_address", addr)
     except Exception as e:
         logger.warning("sig_proof: проверка адреса недоступна: %s", e)
@@ -329,14 +531,26 @@ def verify(currency: str, address: str, payload: str, signature: str, *,
     if bad:
         return _verdict(bad if bad in _REASONS else "bad_payload", addr)
 
+    message = message_for(cur, addr, payload, net)
+    digest = message_digest(cur, message or "", net)
+    if not message or not digest:
+        return _verdict("bad_request", addr)
+
+    if scheme in (SCHEME_EVM, SCHEME_TRON):
+        target = _account_target(scheme, addr)
+        if target is None:
+            return _verdict("unsupported_address", addr)
+        keys = _recover_keys_rsv(signature, digest)
+        if not keys:
+            return _verdict("bad_signature", addr)
+        for pub in keys:
+            if _keccak_account(pub) == target:
+                return _verdict("ok", addr, network=net, chain=_chain(cur, net))
+        return _verdict("not_owner", addr)
+
     kind, target = _address_targets(cur, addr)
     if not kind:
         return _verdict("unsupported_address", addr)
-
-    message = message_for(cur, addr, payload)
-    digest = message_digest(cur, message or "")
-    if not message or not digest:
-        return _verdict("bad_request", addr)
 
     keys = _recover_keys(signature, digest)
     if not keys:
@@ -345,11 +559,11 @@ def verify(currency: str, address: str, payload: str, signature: str, *,
     for pub in keys:
         h160 = _hash160(pub)
         if kind == "p2pkh" and h160 == target:
-            return _verdict("ok", addr)
+            return _verdict("ok", addr, network=net, chain=_chain(cur, net))
         if kind == "p2wpkh" and len(pub) == 33 and h160 == target:
             # segwit-адрес выводится только из СЖАТОГО ключа; принять здесь
             # несжатый значило бы подтвердить адрес, которого у этого ключа нет.
-            return _verdict("ok", addr)
+            return _verdict("ok", addr, network=net, chain=_chain(cur, net))
         if kind == "p2sh" and len(pub) == 33 and _hash160(b"\x00\x14" + h160) == target:
-            return _verdict("ok", addr)
+            return _verdict("ok", addr, network=net, chain=_chain(cur, net))
     return _verdict("not_owner", addr)

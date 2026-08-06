@@ -211,7 +211,7 @@ def _sell_currencies():
     клиента в тупик, а пустой перечень честно скажет, что направление закрыто.
     """
     try:
-        return tuple(c for c, addr in SELL_ADDRESSES.items() if addr)
+        return _sell_assets.sell_currencies()
     except Exception as e:
         logger.error(f"список продажи недоступен: {e}")
         return ()
@@ -924,20 +924,22 @@ async def dashboard_exchange_submit(
     return RedirectResponse(f"/pay/{order_id}", status_code=302)
 
 # --- Продажа крипты → RUB на сайте (зеркало бот-флоу menu_sell) ---
-SELL_ADDRESSES = {c: os.getenv(f'SELL_{c}_ADDRESS', '').strip()
-                  for c in ('BTC', 'LTC', 'USDT', 'TON')}
-SELL_MIN = {'BTC': 0.0005, 'LTC': 0.5, 'USDT': 50, 'TON': 5}
-SELL_LABELS = {'BTC': '₿ Bitcoin', 'LTC': 'Ł Litecoin', 'USDT': '💵 USDT (TRC20)',
-               'TON': '💎 Toncoin'}
+# Список монет, адреса приёма, минимумы и подписи — из общего реестра
+# core/sell_assets.py. Раньше здесь стоял кортеж из четырёх монет, а в боте —
+# свой словарь из тех же четырёх: заведённый адрес приёма новой монеты не
+# включал ничего, а расхождение двух копий уже случалось (сайт звал продавать
+# монету, которой в меню бота не было).
+from core import sell_assets as _sell_assets
 
 def _sell_context():
     coins, sell_js = [], {}
-    for code, addr in SELL_ADDRESSES.items():
-        if not addr:
-            continue  # монета без адреса — продажа недоступна
+    for code in _sell_assets.sell_currencies():
         rate = exchange_calc.get_sell_rate(code)
-        coins.append({"code": code, "label": SELL_LABELS[code], "rate": rate})
-        sell_js[code] = {"rate": rate, "min": SELL_MIN[code]}
+        manual = _sell_assets.needs_manual_check(code)
+        coins.append({"code": code, "label": _sell_assets.label(code), "rate": rate,
+                      "manual": manual})
+        sell_js[code] = {"rate": rate, "min": _sell_assets.minimum(code),
+                         "manual": manual}
     return coins, json.dumps(sell_js)
 
 @app.get("/dashboard/sell", response_class=HTMLResponse)
@@ -966,13 +968,24 @@ async def dashboard_sell_submit(
 
     currency = currency.upper().strip()
     phone = sbp_phone.strip().replace(' ', '').replace('-', '').lstrip('+')
-    receive_addr = SELL_ADDRESSES.get(currency, '')
+    receive_addr = _sell_assets.receive_address(currency)
+    min_amount = _sell_assets.minimum(currency)
     coins, sell_js = _sell_context()
     error = None
-    if not receive_addr:
+    # Сначала — открыта ли монета ЦЕЛИКОМ. Форму можно отправить в обход
+    # выпадающего списка, а часть условий реестра адресом и минимумом не
+    # проверяется: XRP закрыт потому, что мы не умеем выдать destination tag,
+    # и заявка на него велела бы клиенту перевести монеты без метки. Нашёл codex.
+    if currency not in _sell_currencies():
         error = "Продажа этой монеты временно недоступна."
-    elif amount < SELL_MIN.get(currency, 0.001):
-        error = f"Минимальная сумма: {SELL_MIN.get(currency)} {currency}."
+    elif not receive_addr:
+        error = "Продажа этой монеты временно недоступна."
+    elif min_amount is None:
+        # Минимум не объявлен — не подставляем догадку: 0.001 XMR это ~30 ₽,
+        # то есть заявка на пыль, за которую мы платим комиссию СБП.
+        error = "Продажа этой монеты временно недоступна."
+    elif amount < min_amount:
+        error = f"Минимальная сумма: {min_amount} {currency}."
     elif not re.match(r'^7\d{10}$', phone):
         error = "Неверный формат телефона. Пример: 79001234567."
     if error:
@@ -1023,7 +1036,13 @@ async def dashboard_sell_submit(
         request, active="sell", sell_coins=coins, sell_js=sell_js,
         created={"id": sell_id, "currency": currency, "amount": f"{amount:g}",
                  "rub": rub_amount, "phone": phone, "address": receive_addr,
-                 "marker": marker},
+                 "marker": marker,
+                 # Сеть рядом с адресом обязательна там, где сетей несколько:
+                 # USDT-ERC20, отправленный на TRON-адрес, теряется.
+                 "network": _sell_assets.receive_network(currency)
+                            if len(_assets.networks_for(currency)) > 1 else None,
+                 # Срок выплаты зависит от того, кто подтверждает зачисление.
+                 "manual": _sell_assets.needs_manual_check(currency)},
     ))
 
 # Анти-спам создания заявок из Mini App: скользящее окно на пользователя + глобально.
@@ -1375,13 +1394,16 @@ async def dashboard_profile_page(request: Request):
     try:
         from core import sig_proof as _sp
         proof_currencies = sorted(_sp.currencies())
+        # Сети идут вместе с монетами: у USDT их две, и выбрать за клиента
+        # значило бы подтвердить адрес в той сети, где его нет.
+        proof_networks = {c: _sp.proof_networks(c) for c in proof_currencies}
     except Exception as e:
         logger.warning(f"dashboard profile: реестр подписей недоступен: {e}")
-        proof_currencies = []
+        proof_currencies, proof_networks = [], {}
     return templates.TemplateResponse(request, "dashboard_profile.html", site_context(
         request, active="profile", ref_address=ref_address, wallets=wallets,
         wallet_ops=wallet_ops, address_book=book, deliveries=deliveries,
-        proof_currencies=proof_currencies,
+        proof_currencies=proof_currencies, proof_networks=proof_networks,
         error=request.query_params.get('error'), success=request.query_params.get('success'),
     ))
 
@@ -1999,7 +2021,7 @@ async def rates_xml_export():
                 f"<maxamount>{int(MAX_AMOUNT)} RUB</maxamount></item>")
     rub_reserve = reserves.get("RUB", 0) or 0
     for coin, code in coin_codes.items():
-        if not SELL_ADDRESSES.get(coin):
+        if coin not in _sell_currencies():
             continue
         try:
             sell = exchange_calc.get_sell_rate(coin)
@@ -2156,12 +2178,14 @@ async def api_proof_message(request: Request):
     if not uid:
         raise HTTPException(status_code=403, detail="Войдите в кабинет или откройте приложение через бота.")
     ready = _sp.prepare((request.query_params.get('currency') or '')[:8],
-                        (request.query_params.get('address') or '')[:120], uid)
+                        (request.query_params.get('address') or '')[:120], uid,
+                        network=(request.query_params.get('network') or '')[:12] or None)
     if not ready["ok"]:
         raise HTTPException(status_code=503 if ready["reason"] == "not_configured" else 400,
                             detail=ready["error"])
     from core import tonconnect as _tc
     return {"currency": ready["currency"], "address": ready["address"],
+            "network": ready.get("network"), "scheme": ready.get("scheme"),
             "payload": ready["payload"], "message": ready["message"],
             "ttl": _tc.PAYLOAD_TTL_SEC}
 
@@ -2180,16 +2204,22 @@ async def api_proof_verify(request: Request):
     if not uid:
         raise HTTPException(status_code=403, detail="Войдите в кабинет или откройте приложение через бота.")
     cur = str(body.get("currency") or "").upper()[:8]
+    net = str(body.get("network") or "")[:12] or None
     verdict = _sp.verify(cur, str(body.get("address") or "")[:120],
                          str(body.get("payload") or "")[:200],
-                         str(body.get("signature") or "")[:400], subject=uid)
-    logger.info(f"proof verify uid={uid} {cur} → {verdict['reason']}")
+                         str(body.get("signature") or "")[:400], subject=uid,
+                         network=net)
+    logger.info(f"proof verify uid={uid} {cur}/{net or '—'} → {verdict['reason']}")
     if verdict["verified"] and verdict["address"]:
         from core import wallet_link as _wl
-        _wl.remember(uid, cur, verdict["address"])
+        # Ключ связи — ЦЕПЬ из вердикта, а не монета из запроса: один `T…`-адрес
+        # держит и USDT, и TRX, один `0x…` — и ETH, и USDT-ERC20. Записав по
+        # монете, мы затирали бы доказанный адрес соседней сети того же клиента.
+        _wl.remember(uid, verdict.get("chain") or cur, verdict["address"])
     return {"verified": verdict["verified"], "reason": verdict["reason"],
             "message": verdict["message"], "address": verdict["address"],
-            "currency": cur}
+            "currency": cur, "network": verdict.get("network"),
+            "chain": verdict.get("chain")}
 
 
 @app.get("/api/wallet/links")
@@ -2256,6 +2286,8 @@ async def api_wallet_addresses(request: Request):
         # расхождения — форма подтверждения у монеты, где её нечем обслужить.
         from core import sig_proof as _sp
         out["proof_currencies"] = sorted(_sp.currencies())
+        out["proof_networks"] = {c: _sp.proof_networks(c)
+                                 for c in out["proof_currencies"]}
     return out
 
 

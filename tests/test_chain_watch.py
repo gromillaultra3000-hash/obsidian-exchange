@@ -137,14 +137,89 @@ check("незнакомый ответ истории не выдаётся за
 check("история неизвестной монеты → UNSUPPORTED",
       cw.history("DOGE", ADDR)["status"] == "UNSUPPORTED")
 
+# ── TRON: остаток и операции USDT-TRC20 ──────────────────────────────────────
+# Отличие от BTC/LTC не в форме ответа, а в том, что на ОДНОМ счёте лежат разные
+# активы. Ошибка здесь показывает клиенту чужие деньги под именем его USDT.
+print("\n── TRON ──")
+TADDR = "TN3W4H6rK2ce4vX9YnFQHwKENnHjoxb3m9"
+TFROM = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6a"
+USDT = cw.USDT_TRC20_CONTRACT
+FAKE = "TFakeTokenContractAddressXXXXXXXXXX"
+
+with_net(Net(reply={"data": [{"trc20": [{FAKE: "999000000"}, {USDT: "28078000"}]}]}))
+st = cw.tron_account_state(TADDR)
+check("остаток USDT считается по знакам контракта", st["balance"] == 28.078)
+check("актив назван явно — это USDT, а не «TRON»", st.get("asset") == "USDT")
+check("статус OK", st["status"] == "OK" and st["reason"] is None)
+
+with_net(Net(reply={"data": [{"trc20": [{FAKE: "999000000"}]}]}))
+st = cw.tron_account_state(TADDR)
+check("подставной токен с чужим контрактом не считается за USDT", st["balance"] == 0.0)
+
+# Пустой data у TronGrid = счёт не активирован. Это честный ноль: адрес есть,
+# переводов не было. Выдавать его за сбой значило бы прятать правду.
+with_net(Net(reply={"data": []}))
+st = cw.tron_account_state(TADDR)
+check("неактивированный счёт → честный ноль", st["balance"] == 0.0 and st["status"] == "OK")
+
+with_net(Net(reply={"data": {"не": "список"}}))
+st = cw.tron_account_state(TADDR)
+check("незнакомый ответ TRON не выдаётся за пустой кошелёк",
+      st["balance"] is None and st["status"] == "ERROR")
+
+with_net(Net(boom=RuntimeError("429")))
+st = cw.tron_account_state(TADDR)
+check("сбой обозревателя TRON → «неизвестно», а не ноль",
+      st["balance"] is None and st["status"] == "ERROR" and st.get("asset") == "USDT")
+
+with_net(Net(reply={"data": [{"trc20": [{USDT: "не число"}]}]}))
+st = cw.tron_account_state(TADDR)
+check("нечисловой остаток → ERROR, а не ноль",
+      st["balance"] is None and st["status"] == "ERROR")
+
+TRC20_TXS = {"data": [
+    {"transaction_id": "t1", "from": TFROM, "to": TADDR, "value": "3500000",
+     "block_timestamp": 1700000000000, "token_info": {"address": USDT}},
+    {"transaction_id": "t2", "from": TADDR, "to": TFROM, "value": "1200000",
+     "block_timestamp": 1700000100000, "token_info": {"address": USDT}},
+    # Тот же счёт, но чужой токен: к USDT клиента отношения не имеет.
+    {"transaction_id": "t3", "from": TFROM, "to": TADDR, "value": "9000000000",
+     "block_timestamp": 1700000200000, "token_info": {"address": FAKE}},
+]}
+with_net(Net(reply=TRC20_TXS))
+h = cw.tron_history(TADDR, 10)
+check("история TRON прочитана", h["status"] == "OK")
+check("переводы чужого токена в историю не попадают", len(h["items"]) == 2)
+check("приход USDT посчитан в знаках USDT",
+      h["items"][0]["direction"] == "in" and h["items"][0]["amount"] == 3.5)
+check("у прихода контрагент — отправитель", h["items"][0]["counterparty"] == TFROM)
+check("расход помечен как расход",
+      h["items"][1]["direction"] == "out" and h["items"][1]["amount"] == 1.2)
+check("время переведено из миллисекунд в секунды", h["items"][0]["ts"] == 1700000000)
+check("операция названа своим активом", h["items"][0].get("asset") == "USDT")
+
+with_net(Net(boom=TimeoutError("долго")))
+h = cw.tron_history(TADDR)
+check("сбой истории TRON → ERROR, а не «операций нет»",
+      h["status"] == "ERROR" and h["items"] == [])
+
+with_net(Net(reply={"data": "не список"}))
+check("незнакомый ответ истории TRON не выдаётся за пустую историю",
+      cw.tron_history(TADDR)["status"] == "ERROR")
+
+with_net(Net(reply={"data": []}))
+h = cw.tron_history(TADDR)
+check("нет переводов → пустая история со статусом OK",
+      h["status"] == "OK" and h["items"] == [])
+
 # ── связка с реестром кошельков ──────────────────────────────────────────────
 print("\n── реестр источников ──")
 from core import wallet_link as wl                                  # noqa: E402
-check("BTC и LTC зарегистрированы как источники баланса",
-      {"BTC", "LTC"} <= set(wl.BALANCE_SOURCES))
-check("BTC и LTC зарегистрированы как источники истории",
-      {"BTC", "LTC"} <= set(wl.HISTORY_SOURCES))
-for coin in ("BTC", "LTC"):
+check("BTC, LTC и TRON зарегистрированы как источники баланса",
+      {"BTC", "LTC", "TRON"} <= set(wl.BALANCE_SOURCES))
+check("BTC, LTC и TRON зарегистрированы как источники истории",
+      {"BTC", "LTC", "TRON"} <= set(wl.HISTORY_SOURCES))
+for coin in ("BTC", "LTC", "TRON"):
     mod, fn = wl.BALANCE_SOURCES[coin]
     check(f"источник баланса {coin} существует и зовётся одним адресом",
           callable(getattr(__import__(mod, fromlist=[fn]), fn)))
@@ -160,6 +235,13 @@ check("реестр проносит ожидающее наружу", state.get
 state = wl._account_state("BTC", ADDR, source=lambda a: {
     "balance": None, "status": "ERROR", "reason": "сеть"})
 check("при сбое ожидающее тоже «неизвестно», а не ноль", state.get("pending") is None)
+
+# Имя актива тоже теряется молча — и тогда 28 USDT подписываются словом «TRON».
+state = wl._account_state("TRON", TADDR, source=lambda a: {
+    "balance": 28.078, "status": "OK", "asset": "USDT"})
+check("реестр проносит имя актива наружу", state.get("asset") == "USDT")
+state = wl._account_state("BTC", ADDR, source=lambda a: {"balance": 1.0, "status": "OK"})
+check("без имени актива подписью остаётся сама цепь", state.get("asset") == "BTC")
 
 cw._get_json = _real_get
 print()

@@ -75,7 +75,27 @@ print("\n── реестр монет ──")
 check("BTC и LTC подтверждаются подписью", {"BTC", "LTC"} <= sp.currencies())
 check("монеты с тегом в список не попадают",
       not (sp.currencies() & set(assets.TAGGED_CURRENCIES)))
-check("USDT подписью не подтверждается (нет реализации)", "USDT" not in sp.currencies())
+check("USDT подтверждается подписью", "USDT" in sp.currencies())
+# Список идёт от ВИТРИНЫ, а не от реестра схем: подтверждать адрес монеты,
+# которую мы сегодня не отдаём, некуда — подставить такой адрес будет не во что.
+# ETH и USDT-ERC20 на витрине не стоят (резерв не задан), значит и в форме их
+# быть не должно; включатся вместе с витриной.
+from services import offerings as _off0                              # noqa: E402
+for cur in sorted(sp.currencies()):
+    check(f"{cur} в форме подтверждения — потому что он есть на витрине",
+          _off0.is_offered(cur))
+check("сети USDT в форме — ровно те, что на витрине",
+      sp.proof_networks("USDT") == [n for n in assets.networks_for("USDT")
+                                    if _off0.is_offered("USDT", n)])
+check("сеть, которой нет на витрине, к подтверждению не предлагается",
+      all(_off0.is_offered("USDT", n) for n in sp.proof_networks("USDT")))
+check("у BTC сеть одна", sp.proof_networks("BTC") == ["MAINNET"])
+check("монета вне реестра сетей не получает ни одной",
+      sp.proof_networks("XRP") == [])
+check("схема выбирается сетью, а не монетой",
+      (sp._scheme_for("USDT", "TRC20"), sp._scheme_for("USDT", "ERC20"))
+      == (sp.SCHEME_TRON, sp.SCHEME_EVM))
+check("чужая сеть схемы не получает", sp._scheme_for("USDT", "BEP20") is None)
 
 # Нет движка восстановления ключа — нет и обещания: иначе клиент получит
 # «подпись не разобрана» на безупречной подписи и будет копировать её заново.
@@ -253,6 +273,109 @@ check("книга находит его при выборе BTC в форме з
       any(e["address"] == addr for e in ab.entries_for(UID, "BTC", "MAINNET")))
 check("владение подтверждается для подстановки", ab.owns(UID, "BTC", addr))
 check("чужому клиенту он не виден", not ab.owns(OTHER_UID, "BTC", addr))
+
+# ── EVM и TRON: подписываем ЧУЖИМИ реализациями, проверяем своей ──────────────
+# Смысл именно в этом: свою подпись своим же кодом проверит и ошибочный код.
+# eth_account (MetaMask-совместимый personal_sign) и tronpy (TIP-191, то же,
+# что делает TronLink signMessageV2) написаны не нами и про наш модуль не знают.
+print("\n── EVM и TRON, настоящая криптография ──")
+from eth_account import Account                                      # noqa: E402
+from eth_account.messages import encode_defunct                      # noqa: E402
+from tronpy.keys import PrivateKey as TronKey                        # noqa: E402
+
+
+def evm_sign(key, text):
+    return Account.sign_message(encode_defunct(text=text), key).signature.hex()
+
+
+acct = Account.create()
+
+# ETH сегодня на витрине НЕТ (резерв не задан) — и форма его не предлагает: см.
+# «витрина решает». Но EVM-путь всё равно живой (он же обслуживает USDT-ERC20,
+# когда его включат), и проверять его нужно настоящей подписью. Поэтому витрину
+# на время этой части подменяем: код доказательства от неё не зависит.
+from services import offerings as _off                               # noqa: E402
+check("пока ETH не на витрине, подтверждать его адрес не предлагаем",
+      "ETH" not in sp.currencies())
+_real_is_offered = _off.is_offered
+_off.is_offered = lambda cur, net=None: True
+check("с открытой витриной ETH снова доступен для подтверждения",
+      "ETH" in sp.currencies())
+
+ready = sp.prepare("ETH", acct.address, UID)
+check("подготовка для ETH удалась", ready["ok"] and ready["scheme"] == "evm")
+check("в тексте нет строки сети (у ETH она одна)", "network:" not in ready["message"])
+v = sp.verify("ETH", acct.address, ready["payload"], evm_sign(acct.key, ready["message"]),
+              subject=UID)
+check("MetaMask-подпись принята", v["verified"] and v["reason"] == "ok")
+check("вердикт называет цепь связи", v.get("chain") == "ETH")
+
+stranger = Account.create()
+check("чужой адрес с этой подписью не подтверждается",
+      sp.verify("ETH", stranger.address, ready["payload"],
+                evm_sign(acct.key, ready["message"]), subject=UID)["reason"] == "not_owner")
+check("подпись другого текста не подходит",
+      sp.verify("ETH", acct.address, ready["payload"],
+                evm_sign(acct.key, "I agree to something else"),
+                subject=UID)["reason"] in ("not_owner", "bad_signature"))
+check("код, выданный другому клиенту, отвергнут",
+      sp.verify("ETH", acct.address, ready["payload"],
+                evm_sign(acct.key, ready["message"]), subject=OTHER_UID)["reason"]
+      == "payload_alien")
+check("испорченная подпись — не «не тот владелец», а «не разобрана»",
+      sp.verify("ETH", acct.address, ready["payload"], "0x" + "11" * 65,
+                subject=UID)["reason"] in ("bad_signature", "not_owner"))
+check("подпись не той длины отвергнута",
+      sp.verify("ETH", acct.address, ready["payload"], "0xdeadbeef",
+                subject=UID)["reason"] == "bad_signature")
+
+# v пишут по-разному: MetaMask 27/28, часть библиотек 0/1. Принимаем оба вида.
+raw = bytes.fromhex(evm_sign(acct.key, ready["message"]).replace("0x", ""))
+low_v = (raw[:64] + bytes([raw[64] - 27])).hex()
+check("подпись с v=0/1 (TronLink и часть библиотек) тоже принята",
+      sp.verify("ETH", acct.address, ready["payload"], low_v, subject=UID)["verified"])
+check("v вне 0..3 и 27/28 — отказ, а не «возьмём младшие биты»",
+      sp.verify("ETH", acct.address, ready["payload"],
+                (raw[:64] + bytes([99])).hex(), subject=UID)["reason"] == "bad_signature")
+
+_off.is_offered = _real_is_offered      # дальше — настоящая витрина
+
+tron_key = TronKey.random()
+tron_addr = tron_key.public_key.to_base58check_address()
+ready_t = sp.prepare("USDT", tron_addr, UID, network="TRC20")
+check("подготовка для USDT/TRC20 удалась", ready_t["ok"] and ready_t["scheme"] == "tron")
+check("у монеты с двумя сетями сеть НАЗВАНА в подписываемом тексте",
+      "network: TRC20" in ready_t["message"])
+sig_t = tron_key.sign_msg(ready_t["message"].encode()).hex()
+vt = sp.verify("USDT", tron_addr, ready_t["payload"], sig_t, subject=UID, network="TRC20")
+check("TronLink-подпись принята", vt["verified"])
+check("цепь связи — TRON, а не USDT", vt.get("chain") == "TRON")
+check("чужой TRON-адрес не подтверждается",
+      sp.verify("USDT", TronKey.random().public_key.to_base58check_address(),
+                ready_t["payload"], sig_t, subject=UID, network="TRC20")["reason"]
+      == "not_owner")
+
+# Главное про две цепи одного ключа: secp256k1 и keccak у Ethereum и TRON общие,
+# и без разных обёрток одна подпись подошла бы к обоим счетам сразу.
+same_key = TronKey(bytes.fromhex(acct.key.hex().replace("0x", "")))
+check("это один и тот же ключ в двух цепях",
+      same_key.public_key.to_hex_address()[-40:].lower() == acct.address[2:].lower())
+ready_x = sp.prepare("USDT", same_key.public_key.to_base58check_address(),
+                     UID, network="TRC20")
+check("подпись Ethereum-обёрткой не годится для TRON-адреса того же ключа",
+      not sp.verify("USDT", same_key.public_key.to_base58check_address(),
+                    ready_x["payload"], evm_sign(acct.key, ready_x["message"]),
+                    subject=UID, network="TRC20")["verified"])
+
+# Связь ложится по ЦЕПИ: иначе доказанный TRC-20-адрес затирался бы ERC-20-адресом
+# того же клиента (ключ таблицы — «клиент + цепь»).
+check("цепь TRON разворачивается в пару USDT/TRC20",
+      assets.pairs_on_chain("TRON") == [("USDT", "TRC20")])
+check("цепь ETH годна и для ETH, и для USDT-ERC20",
+      set(assets.pairs_on_chain("ETH")) == {("ETH", "ERC20"), ("USDT", "ERC20")})
+check("BTC и TRON — разные цепи, затирать друг друга нечем",
+      assets.chain_of("BTC") != assets.chain_of("USDT", "TRC20"))
+
 os.unlink(tmp.name)
 
 print()

@@ -493,6 +493,15 @@
               одним тапом. Подпись ничего не переводит.</div>
             <div class="input-group"><label>Монета</label>
               <select id="w-proof-cur"></select></div>
+            <!-- Сеть спрашиваем только там, где их несколько: у USDT адрес в
+                 TRON и в Ethereum разный и подписывается по-разному. -->
+            <div class="input-group" id="w-proof-net-wrap" style="display:none">
+              <label>Сеть</label><select id="w-proof-net"></select></div>
+            <!-- Кнопка кошелька — только если расширение реально есть в этом
+                 браузере. Внутри Telegram его обычно нет, и обещать «подключить
+                 MetaMask» там значило бы звать нажать на то, что не ответит. -->
+            <button type="button" id="w-proof-connect"
+                    style="display:none;width:100%;margin-bottom:8px;background:none;border:1px solid rgba(255,255,255,.14);color:var(--text,#fff);border-radius:12px;padding:10px;font-size:13px;cursor:pointer"></button>
             <div class="input-group"><label>Ваш адрес</label>
               <input type="text" id="w-proof-addr" autocomplete="off" placeholder="bc1… / 1… / ltc1…"></div>
             <button type="button" id="w-proof-get"
@@ -1189,13 +1198,16 @@
             const known = typeof w.balance === 'number';
             const bal = document.getElementById('w-balance');
             const rub = document.getElementById('w-balance-rub');
-            bal.textContent = known ? (w.balance.toFixed(4) + ' ' + w.chain) : 'недоступен';
+            // Подписываем баланс АКТИВОМ, а не цепью: на счёте TRON лежат и
+            // TRX, и USDT, и «0.5 TRON» клиент прочитает как свои USDT.
+            const asset = w.asset || w.chain;
+            bal.textContent = known ? (w.balance.toFixed(4) + ' ' + asset) : 'недоступен';
             bal.style.color = known ? '#e2e8f0' : 'var(--muted)';
             // Курс берём СВОЕЙ монеты. Раньше здесь стоял cachedRates['TON'] —
             // с балансом BTC это дало бы уверенную рублёвую оценку по цене
             // другой монеты, то есть ошибку в тысячи раз в поле «≈ ₽».
             const rate = (typeof cachedRates === 'object' && cachedRates)
-                ? cachedRates[w.chain] : 0;
+                ? cachedRates[asset] : 0;
             rub.textContent = (known && rate > 0)
                 ? '≈ ' + Math.round(w.balance * rate).toLocaleString('ru-RU') + ' ₽' : '';
             // Ожидающее подтверждения — отдельной строкой: складывать его с
@@ -1307,7 +1319,7 @@
                      + walletShorten(op.counterparty) + '</span>'
                      + '<span style="font-weight:700;color:' + (inc ? 'var(--green)' : '#e2e8f0') + '">'
                      + (inc ? '+' : '−') + Number(op.amount || 0).toFixed(4)
-                     + ' ' + esc(d.chain || '') + '</span></div>';
+                     + ' ' + esc(op.asset || d.chain || '') + '</span></div>';
             }).join('');
         }
 
@@ -1489,8 +1501,13 @@
                 dBox.style.display = deliv.length ? '' : 'none';
             }
 
+            proofNets = data.proof_networks || {};
             proofRenderCurrencies(data.proof_currencies || []);
         }
+
+        // Сети, в которых сервер умеет проверять подпись. Список приходит
+        // оттуда же, откуда список монет: свой здесь разошёлся бы с проверкой.
+        let proofNets = {};
 
         // ── подтверждение владения адресом ──────────────────────────────────
         // Текст на подпись собирает СЕРВЕР и он же проверяет подпись: свой
@@ -1509,6 +1526,83 @@
             });
             if (list.indexOf(prev) >= 0) sel.value = prev;
             box.style.display = '';
+            sel.onchange = proofSyncNet;
+            const netSel = document.getElementById('w-proof-net');
+            if (netSel) netSel.onchange = proofSyncWallet;
+            proofSyncNet();
+        }
+
+        function proofNetValue() {
+            const wrap = document.getElementById('w-proof-net-wrap');
+            const sel = document.getElementById('w-proof-net');
+            if (!wrap || !sel || wrap.style.display === 'none') return '';
+            return sel.value || '';
+        }
+
+        function proofSyncNet() {
+            const cur = (document.getElementById('w-proof-cur') || {}).value || '';
+            const wrap = document.getElementById('w-proof-net-wrap');
+            const sel = document.getElementById('w-proof-net');
+            if (!wrap || !sel) return;
+            const nets = proofNets[cur] || [];
+            sel.innerHTML = nets.map(n => '<option value="' + n + '">'
+                + (n === 'TRC20' ? 'TRON (TRC-20)'
+                   : n === 'ERC20' ? 'Ethereum (ERC-20)' : n) + '</option>').join('');
+            wrap.style.display = nets.length > 1 ? '' : 'none';
+            proofSyncWallet();
+        }
+
+        // Какое расширение кошелька годится для выбранной сети. Решение о том,
+        // что считать подтверждённым, принимает сервер — здесь только кнопка.
+        function proofWalletKind() {
+            const cur = (document.getElementById('w-proof-cur') || {}).value || '';
+            const net = (proofNetValue() || (proofNets[cur] || [])[0] || '').toUpperCase();
+            if (net === 'TRC20') return window.tronWeb ? 'tron' : '';
+            if (net === 'ERC20') return window.ethereum ? 'evm' : '';
+            return '';
+        }
+
+        function proofSyncWallet() {
+            const btn = document.getElementById('w-proof-connect');
+            if (!btn) return;
+            const kind = proofWalletKind();
+            btn.style.display = kind ? '' : 'none';
+            btn.textContent = kind === 'tron' ? '🔗 Взять адрес из TronLink'
+                                              : '🦊 Взять адрес из MetaMask';
+            btn.dataset.kind = kind;
+        }
+
+        async function proofConnectWallet() {
+            const kind = proofWalletKind();
+            const input = document.getElementById('w-proof-addr');
+            if (!kind || !input) return;
+            proofSay('Открываем кошелёк…');
+            try {
+                if (kind === 'evm') {
+                    const accs = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                    if (!accs || !accs.length) { proofSay('Кошелёк не дал адрес.'); return; }
+                    input.value = accs[0];
+                } else {
+                    if (window.tronLink && window.tronLink.request) {
+                        await window.tronLink.request({ method: 'tron_requestAccounts' });
+                    }
+                    const a = window.tronWeb && window.tronWeb.defaultAddress
+                              && window.tronWeb.defaultAddress.base58;
+                    if (!a) { proofSay('TronLink заблокирован — разблокируйте кошелёк.'); return; }
+                    input.value = a;
+                }
+                proofSay('Адрес получен. Нажмите «Получить текст для подписи».');
+            } catch (e) { proofSay('Кошелёк отказал в доступе.'); }
+        }
+
+        async function proofSignInWallet(kind, addr, text) {
+            if (kind === 'evm') {
+                return await window.ethereum.request({ method: 'personal_sign',
+                                                       params: [text, addr] });
+            }
+            // Именно signMessageV2 (TIP-191): старый sign() хеширует иначе, и
+            // такую подпись сервер не примет — молча «не тот владелец».
+            return await window.tronWeb.trx.signMessageV2(text);
         }
 
         function proofSay(text, good) {
@@ -1527,6 +1621,7 @@
             proofSay('Готовим текст…');
             try {
                 const r = await fetch('/api/proof/message?currency=' + encodeURIComponent(cur)
+                                      + '&network=' + encodeURIComponent(proofNetValue())
                                       + '&address=' + encodeURIComponent(addr),
                     { headers: { 'X-Telegram-Init-Data': tg.initData || '' } });
                 const d = await r.json().catch(() => ({}));
@@ -1537,8 +1632,22 @@
                 step2.dataset.payload = d.payload || '';
                 step2.dataset.currency = d.currency || '';
                 step2.dataset.address = d.address || '';
+                step2.dataset.network = d.network || '';
                 step2.style.display = '';
-                proofSay('Подпишите текст в кошельке и вставьте подпись ниже.');
+                const kind = proofWalletKind();
+                if (!kind) {
+                    proofSay('Подпишите текст в кошельке и вставьте подпись ниже.');
+                    return;
+                }
+                proofSay('Подтвердите подпись в кошельке…');
+                try {
+                    const sig = await proofSignInWallet(kind, d.address, d.message);
+                    document.getElementById('w-proof-sig').value = sig || '';
+                    if (sig) proofVerify();
+                } catch (e) {
+                    // Отказ в окне кошелька — не ошибка: ручной путь остаётся.
+                    proofSay('Подпись в кошельке не сделана — можно подписать вручную.');
+                }
             } catch (e) { proofSay('Сеть не ответила.'); }
         }
 
@@ -1555,6 +1664,7 @@
                     body: JSON.stringify({
                         currency: step2.dataset.currency || '',
                         address: step2.dataset.address || '',
+                        network: step2.dataset.network || '',
                         payload: step2.dataset.payload || '',
                         signature: sig })
                 });
@@ -1635,6 +1745,7 @@
             on('w-send-go', walletTransfer);
             on('w-proof-get', proofGetMessage);
             on('w-proof-go', proofVerify);
+            on('w-proof-connect', proofConnectWallet);
             on('w-proof-copy', () => {
                 const t = document.getElementById('w-proof-msg');
                 const b = document.getElementById('w-proof-copy');

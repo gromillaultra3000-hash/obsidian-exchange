@@ -63,7 +63,7 @@ WALLET_CONNECT_CURRENCIES = {"TON"}
 # же — единственный способ добавить адрес по просьбе клиента, не превращая
 # сервис в пробник чужих кошельков. Список здесь по той же причине, что и выше:
 # поверхность, знающая его из своего кода, отстанет от сервера.
-SIGNED_MESSAGE_CURRENCIES = {"BTC", "LTC"}
+SIGNED_MESSAGE_CURRENCIES = {"BTC", "LTC", "ETH", "USDT"}
 
 # Синонимы входных значений сети → канон (или None = недопустимо)
 _NET_ALIASES = {
@@ -132,6 +132,42 @@ def is_supported_currency(currency) -> bool:
 def networks_for(currency):
     """Список допустимых сетей валюты (канон) или []. Первая — по умолчанию."""
     return list(CURRENCY_NETWORKS.get(normalize_currency(currency), []))
+
+
+def chain_of(currency, network=None):
+    """Цепь, в которой живёт адрес этой (монеты, сети), или None.
+
+    Ключ подключённого кошелька — ЦЕПЬ, а не монета, и это не придирка к
+    словам: один и тот же `T…`-адрес держит и USDT, и TRX, а один `0x…` — и
+    ETH, и USDT-ERC20. Храни мы связь по монете, доказанный TRC-20-адрес
+    затирался бы ERC-20-адресом того же клиента (в таблице связей ключ —
+    пара «клиент + цепь»), и баланс показывался бы не тот.
+
+    У BTC/LTC цепь совпадает с кодом монеты — так эти связи и лежат с самого
+    начала, поэтому имена здесь именно такие: ничего мигрировать не нужно.
+    """
+    net = normalize_network(currency, network)
+    if not net:
+        return None
+    if net == NET_MAINNET:
+        return normalize_currency(currency)     # BTC / LTC — цепь своя у каждой
+    return {NET_TRC20: "TRON", NET_ERC20: "ETH", NET_XRPL: "XRP",
+            NET_TON: "TON", NET_MONERO: "XMR"}.get(net)
+
+
+def pairs_on_chain(chain):
+    """Все пары (монета, сеть), которыми мы торгуем в этой цепи.
+
+    Обратная сторона `chain_of`, и намеренно СПИСОК: доказав один `0x…`-адрес,
+    клиент доказал его и для ETH, и для USDT-ERC20 — это буквально один счёт.
+    Возвращать одну «главную» монету значило бы прятать подтверждённый адрес
+    там, где он полностью годен.
+    """
+    want = str(chain or "").strip().upper()
+    if not want:
+        return []
+    return [(c, n) for c, nets in CURRENCY_NETWORKS.items() for n in nets
+            if chain_of(c, n) == want]
 
 
 def default_network(currency):

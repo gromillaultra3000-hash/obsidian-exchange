@@ -173,6 +173,112 @@ def history(coin: str, address: str, limit: int = 20) -> dict:
     return _cached(("hist", coin, addr, lim), build)
 
 
+# ── TRON: остаток и история USDT-TRC20 ───────────────────────────────────────
+# Отдельно от Esplora: у TRON другой обозреватель, другая форма ответа и — что
+# важнее — в цепи живут РАЗНЫЕ активы на одном счёте. Показывать «баланс TRON»
+# без указания актива нельзя: клиент решит, что видит свои USDT, а увидит TRX.
+TRON_API = os.getenv("TRON_EXPLORER_API", "https://api.trongrid.io")
+# Контракт USDT в TRON. Единственный актив, который мы в этой цепи торгуем;
+# захардить его безопаснее, чем брать из ответа: подставной контракт с тем же
+# символом «USDT» — известный способ показать человеку чужие деньги.
+USDT_TRC20_CONTRACT = os.getenv("USDT_TRC20_CONTRACT",
+                                "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t")
+USDT_DECIMALS = 6
+
+
+def _tron_account(addr: str):
+    d = _get_json(f"{TRON_API}/v1/accounts/{addr}") or {}
+    data = d.get("data")
+    if not isinstance(data, list):
+        return None
+    # Пустой список у TronGrid означает «счёт не активирован» — это НЕ сбой и
+    # честный ноль: адрес существует, переводов на него не было.
+    return (data[0] if data else {}) or {}
+
+
+def tron_account_state(address: str) -> dict:
+    """Остаток USDT-TRC20 по адресу. Актив назван явно (`asset`)."""
+    addr = str(address or "").strip()
+    if not addr:
+        return {"balance": None, "pending": None, "status": "UNSUPPORTED",
+                "reason": "адрес не задан", "asset": "USDT"}
+
+    def build():
+        try:
+            acc = _tron_account(addr)
+        except Exception as e:
+            logger.warning("chain_watch: TRON баланс не прочитан: %s", e)
+            return {"balance": None, "pending": None, "status": "ERROR",
+                    "reason": type(e).__name__, "asset": "USDT"}
+        if acc is None:
+            return {"balance": None, "pending": None, "status": "ERROR",
+                    "reason": "обозреватель ответил в незнакомом виде",
+                    "asset": "USDT"}
+        raw = 0
+        for entry in (acc.get("trc20") or []):
+            if isinstance(entry, dict) and USDT_TRC20_CONTRACT in entry:
+                try:
+                    raw = int(entry[USDT_TRC20_CONTRACT])
+                except (TypeError, ValueError):
+                    return {"balance": None, "pending": None, "status": "ERROR",
+                            "reason": "остаток пришёл не числом", "asset": "USDT"}
+                break
+        # У TRON нет мемпула в том смысле, в каком он есть у биткойна: перевод
+        # либо в блоке, либо его нет. `pending` = 0, а не None — «неизвестно»
+        # здесь было бы неправдой.
+        return {"balance": raw / (10 ** USDT_DECIMALS), "pending": 0.0,
+                "status": "OK", "reason": None, "asset": "USDT"}
+
+    return _cached(("bal", "TRON", addr), build)
+
+
+def tron_history(address: str, limit: int = 20) -> dict:
+    """Последние переводы USDT-TRC20 по адресу."""
+    addr = str(address or "").strip()
+    lim = max(1, min(int(limit or 20), 50))
+    if not addr:
+        return {"items": [], "status": "UNSUPPORTED", "reason": "адрес не задан"}
+
+    def build():
+        try:
+            d = _get_json(f"{TRON_API}/v1/accounts/{addr}/transactions/trc20"
+                          f"?limit={lim}&contract_address={USDT_TRC20_CONTRACT}") or {}
+        except Exception as e:
+            logger.warning("chain_watch: TRON история не прочитана: %s", e)
+            return {"items": [], "status": "ERROR", "reason": type(e).__name__}
+        rows = d.get("data")
+        if not isinstance(rows, list):
+            return {"items": [], "status": "ERROR",
+                    "reason": "обозреватель ответил в незнакомом виде"}
+        items = []
+        for t in rows:
+            if not isinstance(t, dict):
+                continue
+            # Знаки берём из ответа, но верим только известному контракту:
+            # у подставного токена decimals может быть какой угодно.
+            info = t.get("token_info") or {}
+            if (info.get("address") or "") != USDT_TRC20_CONTRACT:
+                continue
+            try:
+                val = int(t.get("value") or 0)
+            except (TypeError, ValueError):
+                continue
+            to = (t.get("to") or "").strip()
+            items.append({
+                "direction": "in" if to == addr else "out",
+                "amount": val / (10 ** USDT_DECIMALS),
+                "counterparty": (t.get("from") if to == addr else to) or "",
+                "ts": int(t.get("block_timestamp") or 0) // 1000,
+                "txid": t.get("transaction_id") or "",
+                "confirmed": True,      # TronGrid отдаёт уже включённые в блок
+                "asset": "USDT",
+            })
+        return {"items": [i for i in items if i["txid"]][:lim],
+                "status": "OK", "reason": None}
+
+    return _cached(("hist", "TRON", addr, lim), build)
+
+
 # ── переходники под реестр источников wallet_link ────────────────────────────
 # Реестр зовёт функцию ОДНОГО адреса и ничего не знает про монету — она задана
 # самой записью реестра. Отсюда пары тонких обёрток вместо параметра.

@@ -10,6 +10,8 @@ jobs:
           python-version: '3.11'
       - name: Зависимости ядра (без них доказательство владения мертво)
         run: pip install -r relay/core/requirements.txt
+      - name: Зависимости тестов (чужие реализации подписи, requests, ed25519)
+        run: pip install -r tests/requirements.txt
       - name: Syntax check core files
         run: |
           python3 -m py_compile relay-fastapi/main.py
@@ -58,3 +60,44 @@ jobs:
         run: WALLET_DATA_DIR=$RUNNER_TEMP/wallet python3 tests/test_evm_wallet.py
       - name: Кошелёк XRP
         run: WALLET_DATA_DIR=$RUNNER_TEMP/wallet python3 tests/test_xrp_wallet.py
+      # 06.08.2026: 19 наборов гонялись только руками и в CI не стояли — то есть
+      # не остановили бы ни одной правки. Ставим все; недостающие библиотеки
+      # оказались единственной причиной, по которой они «не годились для CI».
+      - name: Направление продажи — реестр вместо рукописных списков
+        run: python3 tests/test_sell_assets.py
+      - name: Остаток и операции чужого адреса в цепи (BTC/LTC/TRON)
+        run: python3 tests/test_chain_watch.py
+      - name: Адресная книга клиента
+        run: python3 tests/test_address_book.py
+      - name: Идентификатор попытки ≠ идентификатор заявки
+        run: python3 tests/test_attempt_id.py
+      - name: Ответ бота на ввод тега
+        run: python3 tests/test_bot_tag_answer.py
+      - name: Подтверждения в цепи — не булево «пришло/не пришло»
+        run: python3 tests/test_chain_confirm.py
+      - name: Сверка выдачи — какие цепи читаются, а какие нет
+        run: python3 tests/test_discovery_chains.py
+      - name: Monero — свой base58 и keccak-контрольная сумма
+        run: python3 tests/test_monero.py
+      - name: Очередь выплат с SLA
+        run: python3 tests/test_payout_queue.py
+      - name: Обещания клиенту не расходятся с расчётом
+        run: python3 tests/test_promise_texts.py
+      - name: Возможности провайдеров
+        run: python3 tests/test_provider_caps.py
+      - name: Снятые провайдеры не возвращаются на денежный путь
+        run: python3 tests/test_retired_providers.py
+      - name: Страж продажи — привязка депозита TON
+        run: python3 tests/test_sell_guard_ton.py
+      - name: TON — адрес, memo, сеть
+        run: python3 tests/test_ton.py
+      - name: Кошелёк TON
+        run: WALLET_DATA_DIR=$RUNNER_TEMP/wallet python3 tests/test_ton_wallet.py
+      - name: TON Connect — проверка ton_proof
+        run: python3 tests/test_tonconnect.py
+      - name: TON Connect на поверхностях
+        run: python3 tests/test_tonconnect_frontend.py
+      - name: Связь клиента с подтверждённым кошельком
+        run: python3 tests/test_wallet_link.py
+      - name: Готовый перевод от сервера, а не от фронта
+        run: python3 tests/test_wallet_send.py

@@ -919,14 +919,19 @@ def check_sell_menu_offers_only_receivable_coins():
             # про продажу берут список оттуда же. Тогда проверяем, что
             # отсеивает САМ хелпер, а не только что его позвали: иначе
             # достаточно было бы назвать функцию правильно.
+            # Отсев по адресу приёма живёт либо здесь (легаси-словарь), либо в
+            # общем реестре `core.sell_assets` — что тот РЕАЛЬНО отсеивает
+            # монету без адреса, проверяется поведением в мине 34, здесь же
+            # важно, что список идёт из отсеивающего источника, а не мимо него.
+            _filters = ("SELL_RECEIVE_ADDRESSES", "sell_assets")
             if "sell_coins" in code:
                 helper = _slice(src, "def sell_coins(", "\ndef ", "\nasync def ")
-                if "SELL_RECEIVE_ADDRESSES" not in _nodoc(helper):
+                if not any(f in _nodoc(helper) for f in _filters):
                     fail("меню продажи",
                          f"{rel}: sell_coins() не отсеивает монеты без адреса "
                          f"приёма — меню продажи снова предложит монету, "
                          f"которую принять некуда")
-            elif "SELL_RECEIVE_ADDRESSES" not in code:
+            elif not any(f in code for f in _filters):
                 fail("меню продажи",
                      f"{rel}: build_currency_kb() (стр. {node.lineno}) не отсеивает "
                      f"монеты без адреса приёма. Клавиатура общая на покупку и "
@@ -2968,8 +2973,12 @@ def check_balance_is_priced_in_its_own_coin():
         fail(tag, f"relay/webapp.html: walletRender берёт курс cachedRates['{lit}'] "
                   f"жёстко — остаток другой монеты будет пересчитан в рубли по "
                   f"цене {lit}")
-    if "cachedRates" in body and not re.search(r"cachedRates\s*\[\s*w\.chain\s*\]", body):
-        fail(tag, "relay/webapp.html: walletRender не берёт курс по монете записи — "
+    # Курс берётся по АКТИВУ записи. На цепи TRON остаток посчитан в USDT, и
+    # оценка по «курсу TRON» была бы ценой другой монеты — то есть ровно тем,
+    # от чего эта мина и стоит.
+    if "cachedRates" in body and not re.search(
+            r"cachedRates\s*\[\s*(?:asset|w\.asset|w\.chain)\b", body):
+        fail(tag, "relay/webapp.html: walletRender не берёт курс по активу записи — "
                   "рублёвая оценка перестала зависеть от того, что показывает")
 
 
@@ -3787,6 +3796,442 @@ def check_prefilter_is_not_stricter_than_the_real_check():
             pass                       # node недоступен — молча, это не наш дефект
 
 
+# ─────────────────────────────────────────────────────────────────────
+# 31. Счёт принадлежит цепи, а хранится под именем монеты
+# ─────────────────────────────────────────────────────────────────────
+# Появилось 05.08.2026 вместе с подтверждением EVM- и TRON-адресов. Связь
+# подключённого кошелька лежит под ключом «клиент + цепь». Пока цепь совпадала
+# с монетой (BTC, LTC, TON), разницы не было. С USDT она стала решающей: одна
+# монета живёт в ДВУХ цепях, и запись по монете означает, что доказанный
+# TRC-20-адрес затирается ERC-20-адресом того же клиента — молча, вторым
+# подтверждением. Дальше по этому адресу показывается баланс и он же
+# подставляется в заявку: деньги уходят в сеть, где счёта нет.
+def _call_args(src: str, needle: str):
+    """Тело каждого вызова `needle…)` целиком, со вложенными скобками.
+
+    Регулярка `\\(([^)]*)\\)` обрывается на первой закрывающей скобке, и вызов
+    вида `remember(uid, data.get("x", ""), addr)` разбирается неверно — ровно
+    на таком виде проверка молча пропустила подставленный дефект.
+    """
+    out = []
+    at = src.find(needle)
+    while at >= 0:
+        i, depth = at + len(needle), 1
+        while i < len(src) and depth:
+            if src[i] == "(":
+                depth += 1
+            elif src[i] == ")":
+                depth -= 1
+            i += 1
+        if depth == 0:
+            out.append(src[at + len(needle):i - 1])
+        at = src.find(needle, at + len(needle))
+    return out
+
+
+def _split_args(args: str):
+    """Аргументы верхнего уровня: запятые внутри скобок не разделяют."""
+    parts, depth, cur = [], 0, ""
+    for ch in args:
+        if ch in "([{":
+            depth += 1
+        elif ch in ")]}":
+            depth -= 1
+        if ch == "," and depth == 0:
+            parts.append(cur.strip())
+            cur = ""
+            continue
+        cur += ch
+    if cur.strip():
+        parts.append(cur.strip())
+    return parts
+
+
+def check_wallet_link_is_keyed_by_chain():
+    tag = "связь кошелька под именем монеты"
+    relay = os.path.join(ROOT, "relay")
+    if relay not in sys.path:
+        sys.path.insert(0, relay)
+    try:
+        from core import assets as _assets
+    except Exception as e:
+        fail(tag, f"реестр валют не загружается: {type(e).__name__}: {e}")
+        return
+
+    # Монета с несколькими сетями обязана давать РАЗНЫЕ цепи: одинаковая цепь
+    # у двух сетей — тот же затирающий ключ, только этажом ниже.
+    for cur, nets in _assets.CURRENCY_NETWORKS.items():
+        if len(nets) < 2:
+            continue
+        chains = [_assets.chain_of(cur, n) for n in nets]
+        if None in chains:
+            fail(tag, f"{cur}: у сети {nets[chains.index(None)]} нет цепи — "
+                      f"подтверждённый адрес ляжет в никуда")
+        elif len(set(chains)) != len(chains):
+            fail(tag, f"{cur}: сети {nets} сведены в одну цепь {chains} — "
+                      f"второе подтверждение затрёт первое, и клиент увидит "
+                      f"баланс чужой сети под своим адресом")
+
+    # Обе поверхности обязаны писать ЦЕПЬ ИЗ ВЕРДИКТА, а не монету из запроса:
+    # монета приходит от клиента, цепь считает сервер по реестру.
+    for path, what in ((os.path.join(ROOT, "relay-fastapi", "main.py"), "сайт и Mini App"),
+                       (os.path.join(ROOT, "bot", "main_bot.py"), "бот")):
+        src = _read(path)
+        if not src or "sig_proof" not in src:
+            continue
+        for args in _call_args(_nodoc(src), "remember("):
+            if "verdict" not in args:
+                continue                      # не путь доказательства подписью
+            parts = _split_args(args)
+            key = parts[1] if len(parts) > 1 else ""
+            lit = re.fullmatch(r"""['"]([A-Za-z0-9_-]+)['"]""", key)
+            if lit:
+                # Литерал допустим, только если это ИМЯ ЦЕПИ. Код монеты здесь
+                # выглядит так же безобидно («USDT»), но означает совсем другое.
+                if not _assets.pairs_on_chain(lit.group(1)):
+                    fail(tag, f"{what}: связь сохраняется под «{lit.group(1)}» — "
+                              f"это не цепь, а код монеты; у монеты с двумя сетями "
+                              f"одно подтверждение затрёт другое")
+                continue
+            if "chain" not in key:
+                fail(tag, f"{what}: ключ связи — «{' '.join(key.split())[:60]}», "
+                          f"а не цепь из вердикта: монета приходит из запроса, "
+                          f"и в двух сетях она даст один ключ на два разных счёта")
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 32. Одна подпись годится сразу в двух цепях
+# ─────────────────────────────────────────────────────────────────────
+# Ethereum и TRON считают адрес одинаково: secp256k1, keccak-256, младшие 20
+# байт. Один и тот же ключ даёт счёт в обеих сетях. Разводит их только обёртка
+# подписываемого текста (EIP-191 против TIP-191). Совпади обёртки — подпись,
+# сделанная для одной цепи, подтверждала бы владение и в другой; человек,
+# подписавший что-то в Ethereum, задним числом «доказал» бы нам TRON-адрес.
+def check_one_signature_does_not_fit_two_chains():
+    tag = "подпись годится в двух цепях"
+    relay = os.path.join(ROOT, "relay")
+    if relay not in sys.path:
+        sys.path.insert(0, relay)
+    try:
+        from core import sig_proof as _sp
+    except Exception as e:
+        fail(tag, f"движок подписи не загружается: {type(e).__name__}: {e}")
+        return
+
+    prefixes = getattr(_sp, "_EIP191_PREFIX", {})
+    if len(prefixes) < 2:
+        return                                # одна схема — разводить нечего
+    if len(set(prefixes.values())) != len(prefixes):
+        fail(tag, "у двух цепей ОДНА обёртка сообщения — подпись из одной "
+                  "подтвердит владение в другой")
+
+    # Проверка не по константам, а по результату: важно, что расходятся
+    # ХЕШИ, а не то, что строки разные.
+    text = "ObsidianExchange address proof\ncode: 1"
+    seen = {}
+    for cur, net in (("BTC", None), ("LTC", None), ("ETH", None),
+                     ("USDT", "TRC20"), ("USDT", "ERC20")):
+        try:
+            d = _sp.message_digest(cur, text, net)
+        except Exception as e:
+            fail(tag, f"{cur}/{net}: хеш сообщения не считается: {type(e).__name__}: {e}")
+            continue
+        if d is None:
+            continue
+        scheme = _sp._scheme_for(cur, net)
+        if d in seen and seen[d] != scheme:
+            fail(tag, f"{cur}/{net or '—'} и {seen[d]} дают ОДИН хеш одного "
+                      f"текста — подпись из одной цепи подойдёт к адресу в другой")
+        seen[d] = scheme
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 33. Сумма подписана именем цепи, а не своего актива
+# ─────────────────────────────────────────────────────────────────────
+# У BTC и LTC цепь и монета — одно и то же, и подписать остаток именем цепи
+# было безобидно. В TRON на одном счёте лежат TRX и USDT, в EVM — эфир и
+# десяток токенов. «28.0780 TRON» клиент прочитает как свои USDT и решит, что
+# видит их; а если однажды покажем TRX теми же цифрами — решит, что деньги
+# пропали. Правило: сумму подписывает актив, который её и посчитал; имя цепи —
+# только запасной вариант там, где актив один.
+def check_amount_is_labelled_by_its_own_asset():
+    tag = "сумма подписана цепью вместо актива"
+
+    # Поверхности: где рисуется сумма кошелька, рядом должно стоять имя актива.
+    for rel, marker in (("relay/webapp.html", "toFixed(4)"),
+                        ("relay-fastapi/templates/dashboard_profile.html", "'%.4f'|format")):
+        path = os.path.join(ROOT, rel)
+        if not os.path.exists(path):
+            continue
+        lines = open(path, encoding="utf-8").read().splitlines()
+        for i, line in enumerate(lines):
+            if marker not in line:
+                continue
+            # Подпись может стоять на следующей строке — смотрим окно.
+            window = "\n".join(lines[i:i + 3])
+            if "chain" in window and "asset" not in window:
+                fail(tag, f"{rel}:{i + 1} подписывает сумму именем цепи "
+                          f"({line.strip()[:70]}…) — на многоактивной цепи это "
+                          f"чужое имя над деньгами клиента")
+
+    # Источник: если имя цепи не совпадает с монетой, которую мы на ней торгуем
+    # (цепь TRON — монета USDT), читатель обязан сам назвать актив: поверхность
+    # знает только цепь и подпишет сумму ею.
+    relay = os.path.join(ROOT, "relay")
+    if relay not in sys.path:
+        sys.path.insert(0, relay)
+    try:
+        from core import wallet_link as _wl
+        from core import assets as _as
+    except Exception as e:
+        fail(tag, f"реестр кошельков не загружается: {type(e).__name__}: {e}")
+        return
+
+    import ast as _ast
+    import inspect as _inspect
+    import textwrap as _textwrap
+    for chain, (mod_name, fn_name) in sorted(_wl.BALANCE_SOURCES.items()):
+        try:
+            pairs = _as.pairs_on_chain(chain)
+        except Exception:
+            pairs = []
+        foreign = sorted({c for c, _n in pairs if c != chain})
+        if not foreign:
+            continue                     # цепь зовут как монету — путать нечего
+        try:
+            fn = getattr(__import__(mod_name, fromlist=[fn_name]), fn_name)
+            tree = _ast.parse(_textwrap.dedent(_inspect.getsource(fn)))
+        except Exception as e:
+            fail(tag, f"{chain}: источник баланса не прочитан: {type(e).__name__}: {e}")
+            continue
+        # Разбор через AST, а не поиск по тексту: комментарий со словом «asset»
+        # рядом не должен выдавать себя за настоящее поле ответа.
+        names = {n.value for n in _ast.walk(tree)
+                 if isinstance(n, _ast.Constant) and isinstance(n.value, str)}
+        if "asset" not in names:
+            fail(tag, f"{chain}: на цепи торгуется {', '.join(foreign)}, а читатель "
+                      f"{mod_name}.{fn_name} не называет актив — сумма уйдёт на "
+                      f"поверхность под именем цепи «{chain}»")
+
+    # И само сквозное правило: имя актива не теряется по дороге к поверхности.
+    st = _wl._account_state("TRON", "T…", source=lambda a: {
+        "balance": 1.0, "status": "OK", "asset": "USDT"})
+    if st.get("asset") != "USDT":
+        fail(tag, "реестр кошельков теряет имя актива по дороге наружу")
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 34. Направление продажи перечислено руками и не растёт от настройки
+# ─────────────────────────────────────────────────────────────────────
+# Список продаваемых монет жил двумя рукописными копиями: словарь из четырёх
+# строк в боте и кортеж из тех же четырёх на сайте. Владелец заводил адрес
+# приёма Monero и не получал НИЧЕГО — монеты нет в словаре, значит её нет в
+# меню, и узнать это можно было только чтением кода. Две копии одного списка
+# вдобавок уже расходились: сайт звал продавать монету, которой в боте нет.
+def check_sell_direction_grows_from_its_registry():
+    tag = "продажа не растёт от настройки"
+    relay = os.path.join(ROOT, "relay")
+    if relay not in sys.path:
+        sys.path.insert(0, relay)
+    try:
+        from core import sell_assets as _sa
+        from core import assets as _as
+    except Exception as e:
+        fail(tag, f"реестр продажи не загружается: {type(e).__name__}: {e}")
+        return
+
+    # ── поведение: настройка включает монету, а не правка кода ──
+    XMR_OK = ("4AdUndXHHZ6cfufTMvppY6JwXNouMBzSkbLYfpAV5Usx3skxNgYeYTRj5Uzqt"
+              "ReoS44qo9mtmXCqY45DJ852K5Jv2684Rge")
+    BTC_OK = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"
+    saved = {k: os.environ.get(k) for k in
+             ("SELL_XMR_ADDRESS", "SELL_BTC_ADDRESS", "SELL_LTC_ADDRESS")}
+    try:
+        for k in saved:
+            os.environ.pop(k, None)
+        if "XMR" in _sa.sell_currencies():
+            fail(tag, "монета без адреса приёма предлагается к продаже — "
+                      "клиенту некуда отправлять монеты")
+        os.environ["SELL_XMR_ADDRESS"] = XMR_OK
+        if "XMR" not in _sa.sell_currencies():
+            fail(tag, f"адрес приёма задан, а монеты в продаже нет: "
+                      f"{_sa.closed_reason('XMR') or 'причина не названа'}")
+        # Монета с адресом, но без объявленного минимума не должна проходить:
+        # умолчание здесь означало бы приём пыли, за которую мы платим
+        # комиссию СБП больше, чем получаем.
+        _min = _sa.MINIMUMS.pop("XMR", None)
+        try:
+            if "XMR" in _sa.sell_currencies():
+                fail(tag, "монета без объявленного минимума ушла в продажу — "
+                          "заявка на пыль обойдётся нам дороже выручки")
+        finally:
+            if _min is not None:
+                _sa.MINIMUMS["XMR"] = _min
+        # Адрес чужой сети в настройке — это не «недоступно», это перевод
+        # клиента в пустоту без возврата.
+        os.environ["SELL_LTC_ADDRESS"] = BTC_OK
+        if "LTC" in _sa.sell_currencies():
+            fail(tag, "адрес ЧУЖОЙ сети в настройке приёма не остановил продажу — "
+                      "монеты клиента ушли бы в никуда")
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+
+    # Минимум не подставляется умолчанием: 0.001 XMR — это ~30 ₽, заявка на
+    # пыль, за которую мы платим комиссию СБП.
+    missing = [c for c in _sa.sell_currencies() if _sa.minimum(c) is None]
+    if missing:
+        fail(tag, f"монеты предлагаются к продаже без объявленного минимума: "
+                  f"{', '.join(missing)}")
+    for cur in _as.CURRENCY_NETWORKS:
+        if _sa.minimum(cur) is None and "минимум" not in _sa.closed_reason(cur):
+            fail(tag, f"{cur}: минимума нет, а причина закрытия про другое "
+                      f"(«{_sa.closed_reason(cur)}») — админ будет искать не там")
+
+    # ── структура: у поверхностей нет собственных списков ──
+    import ast as _ast
+    codes = set(_as.CURRENCY_NETWORKS)
+    for rel, fns in (("bot/main_bot.py", ("sell_coins",)),
+                     ("relay-fastapi/main.py", ("_sell_currencies", "_sell_context"))):
+        path = os.path.join(ROOT, rel)
+        src = _read(path)
+        if not src:
+            continue
+        try:
+            tree = _ast.parse(src)
+        except SyntaxError as e:
+            fail(tag, f"{rel} не разбирается: {e}")
+            continue
+        found = {n.name: n for n in _ast.walk(tree)
+                 if isinstance(n, (_ast.FunctionDef, _ast.AsyncFunctionDef))}
+        for name in fns:
+            node = found.get(name)
+            if node is None:
+                fail(tag, f"{rel}: {name}() исчезла — проверка ослепла")
+                continue
+            body = _ast.get_source_segment(src, node) or ""
+            # Перечисление кодов монет внутри = свой список. Комментарии в AST
+            # не попадают, поэтому пояснение рядом мину не обманет.
+            lits = {c.value for c in _ast.walk(node)
+                    if isinstance(c, _ast.Constant) and isinstance(c.value, str)
+                    and c.value in codes}
+            if len(lits) >= 2:
+                fail(tag, f"{rel}: {name}() перечисляет монеты сама "
+                          f"({', '.join(sorted(lits))}) — новая монета в этот "
+                          f"список не попадёт, сколько адресов ни заводи")
+            if "sell_assets" not in body:
+                fail(tag, f"{rel}: {name}() не спрашивает общий реестр продажи — "
+                          f"это вторая копия списка, и она разойдётся с первой")
+
+    # Создание заявки спрашивает реестр ЦЕЛИКОМ, а не по кускам. Форму и колбэк
+    # можно отправить в обход выпадающего списка, а часть условий (умеем ли
+    # выдать метку) ни адресом, ни минимумом не проверяется: заявка на XRP
+    # велела бы клиенту перевести монеты без destination tag. Нашёл codex.
+    for rel, fn_name, gate in (
+            ("bot/main_bot.py", "process_sell_currency", "sell_coins()"),
+            ("relay-fastapi/main.py", "dashboard_sell_submit", "_sell_currencies()")):
+        src = _read(os.path.join(ROOT, rel))
+        if not src:
+            continue
+        try:
+            tree = _ast.parse(src)
+        except SyntaxError:
+            continue
+        node = next((n for n in _ast.walk(tree)
+                     if isinstance(n, (_ast.FunctionDef, _ast.AsyncFunctionDef))
+                     and n.name == fn_name), None)
+        if node is None:
+            fail(tag, f"{rel}: {fn_name}() исчезла — проверка ослепла")
+            continue
+        body = _ast.get_source_segment(src, node) or ""
+        if gate not in body:
+            fail(tag, f"{rel}: {fn_name}() создаёт заявку, не спросив полный "
+                      f"список продажи ({gate}) — монета, закрытая не адресом "
+                      f"и не минимумом, пройдёт в обход формы")
+
+    # Сеть у монеты с несколькими сетями названа клиенту. USDT-ERC20,
+    # отправленный на наш TRON-адрес, теряется целиком и не возвращается,
+    # а по одному коду «USDT» клиент сеть не угадает. Нашёл codex.
+    _key = "SELL_USDT_ADDRESS"
+    _was = os.environ.get(_key)
+    try:
+        os.environ[_key] = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"
+        net = _sa.receive_network("USDT")
+        if net != "TRC20":
+            fail(tag, f"сеть TRON-адреса USDT определена как {net!r} — клиенту "
+                      f"нечего написать рядом с адресом")
+        if "TRC" not in _sa.label("USDT"):
+            fail(tag, f"подпись USDT («{_sa.label('USDT')}») не называет сеть — "
+                      f"перевод в другой сети на этот адрес не вернуть")
+        # Адрес проверяется по КАЖДОЙ сети монеты, а не по первой в реестре:
+        # у USDT первой стоит TRC-20, и проверка «по умолчанию» отвергала бы
+        # верный ERC-20 адрес — направление молча не открывалось бы. Нашёл codex.
+        os.environ[_key] = "0x000000000000000000000000000000000000dEaD"
+        if _sa.receive_network("USDT") != "ERC20":
+            fail(tag, "ERC-20 адрес приёма USDT не опознан — монета проверяется "
+                      "только по сети по умолчанию, вторая сеть недостижима")
+        if "USDT" not in _sa.sell_currencies():
+            fail(tag, f"USDT с верным ERC-20 адресом закрыт: "
+                      f"«{_sa.closed_reason('USDT')}»")
+        # Список открытых монет и выдача адреса обязаны сойтись: расхождение
+        # даёт монету в меню и «временно недоступно» сразу за кнопкой.
+        for cur in _sa.sell_currencies():
+            if not _sa.receive_address(cur):
+                fail(tag, f"{cur} в списке продажи, но адрес приёма не выдаётся — "
+                          f"клиент выберет монету и упрётся в «недоступно»")
+        # Обещание автоматики привязано к СЕТИ адреса, а не к монете: страж
+        # читает у USDT только TRON, и на ERC-20 адресе автоматика — обещание,
+        # которого он не выполнит никогда. Нашёл codex.
+        if _sa.deposit_check_available("USDT"):
+            fail(tag, "USDT на ERC-20 адресе объявлен автоматически проверяемым — "
+                      "страж ищет депозит в TRON и не найдёт его никогда, "
+                      "а клиенту обещаны 30–60 минут")
+        if len(_as.networks_for("BTC")) == 1 and "(" in _sa.label("BTC"):
+            fail(tag, "у монеты с единственной сетью в подписи появилась сеть — "
+                      "лишний шум там, где выбора нет")
+    finally:
+        if _was is None:
+            os.environ.pop(_key, None)
+        else:
+            os.environ[_key] = _was
+
+    # Срок выплаты обещается по тому, КТО подтверждает зачисление. У монет без
+    # проверки депозита в цепи это человек, и «30–60 минут» рядом с ними —
+    # обещание, которого мы не сдержим.
+    for rel, fn_name in (("bot/main_bot.py", "process_sell_phone"),):
+        src = _read(os.path.join(ROOT, rel))
+        if not src:
+            continue
+        try:
+            node = next(n for n in _ast.walk(_ast.parse(src))
+                        if isinstance(n, (_ast.FunctionDef, _ast.AsyncFunctionDef))
+                        and n.name == fn_name)
+        except (StopIteration, SyntaxError):
+            fail(tag, f"{rel}: {fn_name}() исчезла — проверка ослепла")
+            continue
+        lits = [c.value for c in _ast.walk(node)
+                if isinstance(c, _ast.Constant) and isinstance(c.value, str)
+                and "30–60" in c.value]
+        if lits:
+            fail(tag, f"{rel}: {fn_name}() обещает «30–60 минут» безусловно — "
+                      f"у монеты, зачисление которой подтверждает человек, это "
+                      f"обещание не выполняется")
+    tpl = _read(os.path.join(ROOT, "relay-fastapi", "templates", "dashboard_sell.html"))
+    if tpl and "30–60" in tpl and "created.manual" not in tpl:
+        fail(tag, "страница созданной заявки обещает 30–60 минут всем монетам — "
+                  "у монеты с ручным подтверждением это неправда")
+
+    # Способность найти депозит в цепи объявлена в ОДНОМ месте: страж и текст
+    # для клиента должны говорить об одной и той же монете одно и то же.
+    guard = _read(os.path.join(ROOT, "bot", "sell_guard.py"))
+    if guard and "sell_assets" not in guard:
+        fail(tag, "bot/sell_guard.py держит свой список проверяемых цепей — "
+                  "сайт пообещает автоматику там, где страж скажет «не умею»")
+
+
 def main():
     for fn in (check_no_diverging_duplicates, check_config_keys_are_read,
                check_no_fail_open_in_guards, check_session_expiry_uses_expires_at,
@@ -3818,6 +4263,8 @@ def main():
                check_tag_shape_comes_from_the_registry,
                check_wallet_modules_are_registered,
                check_wallet_proof_is_checked_against_the_chain,
+               check_amount_is_labelled_by_its_own_asset,
+               check_sell_direction_grows_from_its_registry,
                check_proof_belongs_to_the_client_it_was_issued_to,
                check_stale_proof_code_is_not_a_dead_end,
                check_wallet_showcase_keeps_every_currency,
@@ -3837,7 +4284,9 @@ def main():
                check_attempt_id_is_symmetric,
                check_dead_deal_is_not_silent,
                check_every_currency_is_reconcilable,
-               check_prefilter_is_not_stricter_than_the_real_check):
+               check_prefilter_is_not_stricter_than_the_real_check,
+               check_wallet_link_is_keyed_by_chain,
+               check_one_signature_does_not_fit_two_chains):
         try:
             fn()
         except Exception as e:

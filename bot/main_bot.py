@@ -159,10 +159,11 @@ CHANNEL_ID = os.getenv('CHANNEL_ID', '')          # Основной канал 
 DAILY_POST_GIF      = os.getenv('DAILY_POST_GIF', '')
 POST_HEADER_FILE_ID = os.getenv('POST_HEADER_FILE_ID', '')  # склеенные стикеры OBSIDIAN+EXCHANGE
 DAILY_POST_HOUR_UTC = int(os.getenv('DAILY_POST_HOUR_UTC', '7'))  # 07:00 UTC = 10:00 МСК
-SELL_BTC_ADDRESS = os.getenv('SELL_BTC_ADDRESS', '')
-SELL_LTC_ADDRESS = os.getenv('SELL_LTC_ADDRESS', '')
-SELL_USDT_ADDRESS = os.getenv('SELL_USDT_ADDRESS', '')
-SELL_TON_ADDRESS = os.getenv('SELL_TON_ADDRESS', '')
+# Адреса приёма продажи здесь БОЛЬШЕ НЕ перечисляются: список монет живёт в
+# relay/core/sell_assets.py и растёт от настройки, а не от правки этого файла.
+# Раньше четыре строки в двух местах решали, что можно продать, — заведённый
+# адрес приёма новой монеты не давал ничего и понять это можно было только
+# чтением кода.
 
 # Фирменные анимированные стикеры (см. /root/bot/create_assets.py)
 STICKER_SET_NAME = os.getenv('STICKER_SET_NAME', '')
@@ -749,6 +750,7 @@ class Review(StatesGroup):
 
 class AddressProof(StatesGroup):
     """Подтверждение владения адресом подписью кошелька (/verify)."""
+    network = State()
     address = State()
     signature = State()
 
@@ -2285,8 +2287,20 @@ def sell_coins():
     «принимаем X, Y, Z» набирались руками и звали продавать монету, которой в
     меню продажи нет, — клиент доходил до кнопки и упирался в тупик.
     """
-    return [c for c, addr in SELL_RECEIVE_ADDRESSES.items()
-            if addr and _rate_coin_key(c) in _COIN_SOURCES]
+    try:
+        if RELAY_PATH not in sys.path:
+            sys.path.insert(0, RELAY_PATH)
+        from core import sell_assets
+        coins = sell_assets.sell_currencies()
+    except Exception as e:
+        # Реестр недоступен — направление закрыто целиком. Показать старый
+        # список «по памяти» значило бы звать продавать без проверенного
+        # адреса приёма.
+        logger.error(f"реестр продажи недоступен: {e}")
+        return []
+    # Цена — второе условие, и оно наше: без источника курса заявка ушла бы с
+    # нулевой выплатой.
+    return [c for c in coins if _rate_coin_key(c) in _COIN_SOURCES]
 
 
 def _documented_coins():
@@ -2353,23 +2367,104 @@ async def cmd_offer(message: Message):
     await message.answer(_offer_text(), parse_mode="HTML")
 
 # ---------- ПРОДАЖА КРИПТЫ (крипта → RUB) ----------
-SELL_RECEIVE_ADDRESSES = {'BTC': SELL_BTC_ADDRESS, 'LTC': SELL_LTC_ADDRESS,
-                          'USDT': SELL_USDT_ADDRESS, 'TON': SELL_TON_ADDRESS}
-SELL_COIN_LABELS = {'BTC': '₿ Bitcoin (BTC)', 'LTC': 'Ł Litecoin (LTC)',
-                    'USDT': '💵 USDT (TRC20)', 'TON': '💎 Toncoin (TON)'}
-SELL_MIN_AMOUNTS = {'BTC': 0.0005, 'LTC': 0.5, 'USDT': 50, 'TON': 5}
+# Всё, что раньше было тремя рукописными словарями (адреса, подписи, минимумы),
+# теперь спрашивается у общего реестра продажи. Он же обслуживает сайт: два
+# списка одного и того же расходятся при первом же изменении, и расходились —
+# сайт звал продавать монету, которой в меню бота не было.
+def _sell_assets():
+    if RELAY_PATH not in sys.path:
+        sys.path.insert(0, RELAY_PATH)
+    from core import sell_assets
+    return sell_assets
 
-# Монеты, чей перевод несёт текстовую метку. У BTC/LTC/USDT её нет, и выдумывать
-# «комментарий» там нельзя: клиент искал бы поле, которого в его кошельке не
-# существует.
-SELL_MARKER_CURRENCIES = ('TON',)
+
+def sell_receive_address(currency: str) -> str:
+    """Адрес приёма монеты или пустая строка. Пусто = продажа закрыта."""
+    try:
+        return _sell_assets().receive_address(currency)
+    except Exception as e:
+        # Fail-closed: не знаем адреса — не зовём продавать. Пустая строка тут
+        # безопаснее любой догадки, потому что перевод не отзывается.
+        logger.error(f"адрес приёма {currency} недоступен: {e}")
+        return ""
+
+
+def sell_min_amount(currency: str):
+    """Минимум продажи или None, если он не объявлен (монета не продаётся)."""
+    try:
+        return _sell_assets().minimum(currency)
+    except Exception as e:
+        logger.error(f"минимум продажи {currency} недоступен: {e}")
+        return None
+
+
+def sell_coin_label(currency: str) -> str:
+    try:
+        return _sell_assets().label(currency)
+    except Exception:
+        return str(currency).upper()
+
+
+def _sell_manual_note(currency: str) -> str:
+    """Строка о том, кто подтвердит зачисление. Пустая, если это делает автомат.
+
+    Говорим правду заранее: у Monero и ETH проверки депозита в цепи нет, страж
+    вернёт `unsupported` и заявку будет закрывать человек. Умолчать — значит
+    пообещать те же 30–60 минут, что и по биткойну, и получить справедливую
+    жалобу вместо понятного ожидания.
+    """
+    try:
+        if not _sell_assets().needs_manual_check(currency):
+            return ""
+    except Exception:
+        return ""
+    return ("⏱ Зачисление этой монеты подтверждает оператор вручную — "
+            "выплата занимает дольше обычного.\n\n")
+
+
+def _sell_network_hint(currency: str) -> str:
+    """« в сети TRC-20» для монеты, у которой сетей несколько. Иначе пусто.
+
+    У USDT сетей две, адреса разные, и перевод не в ту сеть не возвращается.
+    Раньше сеть жила в рукописной подписи «USDT (TRC20)»; общий реестр её
+    вычисляет по самому адресу приёма, а здесь она попадает туда, где клиент
+    смотрит на сумму. Нашёл codex.
+    """
+    try:
+        sa = _sell_assets()
+        if RELAY_PATH not in sys.path:
+            sys.path.insert(0, RELAY_PATH)
+        from core import assets as _as
+        if len(_as.networks_for(currency)) <= 1:
+            return ""
+        net = sa.receive_network(currency)
+        return f" в сети <b>{_as.network_label(currency, net)}</b>" if net else ""
+    except Exception as e:
+        logger.error(f"сеть адреса приёма {currency} не определена: {e}")
+        return ""
+
+
+def _sell_eta_text(currency: str) -> str:
+    """Обещание срока — по тому, кто подтверждает зачисление."""
+    try:
+        manual = _sell_assets().needs_manual_check(currency)
+    except Exception:
+        manual = True          # не знаем — не обещаем быстрого
+    if manual:
+        return ("⏱ Зачисление этой монеты подтверждает оператор вручную — "
+                "выплата занимает дольше обычного.\n\n")
+    return "⏳ После подтверждения транзакции выплата поступит в течение 30–60 минут.\n\n"
 
 
 def _sell_marker(currency: str, sell_id) -> str:
     """Метка платежа для заявки или пустая строка. Считается там же, где её
     потом проверяет страж, — иначе клиенту показали бы одну строку, а искали
     другую."""
-    if str(currency).upper() not in SELL_MARKER_CURRENCIES:
+    try:
+        if not _sell_assets().can_mark(currency):
+            return ""
+    except Exception as e:
+        logger.error(f"метка платежа для продажи #{sell_id} не определена: {e}")
         return ""
     try:
         if RELAY_PATH not in sys.path:
@@ -2398,10 +2493,10 @@ async def menu_sell(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(F.data.startswith("sell_cur_"))
 async def process_sell_currency(callback: CallbackQuery, state: FSMContext):
     currency = callback.data.split("_")[2]
-    if currency not in SELL_RECEIVE_ADDRESSES:
-        await callback.answer("❌ Неверная валюта", show_alert=True)
+    if currency not in sell_coins():
+        await callback.answer("❌ Продажа этой монеты сейчас недоступна.", show_alert=True)
         return
-    receive_addr = SELL_RECEIVE_ADDRESSES[currency]
+    receive_addr = sell_receive_address(currency)
     if not receive_addr:
         await callback.answer("❌ Продажа этой валюты временно недоступна.", show_alert=True)
         return
@@ -2417,7 +2512,12 @@ async def process_sell_currency(callback: CallbackQuery, state: FSMContext):
     commission = get_commission_percent(50000, callback.from_user.id)
     sell_rate = round(rate * (1 - commission / 100), 2)
 
-    min_amt = SELL_MIN_AMOUNTS.get(currency, 0.001)
+    # Минимум не «по умолчанию»: монета без объявленного минимума до меню не
+    # доходит, а если дошла — это ошибка реестра, и принимать пыль мы не станем.
+    min_amt = sell_min_amount(currency)
+    if min_amt is None:
+        await callback.answer("❌ Продажа этой монеты сейчас недоступна.", show_alert=True)
+        return
     await state.update_data(sell_currency=currency, sell_rate=sell_rate, sell_receive_addr=receive_addr)
     await state.set_state(Sell.amount)
 
@@ -2425,13 +2525,14 @@ async def process_sell_currency(callback: CallbackQuery, state: FSMContext):
         [InlineKeyboardButton(text="🔙 Назад", callback_data="menu_sell")]
     ])
     await callback.message.answer(
-        f"💰 <b>Продажа {SELL_COIN_LABELS[currency]}</b>\n\n"
+        f"💰 <b>Продажа {sell_coin_label(currency)}</b>\n\n"
         f"<blockquote>"
-        f"📬 Адрес для перевода:\n<code>{receive_addr}</code>\n"
+        f"📬 Адрес для перевода{_sell_network_hint(currency)}:\n<code>{receive_addr}</code>\n"
         f"💱 Курс покупки: <b>{sell_rate:,.2f} ₽</b> за 1 {currency}\n"
         f"📦 Минимум: <b>{min_amt} {currency}</b>"
         f"</blockquote>\n\n"
-        f"Введите количество <b>{currency}</b>, которое хотите продать:",
+        + _sell_manual_note(currency)
+        + f"Введите количество <b>{currency}</b>, которое хотите продать:",
         reply_markup=kb,
         parse_mode="HTML"
     )
@@ -2446,7 +2547,11 @@ async def process_sell_amount(message: Message, state: FSMContext):
         return
     data = await state.get_data()
     currency = data.get('sell_currency', 'BTC')
-    min_amt = SELL_MIN_AMOUNTS.get(currency, 0.001)
+    min_amt = sell_min_amount(currency)
+    if min_amt is None:
+        await message.answer("❌ Продажа этой монеты сейчас недоступна.")
+        await state.clear()
+        return
     if amount < min_amt:
         await message.answer(f"❌ Минимальная сумма: {min_amt} {currency}")
         return
@@ -2505,7 +2610,7 @@ async def process_sell_phone(message: Message, state: FSMContext):
     await message.answer(
         f"✅ <b>Заявка на продажу #{sell_id} принята!</b>\n\n"
         f"<blockquote>"
-        f"📤 Отправьте: <b>{amount} {currency}</b>\n"
+        f"📤 Отправьте: <b>{amount} {currency}</b>{_sell_network_hint(currency)}\n"
         f"📬 На адрес:\n<code>{receive_addr}</code>\n"
         f"{marker_block}\n"
         f"💰 Выплата: <b>≈ {rub_amount:,.2f} ₽</b>\n"
@@ -2513,8 +2618,8 @@ async def process_sell_phone(message: Message, state: FSMContext):
         f"</blockquote>\n\n"
         + ("💎 В Mini App комментарий подставляется сам — кошелёк подпишет готовый "
            "перевод: «Личный кабинет» → Профиль.\n\n" if marker else "")
-        + f"⏳ После подтверждения транзакции выплата поступит в течение 30–60 минут.\n\n"
-        f"💬 Вопросы: @ObsidianSupBot",
+        + _sell_eta_text(currency)
+        + "💬 Вопросы: @ObsidianSupBot",
         parse_mode="HTML"
     )
 
@@ -7175,6 +7280,27 @@ def _proof_currency_kb(currencies) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
+_PROOF_NET_LABEL = {"TRC20": "TRON (TRC-20)", "ERC20": "Ethereum (ERC-20)"}
+
+
+def _proof_network_kb(networks) -> InlineKeyboardMarkup:
+    """Выбор сети. Спрашиваем только там, где сетей несколько: у USDT адрес в
+    TRON и в Ethereum разный, подписывается по-разному, и выбрать за клиента
+    значило бы подтвердить счёт, которого у него в этой сети нет."""
+    rows = [[InlineKeyboardButton(text=_PROOF_NET_LABEL.get(n, n),
+                                  callback_data=f"vrfn_{n}")] for n in networks]
+    rows.append([InlineKeyboardButton(text="✖️ Отмена", callback_data="vrf_cancel")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+async def _proof_ask_address(edit_or_msg, state, cur, net):
+    label = f"{cur}" + (f" ({_PROOF_NET_LABEL.get(net, net)})" if net else "")
+    await state.update_data(proof_currency=cur, proof_network=net or "")
+    await state.set_state(AddressProof.address)
+    await edit_or_msg(f"Пришлите ваш <b>{label}</b>-адрес — тот, которым будете "
+                      f"подписывать.", parse_mode="HTML")
+
+
 @router.message(Command("verify"))
 async def cmd_verify(message: Message, state: FSMContext):
     """/verify — подтвердить владение своим адресом подписью кошелька.
@@ -7215,11 +7341,30 @@ async def proof_pick_currency(callback: CallbackQuery, state: FSMContext):
     if not sp or cur not in sp.currencies():
         await callback.answer("Для этой монеты подпись не поддерживается.", show_alert=True)
         return
-    await state.update_data(proof_currency=cur)
-    await state.set_state(AddressProof.address)
-    await callback.message.edit_text(
-        f"Пришлите ваш <b>{cur}</b>-адрес — тот, которым будете подписывать.",
-        parse_mode="HTML")
+    nets = sp.proof_networks(cur)
+    if len(nets) > 1:
+        await state.update_data(proof_currency=cur)
+        await state.set_state(AddressProof.network)
+        await callback.message.edit_text(
+            f"У <b>{cur}</b> несколько сетей. Выберите ту, в которой ваш адрес:",
+            parse_mode="HTML", reply_markup=_proof_network_kb(nets))
+        await callback.answer()
+        return
+    await _proof_ask_address(callback.message.edit_text, state, cur,
+                             nets[0] if nets else "")
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("vrfn_"))
+async def proof_pick_network(callback: CallbackQuery, state: FSMContext):
+    sp = _sig_proof()
+    net = callback.data.split("_", 1)[1].upper()
+    data = await state.get_data()
+    cur = data.get("proof_currency", "")
+    if not sp or net not in sp.proof_networks(cur):
+        await callback.answer("Эта сеть подписью не подтверждается.", show_alert=True)
+        return
+    await _proof_ask_address(callback.message.edit_text, state, cur, net)
     await callback.answer()
 
 
@@ -7235,7 +7380,8 @@ async def proof_take_address(message: Message, state: FSMContext):
     # Адрес проверяет ядро: там же решается, что на подпись идёт ГОЛЫЙ адрес,
     # а не назначение перевода со склеенным тегом. Причина отказа приходит
     # готовой — «адрес не тот» и «сервер не настроен» звучат по-разному.
-    ready = sp.prepare(cur, message.text or "", message.from_user.id)
+    ready = sp.prepare(cur, message.text or "", message.from_user.id,
+                       network=data.get("proof_network") or None)
     if not ready["ok"]:
         await message.answer(ready["error"])
         return
@@ -7268,7 +7414,8 @@ async def proof_take_signature(message: Message, state: FSMContext):
     data = await state.get_data()
     verdict = sp.verify(data.get("proof_currency", ""), data.get("proof_address", ""),
                         data.get("proof_payload", ""), (message.text or "").strip(),
-                        subject=message.from_user.id)
+                        subject=message.from_user.id,
+                        network=data.get("proof_network") or None)
     logger.info("proof verify uid=%s %s → %s", message.from_user.id,
                 data.get("proof_currency"), verdict["reason"])
     if not verdict["verified"]:
@@ -7281,7 +7428,8 @@ async def proof_take_signature(message: Message, state: FSMContext):
         # адрес уже известен, спрашивать его заново незачем. Нашёл codex.
         if verdict["reason"] in ("payload_expired", "payload_alien", "bad_payload"):
             again = sp.prepare(data.get("proof_currency", ""),
-                               data.get("proof_address", ""), message.from_user.id)
+                               data.get("proof_address", ""), message.from_user.id,
+                               network=data.get("proof_network") or None)
             if not again["ok"]:
                 await state.clear()
                 await message.answer(f"❌ {again['error']}")
@@ -7305,7 +7453,11 @@ async def proof_take_signature(message: Message, state: FSMContext):
         from core import wallet_link as _wl
         # Связь пишем ТОЛЬКО под вердиктом — в единственной точке, где он есть.
         if verdict["verified"] and verdict["address"]:
-            saved = _wl.remember(message.from_user.id, data.get("proof_currency", ""),
+            # Ключ связи — ЦЕПЬ из вердикта, а не монета: один `T…`-адрес держит
+            # и USDT, и TRX, один `0x…` — и ETH, и USDT-ERC20. По монете запись
+            # затирала бы доказанный адрес соседней сети того же клиента.
+            saved = _wl.remember(message.from_user.id,
+                                 verdict.get("chain") or data.get("proof_currency", ""),
                                  verdict["address"])
     except Exception:
         logger.exception("proof: связь не сохранена")
@@ -8278,6 +8430,47 @@ async def cmd_reserves(message: Message):
                    "/setreserve КОД 0")
     text += "\n\nИзменить: /setreserve BTC 1.5"
     await message.answer(text, parse_mode="HTML")
+
+
+@router.message(Command("sellstatus"))
+async def cmd_sellstatus(message: Message):
+    """/sellstatus — что можно продать и почему остальное закрыто (админ).
+
+    Направление продажи закрывается тихо: нет адреса приёма — нет монеты в
+    меню. Раньше это было видно только чтением кода, а с проверкой адреса
+    появился ещё один тихий способ закрыться — опечатка в настройке. Здесь
+    состояние названо вслух, по строке на монету.
+    """
+    if not is_admin(message.from_user.id):
+        return
+    try:
+        if RELAY_PATH not in sys.path:
+            sys.path.insert(0, RELAY_PATH)
+        from core import sell_assets, assets as _as
+    except Exception as e:
+        await message.answer(f"⛔ Реестр продажи недоступен: {e}")
+        return
+    open_now = set(sell_assets.sell_currencies())
+    lines = []
+    for cur in _as.CURRENCY_NETWORKS:
+        if cur in open_now:
+            who = ("оператор вручную" if sell_assets.needs_manual_check(cur)
+                   else "автоматически")
+            lines.append(f"✅ {sell_assets.label(cur)} · мин. "
+                         f"{sell_assets.minimum(cur)} · зачисление — {who}")
+        else:
+            lines.append(f"➖ {sell_assets.label(cur)} — {sell_assets.closed_reason(cur)}")
+    # Цена — второе условие, и оно наше: монета с адресом, но без источника
+    # курса в меню всё равно не появится.
+    priced = set(sell_coins())
+    silent = sorted(open_now - priced)
+    text = "💰 <b>Продажа: что открыто</b>\n\n" + "\n".join(lines)
+    if silent:
+        text += ("\n\n⚠️ Адрес есть, а курса нет — в меню не появятся: "
+                 + ", ".join(silent))
+    text += "\n\nОткрыть монету: задать SELL_&lt;КОД&gt;_ADDRESS в настройках бота."
+    await message.answer(text, parse_mode="HTML")
+
 
 @router.message(Command("limits"))
 async def cmd_limits(message: Message):
