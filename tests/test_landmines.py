@@ -4985,13 +4985,15 @@ def _foreign_script_offenders(sources):
 
 def check_no_foreign_code_on_money_pages():
     tag = "чужой код на денежной странице"
-    pages = [(p, _read(os.path.join(ROOT, *p.split("/")))) for p in (
-        "relay/webapp.html",
-        "relay-fastapi/templates/base.html",
-        "relay-fastapi/templates/index.html",
-        "relay-fastapi/templates/dashboard_sell.html",
-        "relay-fastapi/templates/dashboard_exchange.html",
-        "relay-fastapi/templates/dashboard_orders.html")]
+    # Перебираем КАТАЛОГ, а не список имён. Урок записан в журнале проекта:
+    # правило по перечисленным файлам не видит страницу, которую заведут
+    # завтра, — а заведут её копипастой с той, где чужой тег уже стоит. Codex
+    # ровно так и нашёл `dashboard_profile.html`, которого в списке не было.
+    pages = [("relay/webapp.html", _read(os.path.join(ROOT, "relay", "webapp.html")))]
+    tpl_dir = os.path.join(ROOT, "relay-fastapi", "templates")
+    for name in sorted(os.listdir(tpl_dir)) if os.path.isdir(tpl_dir) else []:
+        if name.endswith(".html"):
+            pages.append((f"templates/{name}", _read(os.path.join(tpl_dir, name))))
     if not any(src for _, src in pages):
         fail(tag, "ни одной страницы не прочитано — проверка ослепла")
         return
