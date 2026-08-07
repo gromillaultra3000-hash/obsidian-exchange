@@ -4946,6 +4946,81 @@ def check_sell_price_has_one_formula():
         fail(tag, why)
 
 
+# ── Мина: чужой исполняемый код на денежной странице ────────────────────────
+# Страницы обменника показывают клиенту адрес получателя крипты и реквизиты
+# оплаты. Скрипт с чужого домена на такой странице подменяет адрес в момент
+# отрисовки — клиент копирует нарисованное, и заметить подмену ему нечем.
+#
+# Это не теория. До 07.08.2026 Mini App тянул `cdn.jsdelivr.net/npm/chart.js`
+# БЕЗ номера версии, то есть содержимое менялось без нашего ведома, а сайт —
+# lucide с того же CDN. Ни у одного не было integrity. Именно так работали
+# массовые кражи 2026 года через подменённые npm-пакеты и рекламные SDK.
+#
+# Исключение ровно одно: telegram.org. Его telegram-web-app.js обязателен для
+# Mini App и физически не может быть скопирован к себе — он привязан к клиенту
+# Telegram. Всё остальное кладётся в /static с зафиксированной версией.
+_ALLOWED_SCRIPT_HOSTS = ("telegram.org",)
+
+
+def _foreign_script_offenders(sources):
+    """Страницы, подключающие исполняемый код с чужого хоста."""
+    out = []
+    for label, src in sources:
+        if not src:
+            continue
+        # Комментарий, объясняющий, почему так делать нельзя, сам содержит имя
+        # хоста. Мина, которую обманывает собственное объяснение, — не мина.
+        body = re.sub(r"\{#.*?#\}|<!--.*?-->", "", src, flags=re.S)
+        for tag in re.findall(r"<script[^>]*\ssrc=[\"']([^\"']+)[\"']", body, re.I):
+            m = re.match(r"https?://([^/]+)", tag.strip(), re.I)
+            if not m:
+                continue                      # свой путь вида /static/js/…
+            host = m.group(1).lower()
+            if not any(host == a or host.endswith("." + a)
+                       for a in _ALLOWED_SCRIPT_HOSTS):
+                out.append(f"{label}: исполняемый код с чужого хоста {host} "
+                           f"({tag.strip()[:70]})")
+    return out
+
+
+def check_no_foreign_code_on_money_pages():
+    tag = "чужой код на денежной странице"
+    # Перебираем КАТАЛОГ, а не список имён. Урок записан в журнале проекта:
+    # правило по перечисленным файлам не видит страницу, которую заведут
+    # завтра, — а заведут её копипастой с той, где чужой тег уже стоит. Codex
+    # ровно так и нашёл `dashboard_profile.html`, которого в списке не было.
+    pages = [("relay/webapp.html", _read(os.path.join(ROOT, "relay", "webapp.html")))]
+    tpl_dir = os.path.join(ROOT, "relay-fastapi", "templates")
+    for name in sorted(os.listdir(tpl_dir)) if os.path.isdir(tpl_dir) else []:
+        if name.endswith(".html"):
+            pages.append((f"templates/{name}", _read(os.path.join(tpl_dir, name))))
+    if not any(src for _, src in pages):
+        fail(tag, "ни одной страницы не прочитано — проверка ослепла")
+        return
+    for why in _foreign_script_offenders(pages):
+        fail(tag, why + " — такой скрипт подменяет адрес получателя молча")
+
+    # Политика — вторая половина: без неё запрет держится на одной внимательности
+    # при ревью, а тег вернётся первой же копипастой из чужого примера.
+    main_src = _read(os.path.join(ROOT, "relay-fastapi", "main.py"))
+    if not main_src:
+        fail(tag, "relay-fastapi/main.py не прочитан — проверка ослепла")
+        return
+    # Апострофы внутри директивы законны ('self', 'unsafe-inline') — обрываем
+    # захват по разделителю директив и по концу строки, а не по кавычке.
+    m = re.search(r"script-src ([^;\"]+)", main_src)
+    if not m:
+        fail(tag, "у приложения нет Content-Security-Policy со script-src — "
+                  "запрет чужого кода держится только на внимательности ревью")
+        return
+    allowed = m.group(1)
+    if "*" in allowed or "'unsafe-eval'" in allowed:
+        fail(tag, f"script-src разрешает слишком много ({allowed.strip()}) — "
+                  f"политика перестаёт что-либо ограничивать")
+    if "Content-Security-Policy" not in main_src:
+        fail(tag, "политика описана, но ни на один ответ не ставится")
+
+
 def main():
     for fn in (check_no_diverging_duplicates, check_config_keys_are_read,
                check_no_fail_open_in_guards, check_session_expiry_uses_expires_at,
@@ -5007,7 +5082,8 @@ def main():
                check_payout_directions_come_from_the_registry,
                check_the_payer_gets_a_usable_requisite,
                check_client_threshold_guards_every_door,
-               check_sell_price_has_one_formula):
+               check_sell_price_has_one_formula,
+               check_no_foreign_code_on_money_pages):
         try:
             fn()
         except Exception as e:

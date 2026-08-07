@@ -726,7 +726,13 @@
     <script src="/static/js/tonconnect-ui-3.0.0.min.js" defer
             onerror="window.__oeTonConnectFailed=true"
             onload="try{tcRefresh()}catch(e){}"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Своя копия с ЗАФИКСИРОВАННОЙ версией, а не CDN. Здесь стояло
+         cdn.jsdelivr.net/npm/chart.js — без номера версии и без integrity, то
+         есть чужой сервер отдавал произвольный JS на страницу, где клиент
+         читает адрес получателя крипты и реквизиты оплаты. Такой скрипт
+         подменяет адрес в момент показа, и заметить это нечем. Ровно так
+         работали атаки на npm-пакеты и SDK в 2026-м. -->
+    <script src="/static/js/chart-4.4.7.umd.min.js"></script>
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();

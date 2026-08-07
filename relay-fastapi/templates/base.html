@@ -102,7 +102,9 @@
     </div>
 
     <script src="/static/js/main.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+    {# Своя копия вместо cdn.jsdelivr.net: страницы личного кабинета показывают
+       адреса выплат и реквизиты, и чужой скрипт на них подменяет адрес молча. #}
+    <script src="/static/js/lucide-0.468.0.min.js"></script>
     <script src="/static/js/v5.js" defer></script>
 {% else %}
     </main>
