@@ -140,7 +140,7 @@
                ступень лестницы. Значение — из core.pricing (sell_commission);
                блок исчезает, если направление закрыто или ставку не прочитать. #}
             {% if sell_commission and sell_currencies %}
-            <div class="fee-row"><div class="fee-rate">{{ sell_commission }}</div><div class="fee-desc">выкуп крипты<small>{{ sell_currencies|join(' · ') }} → рубли, одна ставка на любую сумму</small></div></div>
+            <div class="fee-row"><div class="fee-rate">{{ sell_commission }}</div><div class="fee-desc">выкуп крипты<small>{{ sell_currencies|join(' · ') }} → рубли, ставка не зависит от суммы</small></div></div>
             {% endif %}
         </div>
     </div>

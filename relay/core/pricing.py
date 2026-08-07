@@ -100,10 +100,30 @@ def sell_rate(market_rate, currency=None) -> float:
     return round(market * (1 - sell_commission_percent(currency) / 100), 2)
 
 
+def _pct_text(pct) -> str:
+    return (f"{pct:.1f}".rstrip("0").rstrip(".") if pct % 1 else f"{int(pct)}") + "%"
+
+
 def sell_commission_label(currency=None) -> str:
     """«9%» — для витрин. Дробную ставку показываем без хвоста нулей."""
-    pct = sell_commission_percent(currency)
-    return (f"{pct:.1f}".rstrip("0").rstrip(".") if pct % 1 else f"{int(pct)}") + "%"
+    return _pct_text(sell_commission_percent(currency))
+
+
+def sell_commission_label_for(currencies) -> str:
+    """Подпись для витрины, где монета ещё НЕ выбрана: вход в раздел продажи,
+    главная, FAQ, рекламный пост.
+
+    Нашёл codex: точечный оверрайд (SELL_COMMISSION_BTC=7) делал общую подпись
+    ложью — витрина обещала «минус 9%», а биткойн выкупался по 7%. Одна ставка
+    на все монеты — «9%»; разные — честный диапазон «7–9%», и ни одна монета
+    не выпадает из обещанного. Пустой список = сказать нечего.
+    """
+    pcts = sorted({sell_commission_percent(c) for c in (currencies or [])})
+    if not pcts:
+        return ""
+    if len(pcts) == 1:
+        return _pct_text(pcts[0])
+    return f"{_pct_text(pcts[0])[:-1]}–{_pct_text(pcts[-1])}"
 
 
 def best_commission_percent() -> int:

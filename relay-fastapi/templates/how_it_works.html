@@ -59,7 +59,7 @@
    нет, — клиент упирался в тупик. #}
     {# Ставка названа сразу: страница объясняет процесс, а первый вопрос
        продающего — «по какому курсу выкупаете». Значение из core.pricing. #}
-    <p class="section-sub">{{ sell_currencies|join(', ') }} → рубли на карту или по СБП. Без сложных шагов, без верификации.{% if sell_commission %} Курс выкупа — рыночный минус {{ sell_commission }}, одна ставка на любую сумму.{% endif %}</p>
+    <p class="section-sub">{{ sell_currencies|join(', ') }} → рубли на карту или по СБП. Без сложных шагов, без верификации.{% if sell_commission %} Курс выкупа — рыночный минус {{ sell_commission }}, ставка не зависит от суммы.{% endif %}</p>
     <div class="timeline">
         <div class="timeline-step">
             <div class="num">1</div>

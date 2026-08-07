@@ -82,6 +82,23 @@ os.environ["SELL_COMMISSION_PERCENT"] = "12"
 check(pricing.sell_commission_percent("LTC") == 12, "общий оверрайд не сработал")
 os.environ.pop("SELL_COMMISSION_PERCENT")
 
+# ── 3б. Общая подпись не врёт при точечном оверрайде (нашёл codex) ───────────
+# Витрины, где монета ещё не выбрана (вход в раздел, главная, FAQ, пост),
+# показывали ставку по умолчанию. С SELL_COMMISSION_BTC=7 такая витрина
+# обещала «минус 9%», а биткойн выкупался по 7% — обещание, которого расчёт
+# не выполняет, то есть ровно тот дефект, против которого вся эта задача.
+check(pricing.sell_commission_label_for(["BTC", "LTC"]) == "9%",
+      "при одинаковых ставках общая подпись перестала быть одним числом")
+os.environ["SELL_COMMISSION_BTC"] = "7"
+check(pricing.sell_commission_label_for(["BTC", "LTC"]) == "7–9%",
+      "общая подпись скрыла точечный оверрайд: "
+      + pricing.sell_commission_label_for(["BTC", "LTC"]))
+check(pricing.sell_commission_label_for(["BTC"]) == "7%",
+      "подпись для единственной монеты с оверрайдом неверна")
+os.environ.pop("SELL_COMMISSION_BTC")
+check(pricing.sell_commission_label_for([]) == "",
+      "подпись без направлений продажи должна молчать, а не показывать умолчание")
+
 # ── 4. Сайт и бот считают ОДНИМ движком ──────────────────────────────────────
 # Именно этого не было: две реализации формулы, расходившиеся на скидках VIP.
 calc_src = read("relay", "utils", "exchange_calc.py")
@@ -137,6 +154,12 @@ check(site_rate == pricing.sell_rate(5_000_000, "BTC") == 4_550_000.0,
 main_src = read("relay-fastapi", "main.py")
 check('"sell_commission": _sell_commission_label()' in main_src,
       "шаблоны сайта не получают ставку выкупа в общем контексте")
+# Обе поверхности обязаны собирать общую подпись по СПИСКУ открытых монет, а не
+# по умолчанию: иначе точечный оверрайд снова разойдётся с витриной.
+check("sell_commission_label_for(_sell_currencies())" in main_src,
+      "сайт строит общую подпись мимо списка направлений продажи")
+check("_scl_for(sell_coins())" in bot_src,
+      "бот строит общую подпись мимо списка направлений продажи")
 check('"fee_label": _sell_commission_label()' in main_src,
       "/api/sell/options не отдаёт ставку — Mini App нечего показать")
 check('"fee_percent"' in main_src,

@@ -283,11 +283,18 @@ def _commission_tiers():
 
 
 def _sell_commission_label(currency: str = None) -> str:
-    """«9%» для шаблонов. Пусто при сбое — блок о ставке тогда не рисуется
-    вовсе, что честнее устаревшего числа рядом с кнопкой «продать»."""
+    """Ставка выкупа для витрин. Пусто при сбое — блок о ставке тогда не
+    рисуется вовсе, что честнее устаревшего числа рядом с кнопкой «продать».
+
+    Без монеты подпись считается по ВСЕМ открытым направлениям продажи, а не по
+    умолчанию: при точечном оверрайде (SELL_COMMISSION_BTC=7) общее «минус 9%»
+    было бы обещанием, которого биткойн не выполняет. Разные ставки → диапазон.
+    """
     try:
-        from core.pricing import sell_commission_label
-        return sell_commission_label(currency)
+        from core.pricing import sell_commission_label, sell_commission_label_for
+        if currency:
+            return sell_commission_label(currency)
+        return sell_commission_label_for(_sell_currencies())
     except Exception as e:
         logger.error(f"ставка выкупа недоступна для витрины: {e}")
         return ""

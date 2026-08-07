@@ -1036,13 +1036,19 @@ def sell_rate_for(currency, market_rate) -> float:
 
 
 def sell_commission_label(currency=None) -> str:
-    """«9%» для текстов бота. Пустая строка — если ставку не прочитать: лучше
-    предложение без цифры, чем предложение с выдуманной цифрой."""
+    """Ставка выкупа для текстов бота. Пустая строка — если ставку не
+    прочитать: лучше предложение без цифры, чем предложение с выдуманной.
+
+    Без монеты (вход в раздел, тарифы, «о сервисе», пост) считается по всем
+    открытым направлениям: при точечном оверрайде одной монеты общее «минус
+    9%» перестало бы быть правдой для неё. Разные ставки → диапазон.
+    """
     try:
-        from core.pricing import sell_commission_label as _scl
+        from core.pricing import (sell_commission_label as _scl,
+                                  sell_commission_label_for as _scl_for)
     except Exception:
         return ""
-    return _scl(currency)
+    return _scl(currency) if currency else _scl_for(sell_coins())
 
 
 def _sell_market_line(currency, market_rate) -> str:
@@ -2384,7 +2390,7 @@ async def menu_about(callback: CallbackQuery):
         # упоминалась вовсе, хотя направление работает: клиент, пришедший
         # продать, из описания сервиса об этом не узнавал.
         + (f"📊 Покупка: комиссия {_buy_range} по сумме ({coins_line()})\n" if _buy_range else "")
-        + (f"📉 Продажа: рынок минус {_sell_fee} — одна ставка на любую сумму\n" if _sell_fee else "")
+        + (f"📉 Продажа: рынок минус {_sell_fee} — ставка не зависит от суммы\n" if _sell_fee else "")
         + "🌐 obsidian-exchange.org\n\n"
         "<i>Используя сервис, вы принимаете условия пользовательского соглашения — /offer</i>",
         parse_mode="HTML",
@@ -2622,8 +2628,8 @@ async def menu_sell(callback: CallbackQuery, state: FSMContext):
         # которого больше нет.
         f"<blockquote>Отправьте нам монеты на указанный адрес — мы переведём рубли "
         f"по СБП на ваш номер телефона в течение 30–60 минут.\n\n"
-        f"💱 Курс: рыночный минус <b>{sell_commission_label()}</b> — одна ставка "
-        f"на любую сумму ({coins_line()})</blockquote>\n\n"
+        f"💱 Курс: рыночный минус <b>{sell_commission_label()}</b> — ставка "
+        f"не зависит от суммы ({coins_line()})</blockquote>\n\n"
         "Выберите монету для продажи:",
         reply_markup=kb,
         parse_mode="HTML"
@@ -10941,7 +10947,7 @@ def _tariff_text():
     sell_block = (f"""
 
 <blockquote><b>Продажа крипты (выкуп):</b>
-• Рынок минус <b>{sell_fee}</b> — одна ставка на любую сумму
+• Рынок минус <b>{sell_fee}</b> — ставка не зависит от суммы
 • Рубли на карту или по СБП, 30–60 минут
 • VIP-скидки и промокоды действуют на покупку</blockquote>""" if sell_fee else "")
     return f"""💎 <b>Тарифная сетка ObsidianExchange</b>
