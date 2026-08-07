@@ -31,6 +31,107 @@ COMMISSION_TIERS = (
 
 MIN_COMMISSION_PERCENT = 2   # пол для VIP/промо-скидок
 
+# ── Выкуп: клиент продаёт нам монету, мы платим рубли ────────────────────────
+# Ставка ОДНА и НЕ зависит от суммы, в отличие от лестницы покупки. Так решил
+# владелец 07.08.2026, и это не упрощение расчёта: покупка и продажа — разные
+# экономики. На покупке маржа платит за платёжный канал (провайдер берёт свой
+# процент с приёма рублей), на продаже мы сами отдаём рубли и платим за выплату.
+#
+# Раньше выкуп считался по ступени покупки на 50 000 ₽ (то есть 19%), причём в
+# ДВУХ местах независимо: exchange_calc.get_sell_rate — без персональных скидок,
+# бот — со скидкой VIP и промокода. Один и тот же клиент видел в боте один курс
+# выкупа, а на сайте другой, и заявка уходила по тому, где он её создал.
+# Поэтому здесь не только число, но и сама формула: перемножение живёт в
+# sell_rate(), а не по копии на каждой поверхности.
+SELL_COMMISSION_DEFAULT = 9
+
+# Потолок вменяемости для env-оверрайда. Опечатка «90» вместо «9» дала бы курс
+# в десять раз ниже рынка, а «900» — отрицательную выплату, и оба варианта
+# выглядели бы как рабочая настройка. Выше потолка — считаем значение ошибкой
+# и берём умолчание, а не «почти ноль клиенту».
+SELL_COMMISSION_MAX = 40
+
+
+def _sell_env(name: str):
+    """Число из переменной окружения или None, если её нет/она не число."""
+    import os
+    raw = os.getenv(name)
+    if raw is None or str(raw).strip() == "":
+        return None
+    try:
+        val = float(str(raw).strip().replace(",", "."))
+    except (TypeError, ValueError):
+        return None
+    if not (0 <= val <= SELL_COMMISSION_MAX):
+        return None
+    return val
+
+
+def sell_commission_percent(currency=None) -> float:
+    """Наша ставка на выкуп монеты у клиента, в процентах.
+
+    Переопределяется без релиза: SELL_COMMISSION_<МОНЕТА> точечно (например
+    SELL_COMMISSION_BTC=7) или SELL_COMMISSION_PERCENT для всех. Негодное
+    значение игнорируется — см. SELL_COMMISSION_MAX.
+    """
+    cur = str(currency or "").strip().upper()
+    if cur:
+        per_coin = _sell_env(f"SELL_COMMISSION_{cur}")
+        if per_coin is not None:
+            return per_coin
+    common = _sell_env("SELL_COMMISSION_PERCENT")
+    return common if common is not None else float(SELL_COMMISSION_DEFAULT)
+
+
+def sell_rate(market_rate, currency=None) -> float:
+    """Курс выкупа: рыночная цена минус наша ставка. Единственное место, где
+    ставка превращается в число рублей — и бот, и сайт, и Mini App зовут его.
+
+    Нечисловая или неположительная рыночная цена — это отсутствие курса, а не
+    повод посчитать выплату от нуля: возвращаем 0.0, и вызывающий обязан
+    трактовать его как отказ (так и делают _sell_rate в main.py и бот).
+    """
+    try:
+        market = float(market_rate or 0)
+    except (TypeError, ValueError):
+        return 0.0
+    if not market > 0 or market != market or market in (float("inf"), float("-inf")):
+        return 0.0
+    return round(market * (1 - sell_commission_percent(currency) / 100), 2)
+
+
+def _pct_text(pct) -> str:
+    return (f"{pct:.1f}".rstrip("0").rstrip(".") if pct % 1 else f"{int(pct)}") + "%"
+
+
+def sell_commission_label(currency=None) -> str:
+    """«9%» — для витрин. Дробную ставку показываем без хвоста нулей."""
+    return _pct_text(sell_commission_percent(currency))
+
+
+def sell_commission_label_for(currencies) -> str:
+    """Подпись для витрины, где монета ещё НЕ выбрана: вход в раздел продажи,
+    главная, FAQ, рекламный пост.
+
+    Нашёл codex: точечный оверрайд (SELL_COMMISSION_BTC=7) делал общую подпись
+    ложью — витрина обещала «минус 9%», а биткойн выкупался по 7%. Одна ставка
+    на все монеты — «9%»; разные — честный диапазон «7–9%», и ни одна монета
+    не выпадает из обещанного. Пустой список = сказать нечего.
+    """
+    pcts = sorted({sell_commission_percent(c) for c in (currencies or [])})
+    if not pcts:
+        return ""
+    if len(pcts) == 1:
+        return _pct_text(pcts[0])
+    return f"{_pct_text(pcts[0])[:-1]}–{_pct_text(pcts[-1])}"
+
+
+def best_commission_percent() -> int:
+    """Лучшая (минимальная) ставка покупки — для витрин «курс от».
+    Раньше в рекламном посте стояло 0.19 литералом: правка COMMISSION_TIERS
+    прошла бы мимо него молча, и пост обещал бы курс, которого больше нет."""
+    return min(pct for _, pct in COMMISSION_TIERS)
+
 # Накопительная скидка за оборот: (порог оборота в ₽, название, скидка в п.п.).
 # Жила только в боте, а сайт обещал её отдельным вручную набранным списком —
 # то есть скидку, которую начисляет ОДИН процесс, описывал текст в ДРУГОМ, и

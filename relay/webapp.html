@@ -412,6 +412,12 @@
                      раздел был бы тупиком: клиент закрывает окно и больше
                      нигде не видит ни адреса, ни метки своей заявки. -->
                 <div id="sell-pending" style="display:none;margin-bottom:14px"></div>
+                <!-- Ставка выкупа названа до ввода суммы: клиент решает, стоит
+                     ли вообще заводить заявку, именно здесь. Текст приходит с
+                     сервера и исчезает, если ставку не прочитать. -->
+                <div id="sell-fee-note" style="display:none;margin-bottom:12px;padding:8px 12px;
+                     background:rgba(159,103,255,.10);border:1px solid rgba(159,103,255,.28);
+                     border-radius:10px;font-size:12px;color:#c9b6ff"></div>
                 <div class="input-group">
                     <label>Монета</label>
                     <select id="sell-currency" onchange="sellCalc()"></select>
@@ -425,6 +431,11 @@
                     <div style="margin-top:6px;font-size:11px;color:var(--muted)" id="sell-min"></div>
                 </div>
                 <div class="fee-box" id="sell-calc-box">
+                    <!-- Разбивка: клиенту видно, из чего сложилась выплата.
+                         Заполняется из /api/sell/options — своей ставки у
+                         фронта нет, иначе она разошлась бы с заявкой. -->
+                    <div id="sell-breakdown" style="display:none;font-size:12px;color:var(--muted);
+                         margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.1)"></div>
                     💵 Вы получите: <strong id="sell-payout">—</strong>
                 </div>
                 <!-- Правда о сроке ДО создания заявки: у монет без проверки
@@ -1497,6 +1508,14 @@
                 // и клиенту честнее сказать это, чем оставить пустой список.
                 document.getElementById('sell-empty').style.display = coins.length ? 'none' : '';
                 document.getElementById('sell-submit').disabled = !coins.length;
+                const note = document.getElementById('sell-fee-note');
+                if (d && d.fee_label && coins.length) {
+                    note.textContent = '💜 Выкупаем по рынку минус ' + d.fee_label
+                        + ' — ставка не зависит от суммы';
+                    note.style.display = '';
+                } else {
+                    note.style.display = 'none';
+                }
                 sellPayoutWays = (d && d.payout_ways) || [];
                 sellPayoutBanks = (d && d.payout_banks) || [];
                 const msel = document.getElementById('sell-method');
@@ -1533,11 +1552,29 @@
             const amt = parseFloat(document.getElementById('sell-amount').value) || 0;
             const min = document.getElementById('sell-min');
             const payout = document.getElementById('sell-payout');
-            if (!info) { min.textContent = ''; payout.textContent = '—'; return; }
+            const brk = document.getElementById('sell-breakdown');
+            if (!info) { min.textContent = ''; payout.textContent = '—'; brk.style.display = 'none'; return; }
             min.textContent = 'Минимум: ' + info.min + ' ' + cur
                 + (info.network ? ' · сеть ' + info.network : '');
-            payout.textContent = amt > 0
-                ? Math.round(amt * info.rate).toLocaleString('ru-RU') + ' ₽' : '—';
+            const rub = amt > 0 ? amt * info.rate : 0;
+            payout.textContent = rub ? Math.round(rub).toLocaleString('ru-RU') + ' ₽' : '—';
+            // Разбивка выплаты. Комиссия — разница между рыночной стоимостью и
+            // выплатой по курсу СЕРВЕРА, а не отдельный процент, посчитанный
+            // здесь: две формулы цены на двух поверхностях уже расходились.
+            const market = amt > 0 && info.market ? amt * info.market : 0;
+            if (market && rub) {
+                brk.style.display = '';
+                const money = v => Math.round(v).toLocaleString('ru-RU') + ' ₽';
+                brk.innerHTML = '<div style="display:flex;justify-content:space-between">'
+                    + '<span>Рыночная стоимость</span><span>' + money(market) + '</span></div>'
+                    + '<div style="display:flex;justify-content:space-between;margin-top:3px">'
+                    + '<span>Комиссия обмена'
+                    // Ноль — настроенная ставка, а не отсутствие данных.
+                    + (info.fee_percent == null ? '' : ' (' + info.fee_percent + '%)')
+                    + '</span><span>−' + money(Math.max(0, market - rub)) + '</span></div>';
+            } else {
+                brk.style.display = 'none';
+            }
             document.getElementById('sell-manual').style.display = info.manual ? '' : 'none';
         }
 

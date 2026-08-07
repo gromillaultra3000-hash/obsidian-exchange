@@ -136,6 +136,12 @@
             </div>
             {% endfor %}
             <div class="fee-row"><div class="fee-rate">2%</div><div class="fee-desc">swap монет<small>{{ swap_currencies|join(' ↔ ') }}</small></div></div>
+            {# Выкуп. Ставка одна на любую сумму, поэтому строка отдельная, а не
+               ступень лестницы. Значение — из core.pricing (sell_commission);
+               блок исчезает, если направление закрыто или ставку не прочитать. #}
+            {% if sell_commission and sell_currencies %}
+            <div class="fee-row"><div class="fee-rate">{{ sell_commission }}</div><div class="fee-desc">выкуп крипты<small>{{ sell_currencies|join(' · ') }} → рубли, ставка не зависит от суммы</small></div></div>
+            {% endif %}
         </div>
     </div>
     <div class="card">

@@ -23,7 +23,7 @@
             {# Монеты и ступени — из витрины и core.pricing, не руками: этот
    ответ держал собственную копию лестницы и сохранил формулировку «до
    5 000 ₽», исправленную в расчёте ещё 27.07. #}
-            <div class="faq-answer"><div class="faq-answer-inner">Для {{ offered_currencies|join(', ') }}: {% for t in commission_tiers %}{{ t.percent }}% — {{ t.label }}{{ "; " if not loop.last else ". " }}{% endfor %}Подробнее на странице <a href="/rates">«Курсы»</a>.</div></div>
+            <div class="faq-answer"><div class="faq-answer-inner">При покупке {{ offered_currencies|join(', ') }}: {% for t in commission_tiers %}{{ t.percent }}% — {{ t.label }}{{ "; " if not loop.last else ". " }}{% endfor %}{% if sell_commission and sell_currencies %}При продаже ({{ sell_currencies|join(', ') }}) — рыночный курс минус {{ sell_commission }}, ставка не зависит от суммы. {% endif %}Подробнее на странице <a href="/rates">«Курсы»</a>.</div></div>
         </div>
         <div class="faq-item">
             <button class="faq-question">Какие лимиты на сумму обмена?<span class="arrow">▾</span></button>

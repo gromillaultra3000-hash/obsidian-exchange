@@ -4853,6 +4853,99 @@ def check_client_threshold_guards_every_door():
                           f"держать её в согласии с реестром некому")
 
 
+# ── Мина: цена выкупа считается не там, где объявлена ───────────────────────
+# Ставка выкупа была одна на словах и две в коде: exchange_calc умножал рынок
+# на ступень покупки для 50 000 ₽, а бот — на ту же ступень со скидкой VIP и
+# промокода. Обе строки выглядели как нормальный расчёт, и разошлись они не
+# «однажды сломавшись», а с самого начала: клиент со статусом Gold видел в боте
+# курс выкупа выше, чем на сайте, и получал тот, где нажал кнопку.
+#
+# Класс дефекта шире одного случая: ЛЮБАЯ вторая формула цены живёт своей
+# жизнью и расходится с первой при первой же правке ставки. Поэтому мина ищет
+# не конкретное число, а само умножение на «единица минус доля» вне модуля,
+# которому эта формула принадлежит, — и отдельно смотрит, не вписана ли ставка
+# числом в витрину, которая обязана брать её из источника.
+def _sell_price_offenders(sources):
+    """Кто считает курс выкупа сам. sources — [(ярлык, исходник), …]."""
+    out = []
+    for label, src in sources:
+        if not src:
+            continue
+        try:
+            tree = ast.parse(src)
+        except SyntaxError:
+            continue
+        for fn in ast.walk(tree):
+            if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            # Смотрим на имя функции и на то, куда кладётся результат. Просто
+            # «упоминает sell_rate» не годится: рекламный пост зовёт общий
+            # расчёт выкупа и рядом законно считает наценку ПОКУПКИ — по такому
+            # признаку мина краснела бы на исправном коде, то есть перестала бы
+            # что-либо значить.
+            touches_sell = "sell" in fn.name.lower() or any(
+                isinstance(n, ast.Assign)
+                and any("sell_rate" in getattr(t, "id", "") for t in n.targets)
+                for n in ast.walk(fn))
+            if not touches_sell:
+                continue
+            for node in ast.walk(fn):
+                # (1 - что-то) — форма, в которой доля превращается в цену.
+                if (isinstance(node, ast.BinOp) and isinstance(node.op, ast.Sub)
+                        and isinstance(node.left, ast.Constant)
+                        and node.left.value == 1):
+                    out.append(f"{label}: {fn.name}() считает курс выкупа "
+                               f"собственной формулой")
+                    break
+                # Лестница ПОКУПКИ, применённая к выкупу, — та же болезнь в
+                # профиль: ставка выкупа начинает зависеть от суммы и от скидок.
+                if (isinstance(node, ast.Call)
+                        and getattr(node.func, "id", "") == "get_commission_percent"):
+                    out.append(f"{label}: {fn.name}() берёт для выкупа "
+                               f"комиссию покупки")
+                    break
+    return out
+
+
+def _sell_label_offenders(sources):
+    """Витрины, где ставка выкупа вписана числом мимо источника."""
+    out = []
+    for label, src in sources:
+        if not src:
+            continue
+        body = re.sub(r"\{#.*?#\}|<!--.*?-->", "", src, flags=re.S)
+        for hit in re.findall(r"минус\s*<?[a-z/]*>?\s*(\d{1,2})\s*%", body):
+            out.append(f"{label}: ставка выкупа вписана числом {hit}% — "
+                       f"переживёт смену ставки молча")
+    return out
+
+
+def check_sell_price_has_one_formula():
+    tag = "вторая формула цены выкупа"
+    pricing = _read(os.path.join(ROOT, "relay", "core", "pricing.py"))
+    if not pricing or "def sell_rate" not in pricing:
+        fail(tag, "core.pricing.sell_rate() — объявленный источник цены выкупа — "
+                  "исчез, и держать поверхности в согласии стало нечем")
+        return
+
+    code = [("relay/utils/exchange_calc.py",
+             _read(os.path.join(ROOT, "relay", "utils", "exchange_calc.py"))),
+            ("bot/main_bot.py", _read(os.path.join(ROOT, "bot", "main_bot.py"))),
+            ("relay-fastapi/main.py",
+             _read(os.path.join(ROOT, "relay-fastapi", "main.py")))]
+    for why in _sell_price_offenders(code):
+        fail(tag, why + " — курс разойдётся с другими поверхностями")
+
+    views = [(p, _read(os.path.join(ROOT, *p.split("/")))) for p in (
+        "relay-fastapi/templates/dashboard_sell.html",
+        "relay-fastapi/templates/index.html",
+        "relay-fastapi/templates/how_it_works.html",
+        "relay-fastapi/templates/faq.html",
+        "relay/webapp.html")]
+    for why in _sell_label_offenders(views):
+        fail(tag, why)
+
+
 def main():
     for fn in (check_no_diverging_duplicates, check_config_keys_are_read,
                check_no_fail_open_in_guards, check_session_expiry_uses_expires_at,
@@ -4913,7 +5006,8 @@ def main():
                check_payout_is_marked_after_the_money_moves,
                check_payout_directions_come_from_the_registry,
                check_the_payer_gets_a_usable_requisite,
-               check_client_threshold_guards_every_door):
+               check_client_threshold_guards_every_door,
+               check_sell_price_has_one_formula):
         try:
             fn()
         except Exception as e:

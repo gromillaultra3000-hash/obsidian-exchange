@@ -224,6 +224,10 @@ def site_context(request: Request, **extra):
         "swap_currencies": _swap_currencies(),
         "documented_currencies": _documented_currencies(),
         "commission_tiers": _commission_tiers(),
+        # Ставка выкупа — одна на любую сумму, поэтому это не ступень лестницы,
+        # а отдельная величина. Шаблоны берут её отсюда: вписанные «19–27%»
+        # пережили бы смену ставки молча (так и было до 07.08.2026).
+        "sell_commission": _sell_commission_label(),
         "vip_tiers": _vip_tiers(),
         "offerings_json": _offerings_view(),
     }
@@ -276,6 +280,24 @@ def _commission_tiers():
     except Exception as e:
         logger.error(f"core.pricing недоступен: {e}")
         return []
+
+
+def _sell_commission_label(currency: str = None) -> str:
+    """Ставка выкупа для витрин. Пусто при сбое — блок о ставке тогда не
+    рисуется вовсе, что честнее устаревшего числа рядом с кнопкой «продать».
+
+    Без монеты подпись считается по ВСЕМ открытым направлениям продажи, а не по
+    умолчанию: при точечном оверрайде (SELL_COMMISSION_BTC=7) общее «минус 9%»
+    было бы обещанием, которого биткойн не выполняет. Разные ставки → диапазон.
+    """
+    try:
+        from core.pricing import sell_commission_label, sell_commission_label_for
+        if currency:
+            return sell_commission_label(currency)
+        return sell_commission_label_for(_sell_currencies())
+    except Exception as e:
+        logger.error(f"ставка выкупа недоступна для витрины: {e}")
+        return ""
 
 
 def _vip_tiers():
@@ -979,11 +1001,31 @@ def _sell_context():
     for code in _sell_assets.sell_currencies():
         rate = exchange_calc.get_sell_rate(code)
         manual = _sell_assets.needs_manual_check(code)
+        # Рыночная цена рядом с курсом выкупа — чтобы калькулятор мог показать
+        # клиенту, из чего сложилась выплата, а не одно итоговое число. Считает
+        # её сервер: фронт, умножающий сам, разошёлся бы с заявкой на округлении.
+        try:
+            market = round(float(exchange_calc.get_cached_rate(code) or 0), 2)
+        except Exception:
+            market = 0.0
         coins.append({"code": code, "label": _sell_assets.label(code), "rate": rate,
-                      "manual": manual})
+                      "manual": manual, "market": market,
+                      "fee_percent": _sell_commission_percent(code)})
         sell_js[code] = {"rate": rate, "min": _sell_assets.minimum(code),
-                         "manual": manual}
+                         "manual": manual, "market": market,
+                         "fee_percent": _sell_commission_percent(code)}
     return coins, json.dumps(sell_js)
+
+
+def _sell_commission_percent(currency: str = None) -> float:
+    """Ставка выкупа числом — для расчётных полей витрин. 0 при сбое: разбивку
+    тогда не рисуем совсем, а не рисуем «комиссия 0%»."""
+    try:
+        from core.pricing import sell_commission_percent
+        return float(sell_commission_percent(currency))
+    except Exception as e:
+        logger.error(f"ставка выкупа недоступна: {e}")
+        return 0.0
 
 
 def _sell_payout_context() -> dict:
@@ -2190,6 +2232,12 @@ async def api_rates():
         result["commission_tiers"] = tiers_for_display()
     except Exception:
         pass
+    # Ставка выкупа — той же дорогой и по той же причине: любой фронт, считающий
+    # её сам, разойдётся с заявкой при первой же правке ставки.
+    _sell_fee = _sell_commission_label()
+    if _sell_fee:
+        result["sell_commission"] = _sell_fee
+        result["sell_commission_percent"] = _sell_commission_percent()
     # Живой потолок сети трейдеров. MAX_AMOUNT=500 000 — витринная константа, а
     # реальные слоты держатся в разы ниже; заявка выше потолка гарантированно
     # упирается в «нет реквизитов». Отдаём фронту, чтобы показывать правду.
@@ -2581,10 +2629,19 @@ async def api_sell_options():
         rate = _sell_rate(code)
         if rate <= 0:
             continue        # без цены заявка ушла бы с нулевой выплатой
+        try:
+            market = round(float(exchange_calc.get_cached_rate(code) or 0), 2)
+        except Exception:
+            market = 0.0
         coins.append({
             "code": code,
             "label": _sell_assets.label(code),
             "rate": rate,
+            # Рынок и ставка отдаются рядом с курсом, чтобы Mini App показал
+            # разбивку выплаты. Считать ставку во фронте нельзя: свой процент
+            # там разошёлся бы с заявкой в первый же день после правки.
+            "market": market,
+            "fee_percent": _sell_commission_percent(code),
             "min": _sell_assets.minimum(code),
             "manual": _sell_assets.needs_manual_check(code),
             "network": (_sell_assets.receive_network(code)
@@ -2595,7 +2652,8 @@ async def api_sell_options():
     # а зашитый во фронт список показал бы «на карту» там, где платить нечем.
     pc = _sell_payout_context()
     return {"coins": coins, "payout_ways": pc["payout_ways"],
-            "payout_banks": pc["payout_banks"]}
+            "payout_banks": pc["payout_banks"],
+            "fee_label": _sell_commission_label()}
 
 
 @app.get("/api/sell/pending")
