@@ -172,6 +172,33 @@ for tpl, why in (("dashboard_sell.html", "страница продажи"),
     src = read("relay-fastapi", "templates", tpl)
     check("sell_commission" in src, f"{why} не называет ставку выкупа из источника")
 
+# Фраза о ставке обязана исчезать целиком, когда ставки нет. Источник может
+# отказать (сбой импорта — предусмотренный путь, он возвращает пустую строку), и
+# незащищённая фраза превращается в «рыночный минус  — ставка не зависит от
+# суммы»: обещание без числа рядом с кнопкой «продать». Нашёл codex.
+guarded = set()
+for node in ast.walk(bot_tree):
+    if isinstance(node, ast.IfExp):
+        for inner in ast.walk(node):
+            if isinstance(inner, (ast.JoinedStr, ast.Constant)):
+                guarded.add(id(inner))
+for node in ast.walk(bot_tree):
+    if not isinstance(node, ast.JoinedStr) or id(node) in guarded:
+        continue
+    text = "".join(v.value for v in node.values
+                   if isinstance(v, ast.Constant) and isinstance(v.value, str))
+    # Ищем именно фразу о курсе выкупа. Просто «минус» ловит и «каждый 5-й
+    # обмен — минус 1 000 ₽» в рекламном посте: мина, красная на исправном
+    # коде, перестаёт что-либо значить.
+    if (re.search(r"(рынок|рыночный)\s+минус", text)
+            and any(isinstance(v, ast.FormattedValue) for v in node.values)):
+        check(False, f"бот собирает фразу о ставке без защиты от её отсутствия: {text[:60]!r}")
+
+for tpl in ("dashboard_sell.html", "index.html", "faq.html", "how_it_works.html"):
+    src = read("relay-fastapi", "templates", tpl)
+    check("{% if sell_commission" in src,
+          f"{tpl} печатает ставку выкупа без проверки, что она вообще есть")
+
 webapp = read("relay", "webapp.html")
 check("fee_label" in webapp and "sell-fee-note" in webapp,
       "Mini App не показывает ставку выкупа до ввода суммы")
