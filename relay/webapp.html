@@ -1569,7 +1569,8 @@
                     + '<span>Рыночная стоимость</span><span>' + money(market) + '</span></div>'
                     + '<div style="display:flex;justify-content:space-between;margin-top:3px">'
                     + '<span>Комиссия обмена'
-                    + (info.fee_percent ? ' (' + info.fee_percent + '%)' : '')
+                    // Ноль — настроенная ставка, а не отсутствие данных.
+                    + (info.fee_percent == null ? '' : ' (' + info.fee_percent + '%)')
                     + '</span><span>−' + money(Math.max(0, market - rub)) + '</span></div>';
             } else {
                 brk.style.display = 'none';

@@ -138,8 +138,10 @@ function calcSell() {
     document.getElementById('sb-market').textContent = market ? money(market) : '—';
     document.getElementById('sb-fee').textContent =
         market && rub ? '−' + money(Math.max(0, market - rub)) : '—';
+    // Ноль — настроенная ставка, а не отсутствие данных: при беспроцентном
+    // выкупе строка «Комиссия обмена −0 ₽» без «(0%)» выглядит как сбой.
     document.getElementById('sb-fee-pct').textContent =
-        info.fee_percent ? ' (' + info.fee_percent + '%)' : '';
+        info.fee_percent == null ? '' : ' (' + info.fee_percent + '%)';
     document.getElementById('sb-total').textContent = rub ? money(rub) : '—';
 }
 calcSell();
