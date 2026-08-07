@@ -27,7 +27,8 @@ def main():
           "вебхук подтверждён живыми запросами")
 
     # ── те, у кого канала нет ─────────────────────────────────────────
-    for p in ("vertu", "brabus", "stormtrade", "greenpay", "lava", "xpay", "fallback"):
+    for p in ("vertu", "brabus", "stormtrade", "greenpay", "lava", "xpay",
+              "rspay", "fallback"):
         check(pc.has_verification_channel(p) is False,
               f"у {p} объявлен канал доп. проверки, которого нет — персонал "
               f"будет ждать сигнала, который никогда не придёт")

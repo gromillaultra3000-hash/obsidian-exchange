@@ -248,8 +248,22 @@ def _xpay(sess, file_bytes, filename, content_type):
     return XPayConnectProvider().upload_receipt(sess["invoice_id"], file_bytes, filename)
 
 
+def _rspay(sess, file_bytes, filename, content_type):
+    """У RSPay приём чека есть в API, но работает он ТОЛЬКО для заявок,
+    созданных с receipt=true (методы card/sbp). Для остальных эндпоинт вернёт
+    ошибку про транзакцию, а оператор прочтёт её как «файл плохой».
+    """
+    from providers.rspay import RSPayProvider
+    if not (sess["raw"] or {}).get("receipt"):
+        return {"ok": False, "reason": "unsupported",
+                "error": "Заявка в RSPay создана без флага чека (RSPAY_RECEIPT=1) — "
+                         "их API такой чек не примет, нужен разбор оператором"}
+    return RSPayProvider().upload_receipt(sess["invoice_id"], file_bytes, filename)
+
+
 _ROUTES = {
     "montera": _montera,
+    "rspay": _rspay,
     "vertu": _vertu,
     "brabus": _brabus,
     "fallback": _brabus,      # FallbackProvider — это Brabus в другом варианте

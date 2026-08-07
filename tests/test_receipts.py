@@ -31,7 +31,8 @@ from core import receipts as R  # noqa: E402
 check("brabus:vietqr → базовый ключ 'brabus' есть в _ROUTES",
       "brabus" in R._ROUTES and "brabus:vietqr".partition(":")[0] == "brabus")
 check("_ROUTES покрывает всех активных провайдеров",
-      {"montera", "vertu", "brabus", "fallback", "stormtrade", "xpay"} <= set(R._ROUTES))
+      {"montera", "vertu", "brabus", "fallback", "stormtrade", "xpay",
+       "rspay"} <= set(R._ROUTES))
 check("DISPUTE_CHATS содержит vertu/montera/xpay",
       {"vertu", "montera", "xpay"} <= set(R.DISPUTE_CHATS))
 check("группа споров без chat_id → reason=no_chat (не притворяемся, что ушло)",

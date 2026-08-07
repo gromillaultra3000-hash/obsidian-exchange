@@ -27,6 +27,7 @@ SHORT_NAMES = {
     "BrabusProvider": "brabus",
     "VertuProvider": "vertu",
     "XPayConnectProvider": "xpay",
+    "RSPayProvider": "rspay",
     "LavaProvider": "lava",
     "GreenPayProvider": "greenpay",
     "StormTradeProvider": "stormtrade",
@@ -61,7 +62,10 @@ RETIRED_PROVIDERS_DEFAULT = "platega,greenpay"
 # Порядок ВЫГОДЫ для нас (лучшее → худшее), задан оператором. Управляет и
 # авто-выбором (profit_weight), и порядком эскалации (get_escalation_chain), и
 # порядком кнопок в боте. Переопределяется env PROVIDER_PROFIT_ORDER (короткие имена).
-PROVIDER_PROFIT_ORDER_DEFAULT = "vertu,xpay,montera,brabus,stormtrade,fallback,lava"
+#
+# rspay стоит ПОСЛЕ проверенных каналов и до запасных: ставка ещё не подтверждена
+# живым потоком, а место в этом списке — утверждение о выгоде, а не о надежде.
+PROVIDER_PROFIT_ORDER_DEFAULT = "vertu,xpay,montera,brabus,rspay,stormtrade,fallback,lava"
 
 
 def get_retired_providers() -> set:
@@ -90,7 +94,30 @@ def is_provider_retired(provider: str) -> bool:
 # Зарубежные не выключены — они запасной вариант, когда РФ-маршрутов нет
 # (решение оператора 16.07.2026). PREFER_RU_REQUISITES=0 — вернуть старое
 # поведение; RU_PROVIDERS — переопределить состав тира.
-RU_PROVIDERS_DEFAULT = "vertu,montera,stormtrade"
+#
+# rspay сюда НЕ внесён намеренно, и это не забывчивость (codex 06.08.2026
+# предлагал внести — отклонено). Членство в тире — утверждение о том, ЧТО
+# провайдер реально выдаёт живому клиенту, а у RSPay нет ни одной живой
+# сессии: в их доке примеры с Альфой и Сбером, но доке XPay мы тоже верили,
+# пока не увидели ссылки на банки Душанбе. Цена ошибки несимметрична: внести
+# ошибочно — поднять непроверенный канал ВЫШЕ Vertu и Montera и повторить
+# нулевую конверсию 16.07 (16 зарубежных реквизитов против 2 российских);
+# не внести ошибочно — канал просто реже выбирается, пока владелец не
+# посмотрит первую выдачу. Решается это данными, а не мнением:
+# requisite_origin.classify_requisites уже разбирает реквизиты каждой сессии,
+# и после первой живой выдачи RSPay ответ будет фактом. Тогда — RU_PROVIDERS
+# в env или строка ниже.
+#
+# 06.08.2026 в тир добавлены brabus и fallback (fallback — тот же Brabus,
+# вариант tbank_deeplink). Причина не в мнении о выгоде, а в дыре, которую
+# открыл порог доверия Vertu: тир состоял из vertu, montera и stormtrade, из
+# них stormtrade вне обычного выбора, а vertu и montera закрыты для клиента
+# без закрытых сделок. То есть у НОВИЧКА российский тир становился пустым, и
+# выбор проваливался в общий котёл, где выше всех стоит XPay с ссылками на
+# банки Душанбе — 21 показ, 0 оплат. Brabus вносится по тому самому правилу,
+# по которому не внесён RSPay: живая выдача проверена (11.07 — настоящие
+# карты 9762…, живые имена; фактический основной канал), а не обещана докой.
+RU_PROVIDERS_DEFAULT = "vertu,montera,brabus,fallback,stormtrade"
 
 
 def get_ru_providers() -> set:
@@ -105,6 +132,22 @@ def is_ru_provider(provider_class: str) -> bool:
 
 def prefer_ru_enabled() -> bool:
     return os.getenv("PREFER_RU_REQUISITES", "1") != "0"
+
+
+def has_required_env(provider_class: str) -> bool:
+    """Заданы ли ВСЕ учётные данные провайдера.
+
+    `required_env` может перечислять несколько переменных через запятую: у
+    RSPay ключ магазина и секрет мерчанта лежат в разных разделах кабинета, и
+    половина учётных данных — это не «канал настроен наполовину», а
+    гарантированный отказ по подписи. Проверять только первую переменную
+    значило бы отдавать таким провайдерам живые заявки и штрафовать им
+    здоровье за нашу же недонастройку.
+    """
+    required = PROVIDER_CONFIG.get(provider_class, {}).get("required_env")
+    if not required:
+        return True
+    return all(os.getenv(v.strip(), "") for v in str(required).split(",") if v.strip())
 
 # эскалация по умолчанию = порядок выгоды: при «нет трейдера» у выбранного
 # каскадим к СЛЕДУЮЩЕМУ выгодному, а не сразу к худшему. Заканчивается fallback
@@ -140,6 +183,10 @@ PROVIDER_CONFIG = {
         "min_amount": 1000,
         "cooldown_seconds": 240,
         "max_consecutive_fails": 3,
+        # Требование трейдеров Montera: только повторные клиенты. Раньше это
+        # правило жило двумя копиями — в кнопке бота и в PaymentService — и
+        # мимо авто-роутера с эскалацией не работало вовсе.
+        "min_client_deals": 1,
     },
     "BrabusProvider": {
         "weight": 0.20,        # deeplinks: tbank / alfa / vietqr
@@ -153,6 +200,13 @@ PROVIDER_CONFIG = {
         "cooldown_seconds": 180,
         "max_consecutive_fails": 3,
         "required_env": "VERTU_LOGIN",  # не выбирать, пока нет учётных данных
+        # 06.08.2026, письмо Vertu: поток заявок с поддельными PDF-чеками, их
+        # трейдеры жалуются на скам. Их условие продолжения работы — выдавать
+        # реквизиты только клиентам от 4 закрытых сделок. Vertu стоит первым
+        # в порядке выгоды, поэтому важно, что порог отсекает его ДО выбора:
+        # иначе каждая заявка новичка сгорала бы в попытке и уходила в
+        # эскалацию. Порог переопределяется MIN_DEALS_VERTU.
+        "min_client_deals": 4,
     },
     "XPayConnectProvider": {
         # ⚠️ "weight" НИКЕМ НЕ ЧИТАЕТСЯ (проверено 19.07.2026) — реальный вес даёт
@@ -165,6 +219,18 @@ PROVIDER_CONFIG = {
         "cooldown_seconds": 180,
         "max_consecutive_fails": 3,
         "required_env": "XPAY_API_KEY",  # не выбирать, пока нет учётных данных
+    },
+    "RSPayProvider": {
+        # Вес здесь исторический, как и у XPay: реальный выбор считает
+        # profit_weight() по PROVIDER_PROFIT_ORDER. Оставлен для единообразия.
+        "weight": 0.30,        # СБП / карта / QR, реквизиты сразу в ответе
+        "min_amount": 1000,
+        "cooldown_seconds": 180,
+        "max_consecutive_fails": 3,
+        # Ключ магазина и секрет мерчанта — из РАЗНЫХ разделов кабинета RSPay.
+        # Нужны ОБА: с одним из них каждый запрос отвалится по подписи, а канал
+        # выглядел бы настроенным (см. has_required_env — список через запятую).
+        "required_env": "RSPAY_SHOP_API_KEY,RSPAY_API_SECRET",
     },
     "LavaProvider": {
         "weight": 0.10,        # SBP + card via hosted payment page
@@ -487,11 +553,35 @@ def get_health_scores() -> Dict[str, dict]:
     return scores
 
 
-def choose_provider(amount: float = 10000) -> Optional[str]:
+def client_trust_refusal(provider_class: str, telegram_id) -> str:
+    """Почему этому клиенту нельзя к этому провайдеру, или ''.
+
+    Обёртка ровно затем, чтобы у выбора, эскалации и кнопок бота был ОДИН
+    вход. Импорт внутри — `core` знает про `services`, а обратная связь на
+    уровне модуля замкнула бы их друг на друга.
+    """
+    try:
+        from core.client_trust import refuse_reason
+    except Exception as e:                       # noqa: BLE001
+        # Реестр порогов не загрузился — считаем, что ограничений нет: иначе
+        # опечатка в импорте выключила бы ВСЕХ провайдеров разом и обменник
+        # перестал бы выдавать реквизиты кому бы то ни было.
+        logger.warning("реестр порогов доверия недоступен: %s", e)
+        return ""
+    return refuse_reason(provider_class, telegram_id)
+
+
+def choose_provider(amount: float = 10000, telegram_id=None) -> Optional[str]:
     """
     Choose the best available provider for the given amount.
     Uses weighted random selection biased toward healthier providers.
     Returns provider class name or None if all unavailable.
+
+    `telegram_id` — клиент, для которого выбираем. Часть провайдеров работает
+    только с повторными клиентами (см. `min_client_deals` и core.client_trust);
+    отсекать их надо ЗДЕСЬ, а не в момент запроса реквизитов: Vertu стоит
+    первым по выгоде, и без этого каждая заявка новичка сгорала бы в попытке
+    и уходила в эскалацию. Клиент не назван — считаем его новым (fail-closed).
     """
     scores = get_health_scores()
     candidates = []
@@ -511,12 +601,16 @@ def choose_provider(amount: float = 10000) -> Optional[str]:
             logger.debug("Provider %s skipped: amount %.0f < min %.0f",
                          name, amount, cfg.get("min_amount", 0))
             continue
-        required_env = cfg.get("required_env")
-        if required_env and not os.getenv(required_env, ""):
-            logger.debug("Provider %s skipped: env %s not set", name, required_env)
+        if not has_required_env(name):
+            logger.debug("Provider %s skipped: env %s not set",
+                         name, cfg.get("required_env"))
             continue
         if is_provider_disabled(name):
             logger.debug("Provider %s skipped: DISABLED_PROVIDERS", name)
+            continue
+        why = client_trust_refusal(name, telegram_id)
+        if why:
+            logger.debug("Provider %s skipped: %s", name, why)
             continue
         info = scores.get(name, {"is_healthy": True, "health_score": 0.5})
         probation = False
@@ -589,8 +683,7 @@ def get_trust_metrics() -> Dict[str, object]:
     for name, cfg in PROVIDER_CONFIG.items():
         if is_provider_retired(name) or cfg.get("last_resort"):
             continue
-        required_env = cfg.get("required_env")
-        if required_env and not os.getenv(required_env, ""):
+        if not has_required_env(name):
             continue
         if is_provider_disabled(name):
             continue

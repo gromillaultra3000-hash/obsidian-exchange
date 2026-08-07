@@ -28,6 +28,7 @@ CRITICAL = [
     ("POST", "/brabus/webhook"),
     ("POST", "/stormtrade/webhook"),
     ("POST", "/xpay/webhook"),
+    ("POST", "/rspay/webhook"),
 ]
 
 route_re = re.compile(r'@app\.(get|post|put|delete|patch)\(\s*["\']([^"\']+)["\']', re.I)

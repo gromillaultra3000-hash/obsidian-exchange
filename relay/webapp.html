@@ -149,6 +149,12 @@
         .input-group input.valid { border-color: var(--green) !important; box-shadow: 0 0 10px rgba(0,255,157,0.3); }
         .input-group input.invalid { border-color: #ff4444 !important; box-shadow: 0 0 10px rgba(255,68,68,0.3); }
         .validation-msg { font-size: 12px; margin-top: 5px; }
+        /* Переключатель направления сделки: купить / продать */
+        .side-btn { padding:11px 12px; border-radius:14px; cursor:pointer; font-size:14px;
+                    font-weight:700; color:#94a3b8; background:rgba(255,255,255,.04);
+                    border:1.5px solid rgba(255,255,255,.1); }
+        .side-btn.active { color:#e2e8f0; background:rgba(159,103,255,.14);
+                           border-color:rgba(159,103,255,.45); }
         .validation-msg.valid { color: var(--green); }
         .validation-msg.invalid { color: #ff4444; }
 
@@ -277,6 +283,15 @@
               <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">🏦 Резервы в наличии</div>
               <div id="reserves-row" style="display:flex;flex-wrap:wrap;gap:12px;font-size:14px;font-weight:700;color:#e2e8f0"></div>
             </div>
+            <!-- Направление сделки. До 06.08.2026 продажи в Mini App не было
+                 вовсе: клиента из Telegram приходилось уводить в бота или на
+                 сайт, хотя кошелёк для оплаты такой заявки живёт здесь же. -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px" id="deal-side">
+              <button type="button" class="side-btn active" data-side="buy">💎 Купить</button>
+              <button type="button" class="side-btn" data-side="sell">💰 Продать</button>
+            </div>
+
+            <div id="buy-wrap">
             <div class="input-group">
                 <label>Валюта</label>
                 <select id="currency" onchange="onCurrencyChange()">
@@ -386,6 +401,70 @@
               <div id="pay-req" style="display:none;text-align:left;margin-bottom:12px;padding:10px 12px;background:rgba(255,255,255,.04);border:1px solid rgba(159,103,255,.25);border-radius:12px"></div>
               <button class="btn" id="pay-open-btn" style="margin-bottom:8px">💳 Оплатить</button>
               <button class="btn" id="pay-check-btn" style="background:rgba(255,255,255,.06)">🔄 Проверить статус</button>
+            </div>
+            </div><!-- /buy-wrap -->
+
+            <!-- ПРОДАЖА: крипта → рубли по СБП. Список монет, минимумы и то,
+                 кто подтверждает зачисление, приходят с сервера из общего
+                 реестра — те же, что в боте и на сайте. -->
+            <div id="sell-wrap" style="display:none">
+                <!-- Уже созданные заявки, ждущие перевода. Без этого списка
+                     раздел был бы тупиком: клиент закрывает окно и больше
+                     нигде не видит ни адреса, ни метки своей заявки. -->
+                <div id="sell-pending" style="display:none;margin-bottom:14px"></div>
+                <div class="input-group">
+                    <label>Монета</label>
+                    <select id="sell-currency" onchange="sellCalc()"></select>
+                    <div id="sell-empty" style="display:none;font-size:12px;color:var(--muted);margin-top:6px">
+                        Продажа сейчас закрыта — направление откроется, когда появится адрес приёма.
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>Количество</label>
+                    <input type="number" id="sell-amount" step="any" placeholder="например 0.01" oninput="sellCalc()">
+                    <div style="margin-top:6px;font-size:11px;color:var(--muted)" id="sell-min"></div>
+                </div>
+                <div class="fee-box" id="sell-calc-box">
+                    💵 Вы получите: <strong id="sell-payout">—</strong>
+                </div>
+                <!-- Правда о сроке ДО создания заявки: у монет без проверки
+                     депозита в цепи зачисление подтверждает человек, и обещать
+                     те же 30–60 минут, что по биткойну, было бы враньём. -->
+                <div id="sell-manual" style="display:none;font-size:12px;color:#f0a;margin:8px 0">
+                    ⏱ Зачисление этой монеты подтверждает оператор вручную — выплата занимает дольше обычного.
+                </div>
+                <!-- Способ выплаты: список приходит с сервера вместе с
+                     монетами. Зашитый здесь, он показал бы «на карту» и тогда,
+                     когда рельс выплат выключен и платить нечем. -->
+                <div class="input-group" id="sell-method-group" style="display:none">
+                    <label>Куда получить рубли</label>
+                    <select id="sell-method" onchange="sellMethodSwitch()"></select>
+                </div>
+                <div class="input-group">
+                    <label id="sell-phone-label">Телефон для выплаты по СБП</label>
+                    <input type="tel" id="sell-phone" inputmode="numeric" placeholder="79001234567">
+                    <div class="validation-msg" id="sell-phone-msg"></div>
+                </div>
+                <div class="input-group" id="sell-bank-group" style="display:none">
+                    <label>Банк получателя</label>
+                    <select id="sell-bank"></select>
+                </div>
+                <div class="input-group" id="sell-name-group" style="display:none">
+                    <label>ФИО получателя как в банке</label>
+                    <input type="text" id="sell-name" placeholder="Иван Иванов">
+                    <div style="margin-top:6px;font-size:11px;color:var(--muted)">Этого требует платёжный партнёр: перевод без имени получателя он не примет.</div>
+                </div>
+                <button class="btn btn-breathe" id="sell-submit">💰 Создать заявку на продажу</button>
+                <div class="result" id="sell-result"></div>
+
+                <!-- Карточка созданной заявки: адрес, сеть, метка. Всё
+                     приходит с сервера вместе с заявкой — фронт эти значения
+                     не собирает и собирать не должен. -->
+                <div id="sell-card" style="display:none;margin-top:14px;padding:18px;background:rgba(255,255,255,.038);border:1px solid rgba(159,103,255,.28);border-radius:20px">
+                    <strong id="sell-card-title" style="font-size:15px;color:#e2e8f0">Заявка создана</strong>
+                    <div id="sell-card-body" style="margin-top:10px;font-size:13px;color:#cbd5e1;line-height:1.6"></div>
+                    <button class="btn" id="sell-pay-btn" style="display:none;margin-top:10px">💎 Оплатить из кошелька</button>
+                </div>
             </div>
         </div>
 
@@ -1352,6 +1431,257 @@
             });
         }
 
+        // ---------- Продажа: крипта → рубли ----------
+        // Список монет, минимумы и то, кто подтверждает зачисление, приходят с
+        // сервера из общего реестра. Своего списка здесь нет намеренно: фронт,
+        // решающий что продаётся, разошёлся бы с ботом и сайтом первой правкой.
+        let sellOptions = {};
+        // Направления выплаты и банки — с сервера, из того же реестра, что
+        // решает при приёме заявки, каких полей не хватает.
+        let sellPayoutWays = [], sellPayoutBanks = [];
+
+        function sellSide(side) {
+            document.querySelectorAll('#deal-side .side-btn').forEach(b =>
+                b.classList.toggle('active', b.dataset.side === side));
+            document.getElementById('buy-wrap').style.display = side === 'buy' ? '' : 'none';
+            document.getElementById('sell-wrap').style.display = side === 'sell' ? '' : 'none';
+            if (side === 'sell') {
+                if (!Object.keys(sellOptions).length) loadSellOptions();
+                loadSellPending();
+            }
+        }
+
+        async function loadSellPending() {
+            const box = document.getElementById('sell-pending');
+            if (!(tg.initData || '')) { box.style.display = 'none'; return; }
+            let items = [];
+            try {
+                const r = await fetch('/api/sell/pending',
+                    { headers: { 'X-Telegram-Init-Data': tg.initData || '' } });
+                const d = await r.json();
+                items = (d && d.items) || [];
+            } catch (e) { box.style.display = 'none'; return; }
+            if (!items.length) { box.style.display = 'none'; return; }
+            box.style.display = '';
+            box.innerHTML = '<div style="font-size:11px;color:var(--muted);text-transform:uppercase;'
+                + 'letter-spacing:.05em;margin-bottom:6px">Ждут вашего перевода</div>'
+                + items.map(it =>
+                    '<div style="padding:10px 12px;margin-bottom:6px;background:rgba(255,255,255,.04);'
+                    + 'border:1px solid rgba(159,103,255,.2);border-radius:12px;font-size:12px">'
+                    + '<div style="display:flex;justify-content:space-between;gap:8px">'
+                    + '<b>#' + it.sell_id + ' · ' + it.amount + ' ' + esc(it.currency)
+                    + (it.network ? ' (' + esc(it.network) + ')' : '') + '</b>'
+                    + '<span style="color:#c48cff">≈ ' + Math.round(it.rub).toLocaleString('ru-RU') + ' ₽</span></div>'
+                    + '<div style="margin-top:4px;font-family:monospace;word-break:break-all;color:#94a3b8">'
+                    + esc(it.address) + '</div>'
+                    + (it.marker ? '<div style="margin-top:4px;color:#94a3b8">🏷 ' + esc(it.marker) + '</div>' : '')
+                    + '</div>').join('');
+        }
+
+        async function loadSellOptions() {
+            const sel = document.getElementById('sell-currency');
+            try {
+                const r = await fetch('/api/sell/options');
+                const d = await r.json();
+                const coins = (d && d.coins) || [];
+                sellOptions = {};
+                sel.innerHTML = '';
+                coins.forEach(c => {
+                    sellOptions[c.code] = c;
+                    const o = document.createElement('option');
+                    o.value = c.code;
+                    o.textContent = c.label + ' — ' + Math.round(c.rate).toLocaleString('ru-RU') + ' ₽';
+                    sel.appendChild(o);
+                });
+                // Пусто — это не сбой и не «загружается»: направление закрыто,
+                // и клиенту честнее сказать это, чем оставить пустой список.
+                document.getElementById('sell-empty').style.display = coins.length ? 'none' : '';
+                document.getElementById('sell-submit').disabled = !coins.length;
+                sellPayoutWays = (d && d.payout_ways) || [];
+                sellPayoutBanks = (d && d.payout_banks) || [];
+                const msel = document.getElementById('sell-method');
+                msel.innerHTML = '';
+                sellPayoutWays.forEach(w => {
+                    const o = document.createElement('option');
+                    o.value = w.code; o.textContent = w.label;
+                    msel.appendChild(o);
+                });
+                const bsel = document.getElementById('sell-bank');
+                bsel.innerHTML = '<option value="">— выберите банк —</option>';
+                sellPayoutBanks.forEach(b => {
+                    const o = document.createElement('option');
+                    o.value = b.code; o.textContent = b.label;
+                    bsel.appendChild(o);
+                });
+                // Пикер из одного пункта — лишний шаг, за который клиент
+                // платит вниманием: показываем только когда способов больше.
+                document.getElementById('sell-method-group').style.display =
+                    sellPayoutWays.length > 1 ? '' : 'none';
+                sellMethodSwitch();
+                sellCalc();
+            } catch (e) {
+                document.getElementById('sell-empty').textContent =
+                    'Список монет сейчас недоступен — попробуйте позже.';
+                document.getElementById('sell-empty').style.display = '';
+                document.getElementById('sell-submit').disabled = true;
+            }
+        }
+
+        function sellCalc() {
+            const cur = document.getElementById('sell-currency').value;
+            const info = sellOptions[cur];
+            const amt = parseFloat(document.getElementById('sell-amount').value) || 0;
+            const min = document.getElementById('sell-min');
+            const payout = document.getElementById('sell-payout');
+            if (!info) { min.textContent = ''; payout.textContent = '—'; return; }
+            min.textContent = 'Минимум: ' + info.min + ' ' + cur
+                + (info.network ? ' · сеть ' + info.network : '');
+            payout.textContent = amt > 0
+                ? Math.round(amt * info.rate).toLocaleString('ru-RU') + ' ₽' : '—';
+            document.getElementById('sell-manual').style.display = info.manual ? '' : 'none';
+        }
+
+        function sellPayoutWay() {
+            const code = (document.getElementById('sell-method') || {}).value || 'sbp';
+            return sellPayoutWays.find(w => w.code === code)
+                   // Способов ещё не знаем — считаем открытым только СБП: это
+                   // единственный путь, который работает без рельса выплат.
+                   || {code: 'sbp', details_label: 'Номер телефона',
+                       needs_bank: false, needs_name: false};
+        }
+
+        function sellMethodSwitch() {
+            const w = sellPayoutWay();
+            const card = w.code === 'card';
+            document.getElementById('sell-phone-label').textContent =
+                card ? 'Номер карты для выплаты' : 'Телефон для выплаты по СБП';
+            const inp = document.getElementById('sell-phone');
+            inp.placeholder = card ? '2200 0000 0000 0000' : '79001234567';
+            inp.type = card ? 'text' : 'tel';
+            document.getElementById('sell-bank-group').style.display = w.needs_bank ? '' : 'none';
+            document.getElementById('sell-name-group').style.display = w.needs_name ? '' : 'none';
+        }
+
+        // Контрольная сумма Луна — та же проверка, что на сервере. Здесь она
+        // ловит опечатку до отправки: перевод по номеру с одной изменённой
+        // цифрой ушёл бы живому чужому человеку.
+        function luhnOk(d) {
+            let sum = 0;
+            const parity = d.length % 2;
+            for (let i = 0; i < d.length; i++) {
+                let n = d.charCodeAt(i) - 48;
+                if (i % 2 === parity) { n *= 2; if (n > 9) n -= 9; }
+                sum += n;
+            }
+            return sum % 10 === 0;
+        }
+
+        async function createSellOrder() {
+            const btn = document.getElementById('sell-submit');
+            const res = document.getElementById('sell-result');
+            const cur = document.getElementById('sell-currency').value;
+            const amt = parseFloat(document.getElementById('sell-amount').value) || 0;
+            const way = sellPayoutWay();
+            const phone = (document.getElementById('sell-phone').value || '')
+                          .replace(/[\s-]/g, '').replace(/^\+/, '');
+            const bank = (document.getElementById('sell-bank').value || '');
+            const fullName = (document.getElementById('sell-name').value || '').trim();
+            res.style.display = 'none';
+            const fail = (msg) => {
+                res.textContent = msg;
+                res.style.display = 'block';
+                res.style.color = '#f87171';
+                if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
+            };
+            // Локальная проверка — только чтобы не гонять заведомо пустое.
+            // Решение принимает сервер: те же правила, что у бота и сайта.
+            if (!cur) { fail('Выберите монету.'); return; }
+            if (amt <= 0) { fail('Введите количество монет.'); return; }
+            if (way.code === 'card') {
+                if (!/^\d{13,19}$/.test(phone) || !luhnOk(phone)) {
+                    fail('Проверьте номер карты — он не проходит контрольную сумму.'); return;
+                }
+            } else if (!/^7\d{10}$/.test(phone)) {
+                fail('Телефон вида 79001234567.'); return;
+            }
+            if (way.needs_bank && !bank) { fail('Выберите банк получателя.'); return; }
+            if (way.needs_name && fullName.split(/\s+/).filter(Boolean).length < 2) {
+                fail('Укажите ФИО получателя как в банке — два-три слова.'); return;
+            }
+            btn.disabled = true;
+            const was = btn.textContent;
+            btn.textContent = 'Создаём заявку…';
+            try {
+                const r = await fetch('/api/sell/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json',
+                               'X-Telegram-Init-Data': tg.initData || '' },
+                    body: JSON.stringify({ currency: cur, amount: amt, phone: phone,
+                                           method: way.code, bank: bank,
+                                           full_name: fullName })
+                });
+                const d = await r.json().catch(() => ({}));
+                if (!r.ok || !d.ok) {
+                    fail(d.error || d.detail || 'Заявку создать не удалось — попробуйте позже.');
+                    return;
+                }
+                showSellCard(d);
+                // Список ждущих перевода обновляем сразу: заявка должна быть
+                // видна и после того, как клиент закроет карточку.
+                loadSellPending();
+                document.getElementById('sell-amount').value = '';
+                sellCalc();
+                if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+            } catch (e) {
+                fail('Сеть недоступна — заявка не создана.');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = was;
+            }
+        }
+
+        function showSellCard(d) {
+            const card = document.getElementById('sell-card');
+            document.getElementById('sell-card-title').textContent =
+                '✅ Заявка на продажу #' + d.sell_id;
+            // Сеть отдельной строкой, а не только в подписи монеты: перевод не
+            // в ту сеть на этот адрес не возвращается никем.
+            let html = 'Отправьте <b>' + d.amount + ' ' + esc(d.currency) + '</b>'
+                     + (d.network ? ' <b>в сети ' + esc(d.network) + '</b>' : '') + ' на адрес:'
+                     + '<div style="margin:8px 0;padding:10px;background:rgba(255,255,255,.05);'
+                     + 'border-radius:10px;word-break:break-all;font-family:monospace;font-size:12px">'
+                     + esc(d.address) + '</div>';
+            if (d.network) {
+                html += '<div style="color:#f0a;font-size:12px;margin-bottom:8px">⚠️ Только сеть '
+                      + esc(d.network) + '. Перевод в другой сети вернуть невозможно.</div>';
+            }
+            if (d.marker) {
+                html += '🏷 Комментарий к переводу (обязательно):'
+                      + '<div style="margin:8px 0;padding:10px;background:rgba(255,255,255,.05);'
+                      + 'border-radius:10px;word-break:break-all;font-family:monospace;font-size:12px">'
+                      + esc(d.marker) + '</div>';
+            }
+            // Реквизит и способ берём из ответа сервера, а не из полей формы:
+            // сервер их нормализовал, а поле могли поправить между отправкой и
+            // ответом. Номер приходит уже замаскированным.
+            html += '💵 Выплата: <b>≈ ' + Math.round(d.rub).toLocaleString('ru-RU') + ' ₽</b>'
+                  + ' — ' + esc(d.method_label || 'СБП') + ' <b>' + esc(d.phone) + '</b>'
+                  + (d.bank ? ' (' + esc(d.bank) + ')' : '') + '<br>'
+                  + (d.manual
+                        ? '⏱ Зачисление подтверждает оператор вручную — выплата занимает дольше обычного.'
+                        : '⏳ После подтверждения перевода в сети рубли поступят в течение 30–60 минут.');
+            document.getElementById('sell-card-body').innerHTML = html;
+            // Оплатить прямо отсюда можно только тем кошельком, который у нас
+            // подключён и умеет подписывать перевод (TON Connect). Для всех
+            // остальных монет кнопки нет — она обещала бы то, чего мы не умеем.
+            const pay = document.getElementById('sell-pay-btn');
+            const canPay = !!(tcUI && d.marker);
+            pay.style.display = canPay ? '' : 'none';
+            if (canPay) pay.onclick = () => walletPay(d.sell_id, pay);
+            card.style.display = '';
+            card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
         async function walletPay(sellId, btn) {
             const say = (t) => { if (btn) { btn.textContent = t; } };
             if (!tcUI) { say('Кошелёк недоступен'); return; }
@@ -1786,6 +2116,10 @@
         }
         // Инициализируем при загрузке
         updateAddressPlaceholder();
+
+        document.querySelectorAll('#deal-side .side-btn').forEach(b =>
+            b.addEventListener('click', () => sellSide(b.dataset.side)));
+        document.getElementById('sell-submit').addEventListener('click', createSellOrder);
 
         document.getElementById('create-order').addEventListener('click', async () => {
             const btn = document.getElementById('create-order');

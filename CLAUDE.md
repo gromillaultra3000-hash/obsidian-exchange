@@ -31,6 +31,7 @@ Production крипто-обменник RUB→BTC/LTC/USDT через СБП, n
 | StormTradeProvider | ✅ активен (auth OK, API отвечает штатно 11.07). 11.07 исправлен self-heal deadlock: эскалация гейтилась по is_healthy=0, а провайдер получает живой запрос ТОЛЬКО через эскалацию → навсегда оставался unhealthy (весь резерв был отключён 10-11.07). Фикс 348184c: last-resort пытаемся всегда; «нет свободных реквизитов» больше не штрафует health. Флаг сброшен | last resort, вне weighted-выбора |
 | FallbackProvider | ✅ резерв | 5% |
 | PlategaProvider | ❌ offline | не использовать |
+| RSPayProvider | 🆕 код готов 06.08.2026, ключей НЕТ. `RSPAY_SHOP_API_KEY` (ключ магазина) + `RSPAY_API_SECRET` (секрет мерчанта) — из РАЗНЫХ разделов кабинета merchant.rspay.win; пока не заданы оба, роутер канал не выбирает. В порядке выгоды стоит после brabus (ставка не подтверждена живым потоком). Живьём не проверен ни один запрос | вне ротации до ключей |
 | XPayConnectProvider | ✅ ПРОД с 14.07.2026 (`obsidian_sng_mono`): реальные реквизиты живьём. ⚠️ НЕ карты РФ — мерчант СНГ («sng») отдаёт ПЛАТЁЖНУЮ ССЫЛКУ (payment_link, напр. payment.link-fast.io) на трансграничные рельсы (банки Душанбе-сити/Спитамен/Seabank). Реквизит=ссылка, /pay показывает QR+кнопку. Коды методов=банки (sber/tbank/alfa/…), фактически возвращают ссылки; sim/card/any→403. bot/.env: XPAY_TYPE_*=tbank, xpay УБРАН из DISABLED_PROVIDERS → в авто-роутере (~24% выбора, #2 по выгоде). Бот-кнопки XPAY_BUTTONS держатся OFF (пикер «Сбер/Т-Банк» не отражает ссылочный флоу — UX бот-кнопки требует решения юзера). Fail-closed страж тестовых реквизитов (6deb80c) на месте | авто-роутер, кнопки off |
 
 StormTrade (docs.stormtrade.club): худшая ставка → НЕ участвует в обычном выборе
@@ -71,6 +72,23 @@ bot/.env. Кнопки в боте pm_xpay_* включаются перемен
 пока XPay не активирует методы. Когда активируют: XPAY_BUTTONS=1, restart, и
 `python3 -c "import sys;sys.path.insert(0,'/root/relay');from services.smart_router import reset_provider;reset_provider('XPayConnectProvider')"`.
 Скачанная дока — в git: docs/xpayconnect/.
+
+RSPay (кабинет merchant.rspay.win, API `https://rspay.win/api/v1`): подпись
+КАЖДОГО запроса — `X-Signature` = HMAC-SHA256 (hex) от точных байтов тела
+(для GET — от пустой строки), ключ = секрет МЕРЧАНТА; плюс обязательные
+`X-Shop-API-Key`, `X-Timestamp` (мс, окно ±5 мин) и `X-Nonce` (UUID, живёт
+5 мин, повтор не принимается) — поэтому 401 у них означает пять разных вещей
+сразу, см. `describe_401()`. Создание: POST `/requisites/request/`, реквизиты
+в ответе (`card_number` / `phone_number` / `payment_link`+`qr_data`); статус:
+POST `/requisites/status/` по НАШЕМУ transaction_id; отмена: POST
+`/transactions/cancel/`; чек: POST `/requisites/receipt/` (multipart, только
+для заявок с `receipt=true`, включается `RSPAY_RECEIPT=1`); баланс: GET
+`/balance/` (USDT — источник истины). Вебхук `/rspay/webhook`; сопоставление
+ТОЛЬКО по `merchant_transaction_id` (`external_id` мерчанту не шлют). Коды
+методов зависят от магазина, эндпоинта со списком нет: обобщённые
+card/sbp/qr переводятся `RSPAY_METHOD_*`, точные коды магазина — в
+`RSPAY_METHODS`. Выжимка доки — `docs/rspay/api.md` (сайт SPA, скачивать
+нечего: текст лежит в JS-бандле).
 
 ## Правила коммитов
 

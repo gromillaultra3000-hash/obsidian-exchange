@@ -34,6 +34,7 @@ SHORT_TO_CLASS = {
     "brabus": "BrabusProvider",
     "vertu": "VertuProvider",
     "xpay": "XPayConnectProvider",
+    "rspay": "RSPayProvider",
     "lava": "LavaProvider",
     "greenpay": "GreenPayProvider",
     "stormtrade": "StormTradeProvider",
@@ -68,6 +69,9 @@ def _load_provider(cls_name):
         if cls_name == "XPayConnectProvider":
             from providers.xpayconnect import XPayConnectProvider
             return XPayConnectProvider()
+        if cls_name == "RSPayProvider":
+            from providers.rspay import RSPayProvider
+            return RSPayProvider()
         if cls_name == "LavaProvider":
             from providers.lava import LavaProvider
             return LavaProvider()

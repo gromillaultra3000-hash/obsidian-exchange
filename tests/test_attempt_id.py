@@ -84,6 +84,8 @@ def main():
          lambda a: {"invoice": {"internalId": a, "status": "paid"}}, "paid"),
         ("xpayconnect", "XPayConnectProvider",
          lambda a: {"order_id": a, "status": "success"}, "paid"),
+        ("rspay", "RSPayProvider",
+         lambda a: {"merchant_transaction_id": a, "status": "success"}, "paid"),
     ]
     import importlib
     for mod, cls_name, payload, want_status in cases:

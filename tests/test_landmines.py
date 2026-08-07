@@ -4126,13 +4126,31 @@ def check_sell_direction_grows_from_its_registry():
                 fail(tag, f"{rel}: {name}() не спрашивает общий реестр продажи — "
                           f"это вторая копия списка, и она разойдётся с первой")
 
+    # Mini App — третья поверхность продажи, и своего списка монет у неё быть
+    # не должно тем более: фронт правится отдельно от сервера и разойдётся
+    # первым же изменением. Список приходит из /api/sell/options.
+    wa = _read(os.path.join(ROOT, "relay", "webapp.html"))
+    if wa and "/api/sell/create" in wa:
+        # Берём только код продажи, чтобы не спотыкаться о список покупки.
+        start = wa.find("Продажа: крипта → рубли")
+        chunk = wa[start:start + 6000] if start >= 0 else ""
+        lits = {c for c in codes if f"'{c}'" in chunk or f'"{c}"' in chunk}
+        if len(lits) >= 2:
+            fail(tag, f"relay/webapp.html: раздел продажи перечисляет монеты сам "
+                      f"({', '.join(sorted(lits))}) — новая монета в Mini App не "
+                      f"появится, сколько адресов ни заводи")
+        if "/api/sell/options" not in wa:
+            fail(tag, "relay/webapp.html: раздел продажи не спрашивает список у "
+                      "сервера — это третья копия правил")
+
     # Создание заявки спрашивает реестр ЦЕЛИКОМ, а не по кускам. Форму и колбэк
     # можно отправить в обход выпадающего списка, а часть условий (умеем ли
     # выдать метку) ни адресом, ни минимумом не проверяется: заявка на XRP
     # велела бы клиенту перевести монеты без destination tag. Нашёл codex.
     for rel, fn_name, gate in (
             ("bot/main_bot.py", "process_sell_currency", "sell_coins()"),
-            ("relay-fastapi/main.py", "dashboard_sell_submit", "_sell_currencies()")):
+            ("relay-fastapi/main.py", "dashboard_sell_submit", "sell_order_refuse("),
+            ("relay-fastapi/main.py", "api_sell_create", "sell_order_refuse(")):
         src = _read(os.path.join(ROOT, rel))
         if not src:
             continue
@@ -4201,7 +4219,11 @@ def check_sell_direction_grows_from_its_registry():
     # Срок выплаты обещается по тому, КТО подтверждает зачисление. У монет без
     # проверки депозита в цепи это человек, и «30–60 минут» рядом с ними —
     # обещание, которого мы не сдержим.
-    for rel, fn_name in (("bot/main_bot.py", "process_sell_phone"),):
+    # Карточку заявки в боте рисует _finish_sell_order (раньше это делал
+    # process_sell_phone — шагов ввода стало больше, и запись переехала в конец
+    # цепочки). Имя здесь одно, потому что и функция одна: расползись она на
+    # две, дубль текста был бы отдельной бедой.
+    for rel, fn_name in (("bot/main_bot.py", "_finish_sell_order"),):
         src = _read(os.path.join(ROOT, rel))
         if not src:
             continue
@@ -4230,6 +4252,605 @@ def check_sell_direction_grows_from_its_registry():
     if guard and "sell_assets" not in guard:
         fail(tag, "bot/sell_guard.py держит свой список проверяемых цепей — "
                   "сайт пообещает автоматику там, где страж скажет «не умею»")
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 35. Поверхность заводит заявку и тут же теряет её
+# ─────────────────────────────────────────────────────────────────────
+# У заявки на продажу вся суть в том, что клиент должен перевести монеты на наш
+# адрес. Показать адрес один раз и убрать — значит потребовать перевода и
+# спрятать реквизиты: закрыл окно, вернулся через час, а идти некуда. Это тот
+# же тупик, что К1, только с другой стороны. Правило: поверхность, умеющая
+# ЗАВЕСТИ заявку, обязана уметь и ПОКАЗАТЬ незакрытые.
+def check_a_surface_that_creates_orders_can_show_them():
+    tag = "заявку завели и потеряли"
+    main_src = _read(os.path.join(ROOT, "relay-fastapi", "main.py"))
+    wa = _read(os.path.join(ROOT, "relay", "webapp.html"))
+    if not main_src or not wa:
+        return
+    if "/api/sell/create" not in main_src:
+        return                       # Mini App заявок продажи не заводит
+
+    # Сервер отдаёт незакрытые заявки — и только СВОИ (по подписи, а не по
+    # номеру из запроса, иначе это утечка чужих сумм и телефона).
+    import ast as _ast
+    try:
+        tree = _ast.parse(main_src)
+    except SyntaxError as e:
+        fail(tag, f"relay-fastapi/main.py не разбирается: {e}")
+        return
+    listing = None
+    for node in _ast.walk(tree):
+        if not isinstance(node, (_ast.FunctionDef, _ast.AsyncFunctionDef)):
+            continue
+        for dec in node.decorator_list:
+            src = _ast.get_source_segment(main_src, dec) or ""
+            if "/api/sell/pending" in src:
+                listing = node
+    if listing is None:
+        fail(tag, "Mini App умеет создать заявку на продажу, но не умеет показать "
+                  "незакрытые: клиент закроет окно и потеряет адрес перевода")
+        return
+    body = _ast.get_source_segment(main_src, listing) or ""
+    if "verify_init_data" not in body:
+        fail(tag, "/api/sell/pending отдаёт заявки без проверки подписи — по "
+                  "чужому номеру уедут чужие суммы и телефон")
+    if "user['id']" not in body and 'user["id"]' not in body:
+        fail(tag, "/api/sell/pending берёт владельца НЕ из подписи — значит "
+                  "номер можно подставить в запросе")
+    # Список должен быть привязан к незакрытым: отдать всё подряд означает
+    # звать переводить по уже закрытой заявке.
+    if "'pending'" not in body and '"pending"' not in body:
+        fail(tag, "/api/sell/pending не ограничен незакрытыми заявками — клиент "
+                  "получит адрес по уже завершённой и переведёт второй раз")
+
+    # Заявку нельзя завести на нечисловой объём. NaN и Infinity — законные
+    # float, любое сравнение с ними ложно, и JSON принимает их по умолчанию:
+    # без явной проверки `{"amount": NaN}` проходит и минимум, и «больше нуля»,
+    # а в базе оказывается заявка, которую персонал увидит рабочей. Нашёл codex.
+    refuse = next((n for n in _ast.walk(tree)
+                   if isinstance(n, _ast.FunctionDef) and n.name == "sell_order_refuse"), None)
+    if refuse is None:
+        fail(tag, "sell_order_refuse() исчезла — проверка ослепла")
+    else:
+        rb = _ast.get_source_segment(main_src, refuse) or ""
+        if "isfinite" not in rb:
+            fail(tag, "объём заявки не проверяется на конечность — NaN и "
+                      "Infinity пройдут все сравнения и лягут в базу")
+        # Цена — такое же условие продажи, как адрес приёма. Список монет её
+        # фильтрует, но запрос можно послать мимо списка. Нашёл codex.
+        if "_sell_rate" not in rb:
+            fail(tag, "цена не проверяется при приёме заявки — запрос мимо "
+                      "списка монет заведёт заявку с нулевой выплатой")
+        # Объём конечен, а произведение уже может переполниться: 1e308 монет
+        # проходят все проверки, а выплата становится бесконечностью.
+        if rb.count("isfinite") < 2:
+            fail(tag, "проверяется конечность объёма, но не выплаты — при "
+                      "огромном объёме в базу ляжет бесконечная сумма")
+
+    # Метка платежа у монеты, где она обязательна, — условие СОЗДАНИЯ заявки.
+    # Если её не выдать, клиенту велят перевести на общий адрес без метки, и
+    # такой депозит уже не привязать. Нашёл codex.
+    maker = next((n for n in _ast.walk(tree)
+                  if isinstance(n, _ast.FunctionDef) and n.name == "sell_order_create"), None)
+    if maker is not None:
+        mb = _ast.get_source_segment(main_src, maker) or ""
+        # Смотреть надо ХВОСТ после записи в базу: до неё проверок хватает, а
+        # опасен именно промежуток «строка уже есть — метки ещё нет». Проверка
+        # «где-то в функции есть return None» тут бесполезна: её удовлетворяет
+        # предварительный гейт, и мина зеленеет на сломанном коде.
+        if "marker_for" in mb and "INSERT INTO sell_orders" in mb:
+            tail = mb.split("INSERT INTO sell_orders", 1)[1]
+            if "cancelled" not in tail:
+                fail(tag, "сбой выдачи метки не отменяет заявку — клиент переведёт "
+                          "монеты на общий адрес без метки, и мы их не опознаем")
+            if "return None" not in tail:
+                fail(tag, "заявка без метки возвращается наверх как рабочая — "
+                          "поверхность покажет клиенту адрес приёма без метки")
+
+    # Счётчик заявок общий с покупкой и глобальный. Потрать его на ОТКАЗЫ — и
+    # любой желающий шлёт 60 мусорных запросов в минуту, закрывая Mini App
+    # всем сразу. Нашёл codex.
+    creator = next((n for n in _ast.walk(tree)
+                    if isinstance(n, (_ast.FunctionDef, _ast.AsyncFunctionDef))
+                    and n.name == "api_sell_create"), None)
+    if creator is not None:
+        cb = _ast.get_source_segment(main_src, creator) or ""
+        if "_check_order_rate" in cb and "sell_order_refuse" in cb \
+                and cb.index("_check_order_rate") < cb.index("sell_order_refuse"):
+            fail(tag, "лимит заявок тратится ДО проверки — мусорными запросами "
+                      "можно закрыть Mini App всем пользователям сразу")
+
+    # Поверхность его действительно зовёт, а не просто эндпоинт существует.
+    if "/api/sell/pending" not in wa:
+        fail(tag, "relay/webapp.html не спрашивает незакрытые заявки продажи — "
+                  "эндпоинт есть, а клиент его не видит")
+    # И адрес в этом списке показывается: список без адреса — не выход из
+    # тупика, а напоминание о нём.
+    start = wa.find("loadSellPending")
+    chunk = wa[start:start + 3000] if start >= 0 else ""
+    if "it.address" not in chunk and "address" not in chunk:
+        fail(tag, "список незакрытых заявок не показывает адрес перевода — "
+                  "клиент видит долг и не видит, куда платить")
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 36. Новый платёжный канал заведён наполовину
+# ─────────────────────────────────────────────────────────────────────
+# Провайдер живёт не в одном файле, а в шести реестрах: роутер его выбирает,
+# PaymentService создаёт, payout_guard перепроверяет оплату, receipts решает
+# судьбу чека, provider_caps говорит персоналу, чего ждать. Пропуск любого
+# реестра НЕ ломает сборку и НЕ виден в логах — он выглядит как работающий
+# канал с чужим поведением. Так уже было с Lava: роутер её выбирал, а
+# _load_provider не знал — заявки молча уходили в Fallback (08.07.2026).
+#
+# Здесь же караулятся три способа тихо ослабить подписанный канал: половина
+# учётных данных, подпись не от отправленных байтов и возврат, посчитанный
+# оплатой.
+def check_new_provider_is_wired_into_every_registry():
+    tag = "канал заведён наполовину"
+
+    def _dict_keys(src, name):
+        """Ключи-строки словаря верхнего уровня — по дереву, а не по тексту."""
+        try:
+            tree = ast.parse(src)
+        except SyntaxError:
+            return None
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Assign) and isinstance(node.value, ast.Dict):
+                for t in node.targets:
+                    if getattr(t, "id", None) == name:
+                        return {k.value for k in node.value.keys
+                                if isinstance(k, ast.Constant) and isinstance(k.value, str)}
+        return None
+
+    router_src = _read(os.path.join(CANON, "services", "smart_router.py"))
+    ps_src = _read(os.path.join(CANON, "services", "payment_service.py"))
+    guard_src = _read(os.path.join(CANON, "services", "payout_guard.py"))
+    caps_src = _read(os.path.join(CANON, "core", "provider_caps.py"))
+    rec_src = _read(os.path.join(CANON, "core", "receipts.py"))
+    if not all((router_src, ps_src, guard_src, caps_src, rec_src)):
+        fail(tag, "не читается один из файлов реестров провайдеров")
+        return
+
+    classes = _dict_keys(router_src, "PROVIDER_CONFIG")
+    shorts = _dict_keys(router_src, "SHORT_NAMES")
+    if not classes or not shorts:
+        fail(tag, "в smart_router не разобрать PROVIDER_CONFIG/SHORT_NAMES")
+        return
+
+    # 1) роутер выбирает — PaymentService обязан уметь создать именно его
+    ps_tree = ast.parse(ps_src)
+    loader = next((n for n in ast.walk(ps_tree) if isinstance(n, ast.FunctionDef)
+                   and n.name == "_load_provider"), None)
+    known = {n.value for n in ast.walk(loader) if isinstance(n, ast.Constant)
+             and isinstance(n.value, str)} if loader else set()
+    guard_shorts = _dict_keys(guard_src, "SHORT_TO_CLASS") or set()
+    caps_shorts = _dict_keys(caps_src, "_VERIFICATION_CHANNEL") or set()
+    rec_shorts = set(_dict_keys(rec_src, "_ROUTES") or set())
+    for node in ast.walk(ast.parse(rec_src)):
+        if isinstance(node, ast.Assign) and isinstance(node.value, ast.Set):
+            for t in node.targets:
+                if getattr(t, "id", None) == "_NO_CHANNEL":
+                    rec_shorts |= {e.value for e in node.value.elts
+                                   if isinstance(e, ast.Constant)}
+
+    for cls in sorted(classes):
+        if cls not in shorts:
+            fail(tag, f"{cls} нет в SHORT_NAMES")
+            continue
+        m = re.search(r'"%s"\s*:\s*"([a-z]+)"' % re.escape(cls), router_src)
+        short = m.group(1) if m else None
+        if not short:
+            fail(tag, f"{cls} нет в SHORT_NAMES — короткое имя пишется в "
+                      f"payment_sessions, без него сессию не связать с провайдером")
+            continue
+        # FallbackProvider — это и есть ветка «иначе» в _load_provider: по имени
+        # его не выбирают, им заканчивают. Остальных обязаны звать поимённо.
+        if cls not in known and cls != "FallbackProvider":
+            fail(tag, f"роутер выбирает {cls}, а PaymentService его не создаёт — "
+                      f"заявки молча уйдут в Fallback, как было с Lava")
+        if short not in caps_shorts:
+            fail(tag, f"{short} нет в provider_caps — персоналу пообещают "
+                      f"поведение по умолчанию вместо правды о канале")
+        if short not in rec_shorts:
+            fail(tag, f"{short} нет ни в receipts._ROUTES, ни в _NO_CHANNEL — "
+                      f"чек клиента уйдёт в никуда, и это не будет видно")
+        # fallback перепроверять нечем: это ручной/резервный путь, у него нет
+        # своего API статуса. Остальные обязаны быть в стороже выплаты.
+        if short not in guard_shorts and short != "fallback":
+            fail(tag, f"{short} нет в payout_guard — оплату по нему нечем "
+                      f"подтвердить в момент выплаты")
+
+    # 2) половина учётных данных ≠ настроенный канал
+    if "def has_required_env" not in router_src:
+        fail(tag, "нет has_required_env — проверка учётных данных разъедется по "
+                  "трём местам, и половина ключей сойдёт за настроенный канал")
+    else:
+        body = router_src.split("def has_required_env", 1)[1].split("\ndef ", 1)[0]
+        if '","' not in body and "','" not in body and '","' not in body \
+                and 'split(",")' not in body.replace(" ", ""):
+            fail(tag, "has_required_env не разбирает список переменных через "
+                      "запятую — провайдеру с двумя ключами хватит одного, и "
+                      "каждый запрос упадёт по подписи")
+    for name, src in (("smart_router", router_src), ("payment_service", ps_src)):
+        if re.search(r"os\.getenv\(\s*required_env", src):
+            fail(tag, f"{name} читает required_env напрямую мимо has_required_env — "
+                      f"список из двух переменных проверится как одна строка")
+
+    # 3) подписывается ровно то, что отправляется
+    rspay_src = _read(os.path.join(CANON, "providers", "rspay.py"))
+    if rspay_src:
+        rt = ast.parse(rspay_src)
+        post = next((n for n in ast.walk(rt) if isinstance(n, ast.FunctionDef)
+                     and n.name == "_post"), None)
+        signed = sent = None
+        for n in ast.walk(post) if post else []:
+            if isinstance(n, ast.Call) and getattr(n.func, "attr", "") == "post":
+                for kw in n.keywords:
+                    if kw.arg == "data":
+                        sent = getattr(kw.value, "id", None)
+                    if kw.arg == "headers" and isinstance(kw.value, ast.Call):
+                        a = kw.value.args[0] if kw.value.args else None
+                        signed = getattr(a, "id", None)
+        if not signed or not sent or signed != sent:
+            fail(tag, f"подписывается {signed!r}, а отправляется {sent!r} — вторая "
+                      f"сериализация даст другие байты, RSPay ответит 401, и это "
+                      f"будет выглядеть как неверный ключ")
+
+        # 4) возврат — не оплата
+        smap = _dict_keys(rspay_src, "_STATUS_MAP") or set()
+        if "refunded" not in smap:
+            fail(tag, "статус refunded не разбирается — возврат приедет как "
+                      "unknown и потеряется")
+        paid_set = set()
+        for node in ast.walk(ast.parse(guard_src)):
+            if isinstance(node, ast.Assign) and isinstance(node.value, ast.Set):
+                for t in node.targets:
+                    if getattr(t, "id", None) == "_PAID":
+                        paid_set = {e.value for e in node.value.elts
+                                    if isinstance(e, ast.Constant)}
+        if "refunded" in paid_set:
+            fail(tag, "возврат числится подтверждением оплаты — крипта уйдёт по "
+                      "заявке, деньги за которую уже вернули клиенту")
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 37. «Выплачено» сказано раньше, чем деньги ушли
+# ─────────────────────────────────────────────────────────────────────
+# Пока рубли за проданную крипту переводил человек, порядок «пометить →
+# сказать клиенту → перевести самому» был безобиден: перевод делал тот же, кто
+# нажал кнопку. С появлением рельса выплат (Vertu) между кнопкой и деньгами
+# встал чужой сервис, который может ответить отказом. Пометить заявку до его
+# ответа — значит сказать клиенту «выплачено» по переводу, которого не было, и
+# больше к этой заявке никто не вернётся: она уже `paid`.
+#
+# Вторая половина той же беды — двойная отправка. У рельса нет идемпотентности
+# по нашему идентификатору: каждый вызов создаёт НОВУЮ выплату. Два админа,
+# нажавшие кнопку одновременно, стоят ровно двух переводов клиенту, и
+# «прочитать статус, потом обновить» от этого не спасает — между чтением и
+# записью успевает пройти вторая корутина. Спасает только захват строки одним
+# UPDATE с проверкой rowcount.
+def check_payout_is_marked_after_the_money_moves():
+    tag = "«выплачено» раньше денег"
+    src = _read(os.path.join(ROOT, "bot", "main_bot.py"))
+    if not src:
+        return
+    try:
+        fn = next(n for n in ast.walk(ast.parse(src))
+                  if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+                  and n.name == "_do_sell_payout")
+    except (StopIteration, SyntaxError):
+        fail(tag, "bot/main_bot.py: _do_sell_payout() исчезла — проверка ослепла")
+        return
+    body = ast.get_source_segment(src, fn) or ""
+
+    # Захват строки. Ищем именно UPDATE с условием на текущий статус: без
+    # условия «занять» строку невозможно, вторая кнопка обновит её так же
+    # успешно, как первая.
+    # Запрос собран из соседних строковых литералов, поэтому склеиваем текст
+    # функции: искать по одному литералу значило бы, что мина падает от
+    # переноса строки, а не от беды.
+    glued = re.sub(r"[\"']\s*[\"']", "", body)
+    claim = re.search(r"UPDATE sell_orders SET status='paying'.{0,120}?"
+                      r"WHERE id=\?\s*AND status NOT IN", glued, re.S)
+    if not claim:
+        fail(tag, "заявка не занимается одним UPDATE с проверкой текущего "
+                  "статуса — две одновременные кнопки создадут ДВА перевода "
+                  "одному клиенту, у рельса нет идемпотентности по нашему id")
+    elif "rowcount" not in body:
+        fail(tag, "результат захвата строки не проверяется (нет rowcount) — "
+                  "проигравшая гонку кнопка пойдёт платить как ни в чём "
+                  "не бывало")
+
+    # Порядок. «Сказать выплачено» обязано стоять ПОСЛЕ вызова отправки.
+    # Сравниваем не по первому вхождению строки 'paid' — она встречается уже в
+    # условии захвата (`status NOT IN ('paid','paying')`), и такая мина падала
+    # бы на исправном коде, — а по тому, ЧТО написано до вызова и что после.
+    send = glued.find("send_rub")
+    if send < 0:
+        fail(tag, "_do_sell_payout() больше не зовёт отправку рублей — "
+                  "кнопка «Выплатить» только помечает строку, а деньги "
+                  "клиенту не уходят ниоткуда")
+    else:
+        pre, post = glued[:send], glued[send:]
+        if re.search(r"SET status='paid'", pre):
+            fail(tag, "заявка помечается выплаченной ДО отправки рублей — при "
+                      "отказе рельса клиент получит «выплачено» без денег, а "
+                      "заявка уйдёт из всех очередей разбора")
+        if "update_user_vip_volume" in pre:
+            fail(tag, "объём начисляется до отправки рублей — за перевод, "
+                      "которого может не быть")
+        if "SET status=" not in post:
+            fail(tag, "_do_sell_payout() не помечает заявку выплаченной — она "
+                      "останется в захваченном состоянии навсегда")
+        # И этого мало: рельс отвечает на создание выплаты «Pending». Закрыть
+        # заявку по факту СОЗДАНИЯ — значит закрыть её до денег; отклонённая
+        # позже выплата оставит её в paid навсегда, вне очереди и сторожа.
+        if "is_settled" not in post:
+            fail(tag, "заявка закрывается по факту создания выплаты, а не по "
+                      "подтверждению зачисления — рельс отвечает Pending и "
+                      "может отклонить перевод позже, а paid обратно уже "
+                      "никто не снимет")
+
+    # Тот, кто закрывает заявку по подтверждению, обязан уметь и открыть её
+    # обратно по отказу: иначе единственным следом отказа остаётся сообщение
+    # в чате, а заявка навсегда застревает между состояниями.
+    # Смотрим на ВЫЗОВЫ, а не на упоминания: имена этих функций стоят и в
+    # соседнем комментарии, и мина, которой хватает текста, зеленеет на коде,
+    # где обход только пишет в чат и ничего не двигает.
+    relay_src = _read(os.path.join(ROOT, "relay-fastapi", "main.py"))
+    if relay_src:
+        try:
+            tree = ast.parse(relay_src)
+        except SyntaxError:
+            tree = None
+        called = set()
+        if tree is not None:
+            for n in ast.walk(tree):
+                if isinstance(n, ast.Call):
+                    f = n.func
+                    name = getattr(f, "attr", None) or getattr(f, "id", None)
+                    if name:
+                        called.add(name)
+        if tree is not None and "_vertu_payout_sweep" in called:
+            if "mark_settled" not in called:
+                fail(tag, "обход выплат не закрывает подтверждённую заявку — "
+                          "она навсегда останется занятой, а клиент не узнает, "
+                          "что деньги дошли")
+            if "mark_rejected" not in called:
+                fail(tag, "обход выплат не возвращает отклонённую заявку в "
+                          "очередь — монеты клиента у нас, а долг не видит "
+                          "ни один список")
+
+    # Неудача обязана вернуть заявку в работу. Строка, застрявшая в 'paying',
+    # не видна ни как ждущая, ни как оплаченная — это тихая потеря заявки.
+    if claim and "paying" in body:
+        tail = body[send:] if send >= 0 else body
+        if "_release" not in tail and "status='pending'" not in tail:
+            fail(tag, "после неудачной отправки заявка остаётся занятой — "
+                      "она пропадёт и из очереди выплат, и из списка оплаченных")
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 38. Поверхность сама решает, куда можно получить рубли
+# ─────────────────────────────────────────────────────────────────────
+# Список направлений выплаты зависит от того, включён ли рельс: карта
+# появляется только когда есть чем платить. Поверхность, знающая этот список
+# сама (зашитый `<option value="card">`), покажет «на карту» и при выключенном
+# рельсе — клиент отдаст монеты и будет ждать перевода, которого сделать
+# нечем. Ровно так же опасна и своя проверка реквизита: форма с
+# `pattern="\+?7\d{10}"` над полем, куда теперь вводят номер карты, отвергает
+# верный номер, и никакой сервер об этом не узнает.
+def check_payout_directions_come_from_the_registry():
+    tag = "поверхность сама открывает выплату"
+    reg = _read(os.path.join(ROOT, "relay", "core", "sell_payout.py"))
+    if not reg:
+        return
+    # Смотреть надо ВНУТРЬ функции-гейта, а не по всему файлу: имя переменной
+    # осталось бы в соседней строке и в собственном комментарии, и мина
+    # зеленела бы на гейте, который всегда возвращает «включено».
+    try:
+        gate = next(n for n in ast.walk(ast.parse(reg))
+                    if isinstance(n, ast.FunctionDef)
+                    and n.name == "vertu_payout_enabled")
+    except (StopIteration, SyntaxError):
+        fail(tag, "relay/core/sell_payout.py: vertu_payout_enabled() исчезла — "
+                  "проверка ослепла")
+        gate = None
+    if gate is not None:
+        read = {c.value for c in ast.walk(gate)
+                if isinstance(c, ast.Constant) and isinstance(c.value, str)}
+        if "VERTU_PAYOUT" not in read:
+            fail(tag, "гейт рельса выплат не смотрит на VERTU_PAYOUT — карта "
+                      "откроется клиентам раньше, чем владелец увидит баланс, "
+                      "с которого её платить")
+        if not (read & {"VERTU_API_KEY", "VERTU_LOGIN", "VERTU_PASSWORD"}):
+            fail(tag, "гейт рельса выплат доверяет одному флагу и не проверяет "
+                      "учётные данные — вызов упадёт уже с криптой клиента у нас")
+
+    tpl = _read(os.path.join(ROOT, "relay-fastapi", "templates", "dashboard_sell.html"))
+    wa = _read(os.path.join(ROOT, "relay", "webapp.html"))
+    for name, src in (("сайт", tpl), ("Mini App", wa)):
+        if not src:
+            continue
+        if re.search(r"""<option[^>]*value=["']card["']""", src):
+            fail(tag, f"{name}: направление «на карту» вписано в разметку — "
+                      f"оно останется на экране и при выключенном рельсе, "
+                      f"а платить будет нечем")
+
+    # Форма продажи не имеет права навязывать полю выплаты свой формат:
+    # телефон и номер карты живут в одном поле, и зашитая маска телефона
+    # отвергает верную карту ещё до отправки.
+    if tpl:
+        m = re.search(r"""name=["']sbp_phone["'][^>]*""", tpl)
+        if m and "pattern=" in m.group(0):
+            fail(tag, "сайт: поле реквизита выплаты держит свою маску — при "
+                      "выборе карты форма отвергнет верный номер, и сервер "
+                      "об этом не узнает")
+
+    # Реквизит показывается через общий разбор: у заявки на карту легаси-поле
+    # `sbp_phone` пусто, и «выплата на ___» с пустотой — это заявка, по которой
+    # клиент не понимает, куда придут деньги.
+    main_src = _read(os.path.join(ROOT, "relay-fastapi", "main.py"))
+    if main_src and "sbp_phone" in main_src and "sell_payout" not in main_src:
+        fail(tag, "relay-fastapi читает легаси-колонку реквизита в обход "
+                  "core.sell_payout — по заявке на карту поверхность покажет "
+                  "пустое поле выплаты")
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 39. Маска дошла до того, кто платит по ней руками
+# ─────────────────────────────────────────────────────────────────────
+# Реквизит выплаты маскируется — и правильно: карточка заявки живёт в истории
+# клиента и в переписке. Но по `79•••••4567` перевод не сделать, а на ручном
+# пути перевод делает человек, читающий сообщение персоналу. Маска, дошедшая
+# до него, останавливает выплату молча: заявка выглядит заведённой, оператор
+# не может ничего сделать и не понимает почему. Нашёл codex.
+def check_the_payer_gets_a_usable_requisite():
+    tag = "маска дошла до плательщика"
+    reg = _read(os.path.join(ROOT, "relay", "core", "sell_payout.py"))
+    if not reg or "def staff_details" not in reg:
+        fail(tag, "нет отдельного вида реквизита для персонала — либо клиент "
+                  "видит полный номер карты, либо оператор не видит ничего, "
+                  "чем можно заплатить")
+        return
+
+    src = _read(os.path.join(ROOT, "bot", "main_bot.py"))
+    if not src:
+        return
+    try:
+        fn = next(n for n in ast.walk(ast.parse(src))
+                  if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+                  and n.name == "_finish_sell_order")
+    except (StopIteration, SyntaxError):
+        fail(tag, "bot/main_bot.py: _finish_sell_order() исчезла — проверка ослепла")
+        return
+
+    # Имена, в которые положили МАСКУ. Их и ищем в сообщении персоналу — так
+    # проверка не зависит от того, как переменную назвали.
+    masked = set()
+    for node in ast.walk(fn):
+        if isinstance(node, ast.Assign) and isinstance(node.value, ast.Call):
+            called = getattr(node.value.func, "attr", None) or getattr(node.value.func, "id", None)
+            if called == "mask_details":
+                for t in node.targets:
+                    if getattr(t, "id", None):
+                        masked.add(t.id)
+    for node in ast.walk(fn):
+        if not isinstance(node, ast.Call):
+            continue
+        name = getattr(node.func, "attr", None) or getattr(node.func, "id", None)
+        if name != "notify_admins":
+            continue
+        used = {n.id for n in ast.walk(node) if isinstance(n, ast.Name)}
+        leaked = masked & used
+        if leaked:
+            fail(tag, f"сообщение персоналу о новой продаже подставляет "
+                      f"замаскированный реквизит ({', '.join(sorted(leaked))}) — "
+                      f"на ручном пути по нему невозможно сделать перевод, и "
+                      f"заявка встанет молча")
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 40. Порог провайдера стоит только на кнопке
+# ─────────────────────────────────────────────────────────────────────
+# Провайдеры P2P просят направлять к их трейдерам только повторных клиентов —
+# у Montera ≥1 сделка, у Vertu с 06.08.2026 ≥4 (жалобы на поддельные чеки).
+# Спрятать кнопку в боте НЕДОСТАТОЧНО: к тому же трейдеру ведут ещё три двери
+# — авто-выбор роутера, цепочка эскалации и скопированный callback из старого
+# сообщения. Порог, стоящий на одной двери, ничего не меняет для провайдера:
+# новичок доедет другой. Именно так требование Montera и работало вполсилы —
+# правило жило двумя копиями (кнопка и PaymentService) и не касалось выбора.
+#
+# Вторая половина мины — про то, что порог обязан РАЗЛИЧАТЬ клиентов: гейт,
+# который не спрашивает, кто перед ним, закрывает канал всем сразу.
+def check_client_threshold_guards_every_door():
+    tag = "порог только на кнопке"
+    trust = _read(os.path.join(ROOT, "relay", "core", "client_trust.py"))
+    router = _read(os.path.join(ROOT, "relay", "services", "smart_router.py"))
+    svc = _read(os.path.join(ROOT, "relay", "services", "payment_service.py"))
+    if not (trust and router and svc):
+        fail(tag, "реестр порогов доверия или путь оплаты не на месте — "
+                  "проверка ослепла")
+        return
+
+    # У порога должен быть один вход, и его обязаны звать все три двери.
+    def _calls(src):
+        try:
+            tree = ast.parse(src)
+        except SyntaxError:
+            return set()
+        out = set()
+        for n in ast.walk(tree):
+            if isinstance(n, ast.Call):
+                name = getattr(n.func, "attr", None) or getattr(n.func, "id", None)
+                if name:
+                    out.add(name)
+        return out
+
+    gate = {"client_trust_refusal", "allows", "refuse_reason"}
+    # Смотреть надо ВНУТРЬ choose_provider, а не по модулю: сам общий вход
+    # объявлен здесь же и зовёт refuse_reason, поэтому проверка «есть ли такой
+    # вызов в файле» зеленела бы на роутере, который его не спрашивает.
+    try:
+        pick = next(n for n in ast.walk(ast.parse(router))
+                    if isinstance(n, ast.FunctionDef) and n.name == "choose_provider")
+    except (StopIteration, SyntaxError):
+        pick = None
+    if pick is None:
+        fail(tag, "smart_router.choose_provider() исчезла — проверка ослепла")
+    elif not (_calls(ast.get_source_segment(router, pick) or "") & gate):
+        fail(tag, "выбор провайдера не спрашивает порог доверия — авто-роутер "
+                  "отдаст канал для повторных клиентов новичку, и провайдер "
+                  "увидит ровно то, на что жаловался")
+    elif pick is not None:
+        who = {a.arg for a in pick.args.args} | {a.arg for a in pick.args.kwonlyargs}
+        if not ({"telegram_id", "user_id", "client_id"} & who):
+            fail(tag, "choose_provider() не знает, для кого выбирает — порог "
+                      "внутри неё может проверять только пустоту")
+
+    try:
+        tree = ast.parse(svc)
+    except SyntaxError:
+        tree = None
+    if tree is not None:
+        for fname in ("create_session", "_escalate"):
+            try:
+                node = next(n for n in ast.walk(tree)
+                            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+                            and n.name == fname)
+            except StopIteration:
+                fail(tag, f"payment_service.{fname}() исчезла — проверка ослепла")
+                continue
+            if not (_calls(ast.get_source_segment(svc, node) or "") & gate):
+                fail(tag, f"{fname}() не проверяет порог доверия — к трейдеру "
+                          f"ведёт дверь без гейта")
+
+    # Порог обязан зависеть от клиента: гейт, не спрашивающий, кто перед ним,
+    # либо закрывает канал всем, либо не закрывает никому.
+    try:
+        node = next(n for n in ast.walk(ast.parse(trust))
+                    if isinstance(n, ast.FunctionDef) and n.name == "allows")
+        args = {a.arg for a in node.args.args}
+    except (StopIteration, SyntaxError):
+        args = set()
+    if not ({"telegram_id", "user_id", "client_id"} & args):
+        fail(tag, "решение о доступе принимается без клиента — такой «порог» "
+                  "либо закрывает канал всем, либо не закрывает никому")
+
+    # Кнопки бота обязаны согласовываться с тем же реестром, а не со своим
+    # числом рядом: разойдясь, они показывают способ, за которым ждёт отказ.
+    bot_src = _read(os.path.join(ROOT, "bot", "main_bot.py"))
+    if bot_src:
+        if "client_trust" not in bot_src:
+            fail(tag, "бот решает видимость платёжных кнопок сам, мимо реестра "
+                      "порогов — кнопка разойдётся с тем, что ответит сервер")
+        for stale in ("user_success_count(callback.from_user.id) < 1",
+                      "user_success_count(user_id) >= 1"):
+            if stale in bot_src:
+                fail(tag, f"в боте осталась своя копия порога ({stale}) — "
+                          f"держать её в согласии с реестром некому")
 
 
 def main():
@@ -4265,6 +4886,8 @@ def main():
                check_wallet_proof_is_checked_against_the_chain,
                check_amount_is_labelled_by_its_own_asset,
                check_sell_direction_grows_from_its_registry,
+               check_a_surface_that_creates_orders_can_show_them,
+               check_new_provider_is_wired_into_every_registry,
                check_proof_belongs_to_the_client_it_was_issued_to,
                check_stale_proof_code_is_not_a_dead_end,
                check_wallet_showcase_keeps_every_currency,
@@ -4286,7 +4909,11 @@ def main():
                check_every_currency_is_reconcilable,
                check_prefilter_is_not_stricter_than_the_real_check,
                check_wallet_link_is_keyed_by_chain,
-               check_one_signature_does_not_fit_two_chains):
+               check_one_signature_does_not_fit_two_chains,
+               check_payout_is_marked_after_the_money_moves,
+               check_payout_directions_come_from_the_registry,
+               check_the_payer_gets_a_usable_requisite,
+               check_client_threshold_guards_every_door):
         try:
             fn()
         except Exception as e:

@@ -524,6 +524,38 @@ def user_success_count(user_id: int) -> int:
         return 0
 
 
+def _provider_open_to(user_id, provider_class: str) -> bool:
+    """Открыт ли этот канал такому клиенту — по общему реестру порогов.
+
+    Кнопка и сам запрос реквизитов обязаны решать это одинаково: показать
+    кнопку, за которой ждёт отказ, значит отправить клиента в тупик, а
+    спрятать кнопку, оставив канал в авто-выборе, — вообще ничего не изменить
+    для провайдера, который об этом просил.
+    """
+    try:
+        import sys
+        sys.path.insert(0, RELAY_PATH)
+        from core.client_trust import allows
+        return allows(provider_class, user_id)
+    except Exception as e:
+        # Реестр не загрузился — не прячем кнопки: отказ всё равно случится на
+        # стороне PaymentService, а меню без единого способа оплаты выглядит
+        # как поломка сервиса.
+        logger.warning(f"реестр порогов доверия недоступен: {e}")
+        return True
+
+
+def _min_deals_for(provider_class: str) -> int:
+    """Порог канала — чтобы объяснить клиенту отказ его же числом."""
+    try:
+        import sys
+        sys.path.insert(0, RELAY_PATH)
+        from core.client_trust import min_deals
+        return min_deals(provider_class)
+    except Exception:
+        return 0
+
+
 async def build_payment_methods_kb(order_id: int, amount: float, user_id: int = None) -> InlineKeyboardMarkup:
     """Клавиатура способов оплаты — показывает только методы, реально доступные для данной суммы."""
     import sys
@@ -537,7 +569,7 @@ async def build_payment_methods_kb(order_id: int, amount: float, user_id: int = 
     # (smart_router profit_weight) и в эскалации (get_escalation_chain).
 
     # 1) Vertu — самый выгодный. СБП / Карта, авто-подтверждение (без чека)
-    if os.getenv('VERTU_LOGIN', ''):
+    if os.getenv('VERTU_LOGIN', '') and _provider_open_to(user_id, 'VertuProvider'):
         rows.append([InlineKeyboardButton(
             text="⚡ СБП — авто-подтверждение",
             callback_data=f"pm_vertu_sbp_{order_id}"
@@ -557,10 +589,10 @@ async def build_payment_methods_kb(order_id: int, amount: float, user_id: int = 
             callback_data=f"pm_xpay_link_{order_id}"
         )])
 
-    # 3) Montera — показываем ТОЛЬКО клиентам с ≥1 успешно оплаченной сделкой
-    # (требование трейдеров Montera — доверенные/повторные клиенты).
-    montera_allowed = user_success_count(user_id) >= 1
-    if montera_allowed:
+    # 3) Montera — только повторным клиентам (требование её трейдеров). Порог
+    # берётся из общего реестра, а не из числа рядом: раньше он стоял здесь и
+    # ещё раз в PaymentService, и держать их в согласии было некому.
+    if _provider_open_to(user_id, 'MonteraProvider'):
         rows.append([InlineKeyboardButton(
             text="📱 СБП — по номеру телефона",
             callback_data=f"pm_montera_sbp_{order_id}"
@@ -761,7 +793,10 @@ class Swap(StatesGroup):
 class Sell(StatesGroup):
     currency = State()
     amount = State()
-    phone = State()
+    dest = State()      # куда платить: карта или СБП (кнопки)
+    bank = State()      # банк получателя — нужен рельсу выплаты (кнопки)
+    details = State()   # сам реквизит: номер карты либо телефон
+    name = State()      # ФИО получателя — требование рельса, не наше
 
 class LimitOrder(StatesGroup):
     currency   = State()
@@ -869,6 +904,21 @@ def init_db():
             c.execute("ALTER TABLE orders ADD COLUMN receipt_sent_at TEXT")
         if 'receipt_deadline' not in _order_cols:
             c.execute("ALTER TABLE orders ADD COLUMN receipt_deadline TEXT")
+        # Заявки на продажу: таблицу пишут и бот, и сайт, а создавала её раньше
+        # чья-то консоль — на свежей базе первая же продажа падала бы.
+        c.execute('''CREATE TABLE IF NOT EXISTS sell_orders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, currency TEXT,
+            crypto_amount REAL, rub_amount REAL, sbp_phone TEXT, receive_address TEXT,
+            status TEXT, tx_hash TEXT, created_at TEXT, updated_at TEXT)''')
+        # Реквизит выплаты целиком: рельсу Vertu нужна тройка «банк + номер +
+        # ФИО», и половины тройки хватает, чтобы получить отказ 422 уже после
+        # того, как крипта клиента у нас. Список обязан совпадать с
+        # relay-fastapi/main.py (sell_needed) — оба процесса делят один файл БД.
+        _sell_cols = [r[1] for r in c.execute("PRAGMA table_info(sell_orders)")]
+        for _col in ('payout_method', 'payout_bank', 'payout_details', 'payout_name',
+                     'payout_provider', 'payout_ref', 'payout_status'):
+            if _col not in _sell_cols:
+                c.execute(f"ALTER TABLE sell_orders ADD COLUMN {_col} TEXT")
         c.execute('''CREATE TABLE IF NOT EXISTS bot_users (
             user_id INTEGER PRIMARY KEY,
             username TEXT,
@@ -2389,6 +2439,24 @@ def sell_receive_address(currency: str) -> str:
         return ""
 
 
+def _sell_payout():
+    """Реестр направлений выплаты. Тот же, что у сайта и Mini App."""
+    if RELAY_PATH not in sys.path:
+        sys.path.insert(0, RELAY_PATH)
+    from core import sell_payout
+    return sell_payout
+
+
+def sell_payout_methods() -> tuple:
+    """Открытые направления выплаты. Реестр недоступен — остаётся СБП: это
+    путь, который работал всегда и не требует чужого рельса."""
+    try:
+        return _sell_payout().methods()
+    except Exception as e:
+        logger.error(f"реестр выплат недоступен: {e}")
+        return ("sbp",)
+
+
 def sell_min_amount(currency: str):
     """Минимум продажи или None, если он не объявлен (монета не продаётся)."""
     try:
@@ -2558,37 +2626,162 @@ async def process_sell_amount(message: Message, state: FSMContext):
     sell_rate = data.get('sell_rate', 0)
     rub_amount = round(amount * sell_rate, 2)
     await state.update_data(sell_amount=amount, sell_rub_amount=rub_amount)
-    await state.set_state(Sell.phone)
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔙 Отмена", callback_data="menu_sell")]
-    ])
-    await message.answer(
-        f"<blockquote>Продаёте: <b>{amount} {currency}</b>\nПолучите: <b>≈ {rub_amount:,.2f} ₽</b></blockquote>\n\n"
-        f"📱 Введите номер телефона для выплаты по <b>СБП</b>:\n<code>79001234567</code>",
-        reply_markup=kb,
-        parse_mode="HTML"
-    )
+    head = (f"<blockquote>Продаёте: <b>{amount} {currency}</b>\n"
+            f"Получите: <b>≈ {rub_amount:,.2f} ₽</b></blockquote>\n\n")
 
-@router.message(Sell.phone)
-async def process_sell_phone(message: Message, state: FSMContext):
-    phone_raw = message.text.strip().replace(' ', '').replace('-', '')
-    if not re.match(r'^\+?7\d{10}$', phone_raw):
-        await message.answer("❌ Неверный формат. Введите номер вида <code>79001234567</code>", parse_mode="HTML")
+    # Направление выплаты спрашиваем, только когда их правда несколько. Пока
+    # открыт один СБП — путь остаётся ровно тем же, что работал раньше: лишний
+    # экран на рабочем пути стоит клиентов.
+    open_methods = sell_payout_methods()
+    if len(open_methods) < 2:
+        await state.update_data(sell_dest='sbp')
+        await state.set_state(Sell.details)
+        await message.answer(
+            head + "📱 Введите номер телефона для выплаты по <b>СБП</b>:\n<code>79001234567</code>",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🔙 Отмена", callback_data="menu_sell")]]),
+            parse_mode="HTML")
         return
-    phone = phone_raw.lstrip('+')
+
+    sp = _sell_payout()
+    rows = [[InlineKeyboardButton(text=sp.label(m), callback_data=f"sell_dest_{m}")]
+            for m in open_methods]
+    rows.append([InlineKeyboardButton(text="🔙 Отмена", callback_data="menu_sell")])
+    await state.set_state(Sell.dest)
+    await message.answer(head + "Куда перевести рубли?",
+                         reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
+                         parse_mode="HTML")
+
+
+@router.callback_query(Sell.dest, F.data.startswith("sell_dest_"))
+async def process_sell_dest(callback: CallbackQuery, state: FSMContext):
+    sp = _sell_payout()
+    method = callback.data.rsplit("_", 1)[-1]
+    if method not in sp.methods():
+        await callback.answer("❌ Этот способ выплаты сейчас недоступен.", show_alert=True)
+        return
+    await state.update_data(sell_dest=method)
+    await callback.answer()
+
+    if sp.needs_bank(method):
+        rows, line = [], []
+        for code, name in sp.banks():
+            line.append(InlineKeyboardButton(text=name, callback_data=f"sell_bank_{code}"))
+            if len(line) == 2:
+                rows.append(line)
+                line = []
+        if line:
+            rows.append(line)
+        rows.append([InlineKeyboardButton(text="🔙 Отмена", callback_data="menu_sell")])
+        await state.set_state(Sell.bank)
+        await callback.message.answer("🏦 Банк получателя:",
+                                      reply_markup=InlineKeyboardMarkup(inline_keyboard=rows))
+        return
+
+    await state.set_state(Sell.details)
+    await callback.message.answer(
+        f"Введите {sp.details_label(method).lower()}:",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🔙 Отмена", callback_data="menu_sell")]]),
+        parse_mode="HTML")
+
+
+@router.callback_query(Sell.bank, F.data.startswith("sell_bank_"))
+async def process_sell_bank(callback: CallbackQuery, state: FSMContext):
+    sp = _sell_payout()
+    code = callback.data[len("sell_bank_"):]
+    if code not in dict(sp.banks()):
+        await callback.answer("❌ Этот банк недоступен.", show_alert=True)
+        return
+    data = await state.get_data()
+    method = data.get('sell_dest', 'sbp')
+    await state.update_data(sell_bank=code)
+    await state.set_state(Sell.details)
+    await callback.answer()
+    hint = ("<code>2200 1234 5678 9010</code>" if method == sp.CARD
+            else "<code>79001234567</code>")
+    await callback.message.answer(
+        f"Банк: <b>{sp.bank_label(code)}</b>\n\n"
+        f"Введите {sp.details_label(method).lower()}:\n{hint}",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🔙 Отмена", callback_data="menu_sell")]]),
+        parse_mode="HTML")
+
+
+@router.message(Sell.details)
+async def process_sell_details(message: Message, state: FSMContext):
+    sp = _sell_payout()
+    data = await state.get_data()
+    method = data.get('sell_dest', 'sbp')
+    value = sp.normalize_details(method, message.text or "")
+    if not value:
+        await message.answer(
+            "❌ " + (sp.refuse(method, message.text or "", data.get('sell_bank', ''), "Иван Иванов")
+                    or "Неверный формат."),
+            parse_mode="HTML")
+        return
+    await state.update_data(sell_details=value)
+    if sp.needs_full_name(method):
+        await state.set_state(Sell.name)
+        await message.answer(
+            "👤 ФИО получателя — как в банке (например: <b>Иван Иванов</b>).\n"
+            "<blockquote>Этого требует платёжный партнёр: без ФИО перевод "
+            "не примут.</blockquote>",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🔙 Отмена", callback_data="menu_sell")]]),
+            parse_mode="HTML")
+        return
+    await _finish_sell_order(message, state)
+
+
+@router.message(Sell.name)
+async def process_sell_name(message: Message, state: FSMContext):
+    sp = _sell_payout()
+    full_name = sp.normalize_full_name(message.text or "")
+    if not full_name:
+        await message.answer("❌ Укажите ФИО двумя-тремя словами, как в банке: "
+                             "<b>Иван Иванов</b>", parse_mode="HTML")
+        return
+    await state.update_data(sell_name=full_name)
+    await _finish_sell_order(message, state)
+
+
+async def _finish_sell_order(message: Message, state: FSMContext):
+    """Записывает заявку и показывает карточку. Реквизит выплаты уже собран и
+    проверен — здесь только запись, иначе проверка разъедется по трём местам."""
+    sp = _sell_payout()
     data = await state.get_data()
     currency = data.get('sell_currency', 'BTC')
     amount = data.get('sell_amount', 0)
     rub_amount = data.get('sell_rub_amount', 0)
     receive_addr = data.get('sell_receive_addr', '')
+    method = data.get('sell_dest', 'sbp')
+    details = data.get('sell_details', '')
+    bank = data.get('sell_bank', '')
+    full_name = data.get('sell_name', '')
 
+    # Последний рубеж перед записью: между экранами могли снять рельс, и тогда
+    # заявка на карту легла бы в базу способом, которым мы платить не умеем.
+    why = sp.refuse(method, details, bank, full_name)
+    if why:
+        await message.answer(f"❌ {why}")
+        await state.clear()
+        return
+
+    # sbp_phone остаётся заполненным для СБП: его читают старые места (карточка
+    # выплаты, список заявок на сайте). Новый источник правды — payout_details,
+    # и разбирается это в ОДНОМ месте, core.sell_payout.target().
+    phone_col = details if method == 'sbp' else ''
     try:
         with db_conn(10) as conn:
             c = conn.cursor()
             c.execute("""INSERT INTO sell_orders
-                (user_id, currency, crypto_amount, rub_amount, sbp_phone, receive_address, status, created_at, updated_at)
-                VALUES (?,?,?,?,?,?,?,datetime('now'),datetime('now'))""",
-                (message.from_user.id, currency, amount, rub_amount, phone, receive_addr, 'pending'))
+                (user_id, currency, crypto_amount, rub_amount, sbp_phone, receive_address,
+                 status, created_at, updated_at,
+                 payout_method, payout_bank, payout_details, payout_name)
+                VALUES (?,?,?,?,?,?,?,datetime('now'),datetime('now'),?,?,?,?)""",
+                (message.from_user.id, currency, amount, rub_amount, phone_col,
+                 receive_addr, 'pending', method, bank, details, full_name))
             sell_id = c.lastrowid
             conn.commit()
     except Exception as e:
@@ -2598,6 +2791,12 @@ async def process_sell_phone(message: Message, state: FSMContext):
         return
 
     await state.clear()
+    # Клиенту — маска: карточка заявки живёт в истории и в переписке. Персоналу
+    # на ручном пути — полный номер: по маске перевод не сделать.
+    phone = sp.mask_details(method, details)
+    phone_staff = sp.staff_details(method, details)
+    payout_line = (f"💳 На карту {sp.bank_label(bank)}: <code>{phone}</code>"
+                   if method == 'card' else f"📱 На СБП: <code>{phone}</code>")
 
     # Метка платежа для монет, чей перевод её несёт (TON). Адрес приёма один на
     # все заявки: без метки депозит привязывается к заявке только по размеру и
@@ -2614,7 +2813,7 @@ async def process_sell_phone(message: Message, state: FSMContext):
         f"📬 На адрес:\n<code>{receive_addr}</code>\n"
         f"{marker_block}\n"
         f"💰 Выплата: <b>≈ {rub_amount:,.2f} ₽</b>\n"
-        f"📱 На СБП: <code>{phone}</code>"
+        f"{payout_line}"
         f"</blockquote>\n\n"
         + ("💎 В Mini App комментарий подставляется сам — кошелёк подпишет готовый "
            "перевод: «Личный кабинет» → Профиль.\n\n" if marker else "")
@@ -2635,8 +2834,12 @@ async def process_sell_phone(message: Message, state: FSMContext):
             f"📬 На наш адрес: <code>{receive_addr}</code>\n"
             + (f"🏷 Метка перевода: <code>{marker}</code>\n" if marker else "")
             + f"💵 Выплатить: {rub_amount:,.2f} RUB\n"
-            f"📱 СБП: {phone}\n\n"
-            f"Нажмите «Выплатить» — бот сам проверит приход монет в блокчейне "
+            + (f"💳 Карта {sp.bank_label(bank)}: <code>{phone_staff}</code>\n"
+               f"👤 {full_name}\n" if method == 'card'
+               else f"📱 СБП: <code>{phone_staff}</code>\n")
+            + (f"🤖 Рубли уйдут автоматически через платёжного партнёра.\n\n"
+               if sp.route(method) == 'vertu' else "\n")
+            + f"Нажмите «Выплатить» — бот сам проверит приход монет в блокчейне "
             f"и не даст выплатить рубли, пока депозит не подтверждён.",
             reply_markup=kb_admin,
             parse_mode="HTML"
@@ -2654,27 +2857,113 @@ def _sell_card_base(text: str) -> str:
 
 
 async def _do_sell_payout(callback: CallbackQuery, sell_id: int, txid=None, forced_by=None):
-    """Помечает заявку выплаченной и уведомляет клиента.
-    Звать ТОЛЬКО после гейта (verify_sell_deposit) либо осознанного обхода."""
+    """Выплачивает рубли по заявке и уведомляет клиента.
+    Звать ТОЛЬКО после гейта (verify_sell_deposit) либо осознанного обхода.
+
+    Порядок здесь — не стилистика. Раньше строка помечалась выплаченной ПЕРВОЙ,
+    а перевод делал человек за пределами бота; теперь перевод может делать
+    рельс, и пометить заявку раньше отправки значит однажды сказать клиенту
+    «выплачено» после отказа провайдера. Поэтому: атомарно занять заявку →
+    отправить → пометить по факту, а при неудаче вернуть в исходное состояние.
+    """
+    sp = _sell_payout()
+    # Захват строки: две одновременные кнопки у двух админов иначе дадут ДВА
+    # перевода одному клиенту — у рельса нет идемпотентности по нашему id.
     with db_conn(10) as conn:
         c = conn.cursor()
-        c.execute("SELECT user_id, rub_amount, sbp_phone, status FROM sell_orders WHERE id=?", (sell_id,))
-        row = c.fetchone()
-        if not row:
-            conn.close()
-            await callback.answer("❌ Заявка не найдена", show_alert=True)
-            return
-        user_id, rub_amount, sbp_phone, status = row
-        if status == 'paid':
-            conn.close()
-            await callback.answer("✅ Уже выплачено", show_alert=True)
-            return
-        c.execute("UPDATE sell_orders SET status='paid', updated_at=datetime('now') WHERE id=?", (sell_id,))
+        c.execute("UPDATE sell_orders SET status='paying', updated_at=datetime('now')"
+                  " WHERE id=? AND status NOT IN ('paid','paying')", (sell_id,))
+        claimed = c.rowcount
         conn.commit()
+        c.execute("SELECT user_id, rub_amount, status FROM sell_orders WHERE id=?", (sell_id,))
+        row = c.fetchone()
+    if not row:
+        await callback.answer("❌ Заявка не найдена", show_alert=True)
+        return
+    user_id, rub_amount, status = row
+    if not claimed:
+        await callback.answer(
+            "✅ Уже выплачено" if status == 'paid' else "⏳ Выплата уже выполняется",
+            show_alert=True)
+        return
 
-    await update_user_vip_volume(user_id, rub_amount)
+    def _release(to='pending'):
+        with db_conn(10) as conn2:
+            conn2.execute("UPDATE sell_orders SET status=?, updated_at=datetime('now')"
+                          " WHERE id=? AND status='paying'", (to, sell_id))
+            conn2.commit()
 
-    tail = f"\n\n✅ <b>Выплачено</b> {rub_amount:,.2f} RUB на {sbp_phone}"
+    loop = asyncio.get_running_loop()
+    try:
+        res = await loop.run_in_executor(
+            None, lambda: sp.send_rub(sell_id, f"{PUBLIC_RELAY}/vertu/payout-callback"))
+    except Exception as e:
+        logger.error(f"продажа #{sell_id}: выплата сорвалась: {e}")
+        res = {"ok": False, "error": str(e)}
+    if not res.get("ok"):
+        # Невнятный исход — третье состояние, не «не ушло». Заявку НЕ
+        # отпускаем: вернуть её в очередь значит разрешить вторую кнопку и
+        # второй перевод по деньгам, которые могли уже уйти.
+        stuck = bool(res.get("needs_human"))
+        if not stuck:
+            _release()
+        await callback.answer("⚠️ Нужен человек" if stuck else "❌ Рубли НЕ отправлены",
+                              show_alert=True)
+        try:
+            await callback.message.edit_text(
+                _sell_card_base(callback.message.text)
+                + (f"\n\n⚠️ <b>Исход выплаты неясен:</b> {res.get('error')}\n"
+                   f"Заявка удерживается, кнопка повтора намеренно не поможет — "
+                   f"сверьтесь с кабинетом партнёра."
+                   if stuck else
+                   f"\n\n❌ <b>Выплата не прошла:</b> {res.get('error')}\n"
+                   f"Заявка снова ждёт — деньги клиенту НЕ уходили."),
+                reply_markup=callback.message.reply_markup, parse_mode="HTML")
+        except Exception:
+            pass
+        if stuck:
+            await notify_admins(
+                f"⚠️ <b>Продажа #{sell_id}: исход выплаты неясен</b>\n"
+                f"{res.get('error')}\n"
+                f"Сумма {rub_amount:,.2f} ₽. Заявка удерживается в состоянии "
+                f"«выплачивается» — авто-повтора не будет.", parse_mode="HTML")
+        return
+
+    dst = res.get("target") or {}
+    where = dst.get("shown") or "реквизиты клиента"
+    # В карточке персонала — то, чем можно воспользоваться: если рельс
+    # выключен, перевод по этой заявке делает человек, читающий это сообщение.
+    where_staff = dst.get("for_staff") or where
+    auto = bool(res.get("ref"))
+    # Рельс отвечает на создание выплаты «Pending» и может отклонить её через
+    # минуты. Закрыть заявку по факту СОЗДАНИЯ значит однажды сказать клиенту
+    # «выполнено» по переводу, которого не будет: после отказа она осталась бы
+    # в paid навсегда — ни очередь выплат, ни сторож её больше не увидят.
+    # Поэтому «выплачено» закрывает только подтверждённое зачисление, а до
+    # него заявка ждёт в 'paying'; доводит её vertu_payout_sweep. Нашёл codex.
+    settled = (not auto) or _sell_payout().is_settled(res.get("status"))
+    with db_conn(10) as conn:
+        conn.execute("UPDATE sell_orders SET status=?, payout_provider=?,"
+                     " updated_at=datetime('now') WHERE id=?",
+                     ('paid' if settled else 'paying',
+                      'vertu' if auto else 'manual', sell_id))
+        conn.commit()
+    if settled:
+        await update_user_vip_volume(user_id, rub_amount)
+
+    if settled:
+        tail = f"\n\n✅ <b>Выплачено</b> {rub_amount:,.2f} RUB → {where_staff}"
+    else:
+        tail = (f"\n\n💸 <b>Выплата отправлена</b> {rub_amount:,.2f} RUB → {where_staff}\n"
+                f"Заявка закроется, когда партнёр подтвердит зачисление; "
+                f"откажет — вернётся сюда с тревогой.")
+    if auto:
+        tail += (f"\n🤖 Через платёжного партнёра, выплата "
+                 f"<code>{res.get('ref')}</code> ({res.get('status')})")
+        if res.get("duplicate"):
+            tail += "\n♻️ Повтор кнопки: выплата уже была создана, вторая НЕ отправлена"
+    else:
+        tail += "\n✋ Рельс выключен — перевод делает человек"
     if forced_by:
         tail += f"\n🔓 <b>Проверка блокчейна ОБОЙДЕНА</b> — решение админа {forced_by}"
     elif txid:
@@ -2683,13 +2972,22 @@ async def _do_sell_payout(callback: CallbackQuery, sell_id: int, txid=None, forc
         await callback.message.edit_text(_sell_card_base(callback.message.text) + tail, parse_mode="HTML")
     except Exception:
         pass
-    await callback.answer("✅ Отмечено как выплачено")
-    await send_sticker_safe(user_id, STICKER_SUCCESS)
+    await callback.answer("✅ Выплата отправлена" if auto else "✅ Отмечено как выплачено")
+    if settled:
+        await send_sticker_safe(user_id, STICKER_SUCCESS)
     try:
         await bot.send_message(
             user_id,
-            f"✅ <b>Заявка #{sell_id} выполнена!</b>\n"
-            f"💰 {rub_amount:,.2f} RUB отправлены на СБП <code>{sbp_phone}</code>.",
+            (f"✅ <b>Заявка #{sell_id} выполнена!</b>\n"
+             f"💰 {rub_amount:,.2f} RUB отправлены на {where}."
+             if settled else
+             # Клиенту тоже говорим правду: перевод отправлен, но ещё не
+             # подтверждён. «Выполнено» здесь — обещание за чужой сервис.
+             f"💸 <b>Заявка #{sell_id}: выплата отправлена</b>\n"
+             f"💰 {rub_amount:,.2f} RUB → {where}\n"
+             f"<blockquote>Зачисление обычно занимает несколько минут — срок "
+             f"зависит от банка. Как только банк подтвердит, придёт "
+             f"уведомление.</blockquote>"),
             parse_mode="HTML"
         )
     except Exception:
@@ -2757,6 +3055,39 @@ async def sell_force(callback: CallbackQuery):
         f"проверки блокчейна (админ {callback.from_user.id}).",
         parse_mode="HTML"
     )
+
+@router.callback_query(F.data.startswith("sell_unclaim_"))
+async def sell_unclaim(callback: CallbackQuery):
+    """Вернуть в очередь заявку, застрявшую в состоянии «выплачивается».
+
+    Так бывает, когда процесс умер между захватом строки и записью номера
+    выплаты: кнопка «Выплатить» такую заявку больше не займёт, а обход
+    статусов её не видит — номера нет. Автоматически это не чинится: запрос
+    мог уйти к партнёру до смерти процесса, и слепой повтор стоил бы второго
+    перевода. Поэтому решение принимает человек, сверившийся с кабинетом, а
+    здесь оно только исполняется — и только для строки БЕЗ номера выплаты.
+    """
+    if not is_admin(callback.from_user.id):
+        await callback.answer("⛔ Нет прав", show_alert=True)
+        return
+    sell_id = int(callback.data.split("_")[2])
+    if not _sell_payout().release_claim(sell_id):
+        await callback.answer(
+            "Заявка уже не застряла: либо её вернули, либо у выплаты появился "
+            "номер и она закроется сама.", show_alert=True)
+        return
+    log_staff_action(callback.from_user.id, "sell_payout_unclaim", target_id=sell_id,
+                     details="зависшая выплата возвращена в очередь вручную")
+    await callback.answer("↩️ Заявка снова ждёт выплаты")
+    try:
+        await callback.message.edit_text(
+            _sell_card_base(callback.message.text)
+            + f"\n\n↩️ <b>Возвращена в очередь</b> админом {callback.from_user.id} — "
+              f"выплаты у партнёра нет, можно платить заново.",
+            parse_mode="HTML")
+    except Exception:
+        pass
+
 
 @router.callback_query(F.data.startswith("sell_reject_"))
 async def sell_reject(callback: CallbackQuery):
@@ -4038,12 +4369,20 @@ async def process_payment_method(callback: CallbackQuery, state: FSMContext):
         await callback.answer()
         return
 
-    # Montera — только доверенным клиентам (≥1 успешная сделка). Защита от
-    # подделки callback_data: кнопок у новичков нет, но callback можно скопировать.
-    if (pm.startswith("pm_montera_sbp_") or pm.startswith("pm_gp_")) \
-            and user_success_count(callback.from_user.id) < 1:
-        await callback.answer("Этот способ доступен после первой успешной сделки.", show_alert=True)
-        return
+    # Кнопки, которые открываются только повторным клиентам. Спрятать их мало:
+    # callback_data можно скопировать из чужого сообщения или нажать кнопку из
+    # своего старого. Порог тот же, что у меню и у PaymentService, — из общего
+    # реестра, а не третьим числом здесь.
+    _gated = (("pm_montera_sbp_", "pm_gp_"), 'MonteraProvider'), (("pm_vertu_",), 'VertuProvider')
+    for prefixes, cls in _gated:
+        if any(pm.startswith(p) for p in prefixes) \
+                and not _provider_open_to(callback.from_user.id, cls):
+            need = _min_deals_for(cls)
+            await callback.answer(
+                f"Этот способ открывается после {need} успешных сделок — "
+                f"так просит платёжный партнёр. Другие способы доступны.",
+                show_alert=True)
+            return
 
     if pm.startswith("pm_montera_sbp_"):
         try:
@@ -9515,8 +9854,12 @@ async def handle_webapp(message: Message, state: FSMContext):
     payment_link = f"{PUBLIC_RELAY}/pay/{order_id}"  # fallback
     try:
         from services.payment_service import PaymentService
-        payment_service = PaymentService()
-        session = payment_service.create_session(order_id, amount)
+        # Клиент называется и здесь: без него выбор считает его новым и не
+        # покажет каналы для повторных — то есть постоянный клиент терял бы
+        # лучший маршрут на ровном месте.
+        uid = message.from_user.id
+        payment_service = PaymentService(amount=amount, telegram_id=uid)
+        session = payment_service.create_session(order_id, amount, telegram_id=uid)
         if 'session_token' in session:
             payment_link = f"{PUBLIC_RELAY}/pay/{session['session_token']}"
     except Exception as e:
