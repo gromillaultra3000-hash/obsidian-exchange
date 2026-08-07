@@ -152,6 +152,51 @@ app = FastAPI(title="ObsidianExchange Relay", version="3.0", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
+# Откуда странице разрешено брать ИСПОЛНЯЕМЫЙ код. Только мы и Telegram: его
+# telegram-web-app.js обязателен для Mini App и не может быть скопирован к себе
+# (он привязан к клиенту Telegram и обновляется вместе с ним).
+#
+# Зачем это вообще. Страницы показывают клиенту адрес получателя крипты и
+# реквизиты оплаты. Любой чужой скрипт на такой странице подменяет адрес в
+# момент отрисовки, и увидеть подмену клиенту нечем — он копирует то, что
+# нарисовано. До 07.08.2026 сюда тянулись два скрипта с cdn.jsdelivr.net, один
+# из них ВООБЩЕ без номера версии (`/npm/chart.js` = «дай последнюю»), то есть
+# содержимое менялось без нашего ведома. Обе библиотеки лежат теперь в
+# /static/js с зафиксированной версией.
+#
+# 'unsafe-inline' пока нужен: у Mini App и шаблонов сотни строк встроенного JS,
+# и снять его можно только вместе с выносом кода в файлы. Это осознанный долг —
+# но даже сейчас политика закрывает главный вектор: ВНЕШНИЙ хост.
+#
+# Директивы перечислены поимённо и намеренно БЕЗ default-src: у TON Connect
+# десятки мостов кошельков (bridge.tonapi.io, app.tonkeeper.com, …) и иконки с
+# чужих доменов. Ограничив connect-src/img-src наугад, мы бы тихо сломали
+# подключение кошелька — а такая поломка выглядит как «кнопка не работает».
+_CSP = ("script-src 'self' 'unsafe-inline' https://telegram.org; "
+        "object-src 'none'; "
+        "base-uri 'self'; "
+        "form-action 'self'")
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    """Заголовки безопасности на КАЖДЫЙ ответ приложения.
+
+    Живут здесь, а не в nginx, по одной причине: конфиг nginx не в репозитории,
+    его правки не проходят ревью, не попадают в историю и теряются при переносе
+    сервера. Проверка живьём 07.08.2026: у /webapp не было ни одного заголовка.
+
+    frame-ancestors НЕ ставим: Mini App обязан открываться внутри iframe
+    web.telegram.org, и запрет встраивания просто погасил бы приложение.
+    """
+    response = await call_next(request)
+    ctype = response.headers.get("content-type", "")
+    if ctype.startswith("text/html"):
+        response.headers.setdefault("Content-Security-Policy", _CSP)
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    return response
+
 
 def _tsfmt(ts) -> str:
     """unix-время → «дд.мм ЧЧ:ММ» для шаблонов. Нечитаемое значение — прочерк,
