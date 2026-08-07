@@ -48,7 +48,21 @@
                    oninput="calcSell()" required>
             <div style="font-size:12px;opacity:.6;margin-top:4px;" id="sell-min"></div>
         </div>
-        <div class="fee-box" id="sell-calc">💵 Вы получите: <strong>—</strong></div>
+        {# Разбивка, а не одно итоговое число: ставка выкупа единая, и клиент
+           вправе видеть, из чего сложилась выплата. Сумму комиссии считаем
+           как «рынок минус выплата», а не своим процентом — иначе фронт мог бы
+           показать одно, а заявка уйти по другому. #}
+        <div class="fee-box" id="sell-calc">
+            <div style="display:flex;justify-content:space-between;gap:12px;font-size:13px;opacity:.75;">
+                <span>Рыночная стоимость</span><span id="sb-market">—</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;gap:12px;font-size:13px;opacity:.75;margin-top:4px;">
+                <span>Комиссия обмена<span id="sb-fee-pct"></span></span><span id="sb-fee">—</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;gap:12px;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.12);">
+                <strong>💵 Вы получите</strong><strong id="sb-total">—</strong>
+            </div>
+        </div>
         {# Правда о сроке до создания заявки: у монет без проверки депозита в
            цепи (Monero, ETH) зачисление подтверждает человек, и обещать те же
            30–60 минут, что по биткойну, было бы враньём. #}
@@ -98,9 +112,10 @@
 </div>
 
 <div class="dash-card">
-    {# Границы диапазона — из тех же ступеней, что и расчёт: вписанные руками
-   «19–27%» пережили бы правку COMMISSION_TIERS молча. #}
-    <p>После создания заявки вы получите адрес для перевода монет. Выплата рублей по СБП — в течение 30–60 минут после подтверждения транзакции в сети. Курс: рыночный за вычетом комиссии (~{{ commission_tiers|map(attribute='percent')|min }}–{{ commission_tiers|map(attribute='percent')|max }}% по сумме, для {{ sell_currencies|join('/') }}).</p>
+    {# Ставка — из core.pricing (sell_commission), а не вписанная числом: до
+       07.08.2026 здесь стоял диапазон лестницы ПОКУПКИ, к выкупу отношения не
+       имеющий. Пустая строка при сбое источника — блок молчит о цене. #}
+    <p>После создания заявки вы получите адрес для перевода монет. Выплата рублей — в течение 30–60 минут после подтверждения транзакции в сети.{% if sell_commission %} Курс выкупа: рыночный минус <strong>{{ sell_commission }}</strong> — одна ставка на любую сумму, для {{ sell_currencies|join('/') }}.{% endif %}</p>
 </div>
 
 <script>
@@ -114,8 +129,18 @@ function calcSell() {
             ? 'Минимум для этой монеты не задан — продажа недоступна'
             : 'Минимум: ' + info.min + ' ' + cur;
     document.getElementById('sell-manual').style.display = info.manual ? '' : 'none';
-    document.getElementById('sell-calc').innerHTML =
-        '💵 Вы получите: <strong>' + (amt > 0 ? (amt * info.rate).toLocaleString('ru', {maximumFractionDigits: 2}) + ' ₽' : '—') + '</strong>';
+    // Выплата — по курсу СЕРВЕРА (info.rate), комиссия — разница с рынком.
+    // Свой процент здесь означал бы вторую формулу цены во фронте, а именно
+    // из-за таких вторых формул сайт и бот однажды разошлись в курсе выкупа.
+    const rub = amt > 0 ? amt * info.rate : 0;
+    const market = amt > 0 && info.market ? amt * info.market : 0;
+    const money = v => v.toLocaleString('ru', {maximumFractionDigits: 2}) + ' ₽';
+    document.getElementById('sb-market').textContent = market ? money(market) : '—';
+    document.getElementById('sb-fee').textContent =
+        market && rub ? '−' + money(Math.max(0, market - rub)) : '—';
+    document.getElementById('sb-fee-pct').textContent =
+        info.fee_percent ? ' (' + info.fee_percent + '%)' : '';
+    document.getElementById('sb-total').textContent = rub ? money(rub) : '—';
 }
 calcSell();
 

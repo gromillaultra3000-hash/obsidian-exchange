@@ -93,15 +93,13 @@ def get_rate_with_markup(coin, amount=None):
 
 
 def get_sell_rate(coin):
-    """Курс ПОКУПКИ крипты у клиента (продажа → RUB): рынок минус комиссия.
-    ~19% BTC/LTC; USDT по умолчанию тоже по тарифу (продажа USDT сейчас скрыта,
-    держим консистентно с покупкой). env USDT_COMMISSION_PERCENT — оверрайд."""
-    _usdt_override = os.getenv("USDT_COMMISSION_PERCENT")
-    if coin == "USDT" and _usdt_override:
-        commission = float(_usdt_override)
-    else:
-        commission = get_commission_percent(50000)
-    return round(get_cached_rate(coin) * (1 - commission / 100), 2)
+    """Курс выкупа монеты у клиента (продажа → RUB): рынок минус ставка выкупа.
+
+    Ставка и само умножение — в core.pricing.sell_rate, общем с ботом. Здесь
+    была своя формула по ступени покупки на 50 000 ₽, а в боте своя, со
+    скидками VIP: один клиент видел на сайте и в боте РАЗНЫЙ курс выкупа.
+    """
+    return _pricing.sell_rate(get_cached_rate(coin), coin)
 
 
 def validate_crypto_address(addr, currency, network=None):

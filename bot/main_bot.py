@@ -1013,6 +1013,49 @@ def get_commission_percent(amount_rub, user_id: int = None):
         if promo:
             base = max(1, base - promo[1])
     return base
+
+
+def sell_rate_for(currency, market_rate) -> float:
+    """Курс выкупа монеты у клиента — из core.pricing, общего с сайтом и Mini App.
+
+    Своей формулы здесь нет намеренно. До 07.08.2026 бот считал выкуп по
+    ступени покупки на 50 000 ₽ И применял к ней скидку VIP/промокода, а сайт
+    считал ту же ступень без скидок: один клиент видел два разных курса выкупа
+    и получал тот, где создал заявку. Скидки остались на покупке — там они
+    заработаны оборотом покупок; ставка выкупа единая для всех.
+
+    Сбой импорта — это 0.0, то есть «курса нет», а не какая-нибудь запасная
+    цифра: продать по неизвестному курсу хуже, чем не продать.
+    """
+    try:
+        from core.pricing import sell_rate as _sr
+    except Exception as e:
+        logger.error("ставка выкупа недоступна (%s) — продажа %s остановлена", e, currency)
+        return 0.0
+    return _sr(market_rate, currency)
+
+
+def sell_commission_label(currency=None) -> str:
+    """«9%» для текстов бота. Пустая строка — если ставку не прочитать: лучше
+    предложение без цифры, чем предложение с выдуманной цифрой."""
+    try:
+        from core.pricing import sell_commission_label as _scl
+    except Exception:
+        return ""
+    return _scl(currency)
+
+
+def _sell_market_line(currency, market_rate) -> str:
+    """Строка «рынок X ₽ · комиссия 9% уже в курсе» — или ничего.
+
+    Собирается целиком здесь, а не склеивается в шаблоне сообщения: без ставки
+    получилась бы фраза «наша комиссия  уже в курсе», то есть текст о комиссии
+    без комиссии. Нечего сказать — молчим.
+    """
+    label = sell_commission_label(currency)
+    if not label or not market_rate:
+        return ""
+    return f"📊 Рынок: {market_rate:,.2f} ₽ · наша комиссия {label} уже в курсе\n"
 # Источники курса по монете. Новая монета = одна строка здесь.
 #   cg      — id на coingecko (vs_currencies=rub);
 #   binance — символ пары. Оканчивается на RUB → цена УЖЕ в рублях (USDTRUB);
@@ -1740,6 +1783,23 @@ def _vip_display():
         return []
 
 
+def buy_fee_range_label(fallback=""):
+    """«19–27%» — диапазон ставок покупки, собранный из самой лестницы.
+
+    Вписанный руками, он пережил бы правку COMMISSION_TIERS: именно так текст
+    «19–27%» и оказался в трёх местах бота.
+    """
+    try:
+        from core.pricing import tiers_for_display
+        pcts = [t["percent"] for t in tiers_for_display()]
+    except Exception as e:
+        logger.error(f"диапазон комиссий недоступен для текста: {e}")
+        return fallback
+    if not pcts:
+        return fallback
+    return f"{min(pcts)}%" if min(pcts) == max(pcts) else f"{min(pcts)}–{max(pcts)}%"
+
+
 def _max_vip_discount():
     """Максимальная скидка, о которой можно обещать «до N%»."""
     return max((t["discount"] for t in _vip_display()), default=0)
@@ -2308,6 +2368,8 @@ async def menu_reviews(callback: CallbackQuery):
 
 @router.callback_query(F.data == "menu_about")
 async def menu_about(callback: CallbackQuery):
+    _buy_range = buy_fee_range_label()
+    _sell_fee = sell_commission_label()
     await callback.message.answer(
         "🟣 <b>ObsidianExchange</b>\n\n"
         "<blockquote expandable>"
@@ -2318,8 +2380,12 @@ async def menu_about(callback: CallbackQuery):
         f"💱 {coins_line(sep=', ')}\n"
         "💳 Оплата: СБП, карта, приложения банков"
         "</blockquote>\n\n"
-        f"📊 Комиссия 19–27% по сумме ({coins_line()})\n"
-        "🌐 obsidian-exchange.org\n\n"
+        # Обе стороны сделки, обе — из своих источников. Продажа тут раньше не
+        # упоминалась вовсе, хотя направление работает: клиент, пришедший
+        # продать, из описания сервиса об этом не узнавал.
+        + (f"📊 Покупка: комиссия {_buy_range} по сумме ({coins_line()})\n" if _buy_range else "")
+        + (f"📉 Продажа: рынок минус {_sell_fee} — одна ставка на любую сумму\n" if _sell_fee else "")
+        + "🌐 obsidian-exchange.org\n\n"
         "<i>Используя сервис, вы принимаете условия пользовательского соглашения — /offer</i>",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
@@ -2551,7 +2617,13 @@ async def menu_sell(callback: CallbackQuery, state: FSMContext):
     kb = build_currency_kb("sell_cur_")
     await callback.message.answer(
         "💰 <b>Продажа крипты → RUB</b>\n\n"
-        f"<blockquote>Отправьте нам монеты на указанный адрес — мы переведём рубли по СБП на ваш номер телефона в течение 30–60 минут.\n\n💱 Курс: рыночный за вычетом комиссии\n~19–27% по сумме ({coins_line()})</blockquote>\n\n"
+        # Ставка выкупа берётся из core.pricing, а не вписывается сюда цифрой:
+        # текст «19–27%» пережил бы смену ставки молча и обещал бы курс,
+        # которого больше нет.
+        f"<blockquote>Отправьте нам монеты на указанный адрес — мы переведём рубли "
+        f"по СБП на ваш номер телефона в течение 30–60 минут.\n\n"
+        f"💱 Курс: рыночный минус <b>{sell_commission_label()}</b> — одна ставка "
+        f"на любую сумму ({coins_line()})</blockquote>\n\n"
         "Выберите монету для продажи:",
         reply_markup=kb,
         parse_mode="HTML"
@@ -2577,8 +2649,11 @@ async def process_sell_currency(callback: CallbackQuery, state: FSMContext):
         await callback.answer("❌ Курс этой монеты сейчас недоступен — попробуйте позже.",
                               show_alert=True)
         return
-    commission = get_commission_percent(50000, callback.from_user.id)
-    sell_rate = round(rate * (1 - commission / 100), 2)
+    sell_rate = sell_rate_for(currency, rate)
+    if sell_rate <= 0:
+        await callback.answer("❌ Курс этой монеты сейчас недоступен — попробуйте позже.",
+                              show_alert=True)
+        return
 
     # Минимум не «по умолчанию»: монета без объявленного минимума до меню не
     # доходит, а если дошла — это ошибка реестра, и принимать пыль мы не станем.
@@ -2596,8 +2671,9 @@ async def process_sell_currency(callback: CallbackQuery, state: FSMContext):
         f"💰 <b>Продажа {sell_coin_label(currency)}</b>\n\n"
         f"<blockquote>"
         f"📬 Адрес для перевода{_sell_network_hint(currency)}:\n<code>{receive_addr}</code>\n"
-        f"💱 Курс покупки: <b>{sell_rate:,.2f} ₽</b> за 1 {currency}\n"
-        f"📦 Минимум: <b>{min_amt} {currency}</b>"
+        f"💱 Курс выкупа: <b>{sell_rate:,.2f} ₽</b> за 1 {currency}\n"
+        + _sell_market_line(currency, rate)
+        + f"📦 Минимум: <b>{min_amt} {currency}</b>"
         f"</blockquote>\n\n"
         + _sell_manual_note(currency)
         + f"Введите количество <b>{currency}</b>, которое хотите продать:",
@@ -10453,10 +10529,21 @@ async def compose_daily_post() -> str:
     def fmt(val):
         return f"{int(val):,}".replace(",", " ") if val else "—"
 
-    # «от» = лучший тариф (19% на 15к+), не худший — честно и привлекательно
-    btc_buy  = int(round(btc_rate  / (1 - 0.19))) if btc_rate  else 0
-    ltc_buy  = int(round(ltc_rate  / (1 - 0.19))) if ltc_rate  else 0
-    usdt_buy = round(usdt_rate / (1 - 0.19), 2)   if usdt_rate else 0
+    # «от» = лучший тариф покупки, не худший — честно и привлекательно. Берём
+    # его из лестницы, а не литералом 0.19: правку тарифа пост бы не заметил и
+    # продолжил обещать снятый курс.
+    from core.pricing import best_commission_percent
+    _best = best_commission_percent() / 100
+    btc_buy  = int(round(btc_rate  / (1 - _best))) if btc_rate  else 0
+    ltc_buy  = int(round(ltc_rate  / (1 - _best))) if ltc_rate  else 0
+    usdt_buy = round(usdt_rate / (1 - _best), 2)   if usdt_rate else 0
+
+    # Выкуп — второе направление, и в посте его не было вовсе: рекламировали
+    # только «купить». Считаем тем же общим движком, что и заявку клиента,
+    # поэтому цифра в рекламе и цифра в боте не могут разойтись.
+    btc_sell  = sell_rate_for('BTC',  btc_rate)
+    usdt_sell = sell_rate_for('USDT', usdt_rate)
+    sell_fee  = sell_commission_label()
     usdt_10k = round(10000 / usdt_buy, 1) if usdt_buy else 0
 
     # Курируемые резервы (reserves) — доверие; строка скрыта, пока не заданы
@@ -10487,6 +10574,12 @@ async def compose_daily_post() -> str:
 
         f"₿ Также BTC от <b>{fmt(btc_buy)} ₽</b> · LTC от <b>{fmt(ltc_buy)} ₽</b> · своп {'⇄'.join(SWAP_COINS)}\n"
         f"⚡️ От {MIN_AMOUNT:,.0f} ₽ → СБП или карта → крипта на твоём адресе за ~15 минут\n".replace(',', ' ')
+        # Обратное направление рекламы не имело вовсе. Строка исчезает целиком,
+        # если ставку или курс не прочитать: пост без выкупа лучше, чем пост,
+        # зовущий продавать по неизвестной цене.
+        + (f"💸 Выкуп: BTC <b>{fmt(btc_sell)} ₽</b> · USDT <b>{usdt_sell:.2f} ₽</b> — "
+           f"рынок минус {sell_fee}, рубли на карту или СБП\n"
+           if sell_fee and btc_sell and usdt_sell else "")
         + f"💎 VIP до −{_max_vip_discount()}% · 🎁 рефералка 10% · 🔥 каждый 5-й обмен от 5 000 ₽ — минус 1 000 ₽\n"
         f"{res_line}\n"
 
@@ -10841,13 +10934,23 @@ def _tariff_text():
                         fallback="• Актуальные тарифы — в калькуляторе при создании заявки")
     vip = vip_lines("{name} — от {from_label} оборота → <b>−{discount}%</b>")
     coins = " · ".join(offered_coins()) or "—"
+    # Выкуп — отдельный блок, а не строка в лестнице покупки: ставка одна на
+    # любую сумму, и втиснутая в ту же таблицу она читалась бы как ещё одна
+    # ступень. Пропадает целиком, если ставку не прочитать.
+    sell_fee = sell_commission_label()
+    sell_block = (f"""
+
+<blockquote><b>Продажа крипты (выкуп):</b>
+• Рынок минус <b>{sell_fee}</b> — одна ставка на любую сумму
+• Рубли на карту или по СБП, 30–60 минут
+• VIP-скидки и промокоды действуют на покупку</blockquote>""" if sell_fee else "")
     return f"""💎 <b>Тарифная сетка ObsidianExchange</b>
 
-<blockquote><b>Комиссия зависит от суммы:</b>
+<blockquote><b>Комиссия на покупку зависит от суммы:</b>
 {rows}
-• Тарифы едины для {coins}</blockquote>
+• Тарифы едины для {coins}</blockquote>{sell_block}
 
-<blockquote><b>VIP-скидки (накопительно):</b>
+<blockquote><b>VIP-скидки (накопительно, на покупку):</b>
 {vip}</blockquote>
 
 <blockquote><b>Специальные тарифы:</b>
