@@ -414,78 +414,83 @@ def evm_history(address: str, limit: int = 20) -> dict:
     low = addr.lower()
 
     def build():
-        items, missing = [], []
-
-        try:
-            for t in _evm_rows("txlist", addr, lim):
-                if not isinstance(t, dict):
-                    continue
-                # Сорвавшаяся транзакция денег не двигает. Показать её строкой
-                # «получено 0.5 ETH» — соврать о приходе, которого не было.
-                if str(t.get("isError") or "0") != "0":
-                    continue
-                try:
-                    wei = int(str(t.get("value") or "0"))
-                except (TypeError, ValueError):
-                    continue
-                # Нулевые переводы — вызовы контрактов, а не движение денег.
-                if wei == 0:
-                    continue
-                to = (t.get("to") or "").strip()
-                items.append({
-                    "direction": "in" if to.lower() == low else "out",
-                    "amount": wei / WEI,
-                    "counterparty": (t.get("from") if to.lower() == low else to) or "",
-                    "ts": int(t.get("timeStamp") or 0),
-                    "txid": t.get("hash") or "",
-                    "confirmed": True,
-                    "asset": "ETH",
-                })
-        except Exception as e:
-            logger.warning("chain_watch: ETH история не прочитана: %s", e)
-            missing.append("ETH")
-
         contract = _usdt_erc20_contract()
-        if contract:
-            try:
-                for t in _evm_rows("tokentx", addr, lim,
-                                   {"contractaddress": contract}):
-                    if not isinstance(t, dict):
-                        continue
-                    # Решает АДРЕС контракта, а не символ: любой может выпустить
-                    # свой «USDT» и прислать перевод, который в списке выглядел
-                    # бы как настоящие деньги.
-                    if (t.get("contractAddress") or "").lower() != contract.lower():
-                        continue
-                    try:
-                        raw = int(str(t.get("value") or "0"))
-                    except (TypeError, ValueError):
-                        continue
-                    if raw == 0:
-                        continue
-                    to = (t.get("to") or "").strip()
-                    items.append({
-                        "direction": "in" if to.lower() == low else "out",
-                        "amount": raw / (10 ** USDT_DECIMALS),
-                        "counterparty": (t.get("from") if to.lower() == low else to) or "",
-                        "ts": int(t.get("timeStamp") or 0),
-                        "txid": t.get("hash") or "",
-                        "confirmed": True,
-                        "asset": "USDT",
-                    })
-            except Exception as e:
-                logger.warning("chain_watch: USDT-ERC20 история не прочитана: %s", e)
-                missing.append("USDT")
 
-        # Оба источника молчат — это отказ. Молчит один — отдаём то, что есть,
-        # но НЕ выдаём неполный список за полный: пропажа половины операций
-        # выглядит для клиента как потерянный перевод.
-        if len(missing) >= (2 if contract else 1):
+        def _row(t, asset, unit):
+            """Строка истории из записи обозревателя или None, если это не
+            движение денег."""
+            if not isinstance(t, dict):
+                return None
+            # Сорвавшаяся транзакция денег не двигает. Показать её строкой
+            # «получено 0.5 ETH» — соврать о приходе, которого не было.
+            if str(t.get("isError") or "0") != "0":
+                return None
+            try:
+                raw = int(str(t.get("value") or "0"))
+            except (TypeError, ValueError):
+                return None
+            # Нулевые — вызовы контрактов, а не переводы.
+            if raw == 0:
+                return None
+            to = (t.get("to") or "").strip()
+            inc = to.lower() == low
+            return {"direction": "in" if inc else "out", "amount": raw / unit,
+                    "counterparty": (t.get("from") if inc else to) or "",
+                    "ts": int(t.get("timeStamp") or 0),
+                    "txid": t.get("hash") or "", "confirmed": True, "asset": asset}
+
+        def _native(t):
+            return _row(t, "ETH", WEI)
+
+        def _token(t):
+            # Решает АДРЕС контракта, а не символ: любой может выпустить свой
+            # «USDT» и прислать перевод, который в списке выглядел бы как
+            # настоящие деньги.
+            if (t or {}).get("contractAddress", "").lower() != contract.lower():
+                return None
+            return _row(t, "USDT", 10 ** USDT_DECIMALS)
+
+        # Три РАЗНЫХ списка у обозревателя, и ни один не включает остальные:
+        #  • txlist — переводы, отправленные людьми;
+        #  • txlistinternal — ETH, сдвинутый контрактом (так приходит вывод с
+        #    большинства бирж и выплаты мультиподписи). Без него операция,
+        #    изменившая баланс, просто исчезает из истории — нашёл codex;
+        #  • tokentx — переводы токенов, которых в txlist нет вовсе.
+        plan = [("ETH", "txlist", None, _native),
+                ("ETH-внутренние", "txlistinternal", None, _native)]
+        if contract:
+            plan.append(("USDT", "tokentx", {"contractaddress": contract}, _token))
+
+        seen, items, missing = set(), [], []
+        for label, action, extra, parse in plan:
+            try:
+                rows = _evm_rows(action, addr, lim, extra)
+            except Exception as e:
+                logger.warning("chain_watch: %s история не прочитана: %s", label, e)
+                missing.append(label)
+                continue
+            for t in rows:
+                row = parse(t)
+                if not row or not row["txid"]:
+                    continue
+                # Одна транзакция попадает и в txlist, и в txlistinternal, если
+                # двигала ETH и напрямую, и через контракт. Дубль в истории
+                # клиент прочитает как два перевода.
+                key = (row["txid"], row["asset"], row["direction"],
+                       round(row["amount"], 12))
+                if key in seen:
+                    continue
+                seen.add(key)
+                items.append(row)
+
+        # Молчат ВСЕ источники — это отказ. Молчит часть — отдаём что есть, но
+        # НЕ выдаём неполный список за полный: пропажа операций выглядит для
+        # клиента как потерянный перевод.
+        if len(missing) >= len(plan):
             return {"items": [], "status": "ERROR",
                     "reason": "обозреватель не ответил"}
         items.sort(key=lambda i: i.get("ts") or 0, reverse=True)
-        out = {"items": [i for i in items if i["txid"]][:lim],
-               "status": "OK", "reason": None}
+        out = {"items": items[:lim], "status": "OK", "reason": None}
         if missing:
             out["partial"] = True
             out["reason"] = f"часть операций недоступна ({', '.join(missing)})"
