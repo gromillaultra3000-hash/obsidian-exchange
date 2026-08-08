@@ -7575,20 +7575,50 @@ def _my_wallet_text(uid) -> str:
                 "адрес и его публичный баланс.")
         return "\n\n".join([head] + _wallet_book_lines(uid))
     lines = ["🔌 <b>Мой кошелёк</b>\n"]
+
+    # Итог и состав счетов считает общий движок — тот же, что отвечает сайту и
+    # Mini App. Складывать здесь свою сумму значило бы завести вторую формулу
+    # цены; именно так однажды разошёлся курс выкупа между ботом и сайтом.
+    summary = None
+    try:
+        from core.portfolio import summarize, total_line
+        summary = summarize(wallets)
+        total = total_line(summary)
+        if total and len(summary.get("chains") or []) > 1:
+            lines.append(f"💼 Всего: <b>{total}</b>\n")
+    except Exception as e:
+        logger.warning("mywallet: портфель не посчитан: %s", e)
+
+    by_chain = {c["chain"]: c for c in ((summary or {}).get("chains") or [])}
     for w in wallets:
-        # «Не знаем» не превращаем в ноль: пустой кошелёк и недоступная сеть —
-        # разные новости для того, кто собрался платить.
-        if isinstance(w.get("balance"), (int, float)):
-            amount = f"{w['balance']:.4f} {w['chain']}"
-            # Ожидающее подтверждения — рядом, но НЕ в остатке: перевод в
-            # мемпуле ещё может не состояться, а промолчать о нём значит
-            # показать ноль тому, кто только что получил деньги.
-            pend = w.get("pending")
-            if isinstance(pend, (int, float)) and abs(pend) > 1e-12:
-                amount += f" ({pend:+.4f} ждёт подтверждения)"
-        else:
-            amount = f"баланс недоступен ({w.get('reason') or 'сеть не ответила'})"
-        lines.append(f"<b>{w['chain']}</b> · <code>{w['address']}</code>\n{amount}")
+        # На одном счёте живут разные активы: на TRON — и TRX, и USDT, в
+        # Ethereum — и ETH, и USDT-ERC20. Подписывать остаток ЦЕПЬЮ нельзя:
+        # «0.5000 TRON» клиент прочитает как свои USDT и увидит не те деньги.
+        # Mini App подписывал активом с самого начала, бот — нет.
+        items = (by_chain.get(w["chain"]) or {}).get("assets") or [
+            {"asset": w.get("asset") or w["chain"], "balance": w.get("balance"),
+             "rub": None, "reason": w.get("reason")}]
+        parts = []
+        for a in items:
+            bal = a.get("balance")
+            # «Не знаем» не превращаем в ноль: пустой кошелёк и недоступная
+            # сеть — разные новости для того, кто собрался платить.
+            if not isinstance(bal, (int, float)):
+                parts.append(f"{a['asset']}: недоступен "
+                             f"({a.get('reason') or 'сеть не ответила'})")
+                continue
+            line = f"{bal:.4f} {a['asset']}"
+            if isinstance(a.get("rub"), (int, float)):
+                line += f" · {a['rub']:,.2f} ₽".replace(",", " ")
+            parts.append(line)
+        # Ожидающее подтверждения — рядом, но НЕ в остатке: перевод в мемпуле
+        # ещё может не состояться, а промолчать о нём значит показать ноль
+        # тому, кто только что получил деньги.
+        pend = w.get("pending")
+        if isinstance(pend, (int, float)) and abs(pend) > 1e-12:
+            parts.append(f"{pend:+.4f} ждёт подтверждения")
+        lines.append(f"<b>{w['chain']}</b> · <code>{w['address']}</code>\n"
+                     + "\n".join(parts))
     # Последние операции — тем же источником. Пустая история и недоступная
     # сеть звучат по-разному: клиент, который ищет свой перевод, не должен
     # услышать «операций нет» вместо «мы не смогли спросить».
@@ -7614,10 +7644,16 @@ def _my_wallet_text(uid) -> str:
             sign = "+" if op.get("direction") == "in" else "−"
             who = op.get("counterparty") or ""
             who = (who[:8] + "…" + who[-6:]) if len(who) > 16 else who
-            # Монету называем: связей теперь несколько, и «+0.0031» без неё
-            # читается как угодно.
+            # Монету берём У ОПЕРАЦИИ, а не у цепи: в истории Ethereum рядом
+            # лежат переводы ETH и USDT-ERC20, и подпись цепью назвала бы
+            # 25 USDT «25 ETH» — расхождение в тысячи раз. Mini App читает
+            # `asset` с самого начала, бот брал `chain`. Нашёл codex.
             ops.append(f"{when} · {sign}{op.get('amount', 0):.4f} "
-                       f"{hist.get('chain', '')} · <code>{who}</code>")
+                       f"{op.get('asset') or hist.get('chain', '')} · <code>{who}</code>")
+        # Неполный список не выдаём за полный: пропажа половины операций
+        # читается клиентом как потерянный перевод.
+        if hist.get("partial"):
+            ops.append("⚠ " + str(hist.get("reason") or "часть операций недоступна"))
         lines.append("\n".join(ops))
     elif hist.get("status") == "OK":
         lines.append("Операций по кошельку пока нет.")

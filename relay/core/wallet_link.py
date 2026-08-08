@@ -41,6 +41,12 @@ BALANCE_SOURCES = {
     # ответ называет актив полем `asset` — иначе клиент решит, что «баланс
     # TRON» это его USDT, и увидит не те деньги.
     "TRON": ("core.chain_watch", "tron_account_state"),
+    # ETH появился здесь 08.08.2026 и закрыл половину обещания: подпись по
+    # EIP-191 (`core/sig_proof`) подтверждала владение ETH-адресом, а карточка
+    # кошелька отвечала «сеть не поддержана». Просить доказательство и не уметь
+    # показать результат — хуже, чем не просить. Цепь одна и на ETH, и на
+    # USDT-ERC20 (`assets.chain_of`), поэтому читатель отдаёт оба актива.
+    "ETH": ("core.chain_watch", "evm_account_state"),
 }
 
 HISTORY_SOURCES = {
@@ -48,6 +54,7 @@ HISTORY_SOURCES = {
     "BTC": ("core.chain_watch", "btc_history"),
     "LTC": ("core.chain_watch", "ltc_history"),
     "TRON": ("core.chain_watch", "tron_history"),
+    "ETH": ("core.chain_watch", "evm_history"),
 }
 
 _DDL = ("CREATE TABLE IF NOT EXISTS wallet_links ("
@@ -161,9 +168,14 @@ def _account_state(chain: str, address: str, source=None) -> dict:
     bal = st.get("balance")
     if not isinstance(bal, (int, float)):
         # «не знаем» остаётся «не знаем»: подставить 0 здесь — соврать клиенту
-        # про пустой кошелёк при недоступном обозревателе.
+        # про пустой кошелёк при недоступном обозревателе. Но состав счёта
+        # проносим и здесь: недоступный ETH не повод спрятать прочитанный на
+        # том же адресе USDT — это разные запросы к обозревателю.
+        _a = st.get("assets")
         return {"balance": None, "pending": None, "status": st.get("status") or "ERROR",
-                "reason": st.get("reason") or "баланс недоступен"}
+                "reason": st.get("reason") or "баланс недоступен",
+                "asset": str(st.get("asset") or chain).upper(),
+                "assets": _a if isinstance(_a, list) else []}
     # Ожидающее в мемпуле проносим отдельным числом: сложить его с остатком
     # значило бы назвать своим то, что ещё может не состояться, а промолчать —
     # ответить «ноль» тому, кто только что получил перевод.
@@ -171,8 +183,14 @@ def _account_state(chain: str, address: str, source=None) -> dict:
     # Актив называет сам источник: в цепи TRON на одном счёте лежат TRX и USDT,
     # и «баланс TRON» без имени актива клиент прочитает как свои USDT. По
     # умолчанию актив совпадает с цепью — так было у BTC/LTC/TON.
+    # Состав счёта проносим дальше. Здесь ответ собирается заново, поле за
+    # полем, — и всё, что не перечислено явно, теряется молча. Так и потерялся
+    # список активов: портфель получал один заглавный ETH, не видел USDT на том
+    # же счёте и объявлял итог полным. Нашёл codex.
+    assets = st.get("assets")
     return {"balance": float(bal), "status": "OK", "reason": None,
             "asset": str(st.get("asset") or chain).upper(),
+            "assets": assets if isinstance(assets, list) else [],
             "pending": float(pend) if isinstance(pend, (int, float)) else None}
 
 
@@ -213,8 +231,15 @@ def history_for(user_id, chain: str = "TON", limit: int = 20, source=None) -> di
     items = res.get("items")
     if not isinstance(items, list):
         items = []
-    return {"items": items, "status": res.get("status") or "ERROR",
-            "reason": res.get("reason"), "chain": chain, "address": address}
+    out = {"items": items, "status": res.get("status") or "ERROR",
+           "reason": res.get("reason"), "chain": chain, "address": address}
+    # Признак неполноты — тоже ответ, и терять его нельзя: список со статусом
+    # OK, в котором молча не хватает половины операций, клиент прочитает как
+    # «перевод не дошёл». По той же причине, что и активы выше: пересборка
+    # ответа поимённо роняет всё неперечисленное.
+    if res.get("partial"):
+        out["partial"] = True
+    return out
 
 
 def balances_for(user_id, source=None) -> list:
@@ -236,5 +261,11 @@ def balances_for(user_id, source=None) -> list:
             "pending": st.get("pending"),
             "status": st["status"],
             "reason": st["reason"],
+            # На одном счёте живут разные активы (ETH и USDT-ERC20, TRX и
+            # USDT-TRC20). Заглавное число остаётся прежним ради тех, кто уже
+            # читает `balance`, а полный состав идёт отдельным списком — по
+            # нему считается портфель. Читатель, который про активы не знает,
+            # отдаёт пустой список, и портфель берёт заглавное число.
+            "assets": st.get("assets") or [],
         })
     return out

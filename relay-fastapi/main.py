@@ -2560,7 +2560,25 @@ async def api_wallet_links(request: Request):
     if not user:
         raise HTTPException(status_code=403, detail="Откройте приложение через бота Telegram.")
     from core import wallet_link as _wl
-    return {"wallets": _wl.balances_for(user['id'])}
+    # Обе половины ходят в сеть: остатки — к обозревателям цепей, оценка — к
+    # источнику курсов. Внутри async-обработчика такой код держит весь цикл
+    # событий: у обозревателя таймаут 8 секунд, и пока один клиент ждёт свой
+    # портфель, сервис не отвечает никому. Нашёл codex.
+    #
+    # Вызовы вынесены в поток по отдельности, а не одной вложенной функцией:
+    # мина «баланс по недоказанному адресу» требует, чтобы показ кошелька и
+    # опознание клиента стояли в ОДНОМ обработчике, и замыкание её ослепляло.
+    wallets = await asyncio.to_thread(_wl.balances_for, user['id'])
+    # Итог считает сервер, а не фронт: рублёвая оценка — это число про деньги
+    # клиента, и вторая формула в разметке разошлась бы с первой (ровно так
+    # разошёлся курс выкупа между ботом и сайтом).
+    try:
+        from core.portfolio import summarize
+        return {"wallets": wallets,
+                "portfolio": await asyncio.to_thread(summarize, wallets)}
+    except Exception as e:
+        logger.error("портфель не посчитан: %s", e)
+        return {"wallets": wallets}
 
 
 @app.get("/api/wallet/history")
@@ -2577,7 +2595,10 @@ async def api_wallet_history(request: Request):
         raise HTTPException(status_code=403, detail="Откройте приложение через бота Telegram.")
     from core import wallet_link as _wl
     chain = (request.query_params.get('chain') or 'TON').upper()[:12]
-    return _wl.history_for(user['id'], chain=chain, limit=20)
+    # В поток по той же причине, что и остатки: чтение истории — это поход к
+    # обозревателю (у Ethereum их теперь три подряд), а блокирующий вызов в
+    # async-обработчике останавливает обслуживание всех остальных клиентов.
+    return await asyncio.to_thread(_wl.history_for, user['id'], chain, 20)
 
 
 @app.get("/api/wallet/addresses")

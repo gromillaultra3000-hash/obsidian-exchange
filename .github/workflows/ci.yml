@@ -73,6 +73,8 @@ jobs:
         run: python3 tests/test_client_trust.py
       - name: Ставка выкупа — одна формула на бот, сайт и Mini App
         run: python3 tests/test_sell_pricing.py
+      - name: Портфель клиента — все сети сразу и честный итог
+        run: python3 tests/test_portfolio.py
       - name: Остаток и операции чужого адреса в цепи (BTC/LTC/TRON)
         run: python3 tests/test_chain_watch.py
       - name: Адресная книга клиента
