@@ -430,7 +430,14 @@ def evm_history(address: str, limit: int = 20) -> dict:
                 return None
             # Сорвавшаяся транзакция денег не двигает. Показать её строкой
             # «получено 0.5 ETH» — соврать о приходе, которого не было.
+            #
+            # Поля ДВА, и одного мало: обозреватель сообщает о провале либо
+            # через `isError`, либо через `txreceipt_status` — и второй бывает
+            # нулём при пустом первом. Сверка выдачи проверяет оба давно,
+            # история — не проверяла. Нашёл codex.
             if str(t.get("isError") or "0") != "0":
+                return None
+            if str(t.get("txreceipt_status", "1")) == "0":
                 return None
             try:
                 raw = int(str(t.get("value") or "0"))

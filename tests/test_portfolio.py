@@ -135,6 +135,9 @@ def _fake(url, timeout=12):
             # сорвавшаяся — денег не двигала
             {"hash": "0x2", "from": "0xdead", "to": "0xME", "value": "5000000000000000000",
              "timeStamp": "1700000100", "isError": "1"},
+            # провал объявлен ТОЛЬКО квитанцией: isError пуст, а денег нет
+            {"hash": "0x4", "from": "0xdead", "to": "0xME", "value": "7000000000000000000",
+             "timeStamp": "1700000150", "isError": "0", "txreceipt_status": "0"},
             # вызов контракта без перевода
             {"hash": "0x3", "from": "0xME", "to": "0xcontract", "value": "0",
              "timeStamp": "1700000200", "isError": "0"},
@@ -210,7 +213,9 @@ kinds = [(i["asset"], i["direction"], i["amount"]) for i in h["items"]]
 check(kinds == [("ETH", "in", 3.0), ("ETH", "in", 3.0), ("ETH", "in", 2.0),
                 ("USDT", "in", 25.0), ("ETH", "in", 1.0)],
       f"история собрана неверно (внутренние переводы, порядок по времени, "
-      f"срыв и нулевой вызов): {kinds}")
+      f"срыв (по isError и по квитанции) и нулевой вызов): {kinds}")
+check(not [i for i in h["items"] if i["txid"] == "0x4"],
+      "транзакция, провалившаяся по квитанции, показана как приход")
 check(len([i for i in h["items"] if i["txid"] == "0x5"]) == 2,
       "два разных перевода внутри одной транзакции склеились в один — "
       "клиент недосчитается половины прихода")
@@ -278,7 +283,8 @@ check(_asked["n"] == 1,
 portfolio._rate = lambda asset: (_PRICES.get(str(asset).upper()) or None)
 
 main_src_async = read("relay-fastapi", "main.py")
-check("asyncio.to_thread(_collect)" in main_src_async,
+check("asyncio.to_thread(_wl.balances_for" in main_src_async
+      and "asyncio.to_thread(summarize" in main_src_async,
       "портфель считается прямо в async-обработчике — сетевые вызовы там "
       "останавливают обслуживание всех клиентов")
 check("asyncio.to_thread(_wl.history_for" in main_src_async,
