@@ -476,15 +476,21 @@ def evm_history(address: str, limit: int = 20) -> dict:
                 logger.warning("chain_watch: %s история не прочитана: %s", label, e)
                 missing.append(label)
                 continue
-            for t in rows:
+            for pos, t in enumerate(rows):
                 row = parse(t)
                 if not row or not row["txid"]:
                     continue
-                # Одна транзакция попадает и в txlist, и в txlistinternal, если
-                # двигала ETH и напрямую, и через контракт. Дубль в истории
-                # клиент прочитает как два перевода.
-                key = (row["txid"], row["asset"], row["direction"],
-                       round(row["amount"], 12))
+                # Одинаковость по «транзакция + сумма + направление» дублем НЕ
+                # считается: внутри одной транзакции может быть несколько
+                # переводов одного размера (два вызова контракта, выплата
+                # мультиподписи), и это РАЗНЫЕ движения денег — склеив их, мы
+                # спрячем от клиента половину прихода. Нашёл codex.
+                # Свои списки у обозревателя не пересекаются: внешний перевод
+                # лежит в txlist, перевод контрактом — в txlistinternal, токен —
+                # в tokentx. Поэтому личность строки = её источник плюс место в
+                # нём (traceId, если обозреватель его дал).
+                key = (label, row["txid"],
+                       str((t or {}).get("traceId") or (t or {}).get("index") or pos))
                 if key in seen:
                     continue
                 seen.add(key)
