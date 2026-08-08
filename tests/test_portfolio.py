@@ -12,9 +12,13 @@
 import ast
 import os
 import sys
+import tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "relay"))
+
+# Своя пустая база: боевая закрыта, да и трогать её отсюда нечего.
+os.environ["DB_PATH"] = os.path.join(tempfile.mkdtemp(prefix="portfolio-"), "t.db")
 
 FAILS = []
 
@@ -202,6 +206,38 @@ check(dead["status"] == "ERROR" and dead["items"] == [],
 
 check("d.partial" in read("relay", "webapp.html"),
       "Mini App не предупреждает о неполной истории")
+
+# ── 5б. Проводка до портфеля, а не только сам расчёт ─────────────────────────
+# Здесь тест раньше и промахнулся: считалка проверялась напрямую, а слой между
+# читателем цепи и портфелем — нет. Он пересобирает ответ поимённо, и всё
+# неперечисленное терялось молча: портфель видел один заглавный ETH, не видел
+# USDT на том же счёте и объявлял итог ПОЛНЫМ. Нашёл codex.
+wallet_link.remember(4242, "ETH", "0xME")
+
+
+def _src_state(address):
+    return {"balance": 1.0, "pending": None, "status": "OK", "asset": "ETH",
+            "assets": [{"asset": "ETH", "balance": 1.0, "status": "OK"},
+                       {"asset": "USDT", "balance": 25.0, "status": "OK"}]}
+
+
+linked = wallet_link.balances_for(4242, source=_src_state)
+check(linked and [a["asset"] for a in linked[0].get("assets", [])] == ["ETH", "USDT"],
+      f"состав счёта не дошёл от читателя до портфеля: {linked}")
+through = portfolio.summarize(linked)
+check(through["total_rub"] == 200_000.0 + 25.0 * 90.0,
+      f"портфель на реальном пути посчитан без токена: {through['total_rub']}")
+check(through["complete"] is True, "полный портфель объявлен неполным")
+
+
+def _src_hist(address, limit):
+    return {"items": [], "status": "OK", "reason": "часть операций недоступна (USDT)",
+            "partial": True}
+
+
+hist = wallet_link.history_for(4242, "ETH", source=_src_hist)
+check(hist.get("partial") is True,
+      f"признак неполной истории потерялся по дороге к клиенту: {hist}")
 
 # ── 6. Реестры не разъезжаются ───────────────────────────────────────────────
 check("ETH" in wallet_link.BALANCE_SOURCES and "ETH" in wallet_link.HISTORY_SOURCES,
