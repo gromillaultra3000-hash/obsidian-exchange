@@ -88,6 +88,7 @@ check(portfolio.summarize([])["chains"] == [] and portfolio.total_line({}) == ""
 
 # ── 4. Ethereum: отказ обозревателя ≠ пустой счёт ────────────────────────────
 _calls = []
+_CONTRACT = chain_watch._usdt_erc20_contract()
 
 
 def _fake(url, timeout=12):
@@ -96,6 +97,16 @@ def _fake(url, timeout=12):
         return {"status": "1", "result": "1500000000000000000"}      # 1.5 ETH
     if "action=tokenbalance" in url:
         return {"status": "1", "result": "25000000"}                  # 25 USDT
+    if "action=tokentx" in url:
+        return {"status": "1", "result": [
+            {"hash": "0x9", "from": "0xdead", "to": "0xME", "value": "25000000",
+             "timeStamp": "1700000300", "isError": "0",
+             "contractAddress": _CONTRACT},
+            # подставной «USDT» с чужого контракта — в список попасть не должен
+            {"hash": "0x8", "from": "0xdead", "to": "0xME", "value": "999000000",
+             "timeStamp": "1700000400", "isError": "0",
+             "contractAddress": "0xfake"},
+        ]}
     if "action=txlist" in url:
         return {"status": "1", "result": [
             {"hash": "0x1", "from": "0xdead", "to": "0xME", "value": "1000000000000000000",
@@ -142,15 +153,55 @@ check(half["balance"] == 1.0 and usdt.get("balance") is None
       and usdt.get("status") == "ERROR",
       f"сбой токена испортил весь счёт или выдал ноль: {half}")
 
-# ── 5. История Ethereum: срыв и вызов контракта — не переводы ────────────────
+# ── 5. История Ethereum: срыв, вызов контракта и токен ───────────────────────
 chain_watch._cache.clear()
 chain_watch._get_json = _fake
 h = chain_watch.evm_history("0xME")
-check(h["status"] == "OK" and len(h["items"]) == 1,
-      f"история отфильтрована неверно: {h}")
-item = h["items"][0]
-check(item["direction"] == "in" and item["amount"] == 1.0 and item["asset"] == "ETH",
-      f"перевод разобран неверно: {item}")
+check(h["status"] == "OK", f"история не прочиталась: {h}")
+kinds = [(i["asset"], i["direction"], i["amount"]) for i in h["items"]]
+# Один перевод ETH + один перевод USDT; сорвавшаяся и нулевая отброшены.
+check(kinds == [("USDT", "in", 25.0), ("ETH", "in", 1.0)],
+      f"история собрана неверно (порядок по времени, срыв и нулевой вызов "
+      f"должны отпасть): {kinds}")
+
+# Пустой адрес: обозреватель отвечает status "0" с текстом «ничего не найдено».
+# Это ответ, а не сбой — сказать «история недоступна» новому клиенту неверно.
+chain_watch._cache.clear()
+chain_watch._get_json = lambda url, timeout=12: {
+    "status": "0", "message": "No transactions found", "result": []}
+empty = chain_watch.evm_history("0xNEW")
+check(empty["status"] == "OK" and empty["items"] == [],
+      f"пустая история принята за сбой: {empty}")
+chain_watch._cache.clear()
+chain_watch._get_json = lambda url, timeout=12: {
+    "status": "0", "message": "No transactions found", "result": "[]"}
+empty2 = chain_watch.evm_history("0xNEW")
+check(empty2["status"] == "OK" and empty2["items"] == [],
+      f"строковая форма «ничего не найдено» принята за сбой: {empty2}")
+
+# Молчит один источник из двух — отдаём что есть, но НЕ выдаём это за полный
+# список: пропажа половины операций читается как потерянный перевод.
+chain_watch._cache.clear()
+chain_watch._get_json = lambda url, timeout=12: (
+    {"status": "1", "result": [{"hash": "0x1", "from": "0xd", "to": "0xME",
+                                "value": "1000000000000000000",
+                                "timeStamp": "1700000000", "isError": "0"}]}
+    if "action=txlist" in url else {"status": "0", "message": "NOTOK", "result": None})
+half_h = chain_watch.evm_history("0xME")
+check(half_h["status"] == "OK" and len(half_h["items"]) == 1
+      and half_h.get("partial") is True and "USDT" in (half_h.get("reason") or ""),
+      f"неполная история выдана за полную: {half_h}")
+
+# Молчат оба — это отказ, а не «операций нет».
+chain_watch._cache.clear()
+chain_watch._get_json = lambda url, timeout=12: {"status": "0", "message": "NOTOK",
+                                                 "result": None}
+dead = chain_watch.evm_history("0xME")
+check(dead["status"] == "ERROR" and dead["items"] == [],
+      f"полный отказ обозревателя показан как пустая история: {dead}")
+
+check("d.partial" in read("relay", "webapp.html"),
+      "Mini App не предупреждает о неполной истории")
 
 # ── 6. Реестры не разъезжаются ───────────────────────────────────────────────
 check("ETH" in wallet_link.BALANCE_SOURCES and "ETH" in wallet_link.HISTORY_SOURCES,

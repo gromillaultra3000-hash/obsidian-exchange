@@ -293,18 +293,34 @@ EVM_API = os.getenv("EVM_EXPLORER_API", "https://eth.blockscout.com/api")
 WEI = 10 ** 18
 
 
+# Обозреватели в стиле Etherscan отвечают «ничего не найдено» тем же
+# `status: "0"`, что и настоящим отказом, различая их только текстом. Пустая
+# история нового адреса — нормальный ответ, а не сбой; спутать их значит
+# сказать клиенту «история недоступна» там, где честный ответ «операций нет».
+# Нашёл codex.
+_EVM_EMPTY = ("no transactions found", "no records found",
+              "no token transfers found", "no internal transactions found")
+
+
 def _evm_call(params: dict):
     """Запрос к обозревателю в стиле Etherscan. Возвращает поле result.
 
-    Ответ вида `{"status":"0"}` — это НЕ пустой кошелёк, а отказ обозревателя
-    («NOTOK», превышен лимит, неизвестный адрес). Такой ответ обязан стать
-    исключением, иначе клиент с деньгами на счету увидит ноль.
+    Настоящий отказ («NOTOK», превышен лимит) обязан стать исключением: иначе
+    клиент с деньгами на счету увидит ноль. А «записей нет» — это ответ.
     """
     from urllib.parse import urlencode
     d = _get_json(f"{EVM_API}?{urlencode(params)}") or {}
-    if str(d.get("status", "1")) == "0" and not d.get("result"):
-        raise ValueError(str(d.get("message") or d.get("result") or "NOTOK"))
-    return d.get("result")
+    res = d.get("result")
+    if str(d.get("status", "1")) == "0":
+        # Список (в том числе пустой) — уже ответ, разбирать текст незачем.
+        if isinstance(res, list):
+            return res
+        msg = str(d.get("message") or "").strip().lower()
+        if any(m in msg for m in _EVM_EMPTY):
+            return []
+        if not res:
+            raise ValueError(str(d.get("message") or "NOTOK"))
+    return res
 
 
 def _usdt_erc20_contract() -> str:
@@ -373,8 +389,24 @@ def evm_account_state(address: str) -> dict:
     return _cached(("bal", "ETH", addr), build)
 
 
+def _evm_rows(action: str, addr: str, lim: int, extra: dict = None) -> list:
+    params = {"module": "account", "action": action, "address": addr,
+              "sort": "desc", "page": 1, "offset": lim}
+    params.update(extra or {})
+    rows = _evm_call(params)
+    if not isinstance(rows, list):
+        raise ValueError("обозреватель ответил в незнакомом виде")
+    return rows
+
+
 def evm_history(address: str, limit: int = 20) -> dict:
-    """Последние переводы ETH по адресу."""
+    """Последние переводы по ETH-адресу: сам ETH и USDT-ERC20.
+
+    Два запроса, потому что у обозревателя это два разных списка: `txlist`
+    токен-переводов не содержит ВООБЩЕ. Показывать остаток USDT и не показывать
+    ни одного перевода USDT — ровно та половинчатость, из-за которой раздел
+    выглядит сломанным. Нашёл codex.
+    """
     addr = str(address or "").strip()
     lim = max(1, min(int(limit or 20), 50))
     if not addr:
@@ -382,43 +414,82 @@ def evm_history(address: str, limit: int = 20) -> dict:
     low = addr.lower()
 
     def build():
+        items, missing = [], []
+
         try:
-            rows = _evm_call({"module": "account", "action": "txlist",
-                              "address": addr, "sort": "desc",
-                              "page": 1, "offset": lim})
+            for t in _evm_rows("txlist", addr, lim):
+                if not isinstance(t, dict):
+                    continue
+                # Сорвавшаяся транзакция денег не двигает. Показать её строкой
+                # «получено 0.5 ETH» — соврать о приходе, которого не было.
+                if str(t.get("isError") or "0") != "0":
+                    continue
+                try:
+                    wei = int(str(t.get("value") or "0"))
+                except (TypeError, ValueError):
+                    continue
+                # Нулевые переводы — вызовы контрактов, а не движение денег.
+                if wei == 0:
+                    continue
+                to = (t.get("to") or "").strip()
+                items.append({
+                    "direction": "in" if to.lower() == low else "out",
+                    "amount": wei / WEI,
+                    "counterparty": (t.get("from") if to.lower() == low else to) or "",
+                    "ts": int(t.get("timeStamp") or 0),
+                    "txid": t.get("hash") or "",
+                    "confirmed": True,
+                    "asset": "ETH",
+                })
         except Exception as e:
             logger.warning("chain_watch: ETH история не прочитана: %s", e)
-            return {"items": [], "status": "ERROR", "reason": type(e).__name__}
-        if not isinstance(rows, list):
-            return {"items": [], "status": "ERROR",
-                    "reason": "обозреватель ответил в незнакомом виде"}
-        items = []
-        for t in rows:
-            if not isinstance(t, dict):
-                continue
-            # Сорвавшаяся транзакция денег не двигает. Показать её строкой
-            # «получено 0.5 ETH» — соврать о приходе, которого не было.
-            if str(t.get("isError") or "0") != "0":
-                continue
+            missing.append("ETH")
+
+        contract = _usdt_erc20_contract()
+        if contract:
             try:
-                wei = int(str(t.get("value") or "0"))
-            except (TypeError, ValueError):
-                continue
-            # Нулевые переводы — это вызовы контрактов, а не движение денег.
-            if wei == 0:
-                continue
-            to = (t.get("to") or "").strip()
-            items.append({
-                "direction": "in" if to.lower() == low else "out",
-                "amount": wei / WEI,
-                "counterparty": (t.get("from") if to.lower() == low else to) or "",
-                "ts": int(t.get("timeStamp") or 0),
-                "txid": t.get("hash") or "",
-                "confirmed": True,
-                "asset": "ETH",
-            })
-        return {"items": [i for i in items if i["txid"]][:lim],
-                "status": "OK", "reason": None}
+                for t in _evm_rows("tokentx", addr, lim,
+                                   {"contractaddress": contract}):
+                    if not isinstance(t, dict):
+                        continue
+                    # Решает АДРЕС контракта, а не символ: любой может выпустить
+                    # свой «USDT» и прислать перевод, который в списке выглядел
+                    # бы как настоящие деньги.
+                    if (t.get("contractAddress") or "").lower() != contract.lower():
+                        continue
+                    try:
+                        raw = int(str(t.get("value") or "0"))
+                    except (TypeError, ValueError):
+                        continue
+                    if raw == 0:
+                        continue
+                    to = (t.get("to") or "").strip()
+                    items.append({
+                        "direction": "in" if to.lower() == low else "out",
+                        "amount": raw / (10 ** USDT_DECIMALS),
+                        "counterparty": (t.get("from") if to.lower() == low else to) or "",
+                        "ts": int(t.get("timeStamp") or 0),
+                        "txid": t.get("hash") or "",
+                        "confirmed": True,
+                        "asset": "USDT",
+                    })
+            except Exception as e:
+                logger.warning("chain_watch: USDT-ERC20 история не прочитана: %s", e)
+                missing.append("USDT")
+
+        # Оба источника молчат — это отказ. Молчит один — отдаём то, что есть,
+        # но НЕ выдаём неполный список за полный: пропажа половины операций
+        # выглядит для клиента как потерянный перевод.
+        if len(missing) >= (2 if contract else 1):
+            return {"items": [], "status": "ERROR",
+                    "reason": "обозреватель не ответил"}
+        items.sort(key=lambda i: i.get("ts") or 0, reverse=True)
+        out = {"items": [i for i in items if i["txid"]][:lim],
+               "status": "OK", "reason": None}
+        if missing:
+            out["partial"] = True
+            out["reason"] = f"часть операций недоступна ({', '.join(missing)})"
+        return out
 
     return _cached(("hist", "ETH", addr, lim), build)
 
