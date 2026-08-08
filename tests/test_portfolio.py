@@ -11,6 +11,7 @@
 """
 import ast
 import os
+import re
 import sys
 import tempfile
 
@@ -156,6 +157,30 @@ bad = chain_watch.evm_account_state("0xME")
 check(bad["balance"] is None and bad["status"] == "ERROR",
       f"отказ обозревателя превратился в баланс: {bad}")
 
+# Обратный случай: молчит эндпоинт про ETH, а токен читается. Клиент с
+# USDT-ERC20 не должен потерять их из-за чужого сбоя в соседнем запросе.
+chain_watch._cache.clear()
+chain_watch._get_json = lambda url, timeout=12: (
+    {"status": "0", "message": "NOTOK", "result": None} if "action=balance" in url
+    else {"status": "1", "result": "25000000"})
+only_token = chain_watch.evm_account_state("0xME")
+tok = {a["asset"]: a for a in only_token["assets"]}
+check(tok.get("USDT", {}).get("balance") == 25.0,
+      f"сбой запроса про ETH спрятал прочитанный USDT: {only_token}")
+check(tok.get("ETH", {}).get("balance") is None
+      and tok.get("ETH", {}).get("status") == "ERROR",
+      "недоступный ETH должен остаться неизвестным, а не нулём")
+# И этот состав обязан дойти до портфеля — слой связей роняет ответ, если
+# заглавный остаток неизвестен.
+wallet_link.remember(4343, "ETH", "0xME")
+via = wallet_link.balances_for(4343, source=lambda a: only_token)
+check(via and any(x["asset"] == "USDT" and x["balance"] == 25.0
+                  for x in via[0].get("assets", [])),
+      f"токен потерялся в слое связей, когда родной баланс недоступен: {via}")
+part2 = portfolio.summarize(via)
+check(part2["total_rub"] == 25.0 * 90.0 and part2["complete"] is False,
+      f"портфель посчитан неверно при недоступном ETH: {part2}")
+
 # Сбой ТОКЕНА не отменяет уже прочитанный ETH, но и не становится нулём.
 chain_watch._cache.clear()
 chain_watch._get_json = lambda url, timeout=12: (
@@ -282,6 +307,15 @@ if fn:
     check("asset" in body, "бот не читает актив остатка")
     check("portfolio" in body or "summarize" in body,
           "бот считает итог сам, мимо общего движка")
+    # В истории Ethereum рядом лежат переводы ETH и USDT-ERC20. Подпись цепью
+    # назвала бы 25 USDT «25 ETH» — ошибка в тысячи раз.
+    # Ищем именно СТАРУЮ склейку «сумма → цепь». Переносы строк в исходнике
+    # значения не имеют, поэтому сравниваем по схлопнутым пробелам.
+    flat = re.sub(r"\s+", " ", body)
+    check("""{op.get('amount', 0):.4f} " f"{hist.get(""" not in flat,
+          "бот подписывает операцию цепью — USDT в истории станет ETH")
+    check("op.get('asset')" in body, "бот не читает актив операции")
+    check("partial" in body, "бот не предупреждает о неполной истории")
 
 webapp = read("relay", "webapp.html")
 check("portfolioRender" in webapp and "w-portfolio" in webapp,

@@ -168,9 +168,14 @@ def _account_state(chain: str, address: str, source=None) -> dict:
     bal = st.get("balance")
     if not isinstance(bal, (int, float)):
         # «не знаем» остаётся «не знаем»: подставить 0 здесь — соврать клиенту
-        # про пустой кошелёк при недоступном обозревателе.
+        # про пустой кошелёк при недоступном обозревателе. Но состав счёта
+        # проносим и здесь: недоступный ETH не повод спрятать прочитанный на
+        # том же адресе USDT — это разные запросы к обозревателю.
+        _a = st.get("assets")
         return {"balance": None, "pending": None, "status": st.get("status") or "ERROR",
-                "reason": st.get("reason") or "баланс недоступен"}
+                "reason": st.get("reason") or "баланс недоступен",
+                "asset": str(st.get("asset") or chain).upper(),
+                "assets": _a if isinstance(_a, list) else []}
     # Ожидающее в мемпуле проносим отдельным числом: сложить его с остатком
     # значило бы назвать своим то, что ещё может не состояться, а промолчать —
     # ответить «ноль» тому, кто только что получил перевод.

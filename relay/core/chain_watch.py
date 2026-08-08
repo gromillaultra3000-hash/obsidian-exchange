@@ -353,19 +353,23 @@ def evm_account_state(address: str) -> dict:
                 "reason": "адрес не задан", "asset": "ETH", "assets": []}
 
     def build():
+        # Два НЕЗАВИСИМЫХ запроса: у обозревателя это разные действия, и падение
+        # одного ничего не говорит о другом. Прежде сбой родного баланса уводил
+        # функцию из ветки целиком, и клиент с USDT-ERC20 на счету не видел их
+        # только потому, что молчал эндпоинт про ETH. Нашёл codex.
+        eth, eth_err = None, None
         try:
             raw = _evm_call({"module": "account", "action": "balance",
                              "address": addr, "tag": "latest"})
-            wei = int(str(raw).strip())
+            eth = int(str(raw).strip()) / WEI
         except Exception as e:
             logger.warning("chain_watch: ETH баланс не прочитан: %s", e)
-            return {"balance": None, "pending": None, "status": "ERROR",
-                    "reason": type(e).__name__, "asset": "ETH", "assets": []}
-        assets = [{"asset": "ETH", "balance": wei / WEI, "status": "OK"}]
+            eth_err = type(e).__name__
 
-        # USDT — отдельный запрос и отдельная судьба: его сбой не отменяет уже
-        # прочитанный ETH, но и не превращается в ноль. Неизвестный остаток
-        # уходит в портфель как «неизвестно», и итог помечается неполным.
+        assets = [{"asset": "ETH", "balance": eth,
+                   "status": "OK" if eth_err is None else "ERROR",
+                   "reason": eth_err}]
+
         contract = _usdt_erc20_contract()
         if contract:
             try:
@@ -374,17 +378,20 @@ def evm_account_state(address: str) -> dict:
                                "tag": "latest"})
                 assets.append({"asset": "USDT",
                                "balance": int(str(t).strip()) / (10 ** USDT_DECIMALS),
-                               "status": "OK"})
+                               "status": "OK", "reason": None})
             except Exception as e:
                 logger.warning("chain_watch: USDT-ERC20 не прочитан: %s", e)
                 assets.append({"asset": "USDT", "balance": None,
                                "status": "ERROR", "reason": type(e).__name__})
 
-        # `pending` = None, а не 0: обозреватель отдаёт остаток последнего блока
-        # и про мемпул молчит. Написать ноль значило бы утверждать, что ничего
-        # не летит, — а мы этого не знаем (у BTC знаем, потому и показываем).
-        return {"balance": wei / WEI, "pending": None, "status": "OK",
-                "reason": None, "asset": "ETH", "assets": assets}
+        # Заглавное число — про родную монету сети, и его статус про неё же.
+        # Правду про весь счёт несёт `assets`: недоступный ETH не отменяет
+        # прочитанный USDT и не превращается в ноль ни тот, ни другой.
+        # `pending` = None: обозреватель отдаёт остаток последнего блока и про
+        # мемпул молчит. Ноль здесь был бы утверждением, что ничего не летит.
+        return {"balance": eth, "pending": None,
+                "status": "OK" if eth_err is None else "ERROR",
+                "reason": eth_err, "asset": "ETH", "assets": assets}
 
     return _cached(("bal", "ETH", addr), build)
 

@@ -7644,10 +7644,16 @@ def _my_wallet_text(uid) -> str:
             sign = "+" if op.get("direction") == "in" else "−"
             who = op.get("counterparty") or ""
             who = (who[:8] + "…" + who[-6:]) if len(who) > 16 else who
-            # Монету называем: связей теперь несколько, и «+0.0031» без неё
-            # читается как угодно.
+            # Монету берём У ОПЕРАЦИИ, а не у цепи: в истории Ethereum рядом
+            # лежат переводы ETH и USDT-ERC20, и подпись цепью назвала бы
+            # 25 USDT «25 ETH» — расхождение в тысячи раз. Mini App читает
+            # `asset` с самого начала, бот брал `chain`. Нашёл codex.
             ops.append(f"{when} · {sign}{op.get('amount', 0):.4f} "
-                       f"{hist.get('chain', '')} · <code>{who}</code>")
+                       f"{op.get('asset') or hist.get('chain', '')} · <code>{who}</code>")
+        # Неполный список не выдаём за полный: пропажа половины операций
+        # читается клиентом как потерянный перевод.
+        if hist.get("partial"):
+            ops.append("⚠ " + str(hist.get("reason") or "часть операций недоступна"))
         lines.append("\n".join(ops))
     elif hist.get("status") == "OK":
         lines.append("Операций по кошельку пока нет.")
