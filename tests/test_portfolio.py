@@ -255,6 +255,35 @@ check(dead["status"] == "ERROR" and dead["items"] == [],
 check("d.partial" in read("relay", "webapp.html"),
       "Mini App не предупреждает о неполной истории")
 
+# ── 5в. Цена спрашивается не на каждый показ, а обработчик не держит цикл ────
+# Источник курсов при неудаче ничего не кеширует и уходит в сеть заново: у
+# монеты без котировки это два запроса по 8 секунд на КАЖДЫЙ показ портфеля.
+import importlib                                                    # noqa: E402
+portfolio = importlib.reload(portfolio)   # вернуть настоящую _rate вместо подставной
+_asked = {"n": 0}
+import utils.exchange_calc as _ec                                   # noqa: E402
+
+
+def _never(coin):
+    _asked["n"] += 1
+    raise ValueError("источника цены нет")
+
+
+_ec.get_cached_rate = _never
+portfolio._no_price.clear()
+for _ in range(15):
+    portfolio._rate("TRX")
+check(_asked["n"] == 1,
+      f"цена монеты без котировки спрашивается на каждый показ ({_asked['n']} раз)")
+portfolio._rate = lambda asset: (_PRICES.get(str(asset).upper()) or None)
+
+main_src_async = read("relay-fastapi", "main.py")
+check("asyncio.to_thread(_collect)" in main_src_async,
+      "портфель считается прямо в async-обработчике — сетевые вызовы там "
+      "останавливают обслуживание всех клиентов")
+check("asyncio.to_thread(_wl.history_for" in main_src_async,
+      "история читается прямо в async-обработчике")
+
 # ── 5б. Проводка до портфеля, а не только сам расчёт ─────────────────────────
 # Здесь тест раньше и промахнулся: считалка проверялась напрямую, а слой между
 # читателем цепи и портфелем — нет. Он пересобирает ответ поимённо, и всё

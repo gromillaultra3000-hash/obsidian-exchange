@@ -29,6 +29,14 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+# Отрицательный кеш: «цены нет» тоже ответ, и его надо запоминать. Источник
+# курсов при неудаче НИЧЕГО не кеширует и уходит в сеть заново — у монеты без
+# котировки (TRX) это значит два запроса с таймаутом по 8 секунд на КАЖДЫЙ
+# показ портфеля. Нашёл codex.
+_NO_PRICE_TTL = 120.0
+_no_price: dict = {}
+
+
 def _rate(asset: str):
     """Рыночная цена одной единицы актива в рублях или None.
 
@@ -36,8 +44,12 @@ def _rate(asset: str):
     «сколько это стоит», а не «сколько мы за это дадим». Подмешать сюда свою
     маржу значило бы показать клиенту заниженное состояние счёта.
     """
+    import time
     code = str(asset or "").strip().upper()
     if not code:
+        return None
+    quiet_until = _no_price.get(code)
+    if quiet_until and time.time() < quiet_until:
         return None
     try:
         from utils.exchange_calc import get_cached_rate
@@ -46,8 +58,13 @@ def _rate(asset: str):
         # ValueError у неизвестной монеты — штатный ответ «источника цены нет»,
         # остальное — сбой. И то и другое означает одно: цены нет.
         logger.info("portfolio: нет цены для %s (%s)", code, type(e).__name__)
+        _no_price[code] = time.time() + _NO_PRICE_TTL
         return None
-    return value if value > 0 else None
+    if value > 0:
+        _no_price.pop(code, None)
+        return value
+    _no_price[code] = time.time() + _NO_PRICE_TTL
+    return None
 
 
 def _lines_of(wallet: dict) -> list:
