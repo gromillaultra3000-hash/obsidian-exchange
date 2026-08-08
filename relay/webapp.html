@@ -495,6 +495,18 @@
           </div>
 
           <div id="w-main" style="display:none">
+            <!-- Портфель: все подтверждённые сети и общая стоимость. До
+                 08.08.2026 карточка показывала ОДНУ сеть, и клиент, доказавший
+                 три адреса, видел один — остальные выглядели потерянными.
+                 Сумму считает сервер (core/portfolio): вторая формула цены во
+                 фронте разошлась бы с первой. -->
+            <div id="w-portfolio" style="display:none;margin-bottom:12px;padding:14px;
+                 background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:16px">
+              <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Всего в кошельках</div>
+              <div id="w-total" style="font-size:24px;font-weight:800;margin:3px 0 2px">—</div>
+              <div id="w-total-note" style="font-size:11px;color:#fbbf24;display:none"></div>
+              <div id="w-chains" style="margin-top:10px"></div>
+            </div>
             <div style="text-align:center;padding:18px 12px 14px;background:linear-gradient(160deg,rgba(159,103,255,.14),rgba(159,103,255,.03));border:1px solid rgba(159,103,255,.22);border-radius:18px">
               <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Баланс</div>
               <div id="w-balance" style="font-size:30px;font-weight:800;margin:4px 0 2px">—</div>
@@ -2063,6 +2075,47 @@
             } catch (e) { proofSay('Сеть не ответила.'); }
         }
 
+        // Портфель целиком приходит с сервера — здесь только отрисовка.
+        // Ни одной суммы тут не складывается: сложить во фронте значит завести
+        // вторую формулу цены, которая разойдётся с первой.
+        function portfolioRender(p) {
+            const box = document.getElementById('w-portfolio');
+            if (!box) return;
+            const chains = (p && p.chains) || [];
+            // Одна сеть с одним активом — показывать «портфель» не из чего,
+            // карточка баланса ниже говорит то же самое.
+            if (!chains.length || (chains.length === 1 && (chains[0].assets || []).length < 2)) {
+                box.style.display = 'none';
+                return;
+            }
+            box.style.display = '';
+            const money = v => v.toLocaleString('ru-RU', { maximumFractionDigits: 2 }) + ' ₽';
+            const total = document.getElementById('w-total');
+            const note = document.getElementById('w-total-note');
+            // «Больше или равно» — не украшение: в сумму не вошло то, чего мы
+            // не смогли прочитать, и выдавать её за окончательную нельзя.
+            total.textContent = (p.complete ? '' : '≥ ') + money(p.total_rub || 0);
+            if (p.complete) {
+                note.style.display = 'none';
+            } else {
+                note.style.display = '';
+                note.textContent = '⚠ ' + (p.unknown || []).join(' · ');
+            }
+            document.getElementById('w-chains').innerHTML = chains.map(c =>
+                '<div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline;'
+                + 'padding:7px 0;border-top:1px solid rgba(255,255,255,.06)">'
+                + '<span style="font-size:12px;color:var(--muted)">' + esc(c.chain) + '</span>'
+                + '<span style="font-size:12px;text-align:right">'
+                + (c.assets || []).map(a =>
+                    (a.balance === null || a.balance === undefined
+                        ? '<span style="color:var(--muted)">' + esc(a.asset) + ': недоступен</span>'
+                        : '<b>' + a.balance.toFixed(a.balance < 1 ? 6 : 4) + ' ' + esc(a.asset) + '</b>'
+                          + (a.rub === null || a.rub === undefined
+                              ? '' : ' <span style="color:var(--muted)">· ' + money(a.rub) + '</span>'))
+                  ).join('<br>')
+                + '</span></div>').join('');
+        }
+
         async function loadWallets() {
             try {
                 const r = await fetch('/api/wallet/links', {
@@ -2071,6 +2124,7 @@
                 const d = await r.json().catch(() => ({}));
                 const list = (d && d.wallets) || [];
                 walletRender(list);
+                portfolioRender(d && d.portfolio);
                 if (!list.length) { walletOpsRender(null); return; }
                 // Историю спрашиваем у ТОЙ монеты, что стоит на карточке:
                 // запрос без сети всегда уходил за TON, и у клиента с одной

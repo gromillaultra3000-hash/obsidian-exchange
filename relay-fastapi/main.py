@@ -2560,7 +2560,16 @@ async def api_wallet_links(request: Request):
     if not user:
         raise HTTPException(status_code=403, detail="Откройте приложение через бота Telegram.")
     from core import wallet_link as _wl
-    return {"wallets": _wl.balances_for(user['id'])}
+    wallets = _wl.balances_for(user['id'])
+    # Итог считает сервер, а не фронт: рублёвая оценка — это число про деньги
+    # клиента, и вторая формула в разметке разошлась бы с первой (ровно так
+    # разошёлся курс выкупа между ботом и сайтом).
+    try:
+        from core.portfolio import summarize
+        return {"wallets": wallets, "portfolio": summarize(wallets)}
+    except Exception as e:
+        logger.error("портфель не посчитан: %s", e)
+        return {"wallets": wallets}
 
 
 @app.get("/api/wallet/history")

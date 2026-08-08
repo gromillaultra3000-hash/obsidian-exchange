@@ -5021,6 +5021,74 @@ def check_no_foreign_code_on_money_pages():
         fail(tag, "политика описана, но ни на один ответ не ставится")
 
 
+# ── Мина: владение приняли, а показать по нему нечего ───────────────────────
+# Клиент подписывал сообщение своим ETH-адресом, мы отвечали «владение
+# подтверждено» — и в той же карточке писали «сеть не поддержана», потому что в
+# реестре источников баланса ETH не было. Проверка проходила, запись в связях
+# появлялась, а результата у клиента не было. Дефект тихий: обе половины по
+# отдельности исправны, не сходятся они только вместе.
+#
+# Мина сверяет ДВА реестра, которые ведутся в разных файлах и разными руками:
+# что мы готовы подтвердить (`core/assets`) и что готовы прочитать
+# (`core/wallet_link`). Плюс проверяет, что названные источники существуют:
+# опечатка в имени функции превращается в вечное «баланс недоступен».
+def _ownership_gap(assets_mod, links_mod):
+    """Цепи, чьё владение мы принимаем, но остаток показать не умеем."""
+    chains = set()
+    for cur in (set(getattr(assets_mod, "SIGNED_MESSAGE_CURRENCIES", ()))
+                | set(getattr(assets_mod, "WALLET_CONNECT_CURRENCIES", ()))):
+        for net in (assets_mod.networks_for(cur) or [None]):
+            chain = assets_mod.chain_of(cur, net)
+            if chain:
+                chains.add(chain)
+    return sorted(chains - set(getattr(links_mod, "BALANCE_SOURCES", {})))
+
+
+def check_proven_address_can_show_its_balance():
+    tag = "владение приняли, баланс показать нечем"
+    import importlib
+    relay = os.path.join(ROOT, "relay")
+    if relay not in sys.path:
+        sys.path.insert(0, relay)
+    try:
+        assets_mod = importlib.import_module("core.assets")
+        links_mod = importlib.import_module("core.wallet_link")
+    except Exception as e:
+        fail(tag, f"реестр валют или связей не импортируется ({type(e).__name__}) — "
+                  f"проверка ослепла")
+        return
+
+    for chain in _ownership_gap(assets_mod, links_mod):
+        fail(tag, f"сеть {chain}: подпись владения принимаем, а остаток по ней "
+                  f"показать нечем — клиент доказывает адрес и получает "
+                  f"«не поддержано»")
+
+    # История и баланс — две половины одной карточки. Сеть с историей без
+    # остатка (или наоборот) — наполовину построенная поверхность, и увидит её
+    # первым клиент, а не мы.
+    bal = set(getattr(links_mod, "BALANCE_SOURCES", {}))
+    hist = set(getattr(links_mod, "HISTORY_SOURCES", {}))
+    for chain in sorted(bal ^ hist):
+        where = "истории" if chain in bal else "остатка"
+        fail(tag, f"сеть {chain} есть в одном реестре и отсутствует в другом — "
+                  f"нет источника {where}")
+
+    # Названный источник обязан существовать. Опечатка в имени функции не
+    # ломает импорт модуля — она молча превращается в «баланс недоступен»
+    # навсегда, и выглядит это как сбой обозревателя.
+    for reg_name in ("BALANCE_SOURCES", "HISTORY_SOURCES"):
+        for chain, pair in (getattr(links_mod, reg_name, {}) or {}).items():
+            mod_name, fn_name = (list(pair) + [None, None])[:2]
+            try:
+                mod = importlib.import_module(mod_name)
+                if not callable(getattr(mod, fn_name, None)):
+                    raise AttributeError(fn_name)
+            except Exception as e:
+                fail(tag, f"{reg_name}[{chain}] указывает на {mod_name}.{fn_name}, "
+                          f"которого нет ({type(e).__name__}) — сеть будет вечно "
+                          f"отвечать «недоступно»")
+
+
 def main():
     for fn in (check_no_diverging_duplicates, check_config_keys_are_read,
                check_no_fail_open_in_guards, check_session_expiry_uses_expires_at,
@@ -5083,7 +5151,8 @@ def main():
                check_the_payer_gets_a_usable_requisite,
                check_client_threshold_guards_every_door,
                check_sell_price_has_one_formula,
-               check_no_foreign_code_on_money_pages):
+               check_no_foreign_code_on_money_pages,
+               check_proven_address_can_show_its_balance):
         try:
             fn()
         except Exception as e:

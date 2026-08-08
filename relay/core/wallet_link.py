@@ -41,6 +41,12 @@ BALANCE_SOURCES = {
     # ответ называет актив полем `asset` — иначе клиент решит, что «баланс
     # TRON» это его USDT, и увидит не те деньги.
     "TRON": ("core.chain_watch", "tron_account_state"),
+    # ETH появился здесь 08.08.2026 и закрыл половину обещания: подпись по
+    # EIP-191 (`core/sig_proof`) подтверждала владение ETH-адресом, а карточка
+    # кошелька отвечала «сеть не поддержана». Просить доказательство и не уметь
+    # показать результат — хуже, чем не просить. Цепь одна и на ETH, и на
+    # USDT-ERC20 (`assets.chain_of`), поэтому читатель отдаёт оба актива.
+    "ETH": ("core.chain_watch", "evm_account_state"),
 }
 
 HISTORY_SOURCES = {
@@ -48,6 +54,7 @@ HISTORY_SOURCES = {
     "BTC": ("core.chain_watch", "btc_history"),
     "LTC": ("core.chain_watch", "ltc_history"),
     "TRON": ("core.chain_watch", "tron_history"),
+    "ETH": ("core.chain_watch", "evm_history"),
 }
 
 _DDL = ("CREATE TABLE IF NOT EXISTS wallet_links ("
@@ -236,5 +243,11 @@ def balances_for(user_id, source=None) -> list:
             "pending": st.get("pending"),
             "status": st["status"],
             "reason": st["reason"],
+            # На одном счёте живут разные активы (ETH и USDT-ERC20, TRX и
+            # USDT-TRC20). Заглавное число остаётся прежним ради тех, кто уже
+            # читает `balance`, а полный состав идёт отдельным списком — по
+            # нему считается портфель. Читатель, который про активы не знает,
+            # отдаёт пустой список, и портфель берёт заглавное число.
+            "assets": st.get("assets") or [],
         })
     return out

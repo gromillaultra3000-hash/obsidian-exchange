@@ -279,6 +279,150 @@ def tron_history(address: str, limit: int = 20) -> dict:
     return _cached(("hist", "TRON", addr, lim), build)
 
 
+# ── Ethereum ─────────────────────────────────────────────────────────────────
+# Обозреватель тот же, что уже читает сверка выдачи (`core/payout_discovery`), и
+# та же переменная окружения: два разных источника правды по одной цепи означали
+# бы, что баланс и сверка спорят друг с другом, а разобраться нечем.
+#
+# Зачем это вообще понадобилось. Клиент подписывал сообщение своим ETH-адресом
+# (`core/sig_proof` умеет EIP-191), мы отвечали «владение подтверждено» — и тут
+# же показывали «баланс: не поддерживается», потому что в реестре источников
+# ETH не было. Просить доказательство и не уметь показать результат — обещание
+# наполовину, ровно то, против чего написан заголовок этого модуля.
+EVM_API = os.getenv("EVM_EXPLORER_API", "https://eth.blockscout.com/api")
+WEI = 10 ** 18
+
+
+def _evm_call(params: dict):
+    """Запрос к обозревателю в стиле Etherscan. Возвращает поле result.
+
+    Ответ вида `{"status":"0"}` — это НЕ пустой кошелёк, а отказ обозревателя
+    («NOTOK», превышен лимит, неизвестный адрес). Такой ответ обязан стать
+    исключением, иначе клиент с деньгами на счету увидит ноль.
+    """
+    from urllib.parse import urlencode
+    d = _get_json(f"{EVM_API}?{urlencode(params)}") or {}
+    if str(d.get("status", "1")) == "0" and not d.get("result"):
+        raise ValueError(str(d.get("message") or d.get("result") or "NOTOK"))
+    return d.get("result")
+
+
+def _usdt_erc20_contract() -> str:
+    """Адрес контракта USDT в Ethereum — из единственного объявления в проекте.
+
+    Второй литерал здесь был бы копией, которая однажды разойдётся с той, по
+    которой реально уходят выплаты. Импорт ленивый: `wallet.evm_wallet` тянет
+    вольт и криптобиблиотеки, а нам нужна одна строка. Не получилось ни импорта,
+    ни переменной окружения — честно возвращаем пусто, и токен просто не
+    показывается. Показать «0 USDT» человеку, у которого они есть, хуже.
+    """
+    try:
+        from wallet.evm_wallet import USDT_ERC20
+        return str(USDT_ERC20 or "").strip()
+    except Exception:
+        return str(os.getenv("EVM_USDT_CONTRACT", "") or "").strip()
+
+
+def evm_account_state(address: str) -> dict:
+    """Остаток по ETH-адресу: сам ETH и USDT-ERC20 на том же счёте.
+
+    Как и у TRON, на одном счёте живут разные активы, и назвать одно число
+    «балансом Ethereum» нельзя. Заглавным (`balance`/`asset`) остаётся ETH —
+    это родная монета сети; остальное перечислено в `assets`, и портфель
+    считает именно по нему.
+    """
+    addr = str(address or "").strip()
+    if not addr:
+        return {"balance": None, "pending": None, "status": "UNSUPPORTED",
+                "reason": "адрес не задан", "asset": "ETH", "assets": []}
+
+    def build():
+        try:
+            raw = _evm_call({"module": "account", "action": "balance",
+                             "address": addr, "tag": "latest"})
+            wei = int(str(raw).strip())
+        except Exception as e:
+            logger.warning("chain_watch: ETH баланс не прочитан: %s", e)
+            return {"balance": None, "pending": None, "status": "ERROR",
+                    "reason": type(e).__name__, "asset": "ETH", "assets": []}
+        assets = [{"asset": "ETH", "balance": wei / WEI, "status": "OK"}]
+
+        # USDT — отдельный запрос и отдельная судьба: его сбой не отменяет уже
+        # прочитанный ETH, но и не превращается в ноль. Неизвестный остаток
+        # уходит в портфель как «неизвестно», и итог помечается неполным.
+        contract = _usdt_erc20_contract()
+        if contract:
+            try:
+                t = _evm_call({"module": "account", "action": "tokenbalance",
+                               "contractaddress": contract, "address": addr,
+                               "tag": "latest"})
+                assets.append({"asset": "USDT",
+                               "balance": int(str(t).strip()) / (10 ** USDT_DECIMALS),
+                               "status": "OK"})
+            except Exception as e:
+                logger.warning("chain_watch: USDT-ERC20 не прочитан: %s", e)
+                assets.append({"asset": "USDT", "balance": None,
+                               "status": "ERROR", "reason": type(e).__name__})
+
+        # `pending` = None, а не 0: обозреватель отдаёт остаток последнего блока
+        # и про мемпул молчит. Написать ноль значило бы утверждать, что ничего
+        # не летит, — а мы этого не знаем (у BTC знаем, потому и показываем).
+        return {"balance": wei / WEI, "pending": None, "status": "OK",
+                "reason": None, "asset": "ETH", "assets": assets}
+
+    return _cached(("bal", "ETH", addr), build)
+
+
+def evm_history(address: str, limit: int = 20) -> dict:
+    """Последние переводы ETH по адресу."""
+    addr = str(address or "").strip()
+    lim = max(1, min(int(limit or 20), 50))
+    if not addr:
+        return {"items": [], "status": "UNSUPPORTED", "reason": "адрес не задан"}
+    low = addr.lower()
+
+    def build():
+        try:
+            rows = _evm_call({"module": "account", "action": "txlist",
+                              "address": addr, "sort": "desc",
+                              "page": 1, "offset": lim})
+        except Exception as e:
+            logger.warning("chain_watch: ETH история не прочитана: %s", e)
+            return {"items": [], "status": "ERROR", "reason": type(e).__name__}
+        if not isinstance(rows, list):
+            return {"items": [], "status": "ERROR",
+                    "reason": "обозреватель ответил в незнакомом виде"}
+        items = []
+        for t in rows:
+            if not isinstance(t, dict):
+                continue
+            # Сорвавшаяся транзакция денег не двигает. Показать её строкой
+            # «получено 0.5 ETH» — соврать о приходе, которого не было.
+            if str(t.get("isError") or "0") != "0":
+                continue
+            try:
+                wei = int(str(t.get("value") or "0"))
+            except (TypeError, ValueError):
+                continue
+            # Нулевые переводы — это вызовы контрактов, а не движение денег.
+            if wei == 0:
+                continue
+            to = (t.get("to") or "").strip()
+            items.append({
+                "direction": "in" if to.lower() == low else "out",
+                "amount": wei / WEI,
+                "counterparty": (t.get("from") if to.lower() == low else to) or "",
+                "ts": int(t.get("timeStamp") or 0),
+                "txid": t.get("hash") or "",
+                "confirmed": True,
+                "asset": "ETH",
+            })
+        return {"items": [i for i in items if i["txid"]][:lim],
+                "status": "OK", "reason": None}
+
+    return _cached(("hist", "ETH", addr, lim), build)
+
+
 # ── переходники под реестр источников wallet_link ────────────────────────────
 # Реестр зовёт функцию ОДНОГО адреса и ничего не знает про монету — она задана
 # самой записью реестра. Отсюда пары тонких обёрток вместо параметра.
