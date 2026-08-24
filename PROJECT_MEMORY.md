@@ -83,7 +83,9 @@ Updated: 2026-08-24 UTC
   focused tests pass 164 with one sandbox bus skip. Disposable artifacts are
   absent; production stayed healthy with reader `NOLOGIN`, credential absent,
   zero sessions and unchanged HBA. Evidence:
-  `docs/e0-3-bot-b5-3-064a-activation-entrypoint-rehearsal.v1.json`. No
+  `docs/e0-3-bot-b5-3-064a-activation-entrypoint-rehearsal.v1.json`;
+  implementation commit `82531d0ccdd290cf286cad0980943cdcda10f47c` is
+  pushed. No
   production executor, activation package or activation-specific signatures
   exist. Exact next: implement and independently review an inert production
   executor, rehearse it without production contact, then create a fresh

@@ -5,6 +5,7 @@
   "status": "VERIFIED_DISPOSABLE_ACTIVATION_BOUNDARY",
   "productionActivationStatus": "NOT_AUTHORIZED",
   "implementationBaseCommit": "5c81b12f9e60911dccd85f3aa497ef14cdb11121",
+  "implementationCommit": "82531d0ccdd290cf286cad0980943cdcda10f47c",
   "implementation": {
     "activationEntrypoint": {
       "path": "deploy/postgres/b64_064a_activation_entrypoint.py",

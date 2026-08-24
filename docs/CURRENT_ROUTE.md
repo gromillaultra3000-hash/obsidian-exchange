@@ -96,6 +96,8 @@ temporary HBA copy are absent. Production remained healthy with reader
 `08b049674e7593bc87c8e78744ba6b65b557750807c17e860920931aa1b3d3b6`.
 Evidence is
 `docs/e0-3-bot-b5-3-064a-activation-entrypoint-rehearsal.v1.json`.
+Implementation commit `82531d0ccdd290cf286cad0980943cdcda10f47c` is
+pushed to `master`.
 The CLI intentionally exposes package verification only: no production
 executor or production activation package exists, and the earlier
 evidence-only acceptance cannot authorize this boundary.
