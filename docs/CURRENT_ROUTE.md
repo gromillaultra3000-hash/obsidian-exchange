@@ -78,42 +78,54 @@ row read or production mutation occurred. An unrelated duplicate `/swapfile`
 entry in `/etc/fstab` caused two daemon-reload generator errors; swap remains
 active and failed units remain zero. This slice did not change `fstab`.
 
-The activation-specific v2 boundary now includes one inert production executor
-implementation. Commit `bc34b7ea37df75dc30e18f82a25b5688e013413e` is pushed
-and published only as an unreferenced root-owned read-only release at
-`/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/bc34b7ea37df75dc30e18f82a25b5688e013413e`.
-No mutable deploy copy, symlink, unit, timer, state root, signing package,
-daemon reload, service start or restart was created. The CLI remains
-verify-only and the executor CLI remains an internal proxy helper, so these
-bytes are not a production activation surface.
+The activation-specific v2 boundary and inert executor are now hardened through
+pushed commit `ddc591beb815036c0fb13c0fedc880d38f8b6c63`, published only as
+the unreferenced root-owned read-only release
+`/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/ddc591beb815036c0fb13c0fedc880d38f8b6c63`.
+All 2152 Git blobs match. The inactive `candidate` symlink remains on
+`abb22afc99e504cee29881d5e4b19ba15c0f343d`; no mutable deploy copy, unit,
+timer, state root, signing package, daemon reload, service start or restart was
+created. The CLI remains verify-only and the executor CLI remains an internal
+proxy helper, so these bytes are not a production activation surface.
 
-The executor binds one sealed activation capability, fixed production roots,
-an outer journal plus a durable resource journal, a global watchdog interlock,
-network-none `pg_dump` through an exact Unix proxy, source fingerprints from
-the exported MVCC transaction, an inode-bound disposable workspace and a
-PID-rebound held restore-socket directory FD. Normal and recovery cleanup are
-fsync-ordered; incomplete resource states enter `HOLD`, exact recovery is
-idempotent, and outer recovery cannot close without the executor resource
-receipt. The final real disposable PostgreSQL 17.11 rehearsal closed the
-journal, rejected replay without a second executor call, supervised the live
-lease through the watchdog interlock and returned receipt SHA-256
-`81af9379fc6efdc1a8799d600c27c54e93d75bcb05b34b71a981ac6784ddcccb`.
+The normal executor still binds one sealed single-use activation capability,
+fixed production roots, two durable journals, the watchdog interlock,
+network-none `pg_dump` through an exact Unix proxy, same-snapshot source
+fingerprints, inode-bound workspace cleanup and a PID-rebound held restore
+socket. In addition, an exact historical signed package can now yield only a
+sealed cleanup capability after decision and keyring expiry. Current artifact
+closure is reverified first; that capability cannot execute or claim a lease
+and can only reconcile an existing exact journal to `RECONCILED_HOLD`.
+
+The signed effective plan now contains one non-contradictory network and
+recovery contract; the old hardened plan is generated only as a deterministic
+compatibility projection. A durable absent-name/create-intent record and exact
+workspace-parent device/inode close the mkdir-to-inode-registration crash
+window. Foreign, preexisting or swapped objects are preserved fail-closed.
+Docker auto-remove observation has one real two-second deadline across all
+references, including the underlying inspect calls.
+
+The final real disposable PostgreSQL 17.11 run closed the normal journal,
+rejected replay without a second executor call, supervised the live lease,
+then recovered a separate pre-inode workspace after both signed expiries to
+`ACTIVATION_RECONCILED_HOLD`. Receipt SHA-256 is
+`03446838955a2d8e6e09676762f6de55e9868c79d12d2d5ffb7f9c319669cd58`.
 Reader post-state is `NOLOGIN`, credential absent and zero sessions; all
-disposable containers, named volume, workspace/archive and temporary HBA copy
-are absent. Focused regression passes 215/215 and all three independent
-latest-byte reviews approve only the inert rollout.
+disposable resources are absent. Focused regression passes 180/180, the full
+related set passes 237/237, and all three independent latest-byte reviews
+report inert GO with no P0/P1.
 
-Production remained unchanged: PostgreSQL is healthy with restart count zero,
+Production remains unchanged: PostgreSQL is healthy with restart count zero,
 the HBA SHA-256 is
 `08b049674e7593bc87c8e78744ba6b65b557750807c17e860920931aa1b3d3b6`,
-the reader is dormant, both existing timers remain healthy and the deployed
-watchdog intentionally remains the old digest. Production activation is a
-named `NO_GO`: cleanup-only recovery after decision/keyring expiry, a fixed
-no-retry launcher with a hard wall timeout, the workspace create-to-journal
-crash window, one unambiguous signed effective plan, the updated live watchdog
-rollout and fresh activation owner/reviewer signatures are still absent.
+the reader is dormant and session-free, both existing timers are healthy and
+the deployed watchdog is intentionally unchanged. Production activation is a
+named `NO_GO`: updated dormant-watchdog cold-recovery orchestration, a fixed-
+argument no-retry launcher with a hard wall timeout, and fresh activation
+owner/reviewer signatures are absent. The next canonical item is that dormant
+watchdog recovery slice; do not create a production activation package yet.
 Evidence is
-`docs/e0-3-bot-b5-3-064a-production-executor-inert-rollout.v1.json`.
+`docs/e0-3-bot-b5-3-064a-cold-recovery-effective-plan-inert-rollout.v1.json`.
 
 Deployed contract:
 

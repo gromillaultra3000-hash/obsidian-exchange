@@ -71,32 +71,36 @@ Updated: 2026-08-24 UTC
   An unrelated duplicate `/swapfile` line in `/etc/fstab` caused
   systemd-generator errors during daemon-reload; swap remains active and
   failed units are zero. It was observed, not changed. The activation-v2
-  boundary and one inert production executor are implemented in pushed commit
-  `bc34b7ea37df75dc30e18f82a25b5688e013413e` and published only as the
+  boundary and inert executor are now hardened in pushed commit
+  `ddc591beb815036c0fb13c0fedc880d38f8b6c63` and published only as the
   unreferenced root-owned read-only release
-  `/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/bc34b7ea37df75dc30e18f82a25b5688e013413e`.
-  No mutable deploy copy, pointer, unit/timer, state root, signing package,
-  daemon reload or service restart was created. The executor binds fixed roots,
-  a single-use process capability, outer/resource journals, watchdog interlock,
-  network-none dump through an exact Unix proxy, same-snapshot fingerprints,
-  held restore socket FD and inode/fsync-bound cleanup. Recovery moves uncertain
-  states to `HOLD`, requires an exact resource receipt and is idempotent after
-  `RECONCILED_HOLD`. Focused tests pass 215/215; final real disposable rehearsal
-  returned `CLOSED`, rejected replay, watchdog-supervised the live lease and
-  produced receipt SHA-256
-  `81af9379fc6efdc1a8799d600c27c54e93d75bcb05b34b71a981ac6784ddcccb`.
-  All disposable resources are absent. Production stayed healthy and unchanged
-  with reader `NOLOGIN`, credential absent, zero sessions, HBA SHA
-  `08b049674e7593bc87c8e78744ba6b65b557750807c17e860920931aa1b3d3b6`
-  and the existing watchdog intentionally not replaced. Architecture, security
-  and operations approve the inert release only. Evidence:
-  `docs/e0-3-bot-b5-3-064a-production-executor-inert-rollout.v1.json`.
-  Production activation remains a named `NO_GO`: cleanup-only cold recovery
-  after signed-decision/keyring expiry, a no-retry hard-timeout launcher, the
-  workspace create-to-durable-inode crash window, unambiguous signed effective-
-  plan semantics, updated live watchdog rollout and fresh activation signatures
-  are absent. Exact next: implement the cleanup-only journal-bound recovery
-  capability; do not create a production activation package yet.
+  `/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/ddc591beb815036c0fb13c0fedc880d38f8b6c63`;
+  all 2152 Git blobs match. Candidate remains `abb22afc...`; no mutable copy,
+  unit/timer, state root, signing package, daemon reload or service restart was
+  created. An exact historical signed package can now authorize cleanup after
+  decision/keyring expiry but cannot execute or claim a credential lease;
+  current artifact closure and the exact outer/resource journals are required.
+  The signed effective plan is normalized, with the old hardened plan only a
+  deterministic compatibility projection. Durable absent-name/create intent,
+  bound workspace-parent device/inode and strict held-inode/allowlist cleanup
+  close the pre-registration mkdir crash window. Docker auto-remove observation
+  uses one real two-second budget including all inspect calls. Focused tests pass
+  180/180 and the full related set 237/237. The exact disposable run returned
+  normal `CLOSED`, watchdog-supervised the live lease and recovered a separate
+  pre-inode workspace after both expiries to `ACTIVATION_RECONCILED_HOLD`;
+  receipt SHA-256 is
+  `03446838955a2d8e6e09676762f6de55e9868c79d12d2d5ffb7f9c319669cd58`.
+  All disposable resources are absent. Production remains healthy and
+  unchanged with reader `NOLOGIN`, credential absent, zero sessions, HBA SHA
+  `08b049674e7593bc87c8e78744ba6b65b557750807c17e860920931aa1b3d3b6`,
+  healthy existing timers and no failed units. Architecture, security and
+  operations report inert GO with no P0/P1. Evidence:
+  `docs/e0-3-bot-b5-3-064a-cold-recovery-effective-plan-inert-rollout.v1.json`.
+  Production activation remains a named `NO_GO`: the updated dormant watchdog
+  cold-recovery orchestration, a fixed-argument no-retry hard-wall-timeout
+  launcher and fresh activation signatures are absent. Exact next: implement
+  and rehearse only the dormant-watchdog cleanup-recovery slice; do not create
+  a production activation package yet.
   Termux exposed a false `--help` error receipt before key generation; commit
   `bfe53faaba17a4e9e0cca83024f602d9d59c965a` fixes `SystemExit` handling and
   is pushed. Current secret-free signing kit `/root/k2.tar` has SHA-256

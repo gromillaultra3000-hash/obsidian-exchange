@@ -1952,3 +1952,54 @@ non-contradictory signed effective-plan semantics. Only afterward may the
 updated dormant watchdog and a fixed-argument, hard-timeout, no-retry launcher
 be separately rolled out. Do not create fresh production activation signatures
 until those prerequisites pass independent review.
+
+## 2026-08-24 — 064A cold-recovery and effective-plan inert rollout
+
+The cleanup-only recovery prerequisite is complete in project code and an
+unreferenced immutable release. An exact historical activation package is
+reverified at its signed issuance instant, including its current artifact
+closure, before it can reconcile an existing exact journal after decision or
+keyring expiry. Its sealed recovery capability is rejected by both execution
+and credential-lease boundaries. It can only move incomplete resources through
+the existing fail-closed cleanup path to `RECONCILED_HOLD`; it cannot retry the
+operation.
+
+There is now one normalized signed effective plan: the dump container is
+network-none and reaches only the exact Unix proxy. The old hardened plan is a
+deterministic compatibility projection, not a second contradictory signed set
+of assertions. Before workspace creation, the resource journal durably records
+an exact absent-name preflight and the fixed parent device/inode. Cold cleanup
+of an inode-not-yet-registered workspace requires that intent, the same bound
+parent, strict owner/mode/file allowlists and held-inode removal evidence;
+preexisting, foreign or swapped objects remain untouched and fail closed.
+Docker auto-remove observation uses one real two-second deadline shared across
+all exact references, and each inspect receives only the remaining budget.
+
+The final exact disposable PostgreSQL 17.11 run closed the normal journal,
+supervised the live lease through the watchdog, rejected replay without a
+second executor call, then recovered a separate pre-inode workspace after both
+the decision and keyring had expired. Cold state ended at
+`ACTIVATION_RECONCILED_HOLD`; the reader ended `NOLOGIN`, credential-absent and
+session-free. Receipt SHA-256 is
+`03446838955a2d8e6e09676762f6de55e9868c79d12d2d5ffb7f9c319669cd58`.
+Focused regression passes 180/180 and the full related set passes 237/237;
+compile, diff and staged secret scan pass. Architecture, security and
+operations latest-byte reviews report GO for this inert release with no P0/P1.
+
+Commit `ddc591beb815036c0fb13c0fedc880d38f8b6c63` is pushed. Its 2152 Git blobs
+match the root-owned read-only release directory
+`/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/ddc591beb815036c0fb13c0fedc880d38f8b6c63`.
+It is unreferenced: the inactive `candidate` pointer remains on
+`abb22afc99e504cee29881d5e4b19ba15c0f343d`; no mutable copy, unit, timer,
+state root, daemon reload, service start/restart or signing package was created.
+Production remains healthy on the same container/image with zero restarts,
+exact HBA, dormant reader, zero reader sessions, healthy existing timers and no
+failed units. Evidence:
+`docs/e0-3-bot-b5-3-064a-cold-recovery-effective-plan-inert-rollout.v1.json`.
+
+E0.3 remains `IN_PROGRESS`, and production activation remains a concrete
+`NO_GO`. The next canonical item is an updated dormant watchdog that can invoke
+only the new cleanup-only recovery orchestration for an existing exact package
+and journal. After that, separately implement and review a fixed-argument,
+hard-wall-timeout, no-retry production launcher. Fresh production activation
+signatures remain forbidden until both prerequisites pass.
