@@ -22,8 +22,8 @@
 """
 from __future__ import annotations
 import os
-import sqlite3
 import logging
+from repositories.operational_read_store import from_environment as _read_store_from_environment
 
 logger = logging.getLogger(__name__)
 DB_PATH = os.getenv("DB_PATH", "/root/exchange.db")
@@ -31,10 +31,8 @@ DB_PATH = os.getenv("DB_PATH", "/root/exchange.db")
 AMOUNT_TOLERANCE = float(os.getenv("RECONCILE_AMOUNT_TOLERANCE", "0.01") or 0.01)
 
 
-def _db():
-    conn = sqlite3.connect(DB_PATH, timeout=5)
-    conn.row_factory = sqlite3.Row
-    return conn
+def _store():
+    return _read_store_from_environment(sqlite_path=DB_PATH)
 
 
 # Переводы, у которых заявки нет и не должно быть: тесты, пополнение биржи,
@@ -97,15 +95,7 @@ def _chain_outgoing(address: str, limit: int = 200) -> list[dict]:
 
 def _sent_orders(days: int) -> list[dict]:
     try:
-        with _db() as conn:
-            rows = conn.execute("""
-                SELECT order_id, currency, crypto_address, paid_btc_tx, rub_amount,
-                       status, created_at, updated_at
-                FROM orders
-                WHERE status IN ('sent','paid')
-                  AND created_at >= datetime('now', ?)
-                ORDER BY order_id DESC""", (f"-{days} days",)).fetchall()
-        return [dict(r) for r in rows]
+        return _store().chain_reconciliation_orders(days)
     except Exception as e:
         logger.warning("chain_reconcile: чтение orders: %s", e)
         return []

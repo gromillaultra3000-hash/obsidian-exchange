@@ -1,0 +1,51 @@
+{
+  "schemaVersion": "e5-issuer-selection-owner-reviewer-deferral.v1",
+  "observedAt": "2026-08-22T07:24:16Z",
+  "route": "E5/NATIVE_WALLET/ISSUER_SELECTION",
+  "source": "current-owner-conversation",
+  "sourceAuthentication": "CONVERSATION_CONTEXT_NOT_AUTHENTICATED_SIGNATURE",
+  "decisionResultEnvelopeSchemaPath": "native-wallet/rehearsals/attestation-dependencies/automated-minimal/tests/fixtures/ed25519-corpus-review-independence-issuer-selection-decision-result-v1.schema.json",
+  "decisionResultEnvelopeSchemaSha256": "8a24576939b041cc810371a0b7908a6e20804eeefa599976b5a92a847bfb1299",
+  "ownerReviewerHandoffSchemaPath": "native-wallet/rehearsals/attestation-dependencies/automated-minimal/tests/fixtures/ed25519-corpus-review-independence-owner-reviewer-handoff-v1.schema.json",
+  "ownerReviewerHandoffSchemaSha256": "f7e67e8eb46951b2f8d17aa465e962cc2e49e33c3ee3fdf838b19a2783b66f8a",
+  "selectionScorecardPath": "native-wallet/rehearsals/attestation-dependencies/automated-minimal/tests/fixtures/ed25519-corpus-review-independence-issuer-selection-scorecard-v1.json",
+  "selectionScorecardSha256": "88fcb8bb419599b45137966a168c5b5513c10665658e7d3c81c2f8455e37fd3f",
+  "ownerInstruction": "DEFER_E5_ISSUER_SELECTION_UNTIL_AUTHENTICATED_OWNER_AND_REVIEWER_READY_CONTINUE_SAFE_NON_PRODUCTION_WORK",
+  "decisionEffect": "RESTRICTIVE_DEFERRAL_ONLY",
+  "status": "BLOCKED_OWNER",
+  "ownerDecisionContextPresent": true,
+  "authenticatedOwnerDecisionPresent": false,
+  "authenticatedIndependentReviewerDecisionPresent": false,
+  "deferredItems": [
+    "E5_AUTHENTICATED_ACCOUNTABLE_OWNER_DECISION",
+    "E5_AUTHENTICATED_INDEPENDENT_REVIEWER_DECISION",
+    "E5_ISSUER_SELECTION_CONSUMPTION",
+    "E5_NATIVE_PRODUCTION_SIGNING"
+  ],
+  "allowedWork": ["KEYLESS", "READ_ONLY", "NON_PRODUCTION", "DOCUMENTATION_AND_TESTS"],
+  "authority": {
+    "evidenceAccepted": false,
+    "ownerDecisionAccepted": false,
+    "independentReviewerAccepted": false,
+    "productionAuthorization": false,
+    "selectionAllowed": false,
+    "issuerAuthenticationAllowed": false,
+    "cryptoCallAllowed": false,
+    "runtimeIntegrationAllowed": false,
+    "actionAllowed": false
+  },
+  "sourceFreshnessEffect": {
+    "freshnessCanInvalidate": true,
+    "freshnessCanAuthorize": false,
+    "candidateMayExpireWhileDeferred": true,
+    "expiredCandidateRequiresNewReadOnlyObservationAndNewDigest": true
+  },
+  "remainingBlockers": [
+    "AUTHENTICATED_ACCOUNTABLE_OWNER_DECISION_ABSENT",
+    "AUTHENTICATED_INDEPENDENT_REVIEWER_DECISION_ABSENT",
+    "REAL_OWNER_AND_REVIEWER_ASSERTION_EVIDENCE_ABSENT",
+    "TRUSTED_TIME_REVOCATION_AND_DURABLE_REPLAY_ACCEPTANCE_ABSENT"
+  ],
+  "nextCanonicalItem": "E5_NEXT_UNFINISHED_KEYLESS_NON_PRODUCTION_AUDIT_CONTRACT",
+  "interpretation": "Conversation context records a restrictive deferral only. It does not authenticate a signature, accept evidence, grant a waiver, select an issuer, authorize a crypto call, enable runtime integration or permit production action. E5 issuer selection remains BLOCKED_OWNER."
+}

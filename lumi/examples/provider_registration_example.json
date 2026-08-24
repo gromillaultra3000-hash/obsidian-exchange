@@ -1,0 +1,13 @@
+{
+  "providerId": "mock-1",
+  "displayName": "Mock Provider One",
+  "providerType": "mock",
+  "apiFormat": "json",
+  "enabled": true,
+  "roles": ["responder"],
+  "capabilities": ["text_generation", "mock"],
+  "costProfile": {"costPerCall": 0.0},
+  "latencyProfile": {"avgMs": 10},
+  "reliabilityScore": 1.0,
+  "notes": "success"
+}

@@ -1,0 +1,17 @@
+{
+  "accountId": "sandbox_1",
+  "actionAllowed": false,
+  "allowedSymbols": [
+    "BTCUSDT"
+  ],
+  "executionEffect": "NONE",
+  "futureToleranceMs": 1000,
+  "marketMaxAgeMs": 5000,
+  "maxDailyNotionalQuote": "1000",
+  "maxDrawdownQuote": "100",
+  "maxOrderNotionalQuote": "300",
+  "maxTradesPerDay": 5,
+  "paperOnly": true,
+  "policyId": "prp_44b3168f36228e94db181ae4cb9369c77e98401b3839650cd173f57de6ae0eaf",
+  "schemaVersion": "paper-risk-policy.v1"
+}

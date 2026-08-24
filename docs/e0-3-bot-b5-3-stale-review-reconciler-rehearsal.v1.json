@@ -1,0 +1,58 @@
+{
+  "schemaVersion": "e0-3-bot-b5-3-stale-review-reconciler-rehearsal.v1",
+  "observedAt": "2026-08-17T04:11:41Z",
+  "route": "E0/E0.3/B5.3",
+  "status": "REHEARSED_PROPOSAL_ONLY",
+  "scope": "proposal 063 ambiguity-safe stale-attempt review and supervised one-shot reconciler contract",
+  "artifacts": {
+    "deploy/postgres/proposals/063_e0_bot_b5_3_stale_review_reconciler.sql": "cf1874de34bfd875632d18047bbad7b2e3562caf5d43de3b466b1472298481ee",
+    "relay/bot_notification_reconciler.py": "72906360fd6ae982b64498e09d024b5d3189caf566625822b324968614315cfe",
+    "deploy/systemd/exchange-bot-notification-reconciler.service": "397ee5886e06fb70c1535c549c68d5d999b5013d29d7460309a6e7a5cd649f69",
+    "deploy/systemd/exchange-bot-notification-reconciler.timer": "a9298dd1547041c0c1a9e91080a3413a12aecc52cae3bccddd375407eba73ba4"
+  },
+  "trustAndCustody": {
+    "moneyWriter": false,
+    "telegramAccess": false,
+    "credentialLane": "obsidian_exchange_bot_notification_reconciler",
+    "automaticRetryAllowed": false,
+    "staleOutcome": "MANUAL",
+    "productionMutation": false
+  },
+  "surfaceMatrix": {
+    "database": {"mode": "REQUIRED", "reason": "atomic stale classification, transition and append-only review"},
+    "reconcilerProcess": {"mode": "REQUIRED", "reason": "distinct attested DB-only one-shot principal"},
+    "telegramBot": {"mode": "N/A", "reason": "reconciliation never calls Telegram"},
+    "operatorAdmin": {"mode": "OPERATOR_ONLY", "reason": "future resolution workflow remains separate and unimplemented"},
+    "webMiniAppNative": {"mode": "N/A", "reason": "no user-facing change"}
+  },
+  "acceptanceEvidence": {
+    "focusedTests": "19 passed",
+    "postgres": "clean disposable PostgreSQL 17",
+    "concurrency": "8 workers; two stale attempts transitioned once; replay zero",
+    "faultInjection": "synthetic failure after review insert rolled back review and state; next run converged once",
+    "acceptedRecovery": "persisted ACCEPTED evidence finalized once without transport call",
+    "checks": ["python compile", "systemd-analyze verify", "git diff --check", "artifact sha256"]
+  },
+  "securityDecisions": [
+    "persisted submit authorization distinguishes pre-submit abandoned from authorized ambiguous attempts",
+    "both stale classes conservatively enter MANUAL and never automatic retry",
+    "UNCERTAIN evidence requires both provider identifiers to be NULL",
+    "metrics contain fixed counters/booleans only; exceptions expose type, not text",
+    "row locks serialize stale classification against authorization and terminal evidence assignment"
+  ],
+  "independentReviews": [
+    {"reviewer": "codex-subagent-proposal063-security", "disposition": "accepted classification boundary, exact review binding, separate credential lane, UNCERTAIN tightening and no operator capability"},
+    {"reviewer": "codex-subagent-proposal063-tests", "disposition": "accepted concurrency, crash/fault, cardinality and systemd isolation landmines; production-only items retained as blockers"}
+  ],
+  "rollout": "not authorized; proposal files were not installed, enabled or migrated",
+  "rollback": "remove proposal-only artifacts before deployment; no production state exists to reverse",
+  "recovery": "append-only attempts/reviews remain authoritative; operator resolution contract is deliberately absent",
+  "blockers": [
+    "proposal 062/063 are clean-schema SQL, not an expand/backfill production migration",
+    "service OS user, credential file, rotation, install/enable and process isolation are not production-rehearsed",
+    "operator resolution workflow, alert pipeline, backup/restore and rollback rehearsals are absent",
+    "production schema/data/default privileges have not been preflighted"
+  ],
+  "gateStatus": "E0.3_IN_PROGRESS_CANARY_REJECTED",
+  "nextCanonicalItem": "proposal 064 production expand/fence/drain/backfill/validate/cutover/contract migration package with observability, restore and rollback rehearsal"
+}

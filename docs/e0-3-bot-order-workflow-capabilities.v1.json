@@ -1,0 +1,12 @@
+{
+ "schema":"obsidian.e0-3-bot-order-workflow-capabilities.v1","stage":"E0.3","status":"EXACT_PACKAGE","productionAuthorization":false,"sourceSha256":"19fe23b8a6d5c892e703b6adb19b1604b5079934596d2427534c1e21e3629afc",
+ "capabilities":[
+  {"id":"order_workflow_store.cancel_pending_for_owner","access":"OWNER_WRITE","reads":{"orders":["order_id","user_id","status"]},"mutations":{"orders":["status","updated_at"]},"invariants":["EXACT_ORDER_AND_OWNER","PENDING_TO_CANCELLED_CAS"]},
+  {"id":"order_workflow_store.clear_verification","access":"OPERATOR_WRITE","reads":{"orders":["order_id","verification_requested"]},"mutations":{"orders":["verification_requested","updated_at"]},"invariants":["VERIFICATION_TYPE_ALLOWLIST","EXACT_ORDER_AND_EXPECTED_TYPE_CAS"]},
+  {"id":"order_workflow_store.reject_review","access":"OPERATOR_WRITE","reads":{"orders":["order_id","status"],"sent_notifications":["order_id","event"]},"mutations":{"orders":["status","updated_at"],"sent_notifications":["order_id","event"]},"invariants":["PENDING_TO_CANCELLED_CAS","RECEIPT_REJECTED_MARKER_UNIQUE","STATUS_AND_MARKER_ONE_TRANSACTION","CAS_FAILURE_NO_MARKER"]},
+  {"id":"order_workflow_store.reopen_review","access":"OPERATOR_WRITE","reads":{"orders":["order_id","status"]},"mutations":{"orders":["status","updated_at"]},"invariants":["SOURCE_STATUS_ALLOWLIST_CANCELLED_EXPIRED_FAILED","TO_PENDING_CAS"]},
+  {"id":"order_workflow_store.retry_amount_for_owner","access":"OWNER_WRITE","reads":{"orders":["order_id","user_id","status"]},"mutations":{"orders":["rub_amount","updated_at"]},"invariants":["FINITE_POSITIVE_AMOUNT","EXACT_ORDER_AND_OWNER","PENDING_ONLY_CAS"]},
+  {"id":"order_workflow_store.set_montera_invoice","access":"OPERATOR_WRITE","reads":{"orders":["order_id","status","montera_invoice_id"]},"mutations":{"orders":["montera_invoice_id","receipt_deadline","updated_at"]},"invariants":["INVOICE_ID_1_TO_255","RECEIPT_DEADLINE_REQUIRED","PENDING_ONLY","EMPTY_OR_SAME_INVOICE_CAS"]}
+ ],
+ "blockers":[],"remainingWork":["extract remaining bot repository packages"]
+}

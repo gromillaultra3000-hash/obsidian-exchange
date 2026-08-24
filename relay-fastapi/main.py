@@ -1,11 +1,16 @@
 from dotenv import load_dotenv
-load_dotenv("/root/bot/.env")
+from pathlib import Path
+import os
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+_SKIP_DOTENV = os.getenv("OBSIDIAN_SKIP_DOTENV") == "1"
+if not _SKIP_DOTENV:
+    load_dotenv(_PROJECT_ROOT / "bot" / ".env")
 
-import os, json, sqlite3, qrcode, logging, re, asyncio, time, hmac, hashlib, math
-from contextlib import contextmanager, asynccontextmanager
+import json, qrcode, logging, re, asyncio, time, hmac, hashlib, math, base64
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import asynccontextmanager
 from io import BytesIO
 from datetime import datetime, timedelta
-from pathlib import Path
 from fastapi import FastAPI, Request, HTTPException, Form
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 try:
@@ -22,8 +27,8 @@ import urllib.parse
 import auth
 
 # Загрузка .env
-env_path = Path('/root/bot/.env')
-if env_path.exists():
+env_path = _PROJECT_ROOT / 'bot' / '.env'
+if not _SKIP_DOTENV and env_path.exists():
     with open(env_path) as f:
         for line in f:
             line = line.strip()
@@ -37,10 +42,12 @@ PUBLIC_RELAY = os.getenv('PUBLIC_RELAY', 'https://obsidian-exchange.org')
 GREENPAY_API_SECRET = os.getenv('GREENPAY_API_SECRET', '')
 MONTERA_API_TOKEN = os.getenv('MONTERA_API_TOKEN', '')
 BRABUS_NOTIFICATION_TOKEN = os.getenv('BRABUS_NOTIFICATION_TOKEN', '')
+RELAY_EXECUTOR_WORKERS = min(8, max(1, int(os.getenv("RELAY_EXECUTOR_WORKERS", "8"))))
 STORMTRADE_NOTIFICATION_TOKEN = os.getenv('STORMTRADE_NOTIFICATION_TOKEN', '')
 XPAY_API_KEY = os.getenv('XPAY_API_KEY', '')
 # Вебхук RSPay подписан секретом МЕРЧАНТА, а не ключом магазина.
 RSPAY_API_SECRET = os.getenv('RSPAY_API_SECRET', '')
+RSPAY_BT_API_SECRET = os.getenv('RSPAY_BT_API_SECRET', '')
 MIN_AMOUNT = float(os.getenv('MIN_AMOUNT', 2000))
 MAX_AMOUNT = float(os.getenv('MAX_AMOUNT', 500000))
 REFERRAL_BONUS_PERCENT = float(os.getenv('REFERRAL_BONUS_PERCENT', 10))
@@ -59,6 +66,41 @@ REVIEWS_USERNAME = os.getenv('REVIEWS_USERNAME', 'ObsidianReviews')
 # проверяет чужие модули. В проде значение то же: /root/relay-fastapi → /root/relay.
 RELAY_PATH = str(Path(__file__).resolve().parent.parent / 'relay')
 sys.path.insert(0, RELAY_PATH)
+from repositories import order_creation_store as _order_creation_store
+from repositories import payment_transition_store as _payment_transition_store
+from repositories import payment_session_store as _payment_session_store_module
+from repositories import support_store as _support_store_module
+from repositories import swap_store as _swap_store_module
+from repositories import sell_order_store as _sell_store_module
+from repositories import user_profile_store as _user_profile_store_module
+from repositories import admin_config_store as _admin_config_store_module
+from repositories import ops_store as _ops_store_module
+from repositories import order_read_store as _order_read_store_module
+from repositories import reporting_store as _reporting_store_module
+from repositories import order_workflow_store as _order_workflow_store_module
+from repositories import order_lifecycle_store as _order_lifecycle_store_module
+from repositories import engagement_store as _engagement_store_module
+from repositories import receipt_store as _receipt_store_module
+from repositories import sell_settlement_store as _sell_settlement_store_module
+from repositories import runtime_schema_store as _runtime_schema_store_module
+
+_order_store = _order_creation_store.from_environment(sqlite_path=DB_PATH)
+_payment_store = _payment_transition_store.from_environment(sqlite_path=DB_PATH)
+_payment_sessions = _payment_session_store_module.from_environment(sqlite_path=DB_PATH)
+_support_store = _support_store_module.from_environment(sqlite_path=DB_PATH)
+_swap_store = _swap_store_module.from_environment(sqlite_path=DB_PATH)
+_sell_store = _sell_store_module.from_environment(sqlite_path=DB_PATH)
+_user_profiles = _user_profile_store_module.from_environment(sqlite_path=DB_PATH)
+_admin_config = _admin_config_store_module.from_environment(sqlite_path=DB_PATH)
+_ops_store = _ops_store_module.from_environment(sqlite_path=DB_PATH)
+_order_reads = _order_read_store_module.from_environment(sqlite_path=DB_PATH)
+_reporting = _reporting_store_module.from_environment(sqlite_path=DB_PATH)
+_order_workflow = _order_workflow_store_module.from_environment(sqlite_path=DB_PATH)
+_order_lifecycle = _order_lifecycle_store_module.from_environment(sqlite_path=DB_PATH)
+_engagement = _engagement_store_module.from_environment(sqlite_path=DB_PATH)
+_receipts = _receipt_store_module.from_environment(sqlite_path=DB_PATH)
+_sell_settlement = _sell_settlement_store_module.from_environment(sqlite_path=DB_PATH)
+_runtime_schema = _runtime_schema_store_module.from_environment(sqlite_path=DB_PATH)
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -66,79 +108,91 @@ async def _session_cleanup_loop():
     """Удаляет истёкшие сессии раз в 6 часов и чистит audit_log старше 90 дней."""
     while True:
         try:
-            with db_conn(5) as conn:
-                conn.execute("DELETE FROM web_sessions WHERE expires_at < datetime('now')")
-                conn.execute("DELETE FROM audit_log WHERE created_at < datetime('now', '-90 days')")
-                conn.commit()
+            _ops_store.cleanup_audit(90)
+            auth.cleanup_expired_sessions()
         except Exception as e:
             logger.warning(f"Session cleanup error: {e}")
         await asyncio.sleep(6 * 3600)
 
-def _ensure_orders_columns():
-    """Идемпотентные миграции таблицы orders (мультичейн + фиксация котировки).
-    Дублируют те же проверки из bot/main_bot.py::init_db — relay-fastapi
-    и бот перезапускаются независимо (отдельные systemd-юниты), и если
-    relay-fastapi стартует раньше бота (или после восстановления БД без
-    колонок), запись заявки упадёт с 'no column named ...'. Обе точки
-    создания заявки должны сами гарантировать себе схему.
+async def _payment_notification_loop():
+    """Deliver committed payment confirmations; retry only known send failures."""
+    while True:
+        try:
+            item = _payment_store.claim_notification()
+            if not item:
+                await asyncio.sleep(2)
+                continue
+            order_id = item["order_id"]
+            try:
+                delivered = notify_telegram(item["recipient_id"], (
+                    f"✅ <b>Оплата подтверждена!</b>\n\n"
+                    f"Заявка <b>#{order_id}</b> принята — выплата будет произведена в ближайшее время."
+                ))
+                if not delivered:
+                    raise RuntimeError("telegram_payment_notification_failed")
+            except Exception:
+                _payment_store.retry_notification(item["id"])
+                raise
+            if not _payment_store.mark_notification_sent(item["id"]):
+                logger.critical("Payment outbox %s sent but not marked sent", item["id"])
+        except Exception:
+            logger.exception("payment notification loop error")
+            await asyncio.sleep(2)
 
-    Фейл-клоуз: если миграция не применилась, создание заявки будет падать на
-    КАЖДОМ запросе. Лучше уронить старт сейчас (systemd Restart=always
-    перезапустит, и это видно в статусе юнита), чем тихо деградировать."""
-    needed = {
-        "network": "TEXT",
-        "agreed_rate": "REAL",            # курс с наценкой, показанный клиенту
-        "agreed_crypto_amount": "REAL",   # объём, обещанный клиенту
-        "agreed_at": "TEXT",
-        # Момент, когда чек клиента ушёл платёжному партнёру. Ставит
-        # core/receipts.py, а ЧИТАЮТ клиентские списки заявок: по этой отметке
-        # заявка называется «на проверке», а не «ждёт оплаты». В боевой базе
-        # колонка появилась миграцией вне репозитория — на свежей её не было бы,
-        # и вся история клиента падала бы на «no such column».
-        "receipt_sent_at": "TEXT",
-        "receipt_deadline": "TEXT",
-    }
-    # Куда клиенту уходят рубли за проданную крипту. До появления выплаты на
-    # карту способ был один (СБП руками) и жил в единственной колонке sbp_phone.
-    # Реквизит рельса Vertu — это тройка «банк + номер + ФИО», и хранить её
-    # надо целиком: половина тройки в момент выплаты означает отказ 422 уже
-    # после того, как крипта клиента у нас.
-    sell_needed = {
-        "payout_method": "TEXT",     # card | sbp
-        "payout_bank": "TEXT",       # код банка рельса (sber, t-bank, …)
-        "payout_details": "TEXT",    # номер карты либо телефон
-        "payout_name": "TEXT",       # ФИО получателя
-        "payout_provider": "TEXT",   # чем платили: vertu | manual
-        "payout_ref": "TEXT",        # platform_id выплаты у провайдера
-        "payout_status": "TEXT",     # его статус выплаты
-    }
-    with db_conn(5) as conn:
-        # Журнал одноразовых уведомлений: его читают и пишут оба процесса, а
-        # создавал — никто. Кто стартовал первым, тот и заводит схему.
-        conn.execute("CREATE TABLE IF NOT EXISTS sent_notifications ("
-                     " order_id INTEGER, event TEXT, PRIMARY KEY (order_id, event))")
-        # sell_orders — та же история: пишут оба процесса, создавала руками
-        # чья-то консоль. На свежей базе первая же заявка на продажу упала бы.
-        conn.execute("""CREATE TABLE IF NOT EXISTS sell_orders (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, currency TEXT,
-            crypto_amount REAL, rub_amount REAL, sbp_phone TEXT, receive_address TEXT,
-            status TEXT, tx_hash TEXT, created_at TEXT, updated_at TEXT)""")
-        cols = [r[1] for r in conn.execute("PRAGMA table_info(orders)").fetchall()]
-        for name, typ in needed.items():
-            if name not in cols:
-                conn.execute(f"ALTER TABLE orders ADD COLUMN {name} {typ}")
-                logger.info(f"Миграция: добавлена колонка orders.{name}")
-        sell_cols = [r[1] for r in conn.execute("PRAGMA table_info(sell_orders)").fetchall()]
-        for name, typ in sell_needed.items():
-            if name not in sell_cols:
-                conn.execute(f"ALTER TABLE sell_orders ADD COLUMN {name} {typ}")
-                logger.info(f"Миграция: добавлена колонка sell_orders.{name}")
-        conn.commit()
+def _dispatch_sell_settlement_notification():
+    """Deliver one committed sell completion; uncertain sends are not duplicated."""
+    item = _sell_settlement.claim_notification()
+    if not item:
+        return False
+    delivered = notify_telegram(item["recipient_id"], (
+        f"✅ <b>Заявка #{item['sell_id']} выполнена!</b>\n"
+        f"💰 {item['rub_amount']:,.2f} RUB зачислены — банк подтвердил перевод."))
+    if not delivered:
+        logger.warning("Sell settlement outbox %s remains claimed after uncertain send", item["id"])
+        return False
+    if not _sell_settlement.mark_notification_sent(item["id"]):
+        logger.critical("Sell settlement outbox %s sent but not marked sent", item["id"])
+        return False
+    return True
+
+async def _sell_settlement_notification_loop():
+    while True:
+        try:
+            if not _dispatch_sell_settlement_notification():
+                await asyncio.sleep(2)
+        except Exception:
+            logger.exception("sell settlement notification loop error")
+            await asyncio.sleep(2)
+
+def _mark_order_paid(order_id, provider: str, *, evidence: str,
+                     session_token: str | None = None):
+    """One entry point for verified provider/poll/manual confirmations."""
+    return _payment_store.mark_paid(int(order_id), provider=provider,
+                                    evidence=evidence, session_token=session_token)
 
 @asynccontextmanager
 async def lifespan(app):
-    _ensure_orders_columns()
+    # Bound every asyncio.to_thread/run_in_executor path independently of host
+    # CPU count. Repository methods open at most one short-lived DB connection
+    # per calling thread, so this is part of the enforced connection budget.
+    executor = ThreadPoolExecutor(
+        max_workers=RELAY_EXECUTOR_WORKERS,
+        thread_name_prefix="relay-io",
+    )
+    asyncio.get_running_loop().set_default_executor(executor)
+    # Runtime never owns DDL.  SQLite initialization and PostgreSQL migrations
+    # must complete first; a missing column stops startup before workers run.
+    _runtime_schema.validate()
+    if os.getenv("RELAY_BACKGROUND_TASKS_ENABLED", "1").strip().lower() not in {"1", "true", "yes"}:
+        logger.info("Background tasks disabled for isolated shadow runtime")
+        try:
+            yield
+        finally:
+            executor.shutdown(wait=True, cancel_futures=True)
+        return
     asyncio.create_task(_session_cleanup_loop())
+    asyncio.create_task(_payment_notification_loop())
+    asyncio.create_task(_sell_settlement_notification_loop())
     asyncio.create_task(cleanup_expired_orders())
     asyncio.create_task(health_check_task())
     asyncio.create_task(conversion_watch_task())
@@ -146,7 +200,10 @@ async def lifespan(app):
     asyncio.create_task(payout_shadow_task())
     asyncio.create_task(vertu_poll_task())
     logger.info("Background tasks started: cleanup + health_check + vertu_poll")
-    yield
+    try:
+        yield
+    finally:
+        executor.shutdown(wait=True, cancel_futures=True)
 
 app = FastAPI(title="ObsidianExchange Relay", version="3.0", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
@@ -220,31 +277,14 @@ except Exception as _e:
     logger.warning(f"log_redaction не подключён: {_e}")
 
 
-from contextlib import contextmanager, asynccontextmanager
-
-@contextmanager
-def db_conn(timeout=5):
-    conn = sqlite3.connect(DB_PATH, timeout=timeout)
-    try:
-        yield conn
-    finally:
-        conn.close()
-
 def site_context(request: Request, **extra):
     try:
-        with db_conn(3) as conn:
-            c = conn.cursor()
-            stats = c.execute("""
-                SELECT COUNT(*) as total,
-                       SUM(CASE WHEN status IN ('paid','sent') THEN 1 ELSE 0 END) as completed,
-                       SUM(CASE WHEN status IN ('paid','sent','failed') THEN 1 ELSE 0 END) as attempted
-                FROM orders
-            """).fetchone()
-            total_orders = stats[0] or 0
-            completed_orders = stats[1] or 0
-            attempted = stats[2] or 0
-            # Показываем успешность только среди тех, кто дошёл до конца
-            success_rate = round(completed_orders / max(attempted, 1) * 100, 1) if attempted > 0 else 99.2
+        stats = _reporting.site_stats()
+        total_orders = stats["total"]
+        completed_orders = stats["completed"]
+        attempted = stats["attempted"]
+        # Показываем успешность только среди тех, кто дошёл до конца
+        success_rate = round(completed_orders / max(attempted, 1) * 100, 1) if attempted > 0 else 99.2
     except Exception:
         total_orders, success_rate = 0, 99.2
     ctx = {
@@ -362,10 +402,7 @@ def _vip_tiers():
 # Функция аудита
 def audit_log(event, details=""):
     try:
-        with db_conn(5) as conn:
-            c = conn.cursor()
-            c.execute("INSERT INTO audit_log (event, details) VALUES (?, ?)", (event, str(details)))
-            conn.commit()
+        _ops_store.audit(event=event,details=str(details))
     except Exception as e:
         logger.error(f"Audit log error: {e}")
 
@@ -424,12 +461,9 @@ def verify_init_data(init_data: str, max_age: int = 86400):
         if not hmac.compare_digest(computed_hash, received_hash):
             return None
         # защита от протухшего/переигранного initData
-        try:
-            auth_date = int(parsed.get('auth_date', '0'))
-            if max_age and auth_date and (time.time() - auth_date) > max_age:
-                return None
-        except ValueError:
-            pass
+        from core.telegram_freshness import valid_auth_date
+        if not valid_auth_date(parsed.get('auth_date'), max_age=max_age):
+            return None
         user = json.loads(parsed.get('user', '{}'))
         if not user.get('id'):
             return None
@@ -453,18 +487,21 @@ def require_admin(request: Request):
 
 def notify_telegram(user_id, text, reply_markup=None):
     if not BOT_TOKEN:
-        return
+        return False
     try:
         payload = {"chat_id": user_id, "text": text, "parse_mode": "HTML"}
         if reply_markup:
             payload["reply_markup"] = reply_markup
-        requests.post(
+        response = requests.post(
             f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
             json=payload,
             timeout=10,
         )
+        response.raise_for_status()
+        return True
     except Exception as e:
         logger.error(f"notify_telegram error: {e}")
+        return False
 
 def notify_admins_tg(text, reply_markup=None):
     """Уведомление всем админам из ADMIN_IDS."""
@@ -474,88 +511,51 @@ def notify_admins_tg(text, reply_markup=None):
 # --- Личный кабинет: аутентификация ---
 
 def get_user_orders(web_user, limit=20):
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute("""
-            SELECT o.order_id, o.currency, o.rub_amount, o.status, o.created_at,
-                   o.crypto_address, o.paid_btc_tx, o.network, o.receipt_sent_at,
-                   (SELECT ps.session_token FROM payment_sessions ps
-                     WHERE ps.order_id=o.order_id AND ps.session_token IS NOT NULL
-                       AND ps.status NOT IN ('failed','expired')
-                     ORDER BY ps.created_at DESC LIMIT 1) AS session_token
-            FROM orders o
-            WHERE o.web_user_id = ? OR (? IS NOT NULL AND o.user_id = ?)
-            ORDER BY o.created_at DESC LIMIT ?
-        """, (web_user['id'], web_user['telegram_id'], web_user['telegram_id'], limit))
-        rows = c.fetchall()
-        # Отдельным запросом: order_receipts создаётся лениво, и на базе без неё
-        # JOIN уронил бы всю историю. Нет таблицы — считаем, что чеков нет.
-        try:
-            with_receipt = {r[0] for r in c.execute(
-                "SELECT order_id FROM order_receipts WHERE order_id IN ({})".format(
-                    ",".join("?" * len(rows))), [r[0] for r in rows]).fetchall()} if rows else set()
-        except Exception:
-            logger.warning("order_receipts недоступна при сборке истории кабинета")
-            with_receipt = set()
+    rows = _order_reads.web_customer_orders(
+        web_user_id=web_user['id'], user_id=web_user['telegram_id'], limit=limit)
+    # order_receipts создаётся лениво: нет таблицы — считаем, что чеков нет.
+    try:
+        with_receipt = _order_reads.receipt_order_ids(r["order_id"] for r in rows)
+    except Exception:
+        logger.warning("order_receipts недоступна при сборке истории кабинета")
+        with_receipt = set()
     delayed_ids = _delayed_ids()
     # Ссылку строит core.txid — своя копия карты здесь знала только три монеты,
     # и выполненная ETH/XRP-заявка показывала клиенту пустую кнопку.
     # receipt: заявка с ДОШЕДШИМ до партнёра чеком — «на проверке», а не
     # «оплатите». Кнопка оплаты на ней зовёт перевести деньги второй раз.
     return [
-        {"order_id": r[0], "currency": r[1], "rub_amount": r[2], "status": r[3], "created_at": r[4],
-         "crypto_address": r[5] or '', "txid": r[6] or '', "session_token": r[9] or '',
-         "receipt": ("sent" if (r[8] or '').strip() else "stored") if r[0] in with_receipt else "",
-         "delayed": (r[3] == 'paid' and r[0] in delayed_ids),
-         "tx_url": (_txid.explorer_url(r[1], r[6], r[7]) or '') if r[3] == 'sent' else ''}
+        {"order_id": r["order_id"], "currency": r["currency"], "rub_amount": r["rub_amount"],
+         "status": r["status"], "created_at": r["created_at"],
+         "crypto_address": r["crypto_address"] or '', "txid": r["paid_btc_tx"] or '',
+         "session_token": r["session_token"] or '',
+         "receipt": ("sent" if (r["receipt_sent_at"] or '').strip() else "stored") if r["order_id"] in with_receipt else "",
+         "delayed": (r["status"] == 'paid' and r["order_id"] in delayed_ids),
+         "tx_url": (_txid.explorer_url(r["currency"], r["paid_btc_tx"], r["network"]) or '') if r["status"] == 'sent' else ''}
         for r in rows
     ]
 
 def get_user_swaps(web_user, limit=20):
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute("""
-            SELECT session_token, coin_from, coin_to, amount_from, status, created_at
-            FROM swap_sessions
-            WHERE web_user_id = ? OR (? IS NOT NULL AND user_id = ?)
-            ORDER BY created_at DESC LIMIT ?
-        """, (web_user['id'], web_user['telegram_id'], web_user['telegram_id'], limit))
-        rows = c.fetchall()
-    return [
-        {"token": r[0], "coin_from": r[1], "coin_to": r[2], "amount_from": r[3], "status": r[4], "created_at": r[5]}
-        for r in rows
-    ]
+    return _swap_store.swaps_for_web_user(web_user_id=web_user['id'],
+                                           user_id=web_user['telegram_id'],limit=limit)
 
 def get_open_tickets_count(web_user):
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute("SELECT COUNT(*) FROM support_tickets WHERE web_user_id=? AND status != 'closed'", (web_user['id'],))
-        n = c.fetchone()[0]
-    return n
+    return _support_store.open_count_for_web_user(web_user['id'])
 
 def get_user_sell_orders(web_user, limit=20):
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        conditions = ["user_id = ?"]
-        params = [web_user['telegram_id'] if web_user['telegram_id'] else -web_user['id']]
-        c.execute(
-            f"SELECT id, currency, crypto_amount, rub_amount, sbp_phone, status, created_at,"
-            f" payout_method, payout_details, payout_bank FROM sell_orders"
-            f" WHERE {' OR '.join(conditions)} ORDER BY created_at DESC LIMIT ?",
-            params + [limit]
-        )
-        rows = c.fetchall()
+    user_id = web_user['telegram_id'] if web_user['telegram_id'] else -web_user['id']
+    rows = _sell_store.sells_for_user(user_id=user_id,limit=limit)
     # Реквизит выплаты разбирает core.sell_payout.target(): у старых заявок он
     # лежит в sbp_phone, у новых — в payout_details, и брать здесь одну колонку
     # значило бы показать клиенту пустое поле по заявке на карту.
     out = []
     for r in rows:
-        dst = _sell_payout.target({"payout_method": r[7], "payout_details": r[8],
-                                   "payout_bank": r[9], "sbp_phone": r[4]})
-        out.append({"id": r[0], "currency": r[1], "crypto_amount": r[2],
-                    "rub_amount": r[3], "sbp_phone": dst["shown"],
+        dst = _sell_payout.target({"payout_method": r["payout_method"], "payout_details": r["payout_details"],
+                                   "payout_bank": r["payout_bank"], "sbp_phone": r["sbp_phone"]})
+        out.append({"id": r["id"], "currency": r["currency"], "crypto_amount": r["crypto_amount"],
+                    "rub_amount": r["rub_amount"], "sbp_phone": dst["shown"],
                     "payout_label": _sell_payout.label(dst["method"]),
-                    "status": r[5], "created_at": r[6]})
+                    "status": r["status"], "created_at": r["created_at"]})
     return out
 
 @app.get("/register", response_class=HTMLResponse)
@@ -748,7 +748,7 @@ def _delayed_ids() -> set:
         return set()
 
 
-def _session_dead(order_id) -> bool:
+def _session_dead(order_id, *, user_id=None, session_token=None) -> bool:
     """Платёжная сессия закрыта провайдером, а заявка ещё ждёт оплаты.
 
     Ровно то состояние, в котором клиент смотрит на реквизиты, ведущие в никуда:
@@ -757,11 +757,9 @@ def _session_dead(order_id) -> bool:
     уже никто не ждёт.
     """
     try:
-        with db_conn(3) as conn:
-            row = conn.execute(
-                "SELECT status FROM payment_sessions WHERE order_id=? "
-                "ORDER BY id DESC LIMIT 1", (order_id,)).fetchone()
-        return bool(row) and (row[0] or "") == "failed"
+        row = _payment_sessions.latest_for_authorized_order(
+            int(order_id), user_id=user_id, session_token=session_token)
+        return bool(row) and (row.get("status") or "") == "failed"
     except Exception:
         return False
 
@@ -783,7 +781,7 @@ def _payout_delayed(order_id) -> bool:
         return False
 
 
-def _receipt_state(order_id) -> str:
+def _receipt_state(order_id, *, user_id=None, session_token=None) -> str:
     """Что мы знаем о чеке по этой заявке: '' | 'stored' | 'sent'.
 
     Различать обязательно, потому что обещать клиенту разное:
@@ -800,14 +798,8 @@ def _receipt_state(order_id) -> str:
     выдуманной «оплаты на проверке».
     """
     try:
-        with db_conn(3) as conn:
-            row = conn.execute(
-                "SELECT o.receipt_sent_at FROM order_receipts r "
-                "JOIN orders o ON o.order_id=r.order_id WHERE r.order_id=? LIMIT 1",
-                (order_id,)).fetchone()
-        if not row:
-            return ""
-        return "sent" if (row[0] or "").strip() else "stored"
+        return _receipts.authorized_state(
+            order_id, user_id=user_id, session_token=session_token)
     except Exception:
         logger.warning("order_receipts недоступна при проверке чека order=%s", order_id)
         return ""
@@ -990,17 +982,10 @@ async def dashboard_exchange_submit(
     # и UPDATE вернул бы пересчёт по свежему курсу при выплате).
     rate = exchange_calc.get_rate_with_markup(currency, amount)
     crypto_amount = round(amount / rate, 8) if rate else 0
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute(
-            "INSERT INTO orders (user_id, username, currency, rub_amount, crypto_address, status, "
-            "web_user_id, network, agreed_rate, agreed_crypto_amount, agreed_at) "
-            "VALUES (?,?,?,?,?,'pending',?,?,?,?,CURRENT_TIMESTAMP)",
-            (user_id, web_user['email'], currency, amount, address, web_user['id'], net,
-             float(rate or 0), float(crypto_amount or 0)),
-        )
-        conn.commit()
-        order_id = c.lastrowid
+    order_id = _order_store.create(
+        user_id=user_id, username=web_user['email'], currency=currency,
+        rub_amount=amount, destination=address, web_user_id=web_user['id'], network=net,
+        agreed_rate=float(rate or 0), agreed_crypto_amount=float(crypto_amount or 0))
 
     if ADMIN_ID:
         notify_admins_tg( (
@@ -1230,21 +1215,10 @@ def sell_order_create(user_id, currency: str, amount: float, phone: str, source:
         logger.error("продажа %s: метка платежа недоступна — заявку не заводим", cur)
         return None
 
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        # sbp_phone заполняется только для СБП: колонка легаси, и её читают
-        # старые места как «телефон». Номер карты, попавший туда, кто-нибудь
-        # однажды наберёт как телефон.
-        c.execute("""INSERT INTO sell_orders
-            (user_id, currency, crypto_amount, rub_amount, sbp_phone, receive_address,
-             payout_method, payout_bank, payout_details, payout_name,
-             status, created_at, updated_at)
-            VALUES (?,?,?,?,?,?,?,?,?,?,'pending',datetime('now'),datetime('now'))""",
-            (user_id, cur, amount, rub_amount,
-             details if method == _sell_payout.SBP else "", receive_addr,
-             method, bank, details, full_name))
-        conn.commit()
-        sell_id = c.lastrowid
+    sell_id = _sell_store.create(user_id=user_id,currency=cur,crypto_amount=amount,
+        rub_amount=rub_amount,sbp_phone=details if method==_sell_payout.SBP else '',
+        receive_address=receive_addr,payout_method=method,payout_bank=bank,
+        payout_details=details,payout_name=full_name)
 
     # Признак живой, а не проба: между пробой и этой строкой могло измениться
     # что угодно. Не вышло — заявку закрываем сразу, чтобы никто не переводил
@@ -1258,10 +1232,7 @@ def sell_order_create(user_id, currency: str, amount: float, phone: str, source:
             logger.error("Метка платежа для продажи #%s не собралась: %s", sell_id, e)
             marker = ""
         if not marker:
-            with db_conn(5) as conn:
-                conn.execute("UPDATE sell_orders SET status='cancelled',"
-                             " updated_at=datetime('now') WHERE id=?", (sell_id,))
-                conn.commit()
+            _sell_store.cancel_pending(sell_id)
             return None
 
     audit_log(f"{source}_sell_created", f"sell_id={sell_id} {who}")
@@ -1438,20 +1409,13 @@ async def api_create_order(request: Request):
 
     # Идемпотентность: повторный тап/ретрай с теми же параметрами за 90 с
     # возвращает уже созданную заявку, а не плодит дубли (и не жжёт rate-limit).
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute("""
-            SELECT o.order_id, ps.session_token FROM orders o
-            LEFT JOIN payment_sessions ps ON ps.order_id=o.order_id AND ps.status NOT IN ('failed','expired')
-            WHERE o.user_id=? AND o.currency=? AND o.rub_amount=? AND o.crypto_address=?
-              AND COALESCE(o.network, ?)=?
-              AND o.status='pending' AND o.created_at > datetime('now','-90 seconds')
-            ORDER BY o.created_at DESC LIMIT 1
-        """, (tg_id, currency, amount, address, _assets.default_network(currency), net))
-        dup = c.fetchone()
+    dup = _order_store.recent_duplicate(
+        user_id=tg_id, currency=currency, rub_amount=amount, destination=address,
+        default_network=_assets.default_network(currency), network=net)
     if dup:
-        dup_url = f"{PUBLIC_RELAY}/pay/{dup[1]}" if dup[1] else f"{PUBLIC_RELAY}/pay/{dup[0]}"
-        return {"ok": True, "order_id": dup[0], "payment_url": dup_url,
+        dup_url = (f"{PUBLIC_RELAY}/pay/{dup['session_token']}" if dup['session_token']
+                   else f"{PUBLIC_RELAY}/pay/{dup['order_id']}")
+        return {"ok": True, "order_id": dup['order_id'], "payment_url": dup_url,
                 "currency": currency, "duplicate": True}
 
     if not _check_order_rate(tg_id):
@@ -1460,17 +1424,10 @@ async def api_create_order(request: Request):
     # Котировка — тем же INSERT, что и заявка (см. комментарий в форме кабинета)
     rate = exchange_calc.get_rate_with_markup(currency, amount)
     crypto_amount = round(amount / rate, 8) if rate else 0
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute(
-            "INSERT INTO orders (user_id, username, currency, rub_amount, crypto_address, status, "
-            "network, agreed_rate, agreed_crypto_amount, agreed_at) "
-            "VALUES (?,?,?,?,?,'pending',?,?,?,CURRENT_TIMESTAMP)",
-            (tg_id, username, currency, amount, address, net,
-             float(rate or 0), float(crypto_amount or 0)),
-        )
-        conn.commit()
-        order_id = c.lastrowid
+    order_id = _order_store.create(
+        user_id=tg_id, username=username, currency=currency, rub_amount=amount,
+        destination=address, network=net, agreed_rate=float(rate or 0),
+        agreed_crypto_amount=float(crypto_amount or 0))
 
     payment_url = f"{PUBLIC_RELAY}/pay/{order_id}"
     qr_image = None
@@ -1636,14 +1593,11 @@ async def dashboard_swap_submit(
         ), status_code=400)
 
     user_id = web_user['telegram_id'] if web_user['telegram_id'] else -web_user['id']
-    with db_conn(5) as conn:
-        conn.execute(
-            "INSERT INTO swap_sessions (session_token, user_id, coin_from, coin_to, amount_from, address_to, trocador_id, trocador_url, status, web_user_id, provider, deposit_address) "
-            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-            (token, user_id, coin_from, coin_to, amount, address, result['uid'], result['url'], 'waiting', web_user['id'], 'swapuz', result['deposit_address']),
-        )
-        conn.commit()
-    audit_log("web_swap_created", f"token={token} web_user_id={web_user['id']} provider=swapuz")
+    _swap_store.create(token=token,user_id=user_id,coin_from=coin_from,coin_to=coin_to,
+                       amount_from=amount,address_to=address,external_id=result['uid'],
+                       external_url=result['url'],status='waiting',web_user_id=web_user['id'],
+                       provider='swapuz',deposit_address=result['deposit_address'])
+    audit_log("web_swap_created", f"web_user_id={web_user['id']} provider=swapuz")
 
     return RedirectResponse(f"/swap/{token}", status_code=302)
 
@@ -1658,11 +1612,9 @@ async def dashboard_referral_page(request: Request):
     stats = {"referrals": 0, "total_bonus_btc": 0}
     if web_user['telegram_id']:
         ref_link = f"https://t.me/{BOT_USERNAME}?start=ref_{web_user['telegram_id']}"
-        with db_conn(5) as conn:
-            c = conn.cursor()
-            c.execute("SELECT COUNT(*), SUM(total_bonus_btc) FROM referrals WHERE referrer_id=?", (web_user['telegram_id'],))
-            row = c.fetchone()
-        stats = {"referrals": row[0] or 0, "total_bonus_btc": row[1] or 0}
+        referral_stats = _engagement.referral_stats(web_user['telegram_id'])
+        stats = {"referrals": referral_stats["referrals"],
+                 "total_bonus_btc": referral_stats["total_bonus_btc"]}
     return templates.TemplateResponse(request, "dashboard_referral.html", site_context(
         request, active="referral", ref_link=ref_link, stats=stats,
     ))
@@ -1674,11 +1626,8 @@ async def dashboard_profile_page(request: Request):
         return RedirectResponse("/login", status_code=302)
     ref_address = None
     if web_user['telegram_id']:
-        with db_conn(5) as conn:
-            c = conn.cursor()
-            c.execute("SELECT address FROM referral_addresses WHERE user_id=? AND currency='BTC'", (web_user['telegram_id'],))
-            row = c.fetchone()
-        ref_address = row[0] if row else None
+        ref_address = _user_profiles.referral_address(
+            user_id=web_user['telegram_id'], currency='BTC')
     # Подключённый кошелёк виден и здесь — но только владельцу аккаунта, у
     # которого привязан Telegram: связь кошелька живёт на telegram_id, там же
     # доказано владение. Без привязки честно показываем «подключается в
@@ -1739,9 +1688,7 @@ async def dashboard_profile_referral_address(request: Request, csrf_token: str =
     address = address.strip()
     if not exchange_calc.validate_crypto_address(address, 'BTC'):
         return RedirectResponse("/dashboard/profile?error=address", status_code=302)
-    with db_conn(5) as conn:
-        conn.execute("INSERT OR REPLACE INTO referral_addresses (user_id, currency, address) VALUES (?, 'BTC', ?)", (web_user['telegram_id'], address))
-        conn.commit()
+    _user_profiles.set_referral_address(user_id=web_user['telegram_id'],currency='BTC',address=address)
     return RedirectResponse("/dashboard/profile?success=address", status_code=302)
 
 @app.get("/dashboard/profile/2fa", response_class=HTMLResponse)
@@ -1752,14 +1699,22 @@ async def dashboard_2fa_page(request: Request):
     user_full = auth.get_user_by_id(web_user['id'])
     new_secret = auth.generate_totp_secret()
     totp_uri = auth.get_totp_uri(new_secret, web_user['email'])
-    return templates.TemplateResponse(request, "dashboard_2fa.html", site_context(
+    qr = qrcode.make(totp_uri)
+    qr_buf = BytesIO()
+    qr.save(qr_buf, format="PNG")
+    qr_data_uri = "data:image/png;base64," + base64.b64encode(qr_buf.getvalue()).decode("ascii")
+    response = templates.TemplateResponse(request, "dashboard_2fa.html", site_context(
         request, active="profile",
         totp_enabled=user_full.get('totp_enabled', False),
         new_secret=new_secret,
-        totp_uri=totp_uri,
+        qr_data_uri=qr_data_uri,
         error=request.query_params.get('error'),
         success=request.query_params.get('success'),
     ))
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    return response
 
 @app.post("/dashboard/profile/2fa/enable")
 async def dashboard_2fa_enable(
@@ -1824,30 +1779,9 @@ async def dashboard_password_submit(
         return RedirectResponse("/dashboard/profile/password?error=too_short", status_code=302)
     if new_password != new_password2:
         return RedirectResponse("/dashboard/profile/password?error=mismatch", status_code=302)
-    with db_conn(5) as conn:
-        conn.execute("UPDATE web_users SET password_hash=? WHERE id=?",
-                     (auth.hash_password(new_password), web_user['id']))
-        conn.commit()
+    auth.set_password_hash(web_user['id'], auth.hash_password(new_password))
     audit_log("web_password_changed", f"user_id={web_user['id']}")
     return RedirectResponse("/dashboard/profile/password?success=1", status_code=302)
-
-@app.get("/dashboard/profile/2fa/qr.png")
-async def dashboard_2fa_qr(request: Request, secret: str = None):
-    web_user = auth.get_web_user(request)
-    if not web_user:
-        raise HTTPException(status_code=401)
-    if not secret or len(secret) < 16:
-        raise HTTPException(status_code=400)
-    # Разрешаем только base32-символы
-    if not re.match(r'^[A-Z2-7]{16,64}$', secret.upper()):
-        raise HTTPException(status_code=400)
-    totp_uri = auth.get_totp_uri(secret.upper(), web_user['email'])
-    img = qrcode.make(totp_uri)
-    buf = BytesIO()
-    img.save(buf, format="PNG")
-    buf.seek(0)
-    return Response(content=buf.read(), media_type="image/png",
-                    headers={"Cache-Control": "no-store, no-cache, must-revalidate"})
 
 @app.get("/auth/telegram/callback")
 async def telegram_login_callback(request: Request):
@@ -1859,13 +1793,10 @@ async def telegram_login_callback(request: Request):
         return RedirectResponse("/dashboard/profile?error=telegram", status_code=302)
     telegram_id = int(data['id'])
     telegram_username = data.get('username')
-    with db_conn(5) as conn:
-        try:
-            conn.execute("UPDATE web_users SET telegram_id=?, telegram_username=? WHERE id=?", (telegram_id, telegram_username, web_user['id']))
-            conn.commit()
-        except sqlite3.IntegrityError:
-            conn.close()
-            return RedirectResponse("/dashboard/profile?error=taken", status_code=302)
+    try:
+        auth.link_telegram(web_user['id'], telegram_id, telegram_username)
+    except auth.DuplicateIdentityError:
+        return RedirectResponse("/dashboard/profile?error=taken", status_code=302)
     audit_log("web_telegram_linked", f"web_user_id={web_user['id']} telegram_id={telegram_id}")
     return RedirectResponse("/dashboard/profile?success=telegram", status_code=302)
 
@@ -1876,10 +1807,7 @@ async def dashboard_support_page(request: Request):
     web_user = auth.get_web_user(request)
     if not web_user:
         return RedirectResponse("/login", status_code=302)
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute("SELECT id, subject, status, created_at, updated_at FROM support_tickets WHERE web_user_id=? ORDER BY updated_at DESC", (web_user['id'],))
-        tickets = [{"id": r[0], "subject": r[1], "status": r[2], "created_at": r[3], "updated_at": r[4]} for r in c.fetchall()]
+    tickets = _support_store.list_for_web_user(web_user['id'])
     return templates.TemplateResponse(request, "dashboard_support.html", site_context(
         request, active="support", tickets=tickets,
     ))
@@ -1895,12 +1823,8 @@ async def dashboard_support_create(request: Request, csrf_token: str = Form(...)
     message = message.strip()
     if not subject or not message:
         return RedirectResponse("/dashboard/support?error=empty", status_code=302)
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute("INSERT INTO support_tickets (web_user_id, subject, status) VALUES (?,?,'open')", (web_user['id'], subject))
-        ticket_id = c.lastrowid
-        c.execute("INSERT INTO support_messages (ticket_id, sender, message) VALUES (?, 'user', ?)", (ticket_id, message))
-        conn.commit()
+    ticket_id = _support_store.create(web_user_id=web_user['id'], subject=subject,
+                                      message=message)
     audit_log("web_support_ticket_created", f"ticket_id={ticket_id} web_user_id={web_user['id']}")
     if ADMIN_ID:
         notify_admins_tg( f"💬 Новое обращение #{ticket_id} от {web_user['email']}\nТема: {subject}")
@@ -1911,18 +1835,12 @@ async def dashboard_support_ticket_page(request: Request, ticket_id: int):
     web_user = auth.get_web_user(request)
     if not web_user:
         return RedirectResponse("/login", status_code=302)
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute("SELECT id, subject, status FROM support_tickets WHERE id=? AND web_user_id=?", (ticket_id, web_user['id']))
-        ticket = c.fetchone()
-        if not ticket:
-            conn.close()
-            raise HTTPException(status_code=404)
-        c.execute("SELECT sender, message, created_at FROM support_messages WHERE ticket_id=? ORDER BY created_at ASC, id ASC", (ticket_id,))
-        messages = [{"sender": r[0], "message": r[1], "created_at": r[2]} for r in c.fetchall()]
+    thread = _support_store.thread_for_web_user(ticket_id=ticket_id,web_user_id=web_user['id'])
+    if not thread:
+        raise HTTPException(status_code=404)
     return templates.TemplateResponse(request, "dashboard_support_ticket.html", site_context(
         request, active="support",
-        ticket={"id": ticket[0], "subject": ticket[1], "status": ticket[2]}, messages=messages,
+        ticket=thread["ticket"], messages=thread["messages"],
     ))
 
 @app.post("/dashboard/support/{ticket_id}/reply")
@@ -1933,19 +1851,16 @@ async def dashboard_support_reply(request: Request, ticket_id: int, csrf_token: 
     if not auth.verify_csrf(web_user, csrf_token):
         raise HTTPException(status_code=403, detail="invalid csrf")
     message = message.strip()
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute("SELECT id, status FROM support_tickets WHERE id=? AND web_user_id=?", (ticket_id, web_user['id']))
-        ticket = c.fetchone()
+    if message:
+        ticket = _support_store.user_reply(ticket_id=ticket_id, web_user_id=web_user['id'],
+                                           message=message)
         if not ticket:
-            conn.close()
             raise HTTPException(status_code=404)
-        if message:
-            c.execute("INSERT INTO support_messages (ticket_id, sender, message) VALUES (?, 'user', ?)", (ticket_id, message))
-            c.execute("UPDATE support_tickets SET status='open', updated_at=datetime('now') WHERE id=?", (ticket_id,))
-            conn.commit()
-            if ADMIN_ID:
-                notify_admins_tg( f"💬 Новое сообщение в обращении #{ticket_id} от {web_user['email']}")
+        if ADMIN_ID:
+            notify_admins_tg( f"💬 Новое сообщение в обращении #{ticket_id} от {web_user['email']}")
+    else:
+        if not _support_store.exists_for_web_user(ticket_id=ticket_id,web_user_id=web_user['id']):
+            raise HTTPException(status_code=404)
     return RedirectResponse(f"/dashboard/support/{ticket_id}", status_code=302)
 
 # --- Публичный сайт ---
@@ -2310,11 +2225,11 @@ async def rates_xml_export():
     таблицы reserves (/setreserve в боте), пока пусто — отдаём 0."""
     if _rates_xml_cache["xml"] and time.time() - _rates_xml_cache["ts"] < 60:
         return Response(content=_rates_xml_cache["xml"], media_type="application/xml")
-    with db_conn(5) as conn:
-        try:
-            reserves = dict(conn.execute("SELECT currency, amount FROM reserves").fetchall())
-        except Exception:
-            reserves = {}
+    try:
+        from repositories.reporting_store import from_environment as _reporting_store
+        reserves = dict(_reporting_store(sqlite_path=DB_PATH).reserves())
+    except Exception:
+        reserves = {}
     # Коды направлений в номенклатуре BestChange. USDT-ERC20 и ETH публикуем
     # только когда направление открыто — агрегатор не должен звать клиентов
     # на монету, которую мы не выдаём.
@@ -2363,27 +2278,15 @@ async def rates_xml_export():
 
 @app.get("/api/stats/public")
 async def api_stats_public():
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute("SELECT COUNT(*) FROM orders WHERE date(created_at)=? AND status='sent'", (datetime.now().strftime("%Y-%m-%d"),))
-        sent_today = c.fetchone()[0]
-        c.execute("SELECT COUNT(*), COALESCE(SUM(rub_amount),0) FROM orders WHERE status='sent'")
-        total_cnt, total_vol = c.fetchone()
-        c.execute("SELECT COALESCE(SUM(rub_amount),0) FROM orders WHERE status='sent' AND created_at > datetime('now','-1 day')")
-        vol_24h = c.fetchone()[0]
-    return {"exchanges_today": sent_today, "exchanges_total": total_cnt,
-            "volume_24h": vol_24h, "volume_total": total_vol}
+    from repositories.reporting_store import from_environment as _reporting_store
+    return _reporting_store(sqlite_path=DB_PATH).public_stats()
 
 @app.get("/api/reserves")
 async def api_reserves():
     """Курируемые резервы (задаются админом через /setreserve), НЕ баланс кошелька."""
     from utils import exchange_calc
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute("""CREATE TABLE IF NOT EXISTS reserves (
-            currency TEXT PRIMARY KEY, amount REAL NOT NULL DEFAULT 0,
-            updated_at TEXT DEFAULT CURRENT_TIMESTAMP)""")
-        rows = c.execute("SELECT currency, amount FROM reserves WHERE amount > 0 ORDER BY currency").fetchall()
+    from repositories.reporting_store import from_environment as _reporting_store
+    rows = _reporting_store(sqlite_path=DB_PATH).reserves(positive_only=True)
     out = []
     for cur, amt in rows:
         if cur == 'RUB':
@@ -2393,7 +2296,8 @@ async def api_reserves():
                 rate = exchange_calc.get_cached_rate(cur) or 0
             except Exception:
                 rate = 0
-        out.append({"currency": cur, "amount": amt, "rub_value": round(amt * rate) if rate else None})
+        rub_value = round(float(amt) * float(rate)) if rate else None
+        out.append({"currency": cur, "amount": amt, "rub_value": rub_value})
     # hot_wallet НЕ отдаём здесь: публичный эндпоинт. Живой баланс/адрес кошелька —
     # только в админ-поверхности (analytics_data, бот /wallet). OPSEC: без сырого баланса.
     return {"reserves": out}
@@ -2581,6 +2485,158 @@ async def api_wallet_links(request: Request):
         return {"wallets": wallets}
 
 
+@app.get("/api/wallet/service-modes")
+async def api_wallet_service_modes(request: Request):
+    """Два явно разделённых маршрута: наш non-KYC и внешние KYC-биржи.
+
+    Это продуктовый контракт, а не переключатель комплаенса: выбор внешней
+    биржи не меняет правила ObsidianExchange и не передаёт ей данные клиента.
+    """
+    user = verify_init_data(request.headers.get('X-Telegram-Init-Data', ''))
+    if not user:
+        raise HTTPException(status_code=403, detail="Откройте приложение через бота Telegram.")
+    from core.wallet_modes import public_modes
+    return public_modes()
+
+
+def _connector_web_user(request: Request):
+    """Resolve a browser identity to one canonical web user; never trust owner input."""
+    web_user = auth.get_web_user(request)
+    if web_user:
+        return web_user
+    telegram_user = verify_init_data(
+        request.headers.get('X-Telegram-Init-Data', ''), max_age=300)
+    if not telegram_user:
+        return None
+    return auth.get_user_by_telegram_id(int(telegram_user['id']))
+
+
+@app.get("/api/wallet/cex-sources")
+async def api_wallet_cex_sources(request: Request):
+    """Owner-scoped CEX metadata; unlinked Telegram identities are rejected."""
+    web_user = _connector_web_user(request)
+    if not web_user:
+        raise HTTPException(status_code=403, detail="Войдите в кабинет и привяжите Telegram.")
+    from core.kairos_service_identity import principal_for_web_user, signed_get
+    principal = principal_for_web_user(web_user['id'])
+    try:
+        result = await asyncio.to_thread(
+            signed_get, "/internal/v1/connectors", principal=principal,
+            scope="connectors:read", timeout=5.0)
+    except Exception as exc:
+        logger.warning("KAIROS connector list unavailable: %s", type(exc).__name__)
+        raise HTTPException(status_code=503, detail="CEX-портфель временно недоступен.")
+    items = result.get("items") if isinstance(result, dict) else None
+    if result.get("schemaVersion") != "connector-list.v1" or not isinstance(items, list):
+        raise HTTPException(status_code=503, detail="Контракт CEX-портфеля не подтверждён.")
+    return {"schemaVersion": "connector-list.v1", "sources": items}
+
+
+@app.get("/api/wallet/cex-events")
+async def api_wallet_cex_events(request: Request):
+    """Sanitized lifecycle history for the authenticated connector owner."""
+    web_user = _connector_web_user(request)
+    if not web_user:
+        raise HTTPException(status_code=403, detail="Войдите в кабинет и привяжите Telegram.")
+    from core.kairos_service_identity import principal_for_web_user, signed_get
+    principal = principal_for_web_user(web_user['id'])
+    try:
+        result = await asyncio.to_thread(
+            signed_get, "/internal/v1/connector-events", principal=principal,
+            scope="connectors:read", timeout=5.0)
+    except Exception as exc:
+        logger.warning("KAIROS connector events unavailable: %s", type(exc).__name__)
+        raise HTTPException(status_code=503, detail="История подключений временно недоступна.")
+    items = result.get("items") if isinstance(result, dict) else None
+    retention_days = result.get("retentionDays") if isinstance(result, dict) else None
+    max_events = result.get("maxStoredEvents") if isinstance(result, dict) else None
+    if retention_days != 90 or max_events != 1000:
+        raise HTTPException(status_code=503, detail="Политика хранения истории не подтверждена.")
+    return {
+        "schemaVersion": "connector-events.v1", "retentionDays": retention_days,
+        "maxStoredEvents": max_events, "events": items if isinstance(items, list) else [],
+    }
+
+
+@app.delete("/api/wallet/cex-sources/{source_id}")
+async def api_wallet_cex_disconnect(request: Request, source_id: str):
+    """Owner-scoped credential revocation; no connector can be selected by owner input."""
+    web_user = _connector_web_user(request)
+    if not web_user:
+        raise HTTPException(status_code=403, detail="Войдите в кабинет и привяжите Telegram.")
+    if not re.fullmatch(r"src_[A-Za-z0-9_]{16,64}", source_id or ""):
+        raise HTTPException(status_code=404, detail="Подключение не найдено.")
+    body = await json_object(request)
+    if set(body) != {"confirm"} or body.get("confirm") != "DISCONNECT":
+        raise HTTPException(status_code=400, detail="Требуется явное подтверждение отключения.")
+    from core.kairos_service_identity import principal_for_web_user, signed_request
+    principal = principal_for_web_user(web_user['id'])
+    try:
+        result = await asyncio.to_thread(
+            signed_request, "DELETE", f"/internal/v1/connectors/{source_id}",
+            principal=principal, scope="connectors:write", timeout=5.0)
+    except requests.HTTPError as exc:
+        status = getattr(exc.response, "status_code", 0)
+        if status == 404:
+            raise HTTPException(status_code=404, detail="Подключение не найдено.")
+        logger.warning("KAIROS connector disconnect rejected: %s", status or "unknown")
+        raise HTTPException(status_code=503, detail="Не удалось безопасно отключить биржу.")
+    except Exception as exc:
+        logger.warning("KAIROS connector disconnect unavailable: %s", type(exc).__name__)
+        raise HTTPException(status_code=503, detail="Не удалось безопасно отключить биржу.")
+    item = result.get("item") if isinstance(result, dict) else None
+    if not isinstance(item, dict) or item.get("source", {}).get("state") != "REVOKED":
+        raise HTTPException(status_code=503, detail="Отключение ещё не подтверждено.")
+    return {"schemaVersion": "cex-disconnect.v1", "status": "revoked", "sourceId": source_id}
+
+
+@app.get("/api/wallet/portfolio")
+async def api_wallet_portfolio(request: Request):
+    """Fail-soft normalized view across self, Obsidian and external CEX custody."""
+    web_user = _connector_web_user(request)
+    if not web_user:
+        raise HTTPException(status_code=403, detail="Войдите в кабинет и привяжите Telegram.")
+    from core import wallet_link as _wl
+    from core.kairos_service_identity import principal_for_web_user, signed_get
+    from core.unified_portfolio import aggregate
+
+    telegram_id = web_user['telegram_id']
+    wallet_task = asyncio.to_thread(_wl.balances_for, int(telegram_id)) if telegram_id else None
+    order_task = asyncio.to_thread(get_user_orders, web_user, 50)
+    principal = principal_for_web_user(web_user['id'])
+    cex_task = asyncio.to_thread(
+        signed_get, "/internal/v1/connectors", principal=principal,
+        scope="connectors:read", timeout=5.0)
+    wallets_result, orders_result, cex_result = await asyncio.gather(
+        wallet_task if wallet_task else asyncio.sleep(0, result=[]),
+        order_task, cex_task, return_exceptions=True)
+    wallets = [] if isinstance(wallets_result, Exception) else wallets_result
+    orders = [] if isinstance(orders_result, Exception) else orders_result
+    cex_available = isinstance(cex_result, dict)
+    cex_items = cex_result.get("items", []) if cex_available else []
+    if isinstance(wallets_result, Exception):
+        logger.warning("Wallet portfolio lane unavailable: %s", type(wallets_result).__name__)
+    if isinstance(orders_result, Exception):
+        logger.warning("Exchange portfolio lane unavailable: %s", type(orders_result).__name__)
+    if not cex_available:
+        logger.warning("CEX portfolio lane unavailable: %s", type(cex_result).__name__)
+    return aggregate(
+        wallets=wallets, exchange_orders=orders, cex_items=cex_items,
+        cex_available=cex_available,
+        wallet_available=not isinstance(wallets_result, Exception),
+        exchange_available=not isinstance(orders_result, Exception))
+
+
+@app.get("/api/wallet/market")
+async def api_wallet_market(request: Request):
+    """Read-only цены KAIROS; не принимает ключи и не создаёт сделки."""
+    user = verify_init_data(request.headers.get('X-Telegram-Init-Data', ''))
+    if not user:
+        raise HTTPException(status_code=403, detail="Откройте приложение через бота Telegram.")
+    from core.market_gateway import public_market
+    return await asyncio.to_thread(public_market)
+
+
 @app.get("/api/wallet/history")
 async def api_wallet_history(request: Request):
     """История операций подключённого кошелька.
@@ -2737,35 +2793,30 @@ async def api_sell_pending(request: Request):
     if not user:
         raise HTTPException(status_code=403, detail="Откройте приложение через бота Telegram.")
     uid = int(user['id'])
-    with db_conn(5) as conn:
-        rows = conn.execute(
-            "SELECT id, currency, crypto_amount, rub_amount, sbp_phone, receive_address,"
-            " created_at, payout_method, payout_details, payout_bank FROM sell_orders"
-            " WHERE user_id=? AND status='pending' ORDER BY id DESC LIMIT 10",
-            (uid,)).fetchall()
+    rows = _sell_store.pending_view_for_user(user_id=uid,status='pending',limit=10)
     items = []
     for r in rows:
-        cur = (r[1] or "").upper()
+        cur = (r["currency"] or "").upper()
         marker = ""
         if _sell_assets.can_mark(cur):
             try:
                 from core import wallet_send as _ws
-                marker = _ws.marker_for(r[0])
+                marker = _ws.marker_for(r["id"])
             except Exception:
                 marker = ""
         # Реквизит — через общий разбор: у заявки на карту sbp_phone пуст, и
         # клиент увидел бы «выплата на » с пустотой после предлога.
-        dst = _sell_payout.target({"payout_method": r[7], "payout_details": r[8],
-                                   "payout_bank": r[9], "sbp_phone": r[4]})
+        dst = _sell_payout.target({"payout_method": r["payout_method"], "payout_details": r["payout_details"],
+                                   "payout_bank": r["payout_bank"], "sbp_phone": r["sbp_phone"]})
         items.append({
-            "sell_id": r[0], "currency": cur, "amount": float(r[2] or 0),
-            "rub": float(r[3] or 0), "phone": dst["shown"], "address": r[5] or "",
+            "sell_id": r["id"], "currency": cur, "amount": float(r["crypto_amount"] or 0),
+            "rub": float(r["rub_amount"] or 0), "phone": dst["shown"], "address": r["receive_address"] or "",
             "method_label": _sell_payout.label(dst["method"]),
             "bank": _sell_payout.bank_label(dst["bank"]),
-            "marker": marker, "created_at": r[6],
+            "marker": marker, "created_at": r["created_at"],
             # Сеть считается по адресу САМОЙ заявки, а не по сегодняшней
             # настройке: адрес приёма мог смениться после её создания.
-            "network": (_sell_assets.network_of(cur, r[5] or "")
+            "network": (_sell_assets.network_of(cur, r["receive_address"] or "")
                         if len(_assets.networks_for(cur)) > 1 else None),
             "manual": _sell_assets.needs_manual_check(cur),
         })
@@ -2917,37 +2968,25 @@ async def api_history(request: Request):
     if not user:
         raise HTTPException(status_code=403, detail="Откройте приложение через бота Telegram.")
     uid = int(user['id'])
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute("""
-            SELECT o.order_id, o.rub_amount, o.currency, o.status, o.created_at,
-                   ps.session_token, o.paid_btc_tx, o.network, o.receipt_sent_at
-            FROM orders o
-            LEFT JOIN payment_sessions ps ON ps.order_id = o.order_id
-                AND ps.status NOT IN ('failed','expired')
-            WHERE o.user_id=?
-            ORDER BY o.created_at DESC LIMIT 30
-        """, (uid,))
-        rows = c.fetchall()
-        # Отдельным запросом, а не EXISTS в основном: order_receipts создаётся
-        # лениво, и на базе без неё JOIN уронил бы ВСЮ историю клиента.
-        try:
-            with_receipt = {r[0] for r in c.execute(
-                "SELECT order_id FROM order_receipts WHERE order_id IN "
-                "(SELECT order_id FROM orders WHERE user_id=?)", (uid,)).fetchall()}
-        except Exception:
-            logger.warning("order_receipts недоступна при сборке истории user=%s", uid)
-            with_receipt = set()
+    rows = _order_reads.customer_orders(uid, limit=30)
+    # Отдельным запросом, а не EXISTS в основном: нет таблицы чеков — история
+    # остаётся доступной и честно показывает отсутствие receipt metadata.
+    try:
+        with_receipt = _order_reads.receipt_order_ids(r["order_id"] for r in rows)
+    except Exception:
+        logger.warning("order_receipts недоступна при сборке истории user=%s", uid)
+        with_receipt = set()
     delayed_ids = _delayed_ids()
     # tx_url считает сервер (core.txid): у Mini App была своя карта обозревателей
     # на четыре монеты — XRP-заявка оставалась вообще без ссылки.
     # receipt: заявка с ДОШЕДШИМ до партнёра чеком — это НЕ «ждём вашу оплату».
     # Клиент уже заплатил, и звать его «💳 Оплатить» — путь к двойному переводу.
-    return [{"order_id": r[0], "amount": r[1], "currency": r[2], "status": r[3],
-             "created": r[4], "session_token": r[5], "txid": r[6],
-             "receipt": ("sent" if (r[8] or '').strip() else "stored") if r[0] in with_receipt else "",
-             "delayed": (r[3] == 'paid' and r[0] in delayed_ids),
-             "tx_url": _txid.explorer_url(r[2], r[6], r[7]) or ""} for r in rows]
+    return [{"order_id": r["order_id"], "amount": r["rub_amount"], "currency": r["currency"],
+             "status": r["status"], "created": r["created_at"],
+             "session_token": r["session_token"], "txid": r["paid_btc_tx"],
+             "receipt": ("sent" if (r["receipt_sent_at"] or '').strip() else "stored") if r["order_id"] in with_receipt else "",
+             "delayed": (r["status"] == 'paid' and r["order_id"] in delayed_ids),
+             "tx_url": _txid.explorer_url(r["currency"], r["paid_btc_tx"], r["network"]) or ""} for r in rows]
 
 @app.get("/api/referral_stats")
 async def api_referral(request: Request):
@@ -2956,74 +2995,57 @@ async def api_referral(request: Request):
     if not user:
         raise HTTPException(status_code=403, detail="Откройте приложение через бота Telegram.")
     uid = int(user['id'])
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute("SELECT COUNT(*), COALESCE(SUM(total_bonus_btc),0) FROM referrals WHERE referrer_id=?", (uid,))
-        cnt, bonus_btc = c.fetchone()
-        # Активные — приглашённые, совершившие хотя бы один выполненный обмен
-        c.execute("""SELECT COUNT(DISTINCT r.referred_id) FROM referrals r
-                     JOIN orders o ON o.user_id = r.referred_id AND o.status = 'sent'
-                     WHERE r.referrer_id = ?""", (uid,))
-        active = c.fetchone()[0]
+    stats = _engagement.referral_stats(uid)
     btc_rate = exchange_calc.get_cached_rate('BTC') or 0
-    bonus_btc = round(bonus_btc or 0, 8)
+    bonus_btc = round(stats["total_bonus_btc"] or 0, 8)
     bonus_rub = round(bonus_btc * btc_rate) if btc_rate else None
-    return {"referrals": cnt or 0, "active": active or 0,
+    return {"referrals": stats["referrals"], "active": stats["active"],
             "total_bonus_btc": bonus_btc, "bonus_rub": bonus_rub,
             "bonus_percent": REFERRAL_BONUS_PERCENT}
 
 @app.get("/api/order/{order_id}")
 async def api_order(order_id: int, request: Request):
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute("SELECT status, paid_btc_tx, user_id, verification_requested, currency, network "
-                  "FROM orders WHERE order_id=?", (order_id,))
-        row = c.fetchone()
-    if not row:
-        raise HTTPException(status_code=404)
-    status, txid, owner_id, verification = row[0], row[1], row[2], (row[3] or '')
-    currency, network = row[4], row[5]
-
     # Защита от IDOR/энумерации: статус заявки виден только владельцу.
     # Доказательство владения — подпись initData Mini App ИЛИ session_token заявки
     # (для web /pay). Иначе 404 (не раскрываем существование заявки).
     user = verify_init_data(request.headers.get('X-Telegram-Init-Data', ''))
-    authorized = bool(user and owner_id is not None and int(user['id']) == int(owner_id))
+    authority_user_id = int(user['id']) if user else None
+    # A verified Telegram subject is the stronger authority. Do not let a
+    # simultaneously supplied bearer token switch the request to another
+    # owner's order (confused-deputy/account-switch ambiguity).
+    authority_token = (request.query_params.get('token', '').strip() or None) if user is None else None
     # Внутренний server-to-server ключ (бот → /api/order?key=RELAY_SECRET)
-    if not authorized:
+    if authority_user_id is None:
         key = request.query_params.get('key', '')
         if key and SECRET_KEY and SECRET_KEY != 'fallback' and hmac.compare_digest(key, SECRET_KEY):
-            authorized = True
-    if not authorized:
-        token = request.query_params.get('token', '')
-        if token:
-            with db_conn(5) as conn:
-                c = conn.cursor()
-                c.execute("SELECT 1 FROM payment_sessions WHERE order_id=? AND session_token=? LIMIT 1",
-                          (order_id, token))
-                authorized = c.fetchone() is not None
-    if not authorized:
+            try:
+                authority_user_id = int(request.query_params.get('user_id', ''))
+            except (TypeError, ValueError):
+                authority_user_id = None
+    try:
+        row = _order_reads.authorized_snapshot(
+            order_id, user_id=authority_user_id, session_token=authority_token)
+    except ValueError:
+        row = None
+    if not row:
         raise HTTPException(status_code=404)
+    status, txid = row["status"], row["paid_btc_tx"]
+    verification = row["verification_requested"] or ''
+    currency, network = row["currency"], row["network"]
 
     # Если заявка ещё pending — проверяем Brabus напрямую на случай пропущенного вебхука
     if status == 'pending':
         try:
-            with db_conn(5) as conn:
-                c = conn.cursor()
-                c.execute("""SELECT provider_invoice_id, provider FROM payment_sessions
-                             WHERE order_id=? AND provider LIKE 'brabus%' AND provider_invoice_id IS NOT NULL
-                             ORDER BY created_at DESC LIMIT 1""", (order_id,))
-                sess = c.fetchone()
+            sess = _payment_sessions.latest_provider_invoice_for_authorized_order(
+                order_id, "brabus", user_id=authority_user_id,
+                session_token=authority_token, prefix=True)
             if sess:
-                inv_id, prov = sess
+                inv_id, prov = sess["provider_invoice_id"], sess["provider"]
                 variant = prov.split(':', 1)[1] if ':' in prov else 'tbank_deeplink'
                 from providers.brabus import BrabusProvider
                 brabus_status = BrabusProvider(variant=variant).get_status(inv_id)
                 if brabus_status.get('status') == 'paid':
-                    with db_conn(5) as conn:
-                        c = conn.cursor()
-                        c.execute("UPDATE orders SET status='paid', updated_at=datetime('now') WHERE order_id=? AND status='pending'", (order_id,))
-                        conn.commit()
+                    _mark_order_paid(order_id, "brabus", evidence="verified_poll:paid")
                     status = 'paid'
                     audit_log("brabus_polled_paid", f"order={order_id} inv={inv_id}")
                     logger.info(f"[brabus_poll] order {order_id} marked paid via polling")
@@ -3033,22 +3055,17 @@ async def api_order(order_id: int, request: Request):
     # Аналогично для Vertu (вебхуков нет — только опрос)
     if status == 'pending':
         try:
-            with db_conn(5) as conn:
-                c = conn.cursor()
-                c.execute("""SELECT provider_invoice_id FROM payment_sessions
-                             WHERE order_id=? AND provider='vertu' AND provider_invoice_id IS NOT NULL
-                             ORDER BY created_at DESC LIMIT 1""", (order_id,))
-                sess = c.fetchone()
+            sess = _payment_sessions.latest_provider_invoice_for_authorized_order(
+                order_id, "vertu", user_id=authority_user_id,
+                session_token=authority_token)
             if sess:
                 from providers.vertu import VertuProvider
-                vertu_status = await asyncio.to_thread(VertuProvider().get_status, sess[0])
+                inv_id = sess["provider_invoice_id"]
+                vertu_status = await asyncio.to_thread(VertuProvider().get_status, inv_id)
                 if vertu_status.get('status') == 'paid':
-                    with db_conn(5) as conn:
-                        c = conn.cursor()
-                        c.execute("UPDATE orders SET status='paid', updated_at=datetime('now') WHERE order_id=? AND status='pending'", (order_id,))
-                        conn.commit()
+                    _mark_order_paid(order_id, "vertu", evidence="verified_poll:paid")
                     status = 'paid'
-                    audit_log("vertu_polled_paid", f"order={order_id} inv={sess[0]}")
+                    audit_log("vertu_polled_paid", f"order={order_id} inv={inv_id}")
                     logger.info(f"[vertu_poll] order {order_id} marked paid via /api/order")
         except Exception as e:
             logger.warning(f"[vertu_poll] order {order_id}: {e}")
@@ -3057,48 +3074,30 @@ async def api_order(order_id: int, request: Request):
     # три монеты из шести и для остальных склеивали ссылку из пустого префикса —
     # получался относительный href, то есть 404 на нашем же домене.
     return {"status": status, "txid": txid, "verification": verification,
-            "receipt": _receipt_state(order_id),
+            "receipt": _receipt_state(order_id, user_id=authority_user_id,
+                                      session_token=authority_token),
             # «Оплачена» без движения часами клиент читает как «нас кинули».
             "delayed": (status == "paid" and _payout_delayed(order_id)),
-            "dead": (status == "pending" and _session_dead(order_id)),
+            "dead": (status == "pending" and _session_dead(
+                order_id, user_id=authority_user_id, session_token=authority_token)),
             "tx_url": _txid.explorer_url(currency, txid, network) or ""}
 
 # --- Админ-вкладка Mini App ---
 @app.get("/api/admin/stats")
 async def admin_stats_api(request: Request):
     require_admin(request)
-    with db_conn(10) as conn:
-        c = conn.cursor()
-        c.execute("SELECT COUNT(*) FROM orders")
-        total = c.fetchone()[0]
-        c.execute("SELECT COUNT(*) FROM orders WHERE status='sent'")
-        sent = c.fetchone()[0]
-        c.execute("SELECT SUM(rub_amount) FROM orders WHERE status='sent'")
-        volume = c.fetchone()[0] or 0
-        c.execute("SELECT COUNT(*) FROM orders WHERE status='pending'")
-        pending = c.fetchone()[0]
-    return {"total": total, "pending": pending, "sent": sent, "volume": volume}
+    return _reporting.admin_stats()
 
 @app.get("/api/admin/orders")
 async def admin_orders_api(request: Request, limit: int = 20):
     require_admin(request)
     limit = max(1, min(limit, 100))
-    with db_conn(10) as conn:
-        c = conn.cursor()
-        c.execute("SELECT order_id, user_id, username, rub_amount, currency, status, created_at FROM orders ORDER BY created_at DESC LIMIT ?", (limit,))
-        rows = c.fetchall()
-    return {"orders": [
-        {"order_id": r[0], "user_id": r[1], "username": r[2], "rub_amount": r[3], "currency": r[4], "status": r[5], "created_at": r[6]}
-        for r in rows
-    ]}
+    return {"orders": _order_reads.admin_recent(limit=limit)}
 
 @app.get("/api/admin/blocked")
 async def admin_blocked_api(request: Request):
     require_admin(request)
-    with db_conn(10) as conn:
-        c = conn.cursor()
-        c.execute("SELECT user_id, reason, blocked_at FROM blocked_users ORDER BY blocked_at DESC LIMIT 50")
-        rows = c.fetchall()
+    rows = _admin_config.blocked_user_rows(limit=50)
     return {"blocked": [{"user_id": r[0], "reason": r[1], "blocked_at": r[2]} for r in rows]}
 
 @app.post("/api/admin/block")
@@ -3107,9 +3106,7 @@ async def admin_block_api(request: Request):
     data = await json_object(request)
     user_id = int(data['user_id'])
     reason = (data.get('reason') or 'admin block').strip()
-    with db_conn(10) as conn:
-        conn.execute("INSERT OR IGNORE INTO blocked_users (user_id, reason) VALUES (?, ?)", (user_id, reason))
-        conn.commit()
+    _admin_config.block_user(user_id=user_id,reason=reason)
     audit_log("admin_block", f"user_id={user_id}")
     return {"ok": True}
 
@@ -3118,9 +3115,7 @@ async def admin_unblock_api(request: Request):
     require_admin(request)
     data = await json_object(request)
     user_id = int(data['user_id'])
-    with db_conn(10) as conn:
-        conn.execute("DELETE FROM blocked_users WHERE user_id=?", (user_id,))
-        conn.commit()
+    _admin_config.unblock_user(user_id)
     audit_log("admin_unblock", f"user_id={user_id}")
     return {"ok": True}
 
@@ -3129,12 +3124,16 @@ async def admin_force_payout_api(request: Request):
     require_admin(request)
     data = await json_object(request)
     order_id = int(data['order_id'])
-    fake_tx = f"manual_{int(time.time())}"
-    with db_conn(10) as conn:
-        conn.execute("UPDATE orders SET status='sent', paid_btc_tx=?, updated_at=CURRENT_TIMESTAMP WHERE order_id=?", (fake_tx, order_id))
-        conn.commit()
-    audit_log("admin_force_payout", f"order_id={order_id} tx={fake_tx}")
-    return {"ok": True, "txid": fake_tx}
+    result = _order_workflow.mark_sent(order_id, data.get("txid"))
+    if result["action"] == "missing":
+        raise HTTPException(status_code=404, detail="order not found")
+    if result["action"] == "invalid_txid":
+        raise HTTPException(status_code=400, detail="valid txid required")
+    if result["action"] != "transitioned":
+        raise HTTPException(status_code=409, detail="order is not paid")
+    txid = result["txid"]
+    audit_log("admin_force_payout", f"order_id={order_id} tx={txid}")
+    return {"ok": True, "txid": txid}
 
 @app.post("/internal/admin/force_payout")
 async def internal_force_payout(request: Request):
@@ -3143,12 +3142,16 @@ async def internal_force_payout(request: Request):
         raise HTTPException(status_code=403, detail="forbidden")
     data = await json_object(request)
     order_id = int(data['order_id'])
-    fake_tx = f"manual_{int(time.time())}"
-    with db_conn(10) as conn:
-        conn.execute("UPDATE orders SET status='sent', paid_btc_tx=?, updated_at=CURRENT_TIMESTAMP WHERE order_id=?", (fake_tx, order_id))
-        conn.commit()
-    audit_log("admin_force_payout_laravel", f"order_id={order_id} tx={fake_tx}")
-    return {"ok": True, "txid": fake_tx}
+    result = _order_workflow.mark_sent(order_id, data.get("txid"))
+    if result["action"] == "missing":
+        raise HTTPException(status_code=404, detail="order not found")
+    if result["action"] == "invalid_txid":
+        raise HTTPException(status_code=400, detail="valid txid required")
+    if result["action"] != "transitioned":
+        raise HTTPException(status_code=409, detail="order is not paid")
+    txid = result["txid"]
+    audit_log("admin_force_payout_laravel", f"order_id={order_id} tx={txid}")
+    return {"ok": True, "txid": txid}
 
 @app.post("/internal/admin/notify_support")
 async def internal_notify_support(request: Request):
@@ -3158,16 +3161,14 @@ async def internal_notify_support(request: Request):
     data = await json_object(request)
     web_user_id = int(data['web_user_id'])
     text = data['text']
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute("SELECT telegram_id FROM web_users WHERE id=?", (web_user_id,))
-        row = c.fetchone()
-    if row and row[0]:
-        notify_telegram(row[0], text)
+    web_user = auth.get_user_by_id(web_user_id)
+    if web_user and web_user.get("telegram_id"):
+        notify_telegram(web_user["telegram_id"], text)
     return {"ok": True}
 
 @app.get("/api/server-stats")
-async def api_server_stats():
+async def api_server_stats(request: Request):
+    require_admin(request)
     import psutil
     cpu = psutil.cpu_percent(interval=1)
     mem = psutil.virtual_memory()
@@ -3184,34 +3185,37 @@ async def api_server_stats():
 @app.get("/pay/{token}", response_class=HTMLResponse)
 async def pay(token: str, request: Request):
     client_ip = request.client.host
-    audit_log("payment_page_opened", f"token={token} ip={client_ip}")
     
     # Числовой токен (легаси /pay/{order_id}) — сюда сайт падает, если payment
     # session не создалась. Пробуем найти живую сессию заявки и уйти на неё;
     # иначе — честная страница статуса в фирменном стиле (без фейкового QR).
     if token.isdigit():
+        # Numeric order ids are enumerable. Never exchange one for an opaque
+        # payment-session token unless the caller proves the internal relay
+        # secret; otherwise this legacy fallback becomes a token-disclosure
+        # oracle for every pending order.
+        from core import order_access
         order_id = int(token)
-        with db_conn(5) as conn:
-            c = conn.cursor()
-            c.execute("SELECT rub_amount, status FROM orders WHERE order_id=?", (order_id,))
-            row = c.fetchone()
-            c.execute("""SELECT session_token FROM payment_sessions
-                         WHERE order_id=? AND session_token IS NOT NULL
-                           AND status NOT IN ('failed','expired')
-                         ORDER BY created_at DESC LIMIT 1""", (order_id,))
-            sess = c.fetchone()
-        if not row:
+        authority_user_id = order_access.verify(
+            request.query_params.get("proof", ""), order_id)
+        if authority_user_id is None:
             raise HTTPException(status_code=404)
-        if sess and sess[0]:
-            return RedirectResponse(f"/pay/{sess[0]}", status_code=302)
+        order = _order_reads.authorized_snapshot(order_id, user_id=authority_user_id)
+        session = _payment_sessions.latest_active_for_authorized_order(
+            order_id, user_id=authority_user_id)
+        if not order:
+            raise HTTPException(status_code=404)
+        audit_log("payment_page_opened", f"ip={client_ip}")
+        if session and session.get("session_token"):
+            return RedirectResponse(f"/pay/{session['session_token']}", status_code=302)
 
-        amount, o_status = row
+        amount, o_status = order["rub_amount"], order["status"]
         # Чек уже прислан — заявка не «ждёт реквизитов», она на проверке.
         # Звать такого клиента «создать заявку заново» значит звать заплатить
         # второй раз за тот же обмен. Отдельная подпись у закрытой заявки с
         # чеком: обещать по ней выплату нельзя, но и молчать о чеке нельзя —
         # деньги клиент, возможно, отдал.
-        _rcpt = _receipt_state(order_id)
+        _rcpt = _receipt_state(order_id, user_id=authority_user_id)
         if _rcpt == 'sent':
             if o_status in (None, '', 'pending'):
                 o_status = '_receipt'
@@ -3266,25 +3270,23 @@ async def pay(token: str, request: Request):
     
     # Новый формат: сессия по токену. Полный жизненный цикл + Apple-минимализм.
     try:
-        from services.payment_service import PaymentService
-        session = PaymentService().get_session(token)
+        session = _payment_sessions.get_by_token(token)
         if not session:
             raise HTTPException(status_code=404)
+        audit_log("payment_page_opened", f"ip={client_ip}")
         import ast, base64, html as _html, json as _json
         amount = session['amount']
         order_id = session['order_id']
 
         # Актуальный статус/txid/валюта — из orders (там живёт жизненный цикл)
-        with db_conn(5) as conn:
-            _o = conn.execute("SELECT status, paid_btc_tx, currency, verification_requested, network "
-                              "FROM orders WHERE order_id=?", (order_id,)).fetchone()
-        order_status = (_o[0] if _o else session.get('status')) or 'pending'
-        txid = _o[1] if _o else None
-        currency = (_o[2] if _o else '') or ''
-        verification = (_o[3] if _o else '') or ''
+        order = _order_reads.authorized_snapshot(order_id, session_token=token)
+        order_status = (order["status"] if order else session.get('status')) or 'pending'
+        txid = order["paid_btc_tx"] if order else None
+        currency = (order["currency"] if order else '') or ''
+        verification = (order["verification_requested"] if order else '') or ''
         # Сеть нужна ссылке на транзакцию: без неё выплата USDT-ERC20 уводила бы
         # клиента в tronscan, где её нет.
-        order_network = (_o[4] if _o else '') or ''
+        order_network = (order["network"] if order else '') or ''
 
         # Реквизиты из provider_payload (repr raw провайдера)
         raw = {}
@@ -3366,9 +3368,10 @@ async def pay(token: str, request: Request):
             # партнёра). Без этого страница судит об исходе по одному таймеру и
             # заявке, оплаченной в последнюю минуту, показывает «время истекло» —
             # клиент видит отказ на деньги, которые уже ушли трейдеру.
-            "receipt": _receipt_state(order_id),
+            "receipt": _receipt_state(order_id, session_token=token),
             "delayed": (order_status == "paid" and _payout_delayed(order_id)),
-            "dead": (order_status == "pending" and _session_dead(order_id)),
+            "dead": (order_status == "pending" and _session_dead(
+                order_id, session_token=token)),
         }
         cfg_json = _json.dumps(cfg, ensure_ascii=False)
 
@@ -3632,30 +3635,34 @@ setInterval(poll, 5000);
 # --- Своп криптовалют через Trocador ---
 @app.get("/swap/{token}", response_class=HTMLResponse)
 async def swap_page(token: str, request: Request):
-    audit_log("swap_page_opened", f"token={token} ip={request.client.host}")
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute("SELECT coin_from, coin_to, amount_from, address_to, trocador_id, trocador_url, status, provider, deposit_address FROM swap_sessions WHERE session_token=?", (token,))
-        row = c.fetchone()
+    # Session tokens are bearer credentials.  Never put them in logs.
+    audit_log("swap_page_opened", "swap page opened")
+    row = _swap_store.get_by_token(token)
     if not row:
         raise HTTPException(status_code=404)
-    coin_from, coin_to, amount_from, address_to, ext_id, ext_url, status, provider_name, deposit_address = row
+    coin_from, coin_to, amount_from, address_to = row['coin_from'],row['coin_to'],row['amount_from'],row['address_to']
+    ext_id,ext_url,status = row['external_id'],row['external_url'],row['status']
+    provider_name,deposit_address = row['provider'],row['deposit_address']
     provider_name = provider_name or 'trocador'
 
     try:
         if provider_name == 'swapuz':
-            from providers.swapuz import SwapUzProvider
+            from providers.swapuz import SwapUzProvider, safe_swapuz_transition
             info = SwapUzProvider().get_status(ext_id)
-            new_status = info.get('status')
+            new_status = safe_swapuz_transition(status, info.get('status'))
         else:
-            from providers.trocador import TrocadorProvider
+            from providers.trocador import (
+                TrocadorProvider, safe_trocador_transition,
+                verified_trocador_status,
+            )
             info = TrocadorProvider().get_status(ext_id)
-            new_status = info.get('Status')
+            new_status = verified_trocador_status(info)
+            if new_status:
+                new_status = safe_trocador_transition(status, new_status)
         if new_status and new_status != status:
             status = new_status
-            with db_conn(5) as conn:
-                conn.execute("UPDATE swap_sessions SET status=?, updated_at=datetime('now') WHERE session_token=?", (status, token))
-                conn.commit()
+            if not _swap_store.transition(token=token,expected_status=row['status'],new_status=status):
+                logger.info("swap page status race ignored")
     except Exception as e:
         logger.error(f"Swap status fetch error: {e}")
 
@@ -3737,42 +3744,55 @@ async def trocador_webhook(request: Request, token: str = None):
                 data = {}
         if not data:
             data = dict(request.query_params)
-        audit_log("trocador_webhook_received", f"token={token} data={data}")
+        # The callback body and URL token are attacker-controlled.  Log only a
+        # non-secret event marker; provider status is fetched independently.
+        audit_log("trocador_webhook_received", "callback received")
 
-        new_status = data.get('status') or data.get('Status')
         trocador_id = data.get('id') or data.get('ID')
 
-        with db_conn(5) as conn:
-            c = conn.cursor()
-            if token:
-                c.execute("SELECT session_token, user_id, coin_from, coin_to, amount_from, status FROM swap_sessions WHERE session_token=?", (token,))
-            elif trocador_id:
-                c.execute("SELECT session_token, user_id, coin_from, coin_to, amount_from, status FROM swap_sessions WHERE trocador_id=?", (trocador_id,))
-            else:
-                conn.close()
-                return JSONResponse(status_code=400, content={})
-            row = c.fetchone()
-            if not row:
-                conn.close()
-                return JSONResponse(status_code=404, content={})
-            session_token, user_id, coin_from, coin_to, amount_to, old_status = row
+        if token:
+            row = _swap_store.get_by_token(token)
+        elif trocador_id:
+            row = _swap_store.get_by_external_id(trocador_id)
+        else:
+            return JSONResponse(status_code=400, content={})
+        if not row:
+            return JSONResponse(status_code=404, content={})
+        session_token,user_id = row['session_token'],row['user_id']
+        coin_from,coin_to,amount_to = row['coin_from'],row['coin_to'],row['amount_from']
+        old_status,stored_trocador_id = row['status'],row['external_id']
 
-            if not new_status and trocador_id:
-                from providers.trocador import TrocadorProvider
-                info = TrocadorProvider().get_status(trocador_id)
-                new_status = info.get('Status')
-                data = info
+        if not stored_trocador_id:
+            logger.warning("Trocador webhook: session has no provider id")
+            return JSONResponse(status_code=409, content={})
 
-            if new_status and new_status != old_status:
-                c.execute("UPDATE swap_sessions SET status=?, updated_at=datetime('now') WHERE session_token=?", (new_status, session_token))
-                conn.commit()
-                if new_status == 'finished':
-                    received = data.get('AmountReceived') or data.get('AmountTo') or amount_to
-                    notify_telegram(user_id, f"✅ Своп {coin_from} → {coin_to} завершён!\nПолучено: {received} {coin_to}")
+        # Do not hold a SQLite connection while waiting on an external API.
+        from providers.trocador import (
+            TrocadorProvider, safe_trocador_transition, verified_trocador_status,
+        )
+        info = await asyncio.to_thread(TrocadorProvider().get_status, stored_trocador_id)
+        new_status = verified_trocador_status(info)
+        if not new_status:
+            # A callback must never turn an unavailable/ambiguous provider
+            # lookup into a successful local transition. Ask for retry.
+            logger.warning("Trocador webhook: provider status unavailable")
+            return JSONResponse(status_code=503, content={})
+        new_status = safe_trocador_transition(old_status, new_status)
+        if not new_status:
+            logger.warning("Trocador webhook: unsafe terminal-state transition rejected")
+            return JSONResponse(status_code=409, content={})
+        data = info
+
+        if new_status != old_status:
+            changed = _swap_store.transition(token=session_token,expected_status=old_status,
+                                             new_status=new_status)
+            if changed and new_status == 'finished':
+                received = data.get('AmountReceived') or data.get('AmountTo') or amount_to
+                notify_telegram(user_id, f"✅ Своп {coin_from} → {coin_to} завершён!\nПолучено: {received} {coin_to}")
         return JSONResponse(status_code=200, content={})
     except Exception as e:
         logger.error(f"Trocador webhook error: {e}")
-        return JSONResponse(status_code=200, content={})
+        return JSONResponse(status_code=503, content={})
 
 # --- Gateway Endpoint (упрощённый) ---
 @app.get("/gateway/{order_id}")
@@ -3818,17 +3838,7 @@ async def greenpay_webhook(request: Request):
     if not order_id:
         order_id = (data.get('additional_info') or {}).get('order_id')
     if order_id and status == 'success':
-        with db_conn(5) as conn:
-            c = conn.cursor()
-            c.execute("UPDATE orders SET status='paid', updated_at=datetime('now') WHERE order_id=? AND status='pending'", (order_id,))
-            conn.commit()
-            c.execute("SELECT user_id FROM orders WHERE order_id=?", (order_id,))
-            row = c.fetchone()
-        if row and row[0] and int(row[0]) > 0:
-            notify_telegram(row[0], (
-                f"✅ <b>Оплата подтверждена!</b>\n\n"
-                f"Заявка <b>#{order_id}</b> принята — выплата будет произведена в ближайшее время."
-            ))
+        _mark_order_paid(order_id, "greenpay", evidence="verified_webhook:success")
     audit_log("greenpay_webhook_processed", f"order={order_id} status={status}")
     return JSONResponse(status_code=200, content={})
 
@@ -3846,28 +3856,16 @@ async def montera_webhook(request: Request):
     order_id = attempt_id.parse(external_id)
 
     if order_id and status == 'success':
-        with db_conn(5) as conn:
-            c = conn.cursor()
-            c.execute("UPDATE orders SET status='paid', updated_at=datetime('now') WHERE order_id=? AND status='pending'", (order_id,))
-            conn.commit()
+        _mark_order_paid(order_id, "montera", evidence="verified_webhook:success")
 
     if order_id and requested_type in ('video', 'pdf-success'):
-        with db_conn(5) as conn:
-            c = conn.cursor()
-            c.execute("UPDATE orders SET verification_requested=? WHERE order_id=?", (requested_type, order_id))
-            conn.commit()
-            c.execute("SELECT user_id FROM orders WHERE order_id=?", (order_id,))
-            row = c.fetchone()
-            # long-id сделки Montera — показываем клиенту, чтобы он мог указать его
-            c.execute("SELECT provider_invoice_id FROM payment_sessions "
-                      "WHERE order_id=? AND provider='montera' ORDER BY id DESC LIMIT 1", (order_id,))
-            ps = c.fetchone()
-        deal_id = ps[0] if ps else None
-        id_line = (f"\n\n🆔 ID сделки: <code>{deal_id}</code>\n"
-                   f"Укажите этот ID при отправке — он привязан к вашей заявке."
-                   if deal_id else "")
-        if row and row[0] and row[0] > 0:
-            user_id = row[0]
+        verification = _order_workflow.request_verification(order_id, requested_type)
+        # Не извлекаем provider invoice по одному order_id даже после webhook:
+        # общий Relay DB-login не может доказать callback authority внутри SQL.
+        id_line = ""
+        if (verification["action"] == "requested" and
+                verification.get("user_id") and verification["user_id"] > 0):
+            user_id = verification["user_id"]
             deep_link = f"https://t.me/{BOT_USERNAME}?start=verify_{order_id}"
             if requested_type == 'video':
                 text = (f"🎥 <b>Требуется видео-подтверждение — заявка #{order_id}</b>\n\n"
@@ -3917,17 +3915,7 @@ async def lava_webhook(request: Request):
         paid = False
 
     if order_id and paid:
-        with db_conn(5) as conn:
-            c = conn.cursor()
-            c.execute("UPDATE orders SET status='paid', updated_at=datetime('now') WHERE order_id=? AND status='pending'", (order_id,))
-            conn.commit()
-            c.execute("SELECT user_id FROM orders WHERE order_id=?", (order_id,))
-            row = c.fetchone()
-        if row and row[0] and int(row[0]) > 0:
-            notify_telegram(row[0], (
-                f"✅ <b>Оплата подтверждена!</b>\n\n"
-                f"Заявка <b>#{order_id}</b> принята — выплата будет произведена в ближайшее время."
-            ))
+        _mark_order_paid(order_id, "lava", evidence=f"verified_webhook:{raw_status}")
     audit_log("lava_webhook_processed", f"order={order_id} status={raw_status} paid={paid}")
     return JSONResponse(status_code=200, content={"status": "ok"})
 
@@ -3945,17 +3933,7 @@ async def brabus_webhook(request: Request):
     status = invoice.get('status')
     order_id = attempt_id.parse(invoice.get('internalId'))
     if order_id and status in ('paid',):
-        with db_conn(5) as conn:
-            c = conn.cursor()
-            c.execute("UPDATE orders SET status='paid', updated_at=datetime('now') WHERE order_id=? AND status='pending'", (order_id,))
-            conn.commit()
-            c.execute("SELECT user_id FROM orders WHERE order_id=?", (order_id,))
-            row = c.fetchone()
-        if row and row[0] and int(row[0]) > 0:
-            notify_telegram(row[0], (
-                f"✅ <b>Оплата подтверждена!</b>\n\n"
-                f"Заявка <b>#{order_id}</b> принята — выплата будет произведена в ближайшее время."
-            ))
+        _mark_order_paid(order_id, "brabus", evidence="verified_webhook:paid")
     elif order_id and status in ('canceled', 'expired'):
         audit_log("brabus_webhook_cancelled", f"order={order_id} status={status}")
     audit_log("brabus_webhook_processed", f"order={order_id} status={status}")
@@ -3975,17 +3953,7 @@ async def stormtrade_webhook(request: Request):
     status = invoice.get('status')
     order_id = attempt_id.parse(invoice.get('internalId'))
     if order_id and status in ('paid',):
-        with db_conn(5) as conn:
-            c = conn.cursor()
-            c.execute("UPDATE orders SET status='paid', updated_at=datetime('now') WHERE order_id=? AND status='pending'", (order_id,))
-            conn.commit()
-            c.execute("SELECT user_id FROM orders WHERE order_id=?", (order_id,))
-            row = c.fetchone()
-        if row and row[0] and int(row[0]) > 0:
-            notify_telegram(row[0], (
-                f"✅ <b>Оплата подтверждена!</b>\n\n"
-                f"Заявка <b>#{order_id}</b> принята — выплата будет произведена в ближайшее время."
-            ))
+        _mark_order_paid(order_id, "stormtrade", evidence="verified_webhook:paid")
     elif order_id and status in ('canceled', 'expired'):
         audit_log("stormtrade_webhook_cancelled", f"order={order_id} status={status}")
     audit_log("stormtrade_webhook_processed", f"order={order_id} status={status}")
@@ -4014,17 +3982,7 @@ async def xpay_webhook(request: Request):
     if external.startswith('obsidian_'):
         order_id = external.split('_')[1]
     if order_id and status == 'success':
-        with db_conn(5) as conn:
-            c = conn.cursor()
-            c.execute("UPDATE orders SET status='paid', updated_at=datetime('now') WHERE order_id=? AND status='pending'", (order_id,))
-            conn.commit()
-            c.execute("SELECT user_id FROM orders WHERE order_id=?", (order_id,))
-            row = c.fetchone()
-        if row and row[0] and int(row[0]) > 0:
-            notify_telegram(row[0], (
-                f"✅ <b>Оплата подтверждена!</b>\n\n"
-                f"Заявка <b>#{order_id}</b> принята — выплата будет произведена в ближайшее время."
-            ))
+        _mark_order_paid(order_id, "xpay", evidence="verified_webhook:success")
     audit_log("xpay_webhook_processed", f"order={order_id} status={status}")
     return JSONResponse(status_code=200, content={})
 
@@ -4046,18 +4004,15 @@ async def vertu_payout_callback(request: Request):
     ref = str(data.get("platform_id") or data.get("deal_id") or "").strip()
     if not ref:
         return JSONResponse(status_code=200, content={"ok": True})
-    with db_conn(5) as conn:
-        row = conn.execute(
-            "SELECT id, user_id, rub_amount, payout_status FROM sell_orders"
-            " WHERE payout_ref=? OR payout_ref=?",
-            (ref, ref.split("_")[-1])).fetchone()
+    row = _sell_store.vertu_payout_by_ref(ref)
     if not row:
         logger.info("vertu payout-callback: выплата %s не наша", ref[:32])
         return JSONResponse(status_code=200, content={"ok": True})
     # Тот же разбор исхода, что у фонового обхода: обратный вызов только
     # ускоряет его, а решение об исходе принимается в одном месте.
-    audit_log("vertu_payout_callback", f"sell={row[0]} ref={ref}")
-    await _vertu_payout_settle(row[0], row[1], row[2], ref, row[3])
+    audit_log("vertu_payout_callback", f"sell={row['id']} ref={ref}")
+    await _vertu_payout_settle(row["id"], row["user_id"], row["rub_amount"],
+                               ref, row["payout_status"])
     return JSONResponse(status_code=200, content={"ok": True})
 
 @app.post("/rspay/webhook")
@@ -4072,9 +4027,12 @@ async def rspay_webhook(request: Request):
     external_id RSPay мерчанту не шлёт, о чём сказано в их доке.
     """
     secret = webhook_secret('rspay', RSPAY_API_SECRET)
+    secrets = tuple(s for s in (secret, RSPAY_BT_API_SECRET) if s)
     body_bytes = await request.body()
     from providers.rspay import verify_webhook_signature, _STATUS_MAP
-    if not verify_webhook_signature(body_bytes, request.headers.get('X-Signature', ''), secret):
+    if not any(verify_webhook_signature(
+            body_bytes, request.headers.get('X-Signature', ''), candidate
+    ) for candidate in secrets):
         logger.warning("RSPay webhook: подпись не сошлась")
         raise HTTPException(status_code=401)
     try:
@@ -4089,34 +4047,15 @@ async def rspay_webhook(request: Request):
     raw_status = data.get('status')
     status = _STATUS_MAP.get(raw_status, 'unknown')
     if order_id and status == 'paid':
-        with db_conn(5) as conn:
-            c = conn.cursor()
-            c.execute("UPDATE orders SET status='paid', updated_at=datetime('now')"
-                      " WHERE order_id=? AND status='pending'", (order_id,))
-            # Письмо клиенту — только тому вызову, который ПЕРЕВЁЛ заявку в
-            # оплаченные. Вебхук приходит повторно (ретраи провайдера), и без
-            # этой проверки клиент получал бы «оплата подтверждена» столько
-            # раз, сколько раз RSPay постучится. Нашёл codex.
-            changed = c.rowcount
-            conn.commit()
-            c.execute("SELECT user_id FROM orders WHERE order_id=?", (order_id,))
-            row = c.fetchone()
-        if changed and row and row[0] and int(row[0]) > 0:
-            notify_telegram(row[0], (
-                f"✅ <b>Оплата подтверждена!</b>\n\n"
-                f"Заявка <b>#{order_id}</b> принята — выплата будет произведена в ближайшее время."
-            ))
+        _mark_order_paid(order_id, "rspay", evidence=f"verified_webhook:{raw_status}")
     elif order_id and status == 'refunded':
         # Возврат по уже оплаченной заявке — деньги ушли обратно клиенту. Сами
         # статус не переписываем: крипта могла быть выдана, и «откат» вслепую
         # сделает хуже. Но молчать нельзя — это прямой убыток, зовём человека.
-        with db_conn(5) as conn:
-            row = conn.execute("SELECT status FROM orders WHERE order_id=?",
-                               (order_id,)).fetchone()
         notify_admins_tg(
             f"↩️ <b>RSPay сообщил о возврате</b> по заявке <b>#{order_id}</b>\n"
-            f"Статус у нас сейчас: <code>{(row or ['?'])[0]}</code>, у них: "
-            f"<code>{raw_status}</code>\nПроверить, не выдана ли крипта."
+            f"Статус у провайдера: <code>{raw_status}</code>\n"
+            "Проверить текущую заявку и факт выдачи крипты в операторском контуре."
         )
     audit_log("rspay_webhook_processed", f"order={order_id} status={raw_status}")
     return JSONResponse(status_code=200, content={"ok": True})
@@ -4130,23 +4069,18 @@ async def payment_callback(request: Request):
     key = data.get('key', [''])[0]
     if key != SECRET_KEY:
         raise HTTPException(status_code=403)
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute("UPDATE orders SET status='paid', updated_at=datetime('now') "
-                  "WHERE order_id=? AND status='pending'", (order_id,))
-        changed = c.rowcount
-        row = c.execute("SELECT status FROM orders WHERE order_id=?", (order_id,)).fetchone()
-        conn.commit()
+    result = _mark_order_paid(order_id, "manual", evidence="signed_internal_callback")
     # Раньше отвечали пустым 200 всегда, и бот по коду 200 рапортовал оператору
     # «✅ Платёж подтверждён» даже когда не изменилось НИ ОДНОЙ строки: заявка
     # уже закрыта, условие WHERE не совпало. Человек уходил уверенным, что
     # сделал дело, а деньги клиента оставались там же.
-    if not changed:
+    if result["action"] != "transitioned":
+        current = result.get("status") or ("paid" if result["action"] == "already_paid" else None)
         return JSONResponse(status_code=200, content={
             "ok": False,
-            "status": (row[0] if row else None),
-            "reason": ("нет такой заявки" if not row else
-                       f"заявка уже в статусе «{row[0]}» — подтверждать нечего"),
+            "status": current,
+            "reason": ("нет такой заявки" if result["action"] == "missing" else
+                       f"заявка уже в статусе «{current}» — подтверждать нечего"),
         })
     return JSONResponse(status_code=200, content={"ok": True, "status": "paid"})
 
@@ -4174,42 +4108,14 @@ async def api_ai_ask(request: Request):
 @app.get("/admin/analytics/data")
 async def analytics_data(request: Request):
     """Real-time analytics data for admin dashboard. Только для админа (web-сессия)."""
-    from auth import get_web_user
+    from auth import get_web_user, is_web_admin
     web_user = get_web_user(request)
     if not web_user:
         raise HTTPException(status_code=401, detail="Требуется вход")
-    tg_id = web_user.get("telegram_id")
-    email = web_user.get("email", "")
-    if str(tg_id) not in {str(a) for a in ADMIN_IDS} and "admin" not in email:
+    if not is_web_admin(web_user, ADMIN_IDS):
         raise HTTPException(status_code=403, detail="Доступ запрещён")
-    import sqlite3 as _sq
-
-    def qry(sql, params=()):
-        with _sq.connect(DB_PATH, timeout=5) as c:
-            c.row_factory = _sq.Row
-            return [dict(r) for r in c.execute(sql, params).fetchall()]
-
-    daily = qry("""
-        SELECT strftime('%m-%d', created_at) as day,
-               COUNT(*) as orders,
-               SUM(rub_amount) as volume,
-               SUM(CASE WHEN status IN ('paid','sent') THEN 1 ELSE 0 END) as paid
-        FROM orders WHERE created_at > date('now','-14 days')
-        GROUP BY day ORDER BY day
-    """)
-    hourly = qry("""
-        SELECT CAST(strftime('%H', created_at) AS INTEGER) as hour, COUNT(*) as cnt
-        FROM orders GROUP BY hour ORDER BY hour
-    """)
-    by_currency = qry(
-        "SELECT currency, COUNT(*) as cnt, SUM(rub_amount) as vol FROM orders GROUP BY currency"
-    )
-    by_status = qry("SELECT status, COUNT(*) as cnt FROM orders GROUP BY status")
-    by_provider = qry(
-        "SELECT provider, is_healthy, failed_count, avg_response_time, "
-        "COALESCE(status,'') AS status, COALESCE(blocker,'') AS blocker "
-        "FROM provider_health"
-    )
+    analytics = _reporting.admin_analytics()
+    by_provider = analytics["providers"]
     # Снятые с эксплуатации каналы (RETIRED_PROVIDERS) с витрины убираем —
     # тот же источник правды, что у роутера. Короткое имя кладём рядом:
     # шаблон рисует то, что реально есть в provider_health, а не свой список.
@@ -4219,19 +4125,6 @@ async def analytics_data(request: Request):
                        for p in by_provider if not is_provider_retired(p["provider"])]
     except Exception as e:
         logger.warning("providers: фильтр снятых каналов недоступен (%s) — показываем все", e)
-    recent = qry("""
-        SELECT o.order_id, o.currency, o.rub_amount, o.status, o.created_at, o.username,
-               (SELECT ps.provider FROM payment_sessions ps WHERE ps.order_id=o.order_id ORDER BY ps.id DESC LIMIT 1) as provider
-        FROM orders o ORDER BY o.order_id DESC LIMIT 20
-    """)
-    totals_row = qry("""
-        SELECT COUNT(*) as total_orders,
-               SUM(rub_amount) as total_volume,
-               SUM(CASE WHEN status IN ('paid','sent') THEN 1 ELSE 0 END) as paid_orders,
-               SUM(CASE WHEN status IN ('paid','sent') THEN rub_amount ELSE 0 END) as paid_volume
-        FROM orders
-    """)
-
     try:
         from services.payment_service import PaymentService
         smart_router_status = PaymentService().get_provider_status()
@@ -4268,13 +4161,13 @@ async def analytics_data(request: Request):
         hot_wallet = {"error": type(e).__name__}
 
     return {
-        "daily": daily,
-        "hourly": hourly,
-        "by_currency": by_currency,
-        "by_status": by_status,
+        "daily": analytics["daily"],
+        "hourly": analytics["hourly"],
+        "by_currency": analytics["by_currency"],
+        "by_status": analytics["by_status"],
         "providers": by_provider,
-        "recent": recent,
-        "totals": totals_row[0] if totals_row else {},
+        "recent": analytics["recent"],
+        "totals": analytics["totals"],
         "smart_router": smart_router_status,
         "conversion": conversion,
         "evidence": evidence,
@@ -4286,133 +4179,103 @@ async def analytics_data(request: Request):
 @app.get("/admin/analytics", response_class=HTMLResponse)
 async def analytics_page(request: Request):
     """Admin analytics dashboard — protected by web session + ADMIN_ID match."""
-    from auth import get_web_user
+    from auth import get_web_user, is_web_admin
     web_user = get_web_user(request)
     if not web_user:
         return RedirectResponse(url="/login?next=/admin/analytics", status_code=302)
-    # Check admin: telegram_id must match ADMIN_ID or email contains 'admin'
-    tg_id = web_user.get("telegram_id")
-    email = web_user.get("email", "")
-    if str(tg_id) not in {str(a) for a in ADMIN_IDS} and "admin" not in email:
+    if not is_web_admin(web_user, ADMIN_IDS):
         raise HTTPException(status_code=403, detail="Доступ запрещён")
     return templates.TemplateResponse(request, "admin_analytics.html")
 
 
 # ── Фоновые задачи ──
 
+def _dispatch_lifecycle_work(*, kind=None, limit=200):
+    """Run already-committed external effects; never rediscover by timestamp."""
+    from core import provider_caps
+    handled = 0
+    for _ in range(max(1, int(limit))):
+        item = _order_lifecycle.claim_work(kind=kind)
+        if not item:
+            break
+        try:
+            oid, work_kind = item["order_id"], item["kind"]
+            if work_kind == "order_expired_notify":
+                delivered = notify_telegram(item["user_id"], (
+                    f"⌛ <b>Заявка #{oid} истекла</b>\n\n"
+                    f"{item['rub_amount']:g} ₽ → {item['currency']}. Курс больше не действует — "
+                    f"средства по старым реквизитам не переводите.\n"
+                    f"Создайте новую заявку, это займёт минуту."
+                ), reply_markup={"inline_keyboard": [
+                    [{"text": "🔄 Создать новую заявку", "callback_data": "menu_exchange"}],
+                ]})
+                if not delivered:
+                    logger.warning("[cleanup] expired notification %s remains claimed", oid)
+                    continue
+            elif work_kind == "provider_cancel":
+                from providers.brabus import BrabusProvider
+                provider = item["provider"] or ""
+                variant = provider.split(':', 1)[1] if ':' in provider else None
+                ok = (BrabusProvider(variant=variant).cancel_order(item["provider_invoice_id"])
+                      if variant else BrabusProvider.cancel_any(item["provider_invoice_id"]))
+                if not ok:
+                    _order_lifecycle.retry_work(item["id"])
+                    # retry_work makes the same row immediately claimable.
+                    # Stop this drain pass so one rejected provider request
+                    # cannot spin `limit` times and starve the HTTP server.
+                    break
+                logger.info(f"[cleanup] Brabus cancelled {item['provider_invoice_id']}")
+            elif work_kind == "session_dead_admin":
+                has_receipt = item["has_receipt"]
+                provider = item["provider"] or ""
+                detail = item["detail"] or ""
+                notify_admins_tg(
+                    f"💀 <b>Сделка умерла у провайдера — заявка #{oid}</b>\n\n"
+                    f"{int(item['rub_amount'] or 0)} ₽ → {item['currency']} · провайдер <b>{provider}</b>"
+                    f"{(' · ' + detail) if detail else ''}\n"
+                    f"Чек от клиента: <b>{'ЕСТЬ' if has_receipt else 'нет'}</b>\n\n"
+                    f"{provider_caps.verification_note(provider)}\n\n"
+                    f"{'Заявка в очереди разбора: /review' if has_receipt else 'Разбор: /order ' + str(oid)}")
+            elif work_kind == "session_dead_customer":
+                if item["has_receipt"]:
+                    text = (f"🔍 <b>Заявка #{oid} — разбираем вручную</b>\n\n"
+                            f"Платёжная сессия закрылась на стороне партнёра, а ваш чек у нас. "
+                            f"Заявкой уже занимается сотрудник.\n\n"
+                            f"<b>Повторно не переводите и новую заявку не создавайте.</b> "
+                            f"Мы напишем сюда, как только будет решение.")
+                else:
+                    text = (f"⚠️ <b>Заявка #{oid} — реквизиты больше не действуют</b>\n\n"
+                            f"Платёжная сессия закрылась на стороне партнёра.\n\n"
+                            f"<b>Если вы уже перевели деньги</b> — не переводите повторно, "
+                            f"пришлите чек сюда, разберёмся вручную.\n"
+                            f"<b>Если ещё нет</b> — создайте новую заявку, реквизиты выдадим "
+                            f"заново.")
+                if not notify_telegram(item["user_id"], text):
+                    logger.warning("[cleanup] dead-session notification %s remains claimed", oid)
+                    continue
+            else:
+                raise RuntimeError(f"unknown_lifecycle_work:{work_kind}")
+            if not _order_lifecycle.complete_work(item["id"]):
+                logger.critical("Lifecycle work %s completed externally but not durably", item["id"])
+            handled += 1
+        except Exception:
+            # The external outcome may be uncertain.  Leaving `sending` prevents
+            # an automatic duplicate; an operator can retry a known-safe failure.
+            logger.exception("lifecycle work %s failed while sending", item["id"])
+    return handled
+
+
 async def cleanup_expired_orders():
-    """
-    Каждые 10 минут: помечает pending-заявки старше 2 часов как 'expired'.
-    Не трогает paid/sent.
-    """
+    """Expire guarded pending orders and drain their durable consequences."""
     while True:
         try:
-            with db_conn(5) as conn:
-                c = conn.cursor()
-                # Слой 0: заявку, по которой клиент прислал чек, НИКОГДА не истекаем
-                # тихо. Это заявленная оплата — её должен закрыть вебхук/поллинг или
-                # решить оператор. Иначе реальные оплаты уходят в expired+winback, а
-                # провайдер потом не может подтвердить: у него сделка тоже истекла.
-                # store_receipt() всегда пишет строку в order_receipts (все форматы),
-                # поэтому одного этого guard достаточно для всех путей приёма чека.
-                c.execute("""CREATE TABLE IF NOT EXISTS order_receipts (
-                    order_id INTEGER PRIMARY KEY, path TEXT, filename TEXT,
-                    content_type TEXT, created_at TEXT DEFAULT (datetime('now')),
-                    dispute_opened_at TEXT)""")
-                result = c.execute("""
-                    UPDATE orders SET status='expired', updated_at=datetime('now')
-                    WHERE status='pending'
-                    AND datetime(created_at) < datetime('now', '-2 hours')
-                    AND order_id NOT IN (
-                        SELECT DISTINCT order_id FROM payment_sessions
-                        WHERE status='invoice_created'
-                        AND datetime(expires_at) > datetime('now')
-                    )
-                    AND order_id NOT IN (SELECT order_id FROM order_receipts)
-                """)
-                expired = result.rowcount
-                conn.commit()
-                if expired > 0:
-                    logger.info(f"[cleanup] Expired {expired} abandoned pending orders")
-                    # Замыкаем жизненный цикл для клиента: одноразовое уведомление
-                    # об истечении (однократность — sent_notifications, как pay_reminder)
-                    try:
-                        with db_conn(5) as conn3:
-                            c3 = conn3.cursor()
-                            # Заявку с чеком Слой 0 не истекает — значит сюда
-                            # она попасть не должна. «Не должна» слабее «не
-                            # может»: истечь могла до появления Слоя 0, а чек
-                            # прийти после. Цена ошибки — «создайте новую» тому,
-                            # чьи деньги уже у трейдера, поэтому проверяем прямо
-                            # здесь и БЕЗУСЛОВНО: таблицу создал сам Слой 0
-                            # восемью десятками строк выше в этом же проходе.
-                            # Условное условие — это условие, которое однажды не
-                            # подставится.
-                            c3.execute("""
-                                SELECT o.order_id, o.user_id, o.currency, o.rub_amount
-                                FROM orders o
-                                WHERE o.status='expired' AND o.user_id > 0
-                                  AND datetime(o.updated_at) > datetime('now', '-15 minutes')
-                                  AND NOT EXISTS (SELECT 1 FROM order_receipts r
-                                                  WHERE r.order_id=o.order_id)
-                                  AND NOT EXISTS (SELECT 1 FROM sent_notifications sn
-                                                  WHERE sn.order_id=o.order_id AND sn.event='order_expired')
-                                  -- Про смерть сессии клиенту уже сказали
-                                  -- конкретнее и раньше; «заявка истекла»
-                                  -- вторым сообщением только путает.
-                                  AND NOT EXISTS (SELECT 1 FROM sent_notifications sn2
-                                                  WHERE sn2.order_id=o.order_id AND sn2.event='session_dead')
-                            """)
-                            to_notify = c3.fetchall()
-                            for _oid, _uid, _cur, _amt in to_notify:
-                                c3.execute("INSERT OR IGNORE INTO sent_notifications (order_id, event) "
-                                           "VALUES (?, 'order_expired')", (_oid,))
-                            conn3.commit()
-                        for _oid, _uid, _cur, _amt in to_notify:
-                            try:
-                                notify_telegram(_uid, (
-                                    f"⌛ <b>Заявка #{_oid} истекла</b>\n\n"
-                                    f"{_amt:g} ₽ → {_cur}. Курс больше не действует — "
-                                    f"средства по старым реквизитам не переводите.\n"
-                                    f"Создайте новую заявку, это займёт минуту."
-                                ), reply_markup={"inline_keyboard": [
-                                    [{"text": "🔄 Создать новую заявку", "callback_data": "menu_exchange"}],
-                                ]})
-                            except Exception as ne:
-                                logger.warning(f"[cleanup] notify expired order {_oid}: {ne}")
-                    except Exception as e:
-                        logger.error(f"[cleanup] expired-notify loop error: {e}")
-                    # Отменяем Brabus-инвойсы для истёкших заявок (защита от зависших сделок)
-                    try:
-                        with db_conn(5) as conn2:
-                            c2 = conn2.cursor()
-                            c2.execute("""
-                                SELECT ps.provider_invoice_id, ps.provider
-                                FROM payment_sessions ps
-                                JOIN orders o ON o.order_id = ps.order_id
-                                WHERE o.status='expired'
-                                  AND ps.provider LIKE 'brabus%'
-                                  AND ps.provider_invoice_id IS NOT NULL
-                                  AND datetime(o.updated_at) > datetime('now', '-15 minutes')
-                            """)
-                            brabus_to_cancel = c2.fetchall()
-                        for inv_id, prov in brabus_to_cancel:
-                            variant = prov.split(':', 1)[1] if ':' in prov else None
-                            try:
-                                from providers.brabus import BrabusProvider
-                                if variant:
-                                    ok = BrabusProvider(variant=variant).cancel_order(inv_id)
-                                else:
-                                    ok = BrabusProvider.cancel_any(inv_id)
-                                if ok:
-                                    logger.info(f"[cleanup] Brabus cancelled {inv_id}")
-                            except Exception as ce:
-                                logger.warning(f"[cleanup] Brabus cancel {inv_id}: {ce}")
-                    except Exception as e:
-                        logger.error(f"[cleanup] Brabus cancel loop error: {e}")
+            expired = _order_lifecycle.expire_due(limit=1000)
+            if expired:
+                logger.info(f"[cleanup] Expired {expired} abandoned pending orders")
+            _dispatch_lifecycle_work(limit=200)
         except Exception as e:
             logger.error(f"[cleanup] Error: {e}")
-        await asyncio.sleep(600)  # каждые 10 минут
+        await asyncio.sleep(600)
 
 
 def handle_dead_session(order_id, token, provider, detail=""):
@@ -4430,59 +4293,12 @@ def handle_dead_session(order_id, token, provider, detail=""):
     с чеком её держит Слой 0 и она стоит в очереди разбора, без чека — истечёт
     сама, и клиент получит про это отдельное честное уведомление.
     """
-    import sys as _sys
-    if RELAY_PATH not in _sys.path:
-        _sys.path.insert(0, RELAY_PATH)
-    from core import provider_caps
-
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute("UPDATE payment_sessions SET status='failed', updated_at=datetime('now') "
-                  "WHERE session_token=?", (token,))
-        # Однократность: опрос ходит каждые 30 секунд и без метки завалил бы
-        # клиента одинаковыми сообщениями раз в полминуты.
-        claimed = c.execute(
-            "INSERT OR IGNORE INTO sent_notifications (order_id, event) "
-            "VALUES (?, 'session_dead')", (order_id,)).rowcount
-        row = c.execute("SELECT user_id, rub_amount, currency, status FROM orders "
-                        "WHERE order_id=?", (order_id,)).fetchone()
-        try:
-            has_receipt = c.execute("SELECT 1 FROM order_receipts WHERE order_id=?",
-                                    (order_id,)).fetchone() is not None
-        except Exception:
-            has_receipt = False
-        conn.commit()
+    result = _order_lifecycle.fail_session(
+        int(order_id), token, provider, detail=detail)
     audit_log("session_dead", f"order={order_id} provider={provider} {detail}")
-    if not claimed or not row:
-        return
-
-    uid, rub, cur, ostatus = row
-    notify_admins_tg(
-        f"💀 <b>Сделка умерла у провайдера — заявка #{order_id}</b>\n\n"
-        f"{int(rub or 0)} ₽ → {cur} · провайдер <b>{provider}</b>"
-        f"{(' · ' + detail) if detail else ''}\n"
-        f"Чек от клиента: <b>{'ЕСТЬ' if has_receipt else 'нет'}</b>\n\n"
-        f"{provider_caps.verification_note(provider)}\n\n"
-        f"{'Заявка в очереди разбора: /review' if has_receipt else 'Разбор: /order ' + str(order_id)}")
-
-    if not uid or int(uid) <= 0 or ostatus in ("paid", "sent"):
-        return
-    if has_receipt:
-        # Клиент уже прислал подтверждение — он считает, что заплатил, и он,
-        # скорее всего, прав. Ни «оплаты не было», ни «создайте новую».
-        text = (f"🔍 <b>Заявка #{order_id} — разбираем вручную</b>\n\n"
-                f"Платёжная сессия закрылась на стороне партнёра, а ваш чек у нас. "
-                f"Заявкой уже занимается сотрудник.\n\n"
-                f"<b>Повторно не переводите и новую заявку не создавайте.</b> "
-                f"Мы напишем сюда, как только будет решение.")
-    else:
-        text = (f"⚠️ <b>Заявка #{order_id} — реквизиты больше не действуют</b>\n\n"
-                f"Платёжная сессия закрылась на стороне партнёра.\n\n"
-                f"<b>Если вы уже перевели деньги</b> — не переводите повторно, "
-                f"пришлите чек сюда, разберёмся вручную.\n"
-                f"<b>Если ещё нет</b> — создайте новую заявку, реквизиты выдадим "
-                f"заново.")
-    notify_telegram(uid, text)
+    if result.get("action") == "failed" and result.get("claimed"):
+        _dispatch_lifecycle_work(kind="session_dead_admin", limit=1)
+        _dispatch_lifecycle_work(kind="session_dead_customer", limit=1)
 
 
 async def vertu_poll_task():
@@ -4496,23 +4312,14 @@ async def vertu_poll_task():
         return
     while True:
         try:
-            with db_conn(5) as conn:
-                c = conn.cursor()
-                c.execute("""
-                    SELECT ps.session_token, ps.provider_invoice_id, ps.order_id
-                    FROM payment_sessions ps
-                    JOIN orders o ON o.order_id = ps.order_id
-                    WHERE ps.provider='vertu'
-                      AND ps.status='invoice_created'
-                      AND ps.provider_invoice_id IS NOT NULL
-                      AND o.status='pending'
-                      AND datetime(ps.created_at) > datetime('now', '-2 hours')
-                """)
-                rows = c.fetchall()
+            rows = _payment_sessions.pending_vertu()
             if rows:
                 from providers.vertu import VertuProvider
                 provider = VertuProvider()
-                for token, inv_id, order_id in rows:
+                for row in rows:
+                    token = row["session_token"]
+                    inv_id = row["provider_invoice_id"]
+                    order_id = row["order_id"]
                     try:
                         info = await asyncio.to_thread(provider.get_status, inv_id)
                     except Exception as e:
@@ -4520,22 +4327,10 @@ async def vertu_poll_task():
                         continue
                     status = info.get('status')
                     if status == 'paid':
-                        with db_conn(5) as conn:
-                            c = conn.cursor()
-                            c.execute("UPDATE orders SET status='paid', updated_at=datetime('now') "
-                                      "WHERE order_id=? AND status='pending'", (order_id,))
-                            c.execute("UPDATE payment_sessions SET status='paid', updated_at=datetime('now') "
-                                      "WHERE session_token=?", (token,))
-                            conn.commit()
-                            c.execute("SELECT user_id FROM orders WHERE order_id=?", (order_id,))
-                            row = c.fetchone()
+                        _mark_order_paid(order_id, "vertu", evidence="verified_sweep:paid",
+                                         session_token=token)
                         audit_log("vertu_polled_paid", f"order={order_id} inv={inv_id}")
                         logger.info(f"[vertu_poll] order {order_id} marked paid")
-                        if row and row[0] and int(row[0]) > 0:
-                            notify_telegram(row[0], (
-                                f"✅ <b>Оплата подтверждена!</b>\n\n"
-                                f"Заявка <b>#{order_id}</b> принята — выплата будет произведена в ближайшее время."
-                            ))
                     elif status == 'failed':
                         # У Vertu это Declined/Revoked — единственный сигнал,
                         # который мы вообще получим: канала «трейдер просит
@@ -4568,15 +4363,10 @@ async def _vertu_payout_sweep():
     # 27.07.2026, только по другой причине. Нашёл codex.
     from core import sell_payout as _sp
     done = (_sp.SETTLED,) + tuple(_sp.REJECTED)
-    holes = ",".join("?" * len(done))
-    with db_conn(5) as conn:
-        rows = conn.execute(
-            "SELECT id, user_id, rub_amount, payout_ref, payout_status FROM sell_orders"
-            " WHERE payout_provider='vertu' AND payout_ref IS NOT NULL AND payout_ref != ''"
-            f"   AND (payout_status IS NULL OR lower(payout_status) NOT IN ({holes}))"
-            "   AND datetime(updated_at) > datetime('now', '-3 days')", done).fetchall()
-    for sell_id, user_id, rub, ref, was in rows:
-        await _vertu_payout_settle(sell_id, user_id, rub, ref, was)
+    rows = _sell_store.active_vertu_payouts(done, newer_than_days=3)
+    for row in rows:
+        await _vertu_payout_settle(row["id"], row["user_id"], row["rub_amount"],
+                                   row["payout_ref"], row["payout_status"])
     await _vertu_payout_stuck_claims()
 
 
@@ -4629,20 +4419,14 @@ async def _vertu_payout_settle(sell_id, user_id, rub, ref, was=None):
     rub = float(rub or 0)
 
     if _sp.is_settled(now):
-        if not _sp.mark_settled(sell_id):
-            return                     # заявку уже закрыл кто-то другой
-        with db_conn(5) as conn:
-            conn.execute("""INSERT INTO user_vip_volume (user_id, total_rub, updated_at)
-                VALUES (?,?,datetime('now'))
-                ON CONFLICT(user_id) DO UPDATE SET
-                    total_rub=total_rub+excluded.total_rub,
-                    updated_at=datetime('now')""", (user_id, rub))
-            conn.commit()
-        if user_id and int(user_id) > 0:
-            notify_telegram(user_id, (
-                f"✅ <b>Заявка #{sell_id} выполнена!</b>\n"
-                f"💰 {rub:,.2f} RUB зачислены — банк подтвердил перевод."))
-        audit_log("vertu_payout_settled", f"sell={sell_id} ref={ref} {rub}")
+        result = _sell_settlement.settle_vertu(int(sell_id), payout_ref=ref)
+        if result.get("action") != "settled":
+            return
+        # Keep the existing immediate customer behavior; the background loop
+        # drains the same durable queue after a restart or transient backlog.
+        _dispatch_sell_settlement_notification()
+        audit_log("vertu_payout_settled",
+                  f"sell={sell_id} ref={ref} {result['rub_amount']}")
         return
 
     if _sp.is_rejected(now):
@@ -4801,26 +4585,14 @@ async def system_status():
         trust = {"active_routes": 0, "avg_requisite_seconds": 0,
                  "reliability_pct": 0, "status_label": "ограничена"}
 
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        stats = c.execute("""
-            SELECT
-                COUNT(*) as total,
-                SUM(CASE WHEN status='pending' THEN 1 ELSE 0 END) as pending,
-                SUM(CASE WHEN status IN ('paid','sent') THEN 1 ELSE 0 END) as completed,
-                SUM(CASE WHEN status='expired' THEN 1 ELSE 0 END) as expired
-            FROM orders WHERE date(created_at) = date('now')
-        """).fetchone()
+    stats = _reporting.today_status_counts()
 
     return {
         "status": "operational" if healthy_count > 0 else "degraded",
         "providers_healthy": healthy_count,
         # публичный «слой доверия к оплате» — агрегат без имён провайдеров
         "trust": trust,
-        "today": {
-            "total": stats[0], "pending": stats[1],
-            "completed": stats[2], "expired": stats[3]
-        }
+        "today": stats
     }
 
 
@@ -4837,4 +4609,11 @@ async def server_error_handler(request: Request, exc):
 # --- Запуск ---
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=5001)
+    # nginx is the public TLS/rate-limit boundary.  Loopback by default keeps
+    # the application port from bypassing that boundary; an explicit override
+    # is still available for isolated development environments.
+    uvicorn.run(
+        app,
+        host=os.getenv("RELAY_BIND_HOST", "127.0.0.1"),
+        port=int(os.getenv("RELAY_PORT", "5001")),
+    )

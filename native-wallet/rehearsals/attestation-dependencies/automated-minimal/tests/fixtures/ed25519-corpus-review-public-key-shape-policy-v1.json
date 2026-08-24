@@ -1,0 +1,64 @@
+{
+  "schema": "native-wallet-ed25519-corpus-review-public-key-shape-policy.v1",
+  "ed25519_verifying_key": {
+    "exact_bytes": 32,
+    "encoding": "RFC 8032 compressed Edwards25519 public key",
+    "required_checks": [
+      "exact 32-byte input",
+      "canonical compressed-y encoding",
+      "successful point decompression",
+      "point is on curve",
+      "point is torsion-free and not small-order",
+      "strict Ed25519 verification API rejects non-canonical scalar and weak-key cases",
+      "exact input bytes SHA-256 equals consumer-selected snapshot digest"
+    ],
+    "forbidden": [
+      "seed or secret scalar input",
+      "key generation",
+      "key recovery from keyid",
+      "acceptance based only on length or digest"
+    ]
+  },
+  "webauthn_es256_cose_key": {
+    "maximum_bytes": 256,
+    "encoding": "deterministic CBOR COSE_Key",
+    "exact_map_entries": 5,
+    "exact_labels": {
+      "1": { "name": "kty", "value": 2 },
+      "3": { "name": "alg", "value": -7 },
+      "-1": { "name": "crv", "value": 1 },
+      "-2": { "name": "x", "byte_string_length": 32 },
+      "-3": { "name": "y", "byte_string_length": 32 }
+    },
+    "required_checks": [
+      "definite-length map and byte strings only",
+      "deterministic CBOR shortest encodings and key order",
+      "duplicate, unknown and missing labels rejected",
+      "no CBOR tags, floats, text keys or trailing bytes",
+      "x and y form a finite on-curve NIST P-256 point",
+      "exact COSE bytes SHA-256 equals consumer-selected snapshot digest"
+    ],
+    "forbidden": [
+      "private scalar label",
+      "algorithm or curve fallback",
+      "credential-driven snapshot selection",
+      "acceptance based only on CBOR shape or digest"
+    ]
+  },
+  "validation_order": [
+    "consumer selects active snapshot",
+    "bounded exact byte length",
+    "snapshot byte digest equality",
+    "strict candidate-specific parse and semantic point checks",
+    "negative public corpus parity",
+    "symbolic signature outcome"
+  ],
+  "ed25519_parser_implemented": false,
+  "cose_parser_implemented": false,
+  "elliptic_curve_checks_implemented": false,
+  "public_key_bytes_present": false,
+  "private_material_present": false,
+  "crypto_call_allowed": false,
+  "checkpoint_authenticated": false,
+  "runtime_integration_allowed": false
+}

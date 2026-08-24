@@ -1,0 +1,17 @@
+{
+  "schema": "native-wallet-ed25519-corpus-review-audit-event-hash-vector.v1",
+  "event": {
+    "sequence": 1,
+    "event_id": "audit-event-0001",
+    "event_type": "DELETION_PLANNED",
+    "occurred_at_epoch_ms": 1786500000000,
+    "actor_domain_id": "issuer-domain-a",
+    "subject_domain_id": "review-domain-a",
+    "object_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+    "policy_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+    "previous_event_sha256": null,
+    "decision": "NONE",
+    "reason_code": "PLAN_ACCEPTED"
+  },
+  "expected_event_sha256": "61593ca96c54da325e000169429aa62886b0dfcef444f947c3d3b5d188d7a95b"
+}

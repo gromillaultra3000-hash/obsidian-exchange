@@ -27,6 +27,34 @@ _STATUS_MAP = {
     10: "expired",
 }
 
+SWAPUZ_TERMINAL_STATUSES = frozenset({"finished", "expired"})
+SWAPUZ_TRANSITIONS = {
+    "waiting": frozenset({"confirming", "exchanging", "sending", "finished", "expired"}),
+    "confirming": frozenset({"exchanging", "sending", "finished", "expired"}),
+    "exchanging": frozenset({"sending", "finished", "expired"}),
+    "sending": frozenset({"finished", "expired"}),
+}
+
+
+def decode_swapuz_status(status_code):
+    """Decode only the provider's documented JSON integer status shape."""
+    if type(status_code) is not int:
+        return None
+    return _STATUS_MAP.get(status_code)
+
+
+def safe_swapuz_transition(old_status, new_status):
+    """Accept only recognized forward transitions; terminal states never regress."""
+    old = str(old_status or "").strip().lower()
+    new = str(new_status or "").strip().lower()
+    if new not in set(_STATUS_MAP.values()):
+        return None
+    if new == old:
+        return new
+    if old in SWAPUZ_TERMINAL_STATUSES:
+        return None
+    return new if new in SWAPUZ_TRANSITIONS.get(old, frozenset()) else None
+
 
 class SwapUzProvider:
     def __init__(self):
@@ -117,14 +145,14 @@ class SwapUzProvider:
             )
             data = r.json()
             if r.status_code != 200 or not data.get("result"):
-                return {"status": "unknown"}
+                return {"status": None}
             res = data["result"]
-            status_code = res.get("status", -1)
+            status_code = res.get("status")
             return {
-                "status": _STATUS_MAP.get(status_code, f"status_{status_code}"),
+                "status": decode_swapuz_status(status_code),
                 "status_code": status_code,
                 "raw": res,
             }
         except Exception as e:
             logger.error(f"SwapUZ get_status failed: {e}")
-            return {"status": "unknown"}
+            return {"status": None}

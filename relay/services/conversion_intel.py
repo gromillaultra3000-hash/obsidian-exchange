@@ -15,30 +15,18 @@ Verdict:
     insufficient  — показов < MIN (данных мало, вывода нет)
 """
 from __future__ import annotations
-import sqlite3
+import os
+from repositories.reporting_store import from_environment as _reporting_store
 
-DB_PATH = "/root/exchange.db"
+DB_PATH = os.getenv("DB_PATH", "/root/exchange.db")
 MIN_SAMPLES = 5          # порог доказательности (LUMI использует 3 для кодинга; для платежей берём 5)
 PAID_STATUSES = ("paid", "sent")
 
 
 def provider_conversion(days: int = 30, db_path: str = DB_PATH) -> dict:
     """Вернёт per-provider метрики конверсии + сводку. Advisory, роутинг не меняет."""
-    paid_set = ",".join("'%s'" % s for s in PAID_STATUSES)
-    sql = f"""
-        SELECT ps.provider AS provider,
-               COUNT(*) AS shown,
-               SUM(CASE WHEN o.status IN ({paid_set}) THEN 1 ELSE 0 END) AS paid
-        FROM payment_sessions ps
-        JOIN orders o ON o.order_id = ps.order_id
-        WHERE ps.created_at > datetime('now', ?)
-        GROUP BY ps.provider
-    """
-    rows = []
     try:
-        with sqlite3.connect(db_path, timeout=5) as c:
-            c.row_factory = sqlite3.Row
-            rows = [dict(r) for r in c.execute(sql, (f"-{int(days)} days",)).fetchall()]
+        rows = _reporting_store(sqlite_path=db_path).provider_conversion_rows(days)
     except Exception as e:
         return {"error": str(e), "providers": [], "summary": {}}
 

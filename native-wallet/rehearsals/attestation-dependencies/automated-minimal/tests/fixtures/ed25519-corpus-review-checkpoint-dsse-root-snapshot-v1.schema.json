@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.obsidian.invalid/native-wallet/ed25519-corpus-review-checkpoint-dsse-root-snapshot-v1.schema.json",
+  "title": "Consumer-selected DSSE witness root snapshot",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "policy_id", "witness_slot", "witness_domain_id", "root_id",
+    "root_record_sha256", "public_key_bytes_sha256", "algorithm", "epoch",
+    "status", "valid_from_epoch_ms", "valid_until_epoch_ms",
+    "recovery_authority_id", "previous_snapshot_sha256"
+  ],
+  "properties": {
+    "schema": { "const": "native-wallet-ed25519-corpus-review-checkpoint-dsse-root-snapshot.v1" },
+    "policy_id": { "type": "string", "minLength": 8, "maxLength": 128, "pattern": "^[a-z0-9][a-z0-9._:-]*$" },
+    "witness_slot": { "type": "integer", "minimum": 0, "maximum": 1 },
+    "witness_domain_id": { "type": "string", "minLength": 8, "maxLength": 128, "pattern": "^[a-z0-9][a-z0-9._:-]*$" },
+    "root_id": { "type": "string", "minLength": 8, "maxLength": 128, "pattern": "^[a-z0-9][a-z0-9._:-]*$" },
+    "root_record_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "public_key_bytes_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "algorithm": { "const": "Ed25519" },
+    "epoch": { "type": "integer", "minimum": 1 },
+    "status": { "enum": ["ACTIVE", "REVOKED", "RETIRED", "COMPROMISED"] },
+    "valid_from_epoch_ms": { "type": "integer", "minimum": 1 },
+    "valid_until_epoch_ms": { "type": "integer", "minimum": 1 },
+    "recovery_authority_id": { "type": "string", "minLength": 8, "maxLength": 128, "pattern": "^[a-z0-9][a-z0-9._:-]*$" },
+    "previous_snapshot_sha256": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" }
+  },
+  "consumer_selection_inputs": ["policy_id", "witness_slot", "witness_domain_id", "epoch"],
+  "keyid_input_used_for_selection": false,
+  "public_key_bytes_embedded": false,
+  "public_key_parsing_implemented": false,
+  "root_store_implemented": false,
+  "real_root_present": false,
+  "crypto_call_allowed": false
+}

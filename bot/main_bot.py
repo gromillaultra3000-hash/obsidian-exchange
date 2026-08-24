@@ -1,7 +1,6 @@
-from contextlib import contextmanager
-import asyncio, sqlite3, random, requests, os, sys, re, logging, time, csv, hmac, hashlib, aiohttp
+import asyncio, random, requests, os, sys, re, logging, time, csv, hmac, hashlib, aiohttp, json, uuid
 from logging.handlers import RotatingFileHandler
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from io import BytesIO, StringIO
 from aiogram import Bot, Dispatcher, Router, F
@@ -14,13 +13,14 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.fsm.storage.redis import RedisStorage
 from redis.asyncio import Redis
 import qrcode
-from bitcoinlib.wallets import Wallet, wallet_delete
 from tronpy import Tron
 from tronpy.keys import PrivateKey
 from sell_guard import verify_sell_deposit, describe_verdict
 
 # ---------- ЛОГИРОВАНИЕ ----------
-log_handler = RotatingFileHandler('/root/bot/bot.log', maxBytes=10*1024*1024, backupCount=5)
+log_handler = RotatingFileHandler(
+    os.getenv('BOT_LOG_PATH', str(Path(__file__).resolve().parent / 'bot.log')),
+    maxBytes=10*1024*1024, backupCount=5)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     handlers=[log_handler, logging.StreamHandler(sys.stdout)])
 logger = logging.getLogger(__name__)
@@ -66,20 +66,44 @@ MAX_AMOUNT = float(os.getenv('MAX_AMOUNT', 500000))
 HIGH_AMOUNT        = float(os.getenv('HIGH_AMOUNT', 100000))
 AUTO_PAYOUT_LIMIT  = float(os.getenv('AUTO_PAYOUT_LIMIT', 5000))
 DB_PATH = os.getenv('DB_PATH', '/root/exchange.db')
-
-@contextmanager
-def db_conn(timeout=5):
-    _conn = sqlite3.connect(DB_PATH, timeout=timeout)
-    try:
-        yield _conn
-    finally:
-        _conn.close()
+from repositories import support_store as _support_store_module
+from repositories import swap_store as _swap_store_module
+from repositories import sell_order_store as _sell_store_module
+from repositories import user_profile_store as _user_profile_store_module
+from repositories import admin_config_store as _admin_config_store_module
+from repositories import promo_admin_store as _promo_admin_store_module
+from repositories import engagement_store as _engagement_store_module
+from repositories import provider_health_store as _provider_health_store_module
+from repositories import payout_store as _payout_store_module
+from repositories import order_read_store as _order_read_store_module
+from repositories import order_workflow_store as _order_workflow_store_module
+from repositories import reporting_store as _reporting_store_module
+from repositories import bot_notification_store as _bot_notification_store_module
+from repositories import payment_session_store as _payment_session_store_module
+from repositories import status_notification_store as _status_notification_store_module
+from repositories import runtime_schema_store as _runtime_schema_store_module
+_support_store = _support_store_module.from_environment(sqlite_path=DB_PATH)
+_swap_store = _swap_store_module.from_environment(sqlite_path=DB_PATH)
+_sell_store = _sell_store_module.from_environment(sqlite_path=DB_PATH)
+_user_profiles = _user_profile_store_module.from_environment(sqlite_path=DB_PATH)
+_admin_config = _admin_config_store_module.from_environment(sqlite_path=DB_PATH)
+_promo_admin = _promo_admin_store_module.from_environment(sqlite_path=DB_PATH)
+_engagement = _engagement_store_module.from_environment(sqlite_path=DB_PATH)
+_provider_health = _provider_health_store_module.from_environment(sqlite_path=DB_PATH)
+_payout_store = _payout_store_module.from_environment(sqlite_path=DB_PATH)
+_order_reads = _order_read_store_module.from_environment(sqlite_path=DB_PATH)
+_order_workflow = _order_workflow_store_module.from_environment(sqlite_path=DB_PATH)
+_reporting = _reporting_store_module.from_environment(sqlite_path=DB_PATH)
+_bot_notifications = _bot_notification_store_module.from_environment(sqlite_path=DB_PATH)
+_payment_sessions = _payment_session_store_module.from_environment(sqlite_path=DB_PATH)
+_status_notifications = _status_notification_store_module.from_environment(sqlite_path=DB_PATH)
+_runtime_schema = _runtime_schema_store_module.from_environment(sqlite_path=DB_PATH)
 
 RELAY_SECRET = os.getenv('RELAY_SECRET', '')
 COMMISSION_PERCENT = float(os.getenv('COMMISSION_PERCENT', 12))
 
 
-def receipts_for(cursor, order_ids) -> set:
+def receipts_for(_cursor, order_ids) -> set:
     """order_id, по которым клиент прислал чек — из переданного списка.
 
     Отдельным запросом, а не JOIN'ом в основной выборке, и под try: таблица
@@ -91,9 +115,7 @@ def receipts_for(cursor, order_ids) -> set:
     if not ids:
         return set()
     try:
-        return {r[0] for r in cursor.execute(
-            "SELECT order_id FROM order_receipts WHERE order_id IN ({})".format(
-                ",".join("?" * len(ids))), ids).fetchall()}
+        return _order_reads.receipt_order_ids(ids)
     except Exception:
         logger.warning("order_receipts недоступна — заявки с чеком не отмечены")
         return set()
@@ -102,10 +124,7 @@ def receipts_for(cursor, order_ids) -> set:
 def get_active_workers() -> list[int]:
     """Возвращает список user_id всех активных работников из БД."""
     try:
-        with db_conn(5) as conn:
-            c = conn.cursor()
-            c.execute("SELECT user_id FROM workers WHERE is_active=1")
-            return [row[0] for row in c.fetchall()]
+        return list(_admin_config.active_staff_ids(role='worker'))
     except Exception:
         return []
 
@@ -122,10 +141,7 @@ def is_worker(user_id: int) -> bool:
 def get_active_operators() -> list[int]:
     """Возвращает список user_id всех активных операторов из БД."""
     try:
-        with db_conn(5) as conn:
-            c = conn.cursor()
-            c.execute("SELECT user_id FROM operators WHERE is_active=1")
-            return [row[0] for row in c.fetchall()]
+        return list(_admin_config.active_staff_ids(role='operator'))
     except Exception:
         return []
 
@@ -143,12 +159,7 @@ def staff_ids() -> set[int]:
 def log_staff_action(uid: int, action: str, target_id=None, details=None):
     """Аудит действий операторов/админов в admin_log; ошибки не роняют вызов."""
     try:
-        with db_conn(5) as conn:
-            conn.execute(
-                "INSERT INTO admin_log (admin_id, action, target_id, details) VALUES (?,?,?,?)",
-                (uid, action, target_id, details)
-            )
-            conn.commit()
+        _engagement.log_action(uid, action, target_id, details)
     except Exception as e:
         logger.debug(f"log_staff_action: {e}")
 REFERRAL_BONUS_PERCENT = float(os.getenv('REFERRAL_BONUS_PERCENT', 10))
@@ -230,9 +241,8 @@ def get_service_status() -> dict:
         return _service_status_cache['data']
     data = {'ok': 'ok', 'chip': 'онлайн', 'line': '🟢 Сервис онлайн — платежи принимаются'}
     try:
-        with db_conn(5) as conn:
-            rows = conn.execute("SELECT provider, is_healthy FROM provider_health").fetchall()
-        healthy = {r[0] for r in rows if r[1]}
+        rows = _provider_health.all_health()
+        healthy = {r['provider'] for r in rows if r['is_healthy']}
         real = healthy - {'FallbackProvider', 'PlategaProvider'}
         if real:
             if 'MonteraProvider' in real:
@@ -512,13 +522,7 @@ def user_success_count(user_id: int) -> int:
     if not user_id or user_id < 0:
         return 0
     try:
-        with db_conn(3) as conn:
-            row = conn.execute(
-                "SELECT COUNT(*) FROM orders WHERE user_id=? "
-                "AND status IN ('paid','sent','completed')",
-                (user_id,)
-            ).fetchone()
-        return int(row[0] or 0)
+        return _order_reads.provider_success_count(user_id)
     except Exception as e:
         logger.warning(f"user_success_count({user_id}): {e}")
         return 0
@@ -577,6 +581,19 @@ async def build_payment_methods_kb(order_id: int, amount: float, user_id: int = 
         rows.append([InlineKeyboardButton(
             text="⚡ Карта — авто-подтверждение",
             callback_data=f"pm_vertu_card_{order_id}"
+        )])
+
+    # 2) RSPay QR/deeplink — второй приоритет после Vertu. Это QR/deeplink-
+    # кабинет; card/SBP BT-рельсы здесь намеренно не показываем.
+    if (os.getenv('RSPAY_SHOP_API_KEY', '') and os.getenv('RSPAY_API_SECRET', '')
+            and amt >= 1000):
+        rows.append([InlineKeyboardButton(
+            text="📷 Оплата по QR-коду",
+            callback_data=f"pm_rspay_qr_{order_id}"
+        )])
+        rows.append([InlineKeyboardButton(
+            text="🔗 Оплата по ссылке",
+            callback_data=f"pm_rspay_deeplink_{order_id}"
         )])
 
     # 2) XPayConnect — побанковые переводы, авто-подтверждение вебхуком (без чека).
@@ -805,149 +822,6 @@ class LimitOrder(StatesGroup):
     amount     = State()
     address    = State()
 
-# ---------- БАЗА ДАННЫХ ----------
-def init_db():
-    with db_conn(10) as conn:
-        c = conn.cursor()
-        c.execute("PRAGMA journal_mode=WAL")
-        c.execute('''CREATE TABLE IF NOT EXISTS orders (
-            order_id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
-            username TEXT, currency TEXT NOT NULL DEFAULT 'BTC',
-            rub_amount REAL NOT NULL, crypto_address TEXT NOT NULL,
-            status TEXT NOT NULL DEFAULT 'pending', created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            paid_btc_tx TEXT, updated_at TEXT)''')
-        # Чеки клиентов. Схему создаёт core/receipts.py при первом чеке, но
-        # ЧИТАЮТ её отборы, от которых зависит, не позовём ли мы клиента
-        # заплатить второй раз. Создаём здесь, чтобы у этих отборов не было
-        # повода быть условными: условие, которое можно не подставить, рано или
-        # поздно не подставится. Колонки — минимум, нужный чтению; остальное
-        # (sha256, dispute_opened_at) доводит receipts.py.
-        # Журнал одноразовых уведомлений. На нём держится вся идемпотентность:
-        # «клиенту это уже говорили», «выплату уже застолбили», «оператор уже
-        # отклонил чек». В боевую базу таблица попала руками — в коде её не
-        # создавал никто, и на свежей базе первый же INSERT валился, унося с
-        # собой уведомление, а вместе с ним и защиту от повтора.
-        c.execute('''CREATE TABLE IF NOT EXISTS sent_notifications (
-            order_id INTEGER, event TEXT, PRIMARY KEY (order_id, event))''')
-        c.execute('''CREATE TABLE IF NOT EXISTS order_receipts (
-            order_id INTEGER PRIMARY KEY, path TEXT, filename TEXT,
-            content_type TEXT, created_at TEXT DEFAULT (datetime('now')),
-            dispute_opened_at TEXT)''')
-        c.execute('''CREATE TABLE IF NOT EXISTS referrals (
-            referrer_id INTEGER, referred_id INTEGER, bonus_paid INTEGER DEFAULT 0,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, total_bonus_btc REAL DEFAULT 0,
-            PRIMARY KEY (referrer_id, referred_id))''')
-        # Курируемые резервы (задаются админом вручную, НЕ сырой баланс кошелька)
-        c.execute('''CREATE TABLE IF NOT EXISTS reserves (
-            currency TEXT PRIMARY KEY, amount REAL NOT NULL DEFAULT 0,
-            updated_at TEXT DEFAULT CURRENT_TIMESTAMP)''')
-        c.execute('''CREATE TABLE IF NOT EXISTS blocked_users (
-            user_id INTEGER PRIMARY KEY, reason TEXT, blocked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
-        # Уже лежащие в чёрном списке XRPL-адреса приводим к идентичности
-        # счёта. Сравнение ниже нормализует и хранимое тоже, так что это не
-        # условие корректности — но список становится читаемым (одна строка
-        # на счёт, а не по одной на каждый тег назначения) и совпадает с тем,
-        # что кладёт _blocklist_key при новых блокировках.
-        try:
-            for _row in c.execute("SELECT address FROM blocked_addresses").fetchall():
-                _old_a, _new_a = _row[0], _blocklist_key(_row[0])
-                if _new_a and _new_a != _old_a:
-                    c.execute("UPDATE OR IGNORE blocked_addresses SET address=? "
-                              "WHERE address=?", (_new_a, _old_a))
-                    c.execute("DELETE FROM blocked_addresses WHERE address=?", (_old_a,))
-        except Exception:
-            logger.warning("нормализация чёрного списка адресов пропущена")
-        c.execute('''CREATE TABLE IF NOT EXISTS admin_log (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, admin_id INTEGER NOT NULL,
-            action TEXT NOT NULL, target_id INTEGER, details TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
-        c.execute('''CREATE TABLE IF NOT EXISTS reviews (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, order_id INTEGER NOT NULL,
-            user_id INTEGER NOT NULL, rating INTEGER, comment TEXT,
-            status TEXT NOT NULL DEFAULT 'pending', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
-        c.execute('''CREATE TABLE IF NOT EXISTS swap_sessions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            session_token TEXT UNIQUE NOT NULL,
-            user_id INTEGER NOT NULL,
-            coin_from TEXT, coin_to TEXT,
-            amount_from REAL,
-            address_to TEXT,
-            trocador_id TEXT,
-            trocador_url TEXT,
-            status TEXT DEFAULT 'created',
-            created_at TEXT DEFAULT (datetime('now')),
-            updated_at TEXT DEFAULT (datetime('now')))''')
-        c.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_reviews_order ON reviews(order_id)")
-        c.execute("CREATE INDEX IF NOT EXISTS idx_orders_user ON orders(user_id)")
-        c.execute("CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status)")
-        c.execute("CREATE INDEX IF NOT EXISTS idx_orders_created ON orders(created_at)")
-        c.execute("CREATE INDEX IF NOT EXISTS idx_swap_token ON swap_sessions(session_token)")
-        # Мультичейн (Фаза C): сеть выплаты на заявке. NULL = каноническая сеть валюты
-        # (BTC/LTC mainnet, USDT→TRC20). Идемпотентно: колонка добавляется один раз.
-        _order_cols = [r[1] for r in c.execute("PRAGMA table_info(orders)")]
-        if 'network' not in _order_cols:
-            c.execute("ALTER TABLE orders ADD COLUMN network TEXT")
-        # Договорённость с клиентом (что ему обещано при создании заявки).
-        # Без неё выплата считалась заново по свежему курсу, и обещание
-        # «курс действует 15 минут» не выполнялось ни для кого.
-        if 'agreed_rate' not in _order_cols:
-            c.execute("ALTER TABLE orders ADD COLUMN agreed_rate REAL")
-        if 'agreed_crypto_amount' not in _order_cols:
-            c.execute("ALTER TABLE orders ADD COLUMN agreed_crypto_amount REAL")
-        if 'agreed_at' not in _order_cols:
-            c.execute("ALTER TABLE orders ADD COLUMN agreed_at TEXT")
-        # Отметка «чек ушёл платёжному партнёру». Пишет core/receipts.py, читают
-        # клиентские списки заявок — по ней заявка называется «на проверке», а
-        # не «ждёт оплаты». В боевой базе колонка появилась миграцией вне
-        # репозитория; на свежей базе её не было, и список заявок падал бы
-        # целиком на «no such column».
-        if 'receipt_sent_at' not in _order_cols:
-            c.execute("ALTER TABLE orders ADD COLUMN receipt_sent_at TEXT")
-        if 'receipt_deadline' not in _order_cols:
-            c.execute("ALTER TABLE orders ADD COLUMN receipt_deadline TEXT")
-        # Заявки на продажу: таблицу пишут и бот, и сайт, а создавала её раньше
-        # чья-то консоль — на свежей базе первая же продажа падала бы.
-        c.execute('''CREATE TABLE IF NOT EXISTS sell_orders (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, currency TEXT,
-            crypto_amount REAL, rub_amount REAL, sbp_phone TEXT, receive_address TEXT,
-            status TEXT, tx_hash TEXT, created_at TEXT, updated_at TEXT)''')
-        # Реквизит выплаты целиком: рельсу Vertu нужна тройка «банк + номер +
-        # ФИО», и половины тройки хватает, чтобы получить отказ 422 уже после
-        # того, как крипта клиента у нас. Список обязан совпадать с
-        # relay-fastapi/main.py (sell_needed) — оба процесса делят один файл БД.
-        _sell_cols = [r[1] for r in c.execute("PRAGMA table_info(sell_orders)")]
-        for _col in ('payout_method', 'payout_bank', 'payout_details', 'payout_name',
-                     'payout_provider', 'payout_ref', 'payout_status'):
-            if _col not in _sell_cols:
-                c.execute(f"ALTER TABLE sell_orders ADD COLUMN {_col} TEXT")
-        c.execute('''CREATE TABLE IF NOT EXISTS bot_users (
-            user_id INTEGER PRIMARY KEY,
-            username TEXT,
-            first_name TEXT,
-            last_name TEXT,
-            first_seen TEXT DEFAULT (datetime('now')),
-            last_seen TEXT DEFAULT (datetime('now')),
-            broadcast_enabled INTEGER DEFAULT 1
-        )''')
-        c.execute('''CREATE TABLE IF NOT EXISTS operators (
-            user_id INTEGER PRIMARY KEY, username TEXT, added_by INTEGER,
-            added_at TEXT DEFAULT (datetime('now')), is_active INTEGER DEFAULT 1)''')
-        c.execute('''CREATE TABLE IF NOT EXISTS rate_subscriptions (
-            user_id INTEGER PRIMARY KEY,
-            enabled INTEGER DEFAULT 1,
-            last_notified REAL DEFAULT 0,
-            last_btc REAL DEFAULT 0,
-            last_ltc REAL DEFAULT 0,
-            last_usdt REAL DEFAULT 0
-        )''')
-        conn.commit()
-        # Заполняем bot_users из истории заявок (для существующих пользователей)
-        c.execute("""
-            INSERT OR IGNORE INTO bot_users (user_id, username)
-            SELECT DISTINCT user_id, username FROM orders WHERE user_id > 0
-        """)
-        conn.commit()
-init_db()
-
 # ---------- КЭШ КУРСА ----------
 _btc_cache = {"rate": 0, "ts": 0}
 _ltc_cache = {"rate": 0, "ts": 0}
@@ -963,11 +837,7 @@ from core.pricing import VIP_TIERS, vip_tier_for as _vip_tier_for
 def get_user_vip(user_id: int) -> tuple:
     """Возвращает (tier_name, discount_pct) для пользователя."""
     try:
-        with db_conn(5) as conn:
-            c = conn.cursor()
-            c.execute("SELECT total_rub FROM user_vip_volume WHERE user_id=?", (user_id,))
-            row = c.fetchone()
-        total = row[0] if row else 0
+        total = _engagement.vip_total(user_id)
     except Exception:
         total = 0
     return _vip_tier_for(total)
@@ -976,13 +846,7 @@ async def update_user_vip_volume(user_id: int, rub_amount: float):
     """Прибавляет объём к накопительному VIP-счётчику и уведомляет о повышении тира."""
     old_tier, _ = get_user_vip(user_id)
     try:
-        with db_conn(5) as conn:
-            conn.execute("""INSERT INTO user_vip_volume (user_id, total_rub, updated_at)
-                VALUES (?,?,datetime('now'))
-                ON CONFLICT(user_id) DO UPDATE SET
-                    total_rub=total_rub+excluded.total_rub,
-                    updated_at=datetime('now')""", (user_id, rub_amount))
-            conn.commit()
+        _engagement.add_vip(user_id, rub_amount)
     except Exception as e:
         logger.error(f"VIP volume update error: {e}")
         return
@@ -1000,7 +864,7 @@ async def update_user_vip_volume(user_id: int, rub_amount: float):
         except Exception:
             pass
 
-def get_commission_percent(amount_rub, user_id: int = None):
+def get_commission_percent(amount_rub, user_id: int = None, *, include_promo: bool = True):
     """Комиссия для суммы. Лестница — из core.pricing (единый источник для бота,
     сайта и виджета); здесь поверх неё только персональные скидки VIP/промо."""
     from core.pricing import commission_percent as _cp
@@ -1009,7 +873,7 @@ def get_commission_percent(amount_rub, user_id: int = None):
         _, disc = get_user_vip(user_id)
         base = max(2, base + disc)
         # Применяем скидку активного промокода
-        promo = _active_promos.get(user_id)
+        promo = _active_promos.get(user_id) if include_promo else None
         if promo:
             base = max(1, base - promo[1])
     return base
@@ -1133,7 +997,7 @@ def get_cached_rate(coin):
     cache["ts"] = now
     return rate
 
-def get_rate_with_markup(coin, amount=None):
+def get_rate_with_markup(coin, amount=None, user_id: int = None, *, include_promo: bool = True):
     # USDT по умолчанию идёт по той же тарифной лестнице, что BTC/LTC
     # (27/25/23/19% по сумме). Раньше был фикс 2% — он уводил почти всю маржу
     # USDT (на 10к клиент получал ~9800 ₽ обратно). Оставлен опциональный
@@ -1145,7 +1009,7 @@ def get_rate_with_markup(coin, amount=None):
     elif _rate_coin_key(coin) == 'USDT' and _usdt_override:
         commission = float(_usdt_override)
     else:
-        commission = get_commission_percent(amount)
+        commission = get_commission_percent(amount, user_id, include_promo=include_promo)
     return get_cached_rate(coin) / (1 - commission / 100)
 
 # ---------- ВАЛИДАЦИЯ АДРЕСОВ ----------
@@ -1200,9 +1064,8 @@ def validate_crypto_address(addr, currency, network=None):
     # прохода несопоставима с ценой обойдённой блокировки.
     try:
         want = _blocklist_key(addr)
-        with db_conn(3) as conn:
-            rows = conn.execute("SELECT address FROM blocked_addresses").fetchall()
-        for (stored,) in rows:
+        rows = _admin_config.blocked_address_rows(limit=10000)
+        for stored, _reason, _created_at in rows:
             if _blocklist_key(stored) == want:
                 return False
     except Exception:
@@ -1289,13 +1152,10 @@ def get_agreed_quote(order_id):
     выплата ушла бы по свежему курсу вместо обещанного клиенту объёма.
     Вызывающий обязан трактовать исключение как «автоматически не платим».
     """
-    with db_conn(5) as conn:
-        row = conn.execute(
-            "SELECT agreed_rate, agreed_crypto_amount FROM orders WHERE order_id=?",
-            (order_id,)).fetchone()
-    if not row:
-        raise RuntimeError(f"заявка #{order_id} не найдена")
-    return (row[0], row[1])
+    try:
+        return _order_reads.agreed_quote(order_id)
+    except LookupError:
+        raise RuntimeError(f"заявка #{order_id} не найдена") from None
 
 
 def payout_verdict(order_id, rub_amount, currency):
@@ -1904,22 +1764,13 @@ async def cmd_start(message: Message, state: FSMContext):
         if len(parts) > 1 and parts[1].startswith('verify_'):
             try:
                 verify_order_id = int(parts[1][7:])
-                with db_conn(5) as conn_v:
-                    c_v = conn_v.cursor()
-                    c_v.execute(
-                        "SELECT verification_requested FROM orders WHERE order_id=? AND user_id=?",
-                        (verify_order_id, message.from_user.id)
-                    )
-                    vrow = c_v.fetchone()
-                    # Получаем Montera order_id из payment_sessions
-                    c_v.execute(
-                        "SELECT provider_invoice_id FROM payment_sessions WHERE order_id=? AND provider='montera' ORDER BY id DESC LIMIT 1",
-                        (verify_order_id,)
-                    )
-                    psrow = c_v.fetchone()
-                if vrow and vrow[0]:
-                    vtype = vrow[0]
-                    montera_invoice_id = psrow[0] if psrow else None
+                order = _order_reads.snapshot(verify_order_id)
+                psrow = _payment_sessions.latest_provider_invoice(
+                    verify_order_id, "montera")
+                if (order and order["user_id"] == message.from_user.id
+                        and order["verification_requested"]):
+                    vtype = order["verification_requested"]
+                    montera_invoice_id = (psrow or {}).get("provider_invoice_id")
                     await state.set_state(Exchange.verification_upload)
                     await state.update_data(
                         verify_order_id=verify_order_id,
@@ -1956,31 +1807,15 @@ async def cmd_start(message: Message, state: FSMContext):
             try:
                 ref_id = int(parts[1][4:])
                 if ref_id != message.from_user.id:
-                    with db_conn(10) as conn_ref:
-                        c_ref = conn_ref.cursor()
-                        c_ref.execute("SELECT 1 FROM referrals WHERE referred_id=?", (message.from_user.id,))
-                        if not c_ref.fetchone():
-                            c_ref.execute("INSERT INTO referrals (referrer_id, referred_id) VALUES (?, ?)",
-                                           (ref_id, message.from_user.id))
-                        conn_ref.commit()
+                    _user_profiles.claim_referrer(referred_id=message.from_user.id,
+                                                  referrer_id=ref_id)
             except (ValueError, IndexError):
                 pass
     # Регистрируем / обновляем пользователя
     try:
-        with db_conn(5) as conn:
-            conn.execute("""
-                INSERT INTO bot_users (user_id, username, first_name, last_name, last_seen)
-                VALUES (?, ?, ?, ?, datetime('now'))
-                ON CONFLICT(user_id) DO UPDATE SET
-                    username=excluded.username,
-                    first_name=excluded.first_name,
-                    last_name=excluded.last_name,
-                    last_seen=datetime('now')
-            """, (message.from_user.id,
-                  message.from_user.username,
-                  message.from_user.first_name,
-                  message.from_user.last_name))
-            conn.commit()
+        _user_profiles.upsert_user(user_id=message.from_user.id,
+            username=message.from_user.username,first_name=message.from_user.first_name,
+            last_name=message.from_user.last_name)
     except Exception:
         pass
     btc_rate  = get_cached_rate('BTC')  or 0
@@ -2163,13 +1998,10 @@ async def process_swap_address(message: Message, state: FSMContext):
     uid = result['uid']
     swap_link = f"{PUBLIC_RELAY}/swap/{token}"
 
-    with db_conn(10) as conn:
-        conn.execute(
-            "INSERT INTO swap_sessions (session_token, user_id, coin_from, coin_to, amount_from, address_to, trocador_id, trocador_url, status, provider, deposit_address) "
-            "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
-            (token, message.from_user.id, coin_from, coin_to, amount_from, address, uid, swap_link, 'waiting', 'swapuz', deposit_address)
-        )
-        conn.commit()
+    _swap_store.create(token=token,user_id=message.from_user.id,coin_from=coin_from,
+                       coin_to=coin_to,amount_from=amount_from,address_to=address,
+                       external_id=uid,external_url=swap_link,status='waiting',
+                       provider='swapuz',deposit_address=deposit_address)
 
     await message.answer(
         f"✅ <b>Своп создан: {coin_from} → {coin_to}</b>\n\n"
@@ -2207,15 +2039,12 @@ async def cancel_order_callback(callback: CallbackQuery):
         return
 
     import datetime as _dt
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute("SELECT user_id, status, created_at FROM orders WHERE order_id=?", (oid,))
-        row = c.fetchone()
+    row = _order_reads.snapshot(oid)
 
-    if not row or row[0] != uid:
+    if not row or row["user_id"] != uid:
         await callback.answer("❌ Заявка не найдена.", show_alert=True)
         return
-    _, status, created = row
+    status, created = row["status"], row["created_at"]
 
     if status != "pending":
         await callback.answer(
@@ -2229,8 +2058,7 @@ async def cancel_order_callback(callback: CallbackQuery):
     # трейдера. Кнопку отмены в списке мы прячем только при ДОШЕДШЕМ чеке (для
     # «файл есть, партнёру не ушёл» она нужна: там клиент мог и не платить), но
     # решение всё равно должно быть осознанным, а персонал — знать о нём.
-    with db_conn(5) as conn:
-        has_file = bool(receipts_for(conn.cursor(), [oid]))
+    has_file = bool(receipts_for(None, [oid]))
     if has_file and _cancel_confirmed.pop(oid, None) != uid:
         _cancel_confirmed[oid] = uid
         await callback.answer(
@@ -2253,12 +2081,10 @@ async def cancel_order_callback(callback: CallbackQuery):
     except Exception:
         pass
 
-    with db_conn(5) as conn:
-        conn.execute(
-            "UPDATE orders SET status='cancelled', updated_at=CURRENT_TIMESTAMP WHERE order_id=?",
-            (oid,)
-        )
-        conn.commit()
+    if not _order_workflow.cancel_pending_for_owner(oid, uid):
+        await callback.answer(
+            "Статус заявки уже изменился — обновите список.", show_alert=True)
+        return
     if has_file:
         await notify_staff(
             f"⚠️ <b>Клиент отменил заявку #{oid}, по которой ЕСТЬ чек</b>\n\n"
@@ -2281,10 +2107,8 @@ async def cancel_order_callback(callback: CallbackQuery):
 async def menu_ref(callback: CallbackQuery):
     username = (await bot.get_me()).username
     ref_link = f"https://t.me/{username}?start=ref_{callback.from_user.id}"
-    with db_conn(10) as conn:
-        c = conn.cursor()
-        c.execute("SELECT COUNT(*), COALESCE(SUM(total_bonus_btc), 0) FROM referrals WHERE referrer_id=?", (callback.from_user.id,))
-        ref_count, total_bonus = c.fetchone()
+    ref_stats = _engagement.referral_stats(callback.from_user.id)
+    ref_count, total_bonus = ref_stats["referrals"], ref_stats["total_bonus_btc"]
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📤 Поделиться ссылкой", switch_inline_query=ref_link)],
         [InlineKeyboardButton(text="💸 Вывести бонус в BTC", callback_data="ref_withdraw")],
@@ -2310,14 +2134,7 @@ async def menu_ref(callback: CallbackQuery):
 @router.callback_query(F.data == "rate_sub_toggle")
 async def rate_sub_toggle(callback: CallbackQuery):
     uid = callback.from_user.id
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute("INSERT OR IGNORE INTO rate_subscriptions (user_id) VALUES (?)", (uid,))
-        c.execute("SELECT enabled FROM rate_subscriptions WHERE user_id=?", (uid,))
-        current = c.fetchone()[0]
-        new_val = 0 if current else 1
-        c.execute("UPDATE rate_subscriptions SET enabled=? WHERE user_id=?", (new_val, uid))
-        conn.commit()
+    new_val = _engagement.toggle_rate(uid)
     if new_val:
         await callback.answer("✅ Уведомления о курсе включены!", show_alert=True)
     else:
@@ -2359,10 +2176,7 @@ async def menu_support(callback: CallbackQuery):
 
 @router.callback_query(F.data == "menu_reviews")
 async def menu_reviews(callback: CallbackQuery):
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute("SELECT COUNT(*), AVG(rating) FROM reviews WHERE status='published'")
-        count, avg_rating = c.fetchone()
+    count, avg_rating = _engagement.review_summary()
     text = (
         f"⭐ <b>Отзывы клиентов</b>\n\n"
         f"<blockquote>Средняя оценка: <b>{avg_rating:.1f} / 5</b>\nНа основе {count} отзывов</blockquote>\n\n" if count else
@@ -2859,17 +2673,10 @@ async def _finish_sell_order(message: Message, state: FSMContext):
     # и разбирается это в ОДНОМ месте, core.sell_payout.target().
     phone_col = details if method == 'sbp' else ''
     try:
-        with db_conn(10) as conn:
-            c = conn.cursor()
-            c.execute("""INSERT INTO sell_orders
-                (user_id, currency, crypto_amount, rub_amount, sbp_phone, receive_address,
-                 status, created_at, updated_at,
-                 payout_method, payout_bank, payout_details, payout_name)
-                VALUES (?,?,?,?,?,?,?,datetime('now'),datetime('now'),?,?,?,?)""",
-                (message.from_user.id, currency, amount, rub_amount, phone_col,
-                 receive_addr, 'pending', method, bank, details, full_name))
-            sell_id = c.lastrowid
-            conn.commit()
+        sell_id = _sell_store.create(user_id=message.from_user.id,currency=currency,
+            crypto_amount=amount,rub_amount=rub_amount,sbp_phone=phone_col,
+            receive_address=receive_addr,payout_method=method,payout_bank=bank,
+            payout_details=details,payout_name=full_name)
     except Exception as e:
         logger.error(f"Ошибка создания sell_order: {e}")
         await message.answer("⛔ Временная ошибка сервера. Попробуйте через минуту или обратитесь в поддержку @ObsidianSupBot")
@@ -2955,29 +2762,19 @@ async def _do_sell_payout(callback: CallbackQuery, sell_id: int, txid=None, forc
     sp = _sell_payout()
     # Захват строки: две одновременные кнопки у двух админов иначе дадут ДВА
     # перевода одному клиенту — у рельса нет идемпотентности по нашему id.
-    with db_conn(10) as conn:
-        c = conn.cursor()
-        c.execute("UPDATE sell_orders SET status='paying', updated_at=datetime('now')"
-                  " WHERE id=? AND status NOT IN ('paid','paying')", (sell_id,))
-        claimed = c.rowcount
-        conn.commit()
-        c.execute("SELECT user_id, rub_amount, status FROM sell_orders WHERE id=?", (sell_id,))
-        row = c.fetchone()
+    row = _sell_store.claim(sell_id)
     if not row:
         await callback.answer("❌ Заявка не найдена", show_alert=True)
         return
-    user_id, rub_amount, status = row
-    if not claimed:
+    user_id, rub_amount, status = row['user_id'],row['rub_amount'],row['status']
+    if not row['claimed']:
         await callback.answer(
             "✅ Уже выплачено" if status == 'paid' else "⏳ Выплата уже выполняется",
             show_alert=True)
         return
 
     def _release(to='pending'):
-        with db_conn(10) as conn2:
-            conn2.execute("UPDATE sell_orders SET status=?, updated_at=datetime('now')"
-                          " WHERE id=? AND status='paying'", (to, sell_id))
-            conn2.commit()
+        _sell_store.release(sell_id)
 
     loop = asyncio.get_running_loop()
     try:
@@ -3028,12 +2825,8 @@ async def _do_sell_payout(callback: CallbackQuery, sell_id: int, txid=None, forc
     # Поэтому «выплачено» закрывает только подтверждённое зачисление, а до
     # него заявка ждёт в 'paying'; доводит её vertu_payout_sweep. Нашёл codex.
     settled = (not auto) or _sell_payout().is_settled(res.get("status"))
-    with db_conn(10) as conn:
-        conn.execute("UPDATE sell_orders SET status=?, payout_provider=?,"
-                     " updated_at=datetime('now') WHERE id=?",
-                     ('paid' if settled else 'paying',
-                      'vertu' if auto else 'manual', sell_id))
-        conn.commit()
+    _sell_store.mark_manual_or_processing(sell_id,settled=settled,
+                                           provider='vertu' if auto else 'manual')
     if settled:
         await update_user_vip_volume(user_id, rub_amount)
 
@@ -3087,14 +2880,11 @@ async def sell_confirm(callback: CallbackQuery):
         await callback.answer("⛔ Нет прав", show_alert=True)
         return
     sell_id = int(callback.data.split("_")[2])
-    with db_conn(10) as conn:
-        c = conn.cursor()
-        c.execute("SELECT currency, status FROM sell_orders WHERE id=?", (sell_id,))
-        row = c.fetchone()
+    row = _sell_store.get(sell_id)
     if not row:
         await callback.answer("❌ Заявка не найдена", show_alert=True)
         return
-    currency, status = row
+    currency, status = row["currency"], row["status"]
     if status == 'paid':
         await callback.answer("✅ Уже выплачено", show_alert=True)
         return
@@ -3181,17 +2971,12 @@ async def sell_reject(callback: CallbackQuery):
         await callback.answer("⛔ Нет прав", show_alert=True)
         return
     sell_id = int(callback.data.split("_")[2])
-    with db_conn(10) as conn:
-        c = conn.cursor()
-        c.execute("SELECT user_id, sbp_phone FROM sell_orders WHERE id=?", (sell_id,))
-        row = c.fetchone()
-        if not row:
-            conn.close()
-            await callback.answer("❌ Заявка не найдена", show_alert=True)
-            return
-        user_id = row[0]
-        c.execute("UPDATE sell_orders SET status='rejected', updated_at=datetime('now') WHERE id=?", (sell_id,))
-        conn.commit()
+    row = _sell_store.reject(sell_id)
+    if not row:
+        await callback.answer("❌ Заявка не найдена", show_alert=True);return
+    if not row['changed']:
+        await callback.answer("⛔ Выплата уже выполняется или завершена",show_alert=True);return
+    user_id = row['user_id']
     await callback.message.edit_text(callback.message.text + "\n\n❌ <b>Отклонено</b>", parse_mode="HTML")
     await callback.answer("❌ Отклонено")
     try:
@@ -3214,22 +2999,9 @@ async def process_rating(callback: CallbackQuery, state: FSMContext):
         await callback.answer()
         return
 
-    with db_conn(10) as conn:
-        c = conn.cursor()
-        c.execute("SELECT user_id FROM orders WHERE order_id=?", (order_id,))
-        row = c.fetchone()
-        if not row or row[0] != callback.from_user.id:
-            conn.close()
-            await callback.answer("❌ Эта заявка не найдена.", show_alert=True)
-            return
-        c.execute("SELECT status FROM reviews WHERE order_id=?", (order_id,))
-        rev = c.fetchone()
-        if not rev or rev[0] != 'pending_rating':
-            conn.close()
-            await callback.answer("✅ Вы уже оценили эту заявку.", show_alert=True)
-            return
-        c.execute("UPDATE reviews SET rating=?, status='pending_comment' WHERE order_id=?", (rating, order_id))
-        conn.commit()
+    if not _engagement.rate_review(order_id, callback.from_user.id, rating):
+        await callback.answer("✅ Заявка не найдена или уже оценена.", show_alert=True)
+        return
 
     await state.update_data(review_order_id=order_id)
     await state.set_state(Review.comment)
@@ -3252,7 +3024,7 @@ async def skip_review_comment(callback: CallbackQuery, state: FSMContext):
         return
     await state.clear()
     await callback.message.edit_reply_markup(reply_markup=None)
-    await finalize_review(order_id)
+    await finalize_review(order_id, callback.from_user.id)
     await callback.answer()
 
 
@@ -3263,30 +3035,21 @@ async def process_review_comment(message: Message, state: FSMContext):
     await state.clear()
     if order_id is None:
         return
-    with db_conn(10) as conn:
-        c = conn.cursor()
-        c.execute("UPDATE reviews SET comment=? WHERE order_id=?", (message.text.strip()[:500], order_id))
-        conn.commit()
-    await finalize_review(order_id)
+    if not _engagement.comment_review(order_id, message.from_user.id, message.text.strip()[:500]):
+        return await message.answer("Отзыв не найден или принадлежит другому пользователю.")
+    await finalize_review(order_id, message.from_user.id)
     await message.answer("Спасибо за отзыв! 🙏")
 
 
-async def finalize_review(order_id):
-    with db_conn(10) as conn:
-        c = conn.cursor()
-        c.execute("SELECT user_id, rating, comment FROM reviews WHERE order_id=?", (order_id,))
-        row = c.fetchone()
-        if not row:
-            return
-        user_id, rating, comment = row
-        if rating and rating >= 4:
-            c.execute("UPDATE reviews SET status='published' WHERE order_id=?", (order_id,))
-            conn.commit()
-            comment_text = comment.strip() if comment and comment.strip() else "Без комментария"
-        else:
-            c.execute("UPDATE reviews SET status='admin_review' WHERE order_id=?", (order_id,))
-            conn.commit()
-            comment_text = comment.strip() if comment and comment.strip() else "(без комментария)"
+async def finalize_review(order_id, user_id):
+    row = _engagement.finalize_review(order_id, user_id)
+    if not row:
+        return
+    user_id, rating, comment = row['user_id'], row['rating'], row['comment']
+    if rating and rating >= 4:
+        comment_text = comment.strip() if comment and comment.strip() else "Без комментария"
+    else:
+        comment_text = comment.strip() if comment and comment.strip() else "(без комментария)"
 
     if rating and rating >= 4:
         text = f"{'⭐' * rating}\n\n{comment_text}\n\n— Клиент ObsidianExchange"
@@ -3329,11 +3092,7 @@ def generate_captcha():
 
 def is_user_blocked(user_id):
     try:
-        with db_conn(5) as conn:
-            c = conn.cursor()
-            c.execute("SELECT 1 FROM blocked_users WHERE user_id=?", (user_id,))
-            row = c.fetchone()
-        return row is not None
+        return _admin_config.is_user_blocked(user_id)
     except Exception:
         return False
 
@@ -3351,19 +3110,12 @@ def check_order_limits(user_id: int) -> str | None:
         now = _dt.datetime.utcnow()
         day_ago   = (now - _dt.timedelta(hours=24)).strftime("%Y-%m-%d %H:%M:%S")
         three_min = (now - _dt.timedelta(minutes=3)).strftime("%Y-%m-%d %H:%M:%S")
-        with db_conn(5) as conn:
-            c = conn.cursor()
-            # Суточный лимит
-            c.execute("SELECT COUNT(*) FROM orders WHERE user_id=? AND created_at > ?",
-                      (user_id, day_ago))
-            daily = c.fetchone()[0]
-            if daily >= 10:
-                return "Достигнут суточный лимит заявок (10 в день). Попробуйте завтра."
-            # Cooldown
-            c.execute("SELECT MAX(created_at) FROM orders WHERE user_id=?", (user_id,))
-            last = c.fetchone()[0]
-            if last and last > three_min:
-                return "Слишком частые заявки. Подождите 3 минуты перед следующей."
+        limits = _order_reads.creation_limit_state(
+            user_id, daily_since=day_ago, cooldown_since=three_min)
+        if limits["daily_count"] >= 10:
+            return "Достигнут суточный лимит заявок (10 в день). Попробуйте завтра."
+        if limits["cooldown_active"]:
+            return "Слишком частые заявки. Подождите 3 минуты перед следующей."
     except Exception:
         pass
     return None
@@ -3629,14 +3381,12 @@ async def process_captcha(message: Message, state: FSMContext):
 async def inline_paid(callback: CallbackQuery):
     try:
         order_id = int(callback.data.split("_")[1])
-        with db_conn(5) as conn:
-            c = conn.cursor()
-            c.execute("SELECT user_id, rub_amount, crypto_address, currency, status FROM orders WHERE order_id=?", (order_id,))
-            row = c.fetchone()
+        row = _order_reads.snapshot(order_id)
         if not row:
             await callback.answer("❌ Заявка не найдена", show_alert=True)
             return
-        order_user_id, rub_amount, address, currency, status = row
+        order_user_id, rub_amount, address, currency, status = (
+            row[k] for k in ("user_id", "rub_amount", "crypto_address", "currency", "status"))
         # Проверка владения: сообщить об оплате может только владелец заявки
         # (защита от крафтнутого paid_<чужой id> — спам операторам/подмена).
         if order_user_id != callback.from_user.id and not is_admin(callback.from_user.id):
@@ -3694,13 +3444,11 @@ async def inline_send_receipt(callback: CallbackQuery, state: FSMContext):
     """
     try:
         order_id = int(callback.data.split("_")[1])
-        with db_conn(5) as conn:
-            row = conn.execute("SELECT user_id, status FROM orders WHERE order_id=?",
-                               (order_id,)).fetchone()
+        row = _order_reads.snapshot(order_id)
         if not row:
             await callback.answer("❌ Заявка не найдена", show_alert=True)
             return
-        if row[0] != callback.from_user.id and not is_admin(callback.from_user.id):
+        if row["user_id"] != callback.from_user.id and not is_admin(callback.from_user.id):
             await callback.answer("Это не ваша заявка", show_alert=True)
             return
         await state.set_state(Exchange.receipt_upload)
@@ -3725,17 +3473,17 @@ async def inline_check_payment(callback: CallbackQuery):
     try:
         order_id = int(callback.data.split("_")[1])
         # Проверка владения: статус заявки виден только её владельцу
-        with db_conn(5) as conn:
-            _r = conn.execute("SELECT user_id FROM orders WHERE order_id=?", (order_id,)).fetchone()
+        _r = _order_reads.snapshot(order_id)
         if not _r:
             await callback.answer("❌ Заявка не найдена", show_alert=True)
             return
-        if _r[0] != callback.from_user.id and not is_admin(callback.from_user.id):
+        if _r["user_id"] != callback.from_user.id and not is_admin(callback.from_user.id):
             await callback.answer("Это не ваша заявка", show_alert=True)
             return
         async with aiohttp.ClientSession() as session:
             async with session.get(f"{RELAY_SITE}/api/order/{order_id}",
-                                   params={"key": RELAY_SECRET}) as resp:
+                                   params={"key": RELAY_SECRET,
+                                           "user_id": int(_r["user_id"])}) as resp:
                 if resp.status == 200:
                     data = await resp.json()
                     status = data.get('status')
@@ -3825,13 +3573,15 @@ async def my_orders(message: Message, uid: int = None):
     # uid передаётся явно при вызове из callback: у callback.message
     # from_user — это сам бот, а не пользователь
     uid = uid or message.from_user.id
-    with db_conn(10) as conn:
-        c = conn.cursor()
-        c.execute("""SELECT order_id, rub_amount, crypto_address, currency, status,
-                            created_at, paid_btc_tx, network, receipt_sent_at
-                     FROM orders WHERE user_id=? ORDER BY created_at DESC LIMIT 8""", (uid,))
-        orders = c.fetchall()
-        with_receipt = receipts_for(c, [o[0] for o in orders])
+    _rows = _order_reads.customer_orders(uid, limit=8)
+    orders = [(r["order_id"], r["rub_amount"], r["crypto_address"], r["currency"],
+               r["status"], r["created_at"], r["paid_btc_tx"], r["network"],
+               r["receipt_sent_at"]) for r in _rows]
+    try:
+        with_receipt = receipts_for(None, [o[0] for o in orders])
+    except Exception:
+        logger.warning("order_receipts недоступна — заявки с чеком не отмечены")
+        with_receipt = set()
     if not orders:
         await message.answer(
             "🟣 <b>Мои заявки</b>\n\nУ вас пока нет ни одной заявки. Начните первый обмен прямо сейчас:",
@@ -3915,31 +3665,14 @@ async def my_orders(message: Message, uid: int = None):
 async def profile(message: Message, uid: int = None):
     # uid передаётся явно при вызове из callback (from_user у callback.message — бот)
     uid = uid or message.from_user.id
-    with db_conn(10) as conn:
-        c = conn.cursor()
-        c.execute("SELECT COUNT(*) FROM orders WHERE user_id=?", (uid,))
-        total = c.fetchone()[0]
-        c.execute("SELECT COUNT(*), COALESCE(SUM(rub_amount),0) FROM orders WHERE user_id=? AND status='sent'", (uid,))
-        row = c.fetchone(); completed, volume = row[0], row[1]
-        # Любимая валюта (по кол-ву выполненных заявок)
-        c.execute("""SELECT currency, COUNT(*) as cnt FROM orders
-                     WHERE user_id=? AND status='sent'
-                     GROUP BY currency ORDER BY cnt DESC LIMIT 1""", (uid,))
-        fav_row = c.fetchone()
-        fav_currency = fav_row[0] if fav_row else None
-        # Дата первой заявки
-        c.execute("SELECT MIN(created_at) FROM orders WHERE user_id=?", (uid,))
-        first_row = c.fetchone()
-        first_date = first_row[0][:10] if first_row and first_row[0] else None
-        # Рефералы
-        c.execute("SELECT COUNT(*) FROM referrals WHERE referrer_id=?", (uid,))
-        refs = c.fetchone()[0]
-        c.execute("SELECT COALESCE(SUM(bonus_amount),0) FROM referral_bonuses WHERE referrer_id=?", (uid,))
-        ref_bonus = c.fetchone()[0]
-        # Подписка на курс
-        c.execute("SELECT enabled FROM rate_subscriptions WHERE user_id=?", (uid,))
-        sub_row = c.fetchone()
-        sub_enabled = sub_row[0] if sub_row else 0
+    _summary = _order_reads.customer_aggregates(uid)
+    total, completed, volume = _summary["total"], _summary["completed"], _summary["volume"]
+    fav_currency = _summary["favorite_currency"]
+    first_date = _summary["first_at"][:10] if _summary["first_at"] else None
+    ref_stats = _engagement.referral_stats(uid)
+    refs = ref_stats["referrals"]
+    ref_bonus = _engagement.referral_bonus(uid)
+    sub_enabled = _engagement.rate_enabled(uid)
 
     vip_name, discount = get_user_vip(uid)
     vip_icons = {'Platinum': '💎 Platinum', 'Gold': '🥇 Gold', 'Silver': '🥈 Silver'}
@@ -4024,16 +3757,8 @@ async def admin_panel(message: Message):
 @router.callback_query(F.data == "admin_stats")
 async def admin_stats(callback: CallbackQuery):
     if not is_admin(callback.from_user.id): return
-    with db_conn(10) as conn:
-        c = conn.cursor()
-        c.execute("SELECT COUNT(*) FROM orders")
-        total = c.fetchone()[0]
-        c.execute("SELECT COUNT(*) FROM orders WHERE status = 'sent'")
-        sent = c.fetchone()[0]
-        c.execute("SELECT SUM(rub_amount) FROM orders WHERE status = 'sent'")
-        volume = c.fetchone()[0] or 0
-        c.execute("SELECT COUNT(*) FROM orders WHERE status = 'pending'")
-        pending = c.fetchone()[0]
+    stats = _reporting.admin_stats()
+    total, sent, volume, pending = (stats[k] for k in ("total", "sent", "volume", "pending"))
     text = f"📊 Статистика\nВсего заявок: {total}\nОжидают: {pending}\nУспешно: {sent}\nОборот: {volume:,.0f} RUB"
     await callback.message.edit_text(text)
     await callback.answer()
@@ -4041,26 +3766,22 @@ async def admin_stats(callback: CallbackQuery):
 @router.callback_query(F.data == "admin_last_orders")
 async def admin_last_orders(callback: CallbackQuery):
     if not is_admin(callback.from_user.id): return
-    with db_conn(10) as conn:
-        c = conn.cursor()
-        c.execute("SELECT order_id, user_id, rub_amount, currency, status, created_at FROM orders ORDER BY created_at DESC LIMIT 10")
-        rows = c.fetchall()
+    rows = _order_reads.admin_recent(limit=10)
     if not rows:
         await callback.message.edit_text("Нет заявок.")
     else:
         text = "📋 Последние 10 заявок:\n\n"
-        for r in rows: text += f"#{r[0]} 👤{r[1]} 💰{r[2]} {r[3]} 📅{r[5][:16]} 📌{r[4]}\n"
+        for r in rows: text += (f"#{r['order_id']} 👤{r['user_id']} 💰{r['rub_amount']} "
+                                f"{r['currency']} 📅{r['created_at'][:16]} 📌{r['status']}\n")
         await callback.message.edit_text(text)
     await callback.answer()
 
 @router.callback_query(F.data == "admin_export_csv")
 async def admin_export_csv(callback: CallbackQuery):
     if not is_admin(callback.from_user.id): return
-    with db_conn(10) as conn:
-        c = conn.cursor()
-        c.execute("SELECT * FROM (SELECT * FROM orders ORDER BY order_id DESC LIMIT 1000) ORDER BY order_id ASC")
-        rows = c.fetchall()
-        cols = [desc[0] for desc in c.description]
+    _export = _order_reads.export_recent(limit=1000)
+    cols = list(_export[0]) if _export else []
+    rows = [[row[col] for col in cols] for row in _export]
     buf = StringIO(); writer = csv.writer(buf); writer.writerow(cols); writer.writerows(rows); buf.seek(0)
     await bot.send_document(callback.from_user.id, BufferedInputFile(buf.getvalue().encode(), filename="orders.csv"), caption="Экспорт последних 1000 заявок")
     await callback.answer("Файл отправлен")
@@ -4092,9 +3813,7 @@ async def cmd_block(message: Message):
     if not is_admin(message.from_user.id): return
     try:
         user_id = int(message.text.split()[1])
-        with db_conn(10) as conn:
-            conn.execute("INSERT OR IGNORE INTO blocked_users (user_id, reason) VALUES (?, 'admin block')", (user_id,))
-            conn.commit()
+        _admin_config.block_user(user_id=user_id,reason='admin block')
         await message.answer(f"✅ Пользователь {user_id} заблокирован.")
     except: await message.answer("/block USER_ID")
 
@@ -4103,9 +3822,7 @@ async def cmd_unblock(message: Message):
     if not is_admin(message.from_user.id): return
     try:
         user_id = int(message.text.split()[1])
-        with db_conn(10) as conn:
-            conn.execute("DELETE FROM blocked_users WHERE user_id = ?", (user_id,))
-            conn.commit()
+        _admin_config.unblock_user(user_id)
         await message.answer(f"✅ Пользователь {user_id} разблокирован.")
     except: await message.answer("/unblock USER_ID")
 
@@ -4337,45 +4054,46 @@ async def _finalize_order(message: Message, state: FSMContext, currency, network
     # между INSERT и UPDATE оставил бы её «легаси» — и выплата пересчиталась бы
     # по свежему курсу, как раньше.
     _lock = get_active_rate_lock(uid, currency)
+    promo = _active_promos.get(uid)
+    promo_id = promo[0] if promo else None
+    commission_with_promo = get_commission_percent(amount, uid)
+    commission_without_promo = get_commission_percent(amount, uid, include_promo=False)
     if _lock:
         # Зафиксированный курс — тоже рыночный: наценку применяем той же
         # формулой, что и везде (было умножение — давало объём выше рынка).
-        rate = net_rate_for(_lock["rate"], get_commission_percent(amount, uid))
+        rate = net_rate_for(_lock["rate"], commission_with_promo)
     else:
-        rate = get_rate_with_markup(currency, amount)
+        rate = get_rate_with_markup(currency, amount, uid)
     crypto_amount = round(amount / rate, 8) if rate else 0
-    with db_conn(10) as conn:
-        cursor = conn.cursor()
-        cursor.execute(
-            "INSERT INTO orders (user_id, username, currency, rub_amount, crypto_address, status, "
-            "network, agreed_rate, agreed_crypto_amount, agreed_at) "
-            "VALUES (?,?,?,?,?,'pending',?,?,?,CURRENT_TIMESTAMP)",
-            (uid, uname, currency, amount, address,
-             _canon_network(currency, network), float(rate or 0), float(crypto_amount or 0)))
-        order_id = cursor.lastrowid
-        if _lock:
-            # Списание фиксации курса — в ТОЙ ЖЕ транзакции, что и заявка:
-            # иначе сбой между ними оставит уже использованный курс активным
-            # (клиент применит его повторно). Условие used=0 защищает от гонки
-            # двух параллельных заявок с одним локом.
-            used = conn.execute(
-                "UPDATE rate_locks SET used=1, order_id=? WHERE id=? AND used=0",
-                (order_id, _lock["lock_id"])).rowcount
-            if not used:
-                # Лок увели параллельно — пересчитываем по обычному курсу,
-                # чтобы не отдать зафиксированный курс дважды.
-                rate = get_rate_with_markup(currency, amount)
-                crypto_amount = round(amount / rate, 8) if rate else 0
-                conn.execute(
-                    "UPDATE orders SET agreed_rate=?, agreed_crypto_amount=? WHERE order_id=?",
-                    (float(rate or 0), float(crypto_amount or 0), order_id))
-                _lock = None
-        conn.commit()
-
-    # Фиксируем промокод если был активирован
-    promo = _active_promos.pop(uid, None)
+    fallback_rate = get_rate_with_markup(currency, amount, uid) if _lock else rate
+    fallback_crypto = round(amount / fallback_rate, 8) if fallback_rate else 0
+    lock_no_promo_rate = (net_rate_for(_lock["rate"], commission_without_promo)
+                          if _lock else fallback_rate)
+    lock_no_promo_crypto = round(amount / lock_no_promo_rate, 8) if lock_no_promo_rate else 0
+    regular_no_promo_rate = get_rate_with_markup(
+        currency, amount, uid, include_promo=False)
+    regular_no_promo_crypto = (round(amount / regular_no_promo_rate, 8)
+                               if regular_no_promo_rate else 0)
+    created = _get_bot_order_store().create_order(
+        user_id=uid, username=uname, currency=currency, rub_amount=amount,
+        destination=address, network=_canon_network(currency, network),
+        preferred_rate=float(rate or 0), preferred_crypto_amount=float(crypto_amount or 0),
+        fallback_rate=float(fallback_rate or 0),
+        fallback_crypto_amount=float(fallback_crypto or 0),
+        lock_id=(_lock["lock_id"] if _lock else None), promo_id=promo_id,
+        lock_no_promo_rate=float(lock_no_promo_rate or 0),
+        lock_no_promo_crypto_amount=float(lock_no_promo_crypto or 0),
+        regular_no_promo_rate=float(regular_no_promo_rate or 0),
+        regular_no_promo_crypto_amount=float(regular_no_promo_crypto or 0))
+    order_id = created["order_id"]
+    rate = created["agreed_rate"]
+    crypto_amount = created["agreed_crypto_amount"]
+    if _lock and not created["lock_used"]:
+        _lock = None
     if promo:
-        apply_promo_use(promo[0], uid, order_id)
+        _active_promos.pop(uid, None)
+    actual_commission = (commission_with_promo if created["promo_used"] or not promo
+                         else commission_without_promo)
 
     await notify_admin(order_id, uid, amount, address, currency)
 
@@ -4399,7 +4117,7 @@ async def _finalize_order(message: Message, state: FSMContext, currency, network
         f"💸 Оплата: <b>{rub_fmt3} ₽</b>\n"
         f"⬇️ Получаете: <b>{crypto_amount} {currency}</b>\n"
         f"{tag_line}"
-        f"📉 Комиссия: <b>{get_commission_percent(amount)}%</b>\n"
+        f"📉 Комиссия: <b>{actual_commission}%</b>\n"
         f"⏱ Курс действует: <b>15 минут</b>"
         f"</blockquote>\n\n"
         f"Выберите удобный способ оплаты 👇"
@@ -4493,10 +4211,8 @@ async def process_payment_method(callback: CallbackQuery, state: FSMContext):
                         montera_iid = raw_session.get("order_id") or raw_session.get("id")
                         import datetime as _dt
                         _deadline = (_dt.datetime.utcnow() + _dt.timedelta(minutes=30)).strftime("%Y-%m-%d %H:%M:%S")
-                        with db_conn(5) as _c:
-                            _c.execute("UPDATE orders SET montera_invoice_id=?, receipt_deadline=? WHERE order_id=?",
-                                       (str(montera_iid), _deadline, order_id))
-                            _c.commit()
+                        _order_workflow.set_montera_invoice(
+                            order_id, str(montera_iid), _deadline)
                         caption = (f"🟣 ObsidianExchange\nЗаявка #{order_id}\n\n"
                                    f"Сумма: <b>{int(amount):,} ₽</b>\n\n"
                                    f"Переведите указанную сумму на карту:\n{requisites_text}\n\n"
@@ -4526,10 +4242,7 @@ async def process_payment_method(callback: CallbackQuery, state: FSMContext):
         # Сохраняем invoice_id и дедлайн в БД
         import datetime as _dt
         _deadline = (_dt.datetime.utcnow() + _dt.timedelta(minutes=30)).strftime("%Y-%m-%d %H:%M:%S")
-        with db_conn(5) as _c:
-            _c.execute("UPDATE orders SET montera_invoice_id=?, receipt_deadline=? WHERE order_id=?",
-                       (str(montera_iid), _deadline, order_id))
-            _c.commit()
+        _order_workflow.set_montera_invoice(order_id, str(montera_iid), _deadline)
 
         caption = (f"🟣 ObsidianExchange\nЗаявка #{order_id}\n\n"
                    f"Сумма: <b>{int(amount):,} ₽</b>\n\n"
@@ -4570,10 +4283,7 @@ async def process_payment_method(callback: CallbackQuery, state: FSMContext):
             return
         import datetime as _dt
         _deadline = (_dt.datetime.utcnow() + _dt.timedelta(minutes=30)).strftime("%Y-%m-%d %H:%M:%S")
-        with db_conn(5) as _c:
-            _c.execute("UPDATE orders SET montera_invoice_id=?, receipt_deadline=? WHERE order_id=?",
-                       (str(montera_iid), _deadline, order_id))
-            _c.commit()
+        _order_workflow.set_montera_invoice(order_id, str(montera_iid), _deadline)
         caption = (f"🟣 ObsidianExchange\nЗаявка #{order_id}\n\n"
                    f"Сумма: <b>{int(float(amount)):,} ₽</b>\n\n"
                    f"Переведите указанную сумму на карту:\n{requisites_text}\n\n"
@@ -4613,10 +4323,7 @@ async def process_payment_method(callback: CallbackQuery, state: FSMContext):
 
         import datetime as _dt
         _deadline = (_dt.datetime.utcnow() + _dt.timedelta(minutes=30)).strftime("%Y-%m-%d %H:%M:%S")
-        with db_conn(5) as _c:
-            _c.execute("UPDATE orders SET montera_invoice_id=?, receipt_deadline=? WHERE order_id=?",
-                       (str(montera_iid), _deadline, order_id))
-            _c.commit()
+        _order_workflow.set_montera_invoice(order_id, str(montera_iid), _deadline)
 
         caption = (f"🟣 ObsidianExchange\nЗаявка #{order_id}\n\n"
                    f"Сумма: <b>{int(amount):,} ₽</b>\n\n"
@@ -4726,6 +4433,54 @@ async def process_payment_method(callback: CallbackQuery, state: FSMContext):
         ])
         if IMG_SECURITY.exists() and len(caption) <= 1024:
             await callback.message.answer_photo(FSInputFile(IMG_SECURITY), caption=caption, reply_markup=inline_kb, parse_mode="HTML")
+        else:
+            await callback.message.answer(caption, reply_markup=inline_kb, parse_mode="HTML")
+        await callback.answer()
+        await state.clear()
+        return
+
+    elif pm.startswith("pm_rspay_"):
+        # RSPay QR/deeplink: второй явный маршрут после Vertu. Вебхук
+        # подтверждает оплату автоматически, чек для этих методов не нужен.
+        method = "qr" if pm.startswith("pm_rspay_qr_") else "deeplink"
+        try:
+            from services.payment_service import PaymentService
+            from providers.rspay import RSPayProvider
+            session = PaymentService(provider=RSPayProvider()).create_session(
+                order_id, amount, payment_method=method,
+                telegram_id=callback.from_user.id)
+            if 'error' in session:
+                await reply_no_requisites(callback, order_id,
+                                           detail=session["error"] if session.get("client_hint") else "")
+                await callback.answer()
+                return
+            raw = session.get('raw') or {}
+        except Exception as e:
+            logger.error(f"Ошибка создания сессии RSPay {method}: {e}")
+            await reply_no_requisites(callback, order_id)
+            await callback.answer()
+            return
+
+        req = raw.get('requisites') or {}
+        payment_link = req.get('payment_link') or session.get('qr_payload')
+        requisites_text = format_requisites(raw)
+        caption = (f"🟣 ObsidianExchange\nЗаявка #{order_id}\n\n"
+                   f"Сумма: <b>{int(float(amount)):,} ₽</b>\n\n"
+                   f"Оплатите через RSPay {('QR-код' if method == 'qr' else 'deeplink')}:\n"
+                   f"{requisites_text}\n\n"
+                   f"⏱ Реквизиты действительны <b>30 минут</b>.\n"
+                   f"✅ Оплата подтверждается автоматически — чек не требуется.").replace(",", " ")
+        kb_rows = []
+        if payment_link and str(payment_link).startswith(('http://', 'https://')):
+            kb_rows.append([InlineKeyboardButton(text="🔗 Открыть оплату →", url=payment_link)])
+        kb_rows.extend([
+            [InlineKeyboardButton(text="✅ Я оплатил", callback_data=f"paid_{order_id}")],
+            [InlineKeyboardButton(text="🔍 Проверить статус", callback_data=f"check_{order_id}")],
+        ])
+        inline_kb = InlineKeyboardMarkup(inline_keyboard=kb_rows)
+        if IMG_SECURITY.exists() and len(caption) <= 1024:
+            await callback.message.answer_photo(FSInputFile(IMG_SECURITY), caption=caption,
+                                                reply_markup=inline_kb, parse_mode="HTML")
         else:
             await callback.message.answer(caption, reply_markup=inline_kb, parse_mode="HTML")
         await callback.answer()
@@ -5047,11 +4802,10 @@ async def process_montera_receipt_upload(message: Message, state: FSMContext):
 
         # Файл персоналу — ВСЕГДА: он нужен для чата диспутов у провайдера,
         # даже когда API загрузку приняло
-        with db_conn(5) as _fc:
-            _fr = _fc.execute("SELECT rub_amount, username FROM orders WHERE order_id=?",
-                              (order_id,)).fetchone()
-        _famt = f"{int(_fr[0]):,} ₽".replace(",", " ") if _fr else "?"
-        _funame = f"@{_fr[1]}" if (_fr and _fr[1]) else str(message.from_user.id)
+        _fr = _order_reads.snapshot(order_id)
+        _famt = f"{int(_fr['rub_amount']):,} ₽".replace(",", " ") if _fr else "?"
+        _funame = (f"@{_fr['username']}" if (_fr and _fr["username"])
+                   else str(message.from_user.id))
         _flag_line = ("\n" + "\n".join(_flags)) if _flags else ""
         await notify_staff_file(
             doc.file_id,
@@ -5085,10 +4839,10 @@ async def process_montera_receipt_upload(message: Message, state: FSMContext):
                 "мы автоматически вышлем вашу криптовалюту."
             )
             # Берём сумму для контекста админа
-            with db_conn(5) as _oc:
-                _or = _oc.execute("SELECT rub_amount, username FROM orders WHERE order_id=?", (order_id,)).fetchone()
-            _amt = f"{int(_or[0]):,} ₽".replace(",", " ") if _or else "?"
-            _uname = f"@{_or[1]}" if (_or and _or[1]) else str(message.from_user.id)
+            _or = _order_reads.snapshot(order_id)
+            _amt = f"{int(_or['rub_amount']):,} ₽".replace(",", " ") if _or else "?"
+            _uname = (f"@{_or['username']}" if (_or and _or["username"])
+                      else str(message.from_user.id))
             await notify_staff(
                 f"🧾 <b>Получен PDF-чек</b> — заявка <b>#{order_id}</b>\n"
                 f"👤 {_uname} · 💸 {_amt}\n"
@@ -5144,18 +4898,16 @@ async def process_montera_video_verification(message: Message, state: FSMContext
                 "После подтверждения мы вышлем криптовалюту автоматически.",
                 parse_mode="HTML"
             )
-            with db_conn(5) as _oc2:
-                _or2 = _oc2.execute("SELECT rub_amount, username FROM orders WHERE order_id=?", (order_id,)).fetchone()
-            _amt2 = f"{int(_or2[0]):,} ₽".replace(",", " ") if _or2 else "?"
-            _uname2 = f"@{_or2[1]}" if (_or2 and _or2[1]) else str(message.from_user.id)
+            _or2 = _order_reads.snapshot(order_id)
+            _amt2 = f"{int(_or2['rub_amount']):,} ₽".replace(",", " ") if _or2 else "?"
+            _uname2 = (f"@{_or2['username']}" if (_or2 and _or2["username"])
+                       else str(message.from_user.id))
             await notify_staff(
                 f"🎥 <b>Получено видео-подтверждение</b> — заявка <b>#{order_id}</b>\n"
                 f"👤 {_uname2} · 💸 {_amt2}\n"
                 f"🆔 <code>{montera_invoice_id}</code>",
                 parse_mode="HTML")
-            with db_conn(5) as conn_c:
-                conn_c.execute("UPDATE orders SET verification_requested=NULL WHERE order_id=?", (order_id,))
-                conn_c.commit()
+            _order_workflow.clear_verification(order_id, "video")
             await state.clear()
         else:
             err = result.get('error', 'неизвестная ошибка')
@@ -5214,18 +4966,16 @@ async def process_montera_pdf_verification(message: Message, state: FSMContext):
                 "После подтверждения мы вышлем криптовалюту автоматически.",
                 parse_mode="HTML"
             )
-            with db_conn(5) as _oc3:
-                _or3 = _oc3.execute("SELECT rub_amount, username FROM orders WHERE order_id=?", (order_id,)).fetchone()
-            _amt3 = f"{int(_or3[0]):,} ₽".replace(",", " ") if _or3 else "?"
-            _uname3 = f"@{_or3[1]}" if (_or3 and _or3[1]) else str(message.from_user.id)
+            _or3 = _order_reads.snapshot(order_id)
+            _amt3 = f"{int(_or3['rub_amount']):,} ₽".replace(",", " ") if _or3 else "?"
+            _uname3 = (f"@{_or3['username']}" if (_or3 and _or3["username"])
+                       else str(message.from_user.id))
             await notify_staff(
                 f"📄 <b>Получен PDF-чек верификации</b> — заявка <b>#{order_id}</b>\n"
                 f"👤 {_uname3} · 💸 {_amt3}\n"
                 f"🆔 <code>{montera_invoice_id}</code>",
                 parse_mode="HTML")
-            with db_conn(5) as conn_c:
-                conn_c.execute("UPDATE orders SET verification_requested=NULL WHERE order_id=?", (order_id,))
-                conn_c.commit()
+            _order_workflow.clear_verification(order_id, "pdf-success")
             await state.clear()
         else:
             err = result.get('error', 'неизвестная ошибка')
@@ -5259,13 +5009,7 @@ async def cmd_addworker(message: Message):
     try:
         wid = int(parts[1])
         wname = parts[2].lstrip('@') if len(parts) > 2 else None
-        with db_conn(5) as conn:
-            conn.execute(
-                "INSERT INTO workers (user_id, username, added_by) VALUES (?,?,?) "
-                "ON CONFLICT(user_id) DO UPDATE SET is_active=1, username=excluded.username",
-                (wid, wname, message.from_user.id)
-            )
-            conn.commit()
+        _admin_config.set_staff(role='worker',user_id=wid,username=wname,added_by=message.from_user.id)
         await message.answer(f"✅ Работник {wid} (@{wname or '—'}) добавлен.")
         try:
             await bot.send_message(wid,
@@ -5292,9 +5036,7 @@ async def cmd_removeworker(message: Message):
         return
     try:
         wid = int(parts[1])
-        with db_conn(5) as conn:
-            conn.execute("UPDATE workers SET is_active=0 WHERE user_id=?", (wid,))
-            conn.commit()
+        _admin_config.deactivate_staff(role='worker',user_id=wid)
         await message.answer(f"✅ Работник {wid} деактивирован.")
     except ValueError:
         await message.answer("❌ Неверный формат ID")
@@ -5303,10 +5045,7 @@ async def cmd_removeworker(message: Message):
 async def cmd_workers_list(message: Message):
     if not is_admin(message.from_user.id):
         return
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute("SELECT user_id, username, added_at, is_active FROM workers ORDER BY added_at DESC")
-        rows = c.fetchall()
+    rows = _admin_config.staff_rows(role='worker')
     if not rows:
         await message.answer("Работников нет. /addworker <id>")
         return
@@ -5347,13 +5086,7 @@ async def cmd_addoperator(message: Message):
     try:
         oid = int(parts[1])
         oname = parts[2].lstrip('@') if len(parts) > 2 else None
-        with db_conn(5) as conn:
-            conn.execute(
-                "INSERT INTO operators (user_id, username, added_by) VALUES (?,?,?) "
-                "ON CONFLICT(user_id) DO UPDATE SET is_active=1, username=excluded.username",
-                (oid, oname, message.from_user.id)
-            )
-            conn.commit()
+        _admin_config.set_staff(role='operator',user_id=oid,username=oname,added_by=message.from_user.id)
         log_staff_action(message.from_user.id, "add_operator", oid, oname)
         await message.answer(f"✅ Оператор {oid} (@{oname or '—'}) добавлен.")
         try:
@@ -5374,9 +5107,7 @@ async def cmd_deloperator(message: Message):
         return
     try:
         oid = int(parts[1])
-        with db_conn(5) as conn:
-            conn.execute("UPDATE operators SET is_active=0 WHERE user_id=?", (oid,))
-            conn.commit()
+        _admin_config.deactivate_staff(role='operator',user_id=oid)
         log_staff_action(message.from_user.id, "del_operator", oid)
         await message.answer(f"✅ Оператор {oid} деактивирован.")
     except ValueError:
@@ -5386,10 +5117,7 @@ async def cmd_deloperator(message: Message):
 async def cmd_operators_list(message: Message):
     if not is_admin(message.from_user.id):
         return
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute("SELECT user_id, username, added_at, is_active FROM operators ORDER BY added_at DESC")
-        rows = c.fetchall()
+    rows = _admin_config.staff_rows(role='operator')
     if not rows:
         await message.answer("Операторов нет. /addoperator <id>")
         return
@@ -5404,22 +5132,18 @@ async def cmd_operator_panel(message: Message):
     """Рабочая панель оператора: заявки в работе + открытые тикеты."""
     if not is_staff(message.from_user.id):
         return
-    with db_conn(10) as conn:
-        c = conn.cursor()
-        c.execute("""SELECT order_id, username, user_id, rub_amount, currency, created_at
-                     FROM orders WHERE status='pending'
-                     ORDER BY created_at DESC LIMIT 10""")
-        pending = c.fetchall()
-        paid_cnt = c.execute("SELECT COUNT(*) FROM orders WHERE status='paid'").fetchone()[0]
-        c.execute("""SELECT id, username, user_id, subject, updated_at
-                     FROM support_tickets WHERE status='open'
-                     ORDER BY updated_at ASC LIMIT 10""")
-        tickets = c.fetchall()
+    dashboard = _order_reads.operator_dashboard(limit=10)
+    pending, paid_cnt = dashboard["pending"], dashboard["paid_count"]
+    tickets = _support_store.staff_new_tickets(limit=10)
     text = "🎧 <b>Панель оператора</b>\n\n"
     if pending:
         text += f"⏳ <b>Ожидают оплаты/проверки ({len(pending)}):</b>\n"
-        for oid, uname, uid, amt, cur, created in pending:
-            text += f"  #{oid} @{uname or uid} · {int(amt):,} ₽ → {cur} · {created[11:16]} · /order {oid}\n".replace(",", " ")
+        for row in pending:
+            oid, uname, uid, amt, cur, created = (
+                row[k] for k in ("order_id", "username", "user_id", "rub_amount",
+                                 "currency", "created_at"))
+            text += (f"  #{oid} @{uname or uid} · {int(amt):,} ₽ → {cur} · "
+                     f"{str(created)[11:16]} · /order {oid}\n").replace(",", " ")
         text += "\n"
     else:
         text += "⏳ Нет заявок, ожидающих оплаты.\n\n"
@@ -5442,20 +5166,15 @@ async def cmd_order_card(message: Message):
         await message.answer("Формат: /order ID")
         return
     oid = int(parts[1])
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute("""SELECT user_id, username, rub_amount, currency, crypto_address,
-                            status, created_at, updated_at, paid_btc_tx
-                     FROM orders WHERE order_id=?""", (oid,))
-        row = c.fetchone()
-        sessions = c.execute(
-            """SELECT provider, provider_invoice_id, amount, status, created_at
-               FROM payment_sessions WHERE order_id=? ORDER BY id DESC LIMIT 3""",
-            (oid,)).fetchall()
-    if not row:
+    _order = _order_reads.snapshot(oid)
+    sessions = _payment_sessions.recent_for_order(oid, limit=3)
+    if not _order:
         await message.answer(f"❌ Заявка #{oid} не найдена.")
         return
-    uid, uname, amt, cur, addr, status, created, updated, tx = row
+    uid, uname, amt, cur, addr = (_order[k] for k in
+                                  ("user_id", "username", "rub_amount", "currency", "crypto_address"))
+    status, created, updated, tx = (_order[k] for k in
+                                    ("status", "created_at", "updated_at", "paid_btc_tx"))
     STATUS_ICON = {"pending": "⏳", "paid": "🔄", "sent": "✅", "failed": "❌", "cancelled": "🚫"}
     amt_fmt = f"{int(amt):,}".replace(",", " ")
     tx_line = f"\n🔗 TX: <code>{tx}</code>" if tx else ""
@@ -5474,9 +5193,12 @@ async def cmd_order_card(message: Message):
     )
     if sessions:
         text += "\n💳 <b>Платёжные сессии</b> (для разбора с трейдером):\n"
-        for prov, inv, s_amt, s_status, s_created in sessions:
+        for session in sessions:
+            prov, inv, s_amt, s_status, s_created = (
+                session[k] for k in ("provider", "provider_invoice_id", "amount",
+                                     "status", "created_at"))
             text += (f"  • <b>{prov}</b> · invoice <code>{inv or '—'}</code>\n"
-                     f"    сумма {s_amt or amt:.2f} ₽ · {s_status} · {s_created[:16]}\n")
+                     f"    сумма {s_amt or amt:.2f} ₽ · {s_status} · {str(s_created)[:16]}\n")
     else:
         text += "\n💳 Платёжных сессий нет (реквизиты не выдавались)."
     kb_rows = []
@@ -5565,10 +5287,8 @@ async def cmd_review_queue(message: Message):
         # ДО того, как начнёт ждать сигнала, которого не будет.
         _prov = ""
         try:
-            with db_conn(5) as _cn:
-                _r = _cn.execute("SELECT provider FROM payment_sessions WHERE order_id=? "
-                                 "ORDER BY id DESC LIMIT 1", (oid,)).fetchone()
-                _prov = _r[0] if _r else ""
+            _r = _payment_sessions.latest_for_order(oid)
+            _prov = _r["provider"] if _r else ""
         except Exception:
             pass
         if _prov and not provider_caps.has_verification_channel(_prov):
@@ -5619,17 +5339,16 @@ async def cb_queue_worker(callback: CallbackQuery):
         await callback.answer("Недоступно", show_alert=True)
         return
     oid = int(callback.data.split("_")[-1])
-    with db_conn(5) as conn:
-        row = conn.execute(
-            "SELECT user_id, rub_amount, crypto_address, currency, network, status, paid_btc_tx "
-            "FROM orders WHERE order_id=?", (oid,)).fetchone()
+    row = _order_reads.snapshot(oid)
     if not row:
         await callback.answer("Заявка не найдена", show_alert=True)
         return
-    if row[5] != "paid" or (row[6] or ""):
-        await callback.answer(f"Уже не в очереди (статус «{row[5]}»)", show_alert=True)
+    if row["status"] != "paid" or (row["paid_btc_tx"] or ""):
+        await callback.answer(
+            f"Уже не в очереди (статус «{row['status']}»)", show_alert=True)
         return
-    await notify_workers_paid(oid, row[1], row[2], row[3], row[4])
+    await notify_workers_paid(oid, row["rub_amount"], row["crypto_address"],
+                              row["currency"], row["network"])
     log_staff_action(callback.from_user.id, "queue_to_worker", str(oid),
                      "заявка отдана работникам из очереди разбора")
     await callback.answer("Отправлено работникам")
@@ -5649,15 +5368,11 @@ async def cb_review_reopen(callback: CallbackQuery):
         await callback.answer("Недоступно", show_alert=True)
         return
     oid = int(callback.data.rsplit("_", 1)[1])
-    with db_conn(5) as conn:
-        cur = conn.execute(
-            "UPDATE orders SET status='pending', updated_at=datetime('now') "
-            "WHERE order_id=? AND status NOT IN ('paid','sent','pending')", (oid,))
-        conn.commit()
-        if cur.rowcount:
-            log_staff_action(callback.from_user.id, "review_reopen", str(oid),
-                             "закрытая заявка с чеком возвращена в работу")
-    if not cur.rowcount:
+    changed = _order_workflow.reopen_review(oid)
+    if changed:
+        log_staff_action(callback.from_user.id, "review_reopen", str(oid),
+                         "закрытая заявка с чеком возвращена в работу")
+    if not changed:
         await callback.answer("Статус уже изменился — обновите /review", show_alert=True)
         return
     await callback.answer("Заявка снова в работе")
@@ -5676,18 +5391,14 @@ async def cb_review_reject(callback: CallbackQuery):
         await callback.answer("Недоступно", show_alert=True)
         return
     oid = int(callback.data.rsplit("_", 1)[1])
-    with db_conn(5) as conn:
-        conn.execute("UPDATE orders SET status='cancelled', updated_at=datetime('now') "
-                     "WHERE order_id=? AND status='pending'", (oid,))
-        # След решения. Без него очередь разбора не отличает «человек посмотрел
-        # и отказал» от «заявка просто закрылась»: отклонённая остаётся в
-        # /review навсегда и продолжает поднимать тревогу — то есть работа
-        # оператора снова порождает шум, от которого её и лечили.
-        conn.execute("INSERT OR IGNORE INTO sent_notifications (order_id, event) "
-                     "VALUES (?, 'receipt_rejected')", (oid,))
-        conn.commit()
-        log_staff_action(callback.from_user.id, "review_reject", str(oid),
-                         "чек отклонён оператором (не подтверждён)")
+    if not _order_workflow.reject_review(oid):
+        await callback.answer("Статус уже изменился — обновите /review", show_alert=True)
+        return
+    # reject_review атомарно пишет receipt_rejected вместе с CAS-переходом.
+    logger.info("order workflow decision %s for order %s",
+                _order_workflow_store_module.RECEIPT_REJECTED_EVENT, oid)
+    log_staff_action(callback.from_user.id, "review_reject", str(oid),
+                     "чек отклонён оператором (не подтверждён)")
     await callback.answer("Заявка отклонена")
     try:
         await callback.message.edit_text(
@@ -5702,26 +5413,23 @@ async def cb_review_reject(callback: CallbackQuery):
 async def cmd_worker_panel(message: Message):
     if not is_worker(message.from_user.id):
         return
-    with db_conn(10) as conn:
-        c = conn.cursor()
-        c.execute(
-            "SELECT order_id, rub_amount, crypto_address, currency, created_at "
-            "FROM orders WHERE status='paid' ORDER BY created_at ASC LIMIT 20"
-        )
-        rows = c.fetchall()
+    rows = _order_reads.worker_paid_orders(limit=20)
     if not rows:
         await message.answer("✅ Нет заявок, ожидающих отправки.")
         return
     text = f"📋 <b>Заявки к отправке ({len(rows)}):</b>\n\n"
     buttons = []
-    for oid, rub, addr, curr, created in rows:
+    for row in rows:
+        oid, rub, addr, curr, created = (
+            row[k] for k in ("order_id", "rub_amount", "crypto_address", "currency",
+                             "created_at"))
         # Объём — из зафиксированной котировки, а не пересчёт по свежему курсу:
         # работник должен отправить ровно то, что видел клиент.
         v = payout_verdict(oid, rub, curr)
         mark = "" if v.get("auto_ok") else " ⚠️"
         text += (f"<b>#{oid}</b>{mark} · {rub:,.0f} RUB → <code>{v['amount']} {curr}</code>\n"
                  f"{_destination_block(curr, addr)}\n"
-                 f"Время: {created[:16]}\n\n")
+                 f"Время: {str(created)[:16]}\n\n")
         buttons.append([InlineKeyboardButton(
             text=f"💸 Отправить #{oid}", callback_data=f"worker_send_{oid}"
         )])
@@ -5733,14 +5441,12 @@ async def worker_send_start(callback: CallbackQuery, state: FSMContext):
         await callback.answer("⛔ Нет прав", show_alert=True)
         return
     order_id = int(callback.data.split("_")[-1])
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute("SELECT rub_amount, crypto_address, currency, status, network FROM orders WHERE order_id=?", (order_id,))
-        row = c.fetchone()
+    row = _order_reads.snapshot(order_id)
     if not row:
         await callback.answer("❌ Заявка не найдена", show_alert=True)
         return
-    rub, addr, curr, status, net = row
+    rub, addr, curr, status, net = (
+        row[k] for k in ("rub_amount", "crypto_address", "currency", "status", "network"))
     if status == 'sent':
         await callback.answer("✅ Уже отправлено", show_alert=True)
         return
@@ -5774,23 +5480,27 @@ async def worker_enter_tx(message: Message, state: FSMContext):
     data = await state.get_data()
     order_id = data.get("worker_order_id")
     tx = message.text.strip()
-    if not tx or len(tx) < 10:
-        await message.answer("❌ Введите корректный TXID (минимум 10 символов).")
+    row = _order_reads.snapshot(order_id)
+    if not row:
+        await message.answer("❌ Заявка не найдена.")
+        await state.clear()
         return
-    with db_conn(10) as conn:
-        c = conn.cursor()
-        c.execute("SELECT user_id, rub_amount, currency, network FROM orders WHERE order_id=?", (order_id,))
-        row = c.fetchone()
-        if not row:
-            await message.answer("❌ Заявка не найдена.")
-            await state.clear()
-            return
-        user_id, rub_amount, currency, network = row
-        c.execute(
-            "UPDATE orders SET status='sent', paid_btc_tx=?, updated_at=CURRENT_TIMESTAMP WHERE order_id=? AND status IN ('paid','pending')",
-            (tx, order_id)
-        )
-        conn.commit()
+    user_id, rub_amount, currency, network, status = (
+        row[k] for k in ("user_id", "rub_amount", "currency", "network", "status"))
+    from core.txid import normalize_txid
+    tx = normalize_txid(tx, currency)
+    if not tx:
+        await message.answer("❌ TXID не прошёл проверку формата для этой сети.")
+        return
+    if status != "paid":
+        await message.answer(f"⛔ Статус заявки «{status}», требуется «paid».")
+        await state.clear()
+        return
+    transition = _order_workflow.mark_sent(order_id, tx)
+    if transition["action"] != "transitioned":
+        await message.answer("⛔ Статус заявки изменился; отметка не записана.")
+        await state.clear()
+        return
     await state.clear()
     await message.answer(
         f"✅ <b>Заявка #{order_id} отмечена как выполнена</b>\n"
@@ -5833,37 +5543,7 @@ _active_promos: dict[int, tuple[int, float]] = {}
 
 def check_promo_code(code: str, user_id: int) -> dict | None:
     """Валидирует промокод. Возвращает dict с code_id и discount или None."""
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute("""SELECT id, discount_percent, max_uses, uses_count, valid_until
-                     FROM promo_codes
-                     WHERE code=? COLLATE NOCASE AND is_active=1
-                       AND valid_until >= datetime('now')""", (code,))
-        row = c.fetchone()
-        if not row:
-            return None
-        cid, disc, max_uses, uses_count, valid_until = row
-        if uses_count >= max_uses:
-            return None
-        # Проверяем не использовал ли этот юзер уже
-        c.execute("SELECT 1 FROM promo_uses WHERE code_id=? AND user_id=?", (cid, user_id))
-        if c.fetchone():
-            return None
-    return {"code_id": cid, "discount": disc}
-
-def apply_promo_use(code_id: int, user_id: int, order_id: int):
-    """Фиксирует использование промокода."""
-    with db_conn(5) as conn:
-        conn.execute(
-            "INSERT OR IGNORE INTO promo_uses (code_id, user_id, order_id) VALUES (?,?,?)",
-            (code_id, user_id, order_id)
-        )
-        conn.execute(
-            "UPDATE promo_codes SET uses_count = uses_count + 1 WHERE id=?",
-            (code_id,)
-        )
-        conn.commit()
-
+    return _promo_admin.validate_for_user(code=code, user_id=user_id)
 
 @router.message(Command("promo"))
 async def cmd_promo(message: Message):
@@ -5907,16 +5587,9 @@ async def cmd_addpromo(message: Message):
     code, discount, max_uses, days = parts[1].upper(), float(parts[2]), int(parts[3]), int(parts[4])
     import datetime as _dt
     valid_until = (_dt.datetime.utcnow() + _dt.timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S")
-    with db_conn(5) as conn:
-        try:
-            conn.execute(
-                "INSERT INTO promo_codes (code, discount_percent, max_uses, valid_until) VALUES (?,?,?,?)",
-                (code, discount, max_uses, valid_until)
-            )
-            conn.commit()
-        except Exception as e:
-            await message.answer(f"❌ Ошибка: {e}")
-            return
+    try:_promo_admin.create(code=code,discount=discount,max_uses=max_uses,valid_until=valid_until)
+    except Exception as e:
+        await message.answer(f"❌ Ошибка: {e}");return
     await message.answer(
         f"✅ Промокод создан:\n"
         f"Код: <b>{code}</b>\n"
@@ -5932,11 +5605,7 @@ async def cmd_promos(message: Message):
     """Список активных промокодов."""
     if not is_admin(message.from_user.id):
         return
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute("""SELECT code, discount_percent, uses_count, max_uses, valid_until
-                     FROM promo_codes WHERE is_active=1 ORDER BY id DESC LIMIT 20""")
-        rows = c.fetchall()
+    rows = _promo_admin.active(limit=20)
     if not rows:
         await message.answer("Нет активных промокодов.")
         return
@@ -5962,18 +5631,9 @@ async def cmd_blockaddr(message: Message):
         return
     addr = parts[1].strip()
     reason = parts[2].strip() if len(parts) > 2 else "manual block"
-    with db_conn(5) as conn:
-        try:
-            # Пишем идентичность счёта, а не форму, в которой её набрал
-            # админ: иначе бан обходится вводом того же счёта X-адресом.
-            conn.execute(
-                "INSERT OR REPLACE INTO blocked_addresses (address, reason, blocked_by) VALUES (?,?,?)",
-                (_blocklist_key(addr), reason, message.from_user.id)
-            )
-            conn.commit()
-        except Exception as e:
-            await message.answer(f"❌ {e}")
-            return
+    try:_admin_config.block_address(address=_blocklist_key(addr),reason=reason,blocked_by=message.from_user.id)
+    except Exception as e:
+        await message.answer(f"❌ {e}");return
     await message.answer(f"✅ Адрес заблокирован:\n<code>{addr}</code>\nПричина: {reason}", parse_mode="HTML")
 
 
@@ -5986,11 +5646,7 @@ async def cmd_unblockaddr(message: Message):
         await message.answer("Формат: /unblockaddr АДРЕС")
         return
     addr = parts[1].strip()
-    with db_conn(5) as conn:
-        _forms = _blocklist_forms(addr)
-        conn.execute("DELETE FROM blocked_addresses WHERE address IN (%s)"
-                     % ",".join("?" * len(_forms)), _forms)
-        conn.commit()
+    _admin_config.unblock_addresses(_blocklist_forms(addr))
     await message.answer(f"✅ Адрес разблокирован: <code>{addr}</code>", parse_mode="HTML")
 
 
@@ -5998,10 +5654,7 @@ async def cmd_unblockaddr(message: Message):
 async def cmd_blocklist(message: Message):
     if not is_admin(message.from_user.id):
         return
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute("SELECT address, reason, created_at FROM blocked_addresses ORDER BY created_at DESC LIMIT 20")
-        rows = c.fetchall()
+    rows = _admin_config.blocked_address_rows(limit=20)
     if not rows:
         await message.answer("Чёрный список пуст.")
         return
@@ -6029,12 +5682,7 @@ class SupportTicketState(StatesGroup):
 async def menu_support_new(callback: CallbackQuery, state: FSMContext):
     uid = callback.from_user.id
     # Показываем открытые тикеты юзера
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute("""SELECT id, subject, status, updated_at
-                     FROM support_tickets WHERE user_id=?
-                     ORDER BY updated_at DESC LIMIT 5""", (uid,))
-        tickets = c.fetchall()
+    tickets = _support_store.list_for_telegram_user(uid, limit=5)
 
     kb_rows = []
     if tickets:
@@ -6097,17 +5745,8 @@ async def ticket_enter_message(message: Message, state: FSMContext):
     uname = message.from_user.username or str(uid)
     text_body = message.text or message.caption or "[медиа-файл]"
 
-    with db_conn(5) as conn:
-        conn.execute(
-            "INSERT INTO support_tickets (user_id, username, subject, status, web_user_id) VALUES (?,?,?,'open',0)",
-            (uid, uname, subj)
-        )
-        tid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
-        conn.execute(
-            "INSERT INTO support_messages (ticket_id, sender, message) VALUES (?,?,?)",
-            (tid, "user", text_body)
-        )
-        conn.commit()
+    tid = _support_store.create(user_id=uid, username=uname, subject=subj,
+                                message=text_body)
 
     # Пересылаем медиа если есть
     media_info = ""
@@ -6152,17 +5791,11 @@ async def ticket_enter_message(message: Message, state: FSMContext):
 async def ticket_view(callback: CallbackQuery):
     tid = int(callback.data.split("_")[2])
     uid = callback.from_user.id
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute("SELECT subject, status FROM support_tickets WHERE id=? AND user_id=?", (tid, uid))
-        row = c.fetchone()
-        if not row:
-            await callback.answer("Тикет не найден.", show_alert=True)
-            return
-        subj, status = row
-        c.execute("SELECT sender, message, created_at FROM support_messages WHERE ticket_id=? ORDER BY id",
-                  (tid,))
-        msgs = c.fetchall()
+    thread = _support_store.thread_for_telegram_user(ticket_id=tid, user_id=uid)
+    if not thread:
+        await callback.answer("Тикет не найден.", show_alert=True)
+        return
+    subj, status, msgs = thread["subject"], thread["status"], thread["messages"]
 
     status_label = {"open": "🟡 Открыт", "answered": "🟢 Отвечен", "closed": "⚫ Закрыт"}.get(status, status)
     text = f"🎫 <b>Тикет #{tid}</b> — {subj}\n{status_label}\n\n"
@@ -6195,19 +5828,12 @@ async def ticket_reply_message(message: Message, state: FSMContext):
     tid  = data["reply_ticket_id"]
     uid  = message.from_user.id
     text_body = message.text or message.caption or "[медиа]"
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute("SELECT subject, username FROM support_tickets WHERE id=? AND user_id=?", (tid, uid))
-        row = c.fetchone()
-        if not row:
-            await message.answer("❌ Тикет не найден.")
-            await state.clear()
-            return
-        subj, uname = row
-        conn.execute("INSERT INTO support_messages (ticket_id, sender, message) VALUES (?,?,?)",
-                     (tid, "user", text_body))
-        conn.execute("UPDATE support_tickets SET status='open', updated_at=datetime('now') WHERE id=?", (tid,))
-        conn.commit()
+    row = _support_store.user_reply(ticket_id=tid,user_id=uid,message=text_body)
+    if not row:
+        await message.answer("❌ Тикет не найден.")
+        await state.clear()
+        return
+    subj, uname = row['subject'], row['username']
     await message.answer(f"✅ Сообщение добавлено в тикет #{tid}.")
     await notify_staff(
         f"🔔 <b>Новое сообщение в тикет #{tid}</b>\nОт @{uname} ({uid})\n<b>{subj}</b>\n\n{text_body}\n\n/reply_{tid}",
@@ -6241,12 +5867,7 @@ async def cmd_tickets(message: Message):
     """Список открытых тикетов для администратора/оператора."""
     if not is_staff(message.from_user.id):
         return
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute("""SELECT id, user_id, username, subject, status, updated_at
-                     FROM support_tickets WHERE status IN ('open','answered')
-                     ORDER BY updated_at DESC LIMIT 20""")
-        rows = c.fetchall()
+    rows = _support_store.staff_open_tickets(limit=20)
     if not rows:
         await message.answer("✅ Нет открытых тикетов.")
         return
@@ -6261,48 +5882,43 @@ async def cmd_tickets(message: Message):
 
 @router.message(Command("force_payout"))
 async def cmd_force_payout(message: Message):
-    """/force_payout ORDER_ID [TXID] — вручную отметить заявку как выполненную."""
+    """/force_payout ORDER_ID TXID — reconcile an already-sent payout."""
     if not is_admin(message.from_user.id):
         return
     parts = message.text.split(None, 2)
-    if len(parts) < 2:
-        await message.answer(
-            "Формат: /force_payout ORDER_ID\n"
-            "или: /force_payout ORDER_ID TXID"
-        )
+    if len(parts) != 3:
+        await message.answer("Формат: /force_payout ORDER_ID TXID")
         return
     try:
         oid = int(parts[1])
     except ValueError:
         await message.answer("❌ Неверный ORDER_ID")
         return
-    txid = parts[2].strip() if len(parts) > 2 else None
+    txid = parts[2].strip()
 
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute("SELECT user_id, rub_amount, currency, status, network FROM orders WHERE order_id=?", (oid,))
-        row = c.fetchone()
+    row = _order_reads.snapshot(oid)
 
     if not row:
         await message.answer(f"❌ Заявка #{oid} не найдена.")
         return
-    user_id, rub, currency, status, network = row
+    user_id, rub, currency, status, network = (
+        row[k] for k in ("user_id", "rub_amount", "currency", "status", "network"))
     if status == "sent":
         await message.answer(f"⚠️ Заявка #{oid} уже в статусе «sent».")
         return
+    if status != "paid":
+        await message.answer(f"⛔ Заявка #{oid}: статус «{status}», требуется «paid».")
+        return
+    from core.txid import normalize_txid
+    txid = normalize_txid(txid, currency)
+    if not txid:
+        await message.answer("❌ TXID не прошёл проверку формата для этой сети.")
+        return
 
-    with db_conn(5) as conn:
-        if txid:
-            conn.execute(
-                "UPDATE orders SET status='sent', paid_btc_tx=?, updated_at=CURRENT_TIMESTAMP WHERE order_id=?",
-                (txid, oid)
-            )
-        else:
-            conn.execute(
-                "UPDATE orders SET status='sent', updated_at=CURRENT_TIMESTAMP WHERE order_id=?",
-                (oid,)
-            )
-        conn.commit()
+    transition = _order_workflow.mark_sent(oid, txid)
+    if transition["action"] != "transitioned":
+        await message.answer("⛔ Статус заявки изменился; отметка не записана.")
+        return
 
     # Заявка выполнена — начисляем реф-бонус и VIP-объём (как в worker_send и
     # авто-выплате; повторное начисление исключено гейтом status=='sent' выше)
@@ -6317,7 +5933,7 @@ async def cmd_force_payout(message: Message):
     await message.answer(
         f"✅ Заявка #{oid} отмечена как выполнена.\n"
         f"{amt_fmt} ₽ → {CUR_ICON.get(currency,'')} {currency}"
-        + (f"\nTXID: <code>{txid}</code>" if txid else ""),
+        + f"\nTXID: <code>{txid}</code>",
         parse_mode="HTML"
     )
     # Уведомляем клиента (status_notifier подхватит через pending-цикл,
@@ -6327,8 +5943,7 @@ async def cmd_force_payout(message: Message):
             f"🚀 <b>Заявка #{oid} выполнена!</b>\n\n"
             f"{amt_fmt} ₽ → {CUR_ICON.get(currency,'')} {currency} отправлен на ваш адрес."
         )
-        if txid:
-            text += f"\n\n🔗 TXID: <code>{txid}</code>"
+        text += f"\n\n🔗 TXID: <code>{txid}</code>"
         text += "\n\n<b>Оцените качество обслуживания:</b>"
         _rows = []
         _exp = explorer_url(currency, txid, network)
@@ -6354,13 +5969,12 @@ async def _payout_preflight(oid):
     Отдельной функцией, чтобы показ и сама отправка судили по одним правилам:
     иначе кнопка «выплатить» обещала бы то, чего проверка на отправке не даст.
     """
-    with db_conn(5) as conn:
-        row = conn.execute(
-            "SELECT user_id, rub_amount, crypto_address, currency, status, network "
-            "FROM orders WHERE order_id=?", (oid,)).fetchone()
+    row = _order_reads.snapshot(oid)
     if not row:
         return None, [f"заявка #{oid} не найдена"]
-    user_id, rub, address, currency, status, network = row
+    user_id, rub, address, currency, status, network = (
+        row[k] for k in ("user_id", "rub_amount", "crypto_address", "currency",
+                         "status", "network"))
     info = {"order_id": oid, "user_id": user_id, "rub": rub, "address": address,
             "currency": currency, "status": status, "network": network}
     blockers = []
@@ -6505,12 +6119,7 @@ async def cb_payout_go(callback: CallbackQuery):
 
     # Статус меняем ТОЛЬКО с 'paid': если заявку успели закрыть, бухгалтерию
     # второй раз не проводим (реф-бонус и VIP-объём начислялись бы дважды).
-    with db_conn(5) as conn:
-        cur = conn.execute(
-            "UPDATE orders SET status='sent', paid_btc_tx=?, updated_at=CURRENT_TIMESTAMP "
-            "WHERE order_id=? AND status='paid'", (txid, oid))
-        conn.commit()
-        closed = cur.rowcount
+    closed = _order_workflow.mark_sent(oid, txid)["action"] == "transitioned"
     if not closed:
         logger.error(f"/payout #{oid}: крипта отправлена (txid={txid}), но заявка уже "
                      f"была закрыта — бухгалтерию не проводим повторно")
@@ -6563,13 +6172,7 @@ async def cmd_broadcast(message: Message, state: FSMContext):
     text = parts[1].strip()
 
     # Получаем уникальных активных пользователей
-    with db_conn(10) as conn:
-        c = conn.cursor()
-        c.execute("""SELECT DISTINCT user_id FROM orders
-                     WHERE user_id > 0
-                       AND created_at >= datetime('now', '-30 days')
-                     ORDER BY MAX(created_at) DESC""")
-        users = [r[0] for r in c.fetchall()]
+    users = _order_reads.active_customer_ids(days=30)
 
     if not users:
         await message.answer("Нет активных пользователей для рассылки.")
@@ -6603,36 +6206,12 @@ async def cmd_stats(message: Message):
     """/stats — быстрая сводка сегодня для администратора."""
     if not is_admin(message.from_user.id):
         return
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        # Сегодня
-        c.execute("""SELECT COUNT(*), COALESCE(SUM(rub_amount),0)
-                     FROM orders WHERE date(created_at)=date('now')""")
-        today_cnt, today_vol = c.fetchone()
-        c.execute("""SELECT COUNT(*), COALESCE(SUM(rub_amount),0)
-                     FROM orders WHERE status='sent' AND date(created_at)=date('now')""")
-        today_done, today_done_vol = c.fetchone()
-        # Ожидают
-        c.execute("SELECT COUNT(*) FROM orders WHERE status='pending'")
-        pend = c.fetchone()[0]
-        c.execute("SELECT COUNT(*) FROM orders WHERE status='paid'")
-        paid_cnt = c.fetchone()[0]
-        # Новые юзеры сегодня
-        c.execute("""SELECT COUNT(*) FROM (
-                         SELECT DISTINCT user_id FROM orders WHERE date(created_at)=date('now')
-                         AND user_id NOT IN (
-                             SELECT DISTINCT user_id FROM orders WHERE date(created_at)<date('now')
-                         ))""")
-        new_users = c.fetchone()[0]
-        # Открытые тикеты
-        c.execute("SELECT COUNT(*) FROM support_tickets WHERE status IN ('open','answered')")
-        tickets = c.fetchone()[0]
-        # Лимитные заявки
-        c.execute("SELECT COUNT(*) FROM limit_orders WHERE status='active'")
-        limit_orders = c.fetchone()[0]
-        # DCA
-        c.execute("SELECT COUNT(*) FROM dca_schedules WHERE status='active'")
-        dca_cnt = c.fetchone()[0]
+    stats = _reporting.bot_today_summary()
+    today_cnt, today_vol = stats["today_count"], stats["today_volume"]
+    today_done, today_done_vol = stats["today_sent"], stats["today_sent_volume"]
+    pend, paid_cnt, new_users = stats["pending"], stats["paid"], stats["new_users"]
+    limit_orders, dca_cnt = stats["active_limits"], stats["active_dca"]
+    tickets = _support_store.open_count()
 
     vol_fmt = f"{int(today_vol):,}".replace(",", " ")
     done_vol_fmt = f"{int(today_done_vol):,}".replace(",", " ")
@@ -6690,18 +6269,16 @@ def build_providers_report():
         retired = get_retired_providers()
     except Exception:
         pass
-    with db_conn(5) as conn:
-        rows = conn.execute(
-            "SELECT provider, is_healthy, failed_count, COALESCE(status,''), "
-            "COALESCE(blocker,''), last_checked FROM provider_health ORDER BY provider"
-        ).fetchall()
+    health_rows = sorted(_provider_health.all_health(), key=lambda row: row["provider"])
+    rows = [(r["provider"], r["is_healthy"], r["failed_count"], r.get("status") or "",
+             r.get("blocker") or "", r.get("last_checked")) for r in health_rows]
+    since = (datetime.now() - timedelta(hours=1)).isoformat()
+    att = {}
+    for row in health_rows:
         try:
-            since = (datetime.now() - timedelta(hours=1)).isoformat()
-            att = dict(conn.execute(
-                "SELECT provider, COUNT(*) FROM provider_attempts WHERE ts>=? GROUP BY provider",
-                (since,)).fetchall())
-        except sqlite3.OperationalError:
-            att = {}
+            att[row["provider"]] = _provider_health.attempt_stats(row["provider"], since)["count"]
+        except Exception:
+            att[row["provider"]] = 0
     lines, kb_rows = [], []
     for name, healthy, fails, status, blocker, _last in rows:
         short = _PROV_SHORT.get(name, name)
@@ -6808,13 +6385,11 @@ async def retry_with_amount(callback: CallbackQuery, state: FSMContext):
         return
 
     uid = callback.from_user.id
-    with db_conn(5) as conn:
-        row = conn.execute(
-            "SELECT user_id, status, currency, rub_amount FROM orders WHERE order_id=?",
-            (order_id,)).fetchone()
+    row = _order_reads.snapshot(order_id)
     if not row:
         await callback.answer("Заявка не найдена", show_alert=True); return
-    owner, status, currency, old_amount = row[0], row[1], row[2], row[3]
+    owner, status, currency, old_amount = (row[k] for k in
+                                           ("user_id", "status", "currency", "rub_amount"))
     # Владение и статус: чужую или уже оплаченную заявку трогать нельзя.
     if int(owner or 0) != int(uid) and not is_admin(uid):
         await callback.answer("Это не ваша заявка", show_alert=True); return
@@ -6823,10 +6398,9 @@ async def retry_with_amount(callback: CallbackQuery, state: FSMContext):
     if not (MIN_AMOUNT <= new_amount <= MAX_AMOUNT):
         await callback.answer("Сумма вне допустимых пределов", show_alert=True); return
 
-    with db_conn(5) as conn:
-        conn.execute("UPDATE orders SET rub_amount=?, updated_at=datetime('now') "
-                     "WHERE order_id=? AND status='pending'", (new_amount, order_id))
-        conn.commit()
+    if not _order_workflow.retry_amount_for_owner(order_id, owner, new_amount):
+        await callback.answer("Статус заявки уже изменился", show_alert=True)
+        return
     await state.update_data(amount=new_amount, order_id=order_id)
     log_staff_action(uid, "order_amount_changed",
                      f"order={order_id} {old_amount}→{new_amount}") if is_admin(uid) else None
@@ -6879,14 +6453,8 @@ async def _close_order_by_evidence(v) -> bool:
     успели закрыть иначе, реф-бонус и VIP-объём не начисляются повторно.
     """
     oid, txid = v["order_id"], v["txid"]
-    with db_conn(5) as conn:
-        cur = conn.execute(
-            "UPDATE orders SET status='sent', paid_btc_tx=?, updated_at=CURRENT_TIMESTAMP "
-            "WHERE order_id=? AND status='paid' AND (paid_btc_tx IS NULL OR paid_btc_tx='')",
-            (txid, oid))
-        conn.commit()
-        if not cur.rowcount:
-            return False
+    if _order_workflow.mark_sent(oid, txid)["action"] != "transitioned":
+        return False
     currency, network, user_id = v["currency"], v.get("network"), v.get("user_id")
     try:
         await credit_referral_bonus(oid, user_id, v.get("rub_amount") or 0)
@@ -7284,10 +6852,7 @@ async def admin_reset_provider_cb(callback: CallbackQuery):
     if not is_admin(callback.from_user.id):
         return
     name = callback.data[len("admrstprov_"):]
-    with db_conn(5) as conn:
-        conn.execute("UPDATE provider_health SET failed_count=0, is_healthy=1, "
-                     "status='READY', blocker='' WHERE provider=?", (name,))
-        conn.commit()
+    _provider_health.reset(name)
     log_staff_action(callback.from_user.id, 'reset_provider', details=name)
     text, kb = build_providers_report()
     try:
@@ -7304,17 +6869,10 @@ async def admin_stats_refresh(callback: CallbackQuery):
     await callback.message.delete()
     # Сводка считается инлайн ниже (раньше здесь был битый вызов cmd_stats с
     # пустым Message — ломал refresh; убран)
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute("""SELECT COUNT(*), COALESCE(SUM(rub_amount),0)
-                     FROM orders WHERE date(created_at)=date('now')""")
-        today_cnt, today_vol = c.fetchone()
-        c.execute("SELECT COUNT(*) FROM orders WHERE status='pending'")
-        pend = c.fetchone()[0]
-        c.execute("SELECT COUNT(*) FROM orders WHERE status='paid'")
-        paid_cnt = c.fetchone()[0]
-        c.execute("SELECT COUNT(*) FROM support_tickets WHERE status IN ('open','answered')")
-        tickets = c.fetchone()[0]
+    stats = _reporting.bot_today_summary()
+    today_cnt, today_vol = stats["today_count"], stats["today_volume"]
+    pend, paid_cnt = stats["pending"], stats["paid"]
+    tickets = _support_store.open_count()
     vol_fmt = f"{int(today_vol):,}".replace(",", " ")
     text = (
         f"📊 <b>Сводка (обновлено)</b>\n"
@@ -7345,18 +6903,11 @@ async def admin_report_today_cb(callback: CallbackQuery):
 
 
 async def _send_admin_reply(tid: int, reply_text: str, admin_message):
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute("SELECT user_id, subject FROM support_tickets WHERE id=?", (tid,))
-        row = c.fetchone()
-        if not row:
-            await admin_message.answer(f"❌ Тикет #{tid} не найден.")
-            return
-        user_id, subj = row
-        conn.execute("INSERT INTO support_messages (ticket_id, sender, message) VALUES (?,?,?)",
-                     (tid, "admin", reply_text))
-        conn.execute("UPDATE support_tickets SET status='answered', updated_at=datetime('now') WHERE id=?", (tid,))
-        conn.commit()
+    row = _support_store.admin_reply(ticket_id=tid,message=reply_text)
+    if not row:
+        await admin_message.answer(f"❌ Тикет #{tid} не найден.")
+        return
+    user_id, subj = row['user_id'], row['subject']
     try:
         await bot.send_message(
             user_id,
@@ -7387,39 +6938,21 @@ async def cmd_finduser(message: Message):
         await message.answer("Формат: /finduser 123456789 или /finduser @username")
         return
     query = parts[1].strip().lstrip("@")
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        if query.isdigit():
-            c.execute("""SELECT user_id, username,
-                                COUNT(*) as total,
-                                SUM(CASE WHEN status='sent' THEN 1 ELSE 0 END) as sent_cnt,
-                                COALESCE(SUM(CASE WHEN status='sent' THEN rub_amount ELSE 0 END),0) as volume
-                         FROM orders WHERE user_id=?""", (int(query),))
-        else:
-            c.execute("""SELECT user_id, username,
-                                COUNT(*) as total,
-                                SUM(CASE WHEN status='sent' THEN 1 ELSE 0 END) as sent_cnt,
-                                COALESCE(SUM(CASE WHEN status='sent' THEN rub_amount ELSE 0 END),0) as volume
-                         FROM orders WHERE username=?""", (query,))
-        row = c.fetchone()
+    row = _order_reads.find_customer(query)
 
-    if not row or not row[0]:
+    if not row:
         await message.answer("❌ Пользователь не найден в базе заявок.")
         return
 
-    uid, uname, total, sent_cnt, volume = row
+    uid, uname, total, sent_cnt, volume = (row[k] for k in
+                                           ("user_id", "username", "total", "sent_cnt", "volume"))
     vip_name, disc = get_user_vip(uid)
     vip_icons = {'Platinum': '💎', 'Gold': '🥇', 'Silver': '🥈'}
 
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute("SELECT COUNT(*) FROM referrals WHERE referrer_id=?", (uid,))
-        refs = c.fetchone()[0]
-        c.execute("SELECT COUNT(*) FROM support_tickets WHERE user_id=? AND status='open'", (uid,))
-        open_tickets = c.fetchone()[0]
-        c.execute("SELECT id, status, rub_amount, currency, created_at FROM orders WHERE user_id=? ORDER BY id DESC LIMIT 3", (uid,))
-        last3 = c.fetchall()
-        blocked = bool(conn.execute("SELECT 1 FROM blocked_users WHERE user_id=?", (uid,)).fetchone())
+    refs = _engagement.referral_stats(uid)["referrals"]
+    last3 = _order_reads.customer_orders(uid, limit=3)
+    blocked = _admin_config.is_user_blocked(uid)
+    open_tickets = _support_store.open_count_for_telegram_user(uid)
 
     vol_fmt = f"{int(volume):,}".replace(",", " ")
     text = (
@@ -7437,8 +6970,11 @@ async def cmd_finduser(message: Message):
         f"<b>Последние 3 заявки:</b>\n"
     )
     STATUS_ICON = {"pending": "⏳", "paid": "🔄", "sent": "✅", "failed": "❌", "cancelled": "🚫"}
-    for oid, st, amt, cur, dt in last3:
-        text += f"  {STATUS_ICON.get(st,'?')} #{oid} · {int(amt):,} ₽ → {cur} · {dt[:10]}\n".replace(",", " ")
+    for order in last3:
+        st = order["status"]
+        text += (f"  {STATUS_ICON.get(st,'?')} #{order['order_id']} · "
+                 f"{int(order['rub_amount']):,} ₽ → {order['currency']} · "
+                 f"{order['created_at'][:10]}\n").replace(",", " ")
 
     kb_rows = [[InlineKeyboardButton(text="✉️ Написать клиенту", callback_data=f"admin_msg_{uid}")]]
     if is_admin(message.from_user.id):
@@ -7493,6 +7029,188 @@ async def cmd_pending(message: Message, uid: int = None):
     await message.answer(text, parse_mode="HTML")
 
 
+@router.message(Command("payout_review"))
+async def cmd_payout_intent_review(message: Message):
+    """Show uncertain signer attempts. This command never changes state."""
+    if not is_admin(message.from_user.id):
+        return
+    rows = _payout_store.review_items(limit=30)
+    referral_rows = _payout_store.referral_review_items(limit=30)
+    if not rows and not referral_rows:
+        return await message.answer("✅ Неопределённых payout intent нет.")
+    lines = ["⚠️ <b>Разбор payout intent</b>", ""]
+    for row in rows:
+        oid, state, cur, net = (row["order_id"], row["state"], row["currency"],
+                                row["network"])
+        amount, dest, txid, err = (row["crypto_amount"], row["destination"],
+                                   row["txid"], row["error_code"])
+        claimed, updated, order_state = (row["claimed_at"], row["updated_at"],
+                                         row["order_status"])
+        masked = f"{dest[:6]}…{dest[-4:]}" if dest and len(dest) > 12 else "***"
+        lines.append(
+            f"<b>#{oid}</b> · {state} · order={order_state}\n"
+            f"{amount:g} {cur}{' / ' + net if net else ''} → <code>{masked}</code>\n"
+            f"TXID: <code>{txid or 'нет'}</code> · ошибка: <code>{err or 'нет'}</code>\n"
+            f"claim: {claimed or '—'} · update: {updated or '—'}"
+        )
+    for row in referral_rows:
+        ident, uid, state = row["id"], row["user_id"], row["state"]
+        amount, dest = row["crypto_amount"], row["destination"]
+        txid, err, updated = row["txid"], row["error_code"], row["updated_at"]
+        masked = f"{dest[:6]}…{dest[-4:]}" if dest and len(dest) > 12 else "***"
+        lines.append(f"<b>REF#{ident}</b> · user={uid} · {state}\n"
+                     f"{amount:g} BTC → <code>{masked}</code>\n"
+                     f"TXID: <code>{txid or 'нет'}</code> · ошибка: <code>{err or 'нет'}</code>\n"
+                     f"update: {updated or '—'}")
+    lines.append(
+        "\n<b>Только доказательные действия:</b>\n"
+        "<code>/payout_confirm ID TXID</code> — проверить цепочку и подтвердить.\n"
+        "<code>/payout_requeue ID</code> — только review и только если signer-ledger "
+        "доказывает отсутствие попытки broadcast."
+        "\n<code>/refpayout_confirm ID TXID</code> и "
+        "<code>/refpayout_requeue ID</code> — те же действия для REF intent."
+    )
+    await message.answer("\n\n".join(lines), parse_mode="HTML")
+
+
+@router.message(Command("payout_confirm"))
+async def cmd_payout_confirm(message: Message):
+    """Confirm an uncertain intent only after exact final chain matching."""
+    if not is_admin(message.from_user.id):
+        return
+    parts = (message.text or "").split()
+    if len(parts) != 3 or not parts[1].isdigit():
+        return await message.answer("Формат: <code>/payout_confirm ID TXID</code>", parse_mode="HTML")
+    oid, supplied = int(parts[1]), parts[2].strip()
+    intent = _payout_store.order(oid)
+    if not intent or intent["state"] not in ("processing", "review"):
+        return await message.answer("⛔ Intent не найден или уже не требует разбора.")
+    from core.txid import normalize_txid
+    txid = normalize_txid(supplied, intent["currency"])
+    if not txid:
+        return await message.answer("⛔ TXID не соответствует сети заявки.")
+    await message.answer(f"⛓ Проверяю финальную транзакцию для #{oid}…")
+    pd = _discovery()
+    verdict = await asyncio.to_thread(pd.candidates_for, oid, get_rate_with_markup)
+    if verdict.get("error"):
+        return await message.answer(f"⛔ Подтверждение заблокировано: {verdict['error']}")
+    match = next((c for c in verdict.get("candidates", [])
+                  if normalize_txid(c.get("txid"), intent["currency"]) == txid), None)
+    if not match:
+        reason = verdict.get("reason") or "точная финальная транзакция не найдена"
+        return await message.answer(f"⛔ TXID не подтверждён: {reason}")
+    evidence = (f"chain_final destination={verdict.get('address')} "
+                f"amount={match.get('amount')} expected={verdict.get('expected')}")
+    ok = _payout_store.confirm_order_txid(
+        oid, txid, actor=message.from_user.id, evidence=evidence)
+    if not ok:
+        return await message.answer("⚠️ Состояние изменилось; ничего не записано.")
+    log_staff_action(message.from_user.id, "payout_intent_confirm_txid", oid,
+                     f"tx={txid}")
+    await message.answer(
+        f"✅ Intent #{oid} подтверждён по блокчейну. TXID сохранён; "
+        f"reconciliation закроет заказ и поставит уведомление в outbox."
+    )
+
+
+@router.message(Command("payout_requeue"))
+async def cmd_payout_requeue(message: Message):
+    """Requeue only when the signer journal proves signing never started."""
+    if not is_admin(message.from_user.id):
+        return
+    parts = (message.text or "").split()
+    if len(parts) != 2 or not parts[1].isdigit():
+        return await message.answer("Формат: <code>/payout_requeue ID</code>", parse_mode="HTML")
+    oid = int(parts[1])
+    from services.payout_signer import inspect_attempt
+    intent = _payout_store.order(oid)
+    if not intent or intent["state"] != "review":
+        return await message.answer("⛔ Возврат разрешён только из terminal review.")
+    proof = await asyncio.to_thread(inspect_attempt, intent)
+    if proof.get("verdict") != "absent":
+        suffix = f"; найден TXID {proof.get('txid')}" if proof.get("txid") else ""
+        return await message.answer(
+            f"⛔ Retry запрещён: signer-ledger не доказывает отсутствие broadcast "
+            f"({proof.get('verdict')}: {proof.get('reason')}{suffix})."
+        )
+    evidence = f"signer_ledger_absent:{proof.get('reason')}"
+    ok = _payout_store.requeue_order_absent(
+        oid, actor=message.from_user.id, evidence=evidence)
+    if not ok:
+        return await message.answer("⚠️ Состояние изменилось; ничего не записано.")
+    log_staff_action(message.from_user.id, "payout_intent_requeue_absent", oid, evidence)
+    await message.answer(
+        f"♻️ Intent #{oid} возвращён в pending: signer-ledger подтвердил, "
+        f"что ключ payout_{oid} не был захвачен signer’ом."
+    )
+
+
+@router.message(Command("refpayout_confirm"))
+async def cmd_refpayout_confirm(message: Message):
+    if not is_admin(message.from_user.id):
+        return
+    parts = (message.text or "").split()
+    if len(parts) != 3 or not parts[1].isdigit():
+        return await message.answer("Формат: <code>/refpayout_confirm ID TXID</code>", parse_mode="HTML")
+    ident, supplied = int(parts[1]), parts[2].strip()
+    from core.txid import normalize_txid
+    intent = _payout_store.referral(ident)
+    if not intent or intent["state"] not in ("processing", "review"):
+        return await message.answer("⛔ REF intent не найден или уже не требует разбора.")
+    txid = normalize_txid(supplied, intent["currency"])
+    if not txid:
+        return await message.answer("⛔ TXID не соответствует сети intent.")
+    import datetime as _datetime
+    try:
+        created_at = intent["created_at"]
+        if isinstance(created_at, str):
+            created_at = _datetime.datetime.fromisoformat(created_at)
+        if created_at.tzinfo is None:
+            created_at = created_at.replace(tzinfo=_datetime.timezone.utc)
+        created_ts = int(created_at.timestamp())
+    except Exception:
+        return await message.answer("⛔ Время создания intent нечитаемо; подтверждение заблокировано.")
+    verdict = await asyncio.to_thread(
+        _discovery().candidates_for_debt, currency=intent["currency"],
+        network=intent["network"], destination=intent["destination"],
+        expected_amount=intent["crypto_amount"], created_ts=created_ts)
+    if verdict.get("error"):
+        return await message.answer(f"⛔ Подтверждение заблокировано: {verdict['error']}")
+    match = next((c for c in verdict.get("candidates", [])
+                  if normalize_txid(c.get("txid"), intent["currency"]) == txid
+                  and c.get("trusted")), None)
+    if not match:
+        return await message.answer("⛔ Не найден точный финальный перевод от доверенного payout-кошелька.")
+    evidence = (f"chain_final trusted destination={intent['destination']} "
+                f"amount={match.get('amount')} expected={intent['crypto_amount']}")
+    ok = _payout_store.confirm_referral_txid(
+        ident, txid, actor=message.from_user.id, evidence=evidence)
+    await message.answer("✅ REF intent подтверждён; reconciliation спишет резерв и создаст уведомление."
+                         if ok else "⚠️ Состояние изменилось; ничего не записано.")
+
+
+@router.message(Command("refpayout_requeue"))
+async def cmd_refpayout_requeue(message: Message):
+    if not is_admin(message.from_user.id):
+        return
+    parts = (message.text or "").split()
+    if len(parts) != 2 or not parts[1].isdigit():
+        return await message.answer("Формат: <code>/refpayout_requeue ID</code>", parse_mode="HTML")
+    ident = int(parts[1])
+    from services.payout_signer import inspect_attempt
+    intent = _payout_store.referral(ident)
+    if not intent or intent["state"] != "review":
+        return await message.answer("⛔ Возврат разрешён только из terminal review.")
+    proof = await asyncio.to_thread(inspect_attempt, intent)
+    if proof.get("verdict") != "absent":
+        return await message.answer(f"⛔ Retry запрещён: {proof.get('verdict')}: {proof.get('reason')}.")
+    evidence = f"signer_ledger_absent:{proof.get('reason')}"
+    ok = _payout_store.requeue_referral_absent(
+        ident, actor=message.from_user.id, evidence=evidence)
+    await message.answer(f"♻️ REF intent #{ident} возвращён в pending."
+                         if ok else "⚠️ Состояние изменилось; ничего не записано.")
+
+
 @router.message(Command("msg"))
 async def cmd_msg(message: Message, state: FSMContext):
     """/msg USER_ID текст — отправить сообщение клиенту от имени бота."""
@@ -7536,9 +7254,7 @@ async def admin_block_callback(callback: CallbackQuery):
     if not is_admin(callback.from_user.id):
         return
     uid = int(callback.data.split("_")[2])
-    with db_conn(5) as conn:
-        conn.execute("INSERT OR IGNORE INTO blocked_users (user_id) VALUES (?)", (uid,))
-        conn.commit()
+    _admin_config.block_user(user_id=uid)
     await callback.answer(f"🚫 Пользователь {uid} заблокирован.", show_alert=True)
 
 
@@ -7547,9 +7263,7 @@ async def admin_unblock_callback(callback: CallbackQuery):
     if not is_admin(callback.from_user.id):
         return
     uid = int(callback.data.split("_")[2])
-    with db_conn(5) as conn:
-        conn.execute("DELETE FROM blocked_users WHERE user_id=?", (uid,))
-        conn.commit()
+    _admin_config.unblock_user(uid)
     await callback.answer(f"✅ Пользователь {uid} разблокирован.", show_alert=True)
 
 
@@ -7941,15 +7655,10 @@ async def cmd_mystatus(message: Message):
     uid = message.from_user.id
     if len(parts) < 2:
         # Показать последнюю заявку
-        with db_conn(5) as conn:
-            c = conn.cursor()
-            c.execute("""SELECT order_id FROM orders WHERE user_id=?
-                         ORDER BY created_at DESC LIMIT 1""", (uid,))
-            row = c.fetchone()
-        if not row:
+        oid = _order_reads.latest_customer_order_id(uid)
+        if oid is None:
             await message.answer("У вас нет заявок. Начните обмен в меню.")
             return
-        oid = row[0]
     else:
         try:
             oid = int(parts[1])
@@ -7957,18 +7666,15 @@ async def cmd_mystatus(message: Message):
             await message.answer("Формат: /mystatus 1234")
             return
 
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute("""SELECT order_id, user_id, rub_amount, currency, crypto_address,
-                            status, created_at, paid_btc_tx, network
-                     FROM orders WHERE order_id=?""", (oid,))
-        row = c.fetchone()
+    row = _order_reads.snapshot(oid)
 
-    if not row or row[1] != uid:
+    if not row or row["user_id"] != uid:
         await message.answer("❌ Заявка не найдена.")
         return
 
-    oid, _, rub, cur, addr, status, created, tx, net = row
+    oid, rub, cur, addr, status, created, tx, net = (row[k] for k in
+        ("order_id", "rub_amount", "currency", "crypto_address", "status",
+         "created_at", "paid_btc_tx", "network"))
     STATUS_ICON  = {"pending": "⏳", "paid": "🔄", "sent": "🚀", "failed": "❌", "cancelled": "🚫"}
     STATUS_LABEL = {"pending": "Ожидает оплаты", "paid": "Оплата подтверждена — обрабатываем",
                     "sent": "Выполнена ✅", "failed": "Ошибка", "cancelled": "Отменена"}
@@ -8009,15 +7715,17 @@ async def cmd_mystatus(message: Message):
 async def cmd_myhistory(message: Message):
     """Клиент получает CSV со всеми своими заявками."""
     uid = message.from_user.id
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute("""SELECT order_id, created_at, currency, rub_amount, status,
-                            crypto_address, paid_btc_tx, receipt_sent_at
-                     FROM orders WHERE user_id=? ORDER BY order_id DESC""", (uid,))
-        rows = c.fetchall()
-        # Та же подпись, что в «Мои заявки» и в кабинете: выгрузка, где заявка
-        # с ушедшим партнёру чеком названа «Ожидает», спорит с ними обеими.
-        with_receipt = receipts_for(c, [r[0] for r in rows])
+    _history = _order_reads.customer_history(uid)
+    rows = [(r["order_id"], r["created_at"], r["currency"], r["rub_amount"],
+             r["status"], r["crypto_address"], r["paid_btc_tx"], r["receipt_sent_at"])
+            for r in _history]
+    # Та же подпись, что в «Мои заявки» и в кабинете: выгрузка, где заявка
+    # с ушедшим партнёру чеком названа «Ожидает», спорит с ними обеими.
+    try:
+        with_receipt = receipts_for(None, [r[0] for r in rows])
+    except Exception:
+        logger.warning("order_receipts недоступна — заявки с чеком не отмечены")
+        with_receipt = set()
     if not rows:
         await message.answer("У вас пока нет заявок.")
         return
@@ -8198,14 +7906,11 @@ async def dca_confirm(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     uid  = callback.from_user.id
     import datetime as _dt
-    next_run = _dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-    with db_conn(5) as conn:
-        conn.execute("""INSERT INTO dca_schedules
-            (user_id, currency, rub_amount, crypto_address, interval_days, next_run)
-            VALUES (?,?,?,?,?,?)""",
-            (uid, data["dca_currency"], data["dca_amount"],
-             data["dca_address"], data["dca_interval"], next_run))
-        conn.commit()
+    from repositories import dca_store
+    dca_store.from_environment(sqlite_path=DB_PATH).create(
+        user_id=uid,currency=data["dca_currency"],rub_amount=data["dca_amount"],
+        destination=data["dca_address"],interval_days=data["dca_interval"],
+        next_run=_dt.datetime.now(_dt.timezone.utc))
     await callback.message.answer(
         f"✅ <b>DCA запущен!</b>\n\n"
         f"Буду покупать <b>{data['dca_currency']}</b> на <b>{int(data['dca_amount']):,} ₽</b> "
@@ -8221,11 +7926,8 @@ async def dca_confirm(callback: CallbackQuery, state: FSMContext):
 async def dca_list(update, state: FSMContext = None):
     msg = update if isinstance(update, Message) else update.message
     uid = update.from_user.id
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute("""SELECT id, currency, rub_amount, interval_days, next_run, runs_total, status
-                     FROM dca_schedules WHERE user_id=? ORDER BY id DESC LIMIT 10""", (uid,))
-        rows = c.fetchall()
+    from repositories import dca_store
+    rows = dca_store.from_environment(sqlite_path=DB_PATH).for_user(uid, limit=10)
     if not rows:
         await msg.answer("У вас нет активных DCA-расписаний.\n\nЗапустить: нажмите 📅 DCA в меню.")
         if isinstance(update, CallbackQuery): await update.answer()
@@ -8251,41 +7953,30 @@ async def dca_cancel(message: Message):
     except ValueError:
         await message.answer("❌ Неверный ID")
         return
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute("SELECT user_id FROM dca_schedules WHERE id=?", (did,))
-        row = c.fetchone()
-        if not row or row[0] != message.from_user.id:
-            await message.answer("❌ Расписание не найдено или не ваше.")
-            return
-        conn.execute("UPDATE dca_schedules SET status='cancelled' WHERE id=?", (did,))
-        conn.commit()
+    from repositories import dca_store
+    if not dca_store.from_environment(sqlite_path=DB_PATH).cancel(did,message.from_user.id):
+        await message.answer("❌ Расписание не найдено или не ваше.");return
     await message.answer(f"✅ DCA-расписание #{did} отменено.")
 
 
 async def dca_runner():
     """Фоновая задача: раз в час проверяет DCA-расписания и создаёт заявки."""
     import datetime as _dt
+    from repositories import dca_store
+    store=dca_store.from_environment(sqlite_path=DB_PATH)
     while True:
         try:
-            now_str = _dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-            with db_conn(5) as conn:
-                c = conn.cursor()
-                c.execute("""SELECT id, user_id, currency, rub_amount, crypto_address, interval_days
-                             FROM dca_schedules
-                             WHERE status='active' AND next_run <= ?""", (now_str,))
-                due = c.fetchall()
+            due = store.due()
 
-            for did, uid, cur, amt, addr, intv in due:
+            for item in due:
+                did,uid,cur,amt,addr,intv=(item['id'],item['user_id'],item['currency'],item['rub_amount'],item['destination'],item['interval_days'])
                 try:
                     # Адрес лежит в расписании с момента его создания. Сводим его
                     # в форму хранения ПЕРЕД заявкой: у монет с тегом (XRP) это
                     # единственная точка, где тег ещё можно не потерять.
                     _dest = _canonical_address(cur, addr)
                     if not _dest:
-                        with db_conn(5) as conn:
-                            conn.execute("UPDATE dca_schedules SET status='cancelled' WHERE id=?", (did,))
-                            conn.commit()
+                        store.cancel(did)
                         await bot.send_message(
                             uid,
                             f"⚠️ DCA-расписание #{did} остановлено: адрес получения "
@@ -8299,20 +7990,12 @@ async def dca_runner():
                     # Заявка и сдвиг расписания — ОДНА транзакция: иначе сбой
                     # между ними оставит расписание просроченным и следующий
                     # проход создаст дубль заявки.
-                    with db_conn(5) as conn:
-                        _c = conn.execute(
-                            "INSERT INTO orders (user_id, username, currency, rub_amount, crypto_address, "
-                            "status, agreed_rate, agreed_crypto_amount, agreed_at) "
-                            "VALUES (?,?,?,?,?,'pending',?,?,CURRENT_TIMESTAMP)",
-                            (uid, f"dca_{did}", cur, amt, addr, float(_rate or 0), float(_crypto or 0))
-                        )
-                        oid = _c.lastrowid
-                        next_run = (_dt.datetime.utcnow() + _dt.timedelta(days=intv)).strftime("%Y-%m-%d %H:%M:%S")
-                        conn.execute(
-                            "UPDATE dca_schedules SET next_run=?, runs_total=runs_total+1 WHERE id=?",
-                            (next_run, did)
-                        )
-                        conn.commit()
+                    result=store.run_due(schedule_id=did,expected_next_run=item['next_run'],
+                        destination=addr,agreed_rate=float(_rate or 0),
+                        agreed_crypto_amount=float(_crypto or 0),
+                        next_run=_dt.datetime.now(_dt.timezone.utc)+_dt.timedelta(days=intv))
+                    if result['action']!='created':continue
+                    oid=result['order_id']
 
                     icons = {'BTC': '₿', 'LTC': 'Ł', 'USDT': '💵'}
                     # Показываем РОВНО зафиксированный объём, а не пересчёт:
@@ -8479,12 +8162,11 @@ async def gift_enter_amount(message: Message, state: FSMContext):
     approx = round(amount / net_rate, 8) if net_rate else 0
     # Генерируем уникальный код заранее
     code = _make_gift_code()
+    from repositories import gift_store
+    store = gift_store.from_environment(sqlite_path=DB_PATH)
     while True:
-        with db_conn(3) as conn:
-            c = conn.cursor()
-            c.execute("SELECT 1 FROM gift_vouchers WHERE code=?", (code,))
-            if not c.fetchone():
-                break
+        if not store.code_exists(code):
+            break
         code = _make_gift_code()
     await state.update_data(gift_amount=amount, gift_approx=approx, gift_code=code)
     kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -8516,20 +8198,16 @@ async def gift_pay(callback: CallbackQuery, state: FSMContext):
     rate = get_cached_rate(cur)
     net_rate = net_rate_for(rate, commission)
     approx = round(amount / net_rate, 8) if net_rate else 0
-    with db_conn(5) as conn:
-        _c = conn.execute(
-            "INSERT INTO orders (user_id, username, currency, rub_amount, crypto_address, status, "
-            "agreed_rate, agreed_crypto_amount, agreed_at) "
-            "VALUES (?,?,?,?,?,'pending',?,?,CURRENT_TIMESTAMP)",
-            (uid, f"gift_{code}", cur, amount, placeholder_addr,
-             float(net_rate or 0), float(approx or 0))
-        )
-        oid = _c.lastrowid
-        conn.execute(
-            "INSERT INTO gift_vouchers (sender_id, currency, rub_amount, code, order_id) VALUES (?,?,?,?,?)",
-            (uid, cur, amount, code, oid)
-        )
-        conn.commit()
+    from repositories import gift_store
+    store=gift_store.from_environment(sqlite_path=DB_PATH)
+    try:
+        issued=store.issue(sender_id=uid,currency=cur,rub_amount=amount,code=code,
+                           destination=placeholder_addr,agreed_rate=float(net_rate or 0),
+                           agreed_crypto_amount=float(approx or 0))
+    except gift_store.GiftCodeConflict:
+        await callback.answer("Код столкнулся с существующим — создайте подарок ещё раз",show_alert=True)
+        return
+    oid=issued["order_id"]
     await state.update_data(order_id=oid, gift_order_id=oid)
     await state.set_state(Exchange.payment_method)
     await callback.message.answer(
@@ -8544,10 +8222,8 @@ async def gift_pay(callback: CallbackQuery, state: FSMContext):
 
 async def _send_gift_card(sender_id: int, gift_id: int):
     """Отправляет карточку подарка отправителю после подтверждения оплаты."""
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute("SELECT currency, rub_amount, code FROM gift_vouchers WHERE id=?", (gift_id,))
-        row = c.fetchone()
+    from repositories import gift_store
+    row = gift_store.from_environment(sqlite_path=DB_PATH).card(gift_id)
     if not row:
         return
     cur, amt, code = row
@@ -8579,14 +8255,13 @@ async def cmd_redeem(message: Message, state: FSMContext):
         await message.answer("Введите: <code>/redeem КОД</code>", parse_mode="HTML")
         return
     code = parts[1].strip().upper()
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute("SELECT id, currency, rub_amount, status, sender_id FROM gift_vouchers WHERE code=?", (code,))
-        row = c.fetchone()
+    from repositories import gift_store
+    store=gift_store.from_environment(sqlite_path=DB_PATH)
+    row=store.get_by_code(code)
     if not row:
         await message.answer("❌ Подарочный код не найден.")
         return
-    gid, cur, amt, status, sender_id = row
+    gid,cur,amt,status,sender_id=(row["id"],row["currency"],row["rub_amount"],row["status"],row["sender_id"])
     if status == "redeemed":
         await message.answer("❌ Этот подарок уже был получен.")
         return
@@ -8661,25 +8336,12 @@ async def gift_enter_recipient_address(message: Message, state: FSMContext):
     # Выкуп должен быть атомарным: два параллельных /redeem одного кода иначе
     # создадут ДВЕ оплаченные заявки и подарок уйдёт дважды. Сначала пробуем
     # застолбить ваучер условным UPDATE, и только выигравший создаёт заявку.
-    with db_conn(5) as conn:
-        claimed = conn.execute(
-            "UPDATE gift_vouchers SET status='redeemed', recipient_id=?, recipient_address=?, "
-            "claimed_at=datetime('now') WHERE id=? AND status!='redeemed'",
-            (uid, addr, gid)
-        ).rowcount
-        if not claimed:
-            conn.commit()
-            await message.answer("❌ Этот подарок уже был получен.")
-            await state.clear()
-            return
-        cur_ins = conn.execute(
-            "INSERT INTO orders (user_id, username, currency, rub_amount, crypto_address, status, "
-            "agreed_rate, agreed_crypto_amount, agreed_at) "
-            "VALUES (?,?,?,?,?,'paid',?,?,CURRENT_TIMESTAMP)",
-            (uid, f"gift_redeem_{gid}", cur, amt, addr, float(_rate or 0), float(_crypto or 0))
-        )
-        oid = cur_ins.lastrowid
-        conn.commit()
+    redeemed=store.redeem(gift_id=gid,recipient_id=uid,destination=addr,
+                          agreed_rate=float(_rate or 0),agreed_crypto_amount=float(_crypto or 0))
+    if redeemed["action"]!="redeemed":
+        await message.answer("❌ Этот подарок уже был получен или ещё не оплачен.")
+        await state.clear();return
+    oid=redeemed["order_id"]
     await message.answer(
         f"✅ <b>Подарок принят!</b>\n\n"
         f"Криптовалюта {cur} будет отправлена на ваш адрес в течение 15 минут.\n"
@@ -8704,6 +8366,15 @@ async def gift_enter_recipient_address(message: Message, state: FSMContext):
 
 RATE_LOCK_FEE    = 100.0   # стоимость фиксации курса, руб
 RATE_LOCK_MINS   = 15      # длительность фиксации
+
+_BOT_ORDER_STORE = None
+
+def _get_bot_order_store():
+    global _BOT_ORDER_STORE
+    if _BOT_ORDER_STORE is None:
+        from repositories import bot_order_store
+        _BOT_ORDER_STORE = bot_order_store.from_environment(sqlite_path=DB_PATH)
+    return _BOT_ORDER_STORE
 
 @router.callback_query(F.data == "menu_ratelock")
 async def menu_ratelock(callback: CallbackQuery):
@@ -8746,15 +8417,11 @@ async def ratelock_choose(callback: CallbackQuery):
     uid  = callback.from_user.id
     rate = get_cached_rate(cur)
     import datetime as _dt
-    until = (_dt.datetime.utcnow() + _dt.timedelta(minutes=RATE_LOCK_MINS)).strftime("%Y-%m-%d %H:%M:%S")
-    with db_conn(5) as conn:
-        # Деактивируем старые локи этого юзера по этой валюте
-        conn.execute("UPDATE rate_locks SET used=1 WHERE user_id=? AND currency=? AND used=0", (uid, cur))
-        conn.execute(
-            "INSERT INTO rate_locks (user_id, currency, locked_rate, fee_rub, locked_until) VALUES (?,?,?,?,?)",
-            (uid, cur, rate, RATE_LOCK_FEE, until)
-        )
-        conn.commit()
+    until_dt = _dt.datetime.now(_dt.timezone.utc) + _dt.timedelta(minutes=RATE_LOCK_MINS)
+    _get_bot_order_store().replace_rate_lock(
+        user_id=uid, currency=cur, locked_rate=rate, fee_rub=RATE_LOCK_FEE,
+        locked_until=until_dt)
+    until = until_dt.strftime("%Y-%m-%d %H:%M:%S")
     await callback.message.answer(
         f"🔒 <b>Курс зафиксирован!</b>\n\n"
         f"{cur}: <b>{int(rate):,} ₽</b>\n"
@@ -8769,17 +8436,7 @@ async def ratelock_choose(callback: CallbackQuery):
 
 def get_active_rate_lock(user_id: int, currency: str) -> dict | None:
     """Возвращает активную фиксацию курса или None."""
-    import datetime as _dt
-    now = _dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-    with db_conn(3) as conn:
-        c = conn.cursor()
-        c.execute("""SELECT id, locked_rate, fee_rub FROM rate_locks
-                     WHERE user_id=? AND currency=? AND used=0 AND locked_until > ?
-                     ORDER BY id DESC LIMIT 1""", (user_id, currency, now))
-        row = c.fetchone()
-    if row:
-        return {"lock_id": row[0], "rate": row[1], "fee": row[2]}
-    return None
+    return _get_bot_order_store().active_rate_lock(user_id, currency)
 
 
 # ---------- АДМИН-КОМАНДЫ УПРАВЛЕНИЯ ----------
@@ -8840,13 +8497,7 @@ async def cmd_setreserve(message: Message):
         if amount < 0:
             await message.answer("Сумма не может быть отрицательной.")
             return
-        with db_conn(10) as conn:
-            conn.execute(
-                "INSERT INTO reserves (currency, amount, updated_at) VALUES (?,?,CURRENT_TIMESTAMP) "
-                "ON CONFLICT(currency) DO UPDATE SET amount=excluded.amount, updated_at=CURRENT_TIMESTAMP",
-                (coin, amount)
-            )
-            conn.commit()
+        _admin_config.set_reserve(currency=coin,amount=amount)
         msg = f"✅ Резерв {coin} установлен: {amount:g}"
         # Резерв открывает ПРИЁМ денег. Если выдавать пока нечем — сказать об
         # этом здесь и сейчас, а не после того, как клиент оплатил заявку.
@@ -8865,8 +8516,7 @@ async def cmd_setreserve(message: Message):
 async def cmd_reserves(message: Message):
     """/reserves — показать текущие курируемые резервы (админ)."""
     if not is_admin(message.from_user.id): return
-    with db_conn(5) as conn:
-        rows = conn.execute("SELECT currency, amount, updated_at FROM reserves ORDER BY currency").fetchall()
+    rows = _reporting.reserves_detailed()
     if not rows:
         await message.answer("Резервы не заданы. Установить: /setreserve BTC 1.5")
         return
@@ -8948,43 +8598,16 @@ async def cmd_limits(message: Message):
 # ---------- УЛУЧШЕННЫЙ МОНИТОРИНГ ----------
 async def build_admin_report(period_label: str, date_from: str, date_to: str) -> str:
     """Строит текст отчёта за указанный период (date_from/date_to — строки YYYY-MM-DD)."""
-    with db_conn(10) as conn:
-        c = conn.cursor()
-        # Выполненные заявки
-        c.execute("""SELECT COUNT(*), COALESCE(SUM(rub_amount),0)
-                     FROM orders WHERE date(created_at) BETWEEN ? AND ? AND status='sent'""",
-                  (date_from, date_to))
-        cnt_sent, vol_sent = c.fetchone()
-        # Все созданные
-        c.execute("SELECT COUNT(*) FROM orders WHERE date(created_at) BETWEEN ? AND ?",
-                  (date_from, date_to))
-        cnt_all = c.fetchone()[0]
-        # По валютам
-        c.execute("""SELECT currency, COUNT(*), COALESCE(SUM(rub_amount),0)
-                     FROM orders WHERE date(created_at) BETWEEN ? AND ? AND status='sent'
-                     GROUP BY currency ORDER BY 3 DESC""",
-                  (date_from, date_to))
-        by_cur = c.fetchall()
-        # Новые пользователи (первая заявка за период)
-        c.execute("""SELECT COUNT(DISTINCT user_id) FROM orders
-                     WHERE date(created_at) BETWEEN ? AND ?
-                       AND user_id > 0
-                       AND NOT EXISTS (
-                           SELECT 1 FROM orders o2
-                           WHERE o2.user_id = orders.user_id
-                             AND date(o2.created_at) < ?
-                       )""",
-                  (date_from, date_to, date_from))
-        new_users = c.fetchone()[0]
-        # Средний чек
-        avg_check = (vol_sent / cnt_sent) if cnt_sent else 0
-        # Конверсия
-        conv = (cnt_sent / cnt_all * 100) if cnt_all else 0
-        # Реферальные бонусы выплачено
-        c.execute("""SELECT COALESCE(SUM(bonus_amount),0) FROM referral_bonuses
-                     WHERE date(created_at) BETWEEN ? AND ?""",
-                  (date_from, date_to))
-        ref_paid = c.fetchone()[0]
+    report = _reporting.period_order_report(date_from, date_to)
+    cnt_sent, vol_sent = report["sent_count"], report["sent_volume"]
+    cnt_all, by_cur, new_users = (report[k] for k in
+                                  ("total_count", "currencies", "new_users"))
+    # Средний чек
+    avg_check = (vol_sent / cnt_sent) if cnt_sent else 0
+    # Конверсия
+    conv = (cnt_sent / cnt_all * 100) if cnt_all else 0
+    # Реферальные бонусы выплачено
+    ref_paid = _engagement.referral_bonus(None, date_from, date_to)
 
     vol_fmt = f"{int(vol_sent):,}".replace(",", " ")
     avg_fmt = f"{int(avg_check):,}".replace(",", " ")
@@ -9027,14 +8650,11 @@ async def daily_report():
 
 async def check_stuck_orders():
     while True:
-        with db_conn(10) as conn:
-            c = conn.cursor()
-            threshold = (datetime.now() - timedelta(minutes=30)).strftime("%Y-%m-%d %H:%M:%S")
-            c.execute("SELECT order_id FROM orders WHERE status='pending' AND created_at < ?", (threshold,))
-            stuck = c.fetchall()
-            if stuck:
-                ids = ", ".join([str(row[0]) for row in stuck])
-                await notify_admins( f"🕒 Зависшие заявки (>30 мин): {ids}")
+        threshold = (datetime.now() - timedelta(minutes=30)).strftime("%Y-%m-%d %H:%M:%S")
+        stuck = _order_reads.stuck_pending_ids(older_than=threshold)
+        if stuck:
+            ids = ", ".join(str(order_id) for order_id in stuck)
+            await notify_admins(f"🕒 Зависшие заявки (>30 мин): {ids}")
         await asyncio.sleep(900)
 
 
@@ -9240,15 +8860,11 @@ async def lo_confirm(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     uid = callback.from_user.id
     import datetime as _dt
-    expires = (_dt.datetime.utcnow() + _dt.timedelta(days=LIMIT_ORDER_TTL_DAYS)).strftime("%Y-%m-%d %H:%M:%S")
-    with db_conn(5) as conn:
-        conn.execute("""
-            INSERT INTO limit_orders
-              (user_id, currency, target_rate, direction, rub_amount, crypto_address, payment_method, expires_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, (uid, data["lo_currency"], data["lo_rate"], data["lo_direction"],
-              data["lo_amount"], data["lo_address"], "sbp", expires))
-        conn.commit()
+    from repositories import limit_order_store
+    limit_order_store.from_environment(sqlite_path=DB_PATH).create(user_id=uid,
+        currency=data["lo_currency"],target_rate=data["lo_rate"],direction=data["lo_direction"],
+        rub_amount=data["lo_amount"],destination=data["lo_address"],payment_method="sbp",
+        expires_at=_dt.datetime.now(_dt.timezone.utc)+_dt.timedelta(days=LIMIT_ORDER_TTL_DAYS))
     direction_text = "упадёт ниже" if data["lo_direction"] == "below" else "вырастет выше"
     await callback.message.answer(
         f"⏳ <b>Лимитный ордер создан!</b>\n\n"
@@ -9266,12 +8882,8 @@ async def lo_confirm(callback: CallbackQuery, state: FSMContext):
 async def lo_list(update, state: FSMContext = None):
     msg = update if isinstance(update, Message) else update.message
     uid = update.from_user.id
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute("""SELECT id, currency, direction, target_rate, rub_amount, status, expires_at
-                     FROM limit_orders WHERE user_id=? AND status IN ('active','triggered')
-                     ORDER BY id DESC LIMIT 10""", (uid,))
-        rows = c.fetchall()
+    from repositories import limit_order_store
+    rows = limit_order_store.from_environment(sqlite_path=DB_PATH).for_user(uid, limit=10)
     if not rows:
         await msg.answer("У вас нет активных лимитных ордеров.\n\nСоздать: /limitbuy")
         if isinstance(update, CallbackQuery):
@@ -9300,32 +8912,23 @@ async def lo_cancel(message: Message):
     except ValueError:
         await message.answer("❌ Неверный ID")
         return
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute("SELECT user_id FROM limit_orders WHERE id=?", (lid,))
-        row = c.fetchone()
-        if not row or row[0] != message.from_user.id:
-            await message.answer("❌ Ордер не найден или не ваш.")
-            return
-        conn.execute("UPDATE limit_orders SET status='cancelled' WHERE id=?", (lid,))
-        conn.commit()
+    from repositories import limit_order_store
+    if not limit_order_store.from_environment(sqlite_path=DB_PATH).cancel(lid,message.from_user.id):
+        await message.answer("❌ Ордер не найден или не ваш.");return
     await message.answer(f"✅ Лимитный ордер #{lid} отменён.")
 
 
 async def limit_order_watcher():
     """Фоновая задача: проверяет курс каждые 5 минут, срабатывает при достижении цели."""
     import datetime as _dt
+    from repositories import limit_order_store
+    store=limit_order_store.from_environment(sqlite_path=DB_PATH)
     while True:
         try:
-            with db_conn(5) as conn:
-                c = conn.cursor()
-                c.execute("""SELECT id, user_id, currency, target_rate, direction,
-                                    rub_amount, crypto_address
-                             FROM limit_orders
-                             WHERE status='active' AND expires_at > datetime('now')""")
-                active = c.fetchall()
+            active=store.active()
 
-            for lid, uid, cur, target_rate, direction, rub_amount, address in active:
+            for item in active:
+                lid,uid,cur,target_rate,direction,rub_amount,address=(item['id'],item['user_id'],item['currency'],item['target_rate'],item['direction'],item['rub_amount'],item['destination'])
                 current = get_cached_rate(cur)
                 if current <= 0:
                     continue
@@ -9339,9 +8942,7 @@ async def limit_order_watcher():
                 # потеряется молча, и выплата уйдёт на общий счёт биржи.
                 _dest = _canonical_address(cur, address)
                 if not _dest:
-                    with db_conn(5) as conn:
-                        conn.execute("UPDATE limit_orders SET status='cancelled' WHERE id=?", (lid,))
-                        conn.commit()
+                    store.cancel(lid)
                     await bot.send_message(
                         uid,
                         f"⚠️ Лимитный ордер #{lid} отменён: адрес получения ({cur}) "
@@ -9354,18 +8955,10 @@ async def limit_order_watcher():
                 net_rate = net_rate_for(current, commission)
                 crypto_amount = round(rub_amount / net_rate, 8)
 
-                with db_conn(5) as conn:
-                    _c = conn.execute("""
-                        INSERT INTO orders (user_id, currency, rub_amount, crypto_address, status,
-                                            username, agreed_rate, agreed_crypto_amount, agreed_at)
-                        VALUES (?, ?, ?, ?, 'pending', 'limit_order', ?, ?, CURRENT_TIMESTAMP)
-                    """, (uid, cur, rub_amount, address, float(net_rate or 0), float(crypto_amount or 0)))
-                    new_order_id = _c.lastrowid
-                    conn.execute(
-                        "UPDATE limit_orders SET status='triggered', triggered_at=datetime('now'), order_id=? WHERE id=?",
-                        (new_order_id, lid)
-                    )
-                    conn.commit()
+                result=store.trigger(ident=lid,expected_expires_at=item['expires_at'],destination=address,
+                    agreed_rate=float(net_rate or 0),agreed_crypto_amount=float(crypto_amount or 0))
+                if result['action']!='triggered':continue
+                new_order_id=result['order_id']
 
                 dir_label = "упал ниже" if direction == "below" else "вырос выше"
                 icons = {'BTC': '₿', 'LTC': 'Ł', 'USDT': '💵'}
@@ -9394,12 +8987,7 @@ async def limit_order_watcher():
                 )
 
             # Истёкшие — отменяем
-            with db_conn(5) as conn:
-                conn.execute("""
-                    UPDATE limit_orders SET status='expired'
-                    WHERE status='active' AND expires_at <= datetime('now')
-                """)
-                conn.commit()
+            store.expire()
 
         except Exception as e:
             logger.error(f"limit_order_watcher error: {e}")
@@ -9436,11 +9024,7 @@ async def cmd_set_ref_addr(message: Message):
         if not validate_crypto_address(address, 'BTC'):
             await message.answer("Некорректный BTC-адрес.")
             return
-        with db_conn(10) as conn:
-            c = conn.cursor()
-            c.execute("INSERT OR REPLACE INTO referral_addresses (user_id, currency, address) VALUES (?, 'BTC', ?)",
-                      (message.from_user.id, address))
-            conn.commit()
+        _user_profiles.set_referral_address(user_id=message.from_user.id,currency='BTC',address=address)
         await message.answer("✅ Ваш BTC-адрес для реферальных бонусов сохранён.")
     except Exception as e:
         await message.answer("Ошибка. Формат: /setrefaddr ВАШ_BTC_АДРЕС")
@@ -9487,27 +9071,7 @@ async def auto_check_payments():
     """
     while True:
         try:
-            with db_conn(10) as conn:
-                c = conn.cursor()
-                # Берём только свежие 'paid' заявки (не старше 24 часов),
-                # которые ещё не попали в обработку
-                c.execute("""
-                    SELECT o.order_id, o.user_id, o.rub_amount, o.crypto_address, o.currency, o.network
-                    FROM orders o
-                    WHERE o.status = 'paid'
-                      -- updated_at может быть NULL (вебхук провайдера ставит
-                      -- status='paid' без него) → NULL>=… даёт NULL и заявка
-                      -- молча выпадала из авто-выплаты. COALESCE лечит: берём
-                      -- created_at как запасную точку отсчёта окна 24ч.
-                      AND COALESCE(o.updated_at, o.created_at) >= datetime('now', '-24 hours')
-                      AND NOT EXISTS (
-                          SELECT 1 FROM sent_notifications sn
-                          WHERE sn.order_id = o.order_id AND sn.event = 'payout_triggered'
-                      )
-                    ORDER BY o.created_at ASC
-                    LIMIT 5
-                """)
-                paid_orders = c.fetchall()
+            paid_orders = _status_notifications.payout_candidates(hours=24, limit=5)
 
             # fail-closed перепроверка расчёта у провайдера перед выплатой
             import sys as _sys
@@ -9524,7 +9088,10 @@ async def auto_check_payments():
                 payout_circuit = None
                 logger.error(f"payout_circuit недоступен: {_e}")
 
-            for order_id, user_id, rub_amount, address, currency, network in paid_orders:
+            for order in paid_orders:
+                order_id, user_id, rub_amount, address, currency, network = (
+                    order[k] for k in ("order_id", "user_id", "rub_amount",
+                                       "crypto_address", "currency", "network"))
                 # НЕЗАВИСИМАЯ перепроверка: флаг status='paid' сам по себе НЕ повод
                 # отдавать крипту. Спрашиваем первоисточник (provider.get_status).
                 verdict = (verify_payment_settled(order_id) if verify_payment_settled
@@ -9534,15 +9101,7 @@ async def auto_check_payments():
                 if v == "hold":
                     # трейдер запросил видео/PDF-подтверждение и ещё не закрыл —
                     # держим, крипту НЕ отправляем, перепроверим в след. цикле
-                    with db_conn(5) as conn:
-                        already = conn.execute(
-                            "SELECT 1 FROM sent_notifications WHERE order_id=? AND event='payout_held'",
-                            (order_id,)).fetchone()
-                    if not already:
-                        with db_conn(5) as conn:
-                            conn.execute("INSERT OR IGNORE INTO sent_notifications (order_id, event) "
-                                         "VALUES (?, 'payout_held')", (order_id,))
-                            conn.commit()
+                    if _status_notifications.complete(order_id, "payout_held"):
                         await notify_staff(
                             f"⏸ <b>Выплата удержана — заявка #{order_id}</b>\n\n"
                             f"{verdict.get('detail','')}\n\n"
@@ -9554,13 +9113,7 @@ async def auto_check_payments():
                 # Атомарный claim: INSERT OR IGNORE + проверка rowcount. Если маркер
                 # уже стоял (rowcount==0) — заявку застолбил другой проход/экземпляр,
                 # выплату НЕ повторяем (защита от двойной отправки крипты).
-                with db_conn(5) as conn:
-                    cur = conn.execute(
-                        "INSERT OR IGNORE INTO sent_notifications (order_id, event) VALUES (?, 'payout_triggered')",
-                        (order_id,)
-                    )
-                    conn.commit()
-                    claimed = cur.rowcount
+                claimed = _status_notifications.complete(order_id, "payout_triggered")
                 if not claimed:
                     logger.info(f"[payout] order {order_id}: payout_triggered уже стоит — "
                                 f"пропуск (защита от двойной выплаты)")
@@ -9630,19 +9183,16 @@ async def auto_check_payments():
                     try:
                         payout_id = await process_payout_async(order_id, rub_amount, address, currency, network)
                         if payout_id:
-                            with db_conn(5) as conn:
-                                conn.execute(
-                                    "UPDATE orders SET status='sent', paid_btc_tx=?, updated_at=CURRENT_TIMESTAMP WHERE order_id=?",
-                                    (payout_id, order_id)
-                                )
-                                conn.commit()
+                            # A succeeded immutable intent is closed only by the
+                            # reconciliation transaction, which also credits VIP.
+                            # Closing it here used to split the critical ledger.
                             await notify_admins(
-                                f"✅ <b>Авто-выплата #{order_id}</b>\n{rub_amount:,.0f} RUB → {currency}\n"
-                                f"TXID: <code>{payout_id}</code>",
+                                f"✅ <b>Выплата #{order_id} подтверждена worker</b>\n"
+                                f"{rub_amount:,.0f} RUB → {currency}\n"
+                                f"TXID: <code>{payout_id}</code>\n"
+                                f"Статус и VIP закроет reconciliation.",
                                 parse_mode="HTML"
                             )
-                            await credit_referral_bonus(order_id, user_id, rub_amount)
-                            await update_user_vip_volume(user_id, rub_amount)
                         else:
                             # Горячий кошелёк пуст — уходит к работникам
                             await notify_workers_paid(order_id, rub_amount, address, currency, network)
@@ -9664,6 +9214,8 @@ async def auto_check_usdt():
     if not os.getenv('USDT_PRIVATE_KEY'):
         logger.warning("USDT_PRIVATE_KEY не задан — авто-проверка входящих USDT отключена")
         return
+    from repositories import payment_transition_store
+    payment_store = payment_transition_store.from_environment(sqlite_path=DB_PATH)
     while True:
         # Запрашиваем последние транзакции USDT на нашем адресе
         try:
@@ -9675,40 +9227,33 @@ async def auto_check_usdt():
                 # Проверяем, есть ли заказ с такой суммой и адресом отправителя, ожидающий оплаты
                 amount_usdt = tx['value'] / 1e6
                 from_addr = tx['from']
-                with db_conn(10) as conn:
-                    c = conn.cursor()
-                    c.execute("SELECT order_id, user_id, rub_amount, crypto_address, currency FROM orders WHERE status='pending' AND currency='USDT' AND crypto_address=? AND rub_amount BETWEEN ? AND ?",
-                              (from_addr, amount_usdt * 0.9, amount_usdt * 1.1))
-                    order = c.fetchone()
-                    if order:
-                        order_id, user_id, rub_amount, address, currency = order
-                        c.execute("UPDATE orders SET status='paid', updated_at=datetime('now') WHERE order_id=?", (order_id,))
-                        conn.commit()
-                        # Запускаем выплату
-                        payout_id = await process_payout_async(order_id, rub_amount, address, currency)
-                        if payout_id:
-                            c.execute("UPDATE orders SET status='sent', paid_btc_tx=?, updated_at=CURRENT_TIMESTAMP WHERE order_id=?",
-                                      (payout_id, order_id))
-                            conn.commit()
-                            await send_sticker_safe(user_id, STICKER_SUCCESS)
-                            try:
-                                await bot.send_message(user_id, f"✅ Выплата USDT #{order_id} выполнена!\nTXID: <code>{payout_id}</code>", parse_mode="HTML")
-                            except:
-                                pass
-                            try:
-                                await credit_referral_bonus(order_id, user_id, rub_amount)
-                                await update_user_vip_volume(user_id, rub_amount)
-                            except Exception as e:
-                                logger.warning(f"usdt payout {order_id}: реф/VIP начисление: {e}")
+                order = _order_reads.pending_usdt_match(
+                    sender_address=from_addr, minimum_rub=amount_usdt * 0.9,
+                    maximum_rub=amount_usdt * 1.1)
+                if order:
+                    order_id, user_id, rub_amount, address, currency = (
+                        order[k] for k in ("order_id", "user_id", "rub_amount",
+                                           "crypto_address", "currency"))
+                    transition = payment_store.mark_paid(
+                        order_id, provider="chain_usdt",
+                        evidence="verified_chain_transfer")
+                    if transition["action"] != "transitioned":
+                        continue
+                    # Только создаём immutable intent. Ставить `sent` имеет
+                    # право reconciliation после результата isolated worker.
+                    payout_id = await process_payout_async(
+                        order_id, rub_amount, address, currency, "TRC20")
+                    if payout_id is None:
+                        # None означает либо нормальный pending intent, либо
+                        # отказ до его записи. Различаем их по durable ledger:
+                        # без intent деньги клиента уже у нас, значит зовём
+                        # человека, а не оставляем только строку в журнале.
+                        queued = _payout_store.order_exists(order_id)
+                        if queued:
+                            logger.info("USDT order #%s confirmed; payout intent queued", order_id)
                         else:
-                            # Авто-выплата не состоялась — а заявка уже помечена
-                            # 'paid' строкой выше, то есть деньги клиента у нас.
-                            # Без этой ветки она осталась бы оплаченной и никем
-                            # не замеченной: клиент ждёт, в очереди разбора её
-                            # нет, тревога не звучит. Ровно так копились
-                            # зависшие выдачи. Отдаём человеку.
-                            await notify_workers_paid(order_id, rub_amount,
-                                                      address, currency)
+                            await notify_workers_paid(order_id, rub_amount, address,
+                                                      currency, "TRC20")
         except Exception as e:
             logger.error(f"Ошибка проверки USDT: {e}")
             # Упасть здесь означает бросить заявку, уже помеченную оплаченной,
@@ -9726,21 +9271,14 @@ async def swap_status_monitor():
     import sys
     sys.path.insert(0, RELAY_PATH)
     from providers.trocador import TrocadorProvider
-    from providers.swapuz import SwapUzProvider
+    from providers.swapuz import SwapUzProvider, safe_swapuz_transition
     trocador = TrocadorProvider()
     swapuz = SwapUzProvider()
     final_statuses = ('finished', 'failed', 'expired', 'paid partially', 'refunded')
     while True:
         try:
-            with db_conn(10) as conn:
-                c = conn.cursor()
-                c.execute(
-                    "SELECT session_token, user_id, trocador_id, coin_from, coin_to, status, provider, amount_from "
-                    "FROM swap_sessions WHERE status NOT IN (?,?,?,?,?)",
-                    final_statuses
-                )
-                rows = c.fetchall()
-                for token, user_id, ext_id, coin_from, coin_to, old_status, provider_name, amount_from in rows:
+            rows = _swap_store.unfinished(final_statuses)
+            for token, user_id, ext_id, coin_from, coin_to, old_status, provider_name, amount_from in rows:
                     if not ext_id:
                         continue
                     provider_name = provider_name or 'trocador'
@@ -9748,7 +9286,7 @@ async def swap_status_monitor():
 
                     if provider_name == 'swapuz':
                         info = swapuz.get_status(ext_id)
-                        new_status = info.get('status')
+                        new_status = safe_swapuz_transition(old_status, info.get('status'))
                         amount_received = info.get('raw', {}).get('amountResult')
                     else:
                         info = trocador.get_status(ext_id)
@@ -9757,8 +9295,10 @@ async def swap_status_monitor():
 
                     if not new_status or new_status == old_status:
                         continue
-                    c.execute("UPDATE swap_sessions SET status=?, updated_at=datetime('now') WHERE session_token=?", (new_status, token))
-                    conn.commit()
+                    changed = _swap_store.transition(token=token,expected_status=old_status,
+                                                     new_status=new_status)
+                    if not changed:
+                        continue
                     if new_status == 'finished':
                         await send_sticker_safe(user_id, STICKER_SUCCESS)
                         try:
@@ -9795,10 +9335,9 @@ async def swap_status_monitor():
 
 @router.message(Command("history"))
 async def cmd_history(message: Message):
-    with db_conn(10) as conn:
-        c = conn.cursor()
-        c.execute("SELECT order_id, rub_amount, currency, status, created_at FROM orders WHERE user_id=? ORDER BY created_at DESC LIMIT 10", (message.from_user.id,))
-        rows = c.fetchall()
+    _rows = _order_reads.customer_orders(message.from_user.id, limit=10)
+    rows = [(r["order_id"], r["rub_amount"], r["currency"], r["status"], r["created_at"])
+            for r in _rows]
     if not rows:
         await message.answer("У вас пока нет заявок.")
         return
@@ -9882,11 +9421,7 @@ async def handle_webapp(message: Message, state: FSMContext):
             if not validate_crypto_address(address, 'BTC'):
                 await message.answer("❌ Некорректный BTC-адрес.")
                 return
-            with db_conn(10) as conn:
-                c = conn.cursor()
-                c.execute("INSERT OR REPLACE INTO referral_addresses (user_id, currency, address) VALUES (?, 'BTC', ?)",
-                          (message.from_user.id, address))
-                conn.commit()
+            _user_profiles.set_referral_address(user_id=message.from_user.id,currency='BTC',address=address)
             await message.answer("✅ Ваш BTC-адрес для реферальных бонусов сохранён!")
             return
 
@@ -9957,23 +9492,20 @@ async def handle_webapp(message: Message, state: FSMContext):
     # Котировка фиксируется тем же INSERT — заявка не существует без неё
     _rate = get_rate_with_markup(currency, amount)
     _crypto = round(amount / _rate, 8) if _rate else 0
-    with db_conn(10) as conn:
-        cursor = conn.cursor()
-        cursor.execute(
-            "INSERT INTO orders (user_id, username, currency, rub_amount, crypto_address, status, "
-            "network, agreed_rate, agreed_crypto_amount, agreed_at) "
-            "VALUES (?,?,?,?,?,'pending',?,?,?,CURRENT_TIMESTAMP)",
-            (message.from_user.id, message.from_user.username, currency, amount, address,
-             _canon_network(currency, network), float(_rate or 0), float(_crypto or 0)))
-        conn.commit()
-        order_id = cursor.lastrowid
+    created = _get_bot_order_store().create_order(
+        user_id=message.from_user.id, username=message.from_user.username,
+        currency=currency, rub_amount=amount, destination=address,
+        network=_canon_network(currency, network),
+        preferred_rate=float(_rate or 0), preferred_crypto_amount=float(_crypto or 0),
+        fallback_rate=float(_rate or 0), fallback_crypto_amount=float(_crypto or 0))
+    order_id = created["order_id"]
 
     await notify_admin(order_id, message.from_user.id, amount, address, currency)
 
 
     import sys
     sys.path.insert(0, RELAY_PATH)
-    payment_link = f"{PUBLIC_RELAY}/pay/{order_id}"  # fallback
+    payment_link = None
     try:
         from services.payment_service import PaymentService
         # Клиент называется и здесь: без него выбор считает его новым и не
@@ -9986,13 +9518,22 @@ async def handle_webapp(message: Message, state: FSMContext):
             payment_link = f"{PUBLIC_RELAY}/pay/{session['session_token']}"
     except Exception as e:
         logger.error(f"Не удалось создать payment session (webapp): {e}")
+    if payment_link is None:
+        from core import order_access
+        from urllib.parse import quote
+        proof = order_access.issue(order_id, message.from_user.id)
+        if proof:
+            payment_link = f"{PUBLIC_RELAY}/pay/{order_id}?proof={quote(proof, safe='')}"
+    payment_line = (f"\n\n<a href='{payment_link}'>Оплатить</a>" if payment_link else
+                    "\n\nПлатёжный маршрут временно недоступен. Новые реквизиты не выданы; "
+                    "напишите в поддержку или создайте заявку позже.")
     caption = (
         f"🟣 ObsidianExchange\n"
         f"✅ Заявка #{order_id} создана!\n"
         f"⏳ Курс зафиксирован на 15 минут\n\n"
         f"Сумма: {amount} RUB\n"
-        f"Валюта: {currency}\n\n"
-        f"<a href='{payment_link}'>Оплатить</a>"
+        f"Валюта: {currency}"
+        f"{payment_line}"
     )
     inline_kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="✅ Я оплатил", callback_data=f"paid_{order_id}")],
@@ -10011,11 +9552,9 @@ async def cmd_history(message: Message, page: int = 1):
         page = 1
     limit = 10
     offset = (page - 1) * limit
-    with db_conn(10) as conn:
-        c = conn.cursor()
-        c.execute("SELECT order_id, rub_amount, currency, status, created_at FROM orders WHERE user_id=? ORDER BY created_at DESC LIMIT ? OFFSET ?",
-                  (message.from_user.id, limit, offset))
-        rows = c.fetchall()
+    _rows = _order_reads.customer_orders(message.from_user.id, limit=limit, offset=offset)
+    rows = [(r["order_id"], r["rub_amount"], r["currency"], r["status"], r["created_at"])
+            for r in _rows]
     if not rows:
         await message.answer("Нет заявок на этой странице.")
         return
@@ -10038,7 +9577,7 @@ async def pagination(callback: CallbackQuery):
     await callback.answer()
 
 
-PAYOUT_WALLETS = {'BTC': 'PayoutWallet', 'LTC': 'PayoutLTC'}
+PAYOUT_WORKER_CURRENCIES = {'BTC', 'LTC'}
 
 
 def _evm_routing():
@@ -10058,46 +9597,6 @@ def _evm_payout_asset(currency, network=None):
     return _evm_routing().evm_payout_asset(currency, network)
 
 
-def _unlock_payout_wallets():
-    """Разлочивает secure BTC/LTC-кошелёк при старте из WALLET_PAYOUT_PASSWORD.
-
-    Best-effort: нет пароля/вольта — тихо остаёмся на легаси-пути. Основная
-    разлочка для выплат — just-in-time в send_crypto (TTL истекает за сутки),
-    здесь лишь ранняя проверка пароля и корректный /wallet-статус.
-    """
-    pw = os.getenv("WALLET_PAYOUT_PASSWORD", "").strip()
-    if not pw:
-        logger.info("WALLET_PAYOUT_PASSWORD не задан — BTC/LTC на легаси-пути выплат")
-        return
-    try:
-        import sys as _s
-        if RELAY_PATH not in _s.path:
-            _s.path.insert(0, RELAY_PATH)
-        from wallet import btc_wallet as _bw
-    except Exception as e:
-        logger.error(f"secure-кошелёк недоступен при старте: {type(e).__name__}: {e}")
-        return
-    for coin in ("BTC", "LTC"):
-        try:
-            if not _bw.status(coin).get("configured"):
-                logger.warning(f"secure {coin}-вольт не создан — разлочка пропущена")
-                continue
-            _bw.unlock(coin, pw)
-            logger.info(f"secure {coin}-кошелёк разлочен для авто-выплат")
-        except Exception as e:
-            logger.error(f"разлочка secure {coin} не удалась: {type(e).__name__}: {e}")
-    # EVM (ETH/USDT-ERC20) — только если гейт включён и вольт создан
-    if _evm_payouts_enabled():
-        try:
-            from wallet import evm_wallet as _ew
-            if _ew.status().get("configured"):
-                _ew.unlock(pw)
-                logger.info("secure EVM-кошелёк разлочен для авто-выплат")
-            else:
-                logger.warning("EVM_PAYOUTS_ENABLED, но EVM-вольт не создан — разлочка пропущена")
-        except Exception as e:
-            logger.error(f"разлочка secure EVM не удалась: {type(e).__name__}: {e}")
-
 def explorer_url(currency, tx, network=None):
     """Ссылка на транзакцию в блокчейн-эксплорере — или None.
 
@@ -10115,89 +9614,6 @@ def explorer_url(currency, tx, network=None):
     except Exception:
         return None  # не смогли проверить — кнопку не показываем
 
-def _send_evm(asset, address, amount, idempotency_key):
-    """Отправка ETH/USDT-ERC20 через secure evm_wallet под фиче-гейтом. Возвращает
-    txHash. Если гейт выключен / вольт не готов — бросаем (заявка уйдёт воркеру)."""
-    if not _evm_payouts_enabled():
-        raise RuntimeError("evm_payouts_disabled")
-    if not idempotency_key:
-        raise RuntimeError("evm_payout_requires_idempotency_key")
-    import sys as _s
-    if RELAY_PATH not in _s.path:
-        _s.path.insert(0, RELAY_PATH)
-    from wallet import evm_wallet as _ew
-    st = _ew.status()
-    if st.get("configured") and not st.get("unlocked"):
-        _pw = os.getenv("WALLET_PAYOUT_PASSWORD", "").strip()
-        if _pw:
-            try:
-                _ew.unlock(_pw)
-                st = _ew.status()
-            except Exception as e:
-                logger.error(f"just-in-time разлочка EVM: {type(e).__name__}")
-    if not (st.get("configured") and st.get("unlocked")):
-        raise RuntimeError("evm_wallet_not_ready")
-    prev = _ew.preview_send(asset, address, float(amount))
-    res = _ew.send(asset, address, float(amount), prev["previewId"], idempotency_key=idempotency_key)
-    tx = (res.get("txHash") or "").strip()
-    if not tx:
-        # без txHash нельзя считать выплату выполненной — бросаем, заявка к воркеру
-        raise RuntimeError("evm_send_no_txhash")
-    return tx
-
-
-def send_crypto(currency, address, amount, idempotency_key="", network=None):
-    """Отправляет amount монет currency на address из горячего кошелька. Возвращает txid.
-
-    BTC/LTC идут через SECURE-контур (relay/wallet/btc_wallet), если он настроен и
-    разлочен (бот разлочивает при старте из WALLET_PAYOUT_PASSWORD). Ключ шифрован
-    паролем, а не лежит в плейнтексте bitcoinlib.sqlite. Если secure разлочен —
-    используем ТОЛЬКО его: ошибку НЕ глушим в легаси (иначе риск задвоить отправку),
-    заявка уйдёт в ручную очередь. Легаси-путь остаётся fallback лишь пока secure
-    не настроен/не разлочен (переходный период); после удаления плейнтекст-сида
-    легаси сам упадёт → выплата корректно уходит воркеру.
-
-    ETH и USDT-ERC20 (network='ERC20') идут через secure evm_wallet под фиче-гейтом
-    EVM_PAYOUTS_ENABLED (по умолчанию ВЫКЛ).
-    """
-    currency = currency.upper()
-    evm_asset = _evm_payout_asset(currency, network)
-    if evm_asset:
-        return _send_evm(evm_asset, address, amount, idempotency_key)
-    if currency in ("BTC", "LTC"):
-        _bw = None
-        try:
-            import sys as _s
-            if RELAY_PATH not in _s.path:
-                _s.path.insert(0, RELAY_PATH)
-            from wallet import btc_wallet as _bw
-        except Exception as e:
-            logger.error(f"secure {currency}-кошелёк недоступен ({type(e).__name__}) — легаси")
-            _bw = None
-        if _bw is not None:
-            st = _bw.status(currency)
-            # до-разлочка just-in-time: TTL (15 мин) истекает, а бот работает
-            # сутками. Пароль в env — перед отправкой при необходимости открываем
-            # заново. Так TTL остаётся защитой для CLI-сессий, а авто-выплаты живут.
-            if st.get("configured") and not st.get("unlocked"):
-                _pw = os.getenv("WALLET_PAYOUT_PASSWORD", "").strip()
-                if _pw:
-                    try:
-                        _bw.unlock(currency, _pw)
-                        st = _bw.status(currency)
-                    except Exception as e:
-                        logger.error(f"just-in-time разлочка {currency}: {type(e).__name__}")
-            if st.get("configured") and st.get("unlocked"):
-                prev = _bw.preview_send(currency, address, float(amount))
-                res = _bw.send(currency, address, float(amount), prev["previewId"],
-                               idempotency_key=idempotency_key or "")
-                return res.get("txHash")
-            logger.warning(f"secure {currency}-кошелёк не разлочен "
-                           f"(configured={st.get('configured')}) — легаси fallback")
-    wallet = Wallet(PAYOUT_WALLETS[currency])
-    t = wallet.send_to(address, amount, unit=currency.lower(), fee='auto')
-    return t.txid
-
 def process_payout(order_id, rub_amount, client_address, currency='BTC', network=None):
     currency = currency.upper()
     evm_asset = _evm_payout_asset(currency, network)
@@ -10206,7 +9622,7 @@ def process_payout(order_id, rub_amount, client_address, currency='BTC', network
     if evm_asset and not _evm_payouts_enabled():
         logger.info(f"EVM-выплата {currency}/{network} под гейтом (выкл) — #{order_id} к воркеру")
         return None
-    if not evm_asset and currency not in PAYOUT_WALLETS:
+    if not evm_asset and currency not in PAYOUT_WORKER_CURRENCIES:
         logger.warning(f"Автовыплата пока не поддерживает {currency}. Заказ #{order_id}")
         return None
     # Последний рубеж перед отправкой: адрес обязан пройти проверку контрольной
@@ -10240,15 +9656,23 @@ def process_payout(order_id, rub_amount, client_address, currency='BTC', network
         return None
     logger.info(f"Заявка #{order_id}: к выплате {amount} {currency} "
                 f"(источник: {verdict['source']}, рынок сейчас {market_amount})")
+    # Persist before touching a signing key. Repeated callers must resolve to
+    # the same immutable debt; changed amount/address/network is rejected.
     try:
-        # идемпотентность по заявке: повтор той же выплаты не уйдёт дважды
-        txid = send_crypto(currency, client_address, amount,
-                           idempotency_key=f"payout_{order_id}", network=network)
-        _addr_mask = f"{client_address[:6]}…{client_address[-4:]}" if client_address and len(client_address) > 12 else "***"
-        logger.info(f"Выплата #{order_id} выполнена: {amount} {currency} -> {_addr_mask}, txid={txid}")
-        return txid
+        intent = _payout_store.create_order(
+            order_id=order_id, rub_amount=rub_amount,
+            crypto_amount=amount, currency=currency, network=network,
+            destination=client_address, source="exchange-bot",
+            requested_by="exchange-bot",
+        )
+        if intent["state"] == "succeeded":
+            return intent["txid"]
+        logger.info("Заявка #%s: payout intent сохранён в состоянии %s; "
+                    "подпись выполняет только отдельный worker", order_id, intent["state"])
+        return None
     except Exception as e:
-        logger.exception(f"Ошибка выплаты #{order_id}: {e}")
+        logger.error("Заявка #%s: payout intent не создан/не захвачен (%s)",
+                     order_id, type(e).__name__)
         return None
 
 async def process_payout_async(order_id, rub_amount, client_address, currency='BTC', network=None):
@@ -10257,28 +9681,74 @@ async def process_payout_async(order_id, rub_amount, client_address, currency='B
         None, process_payout, order_id, rub_amount, client_address, currency, network)
 
 
+async def payout_reconciliation_task():
+    """Close worker-completed intents and deliver their transactional outbox."""
+    from repositories import reconciliation_store
+    store = reconciliation_store.from_environment(sqlite_path=DB_PATH)
+    while True:
+        try:
+            rows = store.pending_orders(20)
+            for row in rows:
+                order_id = row["order_id"]
+                try:
+                    result = store.reconcile_order(
+                        order_id, btc_rate=get_cached_rate("BTC"),
+                        commission_percent=get_commission_percent(row["rub_amount"]),
+                        referral_percent=REFERRAL_BONUS_PERCENT)
+                    if result["action"] == "reconciled":
+                        logger.info("Заявка #%s reconciled из payout intent, txid=%s",
+                                    order_id, result["txid"])
+                except Exception:
+                    logger.exception("Заявка #%s: reconciliation не выполнен", order_id)
+
+            referral_result = store.reconcile_referral()
+            if referral_result:
+                logger.info("Referral intent #%s reconciled, txid=%s",
+                            referral_result["id"], referral_result["txid"])
+
+            # Claim is committed before Telegram I/O. A crash after send leaves
+            # `sending` for explicit review instead of silently duplicating it.
+            item = store.claim_notification()
+            if item:
+                payload = json.loads(item["payload"])
+                txid = payload["txid"]
+                currency = payload["currency"]
+                network = payload.get("network")
+                url = explorer_url(currency, txid, network)
+                keyboard = (InlineKeyboardMarkup(inline_keyboard=[[
+                    InlineKeyboardButton(text="🔍 Транзакция в блокчейне", url=url)
+                ]]) if url else None)
+                try:
+                    is_referral = item["topic"] == "referral_payout_sent"
+                    await bot.send_message(
+                        item["recipient_id"],
+                        (("🎁 <b>Реферальный бонус выплачен!</b>\n\n" if is_referral else
+                          f"🚀 <b>Заявка #{payload['order_id']} выполнена!</b>\n\n") +
+                        f"Криптовалюта отправлена на ваш адрес.\n"
+                        f"TXID: <code>{txid}</code>\n\n"
+                        f"Спасибо за обмен в ObsidianExchange! 🟣"),
+                        parse_mode="HTML", reply_markup=keyboard,
+                    )
+                except Exception:
+                    store.retry_notification(item["id"])
+                    raise
+                if not store.mark_notification_sent(item["id"]):
+                    logger.critical("Outbox %s отправлен, но не отмечен sent", item["id"])
+        except Exception:
+            logger.exception("payout reconciliation loop error")
+        await asyncio.sleep(2)
+
+
 async def credit_referral_bonus(order_id, user_id, rub_amount):
     """Начисляет рефереру REFERRAL_BONUS_PERCENT% от комиссии обменника (в BTC) за выполненную заявку приглашённого."""
-    with db_conn(10) as conn:
-        c = conn.cursor()
-        c.execute("SELECT referrer_id FROM referrals WHERE referred_id=?", (user_id,))
-        row = c.fetchone()
-        if not row:
-            conn.close()
-            return
-        referrer_id = row[0]
-        btc_rate = get_cached_rate('BTC')
-        if not btc_rate:
-            conn.close()
-            return
-        commission_rub = rub_amount * get_commission_percent(rub_amount) / 100
-        bonus_btc = round(commission_rub * REFERRAL_BONUS_PERCENT / 100 / btc_rate, 8)
-        if bonus_btc <= 0:
-            conn.close()
-            return
-        c.execute("UPDATE referrals SET total_bonus_btc = total_bonus_btc + ?, bonus_paid=0 WHERE referrer_id=? AND referred_id=?",
-                  (bonus_btc, referrer_id, user_id))
-        conn.commit()
+    btc_rate = get_cached_rate('BTC')
+    if not btc_rate:
+        return
+    commission_rub = rub_amount * get_commission_percent(rub_amount) / 100
+    bonus_btc = round(commission_rub * REFERRAL_BONUS_PERCENT / 100 / btc_rate, 8)
+    referrer_id = _engagement.credit_referral_bonus(user_id, bonus_btc)
+    if referrer_id is None:
+        return
     try:
         await bot.send_message(referrer_id,
             f"🎉 Ваш реферал совершил обмен!\nНачислен бонус: {bonus_btc} BTC\n"
@@ -10289,36 +9759,20 @@ async def credit_referral_bonus(order_id, user_id, rub_amount):
 
 async def withdraw_referral_bonus(user_id):
     """Выводит накопленный реферальный бонус на сохранённый BTC-адрес пользователя. Возвращает текст ответа."""
-    with db_conn(10) as conn:
-        c = conn.cursor()
-        c.execute("SELECT COALESCE(SUM(total_bonus_btc), 0) FROM referrals WHERE referrer_id=?", (user_id,))
-        total = c.fetchone()[0] or 0
-        if total < REFERRAL_DUST_BTC:
-            conn.close()
-            return f"💸 Накоплено: {total:.8f} BTC.\nМинимальная сумма для вывода: {REFERRAL_DUST_BTC} BTC."
-        c.execute("SELECT address FROM referral_addresses WHERE user_id=? AND currency='BTC'", (user_id,))
-        addr_row = c.fetchone()
-        if not addr_row:
-            conn.close()
-            return "❌ Сначала укажите BTC-адрес для вывода бонусов:\n/setrefaddr ВАШ_BTC_АДРЕС"
-        address = addr_row[0]
-        try:
-            loop = asyncio.get_running_loop()
-            txid = await loop.run_in_executor(
-                None, lambda: send_crypto('BTC', address, total,
-                                          idempotency_key=f"refbonus_{user_id}"))
-        except Exception as e:
-            logger.exception(f"Ошибка вывода реф. бонуса для {user_id}: {e}")
-            return "⚠️ Не удалось выполнить вывод. Попробуйте позже или обратитесь в поддержку."
-        c.execute("UPDATE referrals SET total_bonus_btc=0, bonus_paid=1 WHERE referrer_id=?", (user_id,))
-        conn.commit()
+    address = _user_profiles.referral_address(user_id=user_id, currency="BTC")
+    if not address:
+        return "❌ Сначала укажите BTC-адрес для вывода бонусов:\n/setrefaddr ВАШ_BTC_АДРЕС"
     try:
-        await notify_admins(
-            f"💸 Выплата реф. бонуса пользователю {user_id}: {total:.8f} BTC\nTXID: <code>{txid}</code>",
-            parse_mode="HTML")
-    except Exception:
-        pass
-    return f"✅ Бонус выведен!\nСумма: {total:.8f} BTC\nTXID: <code>{txid}</code>"
+        intent = _payout_store.request_referral(
+            user_id=user_id, destination=address, minimum_btc=REFERRAL_DUST_BTC)
+    except ValueError as exc:
+        if str(exc) != "referral_balance_below_minimum":
+            raise
+        return (f"💸 Накопленная сумма ниже минимальной для вывода: "
+                f"{REFERRAL_DUST_BTC} BTC.")
+    return (f"⏳ Заявка на вывод #{intent['id']} принята: "
+            f"<b>{intent['crypto_amount']:.8f} BTC</b>. Повторное нажатие не создаст "
+            "вторую выплату.")
 
 
 async def balance_monitor():
@@ -10373,72 +9827,36 @@ async def cmd_getfileid(message: Message):
 
 @router.message(Command("balance"))
 async def cmd_balance(message: Message):
-    """Показывает текущие балансы и адреса горячих кошельков (BTC/LTC/USDT)."""
+    """Старый bitcoinlib-обзор удалён вместе с signing capability бота."""
     if not is_admin(message.from_user.id):
         return
-    text = "💰 <b>Балансы горячих кошельков</b>\n\n"
-
-    try:
-        wallet = Wallet('PayoutWallet')
-        wallet.scan()
-        btc_balance = wallet.balance(network='bitcoin')
-        text += f"₿ BTC: <code>{btc_balance / 1e8:.8f}</code> BTC ({btc_balance} сатоши)\nАдрес: <code>{wallet.get_key().address}</code>\n\n"
-    except Exception as e:
-        text += f"₿ BTC: ошибка получения баланса ({e})\n\n"
-
-    try:
-        ltc_wallet = Wallet('PayoutLTC')
-        ltc_wallet.scan()
-        ltc_balance = ltc_wallet.balance(network='litecoin')
-        text += f"Ł LTC: <code>{ltc_balance / 1e8:.8f}</code> LTC ({ltc_balance} сатоши)\nАдрес: <code>{ltc_wallet.get_key().address}</code>\n\n"
-    except Exception as e:
-        text += f"Ł LTC: ошибка получения баланса ({e})\n\n"
-
-    if os.getenv('USDT_PRIVATE_KEY'):
-        try:
-            client = Tron()
-            priv_key = PrivateKey(bytes.fromhex(os.getenv('USDT_PRIVATE_KEY')))
-            addr = priv_key.public_key.to_base58check_address()
-            contract = client.get_contract('TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t')
-            usdt_balance = contract.functions.balanceOf(addr) / 1e6
-            text += f"💵 USDT: <code>{usdt_balance:.2f}</code> USDT\nАдрес: <code>{addr}</code>\n"
-        except Exception as e:
-            text += f"💵 USDT: ошибка получения баланса ({e})\n"
-    else:
-        text += "💵 USDT: кошелёк не настроен (нет USDT_PRIVATE_KEY)\n"
-
-    await message.answer(text, parse_mode="HTML")
+    await message.answer("🔒 Signing удалён из процесса бота. Read-only обзор: /wallet")
 
 
 @router.message(Command("fullstats"))
 async def cmd_fullstats(message: Message):
     if not is_admin(message.from_user.id):
         return
-    with db_conn(10) as conn:
-        c = conn.cursor()
-        now = datetime.now()
-        today = now.strftime("%Y-%m-%d")
-        yesterday = (now - timedelta(days=1)).strftime("%Y-%m-%d")
-        week_start = (now - timedelta(days=now.weekday())).strftime("%Y-%m-%d")
-        month_start = now.strftime("%Y-%m-01")
-
-        text = "📊 <b>Расширенная статистика</b>\n\n"
-        for name, start_date in {"Сегодня": today, "Вчера": yesterday, "Неделя": week_start, "Месяц": month_start}.items():
-            c.execute("SELECT COUNT(*), SUM(rub_amount) FROM orders WHERE date(created_at)>=? AND status='sent'", (start_date,))
-            cnt, vol = c.fetchone()
-            text += f"<b>{name}</b>: {cnt or 0} обменов, {vol or 0:,.0f} RUB\n"
-
-        text += "\n<b>По валютам (за месяц):</b>\n"
-        for cur in ['BTC', 'LTC', 'USDT']:
-            c.execute("SELECT COUNT(*), SUM(rub_amount) FROM orders WHERE date(created_at)>=? AND currency=? AND status='sent'", (month_start, cur))
-            cnt, vol = c.fetchone()
-            text += f"• {cur}: {cnt or 0} обменов, {vol or 0:,.0f} RUB\n"
-
-        text += "\n<b>По статусам (за месяц):</b>\n"
-        for status in ['pending', 'paid', 'sent']:
-            c.execute("SELECT COUNT(*) FROM orders WHERE date(created_at)>=? AND status=?", (month_start, status))
-            cnt = c.fetchone()[0]
-            text += f"• {status}: {cnt or 0}\n"
+    now = datetime.now()
+    starts = {"Сегодня": now.strftime("%Y-%m-%d"),
+              "Вчера": (now - timedelta(days=1)).strftime("%Y-%m-%d"),
+              "Неделя": (now - timedelta(days=now.weekday())).strftime("%Y-%m-%d"),
+              "Месяц": now.strftime("%Y-%m-01")}
+    month_start = starts["Месяц"]
+    stats = _reporting.cumulative_stats(
+        starts, month_start, ['BTC', 'LTC', 'USDT'], ['pending', 'paid', 'sent'])
+    text = "📊 <b>Расширенная статистика</b>\n\n"
+    for name in starts:
+        cnt, vol = stats["periods"][name]
+        text += f"<b>{name}</b>: {cnt or 0} обменов, {vol or 0:,.0f} RUB\n"
+    text += "\n<b>По валютам (за месяц):</b>\n"
+    for cur in ['BTC', 'LTC', 'USDT']:
+        cnt, vol = stats["currencies"][cur]
+        text += f"• {cur}: {cnt or 0} обменов, {vol or 0:,.0f} RUB\n"
+    text += "\n<b>По статусам (за месяц):</b>\n"
+    for status in ['pending', 'paid', 'sent']:
+        cnt = stats["statuses"][status]
+        text += f"• {status}: {cnt or 0}\n"
 
     await message.answer(text, parse_mode="HTML")
 
@@ -10505,38 +9923,6 @@ async def smart_monitor():
                         await notify_admins( f"✅ <b>{pname}</b> снова работает.", parse_mode="HTML")
                         _set_alert(f"provider_{pkey}", False)
 
-            # ── Балансы кошельков (раз в час = каждые 30 итераций) ───────────
-            if _iter % 30 == 0:
-                # BTC
-                try:
-                    wallet = Wallet('PayoutWallet')
-                    wallet.scan()
-                    btc_bal = wallet.balance(network='bitcoin')
-                    if btc_bal < 10000 and not _alert_active("btc_low"):
-                        await notify_admins(
-                            f"🔴 <b>Низкий баланс BTC</b>: {btc_bal} сат\n"
-                            f"Пополните горячий кошелёк.", parse_mode="HTML")
-                        _set_alert("btc_low", True)
-                    elif btc_bal >= 10000:
-                        _set_alert("btc_low", False)
-                except Exception:
-                    pass  # кошелёк пустой или недоступен — не шумим
-
-                # LTC
-                try:
-                    ltc_wallet = Wallet('PayoutLTC')
-                    ltc_wallet.scan()
-                    ltc_bal = ltc_wallet.balance(network='litecoin')
-                    if ltc_bal < 500000 and not _alert_active("ltc_low"):
-                        await notify_admins(
-                            f"🔴 <b>Низкий баланс LTC</b>: {ltc_bal} сат\n"
-                            f"Пополните горячий кошелёк.", parse_mode="HTML")
-                        _set_alert("ltc_low", True)
-                    elif ltc_bal >= 500000:
-                        _set_alert("ltc_low", False)
-                except Exception:
-                    pass
-
         except Exception as e:
             logger.error(f"Ошибка в smart_monitor: {e}")
 
@@ -10550,13 +9936,7 @@ def check_fifth_exchange_discount(user_id: int, rub_amount: float) -> bool:
     if rub_amount < 5000:
         return False
     try:
-        with db_conn(5) as conn:
-            c = conn.cursor()
-            c.execute(
-                "SELECT COUNT(*) FROM orders WHERE user_id=? AND status='completed' AND rub_amount >= 5000",
-                (user_id,)
-            )
-            count = c.fetchone()[0]
+        count = _engagement.eligible_completed_count(user_id, 5000)
         return count > 0 and (count % 5 == 4)
     except Exception:
         return False
@@ -10595,9 +9975,7 @@ async def compose_daily_post() -> str:
     # Курируемые резервы (reserves) — доверие; строка скрыта, пока не заданы
     res_line = ""
     try:
-        with db_conn(5) as conn:
-            rows = dict(conn.execute(
-                "SELECT currency, amount FROM reserves WHERE amount > 0").fetchall())
+        rows = dict(_reporting.reserves(positive_only=True))
         rub_total = (rows.get('RUB', 0) + rows.get('BTC', 0) * btc_rate
                      + rows.get('LTC', 0) * ltc_rate + rows.get('USDT', 0) * usdt_rate)
         if rub_total >= 500000:
@@ -10694,10 +10072,7 @@ async def send_announce(target_id: int = None):
         return
 
     try:
-        with db_conn(5) as conn:
-            c = conn.cursor()
-            c.execute("SELECT user_id FROM bot_users WHERE broadcast_enabled=1")
-            user_ids = [row[0] for row in c.fetchall()]
+        user_ids = _engagement.broadcast_user_ids()
     except Exception as e:
         logger.error(f"Не удалось получить список пользователей для объявления: {e}")
         return
@@ -10714,9 +10089,7 @@ async def send_announce(target_id: int = None):
             if "blocked" in err or "deactivated" in err or "forbidden" in err or "not found" in err:
                 blocked += 1
                 try:
-                    with db_conn(5) as conn:
-                        conn.execute("UPDATE bot_users SET broadcast_enabled=0 WHERE user_id=?", (uid,))
-                        conn.commit()
+                    _engagement.disable_broadcast(uid)
                 except Exception:
                     pass
             else:
@@ -10752,10 +10125,7 @@ async def cmd_announce(message: Message):
     if not is_admin(message.from_user.id):
         return
     try:
-        with db_conn(5) as conn:
-            c = conn.cursor()
-            c.execute("SELECT COUNT(*) FROM bot_users WHERE broadcast_enabled=1")
-            count = c.fetchone()[0]
+        count = _engagement.broadcast_count()
     except Exception:
         count = 0
     await message.answer(f"📣 Запускаю рассылку объявления {count} пользователям...")
@@ -10775,10 +10145,7 @@ async def send_daily_post(target_id: int = None):
 
     # Массовая рассылка
     try:
-        with db_conn(5) as conn:
-            c = conn.cursor()
-            c.execute("SELECT user_id FROM bot_users WHERE broadcast_enabled=1")
-            user_ids = [row[0] for row in c.fetchall()]
+        user_ids = _engagement.broadcast_user_ids()
     except Exception as e:
         logger.error(f"Не удалось получить список пользователей для рассылки: {e}")
         return
@@ -10795,9 +10162,7 @@ async def send_daily_post(target_id: int = None):
             if "blocked" in err or "deactivated" in err or "forbidden" in err or "not found" in err:
                 blocked += 1
                 try:
-                    with db_conn(5) as conn:
-                        conn.execute("UPDATE bot_users SET broadcast_enabled=0 WHERE user_id=?", (uid,))
-                        conn.commit()
+                    _engagement.disable_broadcast(uid)
                 except Exception:
                     pass
             else:
@@ -10858,14 +10223,7 @@ async def rate_alert_scheduler():
             def fmt(v, d=0):
                 return f"{v:,.{d}f}".replace(',', ' ') if v else '—'
 
-            with db_conn(5) as conn:
-                c = conn.cursor()
-                c.execute("""
-                    SELECT rs.user_id, rs.last_notified, rs.last_btc, rs.last_ltc, rs.last_usdt
-                    FROM rate_subscriptions rs
-                    WHERE rs.enabled = 1
-                """)
-                subscribers = c.fetchall()
+            subscribers = _engagement.subscribers()
 
             for uid, last_notified, last_btc, last_ltc, last_usdt in subscribers:
                 # Пропускаем если уведомляли менее 24 часов назад
@@ -10912,18 +10270,11 @@ async def rate_alert_scheduler():
                 ])
                 try:
                     await bot.send_message(uid, text, parse_mode="HTML", reply_markup=kb)
-                    with db_conn(5) as conn:
-                        conn.execute(
-                            "UPDATE rate_subscriptions SET last_notified=?, last_btc=?, last_ltc=?, last_usdt=? WHERE user_id=?",
-                            (now, btc, ltc, usdt, uid)
-                        )
-                        conn.commit()
+                    _engagement.update_rates(uid, now, btc, ltc, usdt)
                 except Exception as e:
                     err = str(e).lower()
                     if "blocked" in err or "forbidden" in err or "deactivated" in err:
-                        with db_conn(5) as conn:
-                            conn.execute("UPDATE rate_subscriptions SET enabled=0 WHERE user_id=?", (uid,))
-                            conn.commit()
+                        _engagement.disable_rates(uid)
                     else:
                         logger.warning(f"rate_alert: не удалось отправить {uid}: {e}")
                 await asyncio.sleep(0.05)
@@ -11118,7 +10469,7 @@ _FEATURE_POSTS = [
 ]
 
 # Глобальный счётчик ротации (сохраняем между перезапусками в файле)
-_FEATURE_INDEX_FILE = "/root/bot/.feature_index"
+_FEATURE_INDEX_FILE = str(Path(__file__).resolve().parent / ".feature_index")
 
 def _get_feature_index() -> int:
     try:
@@ -11149,12 +10500,7 @@ async def feature_broadcast(target_id: int = None):
         await bot.send_message(target_id, text, parse_mode="HTML", reply_markup=kb)
         return
 
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute("""SELECT DISTINCT user_id FROM orders
-                     WHERE user_id > 0
-                     GROUP BY user_id""")
-        users = [r[0] for r in c.fetchall()]
+    users = _engagement.order_customer_ids()
 
     sent = skipped = 0
     for uid in users:
@@ -11278,7 +10624,7 @@ async def cmd_postpromo(message: Message):
     target = message.chat.id if preview else CHANNEL_ID
 
     # Буквы названия вместо баннера — превью в ленте показывает "OBS..."
-    _sd = pathlib.Path("/root/bot/images/stickers")
+    _sd = pathlib.Path(__file__).resolve().parent / "images" / "stickers"
     _letter_seq = ["letter_O", "letter_B", "letter_S", "letter_I", "letter_D",
                    "letter_I", "letter_A", "letter_N", "letter_EX"]
     try:
@@ -11335,8 +10681,7 @@ async def cmd_tariff(message: Message):
 
 
 async def recall_inactive_users():
-    """Раз в 3 дня напоминает клиентам, не делавшим заявок > 14 дней.
-    Каждый клиент получает не более одного recall-сообщения в 14 дней."""
+    """Раз в 3 дня фиксирует один lifetime recall для неактивных клиентов."""
     import datetime as _dt
     while True:
         try:
@@ -11346,72 +10691,9 @@ async def recall_inactive_users():
             if now >= target:
                 target += _dt.timedelta(days=3)
             await asyncio.sleep((target - now).total_seconds())
-
-            threshold_inactive = (
-                _dt.datetime.utcnow() - _dt.timedelta(days=14)
-            ).strftime("%Y-%m-%d %H:%M:%S")
-            threshold_notified = (
-                _dt.datetime.utcnow() - _dt.timedelta(days=14)
-            ).strftime("%Y-%m-%d %H:%M:%S")
-
-            with db_conn(5) as conn:
-                c = conn.cursor()
-                # Клиенты с минимум 1 успешной заявкой, неактивные > 14 дней
-                c.execute("""
-                    SELECT DISTINCT o.user_id
-                    FROM orders o
-                    WHERE o.user_id > 0
-                      AND o.status = 'sent'
-                      AND NOT EXISTS (
-                          SELECT 1 FROM orders o2
-                          WHERE o2.user_id = o.user_id
-                            AND o2.created_at > ?
-                      )
-                      AND NOT EXISTS (
-                          SELECT 1 FROM sent_notifications sn
-                          WHERE sn.order_id = o.user_id AND sn.event = 'recall'
-                            AND sn.created_at > ?
-                      )
-                    LIMIT 200
-                """, (threshold_inactive, threshold_notified))
-                users = [r[0] for r in c.fetchall()]
-
-            btc_rate = get_cached_rate('BTC')
-            ltc_rate = get_cached_rate('LTC')
-            usdt_rate = get_cached_rate('USDT')
-
-            sent = 0
-            for uid in users:
-                try:
-                    await bot.send_message(
-                        uid,
-                        f"🟣 <b>ObsidianExchange — актуальные курсы</b>\n\n"
-                        f"<blockquote>"
-                        f"₿ BTC → {int(btc_rate * 0.81):,} ₽\n"
-                        f"Ł LTC → {int(ltc_rate * 0.81):,} ₽\n"
-                        f"💵 USDT → {int(usdt_rate * 0.98):,} ₽"
-                        f"</blockquote>\n\n"
-                        f"Готовы к обмену? Нажмите кнопку ниже 👇".replace(",", " "),
-                        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
-                            InlineKeyboardButton(text="💱 Обменять", callback_data="menu_exchange")
-                        ]]),
-                        parse_mode="HTML"
-                    )
-                    # Записываем факт отправки (используем user_id как order_id для recall)
-                    with db_conn(3) as conn:
-                        conn.execute(
-                            "INSERT OR IGNORE INTO sent_notifications (order_id, event) VALUES (?, 'recall')",
-                            (uid,)
-                        )
-                        conn.commit()
-                    sent += 1
-                    await asyncio.sleep(0.05)  # не спамим TG API
-                except Exception:
-                    pass
-
-            if sent:
-                logger.info(f"recall_inactive_users: отправлено {sent} сообщений")
-
+            queued = _bot_notifications.queue_due_recalls(limit=200)
+            if queued:
+                logger.info(f"recall_inactive_users: поставлено в очередь {queued} сообщений")
         except Exception as e:
             logger.error(f"recall_inactive_users error: {e}")
             await asyncio.sleep(3600)
@@ -11421,59 +10703,7 @@ async def montera_receipt_reminder():
     """Напоминание клиенту за 10 минут до истечения 30-минутного окна чека Montera."""
     while True:
         try:
-            import datetime as _dt
-            now = _dt.datetime.utcnow()
-            # Окно: дедлайн через 8–12 минут, чек ещё не отправлен, заявка pending
-            window_from = (now + _dt.timedelta(minutes=8)).strftime("%Y-%m-%d %H:%M:%S")
-            window_to   = (now + _dt.timedelta(minutes=12)).strftime("%Y-%m-%d %H:%M:%S")
-            with db_conn(5) as conn:
-                c = conn.cursor()
-                c.execute("""
-                    SELECT o.order_id, o.user_id, o.montera_invoice_id, o.receipt_deadline
-                    FROM orders o
-                    WHERE o.receipt_deadline BETWEEN ? AND ?
-                      AND o.receipt_sent_at IS NULL
-                      AND o.status = 'pending'
-                      AND NOT EXISTS (
-                          SELECT 1 FROM sent_notifications sn
-                          WHERE sn.order_id = o.order_id AND sn.event = 'receipt_reminder'
-                      )
-                """, (window_from, window_to))
-                rows = c.fetchall()
-                # Файл от клиента уже лежит у нас, но партнёру не ушёл (чаще
-                # всего это фото вместо PDF). Говорить такому «оплатите перевод»
-                # — обвинять его в том, чего он, возможно, не делал; просить
-                # надо ровно то, чего не хватает.
-                with_file = receipts_for(c, [r[0] for r in rows])
-
-            for oid, uid, inv_id, deadline in rows:
-                if uid and uid > 0:
-                    try:
-                        _txt = (
-                            f"⏰ <b>Заявка #{oid} — осталось ~10 минут!</b>\n\n"
-                            f"Мы получили ваш файл, но платёжный партнёр принимает "
-                            f"только <b>PDF-чек из банка</b> — фото и скриншоты он "
-                            f"не читает.\nПришлите PDF сюда, иначе заявку придётся "
-                            f"разбирать вручную."
-                            if oid in with_file else
-                            f"⏰ <b>Заявка #{oid} — осталось ~10 минут!</b>\n\n"
-                            f"Пожалуйста, оплатите перевод и отправьте <b>PDF-чек</b> прямо сейчас.\n"
-                            f"Если вы уже оплатили — просто перешлите чек сюда."
-                        )
-                        await bot.send_message(uid, _txt, parse_mode="HTML")
-                    except Exception:
-                        pass
-                    await notify_admins(
-                        f"⚠️ <b>Заявка #{oid}</b> — чек не отправлен, дедлайн через ~10 мин\n"
-                        f"Montera ID: <code>{inv_id}</code>",
-                        parse_mode="HTML"
-                    )
-                with db_conn(5) as conn:
-                    conn.execute(
-                        "INSERT OR IGNORE INTO sent_notifications (order_id, event) VALUES (?, 'receipt_reminder')",
-                        (oid,)
-                    )
-                    conn.commit()
+            _bot_notifications.queue_due_montera(limit=200)
         except Exception as e:
             logger.error(f"montera_receipt_reminder error: {e}")
         await asyncio.sleep(60)
@@ -11486,64 +10716,7 @@ async def abandoned_order_reminder():
     await asyncio.sleep(120)  # даём боту прогреться после старта
     while True:
         try:
-            import datetime as _dt
-            now = _dt.datetime.utcnow()
-            window_from = (now - _dt.timedelta(minutes=13)).strftime("%Y-%m-%d %H:%M:%S")
-            window_to   = (now - _dt.timedelta(minutes=8)).strftime("%Y-%m-%d %H:%M:%S")
-            with db_conn(5) as conn:
-                c = conn.cursor()
-                # Чек приходит раньше окна напоминания чаще, чем позже (57 из
-                # 64 на боевых данных 30.07). Без этого условия «⏳ заявка ждёт
-                # оплаты · 💳 Оплатить сейчас» уходило клиенту, который уже
-                # заплатил и прислал подтверждение — самый громкий канал звал
-                # заплатить второй раз. Критерий тот же, что у Слоя 0.
-                # Условие БЕЗУСЛОВНОЕ: таблицу создаёт init_db(). Раньше здесь
-                # стоял зонд «есть ли таблица», который возвращал «нет» на любом
-                # исключении — в том числе на «database is locked» в момент
-                # бэкапа — и одной занятой секунды хватало, чтобы канал открылся
-                # снова. Страж, пропускающий при сомнении, — не страж.
-                c.execute("""
-                    SELECT o.order_id, o.user_id, o.rub_amount, o.currency,
-                           (SELECT ps.session_token FROM payment_sessions ps
-                            WHERE ps.order_id=o.order_id AND ps.status NOT IN ('failed','expired')
-                            ORDER BY ps.id DESC LIMIT 1) AS token
-                    FROM orders o
-                    WHERE o.status='pending'
-                      AND o.user_id > 0
-                      AND o.created_at BETWEEN ? AND ?
-                      AND NOT EXISTS (
-                          SELECT 1 FROM order_receipts r WHERE r.order_id = o.order_id
-                      )
-                      AND NOT EXISTS (
-                          SELECT 1 FROM sent_notifications sn
-                          WHERE sn.order_id = o.order_id AND sn.event = 'pay_reminder'
-                      )
-                """, (window_from, window_to))
-                rows = c.fetchall()
-
-            for oid, uid, rub, currency, token in rows:
-                try:
-                    kb = None
-                    if token:
-                        kb = InlineKeyboardMarkup(inline_keyboard=[[
-                            InlineKeyboardButton(text="💳 Оплатить сейчас", url=f"{PUBLIC_RELAY}/pay/{token}")
-                        ]])
-                    amt = f"{int(rub):,}".replace(",", " ")
-                    await bot.send_message(
-                        uid,
-                        f"⏳ <b>Заявка #{oid} ждёт оплаты</b>\n\n"
-                        f"{amt} ₽ → {currency}. Курс ещё зафиксирован, но скоро истечёт.\n"
-                        f"Оплатите, чтобы получить крипту по текущему курсу. 🟣",
-                        parse_mode="HTML", reply_markup=kb
-                    )
-                except Exception:
-                    pass
-                with db_conn(5) as conn:
-                    conn.execute(
-                        "INSERT OR IGNORE INTO sent_notifications (order_id, event) VALUES (?, 'pay_reminder')",
-                        (oid,)
-                    )
-                    conn.commit()
+            _bot_notifications.queue_due_abandoned(limit=200)
         except Exception as e:
             logger.error(f"abandoned_order_reminder error: {e}")
         await asyncio.sleep(60)
@@ -11571,33 +10744,8 @@ async def payout_delay_notice_task():
     while True:
         try:
             from core import payout_queue as _pq
-            for r in _pq.queue(limit=30, kind=_pq.KIND_PAYOUT):
-                if r["sla"] == "ok":
-                    continue
-                oid, uid = r["order_id"], r["user_id"]
-                if not uid or uid <= 0:
-                    continue
-                with db_conn(5) as conn:
-                    claimed = conn.execute(
-                        "INSERT OR IGNORE INTO sent_notifications (order_id, event) "
-                        "VALUES (?, 'payout_delayed')", (oid,)).rowcount
-                    conn.commit()
-                if not claimed:
-                    continue
-                try:
-                    await bot.send_message(
-                        uid,
-                        f"⏳ <b>Заявка #{oid} — выплата задерживается</b>\n\n"
-                        f"Ваша оплата получена и подтверждена, деньги у нас. "
-                        f"Отправку {r['currency']} задерживает ручная проверка — "
-                        f"заявкой уже занимается сотрудник.\n\n"
-                        f"Ничего делать не нужно и повторно платить не нужно. "
-                        f"Как только крипта уйдёт, вы получите здесь номер "
-                        f"транзакции в блокчейне.",
-                        parse_mode="HTML")
-                    logger.info(f"[payout_delay] уведомлён клиент по заявке {oid}")
-                except Exception as e:
-                    logger.warning(f"[payout_delay] заявка {oid}: {e}")
+            _bot_notifications.queue_due_payout_delays(
+                warn_minutes=_pq.SLA_WARN_MIN, limit=30)
         except Exception as e:
             logger.error(f"payout_delay_notice_task error: {e}")
         await asyncio.sleep(600)
@@ -11617,70 +10765,345 @@ async def winback_promo_task():
     await asyncio.sleep(300)  # прогрев после старта
     while True:
         try:
-            with db_conn(5) as conn:
-                c = conn.cursor()
-                # По одному на клиента: свежеистёкшие (1-48ч) заявки юзеров без
-                # единой оплаты и без уже выданного win-back промо
-                # Клиент, приславший чек, «ни разу не платил» только по нашим
-                # данным: по его данным деньги ушли трейдеру и лежат у нас в
-                # виде подтверждения. Предложить ему скидку со словами «ваша
-                # заявка истекла, создайте новую» — позвать заплатить второй
-                # раз, ещё и подсластив. На боевых данных 30.07 такое промо уже
-                # ушло по трём заявкам с чеками. Разбирать это должен человек.
-                # Условие БЕЗУСЛОВНОЕ: таблицу создаёт init_db(). Зонд «есть ли
-                # таблица» здесь был fail-open — «нет» на любом сбое БД.
-                c.execute("""
-                    SELECT MAX(o.order_id), o.user_id
-                    FROM orders o
-                    WHERE o.status='expired' AND o.user_id > 0
-                      AND datetime(o.updated_at) BETWEEN datetime('now','-48 hours')
-                                                     AND datetime('now','-1 hour')
-                      AND NOT EXISTS (SELECT 1 FROM orders p
-                                      WHERE p.user_id=o.user_id AND p.status IN ('paid','sent'))
-                      AND NOT EXISTS (SELECT 1 FROM order_receipts r
-                                      JOIN orders q ON q.order_id=r.order_id
-                                      WHERE q.user_id=o.user_id)
-                      AND NOT EXISTS (SELECT 1 FROM sent_notifications sn
-                                      JOIN orders o2 ON o2.order_id=sn.order_id
-                                      WHERE o2.user_id=o.user_id AND sn.event='winback_promo')
-                      AND o.user_id NOT IN (SELECT user_id FROM blocked_users)
-                    GROUP BY o.user_id
-                    LIMIT 20
-                """)
-                rows = c.fetchall()
-
-            for oid, uid in rows:
-                code = f"BACK{int(disc)}-{os.urandom(3).hex().upper()}"
-                with db_conn(5) as conn:
-                    c = conn.cursor()
-                    c.execute("""INSERT INTO promo_codes
-                        (code, discount_percent, max_uses, valid_until, is_active)
-                        VALUES (?,?,1,datetime('now', ?),1)""",
-                        (code, disc, f'+{valid_h} hours'))
-                    code_id = c.lastrowid
-                    # помечаем ДО отправки — двойной промо хуже, чем потерянный
-                    c.execute("INSERT OR IGNORE INTO sent_notifications (order_id, event) "
-                              "VALUES (?, 'winback_promo')", (oid,))
-                    conn.commit()
-                _active_promos[uid] = (code_id, disc)  # скидка сразу активна
-                try:
-                    kb = InlineKeyboardMarkup(inline_keyboard=[
-                        [InlineKeyboardButton(text="💱 Создать заявку со скидкой",
-                                              callback_data="menu_exchange")]])
-                    await bot.send_message(
-                        uid,
-                        f"🎁 <b>Персональная скидка −{disc:g}% на обмен</b>\n\n"
-                        f"Ваша заявка истекла, и мы хотим предложить условия лучше: "
-                        f"скидка <b>уже активирована</b> — просто создайте новую заявку "
-                        f"в течение {valid_h} часов.\n\n"
-                        f"Промокод на всякий случай: <code>/promo {code}</code>",
-                        parse_mode="HTML", reply_markup=kb)
-                    logger.info(f"winback: промо {code} → user {uid} (order {oid})")
-                except Exception:
-                    pass  # клиент заблокировал бота — промо просто сгорит
+            _bot_notifications.queue_due_winbacks(
+                discount=disc, valid_hours=valid_h, limit=20)
         except Exception as e:
             logger.error(f"winback_promo_task error: {e}")
         await asyncio.sleep(1800)  # каждые 30 минут
+
+
+def _is_explicit_notification_failure(exc: Exception) -> bool:
+    """Telegram proved non-delivery, so putting the job back is duplicate-safe."""
+    from aiogram.exceptions import (
+        TelegramBadRequest,
+        TelegramConflictError,
+        TelegramEntityTooLarge,
+        TelegramForbiddenError,
+        TelegramMigrateToChat,
+        TelegramNotFound,
+        TelegramRetryAfter,
+        TelegramUnauthorizedError,
+    )
+    return isinstance(exc, (
+        TelegramBadRequest,
+        TelegramConflictError,
+        TelegramEntityTooLarge,
+        TelegramForbiddenError,
+        TelegramMigrateToChat,
+        TelegramNotFound,
+        TelegramRetryAfter,
+        TelegramUnauthorizedError,
+    ))
+
+
+def _notification_receipt_sha256(value):
+    raw = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def _render_hardened_notification(item):
+    payload, kind = item["payload"], item["kind"]
+    recipient_id = int(item["recipient_id"])
+    if recipient_id <= 0:
+        raise ValueError("invalid_notification_recipient")
+    oid = int(payload.get("order_id") or 0)
+    kwargs = {"parse_mode": "HTML"}
+    post_sent = None
+    if kind == "recall":
+        rates = [get_cached_rate(asset) for asset in ("BTC", "LTC", "USDT")]
+        text = (f"🟣 <b>ObsidianExchange — актуальные курсы</b>\n\n<blockquote>"
+                f"₿ BTC → {int(rates[0] * 0.81):,} ₽\nŁ LTC → {int(rates[1] * 0.81):,} ₽\n"
+                f"💵 USDT → {int(rates[2] * 0.98):,} ₽</blockquote>\n\n"
+                "Готовы к обмену? Нажмите кнопку ниже 👇").replace(",", " ")
+        kwargs["reply_markup"] = InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(text="💱 Обменять", callback_data="menu_exchange")]])
+    elif kind == "montera_customer":
+        text = (f"⏰ <b>Заявка #{oid} — осталось ~10 минут!</b>\n\n"
+                "Мы получили ваш файл, но платёжный партнёр принимает только <b>PDF-чек из банка</b> — фото и скриншоты он не читает.\nПришлите PDF сюда, иначе заявку придётся разбирать вручную."
+                if payload.get("has_file") else
+                f"⏰ <b>Заявка #{oid} — осталось ~10 минут!</b>\n\nПожалуйста, оплатите перевод и отправьте <b>PDF-чек</b> прямо сейчас.\nЕсли вы уже оплатили — просто перешлите чек сюда.")
+    elif kind == "montera_admin":
+        text = (f"⚠️ <b>Заявка #{oid}</b> — чек не отправлен, дедлайн через ~10 мин\n"
+                f"Montera ID: <code>{payload.get('invoice_id')}</code>")
+    elif kind == "pay_reminder":
+        amount = f"{int(payload['rub_amount']):,}".replace(",", " ")
+        text = (f"⏳ <b>Заявка #{oid} ждёт оплаты</b>\n\n{amount} ₽ → {payload['currency']}. "
+                "Курс ещё зафиксирован, но скоро истечёт.\nОплатите, чтобы получить крипту по текущему курсу. 🟣")
+        if payload.get("session_token"):
+            kwargs["reply_markup"] = InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(text="💳 Оплатить сейчас", url=f"{PUBLIC_RELAY}/pay/{payload['session_token']}")]])
+    elif kind == "payout_delayed":
+        text = (f"⏳ <b>Заявка #{oid} — выплата задерживается</b>\n\nВаша оплата получена и подтверждена, деньги у нас. "
+                f"Отправку {payload['currency']} задерживает ручная проверка — заявкой уже занимается сотрудник.\n\n"
+                "Ничего делать не нужно и повторно платить не нужно. Как только крипта уйдёт, вы получите здесь номер транзакции в блокчейне.")
+    elif kind == "winback_promo":
+        discount, valid_hours = float(payload["discount"]), int(payload["valid_hours"])
+        text = (f"🎁 <b>Персональная скидка −{discount:g}% на обмен</b>\n\nВаша заявка истекла, и мы хотим предложить условия лучше: "
+                f"скидка <b>уже активирована</b> — просто создайте новую заявку в течение {valid_hours} часов.\n\n"
+                f"Промокод на всякий случай: <code>/promo {payload['code']}</code>")
+        kwargs["reply_markup"] = InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(text="💱 Создать заявку со скидкой", callback_data="menu_exchange")]])
+        post_sent = lambda: _active_promos.__setitem__(recipient_id, (int(payload["code_id"]), discount))
+    else:
+        raise RuntimeError("unknown_bot_notification_kind")
+    return recipient_id, text, kwargs, post_sent
+
+
+async def _dispatch_hardened_bot_notification_jobs(*, limit=200):
+    handled = 0
+    for _ in range(max(1, int(limit))):
+        item = _bot_notifications.claim_notification()
+        if not item:
+            break
+        job_id = int(item["id"])
+        token = str(item.get("attempt_token") or "")
+        try:
+            recipient_id, text, kwargs, post_sent = _render_hardened_notification(item)
+        except Exception as exc:
+            digest = _notification_receipt_sha256({
+                "job_id": job_id, "attempt_token": token,
+                "phase": "RENDER", "error_type": type(exc).__name__,
+            })
+            try:
+                _bot_notifications.mark_local_manual(
+                    job_id, attempt_token=token, reason_code="RENDER_INVALID",
+                    evidence_sha256=digest)
+            except Exception as state_exc:
+                logger.critical("bot notification render state persistence failed job=%s type=%s",
+                                job_id, type(state_exc).__name__)
+            logger.critical("bot notification render failed job=%s type=%s", job_id, type(exc).__name__)
+            break
+        correlation = str(uuid.uuid4())
+        try:
+            permit = _bot_notifications.pre_submit(
+                job_id, attempt_token=token, client_correlation_id=correlation)
+        except Exception as exc:
+            logger.critical("bot notification pre-submit unavailable job=%s type=%s",
+                            job_id, type(exc).__name__)
+            break
+        if permit != "ALLOW":
+            logger.warning("bot notification pre-submit denied job=%s outcome=%s", job_id, permit)
+            continue
+        try:
+            message = await bot.send_message(recipient_id, text, **kwargs)
+        except Exception as exc:
+            observed_at = datetime.now(timezone.utc)
+            outcome = "UNCERTAIN"
+            reason = "TRANSPORT_UNCERTAIN"
+            digest = _notification_receipt_sha256({
+                "job_id": job_id, "attempt_token": token, "recipient_id": recipient_id,
+                "client_correlation_id": correlation, "outcome": outcome,
+                "error_type": type(exc).__name__,
+            })
+            try:
+                evidence = _bot_notifications.record_delivery_evidence(
+                    job_id, attempt_token=token, client_correlation_id=correlation,
+                    outcome=outcome,
+                    provider_request_id=None, provider_message_id=None,
+                    reason_code=reason, response_sha256=digest, observed_at=observed_at)
+                if not evidence or not _bot_notifications.mark_notification_manual(
+                        job_id, attempt_token=token, evidence_id=evidence):
+                    raise RuntimeError("uncertain_notification_not_finalized")
+            except Exception as evidence_exc:
+                logger.critical("bot notification evidence persistence failed job=%s type=%s",
+                                job_id, type(evidence_exc).__name__)
+            break
+        accepted_evidence_id = None
+        try:
+            message_id = int(message.message_id)
+            returned_chat = int(message.chat.id)
+            if message_id <= 0 or returned_chat != recipient_id:
+                raise RuntimeError("telegram_receipt_mismatch")
+            provider_message_id = str(message_id)
+            digest = _notification_receipt_sha256({
+                "job_id": job_id, "attempt_token": token, "recipient_id": recipient_id,
+                "client_correlation_id": correlation, "provider_message_id": provider_message_id,
+            })
+            evidence = _bot_notifications.record_delivery_evidence(
+                job_id, attempt_token=token, client_correlation_id=correlation,
+                outcome="ACCEPTED", provider_request_id=None, provider_message_id=provider_message_id,
+                reason_code=None, response_sha256=digest, observed_at=datetime.now(timezone.utc))
+            accepted_evidence_id = evidence
+            if not evidence or not _bot_notifications.mark_notification_sent(
+                    job_id, attempt_token=token, evidence_id=evidence):
+                raise RuntimeError("accepted_notification_not_finalized")
+            if post_sent:
+                post_sent()
+            handled += 1
+        except Exception as exc:
+            if not accepted_evidence_id:
+                try:
+                    digest = _notification_receipt_sha256({
+                        "job_id": job_id, "attempt_token": token, "recipient_id": recipient_id,
+                        "client_correlation_id": correlation, "outcome": "UNCERTAIN",
+                        "error_type": type(exc).__name__,
+                    })
+                    evidence = _bot_notifications.record_delivery_evidence(
+                        job_id, attempt_token=token, client_correlation_id=correlation,
+                        outcome="UNCERTAIN", provider_request_id=None, provider_message_id=None,
+                        reason_code="ACK_PERSISTENCE_UNCERTAIN", response_sha256=digest,
+                        observed_at=datetime.now(timezone.utc))
+                    if evidence:
+                        _bot_notifications.mark_notification_manual(
+                            job_id, attempt_token=token, evidence_id=evidence)
+                except Exception as reconciliation_exc:
+                    logger.critical("accepted notification evidence persistence failed job=%s type=%s",
+                                    job_id, type(reconciliation_exc).__name__)
+            logger.critical("accepted bot notification requires reconciliation job=%s type=%s",
+                            job_id, type(exc).__name__)
+            break
+    return handled
+
+
+async def _dispatch_bot_notification_jobs(*, limit=200):
+    """Deliver committed jobs; ambiguous external outcomes stay ``sending``."""
+    if getattr(_bot_notifications, "hardened_delivery", False):
+        return await _dispatch_hardened_bot_notification_jobs(limit=limit)
+    handled = 0
+    for _ in range(max(1, int(limit))):
+        item = _bot_notifications.claim_notification()
+        if not item:
+            break
+        payload, kind = item["payload"], item["kind"]
+        send_started = False
+        delivered_count = 0
+        delivery_failures = []
+        try:
+            oid = int(payload.get("order_id") or 0)
+            uid = int(payload.get("user_id") or 0)
+            if kind == "recall":
+                btc_rate = get_cached_rate('BTC')
+                ltc_rate = get_cached_rate('LTC')
+                usdt_rate = get_cached_rate('USDT')
+                text = (
+                    f"🟣 <b>ObsidianExchange — актуальные курсы</b>\n\n"
+                    f"<blockquote>"
+                    f"₿ BTC → {int(btc_rate * 0.81):,} ₽\n"
+                    f"Ł LTC → {int(ltc_rate * 0.81):,} ₽\n"
+                    f"💵 USDT → {int(usdt_rate * 0.98):,} ₽"
+                    f"</blockquote>\n\n"
+                    f"Готовы к обмену? Нажмите кнопку ниже 👇"
+                ).replace(",", " ")
+                reply_markup = InlineKeyboardMarkup(inline_keyboard=[[
+                    InlineKeyboardButton(text="💱 Обменять", callback_data="menu_exchange")
+                ]])
+                send_started = True
+                await bot.send_message(uid, text, reply_markup=reply_markup, parse_mode="HTML")
+            elif kind == "montera_customer":
+                text = (
+                    f"⏰ <b>Заявка #{oid} — осталось ~10 минут!</b>\n\n"
+                    f"Мы получили ваш файл, но платёжный партнёр принимает "
+                    f"только <b>PDF-чек из банка</b> — фото и скриншоты он "
+                    f"не читает.\nПришлите PDF сюда, иначе заявку придётся "
+                    f"разбирать вручную."
+                    if payload.get("has_file") else
+                    f"⏰ <b>Заявка #{oid} — осталось ~10 минут!</b>\n\n"
+                    f"Пожалуйста, оплатите перевод и отправьте <b>PDF-чек</b> прямо сейчас.\n"
+                    f"Если вы уже оплатили — просто перешлите чек сюда."
+                )
+                send_started = True
+                await bot.send_message(uid, text, parse_mode="HTML")
+            elif kind == "montera_admin":
+                text = (
+                    f"⚠️ <b>Заявка #{oid}</b> — чек не отправлен, дедлайн через ~10 мин\n"
+                    f"Montera ID: <code>{payload.get('invoice_id')}</code>"
+                )
+                for admin_id in ADMIN_IDS:
+                    send_started = True
+                    try:
+                        await bot.send_message(admin_id, text, parse_mode="HTML")
+                        delivered_count += 1
+                    except Exception as admin_exc:
+                        # Preserve the old audience semantics: one unavailable
+                        # admin must not prevent attempts to the remaining admins.
+                        delivery_failures.append(admin_exc)
+                if delivery_failures:
+                    raise delivery_failures[0]
+            elif kind == "pay_reminder":
+                token = payload.get("session_token")
+                reply_markup = None
+                if token:
+                    reply_markup = InlineKeyboardMarkup(inline_keyboard=[[
+                        InlineKeyboardButton(
+                            text="💳 Оплатить сейчас", url=f"{PUBLIC_RELAY}/pay/{token}")
+                    ]])
+                amount = f"{int(payload['rub_amount']):,}".replace(",", " ")
+                text = (
+                    f"⏳ <b>Заявка #{oid} ждёт оплаты</b>\n\n"
+                    f"{amount} ₽ → {payload['currency']}. Курс ещё зафиксирован, но скоро истечёт.\n"
+                    f"Оплатите, чтобы получить крипту по текущему курсу. 🟣"
+                )
+                send_started = True
+                await bot.send_message(
+                    uid, text, parse_mode="HTML", reply_markup=reply_markup)
+            elif kind == "payout_delayed":
+                text = (
+                    f"⏳ <b>Заявка #{oid} — выплата задерживается</b>\n\n"
+                    f"Ваша оплата получена и подтверждена, деньги у нас. "
+                    f"Отправку {payload['currency']} задерживает ручная проверка — "
+                    f"заявкой уже занимается сотрудник.\n\n"
+                    f"Ничего делать не нужно и повторно платить не нужно. "
+                    f"Как только крипта уйдёт, вы получите здесь номер "
+                    f"транзакции в блокчейне."
+                )
+                send_started = True
+                await bot.send_message(uid, text, parse_mode="HTML")
+                logger.info(f"[payout_delay] уведомлён клиент по заявке {oid}")
+            elif kind == "winback_promo":
+                discount = float(payload["discount"])
+                valid_hours = int(payload["valid_hours"])
+                code = payload["code"]
+                _active_promos[uid] = (int(payload["code_id"]), discount)
+                reply_markup = InlineKeyboardMarkup(inline_keyboard=[[
+                    InlineKeyboardButton(text="💱 Создать заявку со скидкой",
+                                         callback_data="menu_exchange")
+                ]])
+                text = (
+                    f"🎁 <b>Персональная скидка −{discount:g}% на обмен</b>\n\n"
+                    f"Ваша заявка истекла, и мы хотим предложить условия лучше: "
+                    f"скидка <b>уже активирована</b> — просто создайте новую заявку "
+                    f"в течение {valid_hours} часов.\n\n"
+                    f"Промокод на всякий случай: <code>/promo {code}</code>"
+                )
+                send_started = True
+                await bot.send_message(uid, text, parse_mode="HTML", reply_markup=reply_markup)
+                logger.info(f"winback: промо {code} → user {uid} (order {oid})")
+            else:
+                raise RuntimeError(f"unknown_bot_notification_kind:{kind}")
+            if not _bot_notifications.mark_notification_sent(item["id"]):
+                logger.critical(
+                    "Bot notification %s sent but not marked sent", item["id"])
+                break
+            handled += 1
+            if kind == "recall":
+                await asyncio.sleep(0.05)  # не спамим TG API
+        except Exception as exc:
+            explicit_failure = (
+                all(_is_explicit_notification_failure(failure)
+                    for failure in delivery_failures)
+                if delivery_failures else _is_explicit_notification_failure(exc)
+            )
+            safe_retry = (not send_started) or (
+                delivered_count == 0 and explicit_failure)
+            if safe_retry:
+                _bot_notifications.retry_notification(item["id"])
+                logger.warning("bot notification %s will retry: %s", item["id"], exc)
+            else:
+                logger.exception(
+                    "bot notification %s remains sending after uncertain outcome", item["id"])
+            break
+    return handled
+
+
+async def bot_notification_dispatcher():
+    while True:
+        try:
+            handled = await _dispatch_bot_notification_jobs(limit=200)
+            if not handled:
+                await asyncio.sleep(2)
+        except Exception as e:
+            logger.error(f"bot_notification_dispatcher error: {e}")
+            await asyncio.sleep(2)
 
 
 # ── Стоп-таймер: UUID сообщения для Montera-оператора при задержке чека ──────
@@ -11696,12 +11119,9 @@ async def stoptimer_cmd(message: Message):
         return
     parts = message.text.split()
     order_id = parts[1] if len(parts) > 1 else "?"
-    with db_conn(5) as conn:
-        c = conn.cursor()
-        c.execute("SELECT montera_invoice_id, rub_amount FROM orders WHERE order_id=?", (order_id,))
-        row = c.fetchone()
-    inv_id = row[0] if row else "—"
-    amt    = row[1] if row else "?"
+    row = _order_reads.snapshot(order_id) if str(order_id).isdigit() else None
+    inv_id = row["montera_invoice_id"] if row else "—"
+    amt = row["rub_amount"] if row else "?"
     await message.answer(
         f"🛑 <b>Стоп-таймер — Заявка #{order_id}</b>\n\n"
         f"Montera Deal ID: <code>{inv_id}</code>\n"
@@ -11714,7 +11134,9 @@ async def stoptimer_cmd(message: Message):
 
 
 async def main():
-    _unlock_payout_wallets()   # secure BTC/LTC для авто-выплат (best-effort)
+    # Runtime services never create or repair schema.  Prove the canonical
+    # deployment migrations are present before starting any background work.
+    _runtime_schema.validate(profile="bot")
     asyncio.create_task(balance_monitor())
     asyncio.create_task(smart_monitor())
     asyncio.create_task(verify_backups())
@@ -11724,6 +11146,7 @@ async def main():
     # Перед включением — пополнить горячие кошельки и проверить баланс через /balance,
     # затем раскомментировать строку ниже и перезапустить сервис.
     asyncio.create_task(auto_check_payments())
+    asyncio.create_task(payout_reconciliation_task())
     asyncio.create_task(auto_check_usdt())
     asyncio.create_task(swap_status_monitor())
     asyncio.create_task(daily_post_scheduler())
@@ -11732,6 +11155,7 @@ async def main():
     asyncio.create_task(abandoned_order_reminder())
     asyncio.create_task(winback_promo_task())
     asyncio.create_task(payout_delay_notice_task())
+    asyncio.create_task(bot_notification_dispatcher())
     asyncio.create_task(limit_order_watcher())
     asyncio.create_task(recall_inactive_users())
     asyncio.create_task(dca_runner())

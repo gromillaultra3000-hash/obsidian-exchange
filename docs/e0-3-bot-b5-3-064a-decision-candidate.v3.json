@@ -1,0 +1,54 @@
+{
+  "schemaVersion": "e0-3-bot-b5-3-064a-decision-candidate.v2",
+  "project": "obsidian-exchange",
+  "route": "E0/E0.3/B5.3/064A",
+  "requestedDecision": "ACCEPT_BOUNDED_EVIDENCE_ONLY",
+  "effect": "EVIDENCE_ACCEPTANCE_ONLY",
+  "candidateStatus": "AWAITING_NEW_AUTHENTICATED_DECISION",
+  "sourceObservation": {
+    "path": "docs/e0-3-bot-b5-3-064a-production-source-refresh.v3.json",
+    "sha256": "280e0b0de3c76992ef1674ef76495a0136138c9ee6ab114ff794f8377437d104",
+    "observedAt": "2026-08-19T02:34:54Z",
+    "maximumAgeSecondsAtDecision": 86400
+  },
+  "sourceBinding": {
+    "database": "obsidian_exchange",
+    "postgresVersionNum": 170010,
+    "sourceClusterSha256": "9c26ac2556afe7f93eb8d52e2632f36e311c3fd3919d7f5bc229669f4b2bc69f",
+    "archiveSha256": "c128a7ea3f1ab12d8b02d8f3afd1a46d79c8ce93ed0b9aaae9d9357b2eff760c",
+    "tableFingerprintSha256": "783cefa3415bd329e9bee89fd82d44a56d3b1aa97929395f37cca3fd4a68326d",
+    "catalogFingerprintSha256": "0cb79cb12d1140be628784d9aa680646b6e2d45e7f7ca730271f269355008b25",
+    "catalogCoverageVersion": "b64-catalog-security-fingerprint.v2"
+  },
+  "immutablePriorState": {
+    "priorDecisionInputPath": "docs/e0-3-bot-b5-3-064a-decision-input.v1.json",
+    "priorDecisionInputSha256": "f8abf0cb858232df2497221c44a319975403ccb7a8e2d2403bd57bda8c904bbb",
+    "priorCandidatePath": "docs/e0-3-bot-b5-3-064a-decision-candidate.v2.json",
+    "priorCandidateSha256": "760ef8b1a6848ce782dea27c0e3da672ce79f264590b40b1fbd47b25c2dbc99e",
+    "activeDeferralPath": "docs/e0-3-bot-b5-3-064a-owner-deferral.v2.json",
+    "activeDeferralSha256": "e5d76a90c4f750ef936eb125eda011678a91ae7c76e794cd9dae634a46973ffb",
+    "activeDeferralBindsPriorCandidateOnly": true,
+    "activeDeferralRemainsRestrictive": true
+  },
+  "knownBlockers": [
+    "ACCOUNTABLE_OWNER_MUST_AUTHENTICALLY_ACCEPT_OR_RE_DEFER_THIS_EXACT_CANDIDATE_DIGEST",
+    "APPLICABLE_INDEPENDENT_REVIEWER_MUST_AUTHENTICALLY_ACCEPT_THIS_EXACT_CANDIDATE_DIGEST",
+    "PRODUCTION_KEY_REGISTRY_TRUSTED_TIME_REVOCATION_AND_DURABLE_REPLAY_ACCEPTANCE_ABSENT",
+    "1_PENDING_MUST_DRAIN_OR_BE_RECONCILED_BEFORE_ANY_MIGRATION",
+    "13_LEGACY_SENDING_REQUIRE_SEPARATE_064D_IMMUTABLE_OPERATOR_DISPOSITION"
+  ],
+  "authority": {
+    "freshnessCanInvalidate": true,
+    "freshnessCanAuthorize": false,
+    "ownerApprovalPresent": false,
+    "independentReviewerApprovalPresent": false,
+    "productionMutation": false,
+    "productionExpandAuthorized": false,
+    "deploymentAuthorized": false,
+    "restartAuthorized": false,
+    "cutoverAuthorized": false,
+    "telegramDeliveryAuthorized": false,
+    "ambiguousSendingDispositionAuthorized": false,
+    "actionAllowed": false
+  }
+}

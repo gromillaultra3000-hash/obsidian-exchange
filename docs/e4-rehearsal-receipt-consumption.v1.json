@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "e4-rehearsal-receipt-consumption-evidence.v1",
+  "stage": "E4",
+  "gate": "DISPOSABLE_FULL_SNAPSHOT_REHEARSAL",
+  "recordedAtUtc": "2026-08-22T17:15:44Z",
+  "status": "IN_PROGRESS",
+  "scope": "KEYLESS_TEST_ONLY_RECEIPT_CONSUMPTION_BOUNDARY",
+  "implementation": {
+    "authorizationPath": "relay/core/e4_rehearsal_runner_authorization.py",
+    "consumptionPath": "relay/core/e4_rehearsal_receipt_consumption.py",
+    "testPath": "tests/test_e4_rehearsal_receipt_consumption.py",
+    "authorizationSha256": "ece7487ce8b7def576725bd5fa5ccce2f859a8800e7f93b2cd6789a4cfd9cb60",
+    "boundarySha256": "deebd96614a2a2760b930e602e4806ac3f8e62654fa1d4082554407446a3e5de",
+    "consumptionSha256": "53346850460a5451fad4e330fb71e0b0c105d2d813c6ec758976df7db979efaf",
+    "testSha256": "328b2cdeeaebd9d7a599bcb22d30262d5004da272c906783f54bb44d87586fc1",
+    "receiptCarriesOwnerWindow": true,
+    "receiptBindsOpaqueReferenceDigests": true,
+    "durableSingleUseLedger": true,
+    "atomicClaim": true,
+    "replayBlocked": true,
+    "ambiguousPostCommitRetryBlocked": true,
+    "productionExecutorImplemented": false
+  },
+  "syntheticVerification": {
+    "stdlibFirstConsumeReplayRecord": "PASS",
+    "stdlibConcurrentClaims": "PASS",
+    "stdlibFaultBoundaries": "PASS",
+    "pycompile": "PASS",
+    "gitDiffCheck": "PASS",
+    "pytest": "UNAVAILABLE_IN_HOST_ENVIRONMENT"
+  },
+  "securityBoundary": {
+    "temporaryLedgerPathsOnly": true,
+    "productionDatabaseContactAllowed": false,
+    "productionNetworkAllowed": false,
+    "productionCredentialsAllowed": false,
+    "proposalApplicationAllowed": false,
+    "persistentTargetAllowed": false,
+    "automaticRetryAllowed": false,
+    "promotionAllowed": false,
+    "actionAllowed": false,
+    "executionEffect": "NONE",
+    "containsSecrets": false,
+    "containsConnectionMaterial": false
+  },
+  "negativeResults": [
+    "no real owner approval or authenticated receipt exists",
+    "no pre-existing production-disconnected encrypted snapshot is available",
+    "no Docker executor was run",
+    "no production route, migration, ACL, service or database changed"
+  ],
+  "independentReview": {
+    "securityDevOps": {
+      "identity": "agent:01a02a71-7958-74e2-88a5-c529bca65072",
+      "scope": "receipt replay, trusted time, refs, phase completeness, Docker hardening, TOCTOU and cleanup",
+      "disposition": "ACCEPTED_AS_BOUNDED_PREREQUISITE_WITH_OWNER_AUTH_EXECUTOR_AND_ISOLATION_FINDINGS_RETAINED"
+    },
+    "contextAware": {
+      "identity": "agent:01a02a71-78ab-74b0-ab3a-ad4fee60e67e",
+      "scope": "active E4 route and exact next canonical slice",
+      "disposition": "ACCEPTED_AS_FORMAL_RECEIPT_CONSUMPTION_SLICE_WITH_EXPIRY_BINDING_PHASE_PARITY_AND_OWNER_AUTH_FINDINGS_RETAINED"
+    }
+  },
+  "nextCanonicalItem": "E4_OWNER_GATED_FRESH_PRODUCTION_DISCONNECTED_REHEARSAL"
+}

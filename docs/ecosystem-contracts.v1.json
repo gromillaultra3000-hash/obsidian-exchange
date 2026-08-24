@@ -1,0 +1,203 @@
+{
+  "schema": "obsidian-ecosystem-contracts.v1",
+  "asOf": "2026-08-15T07:27:30Z",
+  "canonicalRoadmap": "docs/ecosystem-master-roadmap.md",
+  "scope": "current Wallet-Exchange-KAIROS-LUMI API, data and trust boundaries",
+  "authority": "current inventory; git history is the source for superseded states",
+  "components": [
+    {
+      "id": "wallet-relay", "processBoundary": "relay-fastapi.service",
+      "servicePrincipal": "relay-svc", "exposure": "nginx public ingress to loopback FastAPI",
+      "persistence": ["PostgreSQL wallet links, sessions and projections"],
+      "custodyRole": "public addresses, ownership proofs, metadata and intents only",
+      "canHoldUserPrivateKeys": false, "logicalMoneyWriter": false,
+      "effectiveProcessMoneyWriteCapability": true, "currentlyReachableMoneyWriter": true
+    },
+    {
+      "id": "exchange", "processBoundary": "shared Relay API plus separate bot and payout worker",
+      "servicePrincipal": "relay-svc, root exchange-bot, obsidian-payout signer",
+      "exposure": "public API through Relay; Telegram through bot; signer has no public API",
+      "persistence": ["PostgreSQL orders/payments", "isolated payout wallet state"],
+      "custodyRole": "operational non-KYC exchange payout lane",
+      "canHoldUserPrivateKeys": false, "logicalMoneyWriter": true,
+      "effectiveProcessMoneyWriteCapability": true, "currentlyReachableMoneyWriter": true
+    },
+    {
+      "id": "kairos", "processBoundary": "kairos.service",
+      "servicePrincipal": "kairos-svc", "exposure": "loopback HTTP; exact public market GETs and authenticated internal routes",
+      "persistence": ["/var/lib/kairos connector, replay and engine state"],
+      "custodyRole": "external CEX custody remains at the CEX",
+      "canHoldUserPrivateKeys": false, "logicalMoneyWriter": false,
+      "effectiveProcessMoneyWriteCapability": true, "currentlyReachableMoneyWriter": false
+    },
+    {
+      "id": "lumi", "processBoundary": "lumi.service",
+      "servicePrincipal": "lumi-svc", "exposure": "loopback HTTP; exact KAIROS service paths plus protected operator API",
+      "persistence": ["/var/lib/lumi advisory state"],
+      "custodyRole": "no custody; advisory only",
+      "canHoldUserPrivateKeys": false, "logicalMoneyWriter": false,
+      "effectiveProcessMoneyWriteCapability": false, "currentlyReachableMoneyWriter": false
+    }
+  ],
+  "edges": [
+    {
+      "id": "client-wallet-relay", "from": "client", "to": "wallet-relay",
+      "transport": "HTTPS via nginx", "methodPath": "authenticated /api/wallet/* subset",
+      "schema": "route-specific Telegram initData or linked web session",
+      "authentication": "Telegram-only mutations validate initData; web proof mutations verify CSRF; linked-web CEX disconnect requires literal confirmation but currently has no explicit CSRF verification",
+      "authorization": "owner principal is derived server-side; arbitrary caller address or ownerRef is not trusted",
+      "allowedData": ["public address", "ownership proof", "portfolio projection", "bounded wallet intent"],
+      "forbiddenData": ["seed", "private key", "CEX credential", "caller-supplied trusted ownerRef"],
+      "stateEffect": "BOUNDED_MUTATION", "failureSemantics": "authentication or ownership ambiguity denies access"
+    },
+    {
+      "id": "wallet-exchange-in-process", "from": "wallet-relay", "to": "exchange",
+      "transport": "same Relay process and PostgreSQL trust domain", "methodPath": "portfolio/order projection and explicit exchange workflows",
+      "schema": "repository/domain contracts",
+      "authentication": "inherits verified Relay request principal",
+      "authorization": "read projections remain separate from explicit Exchange money writers",
+      "allowedData": ["owner-scoped order history", "fulfilled delivery projection", "exchange intent reference"],
+      "forbiddenData": ["user wallet private key", "CEX credential", "implicit money mutation from a read path"],
+      "stateEffect": "READ_ONLY_OR_EXPLICIT_WORKFLOW", "failureSemantics": "unknown state is unavailable or review, never fabricated success"
+    },
+    {
+      "id": "relay-kairos-market", "from": "wallet-relay", "to": "kairos",
+      "transport": "loopback HTTP", "methodPath": "GET /api/market/quotes",
+      "schema": "bounded public quote projection",
+      "authentication": "public exact GET inside loopback boundary",
+      "authorization": "fixed asset allowlist and response validator",
+      "allowedData": ["asset symbol", "provider", "price", "timestamp"],
+      "forbiddenData": ["customer principal", "balance", "credential", "trade intent"],
+      "stateEffect": "READ_ONLY", "failureSemantics": "fail-soft market unavailable; Wallet and Exchange remain available"
+    },
+    {
+      "id": "relay-kairos-connectors-read", "from": "wallet-relay", "to": "kairos",
+      "transport": "loopback HTTP with canonical Ed25519 request", "methodPath": "GET /internal/v1/connectors and /internal/v1/connector-events",
+      "schema": "connector-list.v1 and connector-events.v1",
+      "authentication": "Relay service key, timestamp, nonce, body hash and replay guard",
+      "authorization": "connectors:read with server-derived opaque principal",
+      "allowedData": ["owner-scoped connector state", "sanitized lifecycle events"],
+      "forbiddenData": ["browser ownerRef", "vaultRef", "credential", "raw provider response"],
+      "stateEffect": "READ_ONLY", "failureSemantics": "unavailable response; no empty-success fabrication"
+    },
+    {
+      "id": "relay-kairos-disconnect", "from": "wallet-relay", "to": "kairos",
+      "transport": "loopback HTTP with canonical Ed25519 request", "methodPath": "DELETE /internal/v1/connectors/{source_id}",
+      "schema": "connector-operation.v1",
+      "authentication": "Relay service key, timestamp, nonce, body hash and replay guard",
+      "authorization": "connectors:write with server-derived opaque principal and exact source",
+      "allowedData": ["source id", "owner-scoped revocation request"],
+      "forbiddenData": ["browser ownerRef", "credential", "automatic connector recreation"],
+      "stateEffect": "BOUNDED_MUTATION", "failureSemantics": "ambiguous revoke remains blocked/review; no blind retry as a new connector"
+    },
+    {
+      "id": "relay-kairos-connect-dormant", "from": "wallet-relay", "to": "kairos",
+      "transport": "loopback HTTP with canonical Ed25519 request", "methodPath": "POST /internal/v1/connectors:connect",
+      "schema": "connector-operation.v1",
+      "authentication": "Relay service key, timestamp, nonce, body hash and replay guard",
+      "authorization": "connectors:write with server-derived opaque principal; no product/UI producer is currently enabled",
+      "allowedData": ["bounded provider/account request", "raw apiKey and apiSecret crossing the signed dormant edge for immediate KAIROS vault sealing"],
+      "forbiddenData": ["browser ownerRef", "raw credential in Wallet response", "withdrawal permission", "transfer permission", "trade permission"],
+      "stateEffect": "DORMANT_BOUNDED_MUTATION", "failureSemantics": "no enabled product producer; secret sealing or permission verification failure blocks connection and no secret is returned"
+    },
+    {
+      "id": "relay-kairos-shadow-dormant", "from": "wallet-relay", "to": "kairos",
+      "transport": "loopback HTTP with canonical Ed25519 request", "methodPath": "POST /internal/v1/shadow-decisions",
+      "schema": "shadow-submission.v1",
+      "authentication": "shared Relay service identity with separate exact shadow:write scope, timestamp, nonce, body hash and replay guard",
+      "authorization": "shadow:write; runtime producer and operational readiness remain disabled",
+      "allowedData": ["privacy-minimized advisory shadow submission"],
+      "forbiddenData": ["credential", "raw balance", "money execution authority"],
+      "stateEffect": "DORMANT_ADVISORY_APPEND", "failureSemantics": "unready journal rejects; never calls LUMI or execution code"
+    },
+    {
+      "id": "kairos-lumi-register", "from": "kairos", "to": "lumi",
+      "transport": "loopback HTTP with separate Bearer service credential", "methodPath": "POST /integration/hosts/register",
+      "schema": "bounded host registration",
+      "authentication": "LUMI_KAIROS_TOKEN on one exact POST path",
+      "authorization": "service allowlist does not open scanner, sandbox, apply or operator routes",
+      "allowedData": ["hostAppId", "displayName", "appType", "version", "description", "allowedModes", "eventsSupported"],
+      "forbiddenData": ["seed", "private key", "CEX credential", "account id", "wallet address", "raw balance", "money intent"],
+      "stateEffect": "BOUNDED_AUDIT_REGISTRATION", "failureSemantics": "best-effort registration failure does not authorize or block execution"
+    },
+    {
+      "id": "kairos-lumi-advisory", "from": "kairos", "to": "lumi",
+      "transport": "loopback HTTP with separate Bearer service credential", "methodPath": "POST /conflict/resolve",
+      "schema": "current committee advisory projection",
+      "authentication": "LUMI_KAIROS_TOKEN on one exact POST path",
+      "authorization": "service allowlist does not open scanner, sandbox, apply or operator routes",
+      "allowedData": ["committee role/vote/confidence/reason", "bounded netPct/netUsdt context"],
+      "forbiddenData": ["seed", "private key", "CEX credential", "account id", "wallet address", "raw balance", "money intent"],
+      "stateEffect": "ADVISORY_ONLY", "failureSemantics": "current bridge preserves committee verdict and has no execution effect; it is not the future E2 money gate"
+    },
+    {
+      "id": "operator-kairos-control", "from": "authorized-operator", "to": "kairos",
+      "transport": "loopback/proxied HTTP operator surface", "methodPath": "deny-by-default protected operator routes",
+      "schema": "typed operator API contracts",
+      "authentication": "operator Bearer kept in memory only",
+      "authorization": "exact protected routes; public route allowlist is separate",
+      "allowedData": ["bounded configuration", "status", "explicit mode controls"],
+      "forbiddenData": ["credential in URL/log/browser storage", "unpersisted direct trade authorization"],
+      "stateEffect": "CONTROL_PLANE_MUTATION", "failureSemantics": "missing or invalid auth denies; legacy direct trade remains HOLD"
+    },
+    {
+      "id": "operator-lumi-control", "from": "authorized-operator", "to": "lumi",
+      "transport": "loopback/protected HTTP operator surface", "methodPath": "protected LUMI routes outside exact KAIROS service allowlist",
+      "schema": "LUMI operator contracts",
+      "authentication": "protected-mode operator token",
+      "authorization": "KAIROS service token cannot access scanner, sandbox, apply or operator routes",
+      "allowedData": ["advisory configuration", "sanitized status and evidence"],
+      "forbiddenData": ["money execution authority", "wallet key", "CEX credential through advisory path"],
+      "stateEffect": "ADVISORY_CONTROL_MUTATION", "failureSemantics": "missing or invalid auth denies; advisory failure grants no money authority"
+    },
+    {
+      "id": "market-providers-kairos", "from": "public-market-providers", "to": "kairos",
+      "transport": "provider HTTPS APIs", "methodPath": "public quotes for allowlisted exchanges/assets",
+      "schema": "provider-specific response normalized to bounded quote contract",
+      "authentication": "public market endpoints",
+      "authorization": "read-only adapters with timeout and validation",
+      "allowedData": ["public quote", "provider timestamp"],
+      "forbiddenData": ["customer identity", "credential", "trade instruction"],
+      "stateEffect": "READ_ONLY", "failureSemantics": "provider failure degrades quotes and does not create a price or action"
+    },
+    {
+      "id": "kairos-cex-engine-dormant", "from": "kairos", "to": "external-cex",
+      "transport": "provider private API adapters", "methodPath": "live-capable engine code without an authorized Wallet execution route",
+      "schema": "provider-specific",
+      "authentication": "dedicated connector credential when explicitly provisioned; no active user CEX credential evidenced",
+      "authorization": "current HTTP policy holds execution; future trade/read must forbid withdrawal and transfer",
+      "allowedData": ["read-only capability proof", "future bounded trade intent after later gates"],
+      "forbiddenData": ["withdrawal", "internal transfer", "unpersisted trade", "blind retry"],
+      "stateEffect": "DORMANT_MONEY_CAPABILITY", "failureSemantics": "unknown submit outcome requires reconciliation and manual review"
+    },
+    {
+      "id": "exchange-payment-providers", "from": "exchange", "to": "payment-providers",
+      "transport": "provider HTTPS APIs and verified callbacks", "methodPath": "invoice creation, polling and callback contracts",
+      "schema": "provider-specific adapter normalized to payment state machine",
+      "authentication": "provider credentials outbound and verified provider evidence inbound",
+      "authorization": "forward-only payment transition through repository boundary",
+      "allowedData": ["order amount", "provider invoice reference", "bounded payment status"],
+      "forbiddenData": ["user wallet private key", "unverified callback status as authority"],
+      "stateEffect": "MONEY_STATE_MUTATION", "failureSemantics": "unknown provider outcome remains pending/review and is reconciled"
+    },
+    {
+      "id": "exchange-payout-signer", "from": "exchange", "to": "isolated-signer-and-chains",
+      "transport": "database payout intent queue plus chain RPC", "methodPath": "immutable intent claim, sign, broadcast and reconciliation",
+      "schema": "payout intent and notification outbox contracts",
+      "authentication": "separate obsidian-payout OS principal and signer-only vault",
+      "authorization": "bounded supported chains, destination, amount and idempotency key",
+      "allowedData": ["immutable payout parameters", "transaction evidence"],
+      "forbiddenData": ["customer seed", "bot-held signer password", "automatic retry after uncertain broadcast"],
+      "stateEffect": "MONEY_EXECUTION", "failureSemantics": "uncertain signer or broadcast result becomes terminal review until exact reconciliation"
+    }
+  ],
+  "dataClasses": [
+    {"id": "public-market", "allowedRecipients": ["wallet-relay", "kairos", "client"]},
+    {"id": "portfolio-public", "allowedRecipients": ["authenticated owner", "wallet-relay", "owner-scoped kairos projection"]},
+    {"id": "financial-private", "allowedRecipients": ["authenticated owner", "bounded exchange workflow"]},
+    {"id": "identity-kyc", "allowedRecipients": ["authenticated owner", "specific external CEX connector"]},
+    {"id": "cex-credentials", "allowedRecipients": ["dedicated connector vault only"]},
+    {"id": "signing-secrets", "allowedRecipients": ["isolated payout signer or native device only"]},
+    {"id": "advisory-evidence", "allowedRecipients": ["kairos", "lumi", "authorized operator"]}
+  ]
+}

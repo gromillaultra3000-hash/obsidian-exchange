@@ -1,0 +1,65 @@
+{
+  "schema": "obsidian.e0-3-bot-b5-3-hardened-delivery-rehearsal.v1",
+  "stage": "E0.3",
+  "status": "IN_PROGRESS",
+  "observedAt": "2026-08-17T00:08:38Z",
+  "accountableOwner": "project-owner",
+  "scope": "hardened delivery lifecycle only; producer and runtime cutover are excluded",
+  "proposal": {
+    "path": "deploy/postgres/proposals/058_e0_bot_b5_3_hardened_delivery_lifecycle.sql",
+    "sha256": "f50acf4fff7f8ed74f852ad282906ba34c62215c18c0c1c226a267964d8c0371",
+    "productionMigration": false,
+    "transactional": true
+  },
+  "tests": [
+    {
+      "path": "tests/test_e0_3_bot_b5_3_hardened_delivery_rehearsal.py",
+      "sha256": "f73b777fc898308cac286f30602dbef27ed9c5e0ee192cd1f9a33cf7c8901de9",
+      "result": "PASS_DISPOSABLE_POSTGRESQL_17"
+    },
+    {
+      "path": "tests/test_e0_3_bot_b5_3_hardened_delivery_contract.py",
+      "sha256": "bec6088616489bc3f01f1af3a1dcaf79f12233e2033532279ed3aabfaeddb935",
+      "result": "PASS"
+    }
+  ],
+  "acceptanceEvidence": [
+    "each claim receives a PostgreSQL-generated UUID token and immutable attempt row",
+    "eight concurrent claimers receive four unique jobs and four unique tokens",
+    "terminal evidence is single-assignment per attempt; conflicting ACCEPTED and NOT_STARTED evidence fails closed",
+    "provider request and message identifiers are TELEGRAM/BOT_API scoped and globally unique",
+    "sent, retry-pre-submit and manual transitions require the exact token and assigned evidence",
+    "retry rotates the token and stale token/evidence cannot mutate the next attempt",
+    "max attempts transitions to MANUAL rather than stranding a pending row",
+    "injected job transition fault rolls back evidence consumption",
+    "delivery and transport logins have disjoint execute-only function sets and zero direct relation privileges",
+    "legacy shared bot execute on ID-only claim/sent/retry is revoked in the rehearsal"
+  ],
+  "surfaceMatrix": {
+    "telegramBot": "REQUIRED",
+    "website": "N/A",
+    "miniApp": "N/A",
+    "admin": "OPERATOR_ONLY",
+    "api": "N/A",
+    "nativeApp": "N/A"
+  },
+  "productionAuthorization": false,
+  "productionChanged": false,
+  "rollout": "NO_ROLLOUT: proposal 058 is an isolated lifecycle rehearsal and is intentionally incompatible with proposal-048 producers",
+  "rollback": "the disposable rehearsal transaction/container was removed; production has no 058 objects",
+  "independentReview": {
+    "reviewers": ["b53_hardened_review", "b53_hardened_sql", "b53_runtime_contract"],
+    "criticalFindingResolved": "single-assignment terminal evidence now prevents ACCEPTED versus NOT_STARTED race",
+    "verdict": "LIFECYCLE_REHEARSAL_ACCEPTABLE_CANARY_REJECTED"
+  },
+  "remainingBlockers": [
+    "replace proposal-048 producers with server-clock functions and versioned database policy",
+    "materialize one immutable job per concrete admin recipient instead of mutable runtime fan-out",
+    "add a distinct background producer principal and exact producer execute set",
+    "define stale-SENDING reconciliation without blind retry",
+    "build expand/backfill/validate/contract production migration and handle legacy sent/manual rows",
+    "wire adapter and dispatcher to token/evidence APIs and provider receipts",
+    "add operational indexes, retention, metrics, runbook and migration rollback rehearsal"
+  ],
+  "nextPrerequisite": "proposal 059 server-time, policy-bound, per-recipient producers with a distinct background principal"
+}

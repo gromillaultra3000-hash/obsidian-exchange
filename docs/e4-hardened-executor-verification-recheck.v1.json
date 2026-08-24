@@ -1,0 +1,64 @@
+{
+  "schemaVersion": "e4-hardened-executor-verification-recheck.v1",
+  "recordedOnUtc": "2026-08-23",
+  "stage": "E4",
+  "gate": "DISPOSABLE_FULL_SNAPSHOT_REHEARSAL",
+  "route": "E4_OWNER_GATED_FRESH_PRODUCTION_DISCONNECTED_REHEARSAL",
+  "status": "IN_PROGRESS",
+  "production": {
+    "dockerExecutionPerformed": false,
+    "postgresqlContactPerformed": false,
+    "productionServiceContacted": false,
+    "secretOrPrivateKeyAccessed": false,
+    "currentReplayClaimRetried": false,
+    "fileBackedGateInvoked": false,
+    "snapshotDecrypted": false,
+    "authorityChanged": false
+  },
+  "verification": {
+    "hardenedExecutorStdlibUnittest": {
+      "command": "python3 tests/test_e4_hardened_executor.py",
+      "result": "PASS",
+      "passed": 10
+    },
+    "authoritativeCallbacksStdlibUnittest": {
+      "command": "python3 tests/test_e4_authoritative_gate_callbacks.py",
+      "result": "PASS",
+      "passed": 3
+    },
+    "hardenedPreflightStdlibUnittest": {
+      "result": "PASS",
+      "passed": 3
+    },
+    "replayRegistryStdlibUnittest": {
+      "result": "PASS",
+      "passed": 6
+    },
+    "ownerReviewerVerifierStdlibUnittest": {
+      "result": "PASS",
+      "passed": 3
+    },
+    "pythonCompilation": "PASS",
+    "gitDiffCheck": "PASS",
+    "pytestAvailability": "UNAVAILABLE_IN_HOST",
+    "broadUnittestDiscovery": {
+      "collected": 42,
+      "pytestImportErrors": 14,
+      "countedAsGateEvidence": false
+    }
+  },
+  "handoff": {
+    "snapshotManifestStatus": "STAGED_NOT_AUTHORIZED",
+    "snapshotUsableForExecution": false,
+    "authenticatedOwnerDecision": false,
+    "freshEligibleSingleUseReceipt": false,
+    "approvedEphemeralKeyFdHandoff": false,
+    "explicitSnapshotRetentionOrTeardownDecision": false
+  },
+  "disposition": {
+    "gateAccepted": false,
+    "executionAllowed": false,
+    "moneyActionAllowed": false,
+    "nextCanonicalItem": "SUPPLY_FRESH_AUTHENTICATED_OWNER_RECEIPT_AND_APPROVED_EPHEMERAL_KEY_HANDOFF"
+  }
+}

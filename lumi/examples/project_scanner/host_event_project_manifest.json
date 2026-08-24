@@ -1,0 +1,14 @@
+{
+  "eventId": "event-project-manifest-001",
+  "hostAppId": "sample_desktop_app",
+  "eventType": "custom",
+  "payload": {
+    "subtype": "project_manifest",
+    "projectManifest": {
+      "projectId": "sample_project",
+      "displayName": "Sample Project",
+      "projectType": "python",
+      "allowedScanModes": ["manifest_only", "snapshot", "static_inspection", "improvement_plan"]
+    }
+  }
+}

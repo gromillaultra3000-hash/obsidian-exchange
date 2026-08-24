@@ -1,0 +1,71 @@
+{
+  "schemaVersion": "e0-4-payment-provider-lifecycle-runtime-observation.v1",
+  "observedAt": "2026-08-18T17:49:23Z",
+  "route": "E0/E0.4/PAYMENT_PROVIDER_LIFECYCLE",
+  "acceptance": "PARTIAL_NOT_ACCEPTED",
+  "workClass": "KEYLESS_READ_ONLY_DEPLOYED_SOURCE_CLASSIFICATION",
+  "productionMutation": false,
+  "observationSafety": {"authenticatedCalls":false,"providerCalls":false,"customerRowsRead":false,"secretValuesRead":false,"writersExercised":false,"deployOrRestart":false},
+  "runtime": {
+    "relay": {"active":true,"user":"relay-svc","group":"relay-svc","mainPid":1829014,"nRestarts":0},
+    "bot": {"active":true,"user":"root","mainPid":15516,"nRestarts":0},
+    "admin": {"active":true,"user":"root","mainPid":15506,"nRestarts":0}
+  },
+  "deployedEntrypoints": [
+    {"path":"/opt/obsidian-exchange/relay-fastapi/main.py","sha256":"c1ef783e3005f4698540ddc5368ef9a4592612fcf666b403ecbb7c4a359bd7ff","checkoutByteEqual":false},
+    {"path":"/opt/obsidian-exchange/bot/main_bot.py","sha256":"a015b5b12870fa2f1eec7d0fb638cc2c94cb90235850d474ebb25455446372fb"},
+    {"path":"/opt/obsidian-exchange/relay/services/payment_service.py","sha256":"727af4b63d4b45edded4e5ccb5c6743e6ea752050b76aaa7db26e32a1ff3f36a","checkoutByteEqual":true},
+    {"path":"/opt/obsidian-exchange/relay/services/payout_guard.py","sha256":"f5c2938f7c319097a2fb5d92afaf6f64bcd1ea70157df5b662d8bce39feffc5d"},
+    {"path":"/opt/obsidian-exchange/relay/services/smart_router.py","sha256":"0db451c341816ee877efc2f45db4bb9c389f3cff8199951d7a14dab56f5f10a4","checkoutByteEqual":true},
+    {"path":"/opt/obsidian-exchange/relay/repositories/payment_transition_store.py","sha256":"c02cc8b6b6464fd33cf77600eca7a142759ef5174b0e737bfe8097dc66d5f527","checkoutByteEqual":false},
+    {"path":"/opt/obsidian-exchange/relay/repositories/payment_session_store.py","sha256":"eb41d099a06beac4251190d10221467bdca4b21db7bc97dba687dd8d40653b8e","checkoutByteEqual":false},
+    {"path":"/opt/obsidian-exchange/relay/providers/greenpay.py","sha256":"9a0d0da0cccfa47424a20ed4de6429fd9dc8dd4a1f8eba649ece123caeafc71d"},
+    {"path":"/opt/obsidian-exchange/relay/providers/montera.py","sha256":"4c03588a136663356bbf6abe20f71722fbbe23786646aa9ed9bd4166c1bb151e"},
+    {"path":"/opt/obsidian-exchange/relay/providers/lava.py","sha256":"9c62e7ffb449bc571fcf36ac2e7ead609e4a4d91eeda9cc8d9aa32810d24fd2c"},
+    {"path":"/opt/obsidian-exchange/relay/providers/brabus.py","sha256":"03e3eabd4d61e4617587a4822063e225be18d2e4ec9645096ed3d2f06bcf8ce2"},
+    {"path":"/opt/obsidian-exchange/relay/providers/stormtrade.py","sha256":"36d26328e2b44200652605375da4dedce183a00023df186109ed70536cc11ec3"},
+    {"path":"/opt/obsidian-exchange/relay/providers/xpayconnect.py","sha256":"fa190e7137d063b6ebd34c5ef59b04aa583a81ac0c35806243cf52d7b2ce836f"},
+    {"path":"/opt/obsidian-exchange/relay/providers/rspay.py","sha256":"d21f3f12a78e0f0d1cdc98e2d8bfea625b29319f007edc56578d079ca54520ae"},
+    {"path":"/opt/obsidian-exchange/relay/providers/vertu.py","sha256":"5fb37790eac97c105face0868749bc9da8559423bce086ded4a5c9eb70392107"}
+  ],
+  "callbackRoutes": ["/greenpay/webhook","/montera/webhook","/lava/webhook","/brabus/webhook","/stormtrade/webhook","/xpay/webhook","/rspay/webhook","/payment/callback"],
+  "authorityBoundary": {
+    "externalCustody":"External payment providers collect or mediate fiat and report outcomes; exact legal and operational custody/settlement allocation was not verified by this read-only observation.",
+    "localMoneyTruth":"Relay owns orders and payment_sessions; its pending-to-paid transition gates downstream payout and is therefore authoritative money-adjacent state.",
+    "fragmentation":"Callback, route polling, bot loops and a shared-secret manual callback are multiple evidence paths into local truth."
+  },
+  "positiveControls": [
+    "For inspected callback routes, a missing configured secret is rejected; when present, HMAC/token comparisons are constant-time.",
+    "GreenPay is retired with a 404 door before callback processing.",
+    "PaymentTransitionStore serializes/locks the transition and permits only pending-to-paid, with audit and deduplicated customer outbox in the same transaction.",
+    "Vertu status can be independently polled and RSPay refund does not blindly regress a paid order."
+  ],
+  "criticalFindings": [
+    {"severity":"CRITICAL","id":"AMBIGUOUS_SUBMIT_BEFORE_DURABLE_ATTEMPT","finding":"PaymentService calls the provider before persisting an immutable attempt, retries ambiguous failures up to three times and may escalate providers. Fresh provider request IDs plus timeout or local DB failure can create duplicate or orphan payable invoices; there is no UNKNOWN/HOLD and reconciliation-before-retry."},
+    {"severity":"HIGH","id":"NUMERIC_PAY_TOKEN_DISCLOSES_BEARER","finding":"Unauthenticated GET /pay/{token} interprets every numeric token as an order_id, looks up its latest active session and redirects to the high-entropy session bearer. Sequential IDs can therefore reveal the bearer, provider requisites/payment link, amount and lifecycle facts; even the fallback page reveals order existence and state."},
+    {"severity":"HIGH","id":"CALLBACK_NOT_BOUND_TO_PERSISTED_ATTEMPT","finding":"Authenticated callbacks map provider-controlled order identifiers into pending-to-paid without requiring the exact persisted provider, invoice/attempt, amount, currency and active session. A matching payment session is not required for the order transition."},
+    {"severity":"HIGH","id":"NO_CALLBACK_REPLAY_LEDGER","finding":"CAS prevents a second local paid transition but callback event IDs, nonce and timestamp are not durably consumed or detected."},
+    {"severity":"HIGH","id":"PAID_WITHOUT_AMOUNT_EVIDENCE","finding":"The payout guard deliberately returns no mismatch when provider amount, expected amount, imports or database reads are unavailable; a recognized provider paid status can then return confirmed without amount evidence."},
+    {"severity":"HIGH","id":"PAYMENT_EVIDENCE_NOT_CONTENT_BOUND","finding":"The transition audit stores a short caller-supplied evidence label rather than a content-bound provider event/status receipt or digest."},
+    {"severity":"HIGH","id":"PAYMENT_PAYLOAD_LOGGING","finding":"Full webhook dictionaries are written to audit and provider response/requisite bodies may enter logs. Lava bad-signature logging includes authentication-material prefixes; redaction and retention are not proven."},
+    {"severity":"HIGH","id":"FRAGMENTED_RECONCILIATION","finding":"Generic polling is a stub; status GET may perform provider I/O and mutate paid state, only Vertu has a pending-session sweep, expiry cancellation is Brabus-only, and refund/manual recovery lacks one durable reconciliation state machine."},
+    {"severity":"MEDIUM","id":"MANUAL_CONFIRM_NOT_FOUR_EYES","finding":"The manual callback uses a shared Relay secret; Telegram's same-chat four-digit challenge is not independent MFA or four-eyes authorization."},
+    {"severity":"MEDIUM","id":"DEPLOYMENT_DRIFT","finding":"Deployed Relay main and both payment stores differ from checkout, so checkout-only behavior cannot be asserted as production behavior."}
+  ],
+  "surfaceMatrix": {
+    "telegramBot":{"mode":"REQUIRED","implementation":"PARTIAL","reason":"Creates live provider invoices and exposes requisites/status; operator manual confirmation is real authority but lifecycle invariants are unaccepted."},
+    "site":{"mode":"REQUIRED","implementation":"PARTIAL","reason":"Authenticated orders create provider sessions and use bearer hosted payment pages, including the unsafe numeric legacy route."},
+    "miniApp":{"mode":"REQUIRED","implementation":"PARTIAL","reason":"Signed initData flow creates live invoices; recent-duplicate timing is heuristic rather than durable idempotency."},
+    "admin":{"mode":"OPERATOR_ONLY","implementation":"PARTIAL","reason":"Laravel provides operator-only read-only order/payment inspection but no provider lifecycle mutation or reconciliation workflow."},
+    "api":{"mode":"REQUIRED","implementation":"PARTIAL","reason":"Hosts customer status, provider callbacks and local payment truth, but has no persisted-attempt and content-bound reconciliation contract."},
+    "native":{"mode":"N/A","implementation":"NOT_IMPLEMENTED","reason":"No deployed native payment-provider lifecycle exists; future native UI must not receive provider secrets or truth-writer authority."}
+  },
+  "coverageConclusion": {"sixSurfacesClassified":true,"providerLifecycleAccepted":false,"productionAcceptanceProven":false,"e0_4Complete":false,"e0Closed":false},
+  "independentReviews": [
+    {"role":"security","disposition":"REJECT_PRODUCTION_ACCEPTANCE"},
+    {"role":"surface","disposition":"PARTIAL_NOT_ACCEPTED"},
+    {"role":"acceptance","disposition":"PARTIAL_NOT_ACCEPTED"}
+  ],
+  "limitations": ["No callback, provider, authenticated customer, database writer or secret-bearing path was exercised.","Source and unit metadata classify deployed authority but do not prove customer lifecycle correctness.","Vertu payout callback and payout guard are adjacent evidence and remain for the next canonical family."],
+  "nextCanonicalItem": "Classify PAYOUT_SETTLEMENT_RECONCILIATION across all six surfaces and verify payout truth, custody and reconciliation authority read-only."
+}

@@ -1,0 +1,12 @@
+{
+  "eventId": "event-sandbox-test-001",
+  "hostAppId": "sample_desktop_app",
+  "eventType": "custom",
+  "payload": {
+    "subtype": "sandbox_test_request",
+    "projectId": "sample_project",
+    "workspaceId": "replace-with-workspace-id",
+    "commands": ["pytest -q"],
+    "mode": "preview_only"
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "schemaVersion":"e0-4-dca-runtime-observation.v1",
+  "observedAt":"2026-08-18T02:36:00Z",
+  "route":"E0/E0.4/FEATURE_STATUS_SURFACE_MATRIX",
+  "status":"IN_PROGRESS",
+  "productionMutation":false,
+  "authenticatedCustomerAction":false,
+  "telegramDelivery":false,
+  "moneyWriterExercised":false,
+  "surfaceContractSource":"docs/e0-3-bot-b5-5-automation-gift-writers-rehearsal.v1.json#surfaceMatrix",
+  "telegramBot":{
+    "unit":{"activeState":"active","subState":"running","mainPidObserved":15516},
+    "deployedMainSha256":"a015b5b12870fa2f1eec7d0fb638cc2c94cb90235850d474ebb25455446372fb",
+    "checkoutMainSha256":"ccee5af59e59b33b22da57ea1ecf0f7d89ac4ef018a2f7817705873ff169f528",
+    "sourceDrift":true,
+    "deployedAnchors":["menu_dca","dca_confirm","dca_list","dca_cancel","dca_runner","asyncio.create_task(dca_runner())"],
+    "configuredEnvironmentNameObserved":"DCA_POSTGRES_ENABLED",
+    "configuredValueObserved":true,
+    "configuredEnabled":true,
+    "claim":"deployed source and running unit presence only; not authenticated or due-run acceptance"
+  },
+  "repository":{
+    "deployedPath":"/opt/obsidian-exchange/relay/repositories/dca_store.py",
+    "deployedAndCheckoutSha256":"d8f827cc54424c7a7a5fe75112e23e499b94e43535ccce6401c1dc4aee32956c",
+    "semantics":["create schedule","owner-scoped list","owner-scoped cancel","due scan","transactional due order insert plus schedule CAS advance"]
+  },
+  "database":{"engine":"PostgreSQL 17.10","tablePresent":true,"scheduleRows":0,"activeScheduleRows":0,"dcaAttributedOrderRows":0,"customerIdentifiersReturnedByObservation":false},
+  "admin":{"effectiveWorkingDirectory":"/opt/obsidian-exchange/admin-panel","resourceSha256":"6ab9c94732e6e4b2e8f1441b8225b0b89adc990e06a2a4b8be628f252234b3c4","readOnly":true,"schemaDrift":["resource references runs_limit but production table has no runs_limit column","resource offers paused/completed filters but table constraint allows only active/cancelled"]},
+  "negativeSurfaces":{"site":"no DCA route or template in deployed Relay scope","miniApp":"no DCA string, tab or route in deployed webapp","api":"no HTTP DCA endpoint; bot calls repository directly","native":"no DCA contract or implementation in native-wallet scope"},
+  "riskFindings":[
+    "The runner is a money writer because it creates pending orders without a separate immutable DCA execution intent/idempotency key/audit correlation record.",
+    "Schedules have no enforced run limit and recur until cancellation.",
+    "A missing rate is coerced to zero and can create a pending order with zero agreed rate and crypto amount.",
+    "The database commit precedes Telegram delivery, so notification failure can leave a silent pending order.",
+    "The label auto-purchase overstates behavior: the runner creates a payment-required order; it does not debit the customer automatically."
+  ],
+  "acceptance":"PARTIAL_NOT_ACCEPTED",
+  "blockers":["no owner-authorized authenticated create/list/cancel acceptance","no bounded non-production end-to-end due-run to payment-handoff acceptance","generic order-producing idempotency/intent blocker remains"],
+  "independentReviews":[{"identity":"agent:/root/dca_repo_inventory","disposition":"ACCEPT_WITH_RECORDED_MONEY_WRITER_AND_ADMIN_SCHEMA_DRIFT"},{"identity":"agent:/root/dca_surface_critic","disposition":"ACCEPT_TELEGRAM_ONLY_CONTRACT_PARTIAL_NOT_ACCEPTED"}],
+  "nextCanonicalItem":"Add limit orders to the six-surface E0.4 inventory with exact repository and runtime evidence."
+}

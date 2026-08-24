@@ -1,0 +1,122 @@
+{
+  "schemaVersion": "e0-4-deployed-route-feature-reconciliation.v1",
+  "observedAt": "2026-08-18T12:02:38Z",
+  "route": "E0/E0.4/DEPLOYED_ROUTE_FEATURE_RECONCILIATION",
+  "status": "IN_PROGRESS",
+  "acceptance": "PARTIAL_NOT_ACCEPTED",
+  "scope": "FIVE_HASH_BOUND_DEPLOYED_APPLICATION_ENTRYPOINTS",
+  "workClass": "KEYLESS_READ_ONLY_PRODUCTION_SOURCE_RECONCILIATION",
+  "productionMutation": false,
+  "credentialsUsed": false,
+  "secretValuesRead": false,
+  "customerDataRead": false,
+  "authenticatedCallsMade": false,
+  "externalProviderCallsMade": false,
+  "moneyWritersExercised": false,
+  "servicesObservedActive": [
+    "relay-fastapi", "exchange-bot", "support-bot", "admin-panel", "kairos",
+    "lumi", "obsidian-payout-worker", "exchange-notifier", "obsidian-monitor"
+  ],
+  "entrypoints": [
+    {"component":"relay","path":"/opt/obsidian-exchange/relay-fastapi/main.py","sha256":"c1ef783e3005f4698540ddc5368ef9a4592612fcf666b403ecbb7c4a359bd7ff"},
+    {"component":"telegramBot","path":"/opt/obsidian-exchange/bot/main_bot.py","sha256":"a015b5b12870fa2f1eec7d0fb638cc2c94cb90235850d474ebb25455446372fb"},
+    {"component":"supportBot","path":"/opt/obsidian-exchange/support_bot/support_bot.py","sha256":"3bb1a6b7764feb0a77c07eb0ae2bfba8b358c3fc9664d5075f6e6ab20bb036f2"},
+    {"component":"kairos","path":"/opt/kairos/app/main_v19.py","sha256":"05306d4120cbc545aea3b7d571de5af4f1163d830bb14a02fef9ebce416578ee"},
+    {"component":"lumi","path":"/opt/lumi/lumi/app/main.py","sha256":"bada14a32cc465a7e2e547a8ce661c263792d13bb7429c60bbe254871a4eab16"}
+  ],
+  "previouslyClassifiedFamilies": [
+    "RUB_BUY_CRYPTO", "CRYPTO_SELL_RUB", "CUSTOMER_ORDER_HISTORY",
+    "CUSTOMER_SUPPORT", "REFERRAL_PROGRAM", "DCA_SCHEDULES", "LIMIT_ORDERS",
+    "GIFT_VOUCHERS", "EXTERNAL_WALLET_LINKING", "CEX_PORTFOLIO",
+    "OPERATOR_WORKFLOWS", "NATIVE_SIGNING", "LUMI_ADVISORY"
+  ],
+  "unclassifiedFamilies": [
+    {
+      "id": "LUMI_CONTROL_PLANE",
+      "reason": "The deployed LUMI application mounts broad provider, vault, policy, project, sandbox and real-apply APIs beyond the narrow KAIROS advisory bridge; code presence is not authority or acceptance and the apparent mutation surface must be reconciled with the advisory-only charter.",
+      "anchors": ["/opt/lumi/lumi/app/main.py#include_router", "/opt/lumi/lumi/app/api/provider_runtime.py#/providers/{providerId}/allow-live", "/opt/lumi/lumi/app/api/security.py#/vault/secrets", "/opt/lumi/lumi/app/api/real_apply.py#/execute"]
+    },
+    {
+      "id": "KAIROS_AUTONOMOUS_TRADE_CONTROL",
+      "reason": "Start, stop, status, trade, ledger, memory, committee evaluation and limit controls form a trading control plane distinct from read-only CEX portfolio aggregation.",
+      "anchors": ["/opt/kairos/app/main_v19.py#/api/start", "/opt/kairos/app/main_v19.py#/api/trade", "/opt/kairos/app/main_v19.py#/api/committee/evaluate", "/opt/kairos/app/main_v19.py#/api/limits/save"]
+    },
+    {
+      "id": "SWAPS",
+      "reason": "A distinct customer crypto-to-crypto lifecycle exists in Telegram, site, Relay token routes and the operator resource; it is not RUB buy or crypto sell.",
+      "anchors": ["/opt/obsidian-exchange/bot/main_bot.py#menu_swap", "/opt/obsidian-exchange/relay-fastapi/main.py#/dashboard/swap", "/opt/obsidian-exchange/relay-fastapi/main.py#/swap/{token}", "/opt/obsidian-exchange/admin-panel/app/Filament/Resources/SwapSessionResource.php#SwapSessionResource"]
+    },
+    {
+      "id": "ACCOUNT_AUTH_PROFILE",
+      "reason": "Registration, login/logout, Telegram account binding, password and 2FA/profile lifecycle are authorization-critical and not classified by wallet linking.",
+      "anchors": ["/opt/obsidian-exchange/relay-fastapi/main.py#/register", "/opt/obsidian-exchange/relay-fastapi/main.py#/login", "/opt/obsidian-exchange/relay-fastapi/main.py#/dashboard/profile/2fa/enable", "/opt/obsidian-exchange/relay-fastapi/main.py#/auth/telegram/callback"]
+    },
+    {
+      "id": "PAYMENT_PROVIDER_LIFECYCLE",
+      "reason": "Provider routing, hosted payment pages and multiple inbound callbacks mutate payment truth and require a dedicated trust/secret/idempotency inventory.",
+      "anchors": ["/opt/obsidian-exchange/relay-fastapi/main.py#/pay/{token}", "/opt/obsidian-exchange/relay-fastapi/main.py#/payment/callback", "/opt/obsidian-exchange/relay-fastapi/main.py#/greenpay/webhook", "/opt/obsidian-exchange/relay-fastapi/main.py#/rspay/webhook"]
+    },
+    {
+      "id": "PAYOUT_SETTLEMENT_RECONCILIATION",
+      "reason": "Dedicated payout worker, notifier, payout callbacks and operator payout views are a separate money-writing lifecycle.",
+      "anchors": ["systemd#obsidian-payout-worker.service", "systemd#exchange-notifier.service", "/opt/obsidian-exchange/relay-fastapi/main.py#/vertu/payout-callback", "/opt/obsidian-exchange/admin-panel/app/Filament/Resources/PayoutQueueResource.php#PayoutQueueResource"]
+    },
+    {
+      "id": "WALLET_RECEIVE_TRANSFER",
+      "reason": "Address/receive, transfer-request and externally signed broadcast routes form an action lifecycle distinct from linking and native-signing capability.",
+      "anchors": ["/opt/obsidian-exchange/relay-fastapi/main.py#/api/wallet/receive", "/opt/obsidian-exchange/relay-fastapi/main.py#/api/wallet/send-request", "/opt/obsidian-exchange/relay-fastapi/main.py#/api/wallet/transfer-request", "/opt/obsidian-exchange/relay-fastapi/main.py#/api/wallet/send-signed"]
+    },
+    {
+      "id": "PUBLIC_MARKET_INFORMATION",
+      "reason": "Rates, widget, reserves and public statistics are a distinct unauthenticated information surface with truthfulness and freshness requirements.",
+      "anchors": ["/opt/obsidian-exchange/relay-fastapi/main.py#/rates", "/opt/obsidian-exchange/relay-fastapi/main.py#/api/widget-rates", "/opt/obsidian-exchange/relay-fastapi/main.py#/api/rates", "/opt/obsidian-exchange/relay-fastapi/main.py#/api/reserves"]
+    },
+    {
+      "id": "CUSTOMER_ENGAGEMENT",
+      "reason": "Reviews, promo handling and rate subscriptions are deployed customer features outside support/referrals.",
+      "anchors": ["/opt/obsidian-exchange/bot/main_bot.py#menu_reviews", "/opt/obsidian-exchange/bot/main_bot.py#prompt_promo", "/opt/obsidian-exchange/bot/main_bot.py#rate_sub_toggle", "/opt/obsidian-exchange/admin-panel/app/Filament/Resources/ReviewResource.php#ReviewResource"]
+    },
+    {
+      "id": "OPERATIONS_MONITORING",
+      "reason": "Public/system status, monitoring service and risk-event operator views are an operational surface not exhausted by operator mutations.",
+      "anchors": ["/opt/obsidian-exchange/relay-fastapi/main.py#/api/system-status", "systemd#obsidian-monitor.service", "/opt/obsidian-exchange/admin-panel/app/Filament/Resources/RiskEventResource.php#RiskEventResource"]
+    },
+    {
+      "id": "AI_ASSISTANT",
+      "reason": "Relay exposes a customer-facing AI ask route that is neither the KAIROS committee nor the narrow LUMI shadow advisory contract.",
+      "anchors": ["/opt/obsidian-exchange/relay-fastapi/main.py#/api/ai-ask"]
+    },
+    {
+      "id": "KAIROS_EXCHANGE_DISCOVERY",
+      "reason": "Exchange registry discovery, detail and draft-building routes form an adapter-onboarding lifecycle separate from a connected read-only portfolio.",
+      "anchors": ["/opt/kairos/app/main_v19.py#/api/exchange-registry/discover", "/opt/kairos/app/main_v19.py#/api/exchange-registry/{exchange_id}", "/opt/kairos/app/main_v19.py#/api/exchange-registry/{exchange_id}/build-draft"]
+    }
+  ],
+  "coverageConclusion": {
+    "boundedEntryPointScanComplete": false,
+    "allObservedGroupsEitherClassifiedOrRecordedUnclassified": false,
+    "sixSurfaceClassificationComplete": false,
+    "productionAcceptanceProven": false,
+    "e0GateClosed": false
+  },
+  "limitations": [
+    "Static deployed-source enumeration proves route/code presence, not reachability, authorization correctness or lifecycle acceptance.",
+    "Mounted subrouters and background workers were grouped by product lifecycle; this evidence does not claim every helper function as a user feature.",
+    "A generated exact route/handler/worker universe with one-to-one family mappings has not yet been produced; this reconciliation proves material omissions, not catalog completeness.",
+    "Nginx-only aliases, database-only capabilities and dynamically registered third-party routes remain subject to their existing E0 trust/data inventories.",
+    "No route was invoked and no secret-bearing service environment was read."
+  ],
+  "independentReviews": [
+    {
+      "reviewer": "independent-inventory-review",
+      "disposition": "PARTIAL_NOT_ACCEPTED",
+      "finding": "The thirteen-family matrix and empty omission list do not prove completeness; require an independently generated exact deployed route/handler/worker universe and retain E0 IN_PROGRESS."
+    },
+    {
+      "reviewer": "independent-route-scan",
+      "disposition": "PARTIAL_NOT_ACCEPTED",
+      "finding": "LUMI control-plane, KAIROS trade control, auth, swaps, wallet action, provider callbacks, public information, engagement, operations, AI and discovery routes are materially unclassified; LUMI is the highest-priority authority gap."
+    }
+  ],
+  "nextCanonicalItem": "Classify LUMI_CONTROL_PLANE, the first security-critical reconciled family, across the exact six surfaces and verify its authority boundary without invoking mutations."
+}

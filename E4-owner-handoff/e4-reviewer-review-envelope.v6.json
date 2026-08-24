@@ -1,0 +1,80 @@
+{
+  "schemaVersion": "e4-reviewer-review-envelope.v1",
+  "envelopeId": "e4-review-envelope-20260823-08-1787451964841",
+  "status": "READY_FOR_OFFLINE_REVIEWER_SIGNATURE",
+  "stage": "E4",
+  "route": "E4_OWNER_GATED_FRESH_PRODUCTION_DISCONNECTED_REHEARSAL",
+  "purpose": "Independent non-authoritative review of one exact owner payload, owner signature, timestamp evidence and public staging evidence.",
+  "disposition": "REVIEW_PASS_NON_AUTHORITATIVE",
+  "reviewedAtEpochMs": 1787451964841,
+  "reviewNonceSha256": "8ac48da1235a64ec5b32c556b742743359b4aceb79e18fef7f8b2b5657761587",
+  "authority": {
+    "authenticated": false,
+    "ownerApproval": false,
+    "independentReview": false,
+    "rehearsalExecutionEligible": false,
+    "executionAuthorized": false,
+    "productionDatabaseContactAllowed": false,
+    "productionNetworkAllowed": false,
+    "productionCredentialsAllowed": false,
+    "proposalApplicationAllowed": false,
+    "persistentTargetAllowed": false,
+    "automaticRetryAllowed": false,
+    "containsSecrets": false,
+    "containsConnectionMaterial": false,
+    "executionEffect": "NONE",
+    "promotionAllowed": false,
+    "actionAllowed": false
+  },
+  "reviewer": {
+    "role": "INDEPENDENT_REVIEWER",
+    "issuerId": "e4-independent-reviewer",
+    "namespace": "e4-reviewer@obsidian-exchange.local",
+    "publicKeySha256": "79013979c27cae19fc304269fd390861cb7bdd561d2ca955b96eda8a9e29a095",
+    "fingerprint": "SHA256:3YtNkuP+qf7PIcj9AmqSSTLr+Ocd4luwbeQSB8oRNq4",
+    "trustRootId": "e4-owner-reviewer-anchors-20260822-v4"
+  },
+  "ownerPayload": {
+    "payloadRef": "e4-owner-decision-payload.v12.json",
+    "payloadId": "e4-owner-decision-payload-20260823-13-1787451789312",
+    "payloadSha256": "d2a9902a8424fbf37ec204bd2b867d952a5472f0297625d50354a1d9ab22a778",
+    "ownerSignatureRef": "e4-owner-decision-payload.v12.json.sig",
+    "ownerSignatureSha256": "c53ff149ec3f6d7068718eee3c0596be830e0e1dc73c906d168ca0fb1905dad3",
+    "ownerIssuerId": "e4-owner-signing-v2",
+    "ownerFingerprint": "SHA256:G4szs+1DvEQygs3LZS1LDNNRyBYLUHZuX0a7C/gRjII",
+    "approvedAtEpochMs": 1787451789312,
+    "expiresAtEpochMs": 1787453589312
+  },
+  "timestampEvidence": {
+    "ref": "e4-owner-decision-payload.v12.json.sig.digicert-rfc3161-evidence.v1.json",
+    "sha256": "4fbf6e6cd0f835fb9299dc225624740673ee4a43c01abab992100261be03b8df",
+    "provider": "DigiCert",
+    "verified": true,
+    "boundSignatureSha256": "c53ff149ec3f6d7068718eee3c0596be830e0e1dc73c906d168ca0fb1905dad3"
+  },
+  "binding": {
+    "planId": "e4rrp_73040dd58161e760075b961004c173966291a8d33344f248cf6a43ec75893ffd",
+    "planSourceSha256": "eb70458a03fdb5b744f44f0fd390e78f17a65226e2a48b2c763db3ff2623cc2c",
+    "evidenceManifestSha256": "2489745da1fd584c3d77965ebc7b4776ddad3115bcbea5dc7a623fc3d2981a03",
+    "stagedManifestSha256": "c9d94148fe163a284e8ad6df3640e4da9be1f2a090ea7d873e8a7d9bcab2594a",
+    "targetRef": "e4-disposable-pg-20260822-02",
+    "targetFingerprintSha256": "3545e043156cd9023d46a5ebaaa12f0c964ceea2887cea79c9703395a1588ad3",
+    "snapshotRefSha256": "d56f226fb3c38cc40f7265d1d15c2c751211bb86ff1beba655f82f99d5d4b619",
+    "snapshotSha256": "47efc0dc293890243072bdf048d40cbcc1fee8fbe719e4b841fb5d156f658b3e",
+    "keyRefSha256": "c7e21692ac64774b4229807d5b11338df72f722247a1bcebb22d54667a102109",
+    "immutableHandle": "fs-801-2412135",
+    "scope": "ONE_E4_ISOLATED_FULL_SNAPSHOT_REHEARSAL",
+    "invocationLimit": 1
+  },
+  "checks": {
+    "ownerSignatureBoundToExactPayload": true,
+    "ownerKeyMatchesV4TrustCandidate": true,
+    "reviewerKeyMatchesV4TrustCandidate": true,
+    "ownerSignatureTimestampEvidenceVerified": true,
+    "snapshotIsEncryptedAndImmutableAtStaging": true,
+    "targetWasOwnerSelectedButNotAuthenticated": true,
+    "productionContactAndCredentialsExcluded": true,
+    "executionAuthorityGranted": false
+  },
+  "nextAction": "Verify the owner signature, exact binding, DigiCert evidence, staging evidence and freshness independently; sign this exact envelope with reviewer-signing-v2. A real verifier must still accept both signatures, authenticated registry and replay state before any executor eligibility."
+}

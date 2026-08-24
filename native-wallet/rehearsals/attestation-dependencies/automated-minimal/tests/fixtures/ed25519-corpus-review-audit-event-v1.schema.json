@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.obsidian.invalid/native-wallet/ed25519-corpus-review-audit-event-v1.schema.json",
+  "title": "Minimized append-only corpus-review audit event",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "sequence",
+    "event_id",
+    "event_type",
+    "occurred_at_epoch_ms",
+    "actor_domain_id",
+    "subject_domain_id",
+    "object_sha256",
+    "policy_sha256",
+    "previous_event_sha256",
+    "decision",
+    "reason_code"
+  ],
+  "properties": {
+    "schema": { "const": "native-wallet-ed25519-corpus-review-audit-event.v1" },
+    "sequence": { "type": "integer", "minimum": 1 },
+    "event_id": { "type": "string", "minLength": 8, "maxLength": 64, "pattern": "^[a-z0-9][a-z0-9_-]*$" },
+    "event_type": {
+      "enum": [
+        "DELETION_PLANNED",
+        "DELETION_CLAIMED",
+        "LOCATION_ATTEMPTED",
+        "POST_DELETE_SCAN_RECORDED",
+        "WITNESS_DECISION_RECORDED",
+        "DELETION_COMPLETED",
+        "DELETION_REVIEW_REQUIRED",
+        "DELETION_FAILED",
+        "AUDIT_TOMBSTONE_APPENDED"
+      ]
+    },
+    "occurred_at_epoch_ms": { "type": "integer", "minimum": 1 },
+    "actor_domain_id": { "type": "string", "minLength": 8, "maxLength": 128, "pattern": "^[a-z0-9][a-z0-9._:-]*$" },
+    "subject_domain_id": { "type": "string", "minLength": 8, "maxLength": 128, "pattern": "^[a-z0-9][a-z0-9._:-]*$" },
+    "object_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "policy_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "previous_event_sha256": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
+    "decision": { "enum": ["NONE", "PASS", "BLOCK", "REVIEW"] },
+    "reason_code": {
+      "enum": [
+        "PLAN_ACCEPTED",
+        "CLAIM_ACQUIRED",
+        "LOCATION_ATTEMPT_RECORDED",
+        "SCAN_COMPLETE",
+        "WITNESS_APPROVED",
+        "ALL_LOCATIONS_CONFIRMED",
+        "CRASH_AFTER_SIDE_EFFECT",
+        "LOCATION_OUTCOME_UNKNOWN",
+        "PARTIAL_FAILURE",
+        "INVENTORY_MISMATCH",
+        "WITNESS_REJECTED",
+        "RETENTION_EXPIRED"
+      ]
+    }
+  },
+  "hash_contract": {
+    "algorithm": "SHA-256",
+    "domain_separator_utf8": "obsidian.ed25519-review.audit-event.v1",
+    "text_encoding": "u16be byte length followed by exact UTF-8 bytes",
+    "integer_encoding": "u64be",
+    "digest_encoding": "raw 32 bytes",
+    "null_previous_event_encoding": "32 zero bytes",
+    "ordered_fields": [
+      "sequence",
+      "event_id",
+      "event_type",
+      "occurred_at_epoch_ms",
+      "actor_domain_id",
+      "subject_domain_id",
+      "object_sha256_raw_32_bytes",
+      "policy_sha256_raw_32_bytes",
+      "previous_event_sha256_or_zero_raw_32_bytes",
+      "decision",
+      "reason_code"
+    ]
+  },
+  "updates_or_deletes_allowed": false,
+  "free_text_allowed": false,
+  "storage_implemented": false,
+  "real_event_present": false
+}

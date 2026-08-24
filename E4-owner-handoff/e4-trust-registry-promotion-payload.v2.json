@@ -1,0 +1,93 @@
+{
+  "schemaVersion": "e4-trust-registry-promotion-payload.v1",
+  "payloadId": "e4-trust-registry-promotion-20260823-02-1787451597360",
+  "status": "READY_FOR_OFFLINE_TRUST_ROOT_SIGNATURE",
+  "stage": "E4",
+  "route": "E4_OWNER_GATED_FRESH_PRODUCTION_DISCONNECTED_REHEARSAL",
+  "purpose": "Exact public request for one bounded promotion of the E4 owner/reviewer registry from candidate to authenticated state. This is not an execution command or production authorization.",
+  "authority": {
+    "authenticated": false,
+    "registryPromotionAuthorized": false,
+    "ownerApproval": false,
+    "independentReview": false,
+    "rehearsalExecutionEligible": false,
+    "executionAuthorized": false,
+    "productionDatabaseContactAllowed": false,
+    "productionNetworkAllowed": false,
+    "productionCredentialsAllowed": false,
+    "containsSecrets": false,
+    "containsConnectionMaterial": false,
+    "executionEffect": "NONE",
+    "promotionAllowed": false,
+    "actionAllowed": false
+  },
+  "promotion": {
+    "registryCandidateRef": "e4-owner-reviewer-trust-anchor-and-binding-candidate.v4.json",
+    "registryCandidateSha256": "3de9ccbeb67178f46af1be68a139712b8d6acbe6954d7eef340625d472af4bfe",
+    "registryId": "e4-owner-reviewer-anchors-20260822-v4",
+    "currentStatus": "CANDIDATE_NOT_AUTHORIZED",
+    "requestedStatus": "AUTHENTICATED_ACTIVE",
+    "effectScope": "AUTHENTICATE_PUBLIC_E4_BINDING_ONLY",
+    "executionEffect": "NONE",
+    "productionEffect": "NONE"
+  },
+  "trustRoot": {
+    "issuerId": "e4-trust-root",
+    "publicKeyRef": "e4-trust-root.pub",
+    "publicKeySha256": "5669b2922f49c3c661be658c969566ce256bf7874d3fd1790c31299a4c4519d0",
+    "fingerprint": "SHA256:Ja+GZ9/o52eFmzZDztpju70RWmYpSvc0Fp+ayO1GcfM",
+    "offlineOriginAttested": true,
+    "requiredSignatureNamespace": "e4-trust-root",
+    "privateKeyMustRemainOffline": true
+  },
+  "boundEvidence": {
+    "ownerPayloadRef": "e4-owner-decision-payload.v11.json",
+    "ownerPayloadSha256": "08c1430754336cbaf4338546b95467d6b0c247e4b46e2e0014fa7241b68477d2",
+    "ownerSignatureRef": "e4-owner-decision-payload.v11.json.sig",
+    "ownerSignatureSha256": "efb5ec413d88719ff269b624bee7af9fb960c126f449d6941e3509bd81ed617f",
+    "reviewerEnvelopeRef": "e4-reviewer-review-envelope.v5.json",
+    "reviewerEnvelopeSha256": "89d52dfe29bdc4a22c2084b37f1dae2e1483abeb6ac5db5aa4a8ac5486a82fa5",
+    "reviewerSignatureRef": "e4-reviewer-review-envelope.v5.json.sig",
+    "reviewerSignatureSha256": "1d8542e4ac436f18f3a2378cbd98d2189438a926f0efc59a1da28ab902e3b24a",
+    "timestampEvidenceRef": "e4-owner-decision-payload.v11.json.sig.digicert-rfc3161-evidence.v1.json",
+    "timestampEvidenceSha256": "b5511249bfd095f950bd49a8284f552eee0de3d59b7a4d4a7f0d96f36814d240",
+    "timestampProvider": "DigiCert",
+    "timestampVerified": true
+  },
+  "frozenBinding": {
+    "planId": "e4rrp_73040dd58161e760075b961004c173966291a8d33344f248cf6a43ec75893ffd",
+    "targetRef": "e4-disposable-pg-20260822-02",
+    "targetFingerprintSha256": "3545e043156cd9023d46a5ebaaa12f0c964ceea2887cea79c9703395a1588ad3",
+    "snapshotSha256": "47efc0dc293890243072bdf048d40cbcc1fee8fbe719e4b841fb5d156f658b3e",
+    "keyRefSha256": "c7e21692ac64774b4229807d5b11338df72f722247a1bcebb22d54667a102109",
+    "scope": "ONE_E4_ISOLATED_FULL_SNAPSHOT_REHEARSAL",
+    "invocationLimit": 1
+  },
+  "replay": {
+    "nonceSha256": "fb1a0c9eb286d1afb9bd5e9016be59683da0480841448555291e8a729f89b254",
+    "singleUse": true,
+    "retryAfterAmbiguousSubmitAllowed": false
+  },
+  "signaturePlan": {
+    "issuerId": "e4-trust-root",
+    "principal": "e4-trust-root",
+    "namespace": "e4-trust-root",
+    "signatureRef": null,
+    "signatureSha256": null
+  },
+  "requiredBeforePromotion": [
+    "Trust-root holder verifies this exact file bytes and the expected e4-trust-root public-key fingerprint on the offline device.",
+    "Trust-root holder signs this exact file with the existing e4-trust-root private key and does not edit it afterward.",
+    "Verifier checks the root signature, candidate digest, owner/reviewer signatures, exact binding and DigiCert evidence.",
+    "Authenticated registry promotion still requires a successful one-shot replay claim before any executor consideration.",
+    "This promotion cannot authorize production contact, credentials, Docker, PostgreSQL or money actions."
+  ],
+  "forbiddenContents": [
+    "private keys or signing seed material",
+    "passwords or passphrases",
+    "plaintext snapshot bytes",
+    "production credentials or connection strings",
+    "a Docker command or eligible execution receipt"
+  ],
+  "nextAction": "Verify and sign this exact file offline with the existing e4-trust-root private key; return only the public SSH signature and this payload SHA-256."
+}

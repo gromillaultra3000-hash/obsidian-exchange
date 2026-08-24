@@ -1,0 +1,16 @@
+{
+  "accountId": "sandbox_1",
+  "actionAllowed": false,
+  "balances": {
+    "BTC": "1",
+    "USDT": "1000"
+  },
+  "entries": [],
+  "executionEffect": "NONE",
+  "headHash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "ledgerHash": "pl_5d05a275c6338ffef2be5d710e04a9ba5a5362e1f30a52896b6f8541983bef06",
+  "ledgerId": "pgen_d3ca36435243404b44aaeadc6ca4752220b588bbbf59574458300e4fcc6e8072",
+  "schemaVersion": "paper-trade-ledger.v1",
+  "sequence": 0,
+  "simulationOnly": true
+}

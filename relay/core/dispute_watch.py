@@ -22,16 +22,17 @@
 from __future__ import annotations
 import logging
 import os
-import sqlite3
 import sys
 
 # путь к relay — от себя, а не от боевого каталога (мина «зашитый боевой путь»)
 _RELAY = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _RELAY not in sys.path:
     sys.path.insert(0, _RELAY)
+from repositories.receipt_store import from_environment as _receipt_store_from_environment
 
 logger = logging.getLogger(__name__)
 DB_PATH = os.getenv("DB_PATH", "/root/exchange.db")
+def _store():return _receipt_store_from_environment(sqlite_path=DB_PATH)
 
 # Сколько ждать после отправки чека, прежде чем считать, что оплату не зачли.
 # Меньше 15 минут ставить нельзя: у части провайдеров зачисление доходит
@@ -42,30 +43,10 @@ DELAY_MIN = max(15, int(os.getenv("DISPUTE_AFTER_MIN", "25") or 25))
 ENABLED = (os.getenv("DISPUTE_AUTO", "1") or "1").strip() not in ("0", "false", "no")
 
 
-def _db():
-    conn = sqlite3.connect(DB_PATH, timeout=5)
-    conn.row_factory = sqlite3.Row
-    return conn
-
-
 def _candidates() -> list[dict]:
     """Заявки с присланным чеком, которые так и не стали оплаченными."""
     try:
-        with _db() as conn:
-            conn.execute("""CREATE TABLE IF NOT EXISTS order_receipts (
-                order_id INTEGER PRIMARY KEY, path TEXT, filename TEXT,
-                content_type TEXT, created_at TEXT DEFAULT (datetime('now')),
-                dispute_opened_at TEXT)""")
-            rows = conn.execute("""
-                SELECT r.order_id, r.created_at AS receipt_at, o.status, o.rub_amount,
-                       o.user_id, o.username
-                FROM order_receipts r JOIN orders o ON o.order_id = r.order_id
-                WHERE r.dispute_opened_at IS NULL
-                  AND o.status NOT IN ('paid','sent','cancelled')
-                  AND r.created_at <= datetime('now', ?)
-                  AND r.created_at >= datetime('now','-2 days')
-                ORDER BY r.order_id""", (f"-{DELAY_MIN} minutes",)).fetchall()
-        return [dict(r) for r in rows]
+        return _store().candidates(DELAY_MIN)
     except Exception as e:
         logger.warning("dispute_watch: выборка кандидатов: %s", e)
         return []
@@ -118,10 +99,7 @@ def _provider_still_unpaid(order_id) -> tuple[bool, str]:
 
 def _mark_opened(order_id):
     try:
-        with _db() as conn:
-            conn.execute("UPDATE order_receipts SET dispute_opened_at=datetime('now') "
-                         "WHERE order_id=?", (order_id,))
-            conn.commit()
+        return _store().claim_dispute(order_id)
     except Exception as e:
         logger.warning("dispute_watch: отметка спора order=%s: %s", order_id, e)
 
@@ -147,24 +125,24 @@ def run_once() -> list[dict]:
             # Провайдер видит оплату, а у нас статус не обновлён — это отдельная
             # поломка, о ней должен узнать человек, а не молча пройти мимо.
             if why == "провайдер видит оплату":
+                if not _mark_opened(oid):continue
                 results.append({"order_id": oid, "action": "mismatch",
                                 "amount": c["rub_amount"], "username": c["username"],
                                 "detail": "провайдер подтверждает оплату, а заявка не paid"})
-                _mark_opened(oid)
             continue
 
         file_bytes, filename, _ct = rec
         if not dispute_available(oid):
             # У Montera/Vertu/XPay спора в API нет — только чат поддержки.
             # Говорим об этом прямо и один раз, чтобы оператор пошёл туда.
+            if not _mark_opened(oid):continue
             results.append({"order_id": oid, "action": "manual",
                             "amount": c["rub_amount"], "username": c["username"],
                             "detail": "спор через API не поддерживается — открыть в чате провайдера"})
-            _mark_opened(oid)
             continue
 
+        if not _mark_opened(oid):continue
         res = open_dispute(oid, file_bytes, filename, reason="no_payment")
-        _mark_opened(oid)     # даже при неудаче: повторять автоматом не будем
         results.append({"order_id": oid,
                         "action": "opened" if res.get("ok") else "failed",
                         "amount": c["rub_amount"], "username": c["username"],

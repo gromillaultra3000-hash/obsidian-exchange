@@ -1,0 +1,17 @@
+{
+  "schema": "native-wallet-ed25519-corpus-review-independence-issuer-challenge-vector.v1",
+  "inputs": {
+    "independence_schema_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+    "scorecard_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+    "evidence_record_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+    "issuer_id": "issuer-security-a",
+    "issuer_trust_domain": "independent-security-a",
+    "authentication_root_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+    "recovery_authority_id": "issuer-recovery-a",
+    "revocation_epoch": 7,
+    "caller_nonce_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+    "issued_at_epoch_ms": 1786500000000,
+    "expires_at_epoch_ms": 1786500600000
+  },
+  "expected_challenge_sha256": "86d2d0d84f5e00ffaa1faa2d1527bc022f2ff4afc229335495ef695a44087d47"
+}

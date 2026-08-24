@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "e0-3-bot-b5-3-064a-v4-synthetic-one-device-preflight.v1",
+  "observedAt": "2026-08-22T03:45:43Z",
+  "route": "E0/E0.3/B5.3/064A",
+  "status": "BLOCKED_OWNER",
+  "scope": "non-production synthetic candidate statement, two-envelope verifier and one-device preparation only",
+  "inputBinding": {
+    "candidatePath": "docs/e0-3-bot-b5-3-064a-decision-candidate.v4.json",
+    "candidateSha256": "32d54d2bfaf555c7d795cc70b8b92561d7a6d9a19262eb1089eb3611aafd2316",
+    "sourceObservationPath": "docs/e0-3-bot-b5-3-064a-production-source-refresh.v4.json",
+    "sourceObservationSha256": "99531224f6eac8d13ce07b14fdf6408f333fca2a10426e7876613ce3da812a80",
+    "priorCandidatePath": "docs/e0-3-bot-b5-3-064a-decision-candidate.v3.json",
+    "priorCandidateSha256": "771ce159032de810d8b09731be109af6a2bb317fc1b8b6e2f5a0d3fff9a08ddf",
+    "activeDeferralPath": "docs/e0-3-bot-b5-3-064a-owner-deferral.v3.json",
+    "activeDeferralSha256": "c1cf8375efe84ce4a77302263f3450d661f732ee88dd30164dc711bc94a2f7e3"
+  },
+  "result": {
+    "statementCreated": true,
+    "syntheticReviewerSignatureCreated": true,
+    "syntheticOwnerSignatureCreated": true,
+    "verificationStatus": "SYNTHETIC_VALID",
+    "syntheticProtocolValid": true,
+    "replayProtectionVerified": false,
+    "authenticatedOwnerReviewerGo": false,
+    "boundedEvidenceAccepted": false,
+    "productionAuthority": false,
+    "productionExpandAuthorized": false,
+    "cutoverAuthorized": false,
+    "actionAllowed": false
+  },
+  "oneDeviceBoundary": {
+    "syntheticIdentitiesAreDistinct": true,
+    "humanIndependenceProven": false,
+    "separateOfflineDeviceRequirementSatisfied": false,
+    "sameDeviceUseIsAcceptance": false
+  },
+  "isolation": {
+    "temporaryDirectoryUsed": true,
+    "networkUsed": false,
+    "productionFilesWritten": false,
+    "productionMutation": false,
+    "privateKeysRetained": false,
+    "signatureEnvelopesRetained": false,
+    "temporaryArtifactsDestroyed": true
+  },
+  "implementation": {
+    "signerPath": "scripts/b64_064a_offline_signer.py",
+    "signerSha256": "fafe307ba81a1f08eb762ecbea26578728b5688fe552529a5b1a5b56fafca2f2",
+    "testPath": "tests/test_e0_3_bot_b5_3_064a_offline_signer.py",
+    "testSha256": "df3cc168afdc9e0bd02c0e9a046e57c73eb64f564c87191c94a24629ec2b9b7c",
+    "checks": ["AST_PASS", "SYNTHETIC_V4_SIGNATURE_FLOW_PASS", "GIT_DIFF_CHECK_PASS"]
+  },
+  "claimBoundary": [
+    "This is synthetic rehearsal evidence only and is not an authenticated owner or reviewer decision.",
+    "Synthetic signatures do not prove human independence, device separation, production key enrollment, trusted time, revocation or durable replay consumption.",
+    "No authority is granted for evidence acceptance, 064B, 064D, deployment, restart, delivery, retry, cutover or row disposition."
+  ],
+  "nextCanonicalItem": "AUTHENTICATED_ACCOUNTABLE_OWNER_AND_APPLICABLE_INDEPENDENT_REVIEWER_DECISION_OVER_EXACT_V4_CANDIDATE"
+}

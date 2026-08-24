@@ -21,8 +21,8 @@ from __future__ import annotations
 
 import logging
 import os
-import sqlite3
 import time
+from repositories.operational_read_store import from_environment as _read_store_from_environment
 
 logger = logging.getLogger(__name__)
 DB_PATH = os.getenv("DB_PATH", "/root/exchange.db")
@@ -36,6 +36,7 @@ PAID_STATUSES = ("paid", "sent", "completed")
 # спрашивается несколько раз, а меняется от силы раз в день.
 _CACHE_TTL = 30.0
 _cache: dict = {}
+def _store():return _read_store_from_environment(sqlite_path=DB_PATH)
 
 
 def paid_deals(telegram_id, use_cache: bool = True) -> int:
@@ -53,16 +54,8 @@ def paid_deals(telegram_id, use_cache: bool = True) -> int:
         hit = _cache.get(tid)
         if hit and now - hit[0] < _CACHE_TTL:
             return hit[1]
-    holes = ",".join("?" * len(PAID_STATUSES))
     try:
-        conn = sqlite3.connect(DB_PATH, timeout=5)
-        try:
-            n = conn.execute(
-                f"SELECT COUNT(*) FROM orders WHERE user_id=? AND status IN ({holes})",
-                (tid,) + PAID_STATUSES).fetchone()[0]
-        finally:
-            conn.close()
-        n = int(n or 0)
+        n = _store().paid_deals(tid, PAID_STATUSES)
     except Exception as e:
         # База недоступна — не выдумываем клиенту заслуги: ноль отправит его к
         # менее требовательному каналу, а не к трейдеру, который нас об этом

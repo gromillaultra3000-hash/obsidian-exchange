@@ -1,0 +1,49 @@
+{
+  "schemaVersion":"e0-4-gift-runtime-observation.v1",
+  "observedAt":"2026-08-18T03:04:17Z",
+  "route":"E0/E0.4/FEATURE_STATUS_SURFACE_MATRIX",
+  "status":"IN_PROGRESS",
+  "productionMutation":false,
+  "authenticatedCustomerAction":false,
+  "telegramDelivery":false,
+  "moneyWriterExercised":false,
+  "giftCodesReturnedByObservation":false,
+  "surfaceContractSource":"docs/e0-3-bot-b5-5-automation-gift-writers-rehearsal.v1.json#surfaceMatrix",
+  "telegramBot":{
+    "unit":{"name":"exchange-bot.service","activeState":"active","subState":"running","mainPidObserved":15516},
+    "deployedMainSha256":"a015b5b12870fa2f1eec7d0fb638cc2c94cb90235850d474ebb25455446372fb",
+    "checkoutMainSha256":"cae69ae8d33b01c51b88cf36a78e5a4a69da0339408e86bae9f5b058edfaf800",
+    "sourceDrift":true,
+    "deployedAnchors":["menu_gift","gift_pay","_send_gift_card","cmd_redeem","gift_enter_recipient_address"],
+    "configuredEnvironmentNameObserved":"GIFT_POSTGRES_ENABLED",
+    "configuredValueObserved":true,
+    "configuredEnabled":true,
+    "implementation":"PARTIAL",
+    "claim":"deployed source and running unit presence only; redemption has a static undefined-store blocker and no authenticated issue/payment/card/redeem acceptance was performed"
+  },
+  "repository":{
+    "deployedPath":"/opt/obsidian-exchange/relay/repositories/gift_store.py",
+    "deployedAndCheckoutSha256":"239fe2ebc0657f5108e20e58e37e19286938636bccd52b91954d5cd977d6ef3b",
+    "semantics":["transactional pending sender-order plus voucher issue","exact plaintext code lookup","card data read","transactional single-winner paid recipient-order plus voucher redemption"]
+  },
+  "database":{"engine":"PostgreSQL 17.10","tablePresent":true,"catalogSource":"information_schema.columns","observedColumns":["id","sender_id","currency","rub_amount","code","status","order_id","recipient_id","recipient_address","created_at","claimed_at"],"totalRows":5,"pendingRows":5,"paidRows":0,"redeemedRows":0,"giftIssueAttributedOrders":5,"giftRedeemAttributedOrders":0,"nullOriginalOrderBindings":0,"duplicateOriginalOrderBindings":0,"orphanOriginalOrderBindings":0,"inconsistentRedeemedRows":0,"customerIdentifiersReturnedByObservation":false,"giftCodesReturnedByObservation":false},
+  "admin":{"unit":{"name":"admin-panel.service","activeState":"active","subState":"running"},"effectiveWorkingDirectory":"/opt/obsidian-exchange/admin-panel","resourceSha256":"42fdea287423a21c964bb7b71867e6caffcfcd09253373ef1e45734e8ed9ab8e","readOnly":true,"securityAndSchemaDrift":["bearer redemption code is displayed, searchable and copyable to operators","resource expects claimed, expired and cancelled while the production CHECK allows pending, paid and redeemed","paid and redeemed fall through the default color and cannot be selected by the resource status filter","resource offers ETH while the Telegram flow offers BTC, LTC and USDT"]},
+  "negativeSurfaces":{"site":"public marketing names crypto gifts/vouchers but no route, authenticated workflow or bounded bot handoff is deployed","miniApp":"a promotional voucher chip exists but no gift tab, route, redeem workflow or bounded handoff is deployed","api":"no HTTP gift endpoint; bot calls repository directly","native":"no gift contract or implementation in native-wallet scope"},
+  "positiveControls":["issue inserts the pending sender order and voucher in one transaction and rolls back a code collision","PostgreSQL redemption locks the paid voucher and inserts one recipient order in the same transaction","sender self-redemption is denied","currency is checked against the current offering at selection and recipient address/tag is validated before the intended redemption call"],
+  "riskFindings":[
+    "The deployed redemption handler calls store.redeem without defining store in local or module scope, so the customer path fails before the atomic transition.",
+    "The paid gift-card sender is defined but has no call site, although customer and marketing copy promise a card after payment.",
+    "A six-character roughly 30-bit plaintext bearer code is disclosed in the pre-payment preview, never expires, has no bounded attempt ledger or redemption rate limit, is embedded in the sender order username, and is searchable/copyable in admin.",
+    "Distinct not-found, unpaid and redeemed responses expose a gift-code validity/state oracle without throttling.",
+    "Issue and redemption are money writers without persisted immutable gift intents, client idempotency keys, audit correlation IDs, immutable quote provenance or a redeemed_order_id binding.",
+    "Rate acquisition may use stale or hard-coded fallback values; handlers coerce missing calculations to zero and repository/schema boundaries accept caller-supplied zero rate or crypto amount.",
+    "Payment transition updates every pending voucher sharing an order_id, while the schema permits duplicate or null order bindings and has no foreign key or uniqueness constraint.",
+    "Redemption re-prices the RUB promise using the recipient commission and current cache, so the amount previewed to the sender is not an immutable delivery obligation.",
+    "Recipient-order creation commits before direct worker/admin notifications; notification failure has no gift-specific durable outbox or reconciliation, and broad admin text includes the full destination.",
+    "The public site and Mini App promote vouchers without a functional workflow or explicit Telegram handoff."
+  ],
+  "acceptance":"PARTIAL_NOT_ACCEPTED",
+  "blockers":["undefined redemption store binding","no owner-authorized authenticated issue/payment/card/redeem acceptance","no durable paid-card or redemption notification delivery","no bearer-code expiry, digest storage, attempt throttling or least-privilege admin masking","no immutable intent/idempotency/quote/redemption-order ledger","no fail-closed fresh rate evidence","schema permits ambiguous original-order binding"],
+  "independentReviews":[{"identity":"agent:/root/gift_inventory","scope":"context-aware artifact, surface, hash, catalog and count review; not lifecycle acceptance","disposition":"ACCEPT_CONTEXT_AWARE_PARTIAL_NOT_ACCEPTED_WITH_STATIC_REDEMPTION_AND_DELIVERY_BLOCKERS"},{"identity":"agent:/root/gift_security_review","scope":"adversarial diff/security review; timestamped observation and static inventory tests do not reproduce production or exercise money writers","disposition":"ACCEPT_PARTIAL_NOT_ACCEPTED_WITH_STATIC_DEPLOYED_BINDING_AND_RECORDED_BEARER_MONEY_WRITER_MARKETING_TEST_LIMITATIONS"}],
+  "nextCanonicalItem":"Add wallet linking to the six-surface E0.4 inventory with exact repository and runtime evidence."
+}

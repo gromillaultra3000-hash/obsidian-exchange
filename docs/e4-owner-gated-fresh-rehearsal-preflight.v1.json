@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "e4-owner-gated-fresh-rehearsal-preflight.v1",
+  "stage": "E4",
+  "gate": "DISPOSABLE_FULL_SNAPSHOT_REHEARSAL",
+  "recordedAtUtc": "2026-08-22T17:28:06Z",
+  "status": "BLOCKED_OWNER",
+  "route": "E4_OWNER_GATED_FRESH_PRODUCTION_DISCONNECTED_REHEARSAL",
+  "workspaceInputs": {
+    "authenticatedOwnerDecision": false,
+    "machineReadableEligibleReceipt": false,
+    "preExistingProductionDisconnectedEncryptedSnapshot": false,
+    "e4Executor": false,
+    "e4TargetPresent": false,
+    "historicalTargetReusable": false,
+    "historicalSnapshotReusable": false
+  },
+  "readOnlyRuntimeObservation": {
+    "dockerInventory": {
+      "runningNonE4ContainersObserved": ["obsidian-postgres", "e03-relay-p5b-rehearsal"],
+      "targetE4FullSnapshot20260822Absent": true
+    },
+    "productionContactPerformed": false,
+    "dockerExecutionPerformed": false,
+    "snapshotReadPerformed": false,
+    "secretReadPerformed": false,
+    "fileMutationPerformed": false,
+    "systemdAndNetlinkDiagnostics": "BLOCKED_BY_SANDBOX"
+  },
+  "blockers": [
+    "authenticated owner decision with trusted issuer/root, signature, revocation, trusted time, nonce, expiry and exact scope is absent",
+    "pre-existing immutable encrypted snapshot with manifest/content binding and disconnected provenance is absent",
+    "full 12-step executor and hardened disposable target contract are not implemented"
+  ],
+  "minimumInputsBeforeFixtureMutation": [
+    "authenticated owner decision bound to exact plan/manifest/target/snapshot/key scope",
+    "fresh trusted-clock precondition records and eligible single-use receipt",
+    "pre-existing encrypted snapshot copy with SHA-256, immutable handle, ownership/mode proof and separate key reference",
+    "full executor with manifest/table/ACL/route/025 checks, non-root hardened container, captured ownership label and ID-bound cleanup",
+    "independent launch security/DevOps review"
+  ],
+  "independentReviews": [
+    {
+      "identity": "agent:01a02a81-552e-7b22-9d72-01c2b65fb521",
+      "disposition": "NO_GO_BLOCKED_OWNER"
+    },
+    {
+      "identity": "agent:01a02a81-55b4-72f1-b6b3-7d52bfb8b869",
+      "disposition": "NO_GO_BLOCKED_OWNER"
+    }
+  ],
+  "nextCanonicalItem": "SUPPLY_AUTHENTICATED_OWNER_RECEIPT_AND_PRE_EXISTING_DISCONNECTED_SNAPSHOT"
+}

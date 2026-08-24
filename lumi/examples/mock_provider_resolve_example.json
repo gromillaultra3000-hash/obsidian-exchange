@@ -1,0 +1,9 @@
+{
+  "taskId": "task-001",
+  "taskType": "approval",
+  "input": "Should we proceed with deployment?",
+  "context": {"environment": "staging"},
+  "requirements": {"minConfidence": 0.75},
+  "expectedOutput": "APPROVE or WAIT",
+  "metadata": {"source": "quickstart"}
+}

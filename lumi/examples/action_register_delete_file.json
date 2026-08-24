@@ -1,0 +1,15 @@
+{
+  "actionId": "delete_file",
+  "title": "Delete File",
+  "description": "Delete a file from host application workspace",
+  "category": "dangerous",
+  "enabled": true,
+  "riskLevel": "critical",
+  "requiresApproval": true,
+  "supportsDryRun": true,
+  "supportsRollback": false,
+  "inputSchema": {"type": "object", "required": ["path"]},
+  "outputSchema": {"type": "object"},
+  "allowedModes": ["proposal", "dry_run", "execute"],
+  "metadata": {}
+}

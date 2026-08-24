@@ -1,0 +1,22 @@
+{
+  "schema": "native-wallet-ed25519-corpus-review-checkpoint-auth-challenge-vector.v1",
+  "inputs": {
+    "checkpoint_schema_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+    "exact_checkpoint_bytes_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+    "chain_id": "audit-chain-a",
+    "policy_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+    "audit_sequence": 11,
+    "audit_head_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+    "previous_checkpoint_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+    "checkpoint_epoch": 7,
+    "caller_nonce_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+    "issued_at_epoch_ms": 1786500000000,
+    "expires_at_epoch_ms": 1786500600000,
+    "witness_slot": 0,
+    "witness_domain_id": "checkpoint-witness-a",
+    "authentication_root_sha256": "7777777777777777777777777777777777777777777777777777777777777777",
+    "recovery_authority_id": "checkpoint-recovery-a",
+    "host_failure_domain_id": "checkpoint-host-a"
+  },
+  "expected_challenge_sha256": "0a59d701a4625d89fa16b2e3d903e4845eeacefbe3a513faf9f33bd8cf7242c2"
+}

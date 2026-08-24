@@ -1,0 +1,146 @@
+{
+  "schemaVersion": "obsidian-e0-3-bot-b5-3-064a-scram-source-adapter-rehearsal.v1",
+  "observedAt": "2026-08-24T03:45:50Z",
+  "route": ["E0", "E0.3", "B5.3", "064A"],
+  "status": "VERIFIED_DISPOSABLE_DORMANT_DEPLOY_ALLOWED",
+  "productionActivationStatus": "BLOCKED_NAMED_PREREQUISITES",
+  "scope": {
+    "implemented": [
+      "short-lived SCRAM verifier lifecycle",
+      "two independent sealed credential memfds",
+      "SourceAdapter exported-snapshot transaction and in-session ACL attestation",
+      "credential-expiry-bound digest-pinned pg_dump command",
+      "exact revocation and abandoned-lease reconciliation"
+    ],
+    "excluded": [
+      "production LOGIN activation",
+      "production refresh",
+      "customer-row inspection",
+      "migrations 024+",
+      "money or Telegram actions",
+      "E4"
+    ]
+  },
+  "artifacts": {
+    "frozenPlan": {
+      "path": "docs/e0-3-bot-b5-3-064a-hardened-refresh-plan.v1.json",
+      "sha256": "14d38a9fc0cc7c78014d16230553359939aad7d7a15abaf7c7cc8672c3c8d0c6"
+    },
+    "runner": {
+      "path": "deploy/postgres/b64_064a_hardened_refresh.py",
+      "sha256": "eac73bddc94a4ccf3b605dde0a5f1ff31329ceae24560ed0100c629a0ad0022f"
+    },
+    "runtime": {
+      "path": "deploy/postgres/b64_snapshot_reader_runtime.py",
+      "sha256": "cda2c5351d80eefc2800c83a8016ae79bfe2b93c51584e8b3e2dfede62ffeec0"
+    },
+    "integrationTest": {
+      "path": "tests/test_postgres_b64_snapshot_reader_runtime_integration.py",
+      "sha256": "1cfa916474b269120ad453ba1092f0a74025efaa4c6aafb817b5786e26d7783d"
+    },
+    "clientImage": {
+      "reference": "docker.io/library/postgres@sha256:7456ef82e5f5bc43d997f4781bbd7c0d6389bff397564649a356e206ba473aee",
+      "platform": "linux/amd64",
+      "version": "PostgreSQL 17.11"
+    }
+  },
+  "rehearsal": {
+    "startedAt": "2026-08-24T03:39:32.331160172Z",
+    "containerDeletedAt": "2026-08-24T03:40:01.226949128Z",
+    "containerName": "b64-hba-contract-2026082413",
+    "containerId": "e52e73d12ac77b323f7de419659ce36e015ca324f3b52f22ee01b27f612498d5",
+    "volumeName": "b64064a202608241300000000000000000000000000000000000000000000000",
+    "originalHbaSha256": "45b68cd420caab6d19725857c309871880a66a4c195bcd7e1604e7c334b6be82",
+    "result": "PostgreSQL B64 short-lived two-FD exported snapshot lifecycle: OK",
+    "finalContainerHealth": "healthy",
+    "finalRestartCount": 0,
+    "realPgDump": true,
+    "exportedSnapshotUsed": true,
+    "pgRestoreListValidated": true,
+    "anonymousArchive": true,
+    "customerRowsRead": false,
+    "credentialExposed": false,
+    "hbaRolledBack": true,
+    "containerAbsentAfter": true,
+    "volumeAbsentAfter": true,
+    "oneShotDumpContainerAbsentAfter": true,
+    "helperProcessesAbsentAfter": true,
+    "faultCases": [
+      "stale credential FD denied after revoke",
+      "issuer death with held exporter",
+      "stalled first reconciler and bounded takeover",
+      "credential-issue commit with lost acknowledgement",
+      "credential-revoke commit with lost acknowledgement",
+      "unhealthy container during authority reduction",
+      "expired advisory-lock backend and arbitrary role session"
+    ]
+  },
+  "verification": {
+    "primaryStaticSuite": "205 passed",
+    "focusedFinalSuite": "136 passed",
+    "pythonCompile": "PASS",
+    "gitDiffCheck": "PASS",
+    "gitleaksVersion": "8.30.0",
+    "gitleaksTargetedFiles": 6,
+    "gitleaksResult": "NO_LEAKS",
+    "frozenArtifactCount": 16,
+    "frozenArtifactBindings": "PASS"
+  },
+  "productionObservation": {
+    "contactType": "metadata and catalog verification only",
+    "postgresVersion": "17.10",
+    "container": "obsidian-postgres",
+    "containerHealth": "healthy",
+    "containerRestartCount": 0,
+    "readerRoleLoginState": "DISABLED",
+    "readerCredentialState": "ABSENT",
+    "readerActiveSessions": 0,
+    "runtimeAdvisoryLocks": 0,
+    "verifierStatus": "match",
+    "hbaIsolationStatus": "EXACT",
+    "hbaSha256": "08b049674e7593bc87c8e78744ba6b65b557750807c17e860920931aa1b3d3b6",
+    "databaseMutation": false,
+    "hbaMutation": false,
+    "serviceRestartOrReload": false
+  },
+  "independentReviews": [
+    {
+      "reviewer": "architecture_review",
+      "verdict": "GO_DORMANT_ARTIFACT_NO_GO_ACTIVATION",
+      "focusedTests": "117 passed"
+    },
+    {
+      "reviewer": "security_review",
+      "verdict": "GO_DORMANT_ARTIFACT_NO_GO_ACTIVATION",
+      "focusedTests": "131 passed"
+    },
+    {
+      "reviewer": "ops_review",
+      "verdict": "GO_INERT_VERSIONED_RELEASE_NO_GO_ACTIVATION",
+      "focusedTests": "136 passed"
+    }
+  ],
+  "activationBlockers": [
+    "PRODUCTION_POSTGRES_17_10_REQUIRES_REHEARSED_17_11_UPGRADE",
+    "WATCHDOG_BOOT_AND_ABNORMAL_EXIT_RECONCILE_NOT_IMPLEMENTED",
+    "PRODUCTION_DUMP_RESTORE_SUPERVISOR_NOT_IMPLEMENTED",
+    "PRODUCTION_LOGIN_ACTIVATION_NOT_AUTHORIZED",
+    "DISPOSABLE_REHEARSAL_EVIDENCE_NOT_CONSUMED_BY_PRODUCTION_PREFLIGHT"
+  ],
+  "verifierSemantics": {
+    "currentBlocker": "TCP_SCRAM_EXPORTED_SNAPSHOT_NOT_REHEARSED",
+    "interpretation": "The disposable rehearsal passed, but the production verifier has no authenticated evidence-consumption input and therefore intentionally retains its pre-activation blocker."
+  },
+  "rollback": {
+    "dormantArtifactRelease": "remove or repoint only the inactive versioned release",
+    "databaseRoleRollbackAllowed": false,
+    "hbaRollbackAllowed": false
+  },
+  "sources": [
+    "https://www.postgresql.org/docs/17/release-17-11.html",
+    "https://www.postgresql.org/docs/17/libpq-connect.html",
+    "https://www.postgresql.org/docs/17/runtime-config-client.html",
+    "https://www.postgresql.org/docs/17/view-pg-roles.html"
+  ],
+  "next": "Commit and push the reviewed closure, publish it as an inactive immutable versioned release, and reverify production remains dormant; then take a separate PostgreSQL 17.11 upgrade plus watchdog/boot-reconcile slice before any LOGIN activation."
+}

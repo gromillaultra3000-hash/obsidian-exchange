@@ -1,0 +1,182 @@
+================================================================================
+                        OBSIDIANEXCHANGE - ПОЛНЫЙ ТЕХНИЧЕСКИЙ ДАМП
+================================================================================
+
+ПРОЕКТ: ObsidianExchange – Telegram-обменник криптовалют без KYC
+ВЕРСИЯ: 13 (Gold)
+ДАТА: 2026-05-17
+АВТОР: @Obsidian666999bot
+СТАТУС: Production-ready, контейнеризирован
+
+================================================================================
+1. ОБЩЕЕ ОПИСАНИЕ
+================================================================================
+ObsidianExchange – полностью автоматический Telegram-бот для обмена RUB на
+криптовалюты (BTC, LTC, USDT) и обратно. Ключевая особенность – собственный
+White-Label платёжный шлюз, который скрывает от пользователя реального
+провайдера (Platega). Проект включает:
+
+- Telegram-бота на aiogram 3.x
+- Ретранслятор (Payment Orchestrator) на FastAPI
+- Бота поддержки
+- Систему мониторинга и алертов
+- Автоматические выплаты через bitcoinlib и litecoinlib
+- Полную историю обменов, реферальную программу, админ-панель
+- Киберпанк-дизайн страницы оплаты
+- Docker-контейнеризацию
+
+================================================================================
+2. АРХИТЕКТУРА
+================================================================================
+Telegram Bot (aiogram)
+    ↓
+Relay Layer (FastAPI) – Payment Orchestrator
+    ├── Provider Adapter: PlategaProvider
+    ├── Fallback Provider
+    ├── Payment Service (создание сессий)
+    ├── Webhook Service (обработка колбэков)
+    ├── Polling Service (проверка статусов)
+    └── Мониторинг и алерты
+    ↓
+Белый прокси (5.206.224.157:5003) – адаптер для Platega API
+    ↓
+Платёжный шлюз Platega
+    ↓
+СБП/Банк
+
+База данных: SQLite (/root/exchange.db)
+Веб-сервер: Nginx (проксирует запросы на FastAPI)
+Управление сервисами: systemd + Docker Compose
+
+================================================================================
+3. ФАЙЛОВАЯ СТРУКТУРА
+================================================================================
+/root/bot/                   – основной Telegram-бот
+    main_bot.py              – главный файл бота
+    .env                     – переменные окружения (токены, ключи)
+
+/root/relay/                 – ретранслятор (FastAPI)
+    main.py                  – FastAPI-приложение
+    webapp.html              – Mini App (Telegram Web App)
+    providers/               – адаптеры платёжных провайдеров
+        base.py              – абстрактный класс PaymentProvider
+        platega.py           – адаптер для Platega
+        fallback.py          – заглушка для резервного провайдера
+    services/                – бизнес-логика
+        payment_service.py   – создание и управление сессиями
+        webhook_service.py   – обработка вебхуков
+        polling_service.py   – фоновая проверка статусов
+    utils/                   – утилиты
+        tokens.py            – генерация токенов
+        logger.py            – логирование
+        monitor.py           – мониторинг сервисов
+        security.py          – rate limiting, проверка сессий
+    config/
+        config.py            – настройки (таймауты, порты)
+
+/root/support_bot/           – бот поддержки
+    support_bot.py
+    .env
+
+/root/relay/                 – старый ретранслятор (http.server) – не используется
+    app.py                   – заменён на FastAPI
+
+/root/exchange.db            – база данных SQLite
+
+/var/www/obsidian/           – статический сайт
+    index.html
+
+/etc/systemd/system/         – systemd-юниты
+    exchange-bot.service
+    support-bot.service
+    relay.service            – FastAPI
+    polling-worker.service
+
+/etc/nginx/sites-available/
+    obsidian-exchange.org    – конфиг Nginx
+
+/root/obsidian-docker/       – Docker-контейнеры
+    docker-compose.yml
+    Dockerfile.bot
+    Dockerfile.relay
+    Dockerfile.support
+    Dockerfile.polling
+
+================================================================================
+4. КЛЮЧЕВЫЕ ФРАГМЕНТЫ КОДА
+================================================================================
+
+--- main_bot.py ---
+- Использует aiogram 3.x, FSM, MemoryStorage
+- Функция process_address создаёт заказ, отправляет уведомление админу и клиенту
+- Интеграция с PaymentService: создание платёжной сессии и отправка ссылки с токеном
+- Выплаты через bitcoinlib (BTC), litecoinlib (LTC), tronpy (USDT)
+- Админ-панель: /admin, /stats, /setrate, /broadcast
+
+--- relay/main.py (FastAPI) ---
+- Обрабатывает /pay/{token} – киберпанк-страница оплаты с банками
+- /pay/{order_id} – старый формат для совместимости
+- /gateway/{order_id} – скрытый редирект на платёжный URL
+- /api/history, /api/referral_stats, /api/order/{id}
+- /platega/webhook, /payment/callback
+
+--- services/payment_service.py ---
+- Создаёт запись в payment_sessions, вызывает провайдера для создания инвойса
+- При ошибке автоматически переключается на FallbackProvider
+
+--- services/webhook_service.py ---
+- Обрабатывает вебхук от Platega: обновляет статус заказа и сессии
+
+--- providers/platega.py ---
+- Адаптер для Platega: отправляет запрос к белому прокси, нормализует ответ
+
+================================================================================
+5. БАЗА ДАННЫХ (SQLite)
+================================================================================
+Таблицы:
+- orders: заказы (order_id, user_id, rub_amount, crypto_address, status, ...)
+- referrals: рефералы (referrer_id, referred_id, bonus_paid, total_bonus_btc)
+- blocked_users: заблокированные пользователи
+- admin_log: логи администратора
+- payment_sessions: платёжные сессии (session_token, order_id, provider, status, ...)
+- referral_addresses: адреса для реферальных бонусов
+
+================================================================================
+6. КОНФИГУРАЦИЯ (.env)
+================================================================================
+BOT_TOKEN=...
+ADMIN_ID=...
+RELAY_SITE=http://127.0.0.1:5000
+PUBLIC_RELAY=https://obsidian-exchange.org
+MIN_AMOUNT=2000
+MAX_AMOUNT=500000
+HIGH_AMOUNT=100000
+DB_PATH=/root/exchange.db
+RELAY_SECRET=...
+COMMISSION_PERCENT=12
+PAYOUT_SEED=...
+USDT_PRIVATE_KEY=...
+LTC_PAYOUT_SEED=...
+BTCPAY_URL=... (не используется, заменён на bitcoinlib)
+LNPAY_API_KEY=... (опционально)
+
+================================================================================
+7. ИСТОРИЯ ВЕРСИЙ
+================================================================================
+v1-v8: становление, борьба с BTCPay и prune, переход на bitcoinlib
+v9: стабильный киберпанк-дизайн, скрытие Platega через ретранслятор
+v10: дубликаты сообщений, ошибки спама, временное отключение
+v11: полный фикс дубликатов, рабочий фиолетовый дизайн, одна кнопка
+v12: переход на FastAPI, Payment Sessions, Provider Abstraction
+v13: Production Infrastructure, Docker, Future-proofing, Мониторинг
+
+================================================================================
+8. ИНСТРУКЦИЯ ПО РАЗВЁРТЫВАНИЮ
+================================================================================
+1. Установить Docker и Docker Compose
+2. Скопировать папку /root/obsidian-docker на сервер
+3. Заполнить .env файлы
+4. Выполнить docker-compose up -d
+5. Настроить Nginx для проксирования на порт 5000
+
+Все сервисы будут автоматически подняты и работать.

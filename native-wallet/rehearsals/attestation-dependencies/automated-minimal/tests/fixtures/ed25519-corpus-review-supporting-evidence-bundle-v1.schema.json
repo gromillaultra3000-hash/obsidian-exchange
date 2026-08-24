@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.obsidian.invalid/native-wallet/ed25519-corpus-review-supporting-evidence-bundle-v1.schema.json",
+  "title": "Hash-only verifier independence supporting-evidence bundle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "bundle_id",
+    "independence_evidence_sha256",
+    "scorecard_sha256",
+    "issuer_challenge_sha256",
+    "subject_review_domain_id",
+    "issued_at_epoch_ms",
+    "expires_at_epoch_ms",
+    "artifacts",
+    "completeness",
+    "real_artifacts_embedded"
+  ],
+  "properties": {
+    "schema": { "const": "native-wallet-ed25519-corpus-review-supporting-evidence-bundle.v1" },
+    "bundle_id": { "type": "string", "minLength": 8, "maxLength": 64, "pattern": "^[a-z0-9][a-z0-9_-]*$" },
+    "independence_evidence_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "scorecard_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "issuer_challenge_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "subject_review_domain_id": { "type": "string", "minLength": 8, "maxLength": 128, "pattern": "^[a-z0-9][a-z0-9._:-]*$" },
+    "issued_at_epoch_ms": { "type": "integer", "minimum": 1 },
+    "expires_at_epoch_ms": { "type": "integer", "minimum": 1 },
+    "artifacts": {
+      "type": "array",
+      "minItems": 14,
+      "maxItems": 14,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "subject_domain_id", "issuer_domain_id", "sha256", "captured_at_epoch_ms", "expires_at_epoch_ms", "contains_personal_data"],
+        "properties": {
+          "kind": {
+            "enum": [
+              "reviewer_control_registry",
+              "credential_enrollment_provenance",
+              "credential_revocation_snapshot",
+              "reviewer_recovery_policy",
+              "verifier_administration_registry",
+              "verifier_recovery_policy",
+              "result_authentication_root_registry",
+              "builder_a_control_registry",
+              "builder_b_control_registry",
+              "reproducible_build_report",
+              "build_provenance_bundle",
+              "host_failure_domain_registry",
+              "evidence_issuer_control_registry",
+              "conflict_of_control_matrix"
+            ]
+          },
+          "subject_domain_id": { "type": "string", "minLength": 8, "maxLength": 128, "pattern": "^[a-z0-9][a-z0-9._:-]*$" },
+          "issuer_domain_id": { "type": "string", "minLength": 8, "maxLength": 128, "pattern": "^[a-z0-9][a-z0-9._:-]*$" },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "captured_at_epoch_ms": { "type": "integer", "minimum": 1 },
+          "expires_at_epoch_ms": { "type": "integer", "minimum": 1 },
+          "contains_personal_data": { "const": false }
+        }
+      }
+    },
+    "completeness": { "enum": ["COMPLETE", "INCOMPLETE", "UNKNOWN"] },
+    "real_artifacts_embedded": { "const": false }
+  },
+  "maximum_bundle_lifetime_ms": 86400000,
+  "required_artifact_kinds_unique": true,
+  "artifact_bytes_external_and_digest_referenced": true,
+  "artifact_expiry_must_cover_bundle_expiry": true,
+  "completeness_complete_required_for_acceptance": true,
+  "bundle_lifetime_requires_issued_before_expiry": true,
+  "artifact_capture_must_not_exceed_bundle_issue": true,
+  "artifact_metadata_canonical_and_closed": true,
+  "unknown_or_incomplete_blocks_acceptance": true,
+  "bundle_accepted": false,
+  "selection_allowed": false
+}

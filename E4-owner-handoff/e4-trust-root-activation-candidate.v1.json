@@ -1,0 +1,71 @@
+{
+  "schemaVersion": "e4-trust-root-activation-candidate.v1",
+  "candidateId": "e4-trust-root-activation-20260822-01",
+  "status": "CANDIDATE_NOT_AUTHORIZED",
+  "stage": "E4",
+  "route": "E4_OWNER_GATED_FRESH_PRODUCTION_DISCONNECTED_REHEARSAL",
+  "authority": {
+    "authenticated": false,
+    "trustRootActive": false,
+    "ownerApproval": false,
+    "independentReview": false,
+    "rehearsalExecutionEligible": false,
+    "executionAuthorized": false,
+    "productionDatabaseContactAllowed": false,
+    "productionNetworkAllowed": false,
+    "productionCredentialsAllowed": false,
+    "containsSecrets": false,
+    "containsConnectionMaterial": false,
+    "executionEffect": "NONE",
+    "promotionAllowed": false,
+    "actionAllowed": false
+  },
+  "trustRoot": {
+    "role": "E4_AUTHENTICATION_TRUST_ROOT_CANDIDATE",
+    "issuerId": "e4-trust-root",
+    "publicKeyRef": "e4-trust-root.pub",
+    "publicKeySha256": "5669b2922f49c3c661be658c969566ce256bf7874d3fd1790c31299a4c4519d0",
+    "fingerprint": "SHA256:Ja+GZ9/o52eFmzZDztpju70RWmYpSvc0Fp+ayO1GcfM",
+    "comment": "e4-trust-root",
+    "source": "OWNER_SUPPLIED_PUBLIC_KEY_LINE_AND_OFFLINE_ORIGIN_ATTESTATION",
+    "independentOfflineOriginConfirmed": true,
+    "offlineOriginAttestation": {
+      "type": "OWNER_ATTESTATION",
+      "status": "RECORDED_NON_AUTHORITY",
+      "recordedAtUtc": "2026-08-22T22:56:12Z",
+      "fingerprintReaffirmed": "SHA256:Ja+GZ9/o52eFmzZDztpju70RWmYpSvc0Fp+ayO1GcfM",
+      "privateKeyReceived": false
+    }
+  },
+  "binding": {
+    "registryProposalRef": "e4-owner-reviewer-trust-anchor-and-binding-candidate.v3.json",
+    "registryProposalSha256": "d6cd4f6d65db765ffe1c6b446b56ddb6fdd8a3a340650e36c28ac06bc5c3ccad",
+    "ownerFingerprint": "SHA256:G4szs+1DvEQygs3LZS1LDNNRyBYLUHZuX0a7C/gRjII",
+    "reviewerFingerprint": "SHA256:3YtNkuP+qf7PIcj9AmqSSTLr+Ocd4luwbeQSB8oRNq4",
+    "planId": "e4rrp_73040dd58161e760075b961004c173966291a8d33344f248cf6a43ec75893ffd",
+    "targetRef": "e4-disposable-pg-20260822-02",
+    "targetFingerprintSha256": "3545e043156cd9023d46a5ebaaa12f0c964ceea2887cea79c9703395a1588ad3",
+    "scope": "ONE_E4_ISOLATED_FULL_SNAPSHOT_REHEARSAL",
+    "invocationLimit": 1
+  },
+  "trustedClock": {
+    "required": true,
+    "method": "RFC3161_TSA_TIMESTAMP_TOKEN",
+    "attestationVerified": false,
+    "boundArtifactDigestRequired": true,
+    "networkOrLocalDateAloneAccepted": false
+  },
+  "promotionRequirements": [
+    "Confirm that this trust-root key was generated on a separate offline device or hardware authenticator and that its private half remains offline.",
+    "Provide an independently obtained RFC 3161 timestamp token and public TSA validation material bound to the exact candidate or subsequent signed decision artifact.",
+    "Authenticate the owner/reviewer registry and replay claim through the fail-closed verifier before any executor consideration."
+  ],
+  "forbiddenContents": [
+    "private keys or signing seed material",
+    "passwords or passphrases",
+    "plaintext snapshot bytes",
+    "production credentials or connection strings",
+    "an eligible receipt or execution command"
+  ],
+  "nextAction": "Keep this candidate non-authoritative; obtain a public RFC 3161 timestamp token and validation chain for the exact fresh decision artifact before requesting trust-root promotion."
+}

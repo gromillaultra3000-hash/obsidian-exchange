@@ -1,6 +1,7 @@
-import os, sqlite3, requests
+import os, requests
 from providers.base import PaymentProvider
 from core import attempt_id
+from repositories.operational_read_store import from_environment as _read_store_from_environment
 from config.config import PROVIDER_TIMEOUT
 from utils.logger import get_logger
 
@@ -11,6 +12,7 @@ MONTERA_API_TOKEN = os.getenv('MONTERA_API_TOKEN', '')
 MONTERA_MERCHANT_ID = os.getenv('MONTERA_MERCHANT_ID', '')
 PUBLIC_RELAY = os.getenv('PUBLIC_RELAY', 'https://obsidian-exchange.org')
 DB_PATH = os.getenv('DB_PATH', '/root/exchange.db')
+def _store():return _read_store_from_environment(sqlite_path=DB_PATH)
 
 
 def _get_user_rating(user_id: int) -> tuple[dict, bool]:
@@ -18,19 +20,9 @@ def _get_user_rating(user_id: int) -> tuple[dict, bool]:
     if not user_id or user_id < 0:
         return {"success": 0, "failure": 0}, False
     try:
-        conn = sqlite3.connect(DB_PATH, timeout=5)
-        c = conn.cursor()
-        c.execute(
-            "SELECT "
-            "SUM(CASE WHEN status IN ('paid','sent','completed') THEN 1 ELSE 0 END), "
-            "SUM(CASE WHEN status IN ('failed','cancelled') THEN 1 ELSE 0 END) "
-            "FROM orders WHERE user_id=?",
-            (user_id,),
-        )
-        row = c.fetchone()
-        conn.close()
-        success = int(row[0] or 0)
-        failure = int(row[1] or 0)
+        store = _store()
+        success = store.paid_deals(user_id, ('paid', 'sent', 'completed'))
+        failure = store.paid_deals(user_id, ('failed', 'cancelled'))
         trusted = success > 0 and success >= failure
         return {"success": success, "failure": failure}, trusted
     except Exception as e:

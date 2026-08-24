@@ -1,0 +1,143 @@
+{
+  "schemaVersion": "e0-3-bot-b5-3-064a-postgres-inventory-reconciliation.v1",
+  "observedAt": "2026-08-23T21:16:27Z",
+  "verificationCompletedAt": "2026-08-23T21:16:27Z",
+  "independentReviewCompletedAt": "2026-08-23T21:19:03Z",
+  "route": "E0/E0.3/B5.3/064A_POSTGRES_PRIVILEGE_INVENTORY_RECONCILIATION",
+  "e4Excluded": true,
+  "result": "LOCAL_PASS_OPERATIONAL_NO_GO",
+  "gateStatus": "BLOCKED_OWNER",
+  "inventoryProfiles": {
+    "productionCutover": {
+      "migrations": "001-023",
+      "tables": 54,
+      "sequences": 29,
+      "functions": 2,
+      "sourceBacked": true,
+      "currentProductionCompatibility": "UNKNOWN_NOT_REOBSERVED"
+    },
+    "repositoryComplete": {
+      "migrations": "001-024",
+      "tables": 56,
+      "sequences": 29,
+      "functions": 4,
+      "sourceBacked": false
+    },
+    "migration024": {
+      "disposition": "REPOSITORY_PRESENT_PRODUCTION_STATE_UNKNOWN_NOT_REOBSERVED",
+      "addsTables": ["e3_paper_evidence", "e3_paper_evidence_heads"],
+      "addsFunctions": [
+        "e3_reject_evidence_mutation()",
+        "e3_append_paper_evidence(text,text,text,bigint,text,text,jsonb)"
+      ],
+      "applicationAuthorized": false
+    }
+  },
+  "closures": [
+    "TABLE_ORDER remains the exact 54-table immutable SQLite source/cutover inventory; a separately named migration-complete inventory contains the two PostgreSQL-only E3 tables.",
+    "A content-addressed manifest selects exactly migrations 001-023 for production-cutover tooling and classifies 024 separately; unlisted, missing or byte-drifted numbered migrations fail closed.",
+    "The cutover preflight and runbook consume the manifest and no longer select every numbered migration through a wildcard.",
+    "The production runtime ACL transaction refuses any table, sequence or function inventory outside exact 001-023 before any blanket runtime grant can execute.",
+    "The production loader rejects both missing and unexpected SQLite source tables, so an unmodeled source relation cannot be silently discarded under the exact 54-table claim.",
+    "The future-function default PUBLIC EXECUTE revoke is global for the obsidian_migrator creator role, matching PostgreSQL 17 semantics rather than the ineffective per-schema revoke form.",
+    "The runtime verifier requires the exact global future-function default ACL and zero role memberships in both directions; bootstrap and mutation tests reject capability inheritance into or out of every runtime role.",
+    "Migration 024 explicitly revokes PUBLIC EXECUTE on both new functions and receives no app, readonly or payout runtime grants.",
+    "The 064A frozen plan remains a 54-table local profile and was rebound to the hardened runtime privilege input; this byte change consumes no prior authorization."
+  ],
+  "byteBindings": {
+    "sourceInventory": {"path": "deploy/postgres/load_sqlite_snapshot.py", "sha256": "dacef8a3f5da3d0abdb8fddebdbe1693ae34939a7f358a685fbfc0cc323410bf"},
+    "productionLoader": {"path": "deploy/postgres/load_production_snapshot.py", "sha256": "9424849366396af666d6a41b1a6170b5a947cd2f10fdc657fb2099cbb33d080e"},
+    "bootstrapRoles": {"path": "deploy/postgres/bootstrap_roles.sql", "sha256": "9138152333af122f6efb2d5a5a6f3eea8e3f650a70be217f9e1ad2bce4a7a949"},
+    "privilegeVerifier": {"path": "deploy/postgres/verify_runtime_privileges.py", "sha256": "6e73145b3fd350190d704c9a52fe2f2c2c9e3e7becda0e667ac5a5146b2dd719"},
+    "runtimePrivileges": {"path": "deploy/postgres/runtime_privileges.sql", "sha256": "0fef7530e8c1168e2d72cb3235985838f7dd910806a773b72fa09ead86956a83"},
+    "migration024": {"path": "deploy/postgres/024_e3_paper_evidence.sql", "sha256": "619a03b99b5d45ee611114a80b0fd01e73a7f4f7c37c26ba1a92d329cb8714ef"},
+    "migrationManifest": {"path": "deploy/postgres/migration-profile.v1.json", "sha256": "8b3829dc43d4513dd8853045e362dde3853f5cb63a1db762339cf3b98d8c1636"},
+    "manifestValidator": {"path": "deploy/postgres/migration_profile.py", "sha256": "5559c6f64c41b3f90ab8dc020ab0a04823d2c605ae8d547521b00b2e233bd890"},
+    "cutoverPreflight": {"path": "deploy/postgres/cutover_preflight.py", "sha256": "2682e5eabf93e6b2f32edab48a2c69a1b7e30c98ea948bb1960f9358cbed3f90"},
+    "cutoverRunbook": {"path": "docs/postgresql-cutover-runbook.md", "sha256": "e3502d247e1da91937e752a785059c21ae8e1610f561686971a7dc684918ca3b"},
+    "frozen064APlan": {"path": "docs/e0-3-bot-b5-3-064a-hardened-refresh-plan.v1.json", "sha256": "40c94af2834cb1d98380c09b5a5253e9b621547a680c189b11def77aff221cad"},
+    "testPrivilegeInventory": {"path": "tests/test_postgres_privilege_inventory.py", "sha256": "9048a9a80c6a00f4eb595d1450ed79852826b77f3847aac9c35860e41961fb03"},
+    "testMigrationProfile": {"path": "tests/test_postgres_migration_profile.py", "sha256": "cc74f7434362be35b4f1553362be0b98c9cf2551da38ab4c25f781a35c97dded"},
+    "testRuntimePrivileges": {"path": "tests/test_postgres_runtime_privileges.py", "sha256": "34c7d2e0a1116068de42650c45cf0a52b1b50f8d5f656bc95619de62b9a893b4"},
+    "testDormant024Privileges": {"path": "tests/test_postgres_dormant_024_privileges.py", "sha256": "40eddf774f5456acbbd4d5fae41e97a9993a4ca7f5a3a3c0f50240ed7a5614d6"},
+    "testProductionLoader": {"path": "tests/test_postgres_production_loader.py", "sha256": "224ff472a1bc998430739218ebb376e05239ca1f044c3856ef38c2f4befa8df3"},
+    "testProductionLoaderGuard": {"path": "tests/test_postgres_production_loader_guard.py", "sha256": "954a9d8d1c25c195dce12037b9f752cad10f970eb2289cb14c9d31db6be7ed97"}
+  },
+  "verification": {
+    "staticAnd064AFocused": {
+      "command": "/opt/lumi/venv/bin/python -m pytest -q tests/test_postgres_privilege_inventory.py tests/test_postgres_migration_profile.py tests/test_postgres_cutover_preflight.py tests/test_e3_postgres_persistence.py tests/test_bot_notification_snapshot_inventory.py tests/test_order_lifecycle_snapshot_inventory.py tests/test_e0_3_bot_b5_3_064a_hardened_refresh.py",
+      "passed": 91,
+      "failed": 0
+    },
+    "productionLoaderGuard": {
+      "command": "python3 tests/test_postgres_production_loader_guard.py",
+      "result": "PASS",
+      "covers": ["missing source tables", "unexpected rogue source table", "target DSN/path", "writer freeze", "open holder"]
+    },
+    "extended064AAndB53": {
+      "command": "/opt/lumi/venv/bin/python -m pytest -q tests/test_e0_3_bot_b5_3_064a*.py tests/test_e0_3_bot_b5_3_snapshot_dump.py tests/test_e0_3_bot_b5_3_catalog_comparator.py",
+      "passed": 155,
+      "failed": 0
+    },
+    "pythonCompilation": "PASS",
+    "gitDiffCheck": "PASS",
+    "gitleaksScopedDiff": "PASS",
+    "disposablePostgresql": {
+      "image": "postgres@sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193",
+      "network": "temporary loopback published port only",
+      "persistentVolume": false,
+      "productionData": false,
+      "checks": [
+        {"test": "tests/test_postgres_runtime_privileges.py", "result": "PASS"},
+        {"test": "tests/test_postgres_dormant_024_privileges.py", "result": "PASS"},
+        {"test": "tests/test_postgres_production_loader.py", "result": "PASS"},
+        {"test": "tests/test_postgres_runtime_schema_store.py", "result": "PASS"}
+      ],
+      "containerRemoved": true
+    }
+  },
+  "independentReview": {
+    "stateAuditor": "LATEST_BYTES_LOCAL_PASS_OPERATIONAL_NO_GO",
+    "routeAuditor": "LATEST_BYTES_LOCAL_PASS_OPERATIONAL_NO_GO",
+    "researchScout": "LATEST_BYTES_LOCAL_PASS_OPERATIONAL_NO_GO"
+  },
+  "operationalBlockers": [
+    "The obsidian_b64_snapshot_reader principal is not provisioned or independently attested.",
+    "No production source, dump or restore adapter exists and current production schema state was not re-observed.",
+    "Production registry authentication, trusted time, revocation, durable replay and a hard external process deadline remain absent.",
+    "No fresh exact-plan owner authorization or separate reviewer acceptance exists; prior conversational authorization remains unconsumed."
+  ],
+  "runtimeActions": {
+    "productionContacted": false,
+    "productionDatabaseContacted": false,
+    "disposableDatabaseContacted": true,
+    "dockerImagePulled": false,
+    "disposableDockerContainerRunAndRemoved": true,
+    "customerDataRead": false,
+    "operationalSecretRead": false,
+    "productionMigrationApplied": false,
+    "productionAclChanged": false,
+    "productionPrincipalProvisioned": false,
+    "deploymentOrRestartPerformed": false,
+    "authorizationConsumed": false,
+    "e4Touched": false
+  },
+  "authority": {
+    "productionMutationAuthorized": false,
+    "productionMigrationAuthorized": false,
+    "aclGrantAuthorized": false,
+    "principalProvisioningAuthorized": false,
+    "refreshAuthorized": false,
+    "deploymentAuthorized": false,
+    "restartAuthorized": false,
+    "automaticRetryAuthorized": false,
+    "e4ExecutionAuthorized": false,
+    "actionAllowed": false
+  },
+  "sources": [
+    "https://www.postgresql.org/docs/17/sql-alterdefaultprivileges.html",
+    "https://www.postgresql.org/docs/17/ddl-priv.html",
+    "https://www.postgresql.org/docs/17/functions-info.html"
+  ],
+  "nextCanonicalItem": "DESIGN_AND_REHEARSE_EXACT_OBSIDIAN_B64_SNAPSHOT_READER_ROLE_PROVISIONING_AGAINST_THE_FROZEN_001_023_PROFILE"
+}

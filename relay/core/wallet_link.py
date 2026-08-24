@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import logging
 import os
-import sqlite3
+from repositories.wallet_store import from_environment as _wallet_store_from_environment
 from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
@@ -57,18 +57,7 @@ HISTORY_SOURCES = {
     "ETH": ("core.chain_watch", "evm_history"),
 }
 
-_DDL = ("CREATE TABLE IF NOT EXISTS wallet_links ("
-        " user_id INTEGER NOT NULL,"
-        " chain TEXT NOT NULL,"
-        " address TEXT NOT NULL,"
-        " verified_at TEXT NOT NULL,"
-        " PRIMARY KEY (user_id, chain))")
-
-
-def _conn():
-    conn = sqlite3.connect(DB_PATH, timeout=5)
-    conn.execute(_DDL)
-    return conn
+def _store():return _wallet_store_from_environment(sqlite_path=DB_PATH)
 
 
 def _now() -> str:
@@ -88,13 +77,7 @@ def remember(user_id, chain: str, address: str) -> bool:
     if not uid or not chain or not address:
         return False
     try:
-        with _conn() as conn:
-            conn.execute(
-                "INSERT INTO wallet_links (user_id, chain, address, verified_at) "
-                "VALUES (?,?,?,?) ON CONFLICT(user_id, chain) DO UPDATE SET "
-                "address=excluded.address, verified_at=excluded.verified_at",
-                (uid, chain, address, _now()))
-            conn.commit()
+        _store().remember_link(user_id=uid,chain=chain,address=address,verified_at=_now())
         return True
     except Exception as e:
         logger.warning("wallet_link: не сохранили связь uid=%s %s: %s", user_id, chain, e)
@@ -108,14 +91,7 @@ def forget(user_id, chain: str = None) -> int:
     except (TypeError, ValueError):
         return 0
     try:
-        with _conn() as conn:
-            if chain:
-                cur = conn.execute("DELETE FROM wallet_links WHERE user_id=? AND chain=?",
-                                   (uid, (chain or "").upper().strip()))
-            else:
-                cur = conn.execute("DELETE FROM wallet_links WHERE user_id=?", (uid,))
-            conn.commit()
-            return cur.rowcount or 0
+        return _store().forget_links(user_id=uid,chain=(chain or '').upper().strip() if chain else None)
     except Exception as e:
         logger.warning("wallet_link: не сняли связь uid=%s: %s", user_id, e)
         return 0
@@ -128,11 +104,7 @@ def links_for(user_id) -> list:
     except (TypeError, ValueError):
         return []
     try:
-        with _conn() as conn:
-            rows = conn.execute(
-                "SELECT chain, address, verified_at FROM wallet_links "
-                "WHERE user_id=? ORDER BY chain", (uid,)).fetchall()
-        return [{"chain": r[0], "address": r[1], "verified_at": r[2]} for r in rows]
+        return _store().links_for(uid)
     except Exception as e:
         logger.warning("wallet_link: не прочитали связи uid=%s: %s", user_id, e)
         return []

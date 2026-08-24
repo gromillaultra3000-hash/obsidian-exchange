@@ -1,0 +1,64 @@
+{
+  "schema": "native-wallet-attestation-dependency-rehearsal.v1",
+  "rust": "1.97.1",
+  "advisory_database_entries": 1211,
+  "profiles": [
+    {
+      "id": "human-rp",
+      "direct_dependencies": ["webauthn-rs=0.5.5"],
+      "registry_packages": 116,
+      "lock_sha256": "c38796f3a17626b012f9b2b22999682cc673d0d7392eabad4f4d583cd36038b5",
+      "rustsec_findings": 0,
+      "missing_license_metadata": 0,
+      "host_check": "BLOCKED_NATIVE_OPENSSL_DISCOVERY",
+      "selected_for_integration": false
+    },
+    {
+      "id": "automated-minimal",
+      "direct_dependencies": [
+        "base64=0.23.1",
+        "ed25519-dalek=3.0.0",
+        "serde=1.0.228",
+        "serde_json=1.0.145"
+      ],
+      "registry_packages": 36,
+      "lock_sha256": "34183adb651652dfea0009a3b506b438e4f2f3b54c2a8b7eef9f7bfdd98b18d4",
+      "rustsec_findings": 0,
+      "missing_license_metadata": 0,
+      "host_check": "PASS",
+      "strict_parser_rehearsal": true,
+      "allocation_safe_lexical_preflight": true,
+      "canonical_payload_decoding": true,
+      "exact_pae_construction": true,
+      "closed_semantic_policy": true,
+      "signature_outcome": "TEST_ONLY_SYMBOLIC",
+      "canonical_signature_decoding": true,
+      "external_root_epoch_gate": "SYMBOLIC_NO_KEY_BYTES",
+      "keyid_selects_root": false,
+      "signature_decoding_implemented": true,
+      "signature_verification_implemented": false,
+      "selected_for_integration": false
+    },
+    {
+      "id": "automated-with-schema",
+      "direct_dependencies": [
+        "base64=0.23.1",
+        "ed25519-dalek=3.0.0",
+        "in_toto_attestation=0.1.0",
+        "serde=1.0.228",
+        "serde_json=1.0.145"
+      ],
+      "registry_packages": 83,
+      "additional_packages_vs_minimal": 47,
+      "lock_sha256": "f460f5f7178f917017016c28c9dc9716afdb0122c90c0b878e29e5de205ce47e",
+      "rustsec_findings": 0,
+      "missing_license_metadata": 0,
+      "host_check": "PASS",
+      "selected_for_integration": false
+    }
+  ],
+  "native_workspace_changed": false,
+  "verifier_implemented": false,
+  "trust_roots_installed": false,
+  "production_action_allowed": false
+}

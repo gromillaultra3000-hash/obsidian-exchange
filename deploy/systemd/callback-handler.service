@@ -1,0 +1,13 @@
+[Unit]
+Description=Telegram Callback Handler for News Bot (legacy, fail-closed)
+After=network.target
+
+[Service]
+User=root
+EnvironmentFile=/etc/obsidian-exchange/callback-handler.env
+ExecStart=/usr/bin/python3 /root/callback_handler.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,136 @@
+{
+  "schemaVersion": "e0-3-bot-b5-3-064a-source-window-v2-closure.v1",
+  "observedAt": "2026-08-23T19:41:36Z",
+  "route": "E0/E0.3/B5.3/064A_SOURCE_WINDOW_V2_CLOSURE",
+  "boundedSliceStatus": "VERIFIED_LOCAL",
+  "operationalRefreshStatus": "NO_GO",
+  "implementationBindingsReconciledAt": "2026-08-23T21:12:29Z",
+  "canonicalGateStatus": {
+    "stage": "E0",
+    "stageStatus": "IN_PROGRESS",
+    "firstUnmetCriterion": "E0.3",
+    "firstUnmetStatus": "BLOCKED_OWNER",
+    "e4ExcludedFromCurrentTask": true,
+    "e4StatusPreserved": "IN_PROGRESS",
+    "e4GateDecisionPreserved": "NO_GO"
+  },
+  "implementationBindings": [
+    {
+      "path": "relay/core/b64_064a_decision.py",
+      "sha256": "05f2bb9e3aa961c973c99e08924530a1a7568ca9e60e1c8434dc9a40bed61cbd"
+    },
+    {
+      "path": "scripts/b64_064a_offline_signer.py",
+      "sha256": "58da5684c9059aa193d15ffbb114ae1e1fb77da377eed868f0d9b7f29ae4090b"
+    },
+    {
+      "path": "tests/test_e0_3_bot_b5_3_064a_decision.py",
+      "sha256": "ca037dd54dc620e2d3a817c6b446bd8df96a3666492534c5dcfb1e66043042de"
+    },
+    {
+      "path": "tests/test_e0_3_bot_b5_3_064a_offline_signer.py",
+      "sha256": "2b81fd5c8ac9abb7ca5d71d6b591768dc1c93e8abe1133f84c46abe099b3c3bd"
+    },
+    {
+      "path": "tests/test_e0_3_bot_b5_3_064a_refresh_candidate_v3.py",
+      "sha256": "4cb11e686cbc3e62a452b4aadfc754813991755ea84b50839825a2053f7de32a"
+    },
+    {
+      "path": "tests/test_e0_3_bot_b5_3_064a_refresh_launch_preflight.py",
+      "sha256": "c6d851f62638573beb4f9951eedddde4ee85ec4c37b9059098a9f93e6c7937cf"
+    }
+  ],
+  "closedContract": {
+    "productionRequiresStatementSchema": "b64-064a-decision-statement.v2",
+    "legacyV1Scope": "SYNTHETIC_ONLY",
+    "sourceWindowDerivation": "HASH_BOUND_CANDIDATE_SOURCE_OBSERVED_AT_PLUS_EXACT_86400_SECONDS",
+    "sourceWindowInterval": "SOURCE_OBSERVED_AT_EPOCH_INCLUSIVE_SOURCE_EXPIRES_AT_EPOCH_EXCLUSIVE",
+    "statementExpiryConstraint": "STATEMENT_EXPIRES_AT_EPOCH_LESS_THAN_OR_EQUAL_TO_SOURCE_EXPIRES_AT_EPOCH",
+    "verificationContext": "EXACT_EXPECTED_SOURCE_OBSERVED_AND_EXPIRES_EPOCHS_REQUIRED_FOR_V2",
+    "envelopeConstraint": "REVIEWER_AND_OWNER_ENVELOPES_CANNOT_START_BEFORE_OR_OUTLIVE_STATEMENT",
+    "freeCallerSourceWindowInput": false,
+    "productionAuthorityCreated": false
+  },
+  "cleanupEvidenceValidation": {
+    "exactRequiredKeys": [
+      "archiveAbsent",
+      "manifestsAbsent",
+      "containerAbsent",
+      "tmpfsDestroyed"
+    ],
+    "allValuesMustBeLiteralTrue": true,
+    "validatesHistoricalEvidenceShapeOnly": true,
+    "claimsEndToEndRunnerCleanup": false
+  },
+  "adversarialCoverage": [
+    "LEGACY_V1_IN_PRODUCTION_MODE",
+    "MISSING_EXPECTED_SOURCE_CONTEXT",
+    "EXPECTED_SOURCE_WINDOW_MISMATCH",
+    "SOURCE_WINDOW_FIELD_TAMPER",
+    "ISSUANCE_AT_EXACT_SOURCE_EXPIRY",
+    "STATEMENT_OUTLIVES_SOURCE",
+    "ENVELOPE_OUTLIVES_STATEMENT",
+    "HASH_BOUND_SOURCE_OBSERVED_AT_TAMPER",
+    "INCOMPLETE_CLEANUP_ASSERTIONS"
+  ],
+  "verification": {
+    "focusedDecisionAndSignerTests": 15,
+    "extended064aAndSnapshotTests": 75,
+    "jsonValidation": "PASS",
+    "pythonCompilation": "PASS",
+    "gitDiffCheck": "PASS",
+    "gitCachedDiffCheck": "PASS",
+    "gitleaksScopedResult": "PASS"
+  },
+  "independentReviews": [
+    {
+      "review": "ADVERSARIAL_STATE_AND_SECURITY",
+      "localSliceResult": "PASS",
+      "operationalRefreshResult": "NO_GO"
+    },
+    {
+      "review": "ROUTE_AND_AUTHORITY",
+      "localSliceResult": "PASS",
+      "operationalRefreshResult": "NO_GO"
+    },
+    {
+      "review": "SECURITY_AND_DEVOPS",
+      "localSliceResult": "PASS",
+      "operationalRefreshResult": "NO_GO"
+    }
+  ],
+  "officialSecurityBasis": [
+    {
+      "source": "https://www.postgresql.org/support/security/CVE-2026-19385/",
+      "finding": "PG_DUMP_BEFORE_17_11_REMAINS_AN_OPERATIONAL_REFRESH_BLOCKER"
+    },
+    {
+      "source": "https://www.postgresql.org/docs/17/app-pgdump.html",
+      "finding": "PG_DUMP_CLIENT_VERSION_COMPATIBILITY_AND_STDERR_REVIEW_REMAIN_RUNBOOK_REQUIREMENTS"
+    }
+  ],
+  "remainingHardBlockers": [
+    "PATCHED_IMMUTABLE_DIGEST_PINNED_PG_DUMP_17_11_OR_LATER_NOT_WIRED",
+    "DEDICATED_ATTESTED_LEAST_PRIVILEGE_DUMP_PRINCIPAL_NOT_WIRED",
+    "END_TO_END_FAIL_SAFE_TRANSIENT_CLEANUP_AND_ABSENCE_RECEIPT_NOT_WIRED",
+    "PRODUCTION_REGISTRY_TRUSTED_TIME_REVOCATION_AND_DURABLE_REPLAY_ADAPTER_ABSENT",
+    "EXACT_SECRET_SAFE_OPERATOR_COMMAND_AND_CREDENTIAL_MAPPING_NOT_REVIEWED",
+    "CURRENT_SOURCE_PACKAGE_EXPIRED_AND_IMPLEMENTATION_DRIFTED"
+  ],
+  "authority": {
+    "priorConversationAuthorizationConsumed": false,
+    "freshOwnerAuthorizationRequiredForMateriallyRevisedCommand": true,
+    "evidenceAccepted": false,
+    "productionContactActivated": false,
+    "productionMutationAuthorized": false,
+    "productionExpandAuthorized": false,
+    "deploymentAuthorized": false,
+    "restartAuthorized": false,
+    "cutoverAuthorized": false,
+    "telegramDeliveryAuthorized": false,
+    "automaticRetryAuthorized": false,
+    "e4ExecutionAuthorized": false,
+    "actionAllowed": false
+  },
+  "nextCanonicalItem": "HARDEN_ONE_EXACT_064A_REFRESH_RUNBOOK_WITH_PATCHED_DIGEST_PINNED_PG_DUMP_LEAST_PRIVILEGE_COMPLETE_CLEANUP_AND_CONCRETE_PRODUCTION_AUTHENTICATION_ADAPTER_THEN_INDEPENDENTLY_REVIEW_BEFORE_FRESH_OWNER_AUTHORIZATION"
+}

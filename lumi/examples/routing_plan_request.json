@@ -1,0 +1,7 @@
+{
+  "taskType": "risk_review",
+  "input": "Assess the security risks of the new deployment pipeline",
+  "context": {"environment": "production"},
+  "requirements": {"riskLevel": "high"},
+  "metadata": {"source": "security_team"}
+}

@@ -1,0 +1,63 @@
+{
+  "schemaVersion": "e0-4-owner-auth-candidate-runtime-matrix.v1",
+  "observedAt": "2026-08-17T15:32:23Z",
+  "route": "E0/E0.4/FEATURE_STATUS_SURFACE_MATRIX",
+  "status": "IN_PROGRESS",
+  "workClass": "PRODUCTION_LAYOUT_HERMETIC_RUNTIME_MATRIX",
+  "productionMutation": false,
+  "productionCredentialsUsed": false,
+  "externalNetworkAttempted": false,
+  "telegramMessagesSent": false,
+  "productionDatabaseQueried": false,
+  "deploymentAuthorized": false,
+  "restartAuthorized": false,
+  "candidateRelaySha256": "cdd840fe11ff1726d0aa20e7a5fd9016867821f82d8eca9c1de42bd02daa04f3",
+  "isolation": {
+    "layout": "temporary copy of deployed Relay source trees with env/db/log/cache excluded and seven digest-checked candidate artifacts overlaid",
+    "environment": "synthetic token, shared secret and temporary DB path set before import; copied layout has no bot/.env",
+    "transport": "in-process ASGI transport; socket connect/connect_ex/create_connection trapped before import",
+    "effects": "provider polling and _mark_order_paid trapped; exercised orders are terminal synthetic rows",
+    "database": "temporary import-created SQLite artifact hash unchanged across route matrix; no WAL remains"
+  },
+  "acceptedCases": [
+    "signed Telegram owner succeeds and foreign owner receives 404",
+    "a signed Telegram subject takes precedence over a conflicting bearer token and query user_id",
+    "matching opaque token succeeds and foreign token receives 404",
+    "internal key requires an explicit matching stored user_id; missing or wrong user_id receives 404",
+    "valid numeric payment proof redirects only to the owner-bound opaque token",
+    "missing, wrong-order and expired numeric proofs receive 404 without audit",
+    "valid opaque payment token renders only its bound order and unknown token receives 404",
+    "foreign review comment/finalize cannot mutate; owner transitions pending_comment once"
+  ],
+  "correctionsFromReview": [
+    "Telegram-authenticated requests now ignore simultaneously supplied bearer tokens, closing the mixed-credential confused-deputy path.",
+    "payment_page_opened audit occurs only after numeric proof plus owner lookup or opaque-token validation, so unauthenticated requests do not write audit events."
+  ],
+  "tests": {
+    "runtime": "tests/test_e0_4_owner_auth_candidate_runtime.py",
+    "candidateBuild": "tests/test_e0_4_owner_auth_candidate.py",
+    "aclBlocker": "tests/test_e0_4_candidate_pg_acl_blocker.py",
+    "result": "RUNTIME_PASS_ACL_BLOCKED"
+  },
+  "postgresAclBlocker": {
+    "status": "BLOCKED_INCOMPATIBLE",
+    "finding": "Selected Postgres repository methods issue direct table SQL, while target proposal roles revoke table access and grant only SECURITY DEFINER function execution.",
+    "relayEvidence": ["deploy/postgres/proposals/028_e0_relay_acl_envelope.sql", "deploy/postgres/proposals/032_e0_relay_p3_authorized_order_reads.sql"],
+    "botEvidence": ["deploy/postgres/proposals/035_e0_bot_b1_role_envelope.sql", "deploy/postgres/proposals/042_e0_bot_b3_1_engagement_non_money_writers.sql"],
+    "requiredRemediation": "Add surgical feature-gated Postgres adapters for the approved functions and prove them in isolated disposable PostgreSQL 17 databases under execute-only roles."
+  },
+  "independentReviews": [
+    {"identity":"agent:/root/matrix_harness_review","disposition":"FINDINGS_INCORPORATED"},
+    {"identity":"agent:/root/matrix_bot_review","disposition":"BOT_MATRIX_REQUIREMENTS_INCORPORATED_PARTIALLY"},
+    {"identity":"agent:/root/matrix_pg_acl_review","disposition":"ACL_INCOMPATIBILITY_CONFIRMED"}
+  ],
+  "limitations": [
+    "Bot handlers were not imported or executed; bot coupling remains structurally checked and review ownership is exercised through the candidate SQLite store.",
+    "Pending-provider paid/unpaid polling branches were trapped but not positively exercised.",
+    "The two-hour proof and internal status call still reuse RELAY_SECRET in URLs/query parameters, leaving replay, log/referrer leakage and shared-secret blast-radius risk.",
+    "No disposable PostgreSQL candidate execution was attempted because static code plus ACL proposals already prove direct-table incompatibility."
+  ],
+  "rollout": "None; candidate remains NO_GO for deployment.",
+  "rollback": "Not applicable; only checkout, tests and evidence changed.",
+  "nextCanonicalItem": "Implement surgical feature-gated Postgres adapters for the approved Relay authorized-read and bot review functions, then prove candidate behavior under execute-only roles in two isolated disposable PostgreSQL 17 databases."
+}

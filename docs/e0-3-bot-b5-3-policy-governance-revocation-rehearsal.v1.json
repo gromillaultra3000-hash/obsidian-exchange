@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "route": "E0/E0.3/B5.3",
+  "status": "REHEARSED_PROPOSAL_ONLY",
+  "recordedAtUtc": "2026-08-17T00:00:00Z",
+  "productionChanged": false,
+  "proposal": {
+    "path": "deploy/postgres/proposals/060_e0_bot_b5_3_policy_governance_recipient_revocation.sql",
+    "sha256": "20c70e3a1651aeeb7871287ca1a03eeea14c51abdf782db0c35deca71d4391af"
+  },
+  "tests": [
+    {
+      "path": "tests/test_e0_3_bot_b5_3_governance_revocation_contract.py",
+      "sha256": "fa0ff015d1c59d2ca604615fd61be97b5360be5deeac54e14301df5ea430736d"
+    },
+    {
+      "path": "tests/test_e0_3_bot_b5_3_governance_revocation_rehearsal.py",
+      "sha256": "1e4df3aed186498a0a765ee5211bda0ddcf758dc6ff7a9330ed9d590a6c0cbc9"
+    }
+  ],
+  "verified": {
+    "postgresMajor": 17,
+    "databasePrincipals": [
+      "obsidian_exchange_bot_policy_approver",
+      "obsidian_exchange_bot_reconciler"
+    ],
+    "approvalActorDerivedFromSessionUser": true,
+    "activationHeadCas": true,
+    "activationVersionMonotonic": true,
+    "appendOnlyAudit": true,
+    "recipientRevocationActorDerivedFromSessionUser": true,
+    "pendingRecipientQuarantinedWithoutSyntheticDeliveryEvidence": true,
+    "sendingRecipientMarkedPossibleInFlight": true,
+    "lateUncertainEvidenceReconcilesToManual": true,
+    "bigintRecipientRevocation": true,
+    "restoreDoesNotReviveQuarantinedJob": true,
+    "claimExcludesRevokedRecipient": true,
+    "enqueueRejectsRevokedRecipient": true,
+    "runtimeDirectGovernanceDmlDenied": true,
+    "sharedBotExecuteDenied": true
+  },
+  "limitations": [
+    "Disposable clean-schema rehearsal; this is not an idempotent production migration.",
+    "The legacy Proposal 059 policy row still carries non-authoritative approved_by fields; Proposal 060 trusts only its session_user-bound approval event.",
+    "A committed revoke cannot recall a provider request already submitted; sending jobs are quarantined as possible in-flight and require evidence reconciliation.",
+    "The runtime adapter and dispatcher do not yet call the token/evidence/governance APIs.",
+    "Production needs expand/fence/drain/backfill/validate/cutover/contract migrations and separately provisioned credentials."
+  ],
+  "rolloutDecision": "CANARY_REJECTED"
+}

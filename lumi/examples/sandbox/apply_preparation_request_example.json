@@ -1,0 +1,8 @@
+{
+  "projectId": "sample_project",
+  "patchPlanResultId": "replace-with-patch-plan-result-id",
+  "diffPreviewId": "replace-with-diff-preview-id",
+  "testRunResultId": "replace-with-test-run-result-id",
+  "rollbackMetadataId": "replace-with-rollback-metadata-id",
+  "metadata": {"source": "example"}
+}

@@ -11,14 +11,14 @@ Provider intelligence (паттерн Lumi, 12.07.2026):
 - конфигурируемая цепочка эскалации: ESCALATION_CHAIN=stormtrade,fallback (default).
 """
 import os
-import sqlite3
 import random
 import logging
 from typing import Optional, Dict, List, Tuple
 from datetime import datetime, timedelta
 from pathlib import Path
+from repositories.provider_health_store import from_environment as _health_store_from_environment
 
-DB_PATH = Path("/root/exchange.db")
+DB_PATH = Path(os.getenv("DB_PATH", "/root/exchange.db"))
 logger = logging.getLogger(__name__)
 
 # короткое имя (env/БД payment_sessions) ↔ имя класса провайдера
@@ -65,7 +65,7 @@ RETIRED_PROVIDERS_DEFAULT = "platega,greenpay"
 #
 # rspay стоит ПОСЛЕ проверенных каналов и до запасных: ставка ещё не подтверждена
 # живым потоком, а место в этом списке — утверждение о выгоде, а не о надежде.
-PROVIDER_PROFIT_ORDER_DEFAULT = "vertu,xpay,montera,brabus,rspay,stormtrade,fallback,lava"
+PROVIDER_PROFIT_ORDER_DEFAULT = "vertu,rspay,xpay,montera,brabus,stormtrade,fallback,lava"
 
 
 def get_retired_providers() -> set:
@@ -117,7 +117,7 @@ def is_provider_retired(provider: str) -> bool:
 # банки Душанбе — 21 показ, 0 оплат. Brabus вносится по тому самому правилу,
 # по которому не внесён RSPay: живая выдача проверена (11.07 — настоящие
 # карты 9762…, живые имена; фактический основной канал), а не обещана докой.
-RU_PROVIDERS_DEFAULT = "vertu,montera,brabus,fallback,stormtrade"
+RU_PROVIDERS_DEFAULT = "vertu,rspay,montera,brabus,fallback,stormtrade"
 
 
 def get_ru_providers() -> set:
@@ -230,7 +230,8 @@ PROVIDER_CONFIG = {
         # Ключ магазина и секрет мерчанта — из РАЗНЫХ разделов кабинета RSPay.
         # Нужны ОБА: с одним из них каждый запрос отвалится по подписи, а канал
         # выглядел бы настроенным (см. has_required_env — список через запятую).
-        "required_env": "RSPAY_SHOP_API_KEY,RSPAY_API_SECRET",
+        "required_env": "RSPAY_SHOP_API_KEY,RSPAY_API_SECRET,"
+                        "RSPAY_BT_SHOP_API_KEY,RSPAY_BT_API_SECRET",
     },
     "LavaProvider": {
         "weight": 0.10,        # SBP + card via hosted payment page
@@ -262,40 +263,7 @@ PROVIDER_CONFIG = {
 }
 
 
-def _db():
-    conn = sqlite3.connect(str(DB_PATH), timeout=5)
-    conn.row_factory = sqlite3.Row
-    return conn
-
-
-_schema_ready = False
-
-def _ensure_schema():
-    """Однократная миграция: status/blocker в provider_health + журнал попыток
-    для бюджет-лимитов. Идемпотентно, ошибки не валят платёжный путь."""
-    global _schema_ready
-    if _schema_ready:
-        return
-    try:
-        with _db() as conn:
-            cols = {r[1] for r in conn.execute("PRAGMA table_info(provider_health)")}
-            if "status" not in cols:
-                conn.execute("ALTER TABLE provider_health ADD COLUMN status TEXT DEFAULT ''")
-            if "blocker" not in cols:
-                conn.execute("ALTER TABLE provider_health ADD COLUMN blocker TEXT DEFAULT ''")
-            conn.execute("CREATE TABLE IF NOT EXISTS provider_attempts ("
-                         "provider TEXT NOT NULL, ts TEXT NOT NULL)")
-            acols = {r[1] for r in conn.execute("PRAGMA table_info(provider_attempts)")}
-            if "success" not in acols:
-                # исход попытки для скользящего success-rate (reliability-скоринг).
-                # DEFAULT 1 — старые строки (только бюджет) не искажают статистику.
-                conn.execute("ALTER TABLE provider_attempts ADD COLUMN success INTEGER DEFAULT 1")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_provider_attempts "
-                         "ON provider_attempts(provider, ts)")
-            conn.commit()
-        _schema_ready = True
-    except Exception as e:
-        logger.warning("smart_router schema migration failed: %s", e)
+def _store():return _health_store_from_environment(sqlite_path=str(DB_PATH))
 
 
 def classify_error(error: Optional[str]) -> Tuple[str, str]:
@@ -365,14 +333,9 @@ def _budget_for(provider: str) -> Optional[int]:
 
 
 def attempts_last_hour(provider: str) -> int:
-    _ensure_schema()
     try:
         since = (datetime.now() - timedelta(hours=1)).isoformat()
-        with _db() as conn:
-            row = conn.execute(
-                "SELECT COUNT(*) FROM provider_attempts WHERE provider=? AND ts>=?",
-                (provider, since)).fetchone()
-        return int(row[0] or 0)
+        return _store().attempt_stats(provider,since)['count']
     except Exception:
         return 0
 
@@ -381,18 +344,12 @@ def success_rate_last_hour(provider: str) -> Optional[float]:
     """Доля успешных попыток за последний час (скользящий success-rate).
     None, если попыток слишком мало (<3) — тогда провайдер не штрафуется за
     отсутствие данных (нейтральный вклад в reliability)."""
-    _ensure_schema()
     try:
         since = (datetime.now() - timedelta(hours=1)).isoformat()
-        with _db() as conn:
-            row = conn.execute(
-                "SELECT COUNT(*) n, COALESCE(SUM(success),0) ok "
-                "FROM provider_attempts WHERE provider=? AND ts>=?",
-                (provider, since)).fetchone()
-        n = int(row["n"] or 0)
+        row=_store().attempt_stats(provider,since);n=row['count']
         if n < 3:
             return None
-        return max(0.0, min(1.0, float(row["ok"]) / n))
+        return max(0.0, min(1.0, float(row['success']) / n))
     except Exception:
         return None
 
@@ -444,63 +401,16 @@ def record_outcome(provider: str, success: bool, response_time: float = 0.0,
     error — текст ошибки провайдера для классификации статуса (метаданные)."""
     cfg = PROVIDER_CONFIG.get(provider, {})
     max_fails = cfg.get("max_consecutive_fails", 3)
-    _ensure_schema()
     status, blocker = ("READY", "") if success else classify_error(error)
-
-    with _db() as conn:
-        row = conn.execute(
-            "SELECT avg_response_time, failed_count FROM provider_health WHERE provider=?",
-            (provider,)
-        ).fetchone()
-
-        now = datetime.now().isoformat()
-
-        if row:
-            new_avg = round(row["avg_response_time"] * 0.8 + response_time * 0.2, 3)
-            if success:
-                new_fails = 0
-                healthy = 1
-            else:
-                new_fails = (row["failed_count"] or 0) + 1
-                healthy = 0 if new_fails >= max_fails else 1
-
-            conn.execute(
-                """UPDATE provider_health
-                   SET avg_response_time=?, failed_count=?, last_checked=?, is_healthy=?,
-                       status=?, blocker=?
-                   WHERE provider=?""",
-                (new_avg, new_fails, now, healthy, status, blocker, provider)
-            )
-        else:
-            healthy = 1 if success else 0
-            conn.execute(
-                """INSERT INTO provider_health
-                   (provider, avg_response_time, failed_count, last_checked, is_healthy,
-                    status, blocker)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
-                (provider, round(response_time, 3), 0 if success else 1, now, healthy,
-                 status, blocker)
-            )
-
-        # журнал попыток для бюджет-лимитов + скользящего success-rate (+ чистка >2ч)
-        try:
-            conn.execute("INSERT INTO provider_attempts (provider, ts, success) VALUES (?, ?, ?)",
-                         (provider, now, 1 if success else 0))
-            conn.execute("DELETE FROM provider_attempts WHERE ts < ?",
-                         ((datetime.now() - timedelta(hours=2)).isoformat(),))
-        except Exception as e:
-            logger.debug("provider_attempts write failed: %s", e)
-
-        conn.commit()
+    _store().record(provider=provider,success=success,response_time=response_time,
+                    max_fails=max_fails,status=status,blocker=blocker)
 
 
 def get_health_scores() -> Dict[str, dict]:
     """Return health score (0..1) and status for each provider."""
-    _ensure_schema()
     scores = {}
-    with _db() as conn:
-        rows = conn.execute("SELECT * FROM provider_health").fetchall()
-        for r in rows:
+    rows=_store().all_health()
+    for r in rows:
             name = r["provider"]
             if is_provider_retired(name):
                 # снят с эксплуатации: строка в provider_health осталась от
@@ -723,12 +633,5 @@ def get_trust_metrics() -> Dict[str, object]:
 
 def reset_provider(provider: str):
     """Manually re-enable a provider (e.g. after maintenance)."""
-    _ensure_schema()
-    with _db() as conn:
-        conn.execute(
-            "UPDATE provider_health SET failed_count=0, is_healthy=1, "
-            "status='READY', blocker='' WHERE provider=?",
-            (provider,)
-        )
-        conn.commit()
+    _store().reset(provider)
     logger.info("Provider %s manually reset to healthy", provider)

@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "e0.4-generated-fastapi-docs-runtime-observation.v1",
+  "observedAt": "2026-08-18T20:28:00Z",
+  "route": "E0/E0.4/GENERATED_FASTAPI_DOCS",
+  "status": "BLOCKED_OWNER",
+  "decisionEffect": "RESTRICTIVE_READ_ONLY_OBSERVATION_ONLY",
+  "source": "current-owner-conversation",
+  "authority": {"productionAuthorization": false, "productionMutationAuthorized": false, "productionExpandAuthorized": false, "deploymentAuthorized": false, "networkRequestAuthorized": false, "actionAllowed": false},
+  "applications": [
+    {"name": "RELAY", "path": "/opt/obsidian-exchange/relay-fastapi/main.py", "sha256": "c1ef783e3005f4698540ddc5368ef9a4592612fcf666b403ecbb7c4a359bd7ff", "decoratedRoutes": 94, "inferredGeneratedRoutes": ["/openapi.json", "/docs", "/redoc"], "staticMounts": ["/static"], "docsEnabledByDefault": true},
+    {"name": "KAIROS", "path": "/opt/kairos/app/main_v19.py", "sha256": "05306d4120cbc545aea3b7d571de5af4f1163d830bb14a02fef9ebce416578ee", "decoratedRoutes": 41, "inferredGeneratedRoutes": [], "staticMounts": ["/assets"], "docsEnabledByDefault": false},
+    {"name": "LUMI", "path": "/opt/lumi/lumi/app/main.py", "sha256": "bada14a32cc465a7e2e547a8ce661c263792d13bb7429c60bbe254871a4eab16", "decoratedRoutes": 203, "inferredGeneratedRoutes": ["/openapi.json", "/docs", "/redoc"], "staticMounts": [], "docsEnabledByDefault": true}
+  ],
+  "combinedInferredRouteObjects": 346,
+  "findings": [
+    {"id": "PUBLIC_GENERATED_DOCS_SURFACE_UNCLASSIFIED", "severity": "HIGH", "detail": "Relay and LUMI leave FastAPI OpenAPI/docs/redoc defaults enabled; their exposure, authentication, information disclosure and ownership are not included in the business-route matrix."},
+    {"id": "STATIC_MOUNT_SCOPE_UNBOUND", "severity": "MEDIUM", "detail": "Relay /static and KAIROS /assets are framework mounts outside decorated-route counts; cache, content inventory, provenance and access policy are not bound."},
+    {"id": "ROUTE_MANIFEST_REPRODUCIBILITY_GAP", "severity": "HIGH", "detail": "Static counts cannot prove runtime inclusion, middleware, routers, conditional UI catch-alls or generated docs; no immutable route manifest is bound to deployed artifacts."}
+  ],
+  "surfaceClassification": {"telegram": "N/A", "site": "PARTIAL_PUBLIC_HTTP_SURFACE", "miniApp": "PARTIAL_PUBLIC_HTTP_SURFACE", "admin": "OPERATOR_ONLY_UNCLASSIFIED", "api": "REQUIRED_UNACCEPTED", "native": "N/A"},
+  "knownBlockers": ["authenticated owner acceptance absent", "independent reviewer approval absent", "production key registry/trusted time/revocation/replay controls not established", "no evidence permits 064B or separate 064D"],
+  "nextSafeRoute": "E0/E0.4/DEPLOYED_GENERATED_UNIVERSE_RECONCILIATION",
+  "interpretation": "Read-only static observation only; no app import, HTTP call, authentication, customer/provider access, deployment or production mutation occurred. E0.3 remains first unmet and BLOCKED_OWNER; E0.4 remains non-production IN_PROGRESS."
+}

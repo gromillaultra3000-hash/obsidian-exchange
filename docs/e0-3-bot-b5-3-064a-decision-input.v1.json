@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "e0-3-bot-b5-3-064a-decision-input.v1",
+  "project": "obsidian-exchange",
+  "route": "E0/E0.3/B5.3/064A",
+  "requestedDecision": "APPROVE_064B_EXPAND_ONLY",
+  "effect": "EVIDENCE_ACCEPTANCE_ONLY",
+  "productionMutation": false,
+  "cutoverAuthorized": false,
+  "telegramDeliveryAuthorized": false,
+  "rollbackClass": "ADDITIVE_SCHEMA_ONLY_BEFORE_FIRST_V2_SUBMIT",
+  "sourceBinding": {
+    "database": "obsidian_exchange",
+    "postgresVersionNum": 170010,
+    "sourceClusterSha256": "9c26ac2556afe7f93eb8d52e2632f36e311c3fd3919d7f5bc229669f4b2bc69f",
+    "archiveSha256": "bb5c8273704be49d15fab2971b32b484b4d3a7d347a83ec77913ff9bff5f5a7f",
+    "tableFingerprintSha256": "57be8e722a7b292122c30f08d3ebb5bff6c8d59b743ff52cb6e8e92a30bde473",
+    "catalogFingerprintSha256": "0cb79cb12d1140be628784d9aa680646b6e2d45e7f7ca730271f269355008b25",
+    "catalogCoverageVersion": "b64-catalog-security-fingerprint.v2"
+  },
+  "artifactDigests": [
+    {"artifactId":"migration_plan","sha256":"22829255ff4b4d007b0686711c1649af35ddeb836042c93348c9a3ab7fe8272d"},
+    {"artifactId":"dirty_data_scan","sha256":"675531a0f3cadc3fc2a275a9860c7acb3f239b096e6088921878461c3f01734e"},
+    {"artifactId":"catalog_drift_rehearsal","sha256":"aca738433ca87e76cfc648da457e9baae65ab856b9320688c52cb658e8ed7c0e"},
+    {"artifactId":"catalog_source_restore_rehearsal","sha256":"7d55dfdfeff75ab801feaf8d5fd5227fade902473682dfa6d0f855b919d485d6"},
+    {"artifactId":"bootstrap_roles","sha256":"c6d7ee94ebde14f38ba0fa298f6fb323afc05aa81e5bbf19d733754f13968933"},
+    {"artifactId":"prepare_database","sha256":"125a4d92fe81792684ecf306adadae90c9eaba3f22792993c01f50d4577640f6"},
+    {"artifactId":"runtime_privileges","sha256":"09ce38a7aabd92013fe149dfce3ff9ea24eedff7f254a5597b4a389600de48d2"}
+  ],
+  "knownLaterBlockers": [
+    "11_LEGACY_SENDING_REQUIRE_064D_IMMUTABLE_OPERATOR_DISPOSITION",
+    "NO_V2_EXTERNAL_SUBMIT_BEFORE_064G_CANARY_AUTHORIZATION"
+  ],
+  "currentDecisionStatus": "BLOCKED_OWNER",
+  "ownerApprovalPresent": false,
+  "independentReviewerApprovalPresent": false,
+  "actionAllowed": false
+}

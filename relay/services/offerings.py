@@ -22,7 +22,6 @@
 """
 from __future__ import annotations
 import os
-import sqlite3
 import time
 
 import sys
@@ -34,6 +33,7 @@ _RELAY_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _RELAY_ROOT not in sys.path:
     sys.path.insert(0, _RELAY_ROOT)
 from core import assets as _assets
+from repositories.operational_read_store import from_environment as _read_store_from_environment
 
 DB_PATH = os.getenv("DB_PATH", "/root/exchange.db")
 
@@ -42,17 +42,14 @@ _LEGACY_CURRENCIES = ("BTC", "LTC", "USDT")
 
 _cache: dict = {"data": None, "ts": 0.0}
 _CACHE_TTL = 60.0
+def _store():return _read_store_from_environment(sqlite_path=DB_PATH)
 
 
 def _reserves() -> dict:
     """Курируемые резервы {валюта: количество}. Ошибка чтения → пусто (fail-closed:
     новое направление не покажем, легаси-направления от этого не пострадают)."""
     try:
-        conn = sqlite3.connect(DB_PATH, timeout=5)
-        try:
-            rows = conn.execute("SELECT currency, amount FROM reserves").fetchall()
-        finally:
-            conn.close()
+        rows = _store().reserves()
         return {str(c).upper(): float(a or 0) for c, a in rows}
     except Exception:
         return {}

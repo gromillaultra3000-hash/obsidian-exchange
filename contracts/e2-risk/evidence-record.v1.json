@@ -1,0 +1,10 @@
+{
+  "schemaVersion": "evidence-record.v1",
+  "evidenceId": "ev_defb7be259e9d925f531dbf038f748cc0c0bee152bb7986036beaf059cb2807d",
+  "observedAt": "2026-08-11T00:00:00Z",
+  "subjectKind": "CONNECTOR_HEALTH",
+  "signalType": "PERMISSION_FRESHNESS",
+  "sourceClass": "DETERMINISTIC",
+  "freshness": "FRESH",
+  "facts": {"age_seconds": 12, "read_only": true}
+}

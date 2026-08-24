@@ -1,0 +1,8 @@
+{
+  "taskType": "project_improvement",
+  "input": "Analyze the project architecture and suggest improvements",
+  "context": {"project": "Lumi", "version": "0.2.0"},
+  "requirements": {"minProviders": 2},
+  "expectedOutput": "Project improvement plan",
+  "metadata": {"domain": "software"}
+}

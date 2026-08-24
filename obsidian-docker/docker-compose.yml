@@ -1,0 +1,28 @@
+services:
+  relay:
+    image: python:3.10-slim
+    container_name: obsidian-relay
+    working_dir: /app
+    volumes:
+      - /root/relay-fastapi:/app
+      - /root/exchange.db:/app/exchange.db
+      - /root/bot/.env:/app/.env
+    ports:
+      - "5001:5001"
+    command: >
+      sh -c "pip install --no-cache-dir fastapi uvicorn python-dotenv requests qrcode pillow &&
+             uvicorn main:app --host 0.0.0.0 --port 5001"
+    restart: always
+
+  bot:
+    image: python:3.10-slim
+    container_name: obsidian-bot
+    working_dir: /app
+    volumes:
+      - /root/bot:/app
+      - /root/exchange.db:/app/exchange.db
+      - /root/bot/.env:/app/.env
+    command: >
+      sh -c "pip install --no-cache-dir aiogram python-dotenv qrcode bitcoinlib requests aiohttp &&
+             python3 main_bot.py"
+    restart: always

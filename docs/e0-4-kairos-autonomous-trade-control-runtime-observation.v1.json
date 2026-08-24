@@ -1,0 +1,98 @@
+{
+  "schemaVersion": "e0-4-kairos-autonomous-trade-control-runtime-observation.v1",
+  "observedAt": "2026-08-18T18:20:00Z",
+  "route": "E0/E0.4/KAIROS_AUTONOMOUS_TRADE_CONTROL",
+  "status": "IN_PROGRESS",
+  "acceptance": "PARTIAL_NOT_ACCEPTED",
+  "workClass": "KEYLESS_READ_ONLY_DEPLOYED_SOURCE_AND_PUBLIC_RUNTIME_OBSERVATION",
+  "productionMutation": false,
+  "authenticatedCallsMade": false,
+  "credentialsUsed": false,
+  "secretValuesRead": false,
+  "customerDataRead": false,
+  "externalProviderCallsMade": false,
+  "moneyWritersExercised": false,
+  "deployedEntrypoints": [
+    {
+      "path": "/opt/kairos/app/main_v19.py",
+      "sha256": "05306d4120cbc545aea3b7d571de5af4f1163d830bb14a02fef9ebce416578ee",
+      "checkoutByteEqual": true
+    },
+    {
+      "path": "/opt/kairos/app/kairos_engine.py",
+      "sha256": "e54ba394f585ac7d23830406e81ce22de0c8096b97dc400f76e6e1312d15107b",
+      "checkoutByteEqual": true
+    }
+  ],
+  "runtime": {
+    "unit": "kairos.service",
+    "activeState": "active",
+    "subState": "running",
+    "principal": "kairos-svc:kairos-svc",
+    "bind": "127.0.0.1:8000",
+    "writablePath": "/var/lib/kairos",
+    "hardening": ["NoNewPrivileges", "PrivateTmp", "PrivateDevices", "ProtectSystem=strict", "ProtectHome", "empty capability bounding set"],
+    "publicHealth": {"status": 200, "legacyExecutionRoutesEnabled": false},
+    "unauthenticatedOperatorStatus": {"path": "/api/status", "status": 401}
+  },
+  "exactStaticApiRouteUniverse": {
+    "routes": 38,
+    "methods": {"GET": 19, "POST": 18, "DELETE": 1},
+    "enumeration": "No-import AST enumeration of deployed main_v19.py app decorators; conditional static UI catch-all routes are excluded."
+  },
+  "authorityBoundary": {
+    "operatorAuth": "One process-wide bearer protects all non-public non-internal routes; there are no per-route operator roles, fresh confirmation or four-eyes approval.",
+    "serviceAuth": "Internal connector and shadow routes use scoped Ed25519 Relay identity with bounded request bodies and replay state.",
+    "operatorCanStartStopWorker": true,
+    "operatorCanChangeLiveFlagsAndLimits": true,
+    "operatorCanDirectlySubmitViaMountedTradeRoute": false,
+    "backgroundWorkerCanReachCurrentExecutionBoundary": true,
+    "currentExecutionBoundary": "KairosEngine._execute_candidate_locked unconditionally records HOLD and returns before the retained legacy submit implementation.",
+    "exchangeCreateOrderCodePresent": true,
+    "exchangeCreateOrderReachableFromMountedEntrypoint": false,
+    "moneyWriterAuthorityObserved": false,
+    "lumiVerdictGatesExecution": false,
+    "legacySubmitImplementation": "Retained _legacy_execute_candidate_locked plus IOC order/read-back/reconciliation code is not called by the mounted entrypoint, but remains in the deployed process image.",
+    "durableIntentStoreDeployed": false,
+    "idempotentExecutionClaimDeployed": false,
+    "ambiguousSubmitRecoveryAccepted": false
+  },
+  "criticalFindings": [
+    "The hard HOLD makes current order submission unreachable through the observed mounted application even if live flags, credentials and a candidate are present.",
+    "The same broad operator bearer can start/stop the autonomous worker, mutate runtime limits and set both KAIROS_LIVE_TRADING and the literal confirmation value; these changes are applied to process environment immediately.",
+    "The worker asks the committee and LUMI only as advisory, records the verdict, then ignores it before execution; timeout, error, HOLD or FREEZE therefore supplies no accepted veto.",
+    "The deployed process still contains create_order and multi-leg submit code. Removing the unconditional HOLD or accidentally mounting the legacy router would restore money-writing authority without persisted immutable intents or idempotent claims.",
+    "The retained two-leg submit launches orders concurrently; a one-leg success plus exception can be ambiguous before durable intent/attempt evidence, and the exception path does not prove provider reconciliation before future retry.",
+    "Operator state, memory and ledger are mutable host files rather than an accepted transactional source of truth; current state writes are not crash-durable and ledger entries are not an immutable hash-chained execution journal."
+  ],
+  "surfaceMatrix": {
+    "telegramBot": {"requirement": "N/A", "status": "NOT_IMPLEMENTED", "reason": "No Telegram KAIROS trading-control workflow was found."},
+    "site": {"requirement": "N/A", "status": "NOT_IMPLEMENTED", "reason": "The customer site has no KAIROS autonomous trading control."},
+    "miniApp": {"requirement": "N/A", "status": "NOT_IMPLEMENTED", "reason": "No Mini App trading-control workflow was found."},
+    "admin": {"requirement": "OPERATOR_ONLY", "status": "PARTIAL", "reason": "A separate KAIROS operator SPA is published under /kairos/ behind edge Basic Auth and an injected upstream bearer, but it exposes broad same-principal start/stop/config/limit controls and misleading live-capable UX."},
+    "api": {"requirement": "OPERATOR_ONLY", "status": "PARTIAL", "reason": "The loopback API is bearer-fenced and trade is hard-HOLD, but control roles, fresh confirmation, durable intents, idempotency and accepted reconciliation/recovery are absent."},
+    "native": {"requirement": "N/A", "status": "NOT_IMPLEMENTED", "reason": "No native wallet trading-control integration exists."}
+  },
+  "limitations": [
+    "Static deployed-source inspection proves current call-graph reachability, not that future edits or an alternate entrypoint cannot expose retained legacy execution.",
+    "Only public health and an unauthenticated 401 fence were called; no operator state, configured flags, account balances, credentials or provider endpoints were queried.",
+    "No worker start/stop, limit change, committee evaluation, exchange call, order submit, deploy, restart or configuration mutation was performed."
+  ],
+  "independentReviews": [
+    {
+      "reviewer": "kairos-code-authority-review",
+      "disposition": "PARTIAL_NOT_ACCEPTED",
+      "finding": "All mounted and background callers terminate at the unconditional HOLD; dormant legacy submit remains unsafe to re-enable without persisted intents, idempotent attempts and ambiguous-submit recovery."
+    }
+  ],
+  "coverageConclusion": {
+    "kairosAutonomousTradeControlFamilyClassified": true,
+    "sixSurfaceClassificationComplete": true,
+    "authorityBoundaryVerifiedReadOnly": true,
+    "currentMountedMoneyExecutionReachable": false,
+    "productionAcceptanceProven": false,
+    "e0_4Complete": false,
+    "e0GateClosed": false
+  },
+  "nextCanonicalItem": "Classify SWAPS across all six surfaces and verify its customer and money authority read-only."
+}

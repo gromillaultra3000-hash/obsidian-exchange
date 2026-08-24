@@ -1,0 +1,68 @@
+{
+  "schema":"obsidian.e0-3-relay-acl-envelope-rehearsal.v1",
+  "stage":"E0.3",
+  "status":"PASS_ROLE_ENVELOPE_FUNCTION_BODIES_INCOMPLETE",
+  "accountableOwner":"project-owner",
+  "rehearsedAt":"2026-08-15T14:08:00Z",
+  "productionAuthorization":false,
+  "implementationDeployed":false,
+  "environment":{
+    "database":"disposable PostgreSQL 17 container",
+    "image":"postgres@sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193",
+    "publishedAddress":"127.0.0.1:55439 during rehearsal only",
+    "persistentVolume":false,
+    "containerRemovedAfterRun":true,
+    "productionDatabaseTouched":false
+  },
+  "inputs":{
+    "proposal":"deploy/postgres/proposals/028_e0_relay_acl_envelope.sql",
+    "proposalSha256":"91601ad8a803772261e612a8101ddd8c9099d6c2b7f94f09888967202b30fa28",
+    "runner":"tests/test_e0_3_relay_acl_envelope_rehearsal.py",
+    "runnerSha256":"7773d658b72fd01d15678ed1f45085a7caaa8c7e2dc4c174efaef015a18c3c45"
+  },
+  "coverage":{
+    "roles":["obsidian_relay LOGIN NOINHERIT CONNECTION LIMIT 12","obsidian_relay_owner NOLOGIN NOINHERIT"],
+    "representativeFunctions":[
+      "public aggregate read",
+      "bounded owner-filtered customer read",
+      "FOR UPDATE SKIP LOCKED outbox claim",
+      "bounded support intent creation",
+      "row-locked atomic payment transition"
+    ],
+    "positiveAssertions":13,
+    "directPrivilegeDenials":7,
+    "maliciousInputDenials":5,
+    "claimConcurrencyWorkers":12,
+    "claimSingleWinner":true,
+    "moneyTransitionConcurrencyWorkers":12,
+    "moneyTransitionSingleWinner":true,
+    "connectionLimitAttempts":13,
+    "connectionLimitAccepted":12,
+    "connectionLimitDenied":1,
+    "midTransactionFaultRollback":true,
+    "callerRollback":true,
+    "exactExecutableFunctionCount":5
+  },
+  "verifiedInvariants":[
+    "login and owner have no role memberships",
+    "login has CONNECT and schema USAGE but no TEMP, schema CREATE, direct table or sequence privilege",
+    "owner has column/sequence privileges required by representative bodies but no whole-table SELECT",
+    "PUBLIC function EXECUTE is revoked",
+    "login executes only five declared SECURITY DEFINER functions",
+    "functions use fixed pg_catalog search_path and schema-qualified relations",
+    "statement_timeout=5s and lock_timeout=1s apply to the login",
+    "thirteenth concurrent login is denied by CONNECTION LIMIT 12",
+    "claim and payment transition have exactly one concurrent winner",
+    "injected audit failure rolls back the order money transition",
+    "caller abort rolls back support creation"
+  ],
+  "notProven":[
+    "the 43 production read function bodies",
+    "the 26 production writer function bodies",
+    "exact owner grants for every production function body",
+    "repository adapters invoking the proposed functions",
+    "production credentials, grants, rollout or runtime behavior"
+  ],
+  "rollback":"The no-volume container was stopped and removed. No production role, grant, function, credential or database row changed.",
+  "nextPrerequisite":"generate and rehearse all current 43 read and 26 writer production-equivalent function bodies against the disposable PostgreSQL schema"
+}

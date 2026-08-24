@@ -1,0 +1,51 @@
+{
+  "schemaVersion": "obsidian-postgres-migration-profile.v1",
+  "productionCutover": {
+    "profileStatus": "FROZEN_001_023_SOURCE_PROFILE",
+    "maximumVersion": 23,
+    "sourceTableCount": 54,
+    "migrations": [
+      {"path": "deploy/postgres/001_payout_core.sql", "sha256": "8350fe9bad9724a5b62e3eb4c2010b63eaf334c5096e836ce762bf2c5d4e0860"},
+      {"path": "deploy/postgres/002_web_auth.sql", "sha256": "08d630d2a2bc90db063e893de0b62c72ce5eca2aa758e8f7e1b65a54f77f442d"},
+      {"path": "deploy/postgres/003_payment_transitions.sql", "sha256": "b6ad0ba9db2863f3071bb79f6082c074284b3c838a064b15605af1e6f11c00f0"},
+      {"path": "deploy/postgres/004_rate_locks.sql", "sha256": "9f0d33a12467ab127d2a383ac01d016a8d44e344bec35c67840b5b057de60a6a"},
+      {"path": "deploy/postgres/005_gift_vouchers.sql", "sha256": "cb6cb7d75277fe2c49d6f2ee09fe3ae156c1103cf7f01d2fd4547f161f7e5518"},
+      {"path": "deploy/postgres/006_scheduled_orders.sql", "sha256": "6a6c62c1839f8f6cfe1a18c228719ed7c9f63e064f2c2e3861bdf86644f0f665"},
+      {"path": "deploy/postgres/007_payment_sessions.sql", "sha256": "12f598e6d4284f18ee0d91630955f0e075a1c3179fbb35a617dfaede2d7e7be3"},
+      {"path": "deploy/postgres/008_support.sql", "sha256": "3bdefeace7b94ceb916cec1330d8bff11098f5f1c18aefcf6c6923530b8800cc"},
+      {"path": "deploy/postgres/009_swap_sessions.sql", "sha256": "9e11c5d0b1fc3b0b8ae1c12b1284f5011b07e5e7f02fcc6e172138a55094bb84"},
+      {"path": "deploy/postgres/010_sell_orders.sql", "sha256": "8d5e2e6d51ce54bc8ddb1122bd8007213cf305dd855aef4e5f9cb4a2d79d56fe"},
+      {"path": "deploy/postgres/011_user_profiles.sql", "sha256": "ca913fcc27556ec58cdc5b6c4a01e4459c00610aaf8609158792badb7984b761"},
+      {"path": "deploy/postgres/012_admin_config.sql", "sha256": "19349fc0b49b9c2650aaae04393d11744b9f5e1f9459ccc31f8ca2340be3db01"},
+      {"path": "deploy/postgres/013_promos.sql", "sha256": "072d3bc55a9522f7eb410a65e4ea58327fea5d8f610c6475217f16cb9bcd690c"},
+      {"path": "deploy/postgres/014_wallet_store.sql", "sha256": "f3a80021620f4c1804806f4348a28b7e0122491d4c251baa1500499caa5e446f"},
+      {"path": "deploy/postgres/015_receipts.sql", "sha256": "a2efe8e8bb5800dc35cb63e49376cf4973f9d77b7515778e129992ce93a21590"},
+      {"path": "deploy/postgres/016_ops.sql", "sha256": "82bca1ef9e564254e67eaa3e3c8e15147441961cdb78d5fea882c610c6b8efc8"},
+      {"path": "deploy/postgres/017_alerts.sql", "sha256": "d4a1ac260df0bca5ae47178c015414f859e4b1f9fafbcd98818ae6171fb12dec"},
+      {"path": "deploy/postgres/018_provider_health.sql", "sha256": "edbc4a54c7dfdbf0f24e5d17cc052003c9b4d3b15be1e3379c767d653a3f145f"},
+      {"path": "deploy/postgres/019_orders.sql", "sha256": "3a8c3449ea14c8683e01baedd0495f2be1905194c2382923b42dcf77e88ee7a5"},
+      {"path": "deploy/postgres/020_legacy_runtime.sql", "sha256": "39828110b0b2d53137d80c425b937d7de915c2d10e02467dd7e7337101af77f6"},
+      {"path": "deploy/postgres/021_order_lifecycle.sql", "sha256": "2fa6b3a0c974a4f5aee4def713b2078a48d622eca5cb15d79245de34a6365eae"},
+      {"path": "deploy/postgres/022_sell_settlement.sql", "sha256": "8bb11bdec0647017197ae575de4418bbbb74556b4767ca965ea1265f61156124"},
+      {"path": "deploy/postgres/023_bot_notification_jobs.sql", "sha256": "e206910c1acd07b35198c1e9f2a92d2c5802427560e97ec45b557069bf049435"}
+    ]
+  },
+  "postCutoverDormant": {
+    "disposition": "REPOSITORY_PRESENT_PRODUCTION_STATE_UNKNOWN_NOT_REOBSERVED",
+    "migrations": [
+      {"path": "deploy/postgres/024_e3_paper_evidence.sql", "sha256": "619a03b99b5d45ee611114a80b0fd01e73a7f4f7c37c26ba1a92d329cb8714ef"}
+    ],
+    "addsTables": ["e3_paper_evidence", "e3_paper_evidence_heads"],
+    "addsFunctions": [
+      "e3_reject_evidence_mutation()",
+      "e3_append_paper_evidence(text,text,text,bigint,text,text,jsonb)"
+    ]
+  },
+  "authority": {
+    "migrationApplyAuthorized": false,
+    "productionContactAuthorized": false,
+    "aclGrantAuthorized": false,
+    "principalProvisioningAuthorized": false,
+    "actionAllowed": false
+  }
+}

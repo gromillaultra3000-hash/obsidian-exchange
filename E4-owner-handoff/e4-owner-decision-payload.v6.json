@@ -1,0 +1,130 @@
+{
+  "schemaVersion": "e4-owner-decision-payload.v1",
+  "payloadId": "e4-owner-decision-payload-20260823-07-1787445251960",
+  "supersedes": "e4-owner-decision-payload-20260822-06-1787439606929",
+  "status": "READY_FOR_OFFLINE_OWNER_SIGNATURE",
+  "stage": "E4",
+  "route": "E4_OWNER_GATED_FRESH_PRODUCTION_DISCONNECTED_REHEARSAL",
+  "purpose": "Exact public payload for one bounded owner decision. This file is signable but is not an authorization receipt or execution command.",
+  "authority": {
+    "authenticated": false,
+    "ownerApproval": false,
+    "independentReview": false,
+    "rehearsalExecutionEligible": false,
+    "executionAuthorized": false,
+    "productionDatabaseContactAllowed": false,
+    "productionNetworkAllowed": false,
+    "productionCredentialsAllowed": false,
+    "proposalApplicationAllowed": false,
+    "persistentTargetAllowed": false,
+    "automaticRetryAllowed": false,
+    "containsSecrets": false,
+    "containsConnectionMaterial": false,
+    "executionEffect": "NONE",
+    "promotionAllowed": false,
+    "actionAllowed": false
+  },
+  "trustAnchors": {
+    "registryId": "e4-owner-reviewer-anchors-20260822-v4",
+    "registryProposalSha256": "3de9ccbeb67178f46af1be68a139712b8d6acbe6954d7eef340625d472af4bfe",
+    "status": "CANDIDATE_NOT_AUTHORIZED",
+    "trustRoot": {
+      "issuerId": "e4-trust-root",
+      "publicKeySha256": "5669b2922f49c3c661be658c969566ce256bf7874d3fd1790c31299a4c4519d0",
+      "fingerprint": "SHA256:Ja+GZ9/o52eFmzZDztpju70RWmYpSvc0Fp+ayO1GcfM",
+      "activationCandidateSha256": "7dc9c77b1a1a1e01a737e7d4d76f97953d4e8414aa183521e7aaadacbd329634",
+      "active": false
+    },
+    "owner": {
+      "role": "ACCOUNTABLE_OWNER",
+      "issuerId": "e4-owner-signing-v2",
+      "trustRootId": "e4-owner-reviewer-anchors-20260822-v4",
+      "publicKeySha256": "8ee7fb9b018e485b1e3cb9c0f36bb94ede78848af4323470a43adbd0bef71d63",
+      "fingerprint": "SHA256:G4szs+1DvEQygs3LZS1LDNNRyBYLUHZuX0a7C/gRjII"
+    },
+    "reviewer": {
+      "role": "INDEPENDENT_REVIEWER",
+      "issuerId": "e4-independent-reviewer",
+      "trustRootId": "e4-owner-reviewer-anchors-20260822-v4",
+      "publicKeySha256": "79013979c27cae19fc304269fd390861cb7bdd561d2ca955b96eda8a9e29a095",
+      "fingerprint": "SHA256:3YtNkuP+qf7PIcj9AmqSSTLr+Ocd4luwbeQSB8oRNq4"
+    }
+  },
+  "trustedClock": {
+    "provider": "DigiCert",
+    "protocol": "RFC3161",
+    "endpoint": "http://timestamp.digicert.com",
+    "attestationRef": null,
+    "attestationSha256": null,
+    "verified": false
+  },
+  "frozenBinding": {
+    "planSchemaVersion": "e4-full-snapshot-rehearsal-runner-plan.v1",
+    "planId": "e4rrp_73040dd58161e760075b961004c173966291a8d33344f248cf6a43ec75893ffd",
+    "planSourcePath": "relay/core/e4_rehearsal_runner_plan.py",
+    "planSourceSha256": "eb70458a03fdb5b744f44f0fd390e78f17a65226e2a48b2c763db3ff2623cc2c",
+    "evidenceManifestPath": "deploy/postgres/proposals/e4_full_snapshot_rehearsal_manifest.json",
+    "evidenceManifestSha256": "2489745da1fd584c3d77965ebc7b4776ddad3115bcbea5dc7a623fc3d2981a03",
+    "stagedManifestPath": "E4-owner-handoff/e4-disconnected-snapshot-staging-manifest.staged.v1.json",
+    "stagedManifestSha256": "c9d94148fe163a284e8ad6df3640e4da9be1f2a090ea7d873e8a7d9bcab2594a",
+    "targetClass": "ISOLATED_DISPOSABLE_POSTGRESQL",
+    "snapshotClass": "PREEXISTING_ENCRYPTED_IMMUTABLE_SNAPSHOT_COPY",
+    "scope": "ONE_E4_ISOLATED_FULL_SNAPSHOT_REHEARSAL",
+    "invocationLimit": 1
+  },
+  "approval": {
+    "approvalRef": "e4-approval-20260823-07-1787445251960",
+    "planId": "e4rrp_73040dd58161e760075b961004c173966291a8d33344f248cf6a43ec75893ffd",
+    "targetRef": "e4-disposable-pg-20260822-02",
+    "targetFingerprintSha256": "3545e043156cd9023d46a5ebaaa12f0c964ceea2887cea79c9703395a1588ad3",
+    "snapshotSha256": "47efc0dc293890243072bdf048d40cbcc1fee8fbe719e4b841fb5d156f658b3e",
+    "snapshotRefSha256": "d56f226fb3c38cc40f7265d1d15c2c751211bb86ff1beba655f82f99d5d4b619",
+    "keyRefSha256": "c7e21692ac64774b4229807d5b11338df72f722247a1bcebb22d54667a102109",
+    "approvedAtEpochMs": 1787445251960,
+    "expiresAtEpochMs": 1787446151960,
+    "scope": "ONE_E4_ISOLATED_FULL_SNAPSHOT_REHEARSAL",
+    "invocationLimit": 1,
+    "productionDatabaseContactAllowed": false,
+    "productionNetworkAllowed": false,
+    "productionCredentialsAllowed": false,
+    "proposalApplicationAllowed": false,
+    "persistentTargetAllowed": false,
+    "automaticRetryAllowed": false,
+    "containsSecrets": false,
+    "containsConnectionMaterial": false,
+    "executionEffect": "NONE",
+    "promotionAllowed": false,
+    "actionAllowed": false
+  },
+  "replay": {
+    "nonceSha256": "1e323af5cadaa7d75cf3eea2aaa84e19dd299e8e52db45e4287347cace002080",
+    "singleUse": true,
+    "retryAfterAmbiguousSubmitAllowed": false
+  },
+  "signaturePlan": {
+    "ownerNamespace": "e4-owner@obsidian-exchange.local",
+    "reviewerNamespace": "e4-reviewer@obsidian-exchange.local",
+    "ownerSignatureRef": null,
+    "ownerSignatureSha256": null,
+    "reviewerEnvelopeRef": null,
+    "reviewerEnvelopeSha256": null,
+    "reviewerSignatureRef": null,
+    "reviewerSignatureSha256": null
+  },
+  "requiredBeforeHandoff": [
+    "Owner verifies the exact file bytes and owner-signing-v2 public-key fingerprint offline.",
+    "Owner signs this exact file with the owner-signing-v2 private key and does not edit it afterward.",
+    "DigiCert RFC 3161 timestamps the exact signed artifact or an exact digest-bound signature record; the token and public validation chain are retained.",
+    "Independent reviewer verifies the owner signature, every frozen binding, immutable staging evidence, scope and expiry through a separate trust path.",
+    "Reviewer creates and signs a separate review envelope bound to this exact payload digest.",
+    "A real verifier accepts both signatures, trust anchors, freshness, trusted clock and replay state before any executor is eligible."
+  ],
+  "forbiddenContents": [
+    "private keys or signing seed material",
+    "passwords or passphrases",
+    "plaintext snapshot bytes",
+    "production credentials or connection strings",
+    "a self-generated eligible receipt or execution command"
+  ],
+  "nextAction": "Verify this exact file offline, sign it with owner-signing-v2, and return only the public SSH signature plus the payload SHA-256. Do not run Docker, decrypt the snapshot or treat the signature alone as execution authority."
+}

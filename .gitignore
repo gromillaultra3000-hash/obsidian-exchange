@@ -2,6 +2,8 @@
 bot/.env
 bot/.env.backup
 *.env
+*.env.bak_*
+debug_info/
 
 # Backups & archives
 *.tar.gz
@@ -12,6 +14,9 @@ bc1*
 
 # Python
 __pycache__/
+.pytest_cache/
+venv/
+bot/venv/
 *.pyc
 *.pyo
 *.swp
@@ -19,6 +24,7 @@ __pycache__/
 
 # Logs
 bot/bot.log*
+*.log
 
 # DB
 *.db
@@ -31,6 +37,7 @@ node_modules/
 
 # System / tools
 .cache/
+.cargo/
 .config/
 .docker/
 .ollama/
@@ -43,6 +50,7 @@ node_modules/
 .lesshst
 .selected_editor
 .claude.json
+.rustup/
 
 # Bot artifacts
 bot/gold_v*.tar.gz
@@ -63,10 +71,38 @@ admin-panel/node_modules/
 
 # Claude Code internal
 .claude/
+.codex/
+
+# Local design/test scratch and downloaded inspection trees
+.fonts/
+scratch_ux/
+dl_tmp/
+
+# Retired duplicate entrypoints/assets kept only as local historical material
+/relay/app.py
+/relay/landing.html
+/relay/main.py
+/relay/main_docker.py
+/relay/miniapp.html
+/relay/pay_form.html
+/relay/pay_frame.html
+/relay/pay_proxy.html
+/relay/platega.py
+/relay-fastapi/config.py
+/relay-fastapi/config/
+/relay-fastapi/migrate_webaccounts.py
+/relay-fastapi/providers/
+/relay-fastapi/relay_main.py
+/relay-fastapi/static/
+/relay-fastapi/support_bot.py
+/relay-fastapi/utils/
 
 # Embedded git repos
 condenseit/
 crypto-news-aggregator/
+/kairos/
+/night-audit/
+/night-dev/
 
 # Swap files & temp
 *.swp
@@ -104,5 +140,26 @@ wallet_data/
 *.vault.json
 *-wallet-backup.json
 
+# Локальные ключи и production-derived runtime data — НИКОГДА в git
+/e4-key/
+/e4-reviewer-key/
+/data/
+/receipts/
+/E4-owner-handoff/*.age
+/E4-owner-
+/E4-owner-handoff/e4-owner-
+/E4-owner-handoff/e4-owner-decision-
+
+# Локальное состояние деплоя и generated build/rehearsal artifacts
+/.deploy_state
+/.rollback_rev
+/snap/
+/wallet_data
+/obsidian-exchange.org.*
+**/target/
+/lumi/backups/
+/lumi/data/lumi_profiles/
+
 # Креды git (chmod 600) — НИКОГДА не коммитить
 .git-credentials
+.news_bot.env

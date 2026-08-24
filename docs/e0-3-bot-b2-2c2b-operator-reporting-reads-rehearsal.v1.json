@@ -1,0 +1,8 @@
+{
+ "schema":"obsidian.e0-3-bot-b2-2c2b-operator-reporting-reads-rehearsal.v1","stage":"E0.3","status":"REHEARSED_DISPOSABLE_POSTGRESQL_17","observedAt":"2026-08-15T23:14:52Z","accountableOwner":"project-owner","productionAuthorization":false,"implementationDeployed":false,
+ "proposal":"deploy/postgres/proposals/041_e0_bot_b2_2c2b_operator_reporting_reads.sql","proposalSha256":"6efc753b8b542e7c63246f911730056b48d49e9e10e6bf880e76914118bc27a7","test":"tests/test_e0_3_bot_b2_2c2b_operator_reporting_reads_rehearsal.py","testSha256":"92187d21a8b728b5eb15f1f6bf350b5d1975c10b20f7f9fc2b572a766d53598b",
+ "methodCoverage":["reporting_store.bot_today_summary","reporting_store.cumulative_stats","reporting_store.period_order_report","reporting_store.reserves_detailed"],
+ "evidence":["four reporting methods have one execute-only function each","today summary uses database CURRENT_DATE and exposes aggregate fields only","period report requires an ordered inclusive range no longer than 366 days and caps currency groups at 100","cumulative inputs require one object and two arrays with at most 32 bounded members each","malformed collections and dates fail closed","bot login retains zero direct table SELECT"],
+ "surfaceMatrix":{"telegramBot":"OPERATOR_ONLY","website":"N/A","miniApp":"N/A","admin":"N/A","api":"N/A","nativeApp":"N/A"},"trustCustodyImpact":"Aggregate-only operational reporting; no raw order rows, secrets, custody, signing or money-write capability.",
+ "rollout":"Proposal only; production application is not authorized.","rollback":"Remove disposable database; later rollout revokes exact EXECUTEs first.","container":{"image":"postgres:17-alpine","removedAfterRun":true},"result":"PASS","nextPrerequisite":"B3 non-money writers"
+}

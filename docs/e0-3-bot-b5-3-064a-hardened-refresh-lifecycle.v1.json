@@ -1,0 +1,142 @@
+{
+  "schemaVersion": "e0-3-bot-b5-3-064a-hardened-refresh-lifecycle-evidence.v1",
+  "observedAt": "2026-08-23T20:58:13Z",
+  "route": "E0/E0.3/B5.3/064A_HARDENED_REFRESH_RUNBOOK",
+  "e4Excluded": true,
+  "result": "LOCAL_LIFECYCLE_CONTRACT_VERIFIED_OPERATIONAL_NO_GO",
+  "gateStatus": "BLOCKED_OWNER",
+  "boundedSlice": {
+    "status": "VERIFIED_LOCAL",
+    "description": "Closed frozen plan, command compiler and hermetic lifecycle core for a future one-shot read-only source dump and disposable restore verification.",
+    "productionAdapterImplemented": false,
+    "authenticationAdapterImplemented": false,
+    "principalProvisioningImplemented": false
+  },
+  "byteBindings": {
+    "runner": {
+      "path": "deploy/postgres/b64_064a_hardened_refresh.py",
+      "sha256": "f324d1bcf7b01018f500ecc9326d9b4ebc8d82c02bcc77c42bd7e48c56c25757"
+    },
+    "frozenPlan": {
+      "path": "docs/e0-3-bot-b5-3-064a-hardened-refresh-plan.v1.json",
+      "sha256": "40c94af2834cb1d98380c09b5a5253e9b621547a680c189b11def77aff221cad"
+    },
+    "focusedTests": {
+      "path": "tests/test_e0_3_bot_b5_3_064a_hardened_refresh.py",
+      "sha256": "dd3cfe7277a57a2b204e54ffc41c33def46b8c226f95dd704c085ae0aebed5f4"
+    }
+  },
+  "registryObservation": {
+    "observedAt": "2026-08-23T19:57:30Z",
+    "tag": "docker.io/library/postgres:17.11-alpine3.24",
+    "ociIndexDigest": "sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73",
+    "linuxAmd64ChildDigest": "sha256:7456ef82e5f5bc43d997f4781bbd7c0d6389bff397564649a356e206ba473aee",
+    "configDigest": "sha256:1bea307dfb3ee30541a7acf7de14b58bcd6948da98e5d31a04c627c4d35ec64b",
+    "sourceRevision": "2603e26e245e558218728ee14e0a42dcb020dc7f",
+    "version": "17.11-alpine3.24",
+    "imagePulled": false,
+    "containerRun": false,
+    "freshAuthorizationTimeRevalidationRequired": true
+  },
+  "localClosures": [
+    "The plan is deep-canonicalized, byte-bound to nine executable inputs and rejects Python bool/int or string-subclass aliasing.",
+    "The pg_dump client is pinned to the reviewed linux/amd64 child digest and exact PostgreSQL 17.11 version; the dump command uses Docker stdin, a tmpfs 0600 passfile, no password prompt, no-sync forbidden, bounded resources and the exact attested source container ID.",
+    "The source attestation rejects elevated role, database, schema, table-write, sequence-mutation, function-execute, other-schema, RLS and large-object capability gaps.",
+    "Source, dump and restore container IDs must be literal 64-hex and pairwise distinct; cleanup for unknown or colliding targets is skipped and marked uncertain.",
+    "Never-invoked source, dump and restore stages receive no unbound close or cleanup callbacks.",
+    "Caller-owned archive and secret descriptors are protected with duplicates, and partial descriptor-acquisition failures close already acquired descriptors.",
+    "Registered files and the workspace retain open inode bindings; post-unlink and post-rmdir device, inode and link-count checks detect rename, replacement and hardlink races.",
+    "Cleanup claims are limited to registered workspace paths and exact ID-bound container lifetimes; external copies and physical erasure remain explicitly unproved.",
+    "Dump and restore attestations are closed and strictly typed; restore must attest no-owner and no-privileges application.",
+    "Cancellation, cleanup uncertainty and a returned-after-deadline lifecycle are terminal and never authorize automatic retry.",
+    "The frozen production migration profile is content-addressed at migrations 001-023 and preserves the exact 54-table source contract; repository migration 024 is separately classified as post-cutover dormant with current production disposition unknown.",
+    "The production runtime ACL refuses any table, sequence or function inventory outside exact 001-023 before granting roles; migration 024 explicitly revokes PUBLIC execution from both E3 functions."
+  ],
+  "verification": {
+    "focused": {
+      "command": "/opt/lumi/venv/bin/python -m pytest -q tests/test_e0_3_bot_b5_3_064a_hardened_refresh.py",
+      "passed": 78,
+      "failed": 0
+    },
+    "extended": {
+      "command": "/opt/lumi/venv/bin/python -m pytest -q tests/test_e0_3_bot_b5_3_064a*.py tests/test_e0_3_bot_b5_3_snapshot_dump.py tests/test_e0_3_bot_b5_3_catalog_comparator.py",
+      "passed": 155,
+      "failed": 0
+    },
+    "pythonCompilation": "PASS",
+    "gitDiffCheck": "PASS",
+    "gitleaksVersion": "8.30.0",
+    "gitleaksFindingsInNewRunnerPlanTests": 0
+  },
+  "independentReviews": [
+    {
+      "role": "state-auditor",
+      "verdict": "LOCAL_PASS",
+      "evidence": "78 focused tests plus 7 selected callback, descriptor-failure and strict-ID regressions passed on the final bytes."
+    },
+    {
+      "role": "route-auditor",
+      "verdict": "LOCAL_PASS_OPERATIONAL_NO_GO",
+      "evidence": "Exact binding, 19 selected lifecycle/FD probes, compilation and diff checks passed on the final bytes."
+    },
+    {
+      "role": "research-scout",
+      "verdict": "STATIC_LOCAL_PASS_OPERATIONAL_NO_GO",
+      "evidence": "All nine hashes, current read-only registry chain, PostgreSQL 17.11 floor, Docker stdin/digest semantics and archive ownership caveats were independently checked."
+    }
+  ],
+  "operationalBlockers": [
+    "No production source, dump or restore adapter exists; real argv execution and receipts have not been observed.",
+    "The obsidian_b64_snapshot_reader principal is not provisioned or independently attested in production.",
+    "Authentication against a production registry, trusted time, fresh revocation and durable atomic replay is not implemented.",
+    "No fresh exact-plan owner authorization or separate independent-reviewer acceptance exists; the prior conversational authorization is unconsumed and cannot cover changed bytes.",
+    "The source network namespace is shared and egress isolation is not proved.",
+    "The core deadline is fail-closed after callbacks return but remains cooperative; a real adapter must enforce process kill and bounded cleanup externally.",
+    "External copies and physical erasure are outside the verified cleanup scope.",
+    "No authorization-time registry/CVE revalidation has occurred and the frozen mutable-tag observation cannot prove future security."
+  ],
+  "repositoryReconciliation": {
+    "status": "LOCAL_PASS_OPERATIONAL_NO_GO",
+    "productionCutoverProfile": "001-023 / 54 source-backed tables / 29 sequences / 2 functions",
+    "repositoryCompleteProfile": "001-024 / 56 tables / 29 sequences / 4 functions",
+    "migration024ProductionDisposition": "UNKNOWN_NOT_REOBSERVED",
+    "evidence": "docs/e0-3-bot-b5-3-064a-postgres-inventory-reconciliation.v1.json",
+    "principalProvisioningImplemented": false
+  },
+  "runtimeActions": {
+    "productionContacted": false,
+    "databaseContacted": true,
+    "dockerImagePulled": false,
+    "dockerContainerRun": true,
+    "customerDataRead": false,
+    "operationalSecretRead": false,
+    "privateKeyRead": false,
+    "productionSignatureCreated": false,
+    "sourceWindowCreated": false,
+    "authorizationConsumed": false,
+    "retryPerformed": false,
+    "e4Touched": false
+  },
+  "authority": {
+    "productionMutationAuthorized": false,
+    "productionExpandAuthorized": false,
+    "deploymentAuthorized": false,
+    "restartAuthorized": false,
+    "cutoverAuthorized": false,
+    "telegramDeliveryAuthorized": false,
+    "ambiguousSendingDispositionAuthorized": false,
+    "automaticRetryAuthorized": false,
+    "e4ExecutionAuthorized": false,
+    "actionAllowed": false
+  },
+  "sources": [
+    "https://www.postgresql.org/support/security/CVE-2026-19385/",
+    "https://www.postgresql.org/docs/17/app-pgdump.html",
+    "https://www.postgresql.org/docs/17/app-pgrestore.html",
+    "https://www.postgresql.org/docs/17/libpq-pgpass.html",
+    "https://www.postgresql.org/docs/17/sql-alterdefaultprivileges.html",
+    "https://docs.docker.com/reference/cli/docker/container/run/",
+    "https://docs.docker.com/reference/cli/docker/buildx/imagetools/inspect/"
+  ],
+  "nextCanonicalItem": "DESIGN_AND_REHEARSE_EXACT_OBSIDIAN_B64_SNAPSHOT_READER_ROLE_PROVISIONING_AGAINST_THE_FROZEN_001_023_PROFILE"
+}

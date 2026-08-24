@@ -1,0 +1,46 @@
+{
+  "schema": "native-wallet-ed25519-corpus-review-request.v1",
+  "corpus": {
+    "path": "ed25519-verification-corpus-v1.json",
+    "sha256": "daca329e7885b3bc50b869631cd0b92070d9efdc472a6047e3af96082db0895c"
+  },
+  "provenance": {
+    "path": "ed25519-verification-corpus-v1.provenance.json",
+    "sha256": "e82c610e060463c8a8d97e1c97650faf1e6980df4d6029da26191ef76d92ad58"
+  },
+  "decision_record": {
+    "path": "docs/adr/0020-ed25519-public-verification-corpus.md",
+    "sha256": "ad0df96c8c54fb091593c90851940b1df135258ef562c131b75efe6e5d365e5f"
+  },
+  "authentication_contract": {
+    "path": "ed25519-corpus-review-authentication-v1.json",
+    "sha256": "06a4e8fcf8edcf0cc6a3e2fc710357b8f7feca545c7d9989dfb5b54e185b69b5"
+  },
+  "source": {
+    "url": "https://www.rfc-editor.org/rfc/rfc8032.html#section-7.1",
+    "identity": "RFC 8032 Section 7.1 TEST 2",
+    "license_url": "https://trustee.ietf.org/documents/trust-legal-provisions/"
+  },
+  "required_checks": [
+    "corpus_digest_matches",
+    "provenance_digest_matches",
+    "decision_record_digest_matches",
+    "public_key_matches_source",
+    "message_matches_source",
+    "signature_matches_source",
+    "no_private_or_seed_material",
+    "mutation_expectations_reviewed",
+    "license_treatment_reviewed"
+  ],
+  "minimum_reviewers": 2,
+  "generator_reviewer_ids": [
+    "offline_generator"
+  ],
+  "distinct_reviewer_ids_required": true,
+  "distinct_trust_domains_required": true,
+  "reviewer_must_not_be_generator": true,
+  "authenticated_review_required": true,
+  "review_responses_present": false,
+  "crypto_call_allowed": false,
+  "runtime_integration_allowed": false
+}

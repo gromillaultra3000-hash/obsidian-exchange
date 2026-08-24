@@ -1,0 +1,21 @@
+{
+  "schemaVersion":"e0-3-bot-b5-3-064a-freshness-policy.v1",
+  "policyId":"B64_064A_DECISION_SOURCE_FRESHNESS",
+  "policyVersion":1,
+  "route":"E0/E0.3/B5.3/064A",
+  "maximumSourceObservationAgeSeconds":86400,
+  "maximumFutureSkewSeconds":60,
+  "evaluatedTimeSource":"CALLER_INJECTED_HOST_UTC_UNTRUSTED",
+  "outcomes":["REFRESH_REQUIRED","CURRENT_BUT_BLOCKED_OWNER"],
+  "supportingArtifacts":[
+    {"path":"docs/e0-3-bot-b5-3-064a-owner-deferral.v1.json","sha256":"a701300a921f5345aaaab3772fc62ffae8be001d719671a1dd9b3478ecb60196"},
+    {"path":"docs/e0-3-bot-b5-3-064a-authenticated-decision-rehearsal.v1.json","sha256":"488593b0f0c1e36865cb54d0f5e5cc41827214fd23ae4290788be07004aa3686"},
+    {"path":"docs/e0-3-bot-b5-3-064a-offline-signing-rehearsal.v1.json","sha256":"4d4b5f2e73a1a789777cd2065d93e52ef7d1c37b6269206c441f0a2194e72e60"},
+    {"path":"docs/b64-064a-offline-signing.md","sha256":"aef172edb860ee6bbd1988e64e958bfa41743b3211fdf8e1ec13a4587bb0d286"},
+    {"path":"relay/core/b64_064a_decision.py","sha256":"f0eac40ae2f8cf5f2e616bc6e1853621988eed9aebfd4e6658ab71c240b1c5fd"},
+    {"path":"scripts/b64_064a_offline_signer.py","sha256":"ada871ece5897b4c9c34787420309bb7b57665859a523fb32b1a939512ec095a"},
+    {"path":"tests/test_e0_3_bot_b5_3_064a_decision.py","sha256":"8a9f65b554257e1ed21fc671fbdd99d3230ef65e09f88fcda916ab3ba834b5c7"},
+    {"path":"tests/test_e0_3_bot_b5_3_064a_offline_signer.py","sha256":"dd981706c69d31afaee431671c19bf3c64e0dd726b51bdf63274757426199305"}
+  ],
+  "authority":{"freshnessCanInvalidate":true,"freshnessCanAuthorize":false,"deferralCannotExpireIntoAllowance":true,"authenticatedAcceptanceRequiredSeparately":true,"actionAllowed":false}
+}

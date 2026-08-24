@@ -1,0 +1,13 @@
+{
+  "providerId": "risk-checker-1",
+  "displayName": "Risk Checker One",
+  "providerType": "mock",
+  "apiFormat": "json",
+  "enabled": true,
+  "capabilities": ["risk_review", "policy_checking", "decision_support"],
+  "roles": ["risk_checker", "policy_checker"],
+  "costProfile": {"costPerCall": 0.02},
+  "latencyProfile": {"avgMs": 100},
+  "reliabilityScore": 0.98,
+  "notes": "risk_review_wait"
+}

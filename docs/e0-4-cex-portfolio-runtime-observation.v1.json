@@ -1,0 +1,82 @@
+{
+  "schemaVersion":"e0-4-cex-portfolio-runtime-observation.v1",
+  "observedAt":"2026-08-18T04:10:00Z",
+  "route":"E0/E0.4/FEATURE_STATUS_SURFACE_MATRIX",
+  "status":"IN_PROGRESS",
+  "acceptance":"PARTIAL_NOT_ACCEPTED",
+  "productionMutation":false,
+  "authenticatedCustomerAction":false,
+  "customerDataObserved":false,
+  "credentialMaterialObserved":false,
+  "externalProviderCalled":false,
+  "connectorWriterExercised":false,
+  "observationClass":"TIMESTAMPED_READ_ONLY_LOCAL_PRODUCTION_POINT_OBSERVATION",
+  "surfaceContract":"Owner-scoped read-only CEX portfolio with explicit CEX custody and KYC; trade, withdrawal and transfer remain forbidden.",
+  "runtime":{
+    "kairos":{"unit":"kairos.service","activeState":"active","subState":"running","listen":"127.0.0.1:8000","health":{"statusCode":200,"ok":true,"version":"19.3.0","legacyExecutionRoutesEnabled":false}},
+    "relay":{"unit":"relay-fastapi.service","activeState":"active","subState":"running","listen":"127.0.0.1:5001"},
+    "telegramBot":{"unit":"exchange-bot.service","activeState":"active","subState":"running"},
+    "admin":{"unit":"admin-panel.service","activeState":"active","subState":"running"},
+    "connectorRefresh":{"configured":true,"intervalSeconds":300},
+    "connectorStore":{"path":"/var/lib/kairos/connectors.json","present":false,"claim":"No production connector catalog, credential binding, permission proof or balance snapshot exists."}
+  },
+  "unauthenticatedProbes":[
+    {"surface":"kairos","path":"/api/contracts/cex-read-only","statusCode":401},
+    {"surface":"kairos","path":"/internal/v1/connectors","statusCode":401},
+    {"surface":"relay","path":"/api/wallet/portfolio","statusCode":403},
+    {"surface":"relay","path":"/api/wallet/cex-sources","statusCode":403},
+    {"surface":"miniApp","path":"/webapp","statusCode":200}
+  ],
+  "artifacts":{
+    "kairosMain":{"sha256":"05306d4120cbc545aea3b7d571de5af4f1163d830bb14a02fef9ebce416578ee","checkoutEqualsDeployed":true},
+    "connectorStore":{"sha256":"6bcf09f756d5def4a42fb02d0d3e7275eeaf25a3b508a2887d351403e16efe99","checkoutEqualsDeployed":true},
+    "connectorBalanceWorker":{"sha256":"aa8e0d5353bdf2c15297e40db0a942412a4ef259d5dfe309b37dc4f5a8433581","checkoutEqualsDeployed":true},
+    "bybitBalanceTransport":{"sha256":"07bf4c2088af8d21ecfd515547b5a99bb17cbf5af721d5cd4fd7e44622aa7f5d","checkoutEqualsDeployed":true},
+    "bybitTestnetTransport":{"sha256":"498f3e3921dd4819065b7d0519eba82b6798c2b5fddd1d227af5354e7477c66e","checkoutEqualsDeployed":true},
+    "unifiedPortfolio":{"sha256":"9f223191e16d64b6edc3b42f5935af0a06ce4dc6035ab88aa0c0381932484bcd","checkoutEqualsDeployed":true},
+    "relayServiceIdentity":{"sha256":"85f58dc3eecd6fb71fb54e1b8db1bf99c37ddace0b54b8a9dff98c06bf37ce9a","checkoutEqualsDeployed":true},
+    "miniApp":{"sha256":"12545433f4004eef1df25592474b8e14db9558a5bb356bc245dc6b6826f9adcc","checkoutEqualsDeployed":true},
+    "relayMain":{"checkoutSha256":"16dc034f4213f2765bcca0fecd97d62fdeb40a8a0d70e0e94568dfb5e1d6dcfc","deployedSha256":"c1ef783e3005f4698540ddc5368ef9a4592612fcf666b403ecbb7c4a359bd7ff","checkoutEqualsDeployed":false,"cexRouteBlockPresentInDeployed":true}
+  },
+  "surfaceFindings":{
+    "telegramBot":{"implementation":"NOT_IMPLEMENTED","claim":"The deployed /mywallet flow reads verified external wallets only and has no KAIROS connector or CEX custody lane."},
+    "site":{"implementation":"PARTIAL","claim":"Cookie-capable owner-scoped APIs exist, but deployed dashboard templates expose no CEX portfolio or connector lifecycle UI."},
+    "miniApp":{"implementation":"PARTIAL","claim":"Deployed UI renders three custody lanes plus owner-scoped source/event/disconnect views; credential input and connect remain deliberately disabled."},
+    "admin":{"implementation":"PARTIAL","claim":"Laravel has no CEX resource; the separate KAIROS operator UI exposes legacy exchange fields and LIVE-CAPABLE wording while its legacy save/test endpoints reject with 409 and do not operate the connector lifecycle."},
+    "api":{"implementation":"PARTIAL","claim":"Scoped Ed25519 internal list/events/connect/disconnect and owner-scoped Relay list/events/disconnect/aggregate routes are deployed; no approved user connect endpoint exists."},
+    "native":{"implementation":"NOT_IMPLEMENTED","claim":"The native-wallet scaffold has no CEX connector or portfolio client surface."}
+  },
+  "positiveControls":[
+    "KAIROS internal routes require scoped Ed25519 service identity, bounded bodies and replay state.",
+    "Relay derives an opaque owner principal from the authenticated web user and never accepts ownerRef from request input.",
+    "Connector reads and disconnect are owner-filtered; foreign source identifiers are masked as not found.",
+    "Permission policy requires read=true and trade, withdrawal and transfer=false; credential use requires a proof no older than 15 minutes.",
+    "Disconnect first blocks use, removes the vault reference, clears balances and preserves a sanitized lifecycle event.",
+    "Mini App labels external balances as KYC and custody at the exchange and says they are read-only."
+  ],
+  "riskFindings":[
+    "Relay portfolio treats any dictionary KAIROS response as available and does not validate connector-list.v1 or items as a list; malformed contract data can become an EMPTY, complete CEX lane.",
+    "Bybit balance parsing does not bound the exchange timestamp against observation time, and the store accepts FRESH observations without maximum age; stale provider evidence can be labelled fresh.",
+    "Balance decimal validation permits negative values, so malformed negative provider balances can be rendered as legitimate FRESH amounts.",
+    "Cookie-authenticated CEX disconnect has no explicit CSRF token binding; SameSite=Lax is not acceptance evidence for the mutation.",
+    "Event retention is prune-on-access or append rather than an independently proven scheduled deletion, while revoked connector metadata and idempotency records persist without an accepted deletion or backup-expiry contract.",
+    "The only implemented provider transport is fixed to Bybit TESTNET; no production CEX permission, balance or disconnect lifecycle has been observed.",
+    "Connect exists only on the internal KAIROS boundary; Relay and customer UI intentionally accept no CEX credential, so a production user cannot create a connector.",
+    "The KAIROS operator UI claims CEX LIVE-CAPABLE and exposes legacy credential fields although legacy save/test endpoints are disabled and the connector lifecycle is not represented there.",
+    "The frozen connector contract requires positions, asset/network identity and rate-limit state, but current projection is balances-only, network may be null, and no positions or explicit rate-limit state is returned.",
+    "Connector persistence is a service-local JSON file plus encrypted vault rather than the target PostgreSQL transactional source of truth, and no observed production backup/restore evidence covers it.",
+    "Sanitized lifecycle events omit sourceId, so multiple connectors for one provider are ambiguous in the owner UI.",
+    "Production Relay main differs from checkout even though the reviewed CEX route block is present."
+  ],
+  "verification":{
+    "focusedTests":{"runner":"PYTHONPATH=/opt/kairos/venv/lib/python3.12/site-packages /root/lumi/venv/bin/pytest","count":17,"result":"PASS","scope":"hermetic signed connector lifecycle, owner isolation, permission/balance/disconnect, management UI, unified portfolio and E1 readiness; synthetic testnet evidence only"},
+    "compile":{"result":"PASS","scope":"KAIROS connector store/main and Relay unified portfolio/service identity"},
+    "limitations":["No authenticated production customer route was called.","No production credential, connector row, provider balance or revoke lifecycle exists to accept.","Point observations are not continuous monitoring."]
+  },
+  "blockers":["no owner-authorized real read-only CEX credential lifecycle","no protected customer connect path","testnet-only provider transport","malformed response can appear empty and complete","provider timestamp freshness is unbounded","negative balances are accepted","cookie disconnect lacks explicit CSRF binding","operator UI contradicts runtime","Telegram/site/native surface parity is absent","no accepted persistence backup/restore/deletion lifecycle","deployed Relay checkout drift"],
+  "independentReviews":[
+    {"reviewer":"agent:/root/cex_surface_audit","disposition":"ACCEPTED_PARTIAL_NOT_ACCEPTED","scope":"six surfaces, deployed/runtime anchors, connector store, scheduler, provider scope and UI truthfulness"},
+    {"reviewer":"agent:/root/cex_security_audit","disposition":"REJECTED_ACCEPTANCE_FINDINGS_INCORPORATED","scope":"owner isolation, service authentication, permission policy, stale/error truth, CSRF, retention, privacy and balance validation"}
+  ],
+  "nextCanonicalItem":"Add operator workflows to the six-surface E0.4 inventory with exact repository and runtime evidence."
+}

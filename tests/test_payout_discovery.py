@@ -228,6 +228,14 @@ check("в списке виден адрес, а не только ключ", _s
 _P(pd.SOURCES_PATH).write_text("{}", encoding="utf-8")
 
 # --- fail-closed: не зная занятых txid, не закрываем ------------------------
+try:
+    pd._used_txids()  # test DB intentionally has no orders table yet
+    _store_error_escaped = False
+except Exception:
+    _store_error_escaped = True
+check("ошибка repository used-txid не превращается в пустой набор",
+      _store_error_escaped)
+
 _saved = pd._used_txids
 pd._used_txids = lambda: (_ for _ in ()).throw(RuntimeError("БД недоступна"))
 res = pd.discover()

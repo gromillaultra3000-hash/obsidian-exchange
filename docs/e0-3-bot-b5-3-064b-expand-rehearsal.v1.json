@@ -1,0 +1,85 @@
+{
+  "schema": "obsidian.e0-3-bot-b5-3-064b-expand-rehearsal.v1",
+  "observedAt": "2026-08-22T04:06:40Z",
+  "route": "E0/E0.3/B5.3/064B",
+  "status": "IN_PROGRESS",
+  "rehearsalResult": "REHEARSED_DISPOSABLE_POSTGRESQL_17",
+  "productionReady": false,
+  "productionAuthorization": false,
+  "productionMutation": false,
+  "package": {
+    "directory": "deploy/postgres/rehearsal",
+    "legacySchema": {
+      "path": "deploy/postgres/023_bot_notification_jobs.sql",
+      "sha256": "e206910c1acd07b35198c1e9f2a92d2c5802427560e97ec45b557069bf049435"
+    },
+    "files": [
+      {"path": "deploy/postgres/rehearsal/064b_expand_transaction.sql", "sha256": "145fe48bdbc4641030e57f7c08ab66eb6e52093bcaf6b295c3bf1f8bbf0e672b"},
+      {"path": "deploy/postgres/rehearsal/064b_expand_indexes.sql", "sha256": "5acd53729ffcd557e5a5e35e35d0dc9eafad0a257dd2d4b8cf2f5cffcdffa629"},
+      {"path": "deploy/postgres/rehearsal/064b_rollback_indexes.sql", "sha256": "c893b5095986268df5978aedd5393e99a098e2b78e1f595dd0e61885d3a52de5"},
+      {"path": "deploy/postgres/rehearsal/064b_rollback_transaction.sql", "sha256": "2b343fda75687c4d021485b2c2a43728d1f4ef4fb53515e3fff54a17e9ac402e"},
+      {"path": "deploy/postgres/rehearsal/README.md", "sha256": "59ad1c0b7ada599c9450039f70e7c42632f8642ccad4350d8464a243994ba0bf"},
+      {"path": "tests/test_e0_3_bot_b5_3_064b_expand_rehearsal.py", "sha256": "617f44dd07d4231234d6537128b1f858770a4e73980f6405c4ba1ce4ebaa217f"}
+    ]
+  },
+  "container": {
+    "image": "postgres@sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193",
+    "network": "none",
+    "readOnlyRoot": true,
+    "data": "tmpfs",
+    "publishedPorts": false,
+    "removedAfterRun": true,
+    "syntheticRowsOnly": true
+  },
+  "checks": {
+    "staticBundle": "PASS",
+    "legacyInsertCompatibility": "PASS",
+    "legacyPendingSendingSentCompatibility": "PASS",
+    "notValidConstraints": "PASS",
+    "concurrentIndexesOutsideTransaction": "PASS",
+    "versionedFunctionsCompile": "PASS",
+    "rollbackBeforeFirstV2Submit": "PASS",
+    "rollbackAfterV2Submit": "FAIL_CLOSED_AS_DESIGNED",
+    "productionRowsChanged": false,
+    "productionServicesChanged": false,
+    "productionDatabaseTouched": false,
+    "containersAndTmpfsRemoved": true,
+    "gitDiffCheck": "PASS"
+  },
+  "scope": {
+    "included": [
+      "nullable lifecycle_version and v2 job columns",
+      "NOT VALID conditional lifecycle/shape constraints",
+      "delivery attempt and evidence tables",
+      "ungranted bot_b53_v2 versioned rehearsal functions",
+      "CONCURRENTLY indexes",
+      "pre-submit rollback guard"
+    ],
+    "excluded": [
+      "recipient backfill",
+      "legacy state constraint replacement",
+      "manual/quarantine state cutover",
+      "producer fence",
+      "dispatcher fence",
+      "roles, credentials, grants and production execution"
+    ]
+  },
+  "regressionsCaughtAndFixed": [
+    "rollback FK order now drops the attempts-to-evidence FK before dropping evidence",
+    "v2 claim UPDATE qualifies j.id and j.attempts to avoid RETURNS TABLE id ambiguity"
+  ],
+  "authority": {
+    "syntheticRehearsalAuthority": false,
+    "boundedEvidenceAccepted": false,
+    "actionAllowed": false,
+    "productionExpandAuthorized": false,
+    "ownerDecisionAuthenticated": false,
+    "independentReviewerAuthenticated": false
+  },
+  "blockers": [
+    "AUTHENTICATED_OWNER_AND_INDEPENDENT_REVIEWER_DECISION_OVER_EXACT_V4_CANDIDATE_ABSENT",
+    "064B_PRODUCTION_EXPAND_REMAINS_UNAUTHORIZED",
+    "064B_FIELD_AND_FUNCTION_CONTRACT_REMAINS_REHEARSAL_CANDIDATE_UNTIL_OWNER_REVIEW"
+  ],
+  "nextCanonicalItem": "AUTHENTICATED_ACCOUNTABLE_OWNER_AND_APPLICABLE_INDEPENDENT_REVIEWER_DECISION_OVER_EXACT_V4_CANDIDATE"
+}

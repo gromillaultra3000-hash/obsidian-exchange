@@ -1,0 +1,26 @@
+{
+  "schemaVersion":"e0-4-owner-auth-production-catalog-preimage.v1",
+  "observedAt":"2026-08-18T02:12:00Z",
+  "source":"read-only pg_catalog observation against local production PostgreSQL 17.10",
+  "accountableObserver":"agent:/root",
+  "containerImage":"postgres@sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193",
+  "queryScope":"current_database/server_version/current_user; exact role names; exact four table owners; to_regprocedure for all eight canonical signatures",
+  "canonicalResultSha256":"54ebce74e873d15bf04a5edfade4262a47d4cf79dece01a20dd5b45ea3bb3bf6",
+  "database":"obsidian_exchange",
+  "productionMutation":false,
+  "roles":{"functionOwner":"obsidian_migrator","runtimeExecutor":"obsidian_app"},
+  "tableOwners":{"orders":"obsidian_migrator","payment_sessions":"obsidian_migrator","order_receipts":"obsidian_migrator","reviews":"obsidian_migrator"},
+  "functions":[
+    "relay_order_authorized_snapshot(bigint,bigint,text)",
+    "relay_payment_session_get_by_token(text)",
+    "relay_payment_session_latest_for_authorized_order(bigint,bigint,text)",
+    "relay_payment_session_latest_active_for_authorized_order(bigint,bigint,text)",
+    "relay_payment_session_latest_provider_invoice_for_authorized_or(bigint,text,boolean,bigint,text)",
+    "relay_receipt_authorized_state(bigint,bigint,text)",
+    "bot_b3_comment_review(bigint,bigint,text)",
+    "bot_b3_finalize_review(bigint,bigint)"
+  ],
+  "priorState":"ABSENT",
+  "featureFlags":{"RELAY_P3_AUTHORIZED_READ_FUNCTIONS_ENABLED":"OFF","BOT_B3_ENGAGEMENT_ACL_ADAPTER_ENABLED":"OFF"},
+  "authorization":{"databaseMigration":false,"deploy":false,"restart":false,"configWrite":false}
+}

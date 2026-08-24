@@ -1,0 +1,78 @@
+{
+  "schemaVersion": "e0-3-bot-b5-3-064a-v3-handoff.v1",
+  "observedAt": "2026-08-19T02:58:34Z",
+  "route": "E0/E0.3/B5.3/064A",
+  "status": "BLOCKED_OWNER",
+  "candidate": {
+    "path": "docs/e0-3-bot-b5-3-064a-decision-candidate.v3.json",
+    "sha256": "771ce159032de810d8b09731be109af6a2bb317fc1b8b6e2f5a0d3fff9a08ddf",
+    "requestedDecision": "ACCEPT_BOUNDED_EVIDENCE_ONLY",
+    "sourceWindowOrigin": "2026-08-19T02:34:54Z",
+    "maximumAgeSecondsAtDecision": 86400
+  },
+  "sourceObservation": {
+    "path": "docs/e0-3-bot-b5-3-064a-production-source-refresh.v3.json",
+    "sha256": "280e0b0de3c76992ef1674ef76495a0136138c9ee6ab114ff794f8377437d104"
+  },
+  "currentCeremony": {
+    "path": "docs/b64-064a-offline-signing-v3.md",
+    "sha256": "4548dbb66e090b06c2e09bf862d05d968e285eb82024a7df2fa9af3521d47dbb",
+    "legacyRunbookStatus": "HISTORICAL_V2_ONLY_DO_NOT_USE_FOR_V3_DECISION"
+  },
+  "implementationBindings": {
+    "scripts/b64_064a_offline_signer.py": "b68b6857a166b7798256b75666472b0d10d4edb2defad33aa523179c294b5a32",
+    "tests/test_e0_3_bot_b5_3_064a_offline_signer.py": "c52ac1f76c7154fc384b30515566881b19f112dcd3c3640e4cf826c4505145f0",
+    "tests/test_e0_3_bot_b5_3_064a_refresh_candidate_v3.py": "cac2fb30d336a21a2a225d9814235bc56c69b096535c58320f7aac0fe0132562",
+    "tests/test_e0_3_bot_b5_3_064a_v3_handoff.py": "3305a405e8a5c2e74aff3ae47f0ca134478723e7918949b490778475b181811f"
+  },
+  "signerGuarantees": [
+    "create-statement and verify both require decision/source/prior/deferral bytes",
+    "length-prefixed domain-separated four-file evidence bundle is recomputed",
+    "closed nested source/binding/history/authority schemas are enforced",
+    "blocked dirty counts, pending/sending blockers and bounded equality MATCH are enforced",
+    "freshness boundaries are inclusive at origin and 86400 seconds and reject outside",
+    "v2 candidate may appear only as prior-state evidence for the v3 ceremony"
+  ],
+  "independentReview": {
+    "reviewers": ["v3_acceptance_review", "v3_landmine_review"],
+    "initialFindings": [
+      "stale v2 runbook could select the expired re-deferred candidate",
+      "signer accepted tampered source/prior/deferral bindings",
+      "nested dirty/equality/authority/blocker semantics were not closed",
+      "verify did not revalidate the evidence bundle",
+      "governance blockers could be removed while operational blockers remained",
+      "the historical v2 runbook lacked a do-not-use banner"
+    ],
+    "disposition": "FIXED_REGRESSION_TESTED_AND_INDEPENDENTLY_RECHECKED",
+    "acceptanceSignature": false
+  },
+  "redeferralIntegration": {
+    "path": "docs/e0-3-bot-b5-3-064a-owner-deferral.v3.json",
+    "sha256": "c1cf8375efe84ce4a77302263f3450d661f732ee88dd30164dc711bc94a2f7e3",
+    "mode": "STANDALONE_GOVERNANCE_RECORD_SUPERSEDING_V2_DEFERRAL",
+    "candidateDigestUnchanged": true,
+    "newStatementOrSignatureAllowed": false
+  },
+  "verification": {
+    "directFocusedChecksPassed": 12,
+    "pytestAvailable": false,
+    "pythonCompilePassed": true,
+    "jsonValidationPassed": true,
+    "diffCheckPassed": true
+  },
+  "authority": {
+    "freshnessCanAuthorize": false,
+    "authenticatedOwnerDecisionPresent": false,
+    "independentReviewerAcceptancePresent": false,
+    "productionMutationAuthorized": false,
+    "productionExpandAuthorized": false,
+    "deploymentAuthorized": false,
+    "restartAuthorized": false,
+    "cutoverAuthorized": false,
+    "telegramDeliveryAuthorized": false,
+    "ambiguousSendingDispositionAuthorized": false,
+    "actionAllowed": false
+  },
+  "nextCanonicalItem": "AUTHENTICATED_ACCOUNTABLE_OWNER_AND_APPLICABLE_INDEPENDENT_REVIEWER_ACCEPT_OR_RE_DEFER_EXACT_V3_CANDIDATE",
+  "interpretation": "The technical handoff is bounded and current, but it does not authenticate either person, enroll keys, provide trusted time/revocation/replay acceptance, accept evidence or authorize any production action. No further design or refresh is canonical while the source window is current; the real next step is the external decision over the exact v3 digest."
+}

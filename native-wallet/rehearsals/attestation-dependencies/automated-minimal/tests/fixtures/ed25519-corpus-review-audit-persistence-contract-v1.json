@@ -1,0 +1,41 @@
+{
+  "schema": "native-wallet-ed25519-corpus-review-audit-persistence-contract.v1",
+  "scope": "symbolic append-only audit and deletion state persistence ordering",
+  "internal_transition_transaction": [
+    "lock current state row and current audit head",
+    "compare expected state, sequence and previous event digest",
+    "validate closed event and transition guard",
+    "stage immutable audit event first",
+    "stage state transition referencing staged event digest",
+    "commit audit event, audit head and state atomically",
+    "publish no state or event before commit"
+  ],
+  "required_invariants": [
+    "one audit event per visible internal state transition",
+    "event sequence increases by exactly one",
+    "event previous hash equals prior committed audit head",
+    "state row stores the exact authorizing event digest",
+    "compare-and-set allows one transition winner",
+    "terminal state has no update or delete path",
+    "audit event has no update or delete path",
+    "transaction rollback exposes neither staged event nor staged state"
+  ],
+  "per_location_attempt_states": ["PREPARED", "SUCCEEDED", "FAILED", "UNKNOWN_REVIEW"],
+  "external_side_effect_protocol": [
+    "atomically append attempt-prepared audit event and insert one immutable PREPARED location intent",
+    "invoke deletion at most once for that location intent",
+    "atomically append outcome audit event and transition PREPARED to SUCCEEDED or FAILED",
+    "if invocation may have begun but durable outcome is absent, transition only to UNKNOWN_REVIEW",
+    "never automatically invoke a PREPARED or UNKNOWN_REVIEW location again after recovery"
+  ],
+  "read_only_repeatable_operations": ["post-deletion scan", "receipt validation", "witness evaluation"],
+  "external_effect_and_database_atomicity_claimed": false,
+  "automatic_retry_of_uncertain_effect": false,
+  "independent_checkpoint_required_for_chain_completeness": true,
+  "persistence_backend_selected": false,
+  "real_store_created": false,
+  "real_side_effect_authorized": false,
+  "gate_i09_pass": false,
+  "selection_allowed": false,
+  "runtime_integration_allowed": false
+}

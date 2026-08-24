@@ -1,0 +1,7 @@
+{
+  "schema":"obsidian.e0-3-bot-b2-1-owner-reads-rehearsal.v1","stage":"E0.3","status":"REHEARSED_DISPOSABLE_POSTGRESQL_17","observedAt":"2026-08-15T22:18:39Z","productionAuthorization":false,"implementationDeployed":false,
+  "proposal":"deploy/postgres/proposals/036_e0_bot_b2_1_owner_reads.sql","proposalSha256":"637eccc3c142255ef3c0137f5d1656f826e6ce689e33b9227d8aeaa8346e6d47","test":"tests/test_e0_3_bot_b2_1_owner_reads_rehearsal.py","testSha256":"b88f56b5bf5eac7b9245bfa35999338d0e8585d81ea149f30824732fef72f4ed",
+  "functions":["bot_b2_rate_enabled(bigint)","bot_b2_vip_total(bigint)","bot_b2_referral_bonus_owner(bigint)","bot_b2_creation_limit_state(bigint,timestamptz,timestamptz)","bot_b2_support_list(bigint,integer)","bot_b2_support_open_count(bigint)","bot_b2_support_thread(bigint,bigint)"],
+  "evidence":["all seven owner reads bind a positive exact owner","support list and count return only owner rows","support thread returns zero rows for both cross-owner directions","thread result is capped to the latest 500 messages","list limit above 100 fails closed","missing rate and VIP state have closed defaults","bot login retains zero direct table SELECT"],
+  "container":{"image":"postgres:17-alpine","removedAfterRun":true},"result":"PASS","nextPrerequisite":"B2.2 operator read bodies"
+}

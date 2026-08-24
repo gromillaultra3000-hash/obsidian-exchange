@@ -1,0 +1,1 @@
+{"workspaceId":"replace-with-workspace-id","approvalPromptId":"replace-with-approval-id","testRunResultId":"replace-with-passing-test-result-id","fileChanges":[{"path":"docs/example.md","operation":"update","beforeContent":"old text","afterContent":"new text"}]}

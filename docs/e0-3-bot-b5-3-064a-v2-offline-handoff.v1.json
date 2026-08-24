@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "e0-3-bot-b5-3-064a-v2-offline-handoff.v1",
+  "observedAt": "2026-08-18T19:47:52Z",
+  "route": "E0/E0.3/B5.3/064A",
+  "status": "BLOCKED_OWNER",
+  "scope": "keyless candidate-only offline owner and independent-reviewer handoff",
+  "candidate": {
+    "path": "docs/e0-3-bot-b5-3-064a-decision-candidate.v2.json",
+    "sha256": "760ef8b1a6848ce782dea27c0e3da672ce79f264590b40b1fbd47b25c2dbc99e",
+    "requestedDecision": "ACCEPT_BOUNDED_EVIDENCE_ONLY"
+  },
+  "implementationSha256": {
+    "signer": "ada871ece5897b4c9c34787420309bb7b57665859a523fb32b1a939512ec095a",
+    "protocol": "f0eac40ae2f8cf5f2e616bc6e1853621988eed9aebfd4e6658ab71c240b1c5fd",
+    "runbook": "aef172edb860ee6bbd1988e64e958bfa41743b3211fdf8e1ec13a4587bb0d286",
+    "tests": "dd981706c69d31afaee431671c19bf3c64e0dd726b51bdf63274757426199305"
+  },
+  "changes": [
+    "create-statement now accepts only the closed v2 candidate schema and exact evidence-only decision label",
+    "every authority field except freshnessCanInvalidate must remain false",
+    "statement issuance must fall inside the candidate-bound 24-hour source-observation window",
+    "the runbook transfers and independently compares the exact v2 candidate and source-refresh evidence digests"
+  ],
+  "verification": {
+    "focusedTestsPassed": 14,
+    "focusedTestsFailed": 0,
+    "pythonCompilePassed": true,
+    "diffCheckPassed": true,
+    "landmines": [
+      "ambiguous 064B decision label rejected",
+      "actionAllowed=true rejected",
+      "stale source observation rejected",
+      "tamper, key mismatch, unsafe permissions and symlink inputs rejected"
+    ]
+  },
+  "limitations": [
+    "No real key, public-key registry, signature, identity enrollment, trusted clock, revocation source or durable replay ledger was created.",
+    "Candidate-offline SYNTHETIC_VALID remains non-authoritative and cannot accept evidence in production.",
+    "No independent agent or human review was available for this slice."
+  ],
+  "authority": {
+    "keyless": true,
+    "productionMutationAuthorized": false,
+    "productionExpandAuthorized": false,
+    "deploymentAuthorized": false,
+    "restartAuthorized": false,
+    "cutoverAuthorized": false,
+    "telegramDeliveryAuthorized": false,
+    "ambiguousSendingDispositionAuthorized": false,
+    "actionAllowed": false
+  },
+  "nextCanonicalItem": "Accountable owner and applicable independent reviewer authenticate accept-or-re-defer over candidate SHA-256 760ef8b1a6848ce782dea27c0e3da672ce79f264590b40b1fbd47b25c2dbc99e before its source window expires; otherwise refresh source evidence and issue a new candidate."
+}

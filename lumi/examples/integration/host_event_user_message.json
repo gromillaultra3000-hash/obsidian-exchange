@@ -1,0 +1,7 @@
+{
+  "eventId": "event-user-message-001",
+  "hostAppId": "sample_desktop_app",
+  "eventType": "user_message",
+  "payload": {"text": "Analyze this error and suggest a safe next step."},
+  "metadata": {"source": "example"}
+}

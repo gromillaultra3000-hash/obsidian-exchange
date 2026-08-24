@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "e0.4-owner-decision-intake-review.v1",
+  "observedAt": "2026-08-18T20:42:00Z",
+  "route": "E0/E0.4/OWNER_DECISION_INTAKE_REVIEW",
+  "status": "BLOCKED_OWNER",
+  "decisionEffect": "REVIEW_ONLY_NO_AUTHORITY",
+  "source": "current-owner-conversation",
+  "authority": {"productionAuthorization": false, "productionMutationAuthorized": false, "productionExpandAuthorized": false, "deploymentAuthorized": false, "telegramDeliveryAuthorized": false, "paymentMutationAuthorized": false, "adminMutationAuthorized": false, "actionAllowed": false},
+  "review": {"intakeArtifactPresent": true, "ownerDecisionPresent": false, "authenticatedOwnerPresent": false, "candidateHashesPresent": false, "allowedActionEnumPresent": false, "independentReviewerPresent": false, "runtimeManifestPresent": false, "result": "BLOCKED_OWNER"},
+  "missingInputs": ["authenticated owner identity/role", "exact candidate artifact paths and raw-byte hashes", "explicit bounded action enum", "independent reviewer artifact", "runtime/release manifest", "rollback/revocation/replay/trusted-time evidence"],
+  "decision": "NO_OWNER_DECISION_CAN_BE_INFERRED",
+  "nextSafeRoute": "E0/E0.4/RESTRICTIVE_STATUS_REPORT",
+  "interpretation": "Review confirms the intake is incomplete. No acceptance, waiver, verification, deployment, restart, authentication, send/edit, publish, charge, customer/provider access or production mutation is authorized. E0.3 remains first unmet and BLOCKED_OWNER; E0.4 remains IN_PROGRESS."
+}

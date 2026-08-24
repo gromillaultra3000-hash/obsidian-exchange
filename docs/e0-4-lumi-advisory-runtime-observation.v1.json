@@ -1,0 +1,76 @@
+{
+  "schemaVersion": "e0-4-lumi-advisory-runtime-observation.v1",
+  "observedAt": "2026-08-18T04:45:00Z",
+  "route": "E0/E0.4/LUMI_ADVISORY",
+  "status": "IN_PROGRESS",
+  "acceptance": "PARTIAL_NOT_ACCEPTED",
+  "workClass": "SECRET_FREE_READ_ONLY_PRODUCTION_AND_SOURCE_INVENTORY",
+  "productionMutation": false,
+  "credentialsUsed": false,
+  "secretValuesRead": false,
+  "customerDataRead": false,
+  "advisoryInvocationsMade": false,
+  "externalProviderCallsMade": false,
+  "moneyWritersExercised": false,
+  "runtime": {
+    "lumiService": {"active":true,"subState":"running","user":"lumi-svc","listener":"127.0.0.1:8010","healthStatusCode":200},
+    "kairosService": {"active":true,"subState":"running","user":"kairos-svc","listener":"127.0.0.1:8000"},
+    "relayService": {"active":true,"subState":"running","user":"relay-svc","listener":"127.0.0.1:5001"},
+    "unauthenticatedFences": [
+      {"method":"POST","path":"http://127.0.0.1:8010/conflict/resolve","statusCode":401,"bodyRead":false},
+      {"method":"GET","path":"http://127.0.0.1:8000/api/committee/status","statusCode":401,"bodyRead":false}
+    ],
+    "lumiSandbox": ["NoNewPrivileges","PrivateTmp","PrivateDevices","ProtectSystem=strict","ProtectHome","ProtectKernelTunables","ProtectKernelModules","ProtectKernelLogs","ProtectControlGroups","ProtectProc=invisible","CapabilityBoundingSet empty","IPAddressDeny=any","IPAddressAllow=localhost"]
+  },
+  "artifacts": [
+    {"path":"kairos/app/lumi_bridge.py","deployedPath":"/opt/kairos/app/lumi_bridge.py","sha256":"e5676cfe028577c65fe49b5b5122c3b77cb13c4b5dc1fc74eddf1717589485c3","equal":true},
+    {"path":"kairos/app/shadow_advisory_wire.py","deployedPath":"/opt/kairos/app/shadow_advisory_wire.py","sha256":"479e959320b2439029dcd0070b56011f19ebde78c7c61e227a31aa9f6abbefb4","equal":true},
+    {"path":"kairos/app/kairos_engine.py","deployedPath":"/opt/kairos/app/kairos_engine.py","sha256":"e54ba394f585ac7d23830406e81ce22de0c8096b97dc400f76e6e1312d15107b","equal":true},
+    {"path":"kairos/app/committee.py","deployedPath":"/opt/kairos/app/committee.py","sha256":"0a2ad05f8a6d20e3bcbae3cfeaf816ef4eef10e7d1cdbfc689423c90f1d38631","equal":true},
+    {"path":"lumi/lumi/app/main.py","deployedPath":"/opt/lumi/lumi/app/main.py","sha256":"bada14a32cc465a7e2e547a8ce661c263792d13bb7429c60bbe254871a4eab16","equal":true,"checkoutTracked":false},
+    {"path":"lumi/lumi/app/integration/shadow_advisory.py","deployedPath":"/opt/lumi/lumi/app/integration/shadow_advisory.py","sha256":"57bbee021069dd1146d0353fab3b99a4785a4913da247ac7a11764d4c2261823","equal":true},
+    {"path":"lumi/lumi/app/api/conflict.py","deployedPath":"/opt/lumi/lumi/app/api/conflict.py","sha256":"ceaa0e46bcb47c163d664fd6e91b36b4e2b807f620d7712f4c3aae9bdab59ba8","equal":true},
+    {"path":"lumi/lumi/app/audit/audit_log.py","deployedPath":"/opt/lumi/lumi/app/audit/audit_log.py","sha256":"fca73b9e23da938f2a86be80550ce7bd2a1fd0b1717d4c3f5c0339d7dfe745f4","equal":true}
+  ],
+  "surfaceFindings": {
+    "telegramBot": {"mode":"N/A","implementation":"NOT_IMPLEMENTED","finding":"No direct LUMI workflow exists; raw AI advice must not be presented as payment authority."},
+    "site": {"mode":"N/A","implementation":"NOT_IMPLEMENTED","finding":"The shadow operator advisory does not require a customer-site surface."},
+    "miniApp": {"mode":"N/A","implementation":"NOT_IMPLEMENTED","finding":"The shadow operator advisory does not require a customer Mini App surface."},
+    "admin": {"mode":"OPERATOR_ONLY","implementation":"PARTIAL","finding":"The separate KAIROS operator UI exposes committee/provider controls and truthfully says AI cannot bypass numeric gates, but lacks a bounded LUMI verdict/review, egress, model, failure and retention view."},
+    "api": {"mode":"OPERATOR_ONLY","implementation":"PARTIAL","finding":"A live shared-token KAIROS-to-LUMI generic resolver bridge and operator committee APIs exist beside a safer dormant frozen shadow wire; the live path is not the canonical E2 contract."},
+    "native": {"mode":"N/A","implementation":"NOT_IMPLEMENTED","finding":"LUMI advisory must not receive native keys or signing authority and needs no native surface."}
+  },
+  "authorityFinding": {
+    "currentDirectMoneyOrAclAuthority": false,
+    "reason": "KAIROS records the committee/LUMI result, then unconditionally evaluates its own execution path; the advisory return is ignored.",
+    "misleadingContract": "The generic LUMI resolver can emit APPROVE with actionAllowed=true even though the result neither authorizes nor vetoes KAIROS execution."
+  },
+  "positiveControls": [
+    "The live bridge is loopback-only, uses a dedicated minimum-length shared bearer and LUMI verifies it with constant-time comparison for exactly two POST paths.",
+    "Malformed or failed external committee output becomes ABSTAIN and the arbiter can only tighten the committee result.",
+    "The frozen shadow wire bounds and hashes requests, correlates responses and maps timeout, error or malformed response to HOLD with action false.",
+    "The frozen LUMI adapter rejects identity-, credential- and money-like facts and uses a closed signal catalog.",
+    "Effective service units use dedicated non-root users and strong filesystem, capability and loopback network restrictions."
+  ],
+  "riskFindings": [
+    {"severity":"HIGH","id":"LIVE_PATH_NOT_FROZEN_WIRE","finding":"Production uses generic /conflict/resolve rather than the bounded ALLOW/HOLD/MANUAL/FREEZE frozen E2 wire, so request correlation, replay protection, signed response receipts and strict fail-closed semantics are absent."},
+    {"severity":"HIGH","id":"FAILURE_NOT_HOLD","finding":"On bridge error combinedVerdict falls back to the committee verdict, including possible APPROVE; KAIROS currently ignores it, but the documented fail-closed claim is false and unsafe for future gating."},
+    {"severity":"HIGH","id":"ADVISORY_IGNORED","finding":"KAIROS executes an eligible candidate after recording advisory without consuming combinedVerdict, so LUMI cannot currently provide the E2 tightening/veto gate."},
+    {"severity":"MEDIUM","id":"AUTH_REPLAY_BOUNDS","finding":"The actual static-bearer path has no nonce, freshness, idempotency, replay ledger or route-specific throttle; generic task/output dictionaries have no explicit size/depth bounds."},
+    {"severity":"MEDIUM","id":"DATA_MINIMIZATION","finding":"The bridge sends route/symbol label, exact net percentage/value and all role/vote/confidence/free-text reasons; no exact classification or bounded minimization contract governs the live payload."},
+    {"severity":"MEDIUM","id":"AUDIT_RETENTION","finding":"Generic audit is process-memory, host registration is a best-effort mutation, KAIROS keeps a capped count-based memory file, and no accepted content-bound durable audit, time retention, deletion or backup-expiry contract exists."},
+    {"severity":"MEDIUM","id":"PROVIDER_CONCENTRATION","finding":"Prior production inventory found one verified external Cerebras provider filling uncovered committee roles and fallback arbiter, so the apparent committee is not independent."},
+    {"severity":"MEDIUM","id":"UI_TRUTH","finding":"Operator UI omits LUMI dry-run status, provider egress, non-independent committee composition, combined verdict, failure and retention details."},
+    {"severity":"LOW","id":"ERROR_LEAKAGE","finding":"Bridge stores exception type plus truncated exception text in operator-visible state without a dedicated redaction contract."},
+    {"severity":"MEDIUM","id":"PROVENANCE","finding":"Deployed LUMI service-auth main.py matches checkout but both it and its focused service-auth test are untracked, so deployed provenance is not accepted."}
+  ],
+  "verification": [
+    {"scope":"E0.4 matrix, LUMI inventory, KAIROS bridge auth and frozen shadow wire","result":"PASS","tests":56},
+    {"scope":"LUMI KAIROS service-token path allowlist via local TestClient","result":"PASS","tests":3,"sandboxEscalation":"local socket creation only"}
+  ],
+  "independentReviews": [
+    {"review":"six-surface audit","disposition":"PARTIAL_NOT_ACCEPTED","incorporated":true},
+    {"review":"security/privacy/authority audit","disposition":"PARTIAL_NOT_ACCEPTED","incorporated":true}
+  ],
+  "nextCanonicalItem": "Reconcile the completed bounded E0.4 matrix against the full deployed route and feature inventory, recording any still-unclassified families."
+}

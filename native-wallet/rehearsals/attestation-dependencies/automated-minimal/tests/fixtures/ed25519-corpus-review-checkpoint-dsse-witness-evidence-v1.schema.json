@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.obsidian.invalid/native-wallet/ed25519-corpus-review-checkpoint-dsse-witness-evidence-v1.schema.json",
+  "title": "Bounded opaque DSSE checkpoint witness evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "witness_slot",
+    "witness_domain_id",
+    "authentication_root_sha256",
+    "checkpoint_bytes_sha256",
+    "challenge_sha256",
+    "payload_type",
+    "payload_base64",
+    "signature_base64",
+    "keyid_hint",
+    "evidence_sha256"
+  ],
+  "properties": {
+    "schema": { "const": "native-wallet-ed25519-corpus-review-checkpoint-dsse-witness-evidence.v1" },
+    "witness_slot": { "type": "integer", "minimum": 0, "maximum": 1 },
+    "witness_domain_id": { "type": "string", "minLength": 8, "maxLength": 128, "pattern": "^[a-z0-9][a-z0-9._:-]*$" },
+    "authentication_root_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "checkpoint_bytes_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "challenge_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "payload_type": { "const": "application/vnd.obsidian.audit-checkpoint-witness.v1+json" },
+    "payload_base64": { "type": "string", "minLength": 4, "maxLength": 10924, "pattern": "^[A-Za-z0-9+/]+={0,2}$" },
+    "signature_base64": { "type": "string", "minLength": 4, "maxLength": 1368, "pattern": "^[A-Za-z0-9+/]+={0,2}$" },
+    "keyid_hint": { "type": ["string", "null"], "maxLength": 128, "pattern": "^[A-Za-z0-9._:-]+$" },
+    "evidence_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  },
+  "decoded_limits_bytes": {
+    "payload": 8192,
+    "signature": 1024,
+    "complete_serialized_evidence": 16384
+  },
+  "base64_rule": "canonical standard padded RFC 4648; decoded bytes must re-encode exactly",
+  "signature_count": 1,
+  "keyid_selects_root": false,
+  "declared_digests_trusted_before_verified_payload_parse": false,
+  "payload_decoding_implemented": false,
+  "signature_decoding_implemented": false,
+  "signature_verification_implemented": false,
+  "real_evidence_present": false,
+  "checkpoint_authenticated": false
+}

@@ -20,10 +20,10 @@ import ast
 import hashlib
 import logging
 import os
-import sqlite3
 import sys
 
 import requests
+from repositories.receipt_store import from_environment as _receipt_store_from_environment
 
 # путь к relay — от себя, а не от боевого каталога (мина «зашитый боевой путь»)
 _RELAY = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -32,24 +32,16 @@ if _RELAY not in sys.path:
 
 logger = logging.getLogger(__name__)
 DB_PATH = os.getenv("DB_PATH", "/root/exchange.db")
+def _store():return _receipt_store_from_environment(sqlite_path=DB_PATH)
 
 PDF = "application/pdf"
-
-
-def _db():
-    conn = sqlite3.connect(DB_PATH, timeout=5)
-    conn.row_factory = sqlite3.Row
-    return conn
 
 
 def find_session(order_id) -> dict | None:
     """Последняя платёжная сессия заявки: через кого и по какой сделке платили."""
     try:
-        with _db() as conn:
-            row = conn.execute(
-                "SELECT provider, provider_invoice_id, provider_payload, status "
-                "FROM payment_sessions WHERE order_id=? ORDER BY id DESC LIMIT 1",
-                (order_id,)).fetchone()
+        rows = _store().sessions(order_id)
+        row = rows[0] if rows else None
     except Exception as e:
         logger.warning("receipts: чтение сессии order=%s: %s", order_id, e)
         return None
@@ -426,19 +418,8 @@ def store_receipt(order_id, file_bytes: bytes, filename: str, content_type: str)
         p.write_bytes(file_bytes)
         os.chmod(p, 0o600)
         sha = hashlib.sha256(file_bytes).hexdigest()
-        with _db() as conn:
-            conn.execute("""CREATE TABLE IF NOT EXISTS order_receipts (
-                order_id INTEGER PRIMARY KEY, path TEXT, filename TEXT,
-                content_type TEXT, created_at TEXT DEFAULT (datetime('now')),
-                dispute_opened_at TEXT)""")
-            # sha256 добавлен позже — колонки может не быть в старой БД
-            if "sha256" not in [r["name"] for r in
-                                conn.execute("PRAGMA table_info(order_receipts)")]:
-                conn.execute("ALTER TABLE order_receipts ADD COLUMN sha256 TEXT")
-            conn.execute("INSERT OR REPLACE INTO order_receipts "
-                         "(order_id, path, filename, content_type, sha256) VALUES (?,?,?,?,?)",
-                         (order_id, str(p), filename, content_type, sha))
-            conn.commit()
+        _store().record(order_id=order_id,path=str(p),filename=filename,
+                        content_type=content_type,sha256=sha)
         return str(p)
     except Exception as e:
         logger.warning("receipts: сохранение чека order=%s: %s", order_id, e)
@@ -455,30 +436,20 @@ def receipt_fraud_flags(order_id, file_bytes=None) -> list:
     """
     flags = []
     try:
-        with _db() as conn:
-            if file_bytes is not None:
-                h = hashlib.sha256(file_bytes).hexdigest()
-                try:
-                    dup = conn.execute(
-                        "SELECT order_id FROM order_receipts WHERE sha256=? AND order_id<>?",
-                        (h, order_id)).fetchall()
-                except sqlite3.OperationalError:
-                    dup = []  # колонки sha256 ещё нет (старая БД до первого чека)
-                if dup:
-                    flags.append("♻️ Этот же файл-чек уже присылали по заявкам "
-                                 + ", ".join(f"#{r['order_id']}" for r in dup[:5]))
-            row = conn.execute("SELECT user_id FROM orders WHERE order_id=?",
-                               (order_id,)).fetchone()
-            uid = row["user_id"] if row else None
-            if uid and uid > 0:
-                st = conn.execute(
-                    "SELECT SUM(status='expired') exp, "
-                    "SUM(status IN ('paid','sent')) paid FROM orders WHERE user_id=?",
-                    (uid,)).fetchone()
-                exp, paid = (st["exp"] or 0), (st["paid"] or 0)
-                if exp >= 3 and paid == 0:
-                    flags.append(f"⚠️ У клиента {exp} истёкших заявок и НИ ОДНОЙ оплаченной "
-                                 f"— повышенный риск фиктивного чека")
+        if file_bytes is not None:
+            h = hashlib.sha256(file_bytes).hexdigest()
+            try:
+                dup = _store().duplicates(order_id=order_id,sha256=h)
+            except Exception:
+                dup = []  # старая БД до первого добавления sha256
+            if dup:
+                flags.append("♻️ Этот же файл-чек уже присылали по заявкам "
+                             + ", ".join(f"#{r}" for r in dup[:5]))
+        profile = _store().fraud_profile(order_id)
+        exp, paid = profile["expired"], profile["paid"]
+        if exp >= 3 and paid == 0:
+            flags.append(f"⚠️ У клиента {exp} истёкших заявок и НИ ОДНОЙ оплаченной "
+                         f"— повышенный риск фиктивного чека")
     except Exception as e:
         logger.warning("receipts: fraud-flags order=%s: %s", order_id, e)
     return flags
@@ -487,13 +458,10 @@ def receipt_fraud_flags(order_id, file_bytes=None) -> list:
 def load_receipt(order_id):
     """Возвращает (bytes, filename, content_type) сохранённого чека или None."""
     try:
-        with _db() as conn:
-            row = conn.execute("SELECT path, filename, content_type FROM order_receipts "
-                               "WHERE order_id=?", (order_id,)).fetchone()
+        row = _store().get(order_id)
         if not row:
             return None
-        with open(row["path"], "rb") as f:
-            return f.read(), row["filename"], row["content_type"]
+        with open(row["path"], "rb") as f:return f.read(),row["filename"],row["content_type"]
     except Exception as e:
         logger.warning("receipts: чтение чека order=%s: %s", order_id, e)
         return None
@@ -502,9 +470,6 @@ def load_receipt(order_id):
 def _mark_sent(order_id):
     """Фиксируем факт доставки — иначе доказать, что чек уходил, будет нечем."""
     try:
-        with _db() as conn:
-            conn.execute("UPDATE orders SET receipt_sent_at=datetime('now') "
-                         "WHERE order_id=?", (order_id,))
-            conn.commit()
+        _store().mark_sent(order_id)
     except Exception as e:
         logger.warning("receipts: отметка receipt_sent_at order=%s: %s", order_id, e)

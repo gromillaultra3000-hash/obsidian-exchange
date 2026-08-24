@@ -1,0 +1,14 @@
+{
+  "schema":"obsidian.e0-3-bot-dca-capabilities.v1",
+  "stage":"E0.3",
+  "status":"EXACT_PACKAGE",
+  "productionAuthorization":false,
+  "sourceSha256":"d8f827cc54424c7a7a5fe75112e23e499b94e43535ccce6401c1dc4aee32956c",
+  "capabilities":[
+    {"id":"dca_store.cancel","access":"WRITE","reads":{"dca_schedules":["id","user_id","status"]},"mutations":{"dca_schedules":["status"]},"invariants":["EXACT_SCHEDULE_ID","ACTIVE_TO_CANCELLED_CAS","OPTIONAL_USER_OWNER_SCOPE","UNSCOPED_FORM_OPERATOR_ONLY"]},
+    {"id":"dca_store.due","access":"READ","reads":{"dca_schedules":["id","user_id","currency","rub_amount","crypto_address","interval_days","next_run","status"]},"invariants":["ACTIVE_ONLY","DUE_AT_DATABASE_TIME","NEXT_RUN_THEN_ID_ORDER","CALLER_LIMIT"]},
+    {"id":"dca_store.run_due","access":"MONEY_WRITE","reads":{"dca_schedules":["id","user_id","currency","rub_amount","interval_days","status","next_run"],"orders":["order_id"]},"mutations":{"orders":["user_id","username","currency","rub_amount","crypto_address","status","agreed_rate","agreed_crypto_amount","agreed_at"],"dca_schedules":["next_run","runs_total"]},"invariants":["EXACT_SCHEDULE_AND_EXPECTED_NEXT_RUN_CAS","ACTIVE_AND_DUE_ONLY","SCHEDULE_ROW_LOCK_POSTGRES","LOST_RACE_NO_WRITE","PENDING_ORDER_INSERT","ADVANCE_RUN_COUNT_EXACTLY_ONCE","ORDER_AND_SCHEDULE_ADVANCE_ONE_TRANSACTION","ADVANCE_FAILURE_ROLLS_BACK_ORDER","RETURN_CREATED_ORDER_ID"]}
+  ],
+  "grantPolicy":{"tableWideAccess":false,"functionPerMethodRequired":true,"directSequenceAccess":false,"moneyWriterIsolated":true,"unscopedCancelOperatorOnly":true},
+  "remainingWork":["extract the next bot repository package","separate owner-scoped and operator-only cancel entry points during function design","rehearse functions and ACL only after all bot packages are exact"]
+}

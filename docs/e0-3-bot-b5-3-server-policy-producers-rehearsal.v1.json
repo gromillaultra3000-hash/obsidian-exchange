@@ -1,0 +1,67 @@
+{
+  "schema": "obsidian.e0-3-bot-b5-3-server-policy-producers-rehearsal.v1",
+  "stage": "E0.3",
+  "status": "IN_PROGRESS",
+  "observedAt": "2026-08-17T00:21:47Z",
+  "accountableOwner": "project-owner",
+  "scope": "proposal-059 server-time policy-bound per-recipient producers only",
+  "proposal": {
+    "path": "deploy/postgres/proposals/059_e0_bot_b5_3_server_policy_producers.sql",
+    "sha256": "74f24e9185aa0bfded8a5ad1633d385ac870615ab8b8d4efc3eda7b6f4d68f07",
+    "productionMigration": false
+  },
+  "tests": [
+    {
+      "path": "tests/test_e0_3_bot_b5_3_server_policy_producers_rehearsal.py",
+      "sha256": "ddd29eb3fbb239dec562030f60d2bf313f84f75bb5959db037b6b0855b8ef86f",
+      "result": "PASS_DISPOSABLE_POSTGRESQL_17"
+    },
+    {
+      "path": "tests/test_e0_3_bot_b5_3_server_policy_contract.py",
+      "sha256": "d3d43cf556cfdaa4304e01c224b3ca2e66a77a5ce3f79a7fb0c4146047f1c70d",
+      "result": "PASS"
+    }
+  ],
+  "acceptanceEvidence": [
+    "all five producers accept only a bounded limit and capture PostgreSQL clock_timestamp once",
+    "winback economics, payout threshold, max attempts and admin recipients come only from an active immutable policy version",
+    "policy digest is recomputed server-side from canonical executed fields and mismatches fail closed",
+    "jobs snapshot recipient, policy id/version, eligibility time, payload policy fields and max attempts",
+    "job and active pointer policy id/version are protected by composite foreign keys",
+    "one Montera customer plus two concrete admin recipients create three independent jobs",
+    "injected failure on the second admin rolls back marker and every sibling job",
+    "eight concurrent invocations of each producer converge to one business winner",
+    "policy update/delete is rejected",
+    "background login has producer EXECUTE and zero direct job/sequence privileges",
+    "legacy caller-time/economic producer execute is revoked from the shared bot login"
+  ],
+  "surfaceMatrix": {
+    "telegramBot": "REQUIRED",
+    "website": "N/A",
+    "miniApp": "N/A",
+    "admin": "OPERATOR_ONLY",
+    "api": "N/A",
+    "nativeApp": "N/A"
+  },
+  "productionAuthorization": false,
+  "productionChanged": false,
+  "rollout": "NO_ROLLOUT: proposal 059 is a clean-schema rehearsal layered on proposals 048 and 058",
+  "rollback": "the disposable transaction/container was removed; no production policy, role or job changed",
+  "independentReview": {
+    "reviewers": ["b59_sql_review", "b59_policy_review", "b59_migration_review"],
+    "resolvedHighFindings": [
+      "decorative policy digest replaced with server-computed canonical digest",
+      "policy id/version mismatch prevented by composite foreign keys"
+    ],
+    "verdict": "PRODUCER_MECHANICS_REHEARSED_POLICY_GOVERNANCE_AND_CANARY_REJECTED"
+  },
+  "remainingBlockers": [
+    "authenticated approver principal and append-only approval/activation history are absent",
+    "active policy pointer is not monotonic or audit-bound",
+    "emergency admin-recipient revocation is absent and delivery claim does not check it",
+    "runtime adapter and dispatcher still use proposal-048 ID-only APIs and mutable ADMIN_IDS fan-out",
+    "production requires expand, freeze/drain, backfill, validate, cutover and contract migration",
+    "operational metrics, retention, reconciliation and rollback runbook remain"
+  ],
+  "nextPrerequisite": "proposal 060 authenticated monotonic policy activation and emergency recipient revocation, then joint token/evidence adapter-dispatcher rehearsal"
+}

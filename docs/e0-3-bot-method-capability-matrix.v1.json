@@ -1,0 +1,10 @@
+{
+  "schema":"obsidian.e0-3-bot-method-capability-matrix-summary.v1",
+  "stage":"E0.3",
+  "status":"EXACT_METHOD_MATRIX_VERIFIED",
+  "productionAuthorization":false,
+  "canonicalOutputSha256":"3b667db0154df2d26f72f6df2a079090f7375a471f233b8277a91f5d70ec941a",
+  "counts":{"uniqueMethods":135,"readOnly":66,"writerOrSchema":69,"dynamicSqlMethods":21,"relationObjects":39,"exactColumnInvariantEvidenceMethods":135,"pendingColumnInvariantMethods":0},
+  "finding":"All 183 bot call edges collapse to 135 source-bound methods with exact relation, column, scope and transition-invariant evidence; every capability package reports zero blockers.",
+  "nextPrerequisite":"design exact execute-only bot ACL and prove it in disposable PostgreSQL"
+}

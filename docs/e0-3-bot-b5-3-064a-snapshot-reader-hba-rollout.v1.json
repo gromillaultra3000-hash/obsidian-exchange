@@ -1,0 +1,141 @@
+{
+  "schemaVersion": "obsidian-evidence.e0-3-b5-3-064a-snapshot-reader-hba-rollout.v1",
+  "observedAt": "2026-08-23T23:49:23Z",
+  "route": ["E0", "E0.3", "B5.3", "064A"],
+  "status": "PRODUCTION_HBA_ISOLATED_DORMANT",
+  "scope": {
+    "role": "obsidian_b64_snapshot_reader",
+    "database": "obsidian_exchange",
+    "e4Touched": false,
+    "customerRowsRead": false,
+    "migrationApplied": false,
+    "serviceRestarted": false,
+    "credentialReadOrIssued": false,
+    "roleLoginChanged": false,
+    "refreshExecuted": false,
+    "hbaChanged": true
+  },
+  "production": {
+    "applyStatus": "HBA_DEPLOYED_PARSED_DORMANT",
+    "containerId": "6147a2fbda1384185cfb524a2b0e096742afd0237accb8c163677051cccfe0fc",
+    "containerPid": 12829,
+    "imageId": "sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193",
+    "healthAfterApply": "healthy",
+    "serverVersionNum": 170010,
+    "systemIdentifier": "7672203973020184609",
+    "postmasterStartTime": "2026-08-15T11:49:40.988404+00:00",
+    "originalHbaSha256": "45b68cd420caab6d19725857c309871880a66a4c195bcd7e1604e7c334b6be82",
+    "deployedHbaSha256": "08b049674e7593bc87c8e78744ba6b65b557750807c17e860920931aa1b3d3b6",
+    "hbaMode": "0600",
+    "hbaUid": 70,
+    "hbaGid": 70,
+    "hbaSize": 6330,
+    "reloadLoadTimeAdvanced": true,
+    "reloadLogErrors": false,
+    "rolloutWindowLogErrors": false
+  },
+  "firstMatchRules": [
+    "local all obsidian_b64_snapshot_reader reject",
+    "local replication obsidian_b64_snapshot_reader reject",
+    "host obsidian_exchange obsidian_b64_snapshot_reader 127.0.0.1/32 scram-sha-256",
+    "host replication obsidian_b64_snapshot_reader 0.0.0.0/0 reject",
+    "host replication obsidian_b64_snapshot_reader ::/0 reject",
+    "host all obsidian_b64_snapshot_reader 0.0.0.0/0 reject",
+    "host all obsidian_b64_snapshot_reader ::/0 reject"
+  ],
+  "transportBinding": {
+    "allowedDatabase": "obsidian_exchange",
+    "allowedRole": "obsidian_b64_snapshot_reader",
+    "allowedSource": "127.0.0.1/32",
+    "sourceObservationPrincipal": "obsidian_readonly",
+    "sourceObservationTransport": "PRODUCTION_POSTGRES_NETWORK_NAMESPACE",
+    "sourceObservedByServer": "127.0.0.1/32",
+    "localSocketDenied": true,
+    "otherDatabaseDenied": true,
+    "replicationDenied": true,
+    "otherIpv4Denied": true,
+    "allIpv6Denied": true
+  },
+  "roleContractAfterApply": {
+    "verifierStatus": "match",
+    "violations": [],
+    "loginState": "DISABLED",
+    "credentialState": "ABSENT",
+    "hbaIsolationStatus": "EXACT",
+    "tables": 54,
+    "columns": 423,
+    "sequences": 29,
+    "functions": 2,
+    "columnCatalogSha256": "adf9ef068c9778f3173bac3d824606ab4796b67f5647df770cbbc8be4ad53f99",
+    "profileInventorySha256": "cd65edefff6708dcb58b33fa554f8c19895f3312271819cce5eace9a276d7893"
+  },
+  "recovery": {
+    "stateDirectory": "/var/lib/postgresql/data/.obsidian-b64-hba-v1",
+    "stateDirectoryMode": "0700",
+    "stateDirectoryUid": 0,
+    "stateDirectoryGid": 0,
+    "journalPhase": "DEPLOYED_VERIFIED",
+    "deploymentNonce": "ba17543c3f3db01ecbd5bb4908c98909",
+    "backupRetained": true,
+    "backupSha256": "45b68cd420caab6d19725857c309871880a66a4c195bcd7e1604e7c334b6be82",
+    "strictRollbackAvailableBeforePidDrift": true,
+    "exactReconcileAvailableAfterInterruptionOrPidDrift": true,
+    "unknownStatePolicy": "PRESERVE_AND_FAIL_CLOSED"
+  },
+  "existingRuntimeRoleProbes": {
+    "queryScope": "CONNECTION_AND_SERVER_METADATA_ONLY",
+    "customerRowsRead": false,
+    "app": {"role": "obsidian_app", "connected": true},
+    "payout": {"role": "obsidian_payout", "connected": true},
+    "monitor": {"role": "obsidian_readonly", "connected": true},
+    "notifier": {"role": "obsidian_app", "connected": true},
+    "support": {"role": "obsidian_readonly", "connected": true}
+  },
+  "verification": {
+    "hbaUnitTests": {"passed": 14, "failed": 0},
+    "selectedStaticTests": {"passed": 118, "failed": 0},
+    "disposablePostgres17": {
+      "status": "PASS",
+      "apply": true,
+      "exactNamespaceScramAllow": true,
+      "denyMatrix": true,
+      "reconcileFromCandidateInstalled": true,
+      "reapply": true,
+      "strictRollback": true,
+      "containerAndVolumeRemoved": true
+    },
+    "faultInjection": {
+      "reverseExchangeFailurePreservesForeignBytes": true,
+      "postRenameDirectoryFsyncFailurePreservesDisplacedBytes": true,
+      "originalRuntimePolicyAlwaysReloaded": true,
+      "recoveryRebindBeforeCleanup": true
+    },
+    "compilation": "PASS",
+    "gitDiffCheck": "PASS",
+    "gitleaksPostgresScope": "PASS",
+    "landminesProductionInterpreter": "PASS",
+    "independentLatestByteReviews": {
+      "acl": "PASS",
+      "adversarial": "PASS",
+      "operations": "PASS"
+    }
+  },
+  "bindings": {
+    "frozenPlanFileSha256": "f0fcbe454eb0a26d8f85e24543720874b83fe28decb2d41d59f96a1ba651c96b",
+    "hbaManifestSha256": "7c35b7902fea5e76e410c44658999d8857448f8e9fc5825500e0df50b6030fc6",
+    "hbaDeployRunnerSha256": "aa6ad69e27bf32b0e4f39289e10c994397c74276959368cdb6158d87b17141f9",
+    "snapshotReaderVerifierSha256": "35b3903c6174bb45a3c7f8b174d4dd6d8dc4ec4721bac3a51b9ff90788984076",
+    "hbaUnitTestSha256": "a836dd175e52bc91229e11b767238ac2ee2e08d9cfe4a19bbb3de3286f62e904",
+    "hbaIntegrationTestSha256": "3c6e806ebc0bfa193d7efb31e0cf0c3351ab8c88b64a8e27b0fcf6d8c211be0b"
+  },
+  "activation": {
+    "status": "BLOCKED",
+    "authorized": false,
+    "blockers": [
+      "LOGIN_DISABLED",
+      "CREDENTIAL_NOT_ISSUED",
+      "TCP_SCRAM_EXPORTED_SNAPSHOT_NOT_REHEARSED"
+    ]
+  },
+  "next": "IMPLEMENT_SHORT_LIVED_SCRAM_CREDENTIAL_LIFECYCLE_AND_DORMANT_TWO_CONNECTION_EXPORTED_SNAPSHOT_REHEARSAL_BEFORE_LOGIN_ACTIVATION"
+}

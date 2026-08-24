@@ -1,0 +1,13 @@
+{
+  "actionId": "run_tests",
+  "title": "Run Tests",
+  "description": "Test execution action. Real execution is guarded and disabled except safe sandbox preview flow.",
+  "category": "testing",
+  "riskLevel": "high",
+  "requiresApproval": true,
+  "supportsDryRun": true,
+  "allowedModes": ["proposal", "dry_run"],
+  "inputSchema": {"type": "object"},
+  "outputSchema": {"type": "object"},
+  "metadata": {"v1_0": "guarded"}
+}

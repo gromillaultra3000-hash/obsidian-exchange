@@ -1,0 +1,1 @@
+{"hostAppId":"sample_desktop_app","displayName":"Sample Desktop App","appType":"desktop","allowedModes":["rest","sidecar"],"capabilitiesRequested":["resolve","dialog_sessions","action_gateway"],"actionsAllowed":["create_patch_preview"],"eventsSupported":["user_message","error_log","project_snapshot"],"callbacks":{"mode":"mock"},"metadata":{"source":"ui"}}

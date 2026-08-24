@@ -1,0 +1,111 @@
+{
+  "schemaVersion": "e0-3-bot-b5-3-064a-production-source-refresh.v2",
+  "observedAt": "2026-08-22T03:25:06Z",
+  "recordedAt": "2026-08-22T03:29:34Z",
+  "route": "E0/E0.3/B5.3/064A",
+  "status": "BLOCKED_OWNER",
+  "scope": "secret-free read-only production observation plus isolated exact-snapshot restore equality",
+  "source": {
+    "database": "obsidian_exchange",
+    "postgresVersionNum": 170010,
+    "transaction": "REPEATABLE READ READ ONLY",
+    "sourceClusterSha256": "9c26ac2556afe7f93eb8d52e2632f36e311c3fd3919d7f5bc229669f4b2bc69f",
+    "exportedSnapshotImportedByPgDump": true
+  },
+  "dirtyData": {
+    "criterionStatus": "BLOCKED",
+    "privacy": "NO_IDENTIFIERS_OR_PAYLOAD",
+    "counts": {
+      "total": 145,
+      "sent": 127,
+      "pending": 4,
+      "sending": 14,
+      "staleSending": 14,
+      "monteraAdmin": 1,
+      "activeMonteraAdmin": 0,
+      "invalidState": 0,
+      "invalidKind": 0,
+      "invalidLifecycle": 0,
+      "invalidActiveRecipientShape": 0
+    },
+    "blockers": ["LEGACY_PENDING_DRAINED", "LEGACY_SENDING_RECONCILED"],
+    "observationDelta": "Compared with the v3 source refresh, 50 jobs were added: 46 SENT, 3 PENDING and 1 SENDING; stale SENDING increased from 11 to 14. No row identifier or payload was emitted and no row was mutated."
+  },
+  "archive": {
+    "format": "PostgreSQL custom",
+    "bytes": 549963,
+    "sha256": "0c8f679e26283921177684d969434816b3e8a4d5b76e4fbc6e75d54c071966f4",
+    "ownerAndPrivilegesIncluded": false,
+    "retained": false
+  },
+  "restore": {
+    "postgresVersionNum": 170010,
+    "image": "sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193",
+    "targetClusterSha256": "f9158c49eaa340d39ac4128ac8f5d90489063ef3142d2eade29cc09d1584ddc5",
+    "clusterDistinctFromSource": true,
+    "network": "none",
+    "readOnlyRootFilesystem": true,
+    "persistentMounts": 0,
+    "publishedPorts": 0,
+    "databaseStorage": "tmpfs",
+    "removed": true
+  },
+  "equality": {
+    "tables": 54,
+    "tableSourceAndRestoreSha256": "e6c70cdf67709c85648162b0d1339a1e3681d0ac1d7a98259fc36f021b29f2e9",
+    "differentTables": [],
+    "catalogCoverageVersion": "b64-catalog-security-fingerprint.v2",
+    "catalogSections": 13,
+    "catalogSourceAggregateSha256": "0cb79cb12d1140be628784d9aa680646b6e2d45e7f7ca730271f269355008b25",
+    "databaseLocalStatus": "MATCH",
+    "differentDatabaseLocalSections": [],
+    "separatelyReconstructedClusterGlobalStatus": "MATCH",
+    "differentClusterGlobalSections": [],
+    "sequenceRuntimeStateCompared": false
+  },
+  "implementationSha256": {
+    "snapshotDump": "1df436f41c12e8d8ce6af054c77eaa7874bdb608d7f51777163c9c92bcfd44a6",
+    "catalogFingerprint": "98935fb650ecc86969e2d67c319b3b59a81e33beccad01043df28e528d5e5d44",
+    "catalogComparator": "c87f1d719f4bb940057de22e4ffa6e5f61dedee45760b82863ed31cad414da16",
+    "tableComparator": "13cf6cca448bbcc450c8f9989b70651f77b57d939b8e218c10eae8ea69dd49b7",
+    "bootstrapRoles": "c6d7ee94ebde14f38ba0fa298f6fb323afc05aa81e5bbf19d733754f13968933",
+    "prepareDatabase": "125a4d92fe81792684ecf306adadae90c9eaba3f22792993c01f50d4577640f6",
+    "runtimePrivileges": "09ce38a7aabd92013fe149dfce3ff9ea24eedff7f254a5597b4a389600de48d2"
+  },
+  "failClosedRehearsalNotes": [
+    "The host TCP read-only DSN path failed closed before any snapshot; the source observation used a local container-socket read-only PostgreSQL session instead, without printing credentials.",
+    "The source session set idle_in_transaction_session_timeout=0 only for that bounded read-only transaction so the exported snapshot remained open during pg_dump; no server setting or production row changed.",
+    "The final restore used tracked bootstrap_roles.sql, prepare_database.sql, pg_restore --role=obsidian_migrator --no-owner --no-privileges and runtime_privileges.sql; an earlier ad-hoc normalization was excluded from final evidence.",
+    "The custom archive passed pg_restore --list. The archive, digest-only manifests, disposable containers and tmpfs were removed after equality checks."
+  ],
+  "claimBoundary": [
+    "The production source transaction and pg_dump were read-only and bound to one exported MVCC snapshot.",
+    "Table equality is a 54-table row-multiset projection; catalog equality covers only the 13 declared v2 sections.",
+    "Owners, ACLs and selected cluster globals were deterministically reconstructed through the tracked bootstrap/prepare/role-bound restore/runtime privilege sequence; the archive itself carried no owner or privilege statements.",
+    "Sequence runtime state, physical backup, PITR and complete PostgreSQL catalog equality are not claimed.",
+    "Fresh evidence cannot authorize acceptance, 064B, row disposition, deployment, restart, cutover or Telegram delivery."
+  ],
+  "cleanup": {
+    "archiveAbsent": true,
+    "manifestsAbsent": true,
+    "containerAbsent": true,
+    "tmpfsDestroyed": true
+  },
+  "authority": {
+    "observerOnly": true,
+    "moneyWriter": false,
+    "schemaWriter": false,
+    "authenticatedAcceptancePresent": false,
+    "productionMutationAuthorized": false,
+    "productionExpandAuthorized": false,
+    "ambiguousSendingDispositionAuthorized": false,
+    "actionAllowed": false
+  },
+  "remainingBlockers": [
+    "NEW_CANDIDATE_REQUIRES_AUTHENTICATED_ACCOUNTABLE_OWNER_DECISION",
+    "NEW_CANDIDATE_REQUIRES_APPLICABLE_INDEPENDENT_REVIEWER_ACCEPTANCE",
+    "4_PENDING_MUST_DRAIN_OR_BE_RECONCILED_BEFORE_ANY_MIGRATION",
+    "14_LEGACY_SENDING_REQUIRE_064D_IMMUTABLE_OPERATOR_DISPOSITION",
+    "064B_REMAINS_UNAUTHORIZED"
+  ]
+}

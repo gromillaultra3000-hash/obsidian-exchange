@@ -1,0 +1,61 @@
+{
+  "schema": "obsidian.e0-3-bot-b5-user-profile-adapter-rehearsal.v1",
+  "stage": "E0.3",
+  "status": "IN_PROGRESS",
+  "observedAt": "2026-08-16T23:50:03Z",
+  "accountableOwner": "project-owner",
+  "scope": [
+    "user_profile_store.upsert_user",
+    "user_profile_store.claim_referrer"
+  ],
+  "adapter": {
+    "path": "relay/repositories/user_profile_store.py",
+    "sha256": "dd47ffbc626795a51852e81f993c2e17e23283d7b19adc0a0664d12545dd69d8",
+    "gate": "BOT_B5_ACL_ADAPTER_ENABLED",
+    "defaultEnabled": false,
+    "legacyFallbackRetained": true
+  },
+  "proposal": {
+    "path": "deploy/postgres/proposals/047_e0_bot_b5_2_residual_identity_support_config_writers.sql",
+    "sha256": "faa76d490d8c764901722d640f7e6fd2e5c162ea9f190c20d5a5b8a7e6a70310",
+    "productionMigration": false
+  },
+  "tests": [
+    {
+      "path": "tests/test_e0_3_bot_b5_adapter_user_profile.py",
+      "sha256": "7df7b8e14b844e87f61f31300a612804b72f49511337fcddb7d418e5bfb9e028",
+      "result": "PASS"
+    },
+    {
+      "path": "tests/test_e0_3_bot_b5_adapter_user_profile_postgres.py",
+      "sha256": "b03689a76332db89f7b91de3a8c57f5ad1da8cbb7ddf34e079b2a5a94b7ec662",
+      "result": "PASS_DISPOSABLE_POSTGRESQL_17"
+    }
+  ],
+  "acceptanceEvidence": [
+    "adapter mode issues only schema-qualified calls to the two bounded B5 functions",
+    "eight concurrent referral claims through the real adapter produce exactly one winner",
+    "exact repeat and self-referral are no-ops",
+    "bot login has EXECUTE on both functions and no INSERT on bot_users or referrals",
+    "legacy PostgreSQL behavior remains selected while the new gate is absent"
+  ],
+  "surfaceMatrix": {
+    "telegramBot": "REQUIRED",
+    "website": "N/A",
+    "miniApp": "N/A",
+    "admin": "N/A",
+    "api": "N/A",
+    "nativeApp": "N/A"
+  },
+  "productionAuthorization": false,
+  "productionChanged": false,
+  "rollout": "NO_ROLLOUT: proposal 035/047 is rehearsal-only and the adapter gate remains disabled",
+  "rollback": "leave BOT_B5_ACL_ADAPTER_ENABLED unset or false; no database rollback was required",
+  "blockers": [
+    "derive a narrow idempotent production migration without synthetic passwords or blanket PUBLIC revokes",
+    "run production schema/data/default-privilege preflight",
+    "provision and verify the exact execute-only credential before canary",
+    "shared bot login still does not authenticate end-user or operator provenance"
+  ],
+  "nextPrerequisite": "wire the remaining safe background B5 adapter package behind a separate default-off gate, while deferring operator mutations until actor provenance is audit-bound"
+}

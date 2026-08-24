@@ -1,0 +1,72 @@
+{
+  "schemaVersion": "e0-3-bot-b5-3-catalog-security-drift-rehearsal.v1",
+  "observedAt": "2026-08-17T05:06:22Z",
+  "route": "E0/E0.3/B5.3/064A",
+  "status": "IN_PROGRESS",
+  "rehearsalLevel": "CANONICAL_BOUNDED_DRIFT_REHEARSED",
+  "productionMutation": false,
+  "cutoverAuthorized": false,
+  "result": {
+    "postgresMajor": 17,
+    "environment": "disposable localhost container",
+    "fingerprintVersion": "b64-catalog-security-fingerprint.v2",
+    "staticTests": {"passed": 4, "failed": 0},
+    "behavioralMutationsDetected": [
+      "column_acl",
+      "default_acl",
+      "membership",
+      "db_role_setting",
+      "relation_rls",
+      "policy",
+      "trigger_enablement",
+      "function_security_definer",
+      "sequence_definition",
+      "enum_definition",
+      "type_public_acl",
+      "sequence_owned_by_dependency",
+      "internal_fk_trigger_enablement",
+      "table_check_creation_and_validation",
+      "index_definition",
+      "domain_definition_and_constraint"
+    ],
+    "determinismRuns": 3,
+    "exactChangedSectionAssertions": true,
+    "oidChurnEquivalent": true,
+    "hostileSearchPathEquivalent": true,
+    "sequenceSetvalExcludedAndStable": true,
+    "outputShape": "fixed version, section name, entry count, SHA-256 only"
+  },
+  "verifiedBoundaries": {
+    "sequenceStateCompared": false,
+    "sequenceStateReason": "PostgreSQL sequence state is non-MVCC and was not protected by a producer fence",
+    "databaseArchiveRestoresClusterGlobals": false,
+    "productionCatalogComparedToRestore": false,
+    "fullCatalogEqualityEstablished": false,
+    "authenticatedOwnerReviewerGo": false
+  },
+  "knownGaps": [
+    "Extension configuration/membership, event triggers, FDW/server/user mappings, large objects, language ACL and publications/subscriptions are outside the frozen bounded coverage",
+    "NULL-versus-explicit-empty ACL, every PG17 membership option, hostile quoted identifier corpus and unexpected-role fail-closed cases are not yet behaviorally rehearsed",
+    "The intended read-only runtime principal has not yet been compared with the privileged fingerprint result",
+    "Cluster-global roles, memberships and database-role settings require separate source/bootstrap/target attestation"
+  ],
+  "independentReview": {
+    "performed": true,
+    "disposition": "DO_NOT_CALL_FULL_CATALOG_EQUALITY",
+    "materialFindingsApplied": [
+      "fixed read-only transaction and pg_catalog search_path",
+      "stable role/object names instead of raw OIDs",
+      "fixed zero-count coverage rows",
+      "sequence state excluded",
+      "hash-only evidence output"
+      ,"canonical JSON objects and ordered JSON-array hashing for all sections"
+      ,"type ACL, internal triggers, domain constraints and sequence OWNED BY coverage"
+    ]
+  },
+  "blockers": [
+    "source-to-disposable-restore expanded comparison",
+    "authenticated owner and independent reviewer decision",
+    "11 ambiguous legacy SENDING rows remain owned by 064D"
+  ],
+  "next": "Run the v2 fingerprint against the exact read-only source snapshot and separately bootstrapped disposable restore, compare all bounded sections, and retain cluster-global attestation as an explicit separate result."
+}

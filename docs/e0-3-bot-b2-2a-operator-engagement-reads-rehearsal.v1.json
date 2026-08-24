@@ -1,0 +1,10 @@
+{
+  "schema":"obsidian.e0-3-bot-b2-2a-operator-engagement-reads-rehearsal.v1","stage":"E0.3","status":"REHEARSED_DISPOSABLE_POSTGRESQL_17","observedAt":"2026-08-15T22:53:12Z","productionAuthorization":false,"implementationDeployed":false,
+  "proposal":"deploy/postgres/proposals/037_e0_bot_b2_2a_operator_engagement_reads.sql","proposalSha256":"5378a784e54b5356396d1bea3707d7afffc43c9551b0fac4bcfae11cd0b51cd2","test":"tests/test_e0_3_bot_b2_2a_operator_engagement_reads_rehearsal.py","testSha256":"e0cbfd819f27774578e2f6ced52dd1caa7be978238f860bb281b9e0b5ab4b98f",
+  "functions":["bot_b2_broadcast_count()","bot_b2_broadcast_user_ids(bigint,integer)","bot_b2_order_customer_ids(bigint,integer)","bot_b2_referral_bonus_period(date,date)"],
+  "methodCoverage":["engagement_store.broadcast_count","engagement_store.broadcast_user_ids","engagement_store.order_customer_ids","engagement_store.referral_bonus"],
+  "evidence":["broadcast projection includes enabled users only","both identity projections use ascending keyset pages bounded to 500","order customer projection is distinct","operator referral mode exposes one aggregate only and bounds an inclusive valid period to 366 days","malformed cursor, limit and period inputs fail closed","bot login retains zero direct table SELECT"],
+  "surfaceMatrix":{"telegramBot":"OPERATOR_ONLY","website":"N/A","miniApp":"N/A","admin":"N/A","api":"N/A","nativeApp":"N/A"},
+  "trustCustodyImpact":"Execute-only metadata reads; no secret, custody, money writer or mutation capability added.",
+  "container":{"image":"postgres:17-alpine","removedAfterRun":true},"result":"PASS","nextPrerequisite":"B2.2b operator order-read bodies"
+}

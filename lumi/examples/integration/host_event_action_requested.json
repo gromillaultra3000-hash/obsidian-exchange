@@ -1,0 +1,7 @@
+{
+  "eventId": "event-action-001",
+  "hostAppId": "sample_desktop_app",
+  "eventType": "action_requested",
+  "payload": {"actionId": "create_patch_preview", "mode": "proposal", "input": {"targetFiles": ["app/main.py"], "changeSummary": "Prepare patch preview"}},
+  "metadata": {"source": "example"}
+}

@@ -1,0 +1,59 @@
+{
+  "schema": "native-wallet-ed25519-corpus-review-checkpoint-webauthn-preflight.v1",
+  "client_data_model": {
+    "required_fields": ["type", "challenge", "origin"],
+    "optional_fields": ["crossOrigin"],
+    "unknown_fields_rejected": true,
+    "duplicate_fields_rejected": true,
+    "type_exact": "webauthn.get",
+    "challenge_encoding": "canonical unpadded Base64URL of exact raw 32-byte ADR 0034 challenge",
+    "origin_exact_consumer_allowlist": true,
+    "cross_origin_allowed": false,
+    "top_origin_allowed": false,
+    "maximum_decoded_bytes": 8192,
+    "maximum_json_depth": 2,
+    "maximum_json_tokens": 32,
+    "maximum_json_string_bytes": 2048
+  },
+  "authenticator_data_model": {
+    "exact_bytes": 37,
+    "rp_id_hash_offset": 0,
+    "rp_id_hash_bytes": 32,
+    "flags_offset": 32,
+    "sign_count_offset": 33,
+    "sign_count_bytes": 4,
+    "required_flags": ["UP", "UV"],
+    "forbidden_flags": ["BE", "BS", "AT", "ED"],
+    "reserved_flag_bits_must_be_zero": true,
+    "exact_allowed_flags_byte_hex": "05",
+    "sign_count_authoritative": false,
+    "extensions_allowed": false,
+    "attested_credential_data_allowed": false
+  },
+  "credential_policy": {
+    "credential_type": "public-key",
+    "algorithm": "ES256",
+    "credential_id_exact_allowlist_required": true,
+    "credential_root_consumer_selected": true,
+    "credential_not_revoked_required": true,
+    "user_handle_if_present_must_match_enrollment": true
+  },
+  "ordered_preflight": [
+    "bounded canonical envelope decode",
+    "strict client data JSON parse",
+    "exact type challenge origin and cross-origin policy",
+    "exact 37-byte authenticator data",
+    "exact RP ID hash",
+    "exact flags byte 0x05",
+    "external credential allowlist and revocation lookup",
+    "symbolic ES256 signature outcome",
+    "slot/checkpoint/root declared context equality"
+  ],
+  "credential_lookup_implemented": false,
+  "revocation_lookup_implemented": false,
+  "es256_signature_verification_implemented": false,
+  "signature_outcome_symbolic": true,
+  "checkpoint_authenticated": false,
+  "gate_i09_pass": false,
+  "runtime_integration_allowed": false
+}

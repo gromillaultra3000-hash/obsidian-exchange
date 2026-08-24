@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "e0-4-kairos-exchange-discovery-runtime-observation.v1",
+  "observedAt": "2026-08-18T22:55:00Z",
+  "route": "E0/E0.4/KAIROS_EXCHANGE_DISCOVERY",
+  "status": "IN_PROGRESS",
+  "acceptance": "PARTIAL_NOT_ACCEPTED",
+  "workClass": "KEYLESS_READ_ONLY_SOURCE_CLASSIFICATION",
+  "observationSafety": {"authenticatedCalls":false,"networkCalls":false,"providerCalls":false,"customerDataRead":false,"secretValuesRead":false,"writersExercised":false,"deployOrRestart":false},
+  "deployedEntrypoints": [
+    {"path":"/opt/kairos/app/main_v19.py","sha256":"05306d4120cbc545aea3b7d571de5af4f1163d830bb14a02fef9ebce416578ee"},
+    {"path":"/opt/kairos/app/exchange_registry.py","sha256":"1ced5b1cf992ea84639175e9c76174ad2eda9b66569de06df5ed98ea7247aa35"},
+    {"path":"/opt/kairos/app/adapter_builder.py","sha256":"40aac58228b48fe9df8176a0149e510ab191917d71b44656a1cc84c5c47e0b30"},
+    {"path":"/opt/kairos/app/kairos_engine.py","sha256":"e54ba394f585ac7d23830406e81ce22de0c8096b97dc400f76e6e1312d15107b"},
+    {"path":"/opt/kairos/app/static_frontend/index.html","sha256":"cb65a6ca90bd6fc29319d68bdbfc8d893a210235cbecd944e8610298c13db823"},
+    {"path":"/opt/kairos/app/connector_service.py","sha256":"9c4774d74166f8b5d984bac0cbb1845e79917f108ab46a4d51b8151553f723e0"},
+    {"path":"/opt/kairos/app/connector_store.py","sha256":"6bcf09f756d5def4a42fb02d0d3e7275eeaf25a3b508a2887d351403e16efe99"},
+    {"path":"/etc/systemd/system/kairos.service","sha256":"b1dd9d153c7dbd70729b1213d24f3ffdb7314a65ac5d7892f34db1c00032c479"},
+    {"path":"/etc/systemd/system/kairos.service.d/zz-runtime.conf","sha256":"24c0a01bc716cc61f824f2cf2c90aac22224a25f3f939fa914e2e663872be311"},
+    {"path":"/etc/nginx/sites-available/obsidian-exchange.org","sha256":"d7319e93f22e0bd6e7b37071b1517e25f52be760cc15cb496a3c4a151294aa0f"}
+  ],
+  "observedRoutes": ["GET /api/exchange-registry","POST /api/exchange-registry/discover","GET /api/exchange-registry/{exchange_id}","POST /api/exchange-registry/{exchange_id}/build-draft"],
+  "observedEffectCallers": ["POST /api/chat"],
+  "dormantUnreachableWriterSources": ["POST /api/exchanges/test legacy body behind unconditional 409"],
+  "authorityBoundary": {
+    "classification":"Operator bearer-protected local catalog and draft persistence; not passive or external discovery.",
+    "effectWriter":true,"moneyWriter":false,"moneyAdjacent":true,"credentialWriter":false,"connectorActivation":false,"tradeActivation":false,
+    "positive":"Name-only discovery performs no provider/docs/network call. Unknown exchanges become BLOCKED review drafts with liveExecutionEnabled false and withdrawal/transfer forbidden; the bounded routes never accept secrets or invoke connector/trade activation.",
+    "separation":"Connector credentials, permission proof and trade admission remain separate KAIROS control families and cannot inherit registry status."
+  },
+  "criticalFindings": [
+    {"severity":"HIGH","id":"LOCAL_REGISTRATION_MISLABELLED_DISCOVERY","finding":"The UI promises a support check, but discover only compares four hard-coded records/aliases or registers arbitrary text. Official URLs and Rapira notes have no retrieval, source digest, owner, version, as-of, license, region, jurisdiction or independent verification."},
+    {"severity":"HIGH","id":"READ_ONLY_STATUS_WITHOUT_PROOF","finding":"A builtin CCXT name is immediately labelled READ_ONLY while public/private/balance tests remain not_run and no installed-version, API, credential or permission proof occurred."},
+    {"severity":"HIGH","id":"DORMANT_READY_STATUS_WITH_INSUFFICIENT_PERMISSION_PROOF","finding":"The unreachable legacy body behind /api/exchanges/test's unconditional 409 would mark registry READY and claim read_trade_key_present plus fee/min/precision capabilities after load_markets and fetch_balance only. If re-enabled it would overstate spot-submit/readback, withdrawal/transfer denial and complete capability proof. Registry status is not engine admission."},
+    {"severity":"HIGH","id":"NON_TRANSACTIONAL_CORRUPTION_FAIL_OPEN","finding":"Registry persistence has no lock, CAS, fsync, schema validation, writer audit or revision ledger. Parse errors become an empty registry and startup reseeding can overwrite the recoverable view; draft writes overwrite directly without history or digest."},
+    {"severity":"HIGH","id":"INPUT_COLLISION_AND_DOWNGRADE","finding":"ExchangeDiscoverIn has no length/pattern bound; lossy 64-character slugging creates collisions. The build route auto-registers missing IDs and can overwrite a builtin CCXT record to draft/BLOCKED, while old fields override refreshed builtin metadata."},
+    {"severity":"MEDIUM","id":"NO_APPROVAL_OR_RECOVERY_LIFECYCLE","finding":"No immutable request/idempotency/correlation ID, reviewer/four-eyes approval, revision, rejection/revocation, expiry, retention, rollback or recovery event exists; rebuild overwrites the same artifact."},
+    {"severity":"MEDIUM","id":"ABSOLUTE_PATH_DISCLOSURE","finding":"Builder responses expose the absolute local draft path rather than a content-addressed artifact ID."},
+    {"severity":"MEDIUM","id":"DUPLICATE_EFFECT_PATHS","finding":"Operator chat and dormant engine chat duplicate registry/builder writes, increasing semantic and recovery drift; the SPA has no caller for detail/build review lifecycle."}
+  ],
+  "surfaceMatrix": {
+    "telegramBot":{"mode":"N/A","implementation":"NOT_IMPLEMENTED","reason":"No customer/bot exchange-adapter discovery exists; KAIROS operator chat is a separate control surface."},
+    "site":{"mode":"N/A","implementation":"NOT_IMPLEMENTED","reason":"Customer site must not register or approve CEX adapters."},
+    "miniApp":{"mode":"N/A","implementation":"NOT_IMPLEMENTED","reason":"Mini App has no adapter discovery authority and must not gain it."},
+    "admin":{"mode":"OPERATOR_ONLY","implementation":"PARTIAL","reason":"KAIROS SPA lists/registers candidates, but provenance, scoped approval and recovery are unaccepted."},
+    "api":{"mode":"OPERATOR_ONLY","implementation":"PARTIAL","reason":"Bearer-protected list/discover/detail/build routes persist metadata and drafts without an accepted lifecycle."},
+    "native":{"mode":"N/A","implementation":"NOT_IMPLEMENTED","reason":"Native wallet must never become exchange-adapter onboarding authority."}
+  },
+  "coverageConclusion":{"sixSurfacesClassified":true,"discoveryProvenanceAccepted":false,"draftLifecycleAccepted":false,"automaticCredentialActivationObserved":false,"automaticConnectorActivationObserved":false,"automaticTradeActivationObserved":false,"productionAccepted":false,"e0_4Complete":false,"e0Closed":false},
+  "independentReviews":[{"role":"security","disposition":"PARTIAL_NOT_ACCEPTED"},{"role":"surface","disposition":"PARTIAL_NOT_ACCEPTED"},{"role":"acceptance","disposition":"PARTIAL_NOT_ACCEPTED"}],
+  "limitations":["No authenticated API, provider/docs/network, customer row, secret value, registry/draft writer, connector, trade, deploy or restart was exercised.","No egress in the four bounded registry routes is a source observation, not proof that adjacent chat, configurable AI or dormant connector paths are safe.","The 25 currently enumerated families are classified and the bounded omissions list is empty. No post-expansion closure rescan of the full deployed/generated route, startup/import-writer, worker/service and UI/bot-consumer universe was performed; this does not prove that no material family is omitted and does not accept E0.4."],
+  "nextCanonicalItem":"Return to owner-blocked E0.3 as the first unmet criterion; when safe keyless E0.4 work resumes, first perform the post-25 closure reconciliation before any E0.4 completeness claim."
+}

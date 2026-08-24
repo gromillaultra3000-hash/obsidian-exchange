@@ -1,0 +1,67 @@
+{
+  "schemaVersion": "e0-4-authenticated-synthetic-read-rehearsal.v1",
+  "observedAt": "2026-08-17T15:06:11Z",
+  "route": "E0/E0.4/FEATURE_STATUS_SURFACE_MATRIX",
+  "status": "IN_PROGRESS",
+  "workClass": "ISOLATED_NON_PRODUCTION_AUTHENTICATED_READ_REHEARSAL",
+  "accountableOwner": "project-owner",
+  "surfaces": ["site", "miniApp", "api"],
+  "productionMutation": false,
+  "productionCredentialsUsed": false,
+  "externalNetworkAttempted": false,
+  "telegramMessagesSent": false,
+  "postRequestsMade": false,
+  "moneyWritersExercised": false,
+  "isolation": {
+    "database": "fresh temporary SQLite database removed at exit",
+    "databaseUrl": "explicit empty value before app import",
+    "botToken": "synthetic local HMAC key asserted after import",
+    "productionEnvLoading": "disabled before import with OBSIDIAN_SKIP_DOTENV=1 and asserted in the imported module",
+    "backgroundTasksEnabled": false,
+    "appLifespanEntered": false,
+    "transport": "in-process HTTPX ASGITransport at synthetic.invalid with socket connect/connect_ex/create_connection trapped before app import",
+    "identities": {
+      "web": [70, 80],
+      "telegram": [7, 8]
+    }
+  },
+  "acceptance": [
+    "Both synthetic web sessions receive only their own dashboard order, support and referral sentinels.",
+    "Each web session receives 404 for the other synthetic user's support ticket.",
+    "Real application Telegram initData verification accepts locally HMAC-signed current identities 7 and 8.",
+    "History, referral statistics and pending sell endpoints derive identity from signed initData and ignore a conflicting user_id query parameter.",
+    "Each Mini App identity receives only its own synthetic order and pending-sell sentinels and referral aggregate.",
+    "Missing and malformed Telegram signatures return 403.",
+    "All exercised HTTP methods are GET, effectful dependencies reachable from the exercised routes are trapped and the temporary SQLite artifact hash is unchanged across requests."
+  ],
+  "test": {
+    "path": "tests/test_e0_4_authenticated_synthetic_reads.py",
+    "interpreter": "/opt/obsidian-exchange/relay-venv/bin/python",
+    "result": "PASS",
+    "discovery": "pytest-compatible test_* wrapper always launches a fresh isolated child process"
+  },
+  "limitations": [
+    "Read repositories and templates are deterministic fakes; repository/SQL owner isolation is covered by tests/test_e0_3_relay_p2_customer_read_rehearsal.py, not this route test.",
+    "This is non-production acceptance and does not prove deployed authenticated routes or real Telegram/client behavior.",
+    "No buy, sell-create, support-write, payout, admin mutation or other money/effectful route is exercised.",
+    "The checkout Relay source differs from the deployed Relay artifact, so this rehearsal cannot be promoted to production evidence.",
+    "E0.4 and E0 remain IN_PROGRESS; E0.3/064A remains BLOCKED_OWNER."
+  ],
+  "independentReview": {
+    "identity": "agent:/root/e04_auth_harness_review",
+    "scope": "Synthetic authenticated route harness isolation, owner binding, writer/network landmines and claim accuracy",
+    "initialDisposition": "REJECTED_CREDENTIAL_ISOLATION",
+    "findingsAddressed": [
+      "Added a pytest-discoverable wrapper that always executes the harness in a fresh subprocess.",
+      "Added socket connection traps around every ASGI request.",
+      "Added traps for effectful stores, payment service and Telegram/admin notification calls.",
+      "Added owner-specific site referral aggregate assertion.",
+      "Added an application-supported OBSIDIAN_SKIP_DOTENV control, asserted the synthetic token/temp DB/empty DATABASE_URL after import and moved socket traps before import.",
+      "Narrowed the claim to route wiring; repository/SQL filtering remains separate evidence."
+    ],
+    "finalDisposition": "ACCEPTED_WITH_NARROWED_CLAIM"
+  },
+  "rollout": "None; isolated rehearsal only.",
+  "rollback": "Temporary database and synthetic identities are removed automatically.",
+  "nextCanonicalItem": "Reconcile the checkout/deployed Relay and Telegram bot artifact drift before authenticated route evidence can describe production."
+}

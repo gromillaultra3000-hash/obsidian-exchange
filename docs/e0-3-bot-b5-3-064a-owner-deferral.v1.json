@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "e0-3-bot-b5-3-064a-owner-deferral.v1",
+  "observedAt": "2026-08-17T14:18:09Z",
+  "source": "current-owner-conversation",
+  "route": "E0/E0.3/B5.3/064A",
+  "decisionInputSha256": "f8abf0cb858232df2497221c44a319975403ccb7a8e2d2403bd57bda8c904bbb",
+  "ownerInstruction": "DEFER_064A_AND_064B_MOVE_TO_SAFE_NON_PRODUCTION_WORK",
+  "decisionEffect": "RESTRICTIVE_DEFERRAL_ONLY",
+  "status": "BLOCKED_OWNER",
+  "ownerDeferralDecisionPresent": true,
+  "authenticated064AAcceptancePresent": false,
+  "deferredItems": [
+    "064A_AUTHENTICATED_ACCEPTANCE",
+    "064B_PRODUCTION_EXPAND"
+  ],
+  "allowedWork": [
+    "KEYLESS",
+    "READ_ONLY",
+    "NON_PRODUCTION",
+    "DOCUMENTATION_AND_TESTS"
+  ],
+  "productionAuthorization": false,
+  "productionMutationAuthorized": false,
+  "deploymentAuthorized": false,
+  "restartAuthorized": false,
+  "cutoverAuthorized": false,
+  "telegramDeliveryAuthorized": false,
+  "ambiguousSendingDispositionAuthorized": false,
+  "independentReviewerApprovalPresent": false,
+  "actionAllowed": false,
+  "remainingBlockers": [
+    "AUTHENTICATED_ACCOUNTABLE_OWNER_SIGNATURE_ABSENT",
+    "AUTHENTICATED_INDEPENDENT_REVIEWER_SIGNATURE_ABSENT",
+    "PRODUCTION_KEY_REGISTRY_ABSENT",
+    "TRUSTED_TIME_AND_REVOCATION_ABSENT",
+    "DURABLE_ATOMIC_REPLAY_LEDGER_ABSENT",
+    "11_LEGACY_SENDING_REQUIRE_064D_IMMUTABLE_OPERATOR_DISPOSITION"
+  ],
+  "nextSafeRoute": "E0/E0.4/FEATURE_STATUS_SURFACE_MATRIX",
+  "interpretation": "Deferral prevents 064A/064B promotion and does not verify E0.3. Work may continue only on an explicitly marked safe non-production item while this first unmet gate remains blocked."
+}

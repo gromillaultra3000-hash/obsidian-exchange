@@ -1,0 +1,8 @@
+{
+  "projectId": "sample_project",
+  "workspaceId": "replace-with-workspace-id",
+  "testPlanId": "replace-with-test-plan-id",
+  "commands": ["python -m compileall -q .", "pytest -q"],
+  "mode": "preview_only",
+  "metadata": {"source": "example"}
+}

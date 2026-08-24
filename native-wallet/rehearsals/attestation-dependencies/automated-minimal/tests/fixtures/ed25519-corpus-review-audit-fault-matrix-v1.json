@@ -1,0 +1,80 @@
+{
+  "schema": "native-wallet-ed25519-corpus-review-audit-fault-matrix.v1",
+  "cases": [
+    {
+      "id": "f01_before_transaction",
+      "fault_point": "before audit/state transaction begins",
+      "visible_audit": "UNCHANGED",
+      "visible_state": "UNCHANGED",
+      "recovery": "retry internal transition"
+    },
+    {
+      "id": "f02_after_audit_staged",
+      "fault_point": "after audit event staged but before state staged",
+      "visible_audit": "UNCHANGED",
+      "visible_state": "UNCHANGED",
+      "recovery": "rollback then retry internal transition"
+    },
+    {
+      "id": "f03_after_state_staged",
+      "fault_point": "after state staged but before atomic commit",
+      "visible_audit": "UNCHANGED",
+      "visible_state": "UNCHANGED",
+      "recovery": "rollback then retry internal transition"
+    },
+    {
+      "id": "f04_after_atomic_commit",
+      "fault_point": "after atomic commit before caller acknowledgement",
+      "visible_audit": "ADVANCED_ONCE",
+      "visible_state": "ADVANCED_ONCE",
+      "recovery": "read committed authorizing event; do not repeat transition"
+    },
+    {
+      "id": "f05_after_location_prepared_commit",
+      "fault_point": "after PREPARED intent committed before side-effect invocation",
+      "visible_audit": "ATTEMPT_PREPARED",
+      "visible_state": "LOCATION_PREPARED",
+      "recovery": "requires durable proof invocation never began; otherwise UNKNOWN_REVIEW"
+    },
+    {
+      "id": "f06_during_external_side_effect",
+      "fault_point": "after invocation may begin before durable outcome",
+      "visible_audit": "ATTEMPT_PREPARED",
+      "visible_state": "LOCATION_PREPARED",
+      "recovery": "UNKNOWN_REVIEW and no automatic reinvocation"
+    },
+    {
+      "id": "f07_after_effect_before_outcome_commit",
+      "fault_point": "after side effect returns before outcome audit/state commit",
+      "visible_audit": "ATTEMPT_PREPARED",
+      "visible_state": "LOCATION_PREPARED",
+      "recovery": "UNKNOWN_REVIEW unless an independently durable exact outcome exists"
+    },
+    {
+      "id": "f08_after_outcome_commit",
+      "fault_point": "after outcome audit/state commit before acknowledgement",
+      "visible_audit": "OUTCOME_ADVANCED_ONCE",
+      "visible_state": "LOCATION_TERMINAL_ONCE",
+      "recovery": "read terminal location outcome; never reinvoke"
+    },
+    {
+      "id": "f09_during_read_only_scan",
+      "fault_point": "during post-deletion read-only scan",
+      "visible_audit": "UNCHANGED_UNTIL_SCAN_RESULT_COMMIT",
+      "visible_state": "SCANNING",
+      "recovery": "repeat scan over identical inventory digest"
+    },
+    {
+      "id": "f10_checkpoint_unavailable",
+      "fault_point": "audit chain validates locally but independent checkpoint is unavailable",
+      "visible_audit": "LOCALLY_CONSISTENT_ONLY",
+      "visible_state": "BLOCKED_FROM_GATE_PASS",
+      "recovery": "require fresh independently authenticated checkpoint"
+    }
+  ],
+  "all_faults_fail_closed": true,
+  "uncertain_side_effect_is_success": false,
+  "uncertain_side_effect_is_safe_to_retry": false,
+  "real_fault_injection_executed": false,
+  "gate_i09_pass": false
+}

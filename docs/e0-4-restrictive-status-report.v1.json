@@ -1,0 +1,85 @@
+{
+  "schemaVersion": "e0.4-restrictive-status-report.v1",
+  "observedAt": "2026-08-19T02:42:41Z",
+  "route": "E0/E0.4/RESTRICTIVE_STATUS_REPORT",
+  "boundedSliceStatus": "BLOCKED_OWNER",
+  "decisionEffect": "CLOSED_RESTRICTIVE_REPORT_NO_AUTHORITY",
+  "source": {
+    "kind": "CURRENT_OWNER_CONVERSATION_CONTEXT_ONLY",
+    "authenticated": false,
+    "trustedTime": false,
+    "currentProductionTruth": false
+  },
+  "canonicalGateStatus": {
+    "firstUnmetGate": "E0.3",
+    "firstUnmetStatus": "BLOCKED_OWNER",
+    "E0.4": "IN_PROGRESS",
+    "E0": "IN_PROGRESS"
+  },
+  "authority": {
+    "productionAuthorization": false,
+    "productionMutationAuthorized": false,
+    "productionExpandAuthorized": false,
+    "deploymentAuthorized": false,
+    "telegramDeliveryAuthorized": false,
+    "paymentMutationAuthorized": false,
+    "adminMutationAuthorized": false,
+    "actionAllowed": false
+  },
+  "reportClosure": {
+    "reportComplete": true,
+    "remediationComplete": false,
+    "acceptanceGranted": false,
+    "waiverGranted": false,
+    "verified": false,
+    "productionReady": false,
+    "exitCriteriaMet": false,
+    "inventoryComplete": false,
+    "noCriticalHighGaps": false,
+    "ownerDecisionPresent": false,
+    "authenticatedOwnerDecisionPresent": false,
+    "independentAcceptancePresent": false,
+    "runtimeManifestPresent": false,
+    "rollbackRevocationReplayEvidencePresent": false
+  },
+  "evidenceBindings": [
+    {"path": "docs/e0-4-post-closure-gap-register.v1.json", "sha256": "e0fd4025b1234f16484def101a4929354d75705ed38e02523d02abc9832e1eb3"},
+    {"path": "docs/e0-4-owner-gated-remediation-plan.v1.json", "sha256": "80c394a5a24b665d8149cc868017665550566623a19f52484df6d836cbeffd16"},
+    {"path": "docs/e0-4-owner-decision-intake.v1.json", "sha256": "f3f679d156508c81a1171a74c97e3c0d6d9d177f3614566f29dcbdc5d35a85fb"},
+    {"path": "docs/e0-4-read-only-remediation-rehearsal.v1.json", "sha256": "0101412638a554d7b25a9177dc176bdb62665ac0252a4e4fe04a70f538174cd5"},
+    {"path": "docs/e0-4-owner-decision-intake-review.v1.json", "sha256": "ca8a23b411c6c9b79650cb06c0fcc0af053fdb7c325117789015d1da0a9a80eb"}
+  ],
+  "confirmedGapLowerBound": [
+    "RATE_LOCKS money authority not accepted",
+    "DEPLOYMENT_RELEASE_AUTOMATION untrusted root mutable-branch writer",
+    "EDITORIAL_NEWS_DELIVERY non-idempotent provenance/audit gaps",
+    "TELEGRAM_CHANNEL_POST_PROCESSING premium-session high-authority writer",
+    "LEGACY_PAYMENT_EDGE_UPSTREAM public aliases unowned at 127.0.0.1:8080",
+    "FRAMEWORK_GENERATED_ADMIN_HTTP_SURFACE runtime route universe unproven",
+    "GENERATED_FASTAPI_DOCS public generated docs and mounts unclassified",
+    "DEPLOYED_GENERATED_UNIVERSE_RECONCILIATION /root versus /opt drift"
+  ],
+  "missingInputs": [
+    "authenticated owner identity/role",
+    "exact candidate artifact paths and raw-byte hashes",
+    "explicit bounded action enum",
+    "independent reviewer artifact",
+    "runtime/release manifest",
+    "rollback/revocation/replay/trusted-time evidence"
+  ],
+  "historicalEvidencePolicy": {
+    "asOfOnly": true,
+    "freshnessProven": false,
+    "expiryCreatesAuthority": false,
+    "syntheticRehearsalPassIsAcceptance": false
+  },
+  "prohibitions": [
+    "deploy", "restart", "cutover", "authenticate", "send", "edit",
+    "publish", "charge", "customer access", "provider access",
+    "network effect", "runtime write", "E0.3/064B", "E0.3/064D"
+  ],
+  "conclusion": "NO_OWNER_DECISION_CAN_BE_INFERRED_NO_REMEDIATION_OR_ACCEPTANCE",
+  "nextCanonicalItem": "E0/E0.3/B5.3/064A_ACCOUNTABLE_OWNER_AND_INDEPENDENT_REVIEWER_DECISION",
+  "nextItemConstraint": "The prior source window is expired. Any possible acceptance first requires a new read-only source refresh and a new exact candidate, followed by authenticated accountable-owner and applicable independent-reviewer decisions. This field grants no authority to perform those actions.",
+  "interpretation": "This closes only the restrictive status-report artifact. It does not close E0.4, remediate a gap, authenticate an owner, accept evidence, grant a waiver, verify production readiness or authorize any action. E0.3 remains the first unmet gate and BLOCKED_OWNER; E0.4 and E0 remain IN_PROGRESS."
+}

@@ -1,0 +1,173 @@
+{
+  "schemaVersion": "e0-3-bot-b5-3-064a-current-authority-reconciliation.v1",
+  "observedAt": "2026-08-23T18:45:25Z",
+  "route": "E0/E0.3/B5.3/064A_CURRENT_AUTHORITY_RECONCILIATION",
+  "boundedSliceStatus": "BLOCKED_OWNER",
+  "result": "RECONCILED_NO_AUTHORITY",
+  "scopeDecision": {
+    "source": "CURRENT_OWNER_CONVERSATION_CONTEXT_ONLY",
+    "reason": "OWNER_REQUESTED_CONTINUATION_OUTSIDE_E4_AFTER_E4_FATIGUE",
+    "returnsToFirstUnmetCanonicalGate": true,
+    "e4ExcludedFromCurrentTask": true,
+    "e4StatusPreserved": "IN_PROGRESS",
+    "e4GateDecisionPreserved": "NO_GO",
+    "changesE4Authority": false,
+    "authenticated064aDecision": false,
+    "waiverGranted": false
+  },
+  "canonicalGateStatus": {
+    "stage": "E0",
+    "stageStatus": "IN_PROGRESS",
+    "firstUnmetCriterion": "E0.3",
+    "firstUnmetStatus": "BLOCKED_OWNER",
+    "E0.4": "IN_PROGRESS"
+  },
+  "evidenceBindings": [
+    {
+      "path": "docs/e0-3-bot-b5-3-064a-production-source-refresh.v4.json",
+      "sha256": "99531224f6eac8d13ce07b14fdf6408f333fca2a10426e7876613ce3da812a80"
+    },
+    {
+      "path": "docs/e0-3-bot-b5-3-064a-decision-candidate.v4.json",
+      "sha256": "32d54d2bfaf555c7d795cc70b8b92561d7a6d9a19262eb1089eb3611aafd2316"
+    },
+    {
+      "path": "docs/e0-3-bot-b5-3-064a-decision-candidate.v3.json",
+      "sha256": "771ce159032de810d8b09731be109af6a2bb317fc1b8b6e2f5a0d3fff9a08ddf"
+    },
+    {
+      "path": "docs/e0-3-bot-b5-3-064a-owner-deferral.v3.json",
+      "sha256": "c1cf8375efe84ce4a77302263f3450d661f732ee88dd30164dc711bc94a2f7e3"
+    },
+    {
+      "path": "docs/e0-3-bot-b5-3-064a-v4-handoff.v1.json",
+      "sha256": "621a1c8ce2c932d2e5bc0d91edced5fa9542a144de9d552300e9d64c42169dfa"
+    }
+  ],
+  "sourceWindow": {
+    "sourceObservedAt": "2026-08-22T03:25:06Z",
+    "maximumAgeSeconds": 86400,
+    "expiredAt": "2026-08-23T03:25:06Z",
+    "evaluatedAt": "2026-08-23T18:45:25Z",
+    "status": "EXPIRED_SOURCE",
+    "freshnessCanInvalidate": true,
+    "freshnessCanAuthorize": false,
+    "currentProductionTruth": false
+  },
+  "implementationBinding": {
+    "reconciledAt": "2026-08-23T21:12:29Z",
+    "historicalDecisionInputPath": "docs/e0-3-bot-b5-3-064a-decision-input.v1.json",
+    "historicalDecisionInputSha256": "f8abf0cb858232df2497221c44a319975403ccb7a8e2d2403bd57bda8c904bbb",
+    "publicV4CrossBindingsMatch": true,
+    "currentImplementationBytesRevalidated": false,
+    "status": "STALE_SUPPORTING_IMPLEMENTATION_DIGESTS",
+    "drift": [
+      {
+        "artifactId": "bootstrap_roles",
+        "path": "deploy/postgres/bootstrap_roles.sql",
+        "boundSha256": "c6d7ee94ebde14f38ba0fa298f6fb323afc05aa81e5bbf19d733754f13968933",
+        "currentSha256": "9138152333af122f6efb2d5a5a6f3eea8e3f650a70be217f9e1ad2bce4a7a949"
+      },
+      {
+        "artifactId": "prepare_database",
+        "path": "deploy/postgres/prepare_database.sql",
+        "boundSha256": "125a4d92fe81792684ecf306adadae90c9eaba3f22792993c01f50d4577640f6",
+        "currentSha256": "6c75669a655ff83eabc7d85d7bc92b8b43af4ecbe08737162444d5a108b90070"
+      },
+      {
+        "artifactId": "runtime_privileges",
+        "path": "deploy/postgres/runtime_privileges.sql",
+        "boundSha256": "09ce38a7aabd92013fe149dfce3ff9ea24eedff7f254a5597b4a389600de48d2",
+        "currentSha256": "0fef7530e8c1168e2d72cb3235985838f7dd910806a773b72fa09ead86956a83"
+      }
+    ]
+  },
+  "legacyV1FreshnessVerifier": {
+    "evaluatedAtEpoch": 1787510642,
+    "evaluatedTimeSource": "CALLER_INJECTED_HOST_UTC_UNTRUSTED",
+    "status": "REFRESH_REQUIRED",
+    "gateStatus": "BLOCKED_OWNER",
+    "packageIntegrity": false,
+    "technicalEvidenceCurrent": false,
+    "signingPreparationEligible": false,
+    "reasonCodesRequired": [
+      "ACTIVE_RESTRICTIVE_OWNER_DEFERRAL",
+      "ARTIFACT_DIGEST_DRIFT:bootstrap_roles",
+      "ARTIFACT_DIGEST_DRIFT:prepare_database",
+      "ARTIFACT_DIGEST_DRIFT:runtime_privileges",
+      "DECISION_SCOPE_LABEL_AMBIGUOUS",
+      "SUPPORTING_ARTIFACT_DIGEST_DRIFT:docs/b64-064a-offline-signing.md",
+      "SUPPORTING_ARTIFACT_DIGEST_DRIFT:scripts/b64_064a_offline_signer.py",
+      "SUPPORTING_ARTIFACT_DIGEST_DRIFT:tests/test_e0_3_bot_b5_3_064a_offline_signer.py"
+    ]
+  },
+  "decisionState": {
+    "candidateStatus": "AWAITING_NEW_AUTHENTICATED_DECISION",
+    "activeDeferralBindsPriorV3CandidateOnly": true,
+    "v4OwnerApprovalPresent": false,
+    "v4IndependentReviewerApprovalPresent": false,
+    "v4AcceptancePossibleWithoutNewObservation": false,
+    "refreshAuthorized": false,
+    "refreshDeferredUntilReviewerReady": true
+  },
+  "authority": {
+    "evidenceAccepted": false,
+    "productionAuthorization": false,
+    "productionContactAuthorized": false,
+    "productionMutationAuthorized": false,
+    "productionExpandAuthorized": false,
+    "deploymentAuthorized": false,
+    "restartAuthorized": false,
+    "cutoverAuthorized": false,
+    "telegramDeliveryAuthorized": false,
+    "ambiguousSendingDispositionAuthorized": false,
+    "automaticRetryAuthorized": false,
+    "e4ExecutionAuthorized": false,
+    "actionAllowed": false
+  },
+  "workPerformed": {
+    "localPublicArtifactReadOnly": true,
+    "documentationAndTestsUpdated": true,
+    "productionContact": false,
+    "customerDataRead": false,
+    "secretOrPrivateKeyRead": false,
+    "signatureCreated": false,
+    "dockerOrPostgresInvoked": false,
+    "e4VerifierOrExecutorInvoked": false,
+    "repositoryRuntimeMutation": false
+  },
+  "worktreeScope": {
+    "repositoryFilesTouchedByThisSlice": [
+      "docs/e0-3-bot-b5-3-064a-current-authority-reconciliation.v1.json",
+      "docs/e0-gate-status.v1.json",
+      "docs/ecosystem-master-roadmap.md",
+      "tests/test_e0_3_bot_b5_3_064a_current_authority_reconciliation.py",
+      "tests/test_e0_3_bot_b5_3_064a_decision.py",
+      "tests/test_e0_3_bot_b5_3_064a_freshness.py",
+      "PROJECT_MEMORY.md"
+    ],
+    "unrelatedPreExistingWorktreeChangesPresent": true,
+    "unrelatedPreExistingWorktreeChangesPreserved": true,
+    "claimsWholeWorktreeCleanOrReviewed": false
+  },
+  "requirementsBeforeNextRefresh": [
+    "ACCOUNTABLE_OWNER_OFFLINE_SIGNING_PATH_READY",
+    "GENUINELY_INDEPENDENT_REVIEWER_AND_SEPARATE_OFFLINE_DEVICE_READY",
+    "EXACT_TRUST_REGISTRY_TRUSTED_TIME_REVOCATION_AND_DURABLE_REPLAY_PATH_APPROVED",
+    "EXPLICIT_OWNER_AUTHORIZATION_FOR_ONE_BOUNDED_READ_ONLY_PRODUCTION_REFRESH",
+    "PLAN_TO_COMPLETE_BOTH_AUTHENTICATED_DECISIONS_INSIDE_THE_NEW_24_HOUR_WINDOW"
+  ],
+  "remainingBlockers": [
+    "V4_SOURCE_WINDOW_EXPIRED",
+    "HISTORICAL_DECISION_INPUT_DOES_NOT_BIND_CURRENT_BOOTSTRAP_PREPARE_AND_RUNTIME_PRIVILEGE_BYTES",
+    "LEGACY_V1_FRESHNESS_PACKAGE_HAS_SUPPORTING_ARTIFACT_DRIFT_AND_AMBIGUOUS_SCOPE",
+    "AUTHENTICATED_ACCOUNTABLE_OWNER_DECISION_ABSENT",
+    "AUTHENTICATED_INDEPENDENT_REVIEWER_ACCEPTANCE_ABSENT",
+    "PRODUCTION_KEY_REGISTRY_TRUSTED_TIME_REVOCATION_AND_DURABLE_REPLAY_ACCEPTANCE_ABSENT",
+    "CURRENT_PENDING_AND_SENDING_ROW_STATE_UNKNOWN_UNTIL_A_NEW_BOUNDED_OBSERVATION",
+    "064B_REMAINS_UNAUTHORIZED",
+    "064D_REMAINS_UNAUTHORIZED"
+  ],
+  "nextCanonicalItem": "OWNER_CONFIRMS_REVIEWER_AND_AUTHENTICATION_PREREQUISITES_READY_THEN_EXPLICITLY_AUTHORIZES_ONE_BOUNDED_READ_ONLY_064A_REFRESH",
+  "interpretation": "This local reconciliation proves only that the public v4 artifact cross-bindings match, while its source window is expired and its historical decision input does not bind the current bootstrap/prepare/runtime-privilege bytes. E0.3 remains BLOCKED_OWNER. The current conversation excludes E4 without granting any 064A/E4 authority; E4 remains IN_PROGRESS with a NO_GO gate decision. It deliberately does not start another refresh window before a genuinely independent reviewer and the authentication path are ready."
+}

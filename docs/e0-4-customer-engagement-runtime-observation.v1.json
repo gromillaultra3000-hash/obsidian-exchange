@@ -1,0 +1,72 @@
+{
+  "schemaVersion":"e0-4-customer-engagement-runtime-observation.v1",
+  "observedAt":"2026-08-18T20:25:00Z",
+  "route":"E0/E0.4/CUSTOMER_ENGAGEMENT",
+  "acceptance":"PARTIAL_NOT_ACCEPTED",
+  "workClass":"KEYLESS_READ_ONLY_DEPLOYED_SOURCE_CLASSIFICATION",
+  "productionMutation":false,
+  "observationSafety":{"authenticatedCalls":false,"customerRowsRead":false,"secretValuesRead":false,"telegramMessagesSent":false,"writersExercised":false,"deployOrRestart":false,"externalCalls":false},
+  "deployedEntrypoints":[
+    {"path":"/opt/obsidian-exchange/bot/main_bot.py","sha256":"a015b5b12870fa2f1eec7d0fb638cc2c94cb90235850d474ebb25455446372fb"},
+    {"path":"/opt/obsidian-exchange/relay/repositories/engagement_store.py","sha256":"9c989eaba773416b1414a0e652130ffea529cff4fcd6158c4e58285da59464b0"},
+    {"path":"/opt/obsidian-exchange/relay/repositories/bot_notification_store.py","sha256":"e0d0d20ca43946dedb155406f00b2c3a5496f95b94dfa6c0da03165a03aaf8be"},
+    {"path":"/opt/obsidian-exchange/relay/repositories/user_profile_store.py","sha256":"723b24eef97d736ec5088f67757c5d90042457bdf646749f97cec56a32b01c4c"},
+    {"path":"/opt/obsidian-exchange/relay/repositories/promo_admin_store.py","sha256":"d959f2b7c4a5882bb3df3451d6cdd35e6f5b46125eb4c9c85c06d91474e22e54"},
+    {"path":"/opt/obsidian-exchange/relay/repositories/bot_order_store.py","sha256":"01e836e04d21b27a073d7a2558b216ed33a62853a8c9742d5edb12a0ffc19885"},
+    {"path":"/opt/obsidian-exchange/relay/repositories/order_read_store.py","sha256":"2cc91c733a8388ac2f643016fe192f7687ef0c44b79305d23fed50dcfd2ca06d"},
+    {"path":"/opt/obsidian-exchange/relay/repositories/reconciliation_store.py","sha256":"0a399003008bda0c202d50ac1025cff0dee07d6d0e4ebccfa7ea7c9a7946fc52"},
+    {"path":"/opt/obsidian-exchange/relay/core/pricing.py","sha256":"0cb22550f6f942288c65ef35305bee686775d72fcb8abf1c990d985a410f0c05"},
+    {"path":"/opt/obsidian-exchange/relay-fastapi/main.py","sha256":"c1ef783e3005f4698540ddc5368ef9a4592612fcf666b403ecbb7c4a359bd7ff"},
+    {"path":"/opt/obsidian-exchange/relay/webapp.html","sha256":"12545433f4004eef1df25592474b8e14db9558a5bb356bc245dc6b6826f9adcc"},
+    {"path":"/opt/obsidian-exchange/deploy/postgres/011_user_profiles.sql","sha256":"ca913fcc27556ec58cdc5b6c4a01e4459c00610aaf8609158792badb7984b761"},
+    {"path":"/opt/obsidian-exchange/deploy/postgres/013_promos.sql","sha256":"072d3bc55a9522f7eb410a65e4ea58327fea5d8f610c6475217f16cb9bcd690c"},
+    {"path":"/opt/obsidian-exchange/deploy/postgres/020_legacy_runtime.sql","sha256":"39828110b0b2d53137d80c425b937d7de915c2d10e02467dd7e7337101af77f6"},
+    {"path":"/opt/obsidian-exchange/deploy/postgres/023_bot_notification_jobs.sql","sha256":"e206910c1acd07b35198c1e9f2a92d2c5802427560e97ec45b557069bf049435"},
+    {"path":"/opt/obsidian-exchange/admin-panel/app/Filament/Resources/ReviewResource.php","sha256":"ee7a5250adadc79cf19b6393164d51bc722dfa07baa03b01993d2d173a64532a"}
+  ],
+  "engagementFamilies":["rate-alert opt-in","operator and scheduled marketing broadcasts","inactive-user recall","abandoned-payment reminder","win-back promo","VIP progression","referral UI","review collection/publication","transactional customer notifications"],
+  "authorityBoundary":{
+    "communication":"Telegram is the only active outbound customer channel. Delivery is an external side effect and must not be inferred from a DB state or swallowed exception.",
+    "transactionalVsMarketing":"Payment, receipt and payout-delay notices are operational; recall, feature posts, announcements and win-back are marketing. The deployed model does not consistently separate their consent/audience policies.",
+    "moneyCoupling":"VIP totals and promo codes alter the effective commission persisted into an order. Win-back creates an active one-use promo before delivery, so loyalty is money-adjacent and not merely content.",
+    "custody":"Engagement holds no customer keys and does not sign/broadcast funds, but it stores identity/profile, behavioral/order-derived targeting, reviews and monetary discount state."
+  },
+  "positiveControls":[
+    "Rate alerts have an explicit customer toggle and are limited to at most daily delivery after significant movement or overdue refresh.",
+    "Durable bot notification jobs use unique kind/dedupe_key, transactional candidate markers, atomic pending-to-sending claims and preserve ambiguous sends in sending rather than blindly retrying.",
+    "Win-back eligibility excludes paid customers, receipt submitters and blocked users; while current historic order/marker rows are retained, its query attempts at most one lifetime offer per targeted customer.",
+    "Review rating is initially owner-bound to an order, comments are truncated to 500 characters, low ratings go to operator review and Laravel forbids review deletion.",
+    "Promo consumption and agreed quote/order persistence are atomically coupled within bot order creation, but this does not constitute a complete promo lifecycle; customer private keys never enter engagement paths."
+  ],
+  "criticalFindings":[
+    {"severity":"CRITICAL","id":"MARKETING_DEFAULT_OPT_IN_WITHOUT_GLOBAL_OPTOUT","finding":"New bot_users default broadcast_enabled=true without a recorded consent source/time/purpose. No customer-facing global marketing unsubscribe/re-enable route was found; disable_broadcast is invoked only after Telegram proves the bot is blocked."},
+    {"severity":"CRITICAL","id":"AUDIENCE_CONTROLS_BYPASSED","finding":"Admin /broadcast targets recent order customers and the three-hour feature scheduler targets every historical order customer directly. Both bypass broadcast_enabled and the explicit rate-alert preference, so even the limited stored preference is not a universal suppression list."},
+    {"severity":"HIGH","id":"FIRST_RATE_ALERT_TOGGLE_INVERTED","finding":"rate_subscriptions defaults enabled=true. toggle_rate first inserts that default row and then flips it false, so a first customer click presented as enabling alerts actually leaves alerts disabled and returns disabled; the recorded preference contradicts the affirmative action."},
+    {"severity":"HIGH","id":"WINBACK_AND_RECALL_IGNORE_MARKETING_CONSENT","finding":"Inactive recall and win-back selection derive audiences from order history and sent markers rather than an affirmative marketing consent. Win-back creates an active monetary promo and dispatches it without checking broadcast_enabled."},
+    {"severity":"HIGH","id":"CATEGORY_PURPOSE_AND_LEGAL_BASIS_NOT_MODELLED","finding":"Operational notices, abandoned-cart reminders, promotional recalls, feature ads, public-review solicitation and money discounts share Telegram identity and tables without purpose/category, consent version/source, jurisdiction, lawful-basis or suppression precedence."},
+    {"severity":"HIGH","id":"AMBIGUOUS_SENDING_HAS_NO_RECOVERY_WORKFLOW","finding":"The durable dispatcher correctly leaves uncertain sends in sending, but schema and code expose no lease expiry, reconciliation, operator review/requeue/abandon decision or alert for stuck sending. Explicit failures can retry without an attempt ceiling or terminal dead-letter state."},
+    {"severity":"HIGH","id":"DIRECT_BROADCASTS_HAVE_NO_DURABLE_DELIVERY_LEDGER","finding":"Operator, announcement, daily and feature broadcasts send inline loops with only counters/logs. They have no immutable campaign, per-recipient consent snapshot, dedupe key, delivery state, content digest, retry/reconciliation or cancellation record."},
+    {"severity":"HIGH","id":"WINBACK_BEARER_NOT_RECIPIENT_BOUND","finding":"The allegedly personal win-back code is a generic one-use promo, not bound to its target user. Any holder can redeem first, and dispatcher logs the plaintext code together with Telegram user and order identifiers."},
+    {"severity":"HIGH","id":"REVIEW_PUBLICATION_CONSENT_AND_AUTHORITY_GAP","finding":"A rating of four or five automatically publishes the stored comment to a public Telegram review channel and solicits an external forum review without a separate explicit publication consent/preview. Comment/finalize store methods are not owner-scoped, and revskip finalizes by order_id without rechecking the callback subject."},
+    {"severity":"HIGH","id":"LOYALTY_MONEY_WRITERS_FRAGMENTED","finding":"VIP volume is incremented through multiple payout/discovery/force paths and promo activation is process-memory plus database state. Prior payout evidence already found bypass/idempotency gaps; engagement code alone cannot prove exactly-once discount/reward accounting."},
+    {"severity":"HIGH","id":"FIFTH_EXCHANGE_REWARD_NOT_CLAIMED","finding":"The advertised every-fifth-exchange discount counts legacy status completed while the canonical terminal state is sent, then subtracts 1000 RUB without a durable milestone entitlement/claim. It is normally stale/dead and can be reused across multiple drafts when legacy counts happen to qualify."},
+    {"severity":"HIGH","id":"REVIEW_RATING_AND_PUBLIC_TRUTH_DRIFT","finding":"Persistence does not bound rating to integer 1..5, repeated finalize lacks expected-state CAS and public-channel delivery has no outbox. Laravel recognizes statuses that conflict with bot pending_rating/pending_comment/admin_review, so local moderation, public aggregate and channel publication can diverge."},
+    {"severity":"MEDIUM","id":"PROMO_BOUNDS_AND_POLICY_INCOMPLETE","finding":"Promo schema requires only discount>=0 and has no upper bound or policy version; win-back values come from environment and admin creation paths. Runtime commission floors limit some loss, but no four-eyes, reason, approval or immutable policy snapshot is established here."},
+    {"severity":"MEDIUM","id":"PII_AND_RETENTION_UNBOUNDED","finding":"bot_users retains Telegram ID, username, first/last name and activity timestamps; jobs retain order/user IDs, amounts, currency, invoice IDs, session bearer links and promo codes; reviews retain comments. No retention/deletion/consent-withdrawal cascade or backup expiry is defined in the inspected schemas."},
+    {"severity":"MEDIUM","id":"CHANNEL_AND_SURFACE_PARITY_ABSENT","finding":"Site and Mini App expose referral/VIP projections but no notification preference center, consent history, campaign archive or delivery status. Native has no engagement contract, and email/push channels are absent."},
+    {"severity":"MEDIUM","id":"COMMERCIAL_COPY_CONTRADICTS_PROVEN_TRUTH","finding":"Engagement copy alternates between a 1% referral promise and 10% of commission and embeds unaccepted reserve, timing, rate and automatic-payout claims. Sending successfully does not establish economic or operational truth."},
+    {"severity":"MEDIUM","id":"REDIS_AND_FILE_CONTROL_NONAUTHORITATIVE","finding":"Feature rotation uses a mutable local file and its three-hour scheduler timestamp uses Redis; Redis loss makes last_ts zero and may send immediately. Neither is a durable campaign/consent source of truth."}
+  ],
+  "surfaceMatrix":{
+    "telegramBot":{"mode":"REQUIRED","implementation":"PARTIAL","reason":"Rich rate alerts, reminders, broadcasts, promos, VIP/referral and review flows exist, but consent, audience suppression, delivery recovery and money coupling are unaccepted."},
+    "site":{"mode":"REQUIRED","implementation":"PARTIAL","reason":"Shows VIP/referral, reviews and operational status, but has no customer notification preference, consent history or engagement delivery surface."},
+    "miniApp":{"mode":"REQUIRED","implementation":"PARTIAL","reason":"Shows referral and product/promo projections but provides no marketing consent center, campaign history or delivery controls."},
+    "admin":{"mode":"OPERATOR_ONLY","implementation":"PARTIAL","reason":"Telegram commands control broadcasts/promos and Laravel moderates review status, but campaign approval/audit, consent snapshots, four-eyes and stuck-delivery recovery are absent."},
+    "api":{"mode":"REQUIRED","implementation":"PARTIAL","reason":"Owner-bound referral/profile routes and internal repositories/notification loops exist, but no versioned preference/suppression/campaign/delivery contract spans all producers."},
+    "native":{"mode":"READ_ONLY","implementation":"NOT_IMPLEMENTED","reason":"No deployed native preference, inbox or engagement projection exists; future native UI must not receive discount writer or server notification authority."}
+  },
+  "coverageConclusion":{"sixSurfacesClassified":true,"customerKeysTouched":false,"consentLifecycleAccepted":false,"deliveryLifecycleAccepted":false,"loyaltyMoneyAuthorityAccepted":false,"productionEngagementAccepted":false,"e0_4Complete":false,"e0Closed":false},
+  "independentReviews":[{"role":"security","disposition":"PARTIAL_NOT_ACCEPTED"},{"role":"surface","disposition":"PARTIAL_NOT_ACCEPTED"},{"role":"acceptance","disposition":"PARTIAL_NOT_ACCEPTED"}],
+  "limitations":["No authenticated/customer-row query, Telegram send, external call, secret, writer, deploy or restart was exercised.","Source presence does not prove current scheduler enablement, live consent state, campaign reach, delivery, customer understanding or legal basis.","Referral, payment, payout and public-market money correctness remain owned by their separately PARTIAL_NOT_ACCEPTED families."],
+  "nextCanonicalItem":"Classify OPERATIONS_MONITORING across all six surfaces and verify observability, alert delivery, SLO, runbook and non-money authority."
+}

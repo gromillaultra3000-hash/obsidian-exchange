@@ -33,14 +33,19 @@ TON — исключение, и в лучшую сторону: у его пе�
 from __future__ import annotations
 
 import logging
-import sqlite3
+import os
 import sys
 import time
 from pathlib import Path
 
 import requests
 
-DB_PATH = Path("/root/exchange.db")
+RELAY_PATH = str(Path(__file__).resolve().parent.parent / "relay")
+if RELAY_PATH not in sys.path:
+    sys.path.insert(0, RELAY_PATH)
+from repositories.sell_order_store import from_environment as _sell_store_from_environment
+
+DB_PATH = Path(os.getenv("DB_PATH", "/root/exchange.db"))
 logger = logging.getLogger(__name__)
 
 HTTP_TIMEOUT = 12
@@ -102,19 +107,8 @@ class _ExplorerError(Exception):
     """Эксплорер недоступен/ответил мусором → вердикт 'unavailable' (не 'not_found')."""
 
 
-def _db():
-    conn = sqlite3.connect(str(DB_PATH), timeout=5)
-    conn.row_factory = sqlite3.Row
-    return conn
-
-
-def _claimed_txids(conn, exclude_sell_id: int) -> set:
-    """txid, уже зачтённые другим заявкам — повторно засчитывать нельзя."""
-    rows = conn.execute(
-        "SELECT tx_hash FROM sell_orders WHERE tx_hash IS NOT NULL AND tx_hash != '' AND id != ?",
-        (exclude_sell_id,),
-    ).fetchall()
-    return {r["tx_hash"] for r in rows}
+def _store():
+    return _sell_store_from_environment(sqlite_path=str(DB_PATH))
 
 
 def _get_json(url: str, params=None):
@@ -287,27 +281,23 @@ def verify_sell_deposit(sell_id: int) -> dict:
     При 'confirmed' пишет найденный txid в sell_orders.tx_hash (резервирует его
     за этой заявкой, чтобы тот же депозит не зачёлся второй раз)."""
     try:
-        with _db() as conn:
-            row = conn.execute(
-                "SELECT currency, crypto_amount, receive_address, status, tx_hash, created_at "
-                "FROM sell_orders WHERE id=?", (sell_id,)
-            ).fetchone()
-            if not row:
-                return _result("not_found", f"заявка #{sell_id} не найдена в базе")
+        snapshot = _store().deposit_snapshot(int(sell_id))
+        if not snapshot:
+            return _result("not_found", f"заявка #{sell_id} не найдена в базе")
+        row = snapshot["order"]
+        currency = (row["currency"] or "").upper()
+        expected = float(row["crypto_amount"] or 0)
+        address = (row["receive_address"] or "").strip()
+        claimed = snapshot["claimed_txids"]
 
-            currency = (row["currency"] or "").upper()
-            expected = float(row["crypto_amount"] or 0)
-            address = (row["receive_address"] or "").strip()
-            claimed = _claimed_txids(conn, sell_id)
-
-            created_ts = 0
-            if row["created_at"]:
-                try:
-                    created_ts = int(time.mktime(time.strptime(
-                        str(row["created_at"])[:19], "%Y-%m-%d %H:%M:%S")))
-                except ValueError:
-                    created_ts = 0
-    except sqlite3.Error as exc:
+        created_ts = 0
+        if row["created_at"]:
+            try:
+                created_ts = int(time.mktime(time.strptime(
+                    str(row["created_at"])[:19], "%Y-%m-%d %H:%M:%S")))
+            except ValueError:
+                created_ts = 0
+    except Exception as exc:
         logger.exception("sell_guard: ошибка БД по заявке #%s", sell_id)
         return _result("unavailable", f"ошибка базы: {exc}")
 
@@ -369,12 +359,17 @@ def verify_sell_deposit(sell_id: int) -> dict:
 
         # подошёл: сумма в допуске, подтверждений достаточно, txid свободен
         try:
-            with _db() as conn:
-                conn.execute("UPDATE sell_orders SET tx_hash=?, updated_at=datetime('now') WHERE id=?",
-                             (d["txid"], sell_id))
-                conn.commit()
-        except sqlite3.Error:
+            if not _store().reserve_txid(
+                    sell_id=int(sell_id), txid=d["txid"],
+                    expected_status=str(row["status"] or "")):
+                return _result("unavailable", "транзакция уже закреплена или заявка изменилась",
+                               txid=d["txid"], received=d["amount"], expected=expected,
+                               confirmations=d["confirmations"])
+        except Exception:
             logger.exception("sell_guard: не удалось записать tx_hash для #%s", sell_id)
+            return _result("unavailable", "не удалось атомарно закрепить транзакцию",
+                           txid=d["txid"], received=d["amount"], expected=expected,
+                           confirmations=d["confirmations"])
         return _result("confirmed",
                        f"депозит подтверждён ({d['confirmations']} подтв.)",
                        txid=d["txid"], received=d["amount"], expected=expected,

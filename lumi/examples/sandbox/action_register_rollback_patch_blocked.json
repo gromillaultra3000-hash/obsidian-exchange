@@ -1,0 +1,13 @@
+{
+  "actionId": "rollback_patch",
+  "title": "Rollback Patch",
+  "description": "Rollback action. Real rollback execution is disabled in v1.0.",
+  "category": "project_maintenance",
+  "riskLevel": "critical",
+  "requiresApproval": true,
+  "supportsDryRun": true,
+  "allowedModes": ["proposal", "dry_run", "execute"],
+  "inputSchema": {"type": "object"},
+  "outputSchema": {"type": "object"},
+  "metadata": {"v1_0": "execution_disabled"}
+}

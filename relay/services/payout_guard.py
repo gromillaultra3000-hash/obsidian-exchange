@@ -21,12 +21,13 @@ auto_check_payments, существующие гарантии (status='paid' с
 ручное подтверждение) не ослабляются.
 """
 import os
-import sqlite3
 import logging
 from pathlib import Path
+from repositories.receipt_store import from_environment as _receipt_store_from_environment
 
-DB_PATH = Path("/root/exchange.db")
+DB_PATH = Path(os.getenv("DB_PATH", "/root/exchange.db"))
 logger = logging.getLogger(__name__)
+def _store():return _receipt_store_from_environment(sqlite_path=str(DB_PATH))
 
 # короткое имя (payment_sessions.provider) → имя класса провайдера
 SHORT_TO_CLASS = {
@@ -45,12 +46,6 @@ SHORT_TO_CLASS = {
 _PAID = {"paid", "success", "completed", "approved", "sent", "finished"}
 # провайдер явно сообщает, что оплаты НЕТ
 _FAILED = {"failed", "fail", "cancelled", "canceled", "declined", "revoked", "rejected"}
-
-
-def _db():
-    conn = sqlite3.connect(str(DB_PATH), timeout=5)
-    conn.row_factory = sqlite3.Row
-    return conn
 
 
 def _load_provider(cls_name):
@@ -102,9 +97,7 @@ def _amount_mismatch(order_id, raw):
     if paid is None:
         return None
     try:
-        with _db() as conn:
-            row = conn.execute("SELECT rub_amount FROM orders WHERE order_id=?",
-                               (order_id,)).fetchone()
+        row = _store().order_guard_fields(order_id)
         expected = row["rub_amount"] if row else None
     except Exception as e:
         logger.warning("payout_guard: чтение rub_amount order=%s: %s", order_id, e)
@@ -127,10 +120,7 @@ def verify_payment_settled(order_id) -> dict:
     """Независимая перепроверка расчёта по заявке. См. модульный docstring."""
     # 1) сессии оплаты заявки (эскалация могла создать несколько)
     try:
-        with _db() as conn:
-            sessions = conn.execute(
-                "SELECT provider, provider_invoice_id FROM payment_sessions "
-                "WHERE order_id=? ORDER BY id DESC", (order_id,)).fetchall()
+        sessions = _store().sessions(order_id)
     except Exception as e:
         logger.warning("payout_guard: чтение payment_sessions order=%s: %s", order_id, e)
         sessions = []
@@ -175,10 +165,7 @@ def verify_payment_settled(order_id) -> dict:
     # 2) провайдер ещё НЕ подтвердил paid. Если трейдер запросил видео/PDF и это
     #    не закрыто — держим (не отдаём крипту до подтверждения трейдера).
     try:
-        with _db() as conn:
-            row = conn.execute(
-                "SELECT verification_requested FROM orders WHERE order_id=?",
-                (order_id,)).fetchone()
+        row = _store().order_guard_fields(order_id)
         if row and (row["verification_requested"] or "").strip():
             return {"verdict": "hold",
                     "detail": f"трейдер запросил {row['verification_requested']} — "

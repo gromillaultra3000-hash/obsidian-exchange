@@ -2903,3 +2903,363 @@ USDT-ERC20 мы показывали, а переводов USDT в истори
 поток был сделан вложенной функцией, и на ней сработала мина «баланс по
 недоказанному адресу»: замыкание содержит показ кошелька без опознания
 клиента. Правило строгое и правильное — переписан код, а не мина.
+
+## 18.08.2026 — E0/E0.4: инвентаризация подключения внешнего кошелька
+
+В точную матрицу шести поверхностей добавлено подключение внешнего кошелька.
+Read-only production observation подтвердил активные Relay и bot, включённый
+PostgreSQL wallet store, deployed routes и четыре поля `wallet_links`; строк в
+таблице на момент наблюдения не было. Telegram, сайт, Mini App и API остаются
+`REQUIRED/PARTIAL`, operator admin — `OPERATOR_ONLY/NOT_IMPLEMENTED`, native —
+`REQUIRED/NOT_IMPLEMENTED`. Ни HTTP/auth/proof, ни explorer, ни link/revoke
+writer не выполнялись.
+
+Приёмка `PARTIAL_NOT_ACCEPTED`: 15-минутный challenge не потребляется атомарно;
+Relay verify и disconnect допускают ложный success при ошибке persistence;
+replacement — blind upsert без CAS/epoch; revoke — hard delete без immutable
+receipt/audit; DB outage выглядит как отсутствие связи; нет route-specific
+throttling, bounded verification budget и data-retention/backup-expiry
+контракта. Отдельного wallet-proof signing domain нет: `RELAY_SECRET` разделён
+с другими auth/internal/wallet назначениями. Две независимые проверки приняли
+узкую формулировку после включения этого security finding. Evidence:
+`docs/e0-4-wallet-link-runtime-observation.v1.json`. Следующий канонический
+пункт того же gate — CEX portfolio на тех же шести поверхностях.
+
+## 18.08.2026 — E0/E0.4: инвентаризация CEX portfolio
+
+Матрица расширена до десяти feature families. KAIROS, Relay, bot и admin
+активны; internal connector boundary закрыт scoped Ed25519 identity/replay,
+права требуют read-only с запретом trade/withdraw/transfer, а Mini App честно
+разделяет self-custody, Obsidian operational и CEX custody. Но production
+`connectors.json` отсутствует: реальных credentials, permission proof, balance
+snapshot и disconnect lifecycle нет. Connect доступен только internal API,
+пользовательский ввод ключей намеренно выключен, provider transport — Bybit
+testnet.
+
+Статус `PARTIAL_NOT_ACCEPTED`. Telegram/native не реализованы; site, Mini App,
+API и отдельная operator surface частичны. Security review подтвердил owner
+isolation и credential gate, но обнаружил: malformed KAIROS response может
+стать пустым `complete` portfolio; exchange timestamp не имеет freshness bound;
+negative balances проходят как `FRESH`; cookie disconnect не имеет explicit
+CSRF binding; retention выполняется лениво, а backup expiry не доказан;
+operator UI говорит `CEX LIVE-CAPABLE` при отключённых legacy endpoints.
+32 проверки прошли. Production не изменялся. Evidence:
+`docs/e0-4-cex-portfolio-runtime-observation.v1.json`. Следующий канонический
+пункт — operator workflows на шести поверхностях.
+
+## 18.08.2026 — E0/E0.4: инвентаризация operator workflows
+
+Зафиксированы четыре разные privileged surfaces: Telegram admin, скрытая
+Mini App admin-вкладка с Relay API, Laravel/Filament и отдельный KAIROS operator
+UI. Laravel имеет наиболее сильный контур: именованный `is_admin`, обязательный
+TOTP с atomic replay guard, CSRF, read-only defaults и append-only DB audit.
+Relay и KAIROS работают от отдельных service users, но Laravel admin и bot —
+от root.
+
+Статус `PARTIAL_NOT_ACCEPTED`. Нет least-privilege RBAC и four-eyes для payout,
+force-close и safety overrides; Telegram 4-digit confirmation приходит в тот
+же чат и не является MFA; audit между Laravel/Relay/Telegram неполный и без
+единого correlation; support reply может стать answered при потере Telegram
+notification; review/support edits last-write-wins. Внешний KAIROS использует
+общий Basic Auth→bearer principal без named actor/MFA/RBAC, а UI показывает
+`LIVE-CAPABLE` и legacy credential controls при disabled endpoints.
+
+Оба independent review были полезны, но их ошибочные claims об отсутствии
+deployed Relay admin routes и root-пользователе всех сервисов отклонены по
+source/runtime evidence. 17 Python и 14 Laravel tests (76 assertions) прошли;
+production не изменялся. Evidence:
+`docs/e0-4-operator-workflows-runtime-observation.v1.json`. Следующий
+канонический пункт — native signing на шести поверхностях.
+## 18.08.2026 — E0/E0.4: KAIROS autonomous trade control
+
+- Active route: E0 / complete feature-status inventory / classify
+  `KAIROS_AUTONOMOUS_TRADE_CONTROL` and verify its authority read-only.
+- Hash-bound deployed `main_v19.py` and `kairos_engine.py` are byte-equal to
+  checkout. The active non-root service listens only on `127.0.0.1:8000`;
+  public health returned 200 and unauthenticated operator status returned 401.
+- The mounted trade route always returns 409. Worker, chat and immediate trade
+  callers all terminate at an unconditional `HOLD` before dormant legacy IOC
+  order code; the legacy direct-execution router is not mounted. No active
+  money writer was observed.
+- Acceptance is `PARTIAL_NOT_ACCEPTED`: one bearer owns start/stop/config/live
+  flags, LUMI is advisory only, and there is no persisted immutable intent,
+  idempotent claim, durable pre-submit attempt or ambiguous-submit recovery.
+- Evidence:
+  `docs/e0-4-kairos-autonomous-trade-control-runtime-observation.v1.json`.
+  Eleven focused/reconciliation tests pass. No authenticated call, secret read,
+  provider call, money writer, deploy, restart or configuration mutation was
+  performed.
+- Next canonical item: classify `SWAPS` across all six surfaces and verify its
+  customer and money authority read-only.
+
+## 18.08.2026 — E0/E0.4: SWAPS
+
+- Active route: E0 / complete feature-status inventory / classify `SWAPS`
+  across Telegram, site, Mini App, admin, API and native.
+- Deployed Telegram and authenticated site create external SwapUZ orders;
+  Mini App is promotion-only, admin is read-only and native is absent.
+- Acceptance is `PARTIAL_NOT_ACCEPTED`: external submit precedes durable local
+  intent/attempt, ambiguous outcomes lack reconciliation, and bearer status GET
+  exposes addresses while performing provider I/O and a database transition.
+- P0 review found `finished -> unknown -> finished` can repeat a non-idempotent
+  referral credit. A checkout-only forward/terminal transition guard and four
+  regression checks pass; it is not deployed and does not close production.
+- Evidence: `docs/e0-4-swaps-runtime-observation.v1.json`. No authenticated,
+  provider or money-mutating call, deploy, restart or configuration change was
+  performed.
+- Next canonical item: classify `ACCOUNT_AUTH_PROFILE` across all six surfaces
+  and verify authentication, recovery and authorization authority read-only.
+
+## 18.08.2026 — E0/E0.4: ACCOUNT_AUTH_PROFILE
+
+- Active route: E0 / complete feature-status inventory / classify customer and
+  operator authentication, profile, identity merge and recovery authority.
+- Bcrypt, secure cookie flags, CSRF on profile writes, Telegram signature/
+  freshness and edge throttles are deployed positive controls.
+- Status is `PARTIAL_NOT_ACCEPTED`: Telegram binding is a login-CSRF-prone GET;
+  password/TOTP changes preserve old 30-day sessions; session and customer TOTP
+  material is stored directly; recovery/reset/unlink/revoke-all and canonical
+  identity merge/unmerge are absent.
+- Three independent reviews agree. Evidence:
+  `docs/e0-4-account-auth-profile-runtime-observation.v1.json`. Focused source/
+  hash/surface checks pass; no auth, customer row, secret or writer was used.
+- Next canonical item: classify `PAYMENT_PROVIDER_LIFECYCLE` and verify provider
+  callback, payment truth and money authority read-only.
+
+## 18.08.2026 — E0/E0.4: PAYMENT_PROVIDER_LIFECYCLE
+
+- Six surfaces and deployed provider/payment authority are classified read-only.
+- Acceptance is `PARTIAL_NOT_ACCEPTED`: provider submit precedes durable attempt;
+  ambiguous retries can duplicate or orphan invoices; callbacks do not bind the
+  exact persisted invoice/amount/currency; numeric `/pay/{order_id}` can disclose
+  a session bearer; callback payload retention and reconciliation are fragmented.
+- Positive controls are fail-closed callback secrets and transactional,
+  pending-only local payment truth with audit/outbox.
+- Evidence: `docs/e0-4-payment-provider-lifecycle-runtime-observation.v1.json`.
+- Next canonical item: classify `PAYOUT_SETTLEMENT_RECONCILIATION` read-only.
+
+## 18.08.2026 — E0/E0.4: PAYOUT_SETTLEMENT_RECONCILIATION
+
+- Six surfaces and the installed server-custodial payout pipeline are classified
+  read-only; active runtime/configuration was not proven from the sandbox.
+- Canonical immutable intents, isolated signer, review-on-ambiguity and atomic
+  reconciliation/outbox exist, but acceptance is `PARTIAL_NOT_ACCEPTED`.
+- Format-only completion bypasses, mutable signer-ledger absence, missing chain
+  finality/stale-processing recovery, fail-open reserve accounting and dual
+  notifier ambiguity keep settlement truth unsafe.
+- Evidence: `docs/e0-4-payout-settlement-reconciliation-runtime-observation.v1.json`.
+- Next canonical item: classify `WALLET_RECEIVE_TRANSFER` read-only.
+
+## 18.08.2026 — E0/E0.4: WALLET_RECEIVE_TRANSFER
+
+- Receive, free transfer, order-bound TON payment request and external-wallet
+  signing/broadcast boundaries are classified across all six surfaces.
+- Customer keys remain outside Relay; external TON Connect performs approval,
+  signature and broadcast. Acceptance is nevertheless `PARTIAL_NOT_ACCEPTED`.
+- Pre-sign persistence can fail open; request identity/idempotency/single-use,
+  content-bound receipts, free-transfer reconciliation, truthful ack, retention
+  and multi-chain/native parity are incomplete.
+- Evidence: `docs/e0-4-wallet-receive-transfer-runtime-observation.v1.json`.
+- Next canonical item: classify `PUBLIC_MARKET_INFORMATION` read-only.
+
+## 18.08.2026 — E0/E0.4: PUBLIC_MARKET_INFORMATION
+
+- Public RUB prices, commercial XML/reserve/statistics projections and the
+  separate authenticated KAIROS market view are classified across six surfaces.
+- Acceptance is `PARTIAL_NOT_ACCEPTED`: unbounded stale/static fallback reaches
+  quote, rate-lock, limit and referral decisions; provenance/freshness and
+  manipulation controls are absent; public timestamps can disguise stale data;
+  reserve/statistics are local curated/lifecycle declarations rather than
+  available-to-promise or chain-finality proof.
+- Evidence: `docs/e0-4-public-market-information-runtime-observation.v1.json`.
+- Next canonical item: classify `CUSTOMER_ENGAGEMENT` read-only.
+
+## 18.08.2026 — E0/E0.4: CUSTOMER_ENGAGEMENT
+
+- Telegram campaigns, rate alerts, reviews, promos, loyalty/referral projections
+  and durable one-shot notification jobs are classified across six surfaces.
+- Acceptance is `PARTIAL_NOT_ACCEPTED`: marketing consent and global opt-out are
+  absent, audiences bypass suppression, direct campaigns are non-durable,
+  ambiguous jobs lack recovery, review publication and discount authority are
+  unaccepted, and engagement PII has no retention/erasure contract.
+- Evidence: `docs/e0-4-customer-engagement-runtime-observation.v1.json`.
+- That slice has since completed; current route is `AI_ASSISTANT`.
+
+## 18.08.2026 — E0/E0.4: OPERATIONS_MONITORING
+
+- Standalone/embedded checks, public status, operator alerts/risk views and
+  recovery evidence are classified across six surfaces.
+- `PARTIAL_NOT_ACCEPTED`: false-green observer errors, non-durable single-channel
+  alerts, no dead-man/SLO/error-budget/incident lifecycle, misleading public
+  readiness, root/overbroad monitor privilege and unproved recurring restore.
+- Effect writers remain attributed to their payment/payout/deployment families.
+- Evidence: `docs/e0-4-operations-monitoring-runtime-observation.v1.json`.
+- That slice has since completed; current route is `KAIROS_EXCHANGE_DISCOVERY`.
+
+## 18.08.2026 — E0/E0.4: AI_ASSISTANT
+
+- Mini App FAQ chat, public Relay streaming adapter and loopback Ollama boundary
+  are classified across all six surfaces.
+- `PARTIAL_NOT_ACCEPTED`: public inference admission is incomplete; hard-coded
+  financial facts conflict with runtime policy; privacy/advisory wording, safe
+  errors, streaming, provenance, grounding and evaluation are unaccepted.
+- The inspected customer path has no tools, context retrieval, persistence,
+  signing or money writer. KAIROS/LUMI remain separate control/advisory families.
+- Evidence: `docs/e0-4-ai-assistant-runtime-observation.v1.json`.
+- Next canonical item: classify `KAIROS_EXCHANGE_DISCOVERY` read-only.
+
+## 18.08.2026 — E0/E0.4: KAIROS_EXCHANGE_DISCOVERY
+
+- KAIROS operator registry/list/detail/draft routes and SPA are classified
+  across six surfaces as a local effect writer, not external discovery.
+- `PARTIAL_NOT_ACCEPTED`: support/provenance is static and unverified,
+  READ_ONLY currently overstates proof and dormant READY logic would if re-enabled;
+  file persistence and collisions are unsafe, and
+  approval/revision/retention/recovery are absent.
+- The bounded routes accept no credentials and activate no connector or trade;
+  draft manifests remain BLOCKED with live execution false.
+- Evidence: `docs/e0-4-kairos-exchange-discovery-runtime-observation.v1.json`.
+- All 25 currently enumerated families are classified, but E0.4 remains
+  `IN_PROGRESS`; next canonical route returns to first-unmet `E0.3`.
+
+## 18.08.2026 — E0/E0.3 B5.3/064A: decision freshness preflight
+
+- Added a pure read-only CLI and frozen 24-hour policy that bind the 064A
+  decision input, seven decision artifacts, eight supporting artifacts and the
+  active restrictive owner deferral.
+- All 15 digests match, but both production observations are about 38 hours old
+  and the decision label is ambiguous; current result is `REFRESH_REQUIRED`.
+- E0.3 stays `BLOCKED_OWNER`. Freshness cannot authorize, and all production,
+  064B, cutover, Telegram delivery and ambiguous-row flags remain false.
+- Ten focused tests cover current stale evidence, digest/binding drift,
+  future/age boundaries, strict UTC/path containment and deferral monotonicity.
+- Evidence: `docs/e0-3-bot-b5-3-064a-freshness-preflight.v1.json`.
+- Next: perform fresh exact secret-free read-only production observations and
+  prepare a new unambiguous evidence-only candidate with new hashes. Preserve
+  the old deferral immutably; the new digest requires a new authenticated owner
+  accept-or-re-defer decision plus applicable independent-reviewer acceptance.
+
+## 18.08.2026 — E0/E0.3 B5.3/064A: refreshed source-bound candidate
+
+- A fresh read-only PG17 scan found 94 jobs: 81 SENT and 13 SENDING, of which
+  11 are stale; no invalid state, kind, lifecycle or active-recipient shape was
+  observed. No identifier or payload was emitted and no row was mutated.
+- One exported MVCC snapshot restored into a distinct network-none,
+  read-only-root, tmpfs-only PG17 container. All 54 table fingerprints and all
+  13 bounded catalog-v2 sections matched; sequence runtime state remains outside
+  the claim. The 522111-byte archive, manifests, container and tmpfs were then
+  removed.
+- Frozen evidence:
+  `docs/e0-3-bot-b5-3-064a-production-source-refresh.v2.json`. The separate
+  `docs/e0-3-bot-b5-3-064a-decision-candidate.v2.json` says only
+  `ACCEPT_BOUNDED_EVIDENCE_ONLY`; its SHA-256 is
+  `760ef8b1a6848ce782dea27c0e3da672ce79f264590b40b1fbd47b25c2dbc99e`.
+  The old input and restrictive deferral were not changed.
+- Four candidate/cleanup invariants plus ten freshness tests pass; JSON and
+  diff validation are clean. No signature, acceptance, deploy, restart,
+  cutover, Telegram delivery, 064B expansion or row disposition occurred.
+- Status stays `BLOCKED_OWNER`. Next: a genuinely accountable owner and
+  applicable independent reviewer must authenticate an accept/re-defer decision
+  over the exact candidate digest before the 24-hour source window expires;
+  otherwise refresh the source evidence again. The 13 SENDING rows remain a
+  separate 064D blocker.
+
+## 18.08.2026 — E0/E0.3 B5.3/064A: v2 offline decision handoff
+
+- The offline signer now accepts only the closed v2 candidate, exact
+  `ACCEPT_BOUNDED_EVIDENCE_ONLY` scope, restrictive authority flags and an
+  issuance time inside the bound 24-hour source window.
+- Ambiguous 064B scope, an enabled action flag and stale observation time fail
+  closed. The runbook pins the exact candidate digest and requires both people
+  to compare candidate and source-evidence bytes independently.
+- Fourteen focused protocol/signer/candidate tests pass; compile and diff checks
+  are clean. Evidence:
+  `docs/e0-3-bot-b5-3-064a-v2-offline-handoff.v1.json`.
+- No key, registry, identity enrollment, signature, trusted time, revocation,
+  replay ledger or production effect was created. Status remains
+  `BLOCKED_OWNER`; next is the real authenticated owner/reviewer decision before
+  expiry, otherwise another read-only source refresh and new candidate.
+
+## 18.08.2026 — E0/E0.3 B5.3/064A: owner re-deferral
+
+- The owner explicitly re-deferred exact candidate SHA-256
+  `760ef8b1a6848ce782dea27c0e3da672ce79f264590b40b1fbd47b25c2dbc99e`.
+  Immutable evidence:
+  `docs/e0-3-bot-b5-3-064a-owner-deferral.v2.json`.
+- The decision accepts no evidence and keeps every 064B/064D, production,
+  deploy, restart, cutover, delivery, retry and action flag false. All 13
+  SENDING rows, including 11 stale, remain untouched.
+- Two independent read-only reviews confirmed restrictive monotonicity, exact
+  candidate/prior-history hashes and the safe next route; neither review is an
+  acceptance signature. Twenty-seven focused checks pass. One check exposed
+  stale signer/runbook bindings in the v1 freshness policy after the v2 handoff
+  update; exact current hashes were rebound and integrity tests pass.
+- E0.3 remains first-unmet `BLOCKED_OWNER`. Active safe route:
+  `E0/E0.4/POST_25_CLOSURE_RECONCILIATION`, a read-only full-universe rescan of
+  deployed/generated routes, startup/import writers, workers/services and
+  UI/bot consumers. No claim of E0.4 completeness is made.
+
+## 18.08.2026 — E0/E0.4: post-25 closure reconciliation
+
+- Read-only no-import/framework enumeration observed 346 inferred FastAPI route
+  objects, 29 generated Laravel routes and 13 enabled Nginx locations, then
+  reconciled service/timer entrypoints, startup/import writers and UI/bot
+  consumers against the current 25 families.
+- Closure is false. Five material omissions are `RATE_LOCKS`,
+  `DEPLOYMENT_RELEASE_AUTOMATION`, `EDITORIAL_NEWS_DELIVERY`,
+  `TELEGRAM_CHANNEL_POST_PROCESSING` and `LEGACY_PAYMENT_EDGE_UPSTREAM`.
+  Public trust/legal content and generated docs/Livewire/storage routes require
+  explicit mapping decisions.
+- High-risk operational findings include a root autodeploy every 15 minutes,
+  two enabled public pay domains mapped to an unowned `127.0.0.1:8080`, and
+  legacy `/root` service paths coexisting with `/opt` evidence. These were only
+  observed; nothing was invoked or changed.
+- Three independent reviews reject completeness. Eleven focused checks pass;
+  JSON and diff validation are clean. Evidence:
+  `docs/e0-4-post-25-closure-reconciliation.v1.json`.
+- E0.4 stays `IN_PROGRESS`. Next canonical item: classify `RATE_LOCKS` across
+  Telegram, site, Mini App, admin, API and native, including quote, fee, expiry,
+  persistence and money-authority boundaries, read-only.
+
+## 18.08.2026 — E0/E0.4: RATE_LOCKS
+
+- The paid 15-minute Telegram rate promise is classified across all six
+  surfaces; Telegram is implemented, while site, Mini App, admin, public API
+  and native have no dedicated contract or consumer.
+- A counts-only production read observed three locks: one active, two expired
+  unused, none consumed or order-bound. No identifier or quote value was read.
+- Acceptance is `PARTIAL_NOT_ACCEPTED`. Critical: the UI says 100 RUB will be
+  deducted, but fee_rub is only stored/read; order crypto uses the full amount
+  and accounting has no fee attribution. Stale/static fallback can become a
+  guarantee, callbacks renew it for free, the DB trusts caller quote vectors,
+  concurrent first insertion can leave multiple active locks, and silent
+  fallback lacks renewed consent.
+- Owner/currency/DB-expiry checks and atomic single-use consumption are positive
+  controls. Three independent reviews reject acceptance; eight focused checks,
+  JSON and diff validation pass. Evidence:
+  `docs/e0-4-rate-locks-runtime-observation.v1.json`.
+- No auth, customer identifier, price call, lock/order writer, deploy or restart
+  occurred. Next canonical item: classify `DEPLOYMENT_RELEASE_AUTOMATION`
+  read-only across six surfaces and verify source trust, credentials, checks,
+  restart authority, audit, rollback and recovery.
+
+## 18.08.2026 — E0/E0.4: DEPLOYMENT_RELEASE_AUTOMATION
+
+- The enabled persistent timer runs every 15 minutes as root and invokes an
+  untracked `/root/deploy.sh` against mutable unsigned `master`, plaintext Git
+  credential storage and a checkout with 889 changed/untracked entries.
+- Acceptance is `PARTIAL_NOT_ACCEPTED`. Critical: the controller pulls and
+  checks `/root`, while effective Relay, bot and monitor units execute
+  `/opt/obsidian-exchange`; it never promotes artifacts into `/opt` but can
+  restart unchanged processes and record `/root` HEAD as deployed.
+- A failed post-restart `is-active` check is only logged, then the script writes
+  NEW_REV and Deploy complete. Provenance, clean staging, comprehensive checks,
+  per-service manifests, approvals, readiness, atomic rollout, rollback,
+  recovery, hardening and operator visibility are absent.
+- Three independent security/reliability/surface reviews reject acceptance;
+  eight focused checks, JSON and diff validation pass. Evidence:
+  `docs/e0-4-deployment-release-automation-runtime-observation.v1.json`.
+- No git pull, credential value, deploy script, restart or unit/timer mutation
+  was performed. Next canonical item: classify `EDITORIAL_NEWS_DELIVERY`
+  read-only for subscription identity, source provenance, delivery idempotency,
+  credentials, consent, retention and operator authority.

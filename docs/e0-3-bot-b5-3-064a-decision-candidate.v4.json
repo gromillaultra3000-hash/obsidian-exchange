@@ -1,0 +1,54 @@
+{
+  "schemaVersion": "e0-3-bot-b5-3-064a-decision-candidate.v2",
+  "project": "obsidian-exchange",
+  "route": "E0/E0.3/B5.3/064A",
+  "requestedDecision": "ACCEPT_BOUNDED_EVIDENCE_ONLY",
+  "effect": "EVIDENCE_ACCEPTANCE_ONLY",
+  "candidateStatus": "AWAITING_NEW_AUTHENTICATED_DECISION",
+  "sourceObservation": {
+    "path": "docs/e0-3-bot-b5-3-064a-production-source-refresh.v4.json",
+    "sha256": "99531224f6eac8d13ce07b14fdf6408f333fca2a10426e7876613ce3da812a80",
+    "observedAt": "2026-08-22T03:25:06Z",
+    "maximumAgeSecondsAtDecision": 86400
+  },
+  "sourceBinding": {
+    "database": "obsidian_exchange",
+    "postgresVersionNum": 170010,
+    "sourceClusterSha256": "9c26ac2556afe7f93eb8d52e2632f36e311c3fd3919d7f5bc229669f4b2bc69f",
+    "archiveSha256": "0c8f679e26283921177684d969434816b3e8a4d5b76e4fbc6e75d54c071966f4",
+    "tableFingerprintSha256": "e6c70cdf67709c85648162b0d1339a1e3681d0ac1d7a98259fc36f021b29f2e9",
+    "catalogFingerprintSha256": "0cb79cb12d1140be628784d9aa680646b6e2d45e7f7ca730271f269355008b25",
+    "catalogCoverageVersion": "b64-catalog-security-fingerprint.v2"
+  },
+  "immutablePriorState": {
+    "priorDecisionInputPath": "docs/e0-3-bot-b5-3-064a-decision-input.v1.json",
+    "priorDecisionInputSha256": "f8abf0cb858232df2497221c44a319975403ccb7a8e2d2403bd57bda8c904bbb",
+    "priorCandidatePath": "docs/e0-3-bot-b5-3-064a-decision-candidate.v3.json",
+    "priorCandidateSha256": "771ce159032de810d8b09731be109af6a2bb317fc1b8b6e2f5a0d3fff9a08ddf",
+    "activeDeferralPath": "docs/e0-3-bot-b5-3-064a-owner-deferral.v3.json",
+    "activeDeferralSha256": "c1cf8375efe84ce4a77302263f3450d661f732ee88dd30164dc711bc94a2f7e3",
+    "activeDeferralBindsPriorCandidateOnly": true,
+    "activeDeferralRemainsRestrictive": true
+  },
+  "knownBlockers": [
+    "ACCOUNTABLE_OWNER_MUST_AUTHENTICALLY_ACCEPT_OR_RE_DEFER_THIS_EXACT_V4_CANDIDATE_DIGEST",
+    "APPLICABLE_INDEPENDENT_REVIEWER_MUST_AUTHENTICALLY_ACCEPT_THIS_EXACT_V4_CANDIDATE_DIGEST",
+    "PRODUCTION_KEY_REGISTRY_TRUSTED_TIME_REVOCATION_AND_DURABLE_REPLAY_ACCEPTANCE_ABSENT",
+    "4_PENDING_MUST_DRAIN_OR_BE_RECONCILED_BEFORE_ANY_MIGRATION",
+    "14_LEGACY_SENDING_REQUIRE_SEPARATE_064D_IMMUTABLE_OPERATOR_DISPOSITION"
+  ],
+  "authority": {
+    "freshnessCanInvalidate": true,
+    "freshnessCanAuthorize": false,
+    "ownerApprovalPresent": false,
+    "independentReviewerApprovalPresent": false,
+    "productionMutation": false,
+    "productionExpandAuthorized": false,
+    "deploymentAuthorized": false,
+    "restartAuthorized": false,
+    "cutoverAuthorized": false,
+    "telegramDeliveryAuthorized": false,
+    "ambiguousSendingDispositionAuthorized": false,
+    "actionAllowed": false
+  }
+}

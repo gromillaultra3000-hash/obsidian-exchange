@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lumi Dashboard</title>
+  <link rel="stylesheet" href="/ui/styles.css">
+</head>
+<body>
+  <div id="app">
+    <div id="safety-banner" class="safety-banner"><span>⚠</span><span id="safety-banner-text">Loading safety status...</span></div>
+    <header id="status-bar">
+      <div class="status-left"><h1>Lumi Dashboard</h1><span id="version-badge" class="badge">v-.-.-</span></div>
+      <div class="status-right"><select id="language-switcher" onchange="switchLanguage(this.value)"><option value="ru">Русский</option><option value="en">English</option></select><span id="health-indicator" class="status-dot"></span><span id="health-text">Checking...</span><span id="mode-badge" class="badge">local</span></div>
+    </header>
+    <div id="main-layout">
+      <nav id="sidebar"><ul id="panel-list">
+        <li data-panel="overview" class="panel-item active">Overview</li>
+        <li data-panel="dialog" class="panel-item">Dialog</li>
+        <li data-panel="approvals" class="panel-item">Approvals</li>
+        <li data-panel="history" class="panel-item">History</li>
+        <li data-panel="integration" class="panel-item">Integration</li>
+        <li data-panel="projects" class="panel-item">Projects</li>
+        <li data-panel="patches" class="panel-item">Patches</li>
+        <li data-panel="sandbox" class="panel-item">Sandbox</li>
+        <li data-panel="persistence" class="panel-item">Storage</li>
+        <li data-panel="security" class="panel-item">Security</li>
+        <li data-panel="providerRuntime" class="panel-item" data-i18n="nav.providers">Провайдеры</li>
+        <li data-panel="providerIntelligence" class="panel-item" data-i18n="nav.provider_intelligence">Оценка провайдеров</li>
+        <li data-panel="realApply" class="panel-item" data-i18n="nav.real_apply">Применение</li>
+        <li data-panel="settings" class="panel-item" data-i18n="nav.settings">Настройки</li>
+        <li data-panel="apiStatus" class="panel-item">API Status</li>
+      </ul></nav>
+      <main id="content">
+        <div id="panel-overview" class="panel active"></div>
+        <div id="panel-dialog" class="panel"></div>
+        <div id="panel-approvals" class="panel"></div>
+        <div id="panel-history" class="panel"></div>
+        <div id="panel-integration" class="panel"></div>
+        <div id="panel-projects" class="panel"></div>
+        <div id="panel-patches" class="panel"></div>
+        <div id="panel-sandbox" class="panel"></div>
+        <div id="panel-persistence" class="panel"></div>
+        <div id="panel-security" class="panel"></div>
+        <div id="panel-providerRuntime" class="panel"></div>
+        <div id="panel-providerIntelligence" class="panel"></div>
+        <div id="panel-realApply" class="panel"></div>
+        <div id="panel-settings" class="panel"></div>
+        <div id="panel-apiStatus" class="panel"></div>
+      </main>
+    </div>
+  </div>
+  <script src="/ui/app.js"></script>
+</body>
+</html>

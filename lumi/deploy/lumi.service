@@ -1,0 +1,29 @@
+[Unit]
+Description=Lumi v1.7.0 — fail-closed AI code-assistant platform (sidecar brain)
+Documentation=file:/root/lumi/README_FIRST_RUN_RU.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/lumi
+
+EnvironmentFile=-/root/lumi/.env
+Environment=LUMI_HOST=127.0.0.1
+Environment=LUMI_PORT=8010
+
+ExecStartPre=/root/lumi/venv/bin/python /root/lumi/scripts/check_lumi_env.py
+ExecStart=/root/lumi/venv/bin/python -m uvicorn lumi.app.main:app --host ${LUMI_HOST} --port ${LUMI_PORT}
+
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=20
+KillSignal=SIGINT
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=lumi
+
+[Install]
+WantedBy=multi-user.target

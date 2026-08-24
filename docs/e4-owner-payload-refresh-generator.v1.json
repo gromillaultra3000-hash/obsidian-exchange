@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "e4-owner-payload-refresh-generator.v1",
+  "recordedOnUtc": "2026-08-23",
+  "stage": "E4",
+  "gate": "DISPOSABLE_FULL_SNAPSHOT_REHEARSAL",
+  "route": "E4_OWNER_GATED_FRESH_PRODUCTION_DISCONNECTED_REHEARSAL",
+  "status": "IN_PROGRESS_FAIL_CLOSED",
+  "implementation": {
+    "path": "relay/core/e4_owner_payload_refresh.py",
+    "sha256": "7ec69b2effe9eca673b82900839c3a7d98e22a70ea334a391c97162aab5d6cc0",
+    "testPath": "tests/test_e4_owner_payload_refresh.py",
+    "testSha256": "3d38acf1d1e74215e110d4a2ff7886dc5e16d49bfab43f58fe2ff5d7c6d9a1cc"
+  },
+  "verifiedProperties": {
+    "sourceNoFollowRegularFileBoundedRead": true,
+    "duplicateAndNonFiniteJsonRejected": true,
+    "exactTopLevelAndNestedSchemaRequired": true,
+    "exactFrozenTrustSnapshotTargetBindingsRequired": true,
+    "exactTrustAnchorsClockNamespacesAndInstructionsRequired": true,
+    "unexpectedSecretOrAuthorityFieldsRejected": true,
+    "freshPayloadAndApprovalIds": true,
+    "freshRandomNonceDigest": true,
+    "authorizationLifetimeMs": 900000,
+    "exclusiveNoOverwriteOutput": true,
+    "authorityGranted": false,
+    "executionEffect": "NONE"
+  },
+  "verification": {
+    "focusedGeneratorTests": "10/10 PASS",
+    "pythonCompilation": "PASS",
+    "diffCheck": "PASS",
+    "e4VerifierOrExecutorRerun": "OMITTED_BY_OWNER_DIRECTION"
+  },
+  "historicalPayloads": {
+    "v11": {
+      "sha256": "08c1430754336cbaf4338546b95467d6b0c247e4b46e2e0014fa7241b68477d2",
+      "authorizationLifetimeMs": 900000,
+      "status": "EXPIRED_LEGACY_NO_EXECUTION_RELEASE"
+    },
+    "v12": {
+      "sha256": "d2a9902a8424fbf37ec204bd2b867d952a5472f0297625d50354a1d9ab22a778",
+      "authorizationLifetimeMs": 1800000,
+      "status": "EXPIRED_SUPERSEDED_WINDOW_DRIFT"
+    },
+    "v13": {
+      "sha256": "2f9be268da4a2f8e8bb4b288926b51c4566361f2b607e42bb8380892a8d84f04",
+      "authorizationLifetimeMs": 1800000,
+      "status": "EXPIRED_UNSIGNED_SUPERSEDED_WINDOW_DRIFT"
+    }
+  },
+  "production": {
+    "dockerExecutionPerformed": false,
+    "postgresqlContactPerformed": false,
+    "snapshotDecrypted": false,
+    "privateKeyAccessed": false,
+    "executionAuthorized": false
+  },
+  "nextCanonicalItem": "FREEZE_VERSIONED_V2_PLAN_AND_RECEIPT_SEMANTICS_FOR_RETAINED_IMMUTABLE_CIPHERTEXT_AND_DESTROYED_TRANSIENT_TARGET_PLAINTEXT"
+}

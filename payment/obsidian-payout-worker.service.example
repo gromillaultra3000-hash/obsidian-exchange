@@ -1,0 +1,38 @@
+# Staging template only. Do not install until code/database/wallet data have
+# been moved out of /root and the obsidian-payout account owns only these paths.
+[Unit]
+Description=ObsidianExchange isolated payout signer
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=obsidian-payout
+Group=obsidian-payout
+WorkingDirectory=/opt/obsidian-exchange
+EnvironmentFile=/etc/obsidian-exchange/payout-worker.env
+Environment=PAYOUT_WORKER_ENABLED=1
+ExecStart=/opt/obsidian-exchange/bot/venv/bin/python /opt/obsidian-exchange/payment/payout_worker.py
+Restart=on-failure
+RestartSec=10
+
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RestrictRealtime=true
+SystemCallArchitectures=native
+ReadWritePaths=/var/lib/obsidian-exchange /var/lib/obsidian-exchange-wallet
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,22 @@
+{
+  "eventId": "event-project-snapshot-001",
+  "hostAppId": "sample_desktop_app",
+  "eventType": "custom",
+  "payload": {
+    "subtype": "project_snapshot",
+    "projectId": "sample_project",
+    "snapshots": [
+      {
+        "snapshotId": "snap-main",
+        "projectId": "sample_project",
+        "path": "app/main.py",
+        "fileName": "main.py",
+        "extension": ".py",
+        "sizeBytes": 512,
+        "contentPreview": "# TODO review\nprint('hello')",
+        "isBinary": false,
+        "isGenerated": false
+      }
+    ]
+  }
+}

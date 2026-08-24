@@ -71,6 +71,10 @@ def main():
     main_src = open(os.path.join(ROOT, "relay-fastapi", "main.py"), encoding="utf-8").read()
     body = main_src[main_src.find("def handle_dead_session("):]
     body = body[:body.find("\nasync def ")]
+    dispatcher = main_src[main_src.find("def _dispatch_lifecycle_work("):]
+    dispatcher = dispatcher[:dispatcher.find("\nasync def ")]
+    lifecycle_src = open(os.path.join(ROOT, "relay", "repositories",
+                                      "order_lifecycle_store.py"), encoding="utf-8").read()
     check(bool(body), "relay-fastapi/main.py: нет handle_dead_session — смерть "
                       "сделки у провайдера снова никому не сообщается")
     for need, why in (("provider_caps", "не объясняет персоналу, ждать ли сигнала"),
@@ -80,7 +84,9 @@ def main():
                                          "два разных сообщения"),
                       ("notify_telegram", "молчит клиенту"),
                       ("notify_admins_tg", "молчит персоналу")):
-        check(need in body, f"handle_dead_session {why} (нет {need})")
+        proof = body + dispatcher + (lifecycle_src if need in
+                                     ("sent_notifications", "order_receipts") else "")
+        check(need in proof, f"handle_dead_session {why} (нет {need})")
     check(not re.search(r"UPDATE orders SET status=", body),
           "handle_dead_session меняет статус ЗАЯВКИ: «сделка не состоялась» у "
           "провайдера не доказывает, что клиент не платил — так человеку с "

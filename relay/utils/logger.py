@@ -1,7 +1,9 @@
 import logging
 import os
 
-LOG_DIR = '/root/relay/logs'
+LOG_DIR = os.getenv('RELAY_PROVIDER_LOG_DIR') or os.getenv(
+    'RELAY_LOG_DIR', str(os.path.join(os.path.dirname(
+        os.path.dirname(os.path.abspath(__file__))), 'logs')))
 if not os.path.exists(LOG_DIR):
     os.makedirs(LOG_DIR)
 

@@ -1,0 +1,6 @@
+{
+  "projectId": "sample_project",
+  "scanMode": "static_inspection",
+  "includeImprovementPlan": true,
+  "metadata": {"source": "example"}
+}

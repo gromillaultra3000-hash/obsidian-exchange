@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+
+<title>ObsidianExchange</title>
+
+<style>
+:root{
+    --bg:#050507;
+    --card:#0f0f14;
+    --card2:#12121a;
+    --input:#151520;
+    --border:rgba(168,85,247,.18);
+    --purple:#8b5cf6;
+    --purple2:#c026d3;
+    --purple3:#6d28d9;
+    --text:#f3f3f3;
+    --muted:#8b8ba3;
+    --success:#00ffb3;
+    --radius:22px;
+}
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    -webkit-tap-highlight-color:transparent;
+}
+
+body{
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    background:
+        radial-gradient(circle at top, rgba(139,92,246,.25), transparent 45%),
+        linear-gradient(180deg,#050507,#09090f);
+    color:var(--text);
+    min-height:100vh;
+    overflow-x:hidden;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    padding:18px;
+    position:relative;
+}
+
+/* MATRIX RAIN */
+
+body::before{
+    content:'';
+    position:fixed;
+    inset:0;
+    background-image:
+        linear-gradient(rgba(168,85,247,.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(168,85,247,.05) 1px, transparent 1px);
+    background-size:40px 40px;
+    opacity:.3;
+    pointer-events:none;
+}
+
+body::after{
+    content:'';
+    position:fixed;
+    width:200%;
+    height:200%;
+    background:
+        radial-gradient(circle, rgba(168,85,247,.12), transparent 60%);
+    animation:bgMove 14s linear infinite;
+    pointer-events:none;
+}
+
+@keyframes bgMove{
+    0%{transform:translate(-10%,-10%)}
+    50%{transform:translate(5%,5%)}
+    100%{transform:translate(-10%,-10%)}
+}
+
+.container{
+    width:100%;
+    max-width:500px;
+    background:rgba(10,10,15,.88);
+    backdrop-filter:blur(24px);
+    border:1px solid rgba(168,85,247,.18);
+    border-radius:34px;
+    overflow:hidden;
+    position:relative;
+    box-shadow:
+        0 0 80px rgba(168,85,247,.18),
+        inset 0 0 0 1px rgba(255,255,255,.03);
+    animation:containerFloat 6s ease-in-out infinite;
+}
+
+@keyframes containerFloat{
+    0%,100%{transform:translateY(0)}
+    50%{transform:translateY(-4px)}
+}
+
+.glow{
+    position:absolute;
+    width:240px;
+    height:240px;
+    border-radius:50%;
+    background:radial-gradient(circle, rgba(168,85,247,.35), transparent 70%);
+    filter:blur(40px);
+    animation:pulseGlow 5s ease infinite;
+}
+
+.glow.one{
+    top:-80px;
+    left:-80px;
+}
+
+.glow.two{
+    bottom:-100px;
+    right:-80px;
+    animation-delay:2s;
+}
+
+@keyframes pulseGlow{
+    0%,100%{
+        transform:scale(1);
+        opacity:.7;
+    }
+    50%{
+        transform:scale(1.15);
+        opacity:1;
+    }
+}
+
+.header{
+    padding:28px 24px 18px;
+    position:relative;
+    z-index:2;
+}
+
+.logo-wrap{
+    display:flex;
+    align-items:center;
+    gap:14px;
+}
+
+.logo-icon{
+    width:54px;
+    height:54px;
+    border-radius:18px;
+    background:
+        linear-gradient(180deg,#d946ef,#7c3aed 60%,#4c1d95);
+    position:relative;
+    transform:rotate(45deg);
+    box-shadow:
+        0 0 35px rgba(168,85,247,.7);
+    animation:crystalFloat 4s ease-in-out infinite;
+}
+
+.logo-icon::before{
+    content:'';
+    position:absolute;
+    inset:8px;
+    border:1px solid rgba(255,255,255,.2);
+    border-radius:12px;
+}
+
+@keyframes crystalFloat{
+    0%,100%{
+        transform:rotate(45deg) translateY(0);
+    }
+    50%{
+        transform:rotate(45deg) translateY(-6px);
+    }
+}
+
+.logo-text h1{
+    font-size:24px;
+    font-weight:800;
+    letter-spacing:.5px;
+    background:linear-gradient(90deg,#fff,#c084fc,#f0abfc);
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
+}
+
+.logo-text p{
+    color:var(--muted);
+    font-size:12px;
+    margin-top:4px;
+    letter-spacing:1px;
+}
+
+.live-badge{
+    margin-top:16px;
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    padding:8px 14px;
+    border-radius:999px;
+    background:rgba(168,85,247,.08);
+    border:1px solid rgba(168,85,247,.16);
+    color:#d8b4fe;
+    font-size:12px;
+    font-weight:600;
+}
+
+.dot{
+    width:8px;
+    height:8px;
+    border-radius:50%;
+    background:#00ff9d;
+    box-shadow:0 0 14px #00ff9d;
+    animation:onlinePulse 1.5s infinite;
+}
+
+@keyframes onlinePulse{
+    0%,100%{opacity:1}
+    50%{opacity:.4}
+}
+
+.tabs{
+    display:flex;
+    padding:0 18px 20px;
+    gap:10px;
+    overflow:auto;
+}
+
+.tabs::-webkit-scrollbar{
+    display:none;
+}
+
+.tab{
+    flex:1;
+    min-width:90px;
+    padding:14px 10px;
+    border-radius:18px;
+    text-align:center;
+    background:rgba(255,255,255,.03);
+    border:1px solid transparent;
+    color:#a1a1b5;
+    font-size:13px;
+    font-weight:700;
+    transition:.35s;
+    position:relative;
+    overflow:hidden;
+    cursor:pointer;
+}
+
+.tab::before{
+    content:'';
+    position:absolute;
+    inset:0;
+    background:linear-gradient(90deg,transparent,rgba(255,255,255,.08),transparent);
+    transform:translateX(-100%);
+}
+
+.tab.active{
+    color:white;
+    border-color:rgba(168,85,247,.3);
+    background:
+        linear-gradient(180deg,rgba(168,85,247,.18),rgba(168,85,247,.08));
+    box-shadow:
+        0 0 24px rgba(168,85,247,.22);
+    transform:translateY(-2px);
+}
+
+.tab.active::before{
+    animation:shine 2.5s infinite;
+}
+
+@keyframes shine{
+    100%{
+        transform:translateX(100%);
+    }
+}
+
+.panel{
+    display:none;
+    padding:0 20px 24px;
+}
+
+.panel.active{
+    display:block;
+    animation:panelIn .45s ease;
+}
+
+@keyframes panelIn{
+    from{
+        opacity:0;
+        transform:translateY(14px);
+    }
+    to{
+        opacity:1;
+        transform:translateY(0);
+    }
+}
+
+.card{
+    background:
+        linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.01));
+    border:1px solid rgba(168,85,247,.14);
+    border-radius:26px;
+    padding:18px;
+    margin-bottom:18px;
+    backdrop-filter:blur(20px);
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,.04),
+        0 0 24px rgba(168,85,247,.08);
+}
+
+.input-group{
+    margin-bottom:18px;
+}
+
+.input-group label{
+    display:block;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:1px;
+    color:#9e9eb5;
+    margin-bottom:8px;
+    font-weight:700;
+}
+
+.input-group input,
+.input-group select{
+    width:100%;
+    background:rgba(255,255,255,.03);
+    border:1px solid rgba(168,85,247,.14);
+    color:white;
+    border-radius:18px;
+    padding:16px;
+    font-size:16px;
+    outline:none;
+    transition:.35s;
+}
+
+.input-group input:focus,
+.input-group select:focus{
+    border-color:#a855f7;
+    box-shadow:
+        0 0 0 4px rgba(168,85,247,.12),
+        0 0 30px rgba(168,85,247,.18);
+    transform:translateY(-1px);
+}
+
+.rate-grid{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:10px;
+    margin-bottom:18px;
+}
+
+.rate-box{
+    background:rgba(255,255,255,.03);
+    border:1px solid rgba(168,85,247,.14);
+    border-radius:20px;
+    padding:14px;
+    text-align:center;
+    transition:.35s;
+}
+
+.rate-box:hover{
+    transform:translateY(-3px);
+    box-shadow:0 0 30px rgba(168,85,247,.2);
+}
+
+.rate-box strong{
+    display:block;
+    margin-bottom:8px;
+    color:#d8b4fe;
+}
+
+.rate-value{
+    font-size:15px;
+    font-weight:800;
+    color:white;
+}
+
+.fee-display{
+    text-align:center;
+    padding:14px;
+    border-radius:18px;
+    margin-bottom:16px;
+    background:
+        linear-gradient(90deg,
+        rgba(168,85,247,.12),
+        rgba(192,38,211,.08));
+    border:1px solid rgba(168,85,247,.18);
+    color:#d8b4fe;
+    font-weight:700;
+}
+
+.btn{
+    width:100%;
+    border:none;
+    border-radius:22px;
+    padding:18px;
+    font-size:16px;
+    font-weight:800;
+    color:white;
+    cursor:pointer;
+    position:relative;
+    overflow:hidden;
+    background:
+        linear-gradient(90deg,#7c3aed,#a855f7,#c026d3);
+    box-shadow:
+        0 0 35px rgba(168,85,247,.35);
+    transition:.35s;
+}
+
+.btn::before{
+    content:'';
+    position:absolute;
+    inset:0;
+    background:linear-gradient(90deg,
+    transparent,
+    rgba(255,255,255,.18),
+    transparent);
+    transform:translateX(-100%);
+}
+
+.btn:hover::before{
+    animation:btnShine 1.5s infinite;
+}
+
+.btn:active{
+    transform:scale(.98);
+}
+
+@keyframes btnShine{
+    100%{
+        transform:translateX(100%);
+    }
+}
+
+.result{
+    margin-top:18px;
+    border-radius:20px;
+    padding:18px;
+    text-align:center;
+    background:rgba(168,85,247,.08);
+    border:1px solid rgba(168,85,247,.16);
+    font-weight:700;
+    color:#d8b4fe;
+    animation:resultGlow 2s infinite;
+}
+
+@keyframes resultGlow{
+    0%,100%{
+        box-shadow:0 0 0 rgba(168,85,247,0);
+    }
+    50%{
+        box-shadow:0 0 30px rgba(168,85,247,.18);
+    }
+}
+
+.history-item,
+.ref-item{
+    padding:16px;
+    border-radius:20px;
+    background:rgba(255,255,255,.03);
+    border:1px solid rgba(168,85,247,.12);
+    margin-bottom:12px;
+    animation:itemFade .4s ease;
+}
+
+@keyframes itemFade{
+    from{
+        opacity:0;
+        transform:translateY(10px);
+    }
+    to{
+        opacity:1;
+        transform:translateY(0);
+    }
+}
+
+.history-status{
+    margin-top:6px;
+    color:#8f8fa8;
+    font-size:12px;
+}
+
+.ref-link{
+    margin:14px 0;
+    padding:14px;
+    border-radius:16px;
+    background:#0d0d14;
+    border:1px solid rgba(168,85,247,.14);
+    word-break:break-all;
+    color:#c084fc;
+    font-size:13px;
+}
+
+.profile-box{
+    padding:18px;
+    border-radius:22px;
+    background:rgba(255,255,255,.03);
+    border:1px solid rgba(168,85,247,.12);
+}
+
+.footer{
+    text-align:center;
+    padding:8px 20px 24px;
+    color:#76768f;
+    font-size:11px;
+    letter-spacing:1px;
+}
+
+@media(max-width:480px){
+    .container{
+        border-radius:28px;
+    }
+
+    .tabs{
+        gap:8px;
+    }
+
+    .tab{
+        min-width:82px;
+        font-size:12px;
+        padding:12px 8px;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<div class="glow one"></div>
+<div class="glow two"></div>
+
+<div class="header">
+
+<div class="logo-wrap">
+<div class="logo-icon"></div>
+
+<div class="logo-text">
+<h1>ObsidianExchange</h1>
+<p>ANONYMOUS CRYPTO GATEWAY</p>
+</div>
+</div>
+
+<div class="live-badge">
+<div class="dot"></div>
+SYSTEM ONLINE • AUTO EXCHANGE
+</div>
+
+</div>
+
+<div class="tabs">
+<div class="tab active" data-tab="exchange">Обмен</div>
+<div class="tab" data-tab="history">История</div>
+<div class="tab" data-tab="referral">Рефералы</div>
+<div class="tab" data-tab="profile">Профиль</div>
+</div>
+
+<div class="panel active" id="panel-exchange">
+
+<div class="card">
+
+<div class="rate-grid">
+<div class="rate-box">
+<strong>BTC</strong>
+<div class="rate-value" id="btc-rate">...</div>
+</div>
+
+<div class="rate-box">
+<strong>LTC</strong>
+<div class="rate-value" id="ltc-rate">...</div>
+</div>
+
+<div class="rate-box">
+<strong>USDT</strong>
+<div class="rate-value" id="usdt-rate">...</div>
+</div>
+</div>
+
+<div class="input-group">
+<label>Валюта</label>
+
+<select id="currency">
+<option value="BTC">BTC</option>
+<option value="LTC">LTC</option>
+<option value="USDT">USDT (TRC20)</option>
+</select>
+</div>
+
+<div class="input-group">
+<label>Сумма (RUB)</label>
+
+<input
+type="number"
+id="amount"
+placeholder="2000 - 500000 RUB"
+min="2000"
+max="500000"
+oninput="calculateFee()">
+</div>
+
+<div id="fee-display" class="fee-display">
+Комиссия: 23%
+</div>
+
+<div class="input-group">
+<label>Ваш адрес</label>
+
+<input
+type="text"
+id="address"
+placeholder="Введите адрес кошелька">
+</div>
+
+<button class="btn" id="create-order">
+Создать заявку
+</button>
+
+<div class="result" id="exchange-result"></div>
+
+</div>
+
+</div>
+
+<div class="panel" id="panel-history">
+<div id="history-list"></div>
+</div>
+
+<div class="panel" id="panel-referral">
+
+<div class="card">
+
+<div class="ref-item">
+<strong>Ваша реферальная ссылка</strong>
+
+<div class="ref-link" id="ref-link">
+Загрузка...
+</div>
+
+<button class="btn" onclick="copyRefLink()">
+Скопировать ссылку
+</button>
+
+<div id="ref-stats" style="margin-top:18px;"></div>
+
+</div>
+
+</div>
+
+</div>
+
+<div class="panel" id="panel-profile">
+
+<div class="card">
+
+<div class="profile-box">
+
+<div class="input-group">
+<label>BTC адрес для бонусов</label>
+
+<input
+type="text"
+id="btc-address"
+placeholder="Введите BTC адрес">
+</div>
+
+<button class="btn" onclick="saveAddress()">
+Сохранить адрес
+</button>
+
+<div id="profile-result" class="result"></div>
+
+</div>
+
+</div>
+
+</div>
+
+<div class="footer">
+OBSIDIANEXCHANGE • NON-KYC • 24/7
+</div>
+
+</div>
+
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+<script>
+const tg = window.Telegram.WebApp;
+tg.expand();
+
+const cache = { rates:null, ts:0 };
+
+let user = tg.initDataUnsafe?.user || {};
+let userId = user.id || 0;
+
+async function fetchRates() {
+    if (cache.rates && Date.now() - cache.ts < 300000) {
+        showRates(cache.rates);
+        return;
+    }
+
+    try{
+        const res = await fetch(
+            'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,litecoin,tether&vs_currencies=rub'
+        );
+
+        const data = await res.json();
+
+        cache.rates = data;
+        cache.ts = Date.now();
+
+        showRates(data);
+
+    } catch(e){}
+}
+
+function showRates(data){
+    document.getElementById('btc-rate').textContent =
+        data.bitcoin.rub.toLocaleString() + ' ₽';
+
+    document.getElementById('ltc-rate').textContent =
+        data.litecoin.rub.toLocaleString() + ' ₽';
+
+    document.getElementById('usdt-rate').textContent =
+        data.tether.rub.toLocaleString() + ' ₽';
+}
+
+fetchRates();
+
+function calculateFee(){
+    const amount =
+        parseInt(document.getElementById('amount').value) || 0;
+
+    let fee = 23;
+
+    if(amount >= 500 && amount < 2000){
+        fee = 27;
+    }
+    else if(amount > 10000){
+        fee = 21;
+    }
+
+    const el = document.getElementById('fee-display');
+
+    el.innerHTML =
+        `⚡ Комиссия обмена: <strong>${fee}%</strong>`;
+}
+
+document.getElementById('create-order')
+.addEventListener('click',()=>{
+
+    const currency =
+        document.getElementById('currency').value;
+
+    const amount =
+        document.getElementById('amount').value;
+
+    const address =
+        document.getElementById('address').value.trim();
+
+    if(!amount || amount < 2000 || amount > 500000){
+        document.getElementById('exchange-result')
+        .textContent =
+        'Сумма должна быть от 2000 до 500000 RUB';
+
+        return;
+    }
+
+    if(!address){
+        document.getElementById('exchange-result')
+        .textContent =
+        'Введите адрес кошелька';
+
+        return;
+    }
+
+    tg.HapticFeedback.notificationOccurred('success');
+
+    tg.sendData(JSON.stringify({
+        currency,
+        amount:parseFloat(amount),
+        address
+    }));
+
+    document.getElementById('exchange-result')
+    .innerHTML =
+    '🚀 Заявка отправляется в систему...';
+});
+
+async function loadHistory(){
+
+    const list =
+        document.getElementById('history-list');
+
+    list.innerHTML = '';
+
+    try{
+
+        const res =
+            await fetch(`/api/history?user_id=${userId}`);
+
+        const orders =
+            await res.json();
+
+        if(!orders.length){
+            list.innerHTML =
+            '<div class=\"history-item\">У вас пока нет заявок.</div>';
+            return;
+        }
+
+        let html = '';
+
+        orders.forEach(o=>{
+
+            const emoji = {
+                pending:'⏳',
+                paid:'✅',
+                sent:'🚀'
+            }[o.status] || '⚡';
+
+            html += `
+            <div class="history-item">
+                <strong>#${o.order_id}</strong>
+                <div style="margin-top:8px;">
+                    ${emoji} ${o.amount} RUB → ${o.currency}
+                </div>
+
+                <div class="history-status">
+                    ${o.created}
+                </div>
+            </div>`;
+        });
+
+        list.innerHTML = html;
+
+    }catch(e){
+
+        list.innerHTML =
+        '<div class=\"history-item\">Ошибка загрузки.</div>';
+    }
+}
+
+function loadReferral(){
+
+    const botUsername =
+        'Obsidian666999bot';
+
+    const refLink =
+        `https://t.me/${botUsername}?start=ref_${userId}`;
+
+    document.getElementById('ref-link')
+    .textContent = refLink;
+
+    fetch(`/api/referral_stats?user_id=${userId}`)
+    .then(r=>r.json())
+    .then(data=>{
+
+        document.getElementById('ref-stats')
+        .innerHTML = `
+            <div class="history-item">
+                👥 Приглашено:
+                <strong>${data.referrals || 0}</strong>
+            </div>
+
+            <div class="history-item">
+                💸 Бонусов заработано:
+                <strong>${data.total_bonus_btc || 0} BTC</strong>
+            </div>
+        `;
+    });
+}
+
+function copyRefLink(){
+
+    const link =
+        document.getElementById('ref-link').textContent;
+
+    navigator.clipboard.writeText(link);
+
+    tg.HapticFeedback.notificationOccurred('success');
+
+    alert('Ссылка скопирована');
+}
+
+function saveAddress(){
+
+    const addr =
+        document.getElementById('btc-address')
+        .value.trim();
+
+    if(
+        !addr ||
+        !/^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$|^bc1[ac-hj-np-z02-9]{39,59}$/.test(addr)
+    ){
+        document.getElementById('profile-result')
+        .textContent = 'Неверный BTC адрес';
+
+        return;
+    }
+
+    tg.sendData(JSON.stringify({
+        action:'save_ref_address',
+        address:addr
+    }));
+
+    tg.HapticFeedback.notificationOccurred('success');
+
+    document.getElementById('profile-result')
+    .textContent = 'Адрес сохранён';
+}
+
+document.querySelectorAll('.tab')
+.forEach(tab=>{
+
+    tab.addEventListener('click',()=>{
+
+        tg.HapticFeedback.impactOccurred('light');
+
+        document.querySelectorAll('.tab')
+        .forEach(t=>t.classList.remove('active'));
+
+        tab.classList.add('active');
+
+        document.querySelectorAll('.panel')
+        .forEach(p=>p.classList.remove('active'));
+
+        const panel =
+            document.getElementById(
+                `panel-${tab.dataset.tab}`
+            );
+
+        panel.classList.add('active');
+
+        if(tab.dataset.tab === 'history'){
+            loadHistory();
+        }
+
+        if(tab.dataset.tab === 'referral'){
+            loadReferral();
+        }
+    });
+});
+
+tg.onEvent('mainButtonClicked',()=>tg.close());
+</script>
+
+</body>
+</html>

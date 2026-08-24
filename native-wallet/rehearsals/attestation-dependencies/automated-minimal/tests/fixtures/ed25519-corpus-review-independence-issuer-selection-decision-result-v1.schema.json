@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.obsidian.invalid/native-wallet/ed25519-corpus-review-independence-issuer-selection-decision-result-v1.schema.json",
+  "title": "Non-authoritative issuer-selection decision result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "decision_id",
+    "outcome",
+    "candidate_option_id",
+    "selected_option",
+    "selection_scorecard_sha256",
+    "context_handoff_sha256",
+    "independence_evidence_sha256",
+    "supporting_bundle_sha256",
+    "conflict_matrix_sha256",
+    "issuer_challenge_sha256",
+    "subject_review_domain_id",
+    "issued_at_epoch_ms",
+    "expires_at_epoch_ms",
+    "caller_nonce_sha256",
+    "result_sha256"
+  ],
+  "properties": {
+    "schema": { "const": "native-wallet-ed25519-corpus-review-independence-issuer-selection-decision-result.v1" },
+    "decision_id": { "type": "string", "minLength": 8, "maxLength": 128, "pattern": "^[a-z0-9][a-z0-9._:-]*$" },
+    "outcome": {
+      "enum": [
+        "NOT_EVALUATED",
+        "REVIEW_REQUIRED_SINGLE_CANDIDATE",
+        "TIE_REQUIRES_SEPARATE_ADR",
+        "BLOCKED_INVALID_STATE"
+      ]
+    },
+    "candidate_option_id": {
+      "type": ["string", "null"],
+      "enum": ["threshold_dsse_offline_roots", "dual_webauthn_human_issuers", null]
+    },
+    "selected_option": { "const": null },
+    "selection_scorecard_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "context_handoff_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "independence_evidence_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "supporting_bundle_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "conflict_matrix_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "issuer_challenge_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "subject_review_domain_id": { "type": "string", "minLength": 8, "maxLength": 128, "pattern": "^[a-z0-9][a-z0-9._:-]*$" },
+    "issued_at_epoch_ms": { "type": "integer", "minimum": 1 },
+    "expires_at_epoch_ms": { "type": "integer", "minimum": 1 },
+    "caller_nonce_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "result_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  },
+  "maximum_lifetime_ms": 600000,
+  "maximum_future_skew_ms": 1000,
+  "single_use_decision_id_required": true,
+  "single_use_caller_nonce_required": true,
+  "result_digest_covers_all_other_fields": true,
+  "context_handoff_digest_is_exact": true,
+  "automatic_selection_allowed": false,
+  "selected_option_must_be_null": true,
+  "issuer_authenticated": false,
+  "selection_allowed": false,
+  "crypto_call_allowed": false,
+  "runtime_integration_allowed": false
+}

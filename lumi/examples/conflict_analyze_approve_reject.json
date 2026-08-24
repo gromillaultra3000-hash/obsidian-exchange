@@ -1,0 +1,7 @@
+{
+  "task": {"input": "Should the host application proceed?", "context": {}, "requirements": {}},
+  "outputs": [
+    {"providerId": "p1", "rawOutput": {"providerId": "p1", "status": "success", "answer": "Proceed based on available evidence.", "confidence": 0.9, "suggestedStatus": "APPROVE", "assumptions": ["context sufficient"], "evidenceRefs": ["ev1"]}},
+    {"providerId": "p2", "rawOutput": {"providerId": "p2", "status": "success", "answer": "Do not proceed due to risk.", "confidence": 0.8, "suggestedStatus": "REJECT", "assumptions": ["risk detected"], "evidenceRefs": ["ev2"]}}
+  ]
+}

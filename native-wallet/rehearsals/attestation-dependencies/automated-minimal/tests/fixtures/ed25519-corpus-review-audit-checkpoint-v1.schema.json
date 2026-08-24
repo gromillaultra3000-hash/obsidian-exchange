@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.obsidian.invalid/native-wallet/ed25519-corpus-review-audit-checkpoint-v1.schema.json",
+  "title": "Independent corpus-review audit checkpoint",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "chain_id",
+    "policy_sha256",
+    "audit_sequence",
+    "audit_head_sha256",
+    "previous_checkpoint_sha256",
+    "checkpoint_epoch",
+    "caller_nonce_sha256",
+    "issued_at_epoch_ms",
+    "expires_at_epoch_ms",
+    "authentication_evidence"
+  ],
+  "properties": {
+    "schema": { "const": "native-wallet-ed25519-corpus-review-audit-checkpoint.v1" },
+    "chain_id": { "type": "string", "minLength": 8, "maxLength": 128, "pattern": "^[a-z0-9][a-z0-9._:-]*$" },
+    "policy_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "audit_sequence": { "type": "integer", "minimum": 1 },
+    "audit_head_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "previous_checkpoint_sha256": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
+    "checkpoint_epoch": { "type": "integer", "minimum": 1 },
+    "caller_nonce_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "issued_at_epoch_ms": { "type": "integer", "minimum": 1 },
+    "expires_at_epoch_ms": { "type": "integer", "minimum": 1 },
+    "authentication_evidence": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["domain_id", "authentication_root_sha256", "recovery_authority_id", "host_failure_domain_id", "evidence_sha256"],
+        "properties": {
+          "domain_id": { "type": "string", "minLength": 8, "maxLength": 128, "pattern": "^[a-z0-9][a-z0-9._:-]*$" },
+          "authentication_root_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "recovery_authority_id": { "type": "string", "minLength": 8, "maxLength": 128, "pattern": "^[a-z0-9][a-z0-9._:-]*$" },
+          "host_failure_domain_id": { "type": "string", "minLength": 8, "maxLength": 128, "pattern": "^[a-z0-9][a-z0-9._:-]*$" },
+          "evidence_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+        }
+      }
+    }
+  },
+  "maximum_lifetime_ms": 600000,
+  "single_use_caller_nonce_required": true,
+  "authentication_domains_must_be_pairwise_distinct": [
+    "domain_id",
+    "authentication_root_sha256",
+    "recovery_authority_id",
+    "host_failure_domain_id",
+    "evidence_sha256"
+  ],
+  "authentication_domains_must_not_control_audit_store": true,
+  "real_checkpoint_present": false,
+  "checkpoint_accepted": false,
+  "gate_i09_pass": false
+}

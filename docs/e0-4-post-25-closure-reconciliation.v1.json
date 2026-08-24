@@ -1,0 +1,165 @@
+{
+  "schemaVersion": "e0-4-post-25-closure-reconciliation.v1",
+  "observedAt": "2026-08-18T20:02:42Z",
+  "route": "E0/E0.4/POST_25_CLOSURE_RECONCILIATION",
+  "status": "IN_PROGRESS",
+  "acceptance": "PARTIAL_NOT_ACCEPTED",
+  "workClass": "KEYLESS_READ_ONLY_DEPLOYED_GENERATED_UNIVERSE_RESCAN",
+  "productionMutation": false,
+  "authenticatedCallsMade": false,
+  "secretValuesRead": false,
+  "customerDataRead": false,
+  "externalProviderCallsMade": false,
+  "moneyWritersExercised": false,
+  "servicesRestarted": false,
+  "baseline": {
+    "matrixPath": "docs/e0-4-feature-status-surface-matrix.v1.json",
+    "declaredFeatureFamilies": 25,
+    "priorOmissionListEmpty": true,
+    "priorCompletenessAccepted": false
+  },
+  "httpUniverse": {
+    "relay": {
+      "entrypoint": "/opt/obsidian-exchange/relay-fastapi/main.py",
+      "sha256": "c1ef783e3005f4698540ddc5368ef9a4592612fcf666b403ecbb7c4a359bd7ff",
+      "decoratedRoutes": 94,
+      "methods": {"GET": 56, "POST": 37, "DELETE": 1},
+      "canonicalMethodPathSha256": "221c053b1e56650622c9d403062db3958c132c1381a5cc50eae970b53f86c2fe",
+      "generatedDefaults": ["/openapi.json", "/docs", "/redoc"],
+      "mountedStaticPrefixes": ["/static"],
+      "inferredRouteObjects": 98
+    },
+    "kairos": {
+      "entrypoint": "/opt/kairos/app/main_v19.py",
+      "sha256": "05306d4120cbc545aea3b7d571de5af4f1163d830bb14a02fef9ebce416578ee",
+      "decoratedRoutes": 41,
+      "methods": {"GET": 22, "POST": 18, "DELETE": 1},
+      "canonicalMethodPathSha256": "dabea55bc1e2db45f2dae63484317b371b1bb5b935b98ee57b9efb4a94bf3ea4",
+      "mountedStaticPrefixes": ["/assets"],
+      "inferredRouteObjects": 42
+    },
+    "lumi": {
+      "entrypoint": "/opt/lumi/lumi/app/main.py",
+      "sha256": "bada14a32cc465a7e2e547a8ce661c263792d13bb7429c60bbe254871a4eab16",
+      "mountedRouters": 28,
+      "decoratedRoutes": 203,
+      "methods": {"GET": 107, "POST": 94, "DELETE": 2},
+      "canonicalMethodPathSha256": "35c14741ea07598008eeac328e07dbe304daeb6f4364682d82540d540be25c18",
+      "generatedDefaults": ["/openapi.json", "/docs", "/redoc"],
+      "inferredRouteObjects": 206
+    },
+    "threeFastApiInferredRouteObjects": 346,
+    "laravel": {
+      "workingDirectory": "/opt/obsidian-exchange/admin-panel",
+      "runtimeGeneratedRoutes": 29,
+      "methods": {"GET_OR_HEAD": 25, "POST": 3, "PUT": 1},
+      "includes": ["Filament auth/dashboard/resources", "Livewire update/upload/assets", "storage GET/PUT", "health"],
+      "routeSourceSha256": "248c7eeeb43bb61ee4fb6603e52b44843c64f72a841d671bcd41871aab23f970",
+      "providerSourceSha256": "c45d63866817ee304e1ea210c3365ba743fb8ba8afeadf3840f0a146c77d4b06"
+    },
+    "combinedFrameworkRouteObjectsObserved": 375,
+    "nginx": {
+      "enabledConfigs": 3,
+      "locationBlocks": 13,
+      "configSha256": {
+        "obsidian-exchange.org": "d7319e93f22e0bd6e7b37071b1517e25f52be760cc15cb496a3c4a151294aa0f",
+        "pay.conf": "ac644a9c4a12922c87379be9fe56bd1c999b6c55b3949d57f764bb6877a7ef60",
+        "pay.obsidianbtc.org": "cea3f62e2e94e6b6870a6b55616c0e2bc2a16d978d4c115dc14a7ac48c7092a9"
+      }
+    }
+  },
+  "workerAndServiceUniverse": {
+    "activeObserved": [
+      "admin-panel", "exchange-bot", "exchange-notifier", "kairos", "lumi",
+      "obsidian-monitor", "obsidian-payout-worker", "obsidian-postgres",
+      "relay-fastapi", "support-bot"
+    ],
+    "enabledTimersObserved": [
+      "kairos-shadow-backup.timer", "kairos-shadow-verify.timer", "obsidian-autodeploy.timer"
+    ],
+    "materialDormantOrLegacyUnits": [
+      "callback-handler.service", "crypto-news-bot.service", "emoji-userbot.service",
+      "exchange-payout.service", "relay.service", "relay-shadow.service"
+    ],
+    "effectSurfaceExtensions": [
+      "Relay startup launches multiple payment, payout, engagement and monitoring loops.",
+      "LUMI import initialization writes storage, profile and audit state under LUMI_CONTROL_PLANE.",
+      "KAIROS startup may refresh connector permissions under CEX_PORTFOLIO/KAIROS_AUTONOMOUS_TRADE_CONTROL.",
+      "Legacy notifier and durable dispatcher overlap; duplicate legacy payout unit definitions reference a missing /root payout implementation.",
+      "Systemd retains legacy /root entrypoints while accepted evidence often binds /opt entrypoints."
+    ]
+  },
+  "newMaterialFamilies": [
+    {
+      "id": "RATE_LOCKS",
+      "reason": "Telegram sells and persists a time-bounded guaranteed rate and later consumes it in a monetary order calculation; indicative market information and generic buy flow do not classify this separate paid promise lifecycle.",
+      "anchors": ["/opt/obsidian-exchange/bot/main_bot.py#menu_ratelock", "/opt/obsidian-exchange/bot/main_bot.py#replace_rate_lock", "/opt/obsidian-exchange/bot/main_bot.py#get_active_rate_lock"]
+    },
+    {
+      "id": "DEPLOYMENT_RELEASE_AUTOMATION",
+      "reason": "An enabled 15-minute timer invokes a root autodeploy script that pulls code, runs partial checks, restarts production services and writes deployment state; this autonomous production writer is not monitoring or an interactive operator workflow.",
+      "anchors": ["/etc/systemd/system/obsidian-autodeploy.timer", "/etc/systemd/system/obsidian-autodeploy.service", "/root/deploy.sh"]
+    },
+    {
+      "id": "EDITORIAL_NEWS_DELIVERY",
+      "reason": "A separate crypto-news Telegram bot and legacy callback handler own subscription, polling and message-delivery lifecycles outside the Exchange customer-engagement evidence.",
+      "anchors": ["/etc/systemd/system/crypto-news-bot.service", "/etc/systemd/system/callback-handler.service"]
+    },
+    {
+      "id": "TELEGRAM_CHANNEL_POST_PROCESSING",
+      "reason": "A Telethon premium-user session edits channel posts and creates a distinct credential, identity and message-mutation trust boundary.",
+      "anchors": ["/etc/systemd/system/emoji-userbot.service", "/root/bot/emoji_userbot.py"]
+    },
+    {
+      "id": "LEGACY_PAYMENT_EDGE_UPSTREAM",
+      "reason": "Two enabled public payment-domain Nginx configs wildcard-proxy to 127.0.0.1:8080, but no mapped active systemd service or container was observed. Ownership, reachability, TLS and payment-truth authority are unbound.",
+      "anchors": ["/etc/nginx/sites-enabled/pay.conf", "/etc/nginx/sites-enabled/pay.obsidianbtc.org"]
+    }
+  ],
+  "classificationDecisionsStillRequired": [
+    {
+      "id": "PUBLIC_TRUST_LEGAL_CONTENT",
+      "reason": "Offer, FAQ, how-it-works, contacts, reviews and error pages carry material non-KYC, custody, fee and support claims; classify as a family or explicitly bind them as supporting UI."
+    },
+    {
+      "id": "FRAMEWORK_GENERATED_HTTP_SURFACES",
+      "reason": "FastAPI docs/OpenAPI, Filament/Livewire upload/update/storage and UI catch-all routes need explicit family mapping and auth/exposure classification rather than decorator-only omission."
+    }
+  ],
+  "coverageConclusion": {
+    "priorTwentyFiveFamiliesComplete": false,
+    "exactHttpUniverseEnumerated": true,
+    "startupImportWriterUniverseClosed": false,
+    "workerServiceUniverseClosed": false,
+    "uiBotConsumerUniverseClosed": false,
+    "allObservedGroupsMapped": false,
+    "sixSurfaceClassificationComplete": false,
+    "productionAcceptanceProven": false,
+    "e0_4Complete": false,
+    "e0Closed": false
+  },
+  "independentReviews": [
+    {
+      "reviewer": "closure-routes",
+      "disposition": "NOT_ACCEPTED",
+      "finding": "HTTP decorator counts omit generated docs/admin routes and the enabled public :8080 payment edge has no mapped runtime owner."
+    },
+    {
+      "reviewer": "closure-workers",
+      "disposition": "NOT_ACCEPTED",
+      "finding": "Autodeploy, editorial news delivery and premium-userbot post-processing are material families outside the current 25; legacy units expand existing effect surfaces."
+    },
+    {
+      "reviewer": "closure-ui",
+      "disposition": "NOT_ACCEPTED",
+      "finding": "Paid durable RATE_LOCKS is a separate monetary lifecycle; public trust/legal content also needs an explicit classification decision."
+    }
+  ],
+  "limitations": [
+    "Static and framework route enumeration proves declaration/generated presence, not reachability, authorization correctness or acceptance.",
+    "Dormant/disabled installed units are inventory, not proof that their processes currently execute.",
+    "No environment file or secret value was read; missing upstream ownership cannot be resolved from port configuration alone.",
+    "The discovery of omissions terminates any honest completeness claim; it does not prove this omission list is final."
+  ],
+  "nextCanonicalItem": "Classify RATE_LOCKS across all six surfaces and verify its quote, fee, expiry, persistence and money-authority boundary read-only."
+}

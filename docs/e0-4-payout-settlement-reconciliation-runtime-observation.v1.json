@@ -1,0 +1,63 @@
+{
+  "schemaVersion":"e0-4-payout-settlement-reconciliation-runtime-observation.v1",
+  "observedAt":"2026-08-18T17:59:57Z",
+  "route":"E0/E0.4/PAYOUT_SETTLEMENT_RECONCILIATION",
+  "acceptance":"PARTIAL_NOT_ACCEPTED",
+  "workClass":"KEYLESS_READ_ONLY_DEPLOYED_SOURCE_AND_UNIT_METADATA_CLASSIFICATION",
+  "productionMutation":false,
+  "observationSafety":{"authenticatedCalls":false,"providerOrRpcCalls":false,"customerRowsRead":false,"secretValuesRead":false,"writersExercised":false,"deployOrRestart":false},
+  "runtimeObservation":{"unitFilesInstalled":true,"payoutWorkerEnabledSymlink":true,"legacyNotifierEnabledSymlink":true,"activeProcessProvenThisObservation":false,"reason":"systemd bus and host process namespace were unavailable in the observation sandbox; enabled is not running or custody acceptance"},
+  "deployedEntrypoints":[
+    {"path":"/opt/obsidian-exchange/payment/payout_worker.py","sha256":"27f571973d83a32383871728b8179d96b97aea33ca2f87e8cac2b3b32f7b86f4"},
+    {"path":"/opt/obsidian-exchange/bot/main_bot.py","sha256":"a015b5b12870fa2f1eec7d0fb638cc2c94cb90235850d474ebb25455446372fb"},
+    {"path":"/opt/obsidian-exchange/relay-fastapi/main.py","sha256":"c1ef783e3005f4698540ddc5368ef9a4592612fcf666b403ecbb7c4a359bd7ff"},
+    {"path":"/opt/obsidian-exchange/relay/services/payout_signer.py","sha256":"bcec4c8640b957b3df4b3df1171e09a8603483ba8be2a6f934a7ce82b05ed992"},
+    {"path":"/opt/obsidian-exchange/relay/services/payout_guard.py","sha256":"f5c2938f7c319097a2fb5d92afaf6f64bcd1ea70157df5b662d8bce39feffc5d"},
+    {"path":"/opt/obsidian-exchange/relay/services/payout_circuit.py","sha256":"c11a26c3cd46fbab1b2e363204cc0f4872fc51622cdba42c90927674f6f74c95"},
+    {"path":"/opt/obsidian-exchange/relay/repositories/payout_store.py","sha256":"393a34b3326f87fb2abd8832ec04e0aab7fed0750de8fdfed744cf27f367f449"},
+    {"path":"/opt/obsidian-exchange/relay/repositories/reconciliation_store.py","sha256":"0a399003008bda0c202d50ac1025cff0dee07d6d0e4ebccfa7ea7c9a7946fc52"},
+    {"path":"/opt/obsidian-exchange/relay/repositories/status_notification_store.py","sha256":"1672597530800c5b633021a5fbd8994aae74ec56b1809569699f3160ebf106dd"},
+    {"path":"/opt/obsidian-exchange/relay/core/payout_discovery.py","sha256":"a033a9b8ff6a00a215bb33ceadbb65eb7ecd53f792d4606c7c44ad0cdfa91366"},
+    {"path":"/opt/obsidian-exchange/relay/wallet/btc_wallet.py","sha256":"d3ea0b5051a2525ba5216dd1342aa8a0b943932716930f26e425ebbb92b9c0a2"},
+    {"path":"/opt/obsidian-exchange/relay/wallet/evm_wallet.py","sha256":"823233ee6f6f7fc2443de97cb7e913c277d36153601566983d06834049f13fe9"},
+    {"path":"/opt/obsidian-exchange/payment/status_notifier.py","sha256":"f74f62672cb9acfe2c68a6bc386ae5ca513ea9d92059cfe6dd55513e77eb8906"},
+    {"path":"/etc/systemd/system/obsidian-payout-worker.service","sha256":"3fdcd84d7eee15b485594555edfbc1d7662309f95a017ef8014b3e07b2eb999b"},
+    {"path":"/etc/systemd/system/exchange-notifier.service","sha256":"d665313171f91f4fcba1c63c1b31c4f7c90a31cb2ec8b19a97ede9987ebe16bd"},
+    {"path":"/etc/systemd/system/exchange-notifier.service.d/runtime-paths.conf","sha256":"300984b585ba6b663e1d011592611ca2064371f98dac578084f22de0d0062c5c"},
+    {"path":"/opt/obsidian-exchange/admin-panel/app/Filament/Resources/OrderResource.php","sha256":"235d77a954ec59e5f19178c4601c62017b2b13bcdee6a5422dbc5d85c57a0a8e"}
+  ],
+  "custodyBoundary":{"model":"SERVER_HOT_WALLET_CUSTODY","signer":"Dedicated worker is designed to unlock and use server hot-wallet material; this is Exchange custody, not customer-key or native-wallet signing.","controlPlane":"Root Telegram bot creates intents, reconciles results and exposes recovery/trusted-source/circuit controls; Laravel and Relay retain completion bypasses.","runtimeProof":"Installed/enabled unit and source do not prove the worker is running, correctly configured, funded, isolated or recoverable."},
+  "positiveControls":[
+    "Canonical order payout persists a deterministic payout_<order_id> intent and rejects immutable amount/currency/network/destination drift before signer access.",
+    "PayoutStore atomically claims pending to processing; the dedicated worker uses that claim before signing and attempts to move signer exceptions to review without blind retry.",
+    "EVM persists signed raw transaction and predicted hash before broadcast; BTC records an ambiguous broadcasting claim before network submission.",
+    "Canonical reconciliation atomically requires succeeded intent plus paid order, then writes sent/TXID, referral and VIP accounting, reconciliation ledger and unique notification outbox.",
+    "Evidence-based operator confirmation searches chain candidates; requeue is restricted to review plus signer-ledger absent."
+  ],
+  "criticalFindings":[
+    {"severity":"CRITICAL","id":"FORMAT_ONLY_COMPLETION_BYPASSES","finding":"Telegram /force_payout, Relay web-admin API and Laravel internal force_payout can transition paid to sent using an operator-supplied format-valid TXID without exact chain destination, amount, sender, confirmation/finality, payout intent or signer receipt. They bypass canonical reconciliation; accounting and notification behavior differs by path."},
+    {"severity":"CRITICAL","id":"SIGNER_LEDGER_PATH_AND_DURABILITY_UNPROVEN","finding":"Review-to-pending treats a missing mutable JSON signer ledger entry as proof no broadcast started. Bot and isolated worker resolve WALLET_DATA_DIR from different process environments; exact shared path/ownership was not proven. File loss, rollback or wrong path can yield false absent and authorize a duplicate payout."},
+    {"severity":"HIGH","id":"SUBMITTED_IS_TREATED_AS_CONFIRMED","finding":"Worker accepts any nonempty signer-returned TXID as succeeded and reconciliation marks the order sent without chain finality. EVM may return SUBMITTED_UNCONFIRMED; no general dropped/replaced/reorg/finality sweeper is bound to closure."},
+    {"severity":"HIGH","id":"STALE_PROCESSING_HAS_NO_RECOVERY","finding":"Crash after committed claim and before caught exception leaves processing indefinitely; no lease expiry or stale-processing state machine exists."},
+    {"severity":"HIGH","id":"RESERVE_AND_CIRCUIT_FAIL_OPEN","finding":"Circuit read failures become zero/unfrozen and limits count only sent orders, excluding pending/processing/succeeded intents, pending broadcasts, fees and safety buffer. Concurrent payouts may all pass stale capacity."},
+    {"severity":"HIGH","id":"PAYMENT_AMOUNT_EVIDENCE_OPTIONAL","finding":"Payout guard can return confirmed when provider or expected amount evidence is unavailable, because amount-read failures return no mismatch."},
+    {"severity":"HIGH","id":"AMBIGUOUS_NOTIFICATION_RETRY_AND_DUAL_NOTIFIERS","finding":"New outbox resets sending to pending on a Telegram exception even if delivery was accepted, enabling duplicates; crash after delivery can leave sending forever. Enabled legacy root notifier independently scans sent orders and marks completion even when token is absent or HTTP delivery fails, creating loss and duplicate paths."},
+    {"severity":"HIGH","id":"MANUAL_SEND_OUTSIDE_INTENT","finding":"Staff may send from an external wallet first and later supply a TXID; that external transfer has no persisted pre-submit immutable attempt or idempotency key."},
+    {"severity":"HIGH","id":"DISCOVERY_ALTERNATE_SETTLEMENT_AUTHORITY","finding":"Payout discovery can close orders outside canonical intent reconciliation using a trusted-sender registry that one Telegram admin can mutate; authority is broader than the isolated signer."},
+    {"severity":"MEDIUM","id":"PAYOUT_UI_ASYNC_CONTRADICTION","finding":"Telegram /payout creates a pending intent but reports that crypto did not leave when no immediate TXID is returned, although the enabled worker may broadcast it later."},
+    {"severity":"MEDIUM","id":"SINGLE_ADMIN_CONTROL","finding":"One root Telegram admin can create/recover/confirm payouts, mutate trusted sources and freeze/unfreeze the circuit; independent MFA/four-eyes and bounded roles are absent."},
+    {"severity":"MEDIUM","id":"BTC_AMBIGUOUS_EVIDENCE_LIMIT","finding":"BTC persists broadcasting before construction but not signed raw/txid before network send; an accepted broadcast followed by crash remains safe from automatic retry but requires external discovery and manual resolution."}
+  ],
+  "surfaceMatrix":{
+    "telegramBot":{"mode":"REQUIRED","implementation":"PARTIAL","reason":"Customer destination/status/TXID and the main intent, review, recovery, discovery and single-admin payout controls live here."},
+    "site":{"mode":"REQUIRED","implementation":"PARTIAL","reason":"Site orders feed the same server-custodial lifecycle and display sent/TXID, but correctness depends on unaccepted settlement truth."},
+    "miniApp":{"mode":"REQUIRED","implementation":"PARTIAL","reason":"Customer order/status UX participates in the server payout lifecycle, but no Mini-App-specific completion writer was proven and correctness depends on unaccepted settlement truth."},
+    "admin":{"mode":"OPERATOR_ONLY","implementation":"PARTIAL","reason":"Laravel inspects payout data and its Order action calls an internal paid-to-sent writer using supplied TXID without chain proof or four-eyes."},
+    "api":{"mode":"REQUIRED","implementation":"PARTIAL","reason":"Relay serves customer sent/TXID status and owns operator paid/sent bypass writers plus lifecycle stores; exact finality, unified evidence and recovery contracts are incomplete."},
+    "native":{"mode":"N/A","implementation":"NOT_IMPLEMENTED","reason":"No native Exchange payout signer exists; future native customer wallet must never inherit server hot-wallet credentials or operator authority."}
+  },
+  "coverageConclusion":{"sixSurfacesClassified":true,"payoutSettlementAccepted":false,"productionRuntimeAccepted":false,"e0_4Complete":false,"e0Closed":false},
+  "independentReviews":[{"role":"security","disposition":"PARTIAL_NOT_ACCEPTED"},{"role":"surface","disposition":"PARTIAL_NOT_ACCEPTED"},{"role":"acceptance","disposition":"PARTIAL_NOT_ACCEPTED"}],
+  "limitations":["No production database rows, resolved secret values, wallet files, RPC/provider endpoints, authenticated surfaces or writers were read or exercised.","Enabled unit symlinks do not prove active processes, configuration, balances, finality or recovery.","Sell-to-RUB Vertu settlement is adjacent opposite-direction authority and cannot prove crypto payout acceptance."],
+  "nextCanonicalItem":"Classify WALLET_RECEIVE_TRANSFER across all six surfaces and verify receive, transfer-request, external signing and broadcast authority read-only."
+}

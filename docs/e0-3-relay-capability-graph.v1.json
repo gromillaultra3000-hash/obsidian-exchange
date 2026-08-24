@@ -1,0 +1,20 @@
+{
+  "schema":"obsidian.e0-3-relay-capability-graph-summary.v1",
+  "stage":"E0.3",
+  "status":"EXACT_STATIC_GRAPH",
+  "accountableOwner":"project-owner",
+  "productionAuthorization":false,
+  "valuesIncluded":false,
+  "entrypoint":"relay-fastapi/main.py",
+  "generator":"scripts/e0_relay_capability_graph.py",
+  "canonicalOutputSha256":"25ffe9a8874646064b8e04ea2acdfd759348a9048f92a8ba9a1006d15a2ff0a1",
+  "counts":{"repositoryImports":17,"factoryBindings":17,"callEdges":69,"relationObjects":22,"directSqlOrConnectionSites":0,"unresolvedMethods":0},
+  "operations":["DELETE","INSERT","SELECT","UPDATE"],
+  "relationObjects":["audit_log","blocked_users","gift_vouchers","information_schema.columns","order_lifecycle_work","order_receipts","orders","payment_notification_outbox","payment_sessions","payment_transition_audit","provider_health","referral_addresses","referrals","reserves","sell_orders","sell_settlement_ledger","sell_settlement_outbox","sent_notifications","support_messages","support_tickets","swap_sessions","user_vip_volume"],
+  "repositoryImports":["admin_config_store","engagement_store","ops_store","order_creation_store","order_lifecycle_store","order_read_store","order_workflow_store","payment_session_store","payment_transition_store","receipt_store","reporting_store","runtime_schema_store","sell_order_store","sell_settlement_store","support_store","swap_store","user_profile_store"],
+  "surfaceMatrix":{"api":"REQUIRED","site":"REQUIRED","miniApp":"REQUIRED","telegramBot":"N/A_SEPARATE_ENTRYPOINT","admin":"N/A_SEPARATE_PROCESS","native":"N/A_NO_SERVER_DB"},
+  "trustAndMoneyImpact":"The active Relay entrypoint reaches broad order, payment, settlement, support and audit reads/writes through one shared obsidian_app boundary; this graph grants no capability and is prerequisite evidence for splitting that role.",
+  "rollout":"No rollout; names-only repository evidence.",
+  "rollback":"Remove the summary/generator/test together; no runtime or database state exists.",
+  "remainingWork":["use the source-bound Relay writer matrix to design bounded functions or column grants","build the exchange-bot caller-to-database graph","rehearse proposed Relay ACL in disposable PostgreSQL before any production change"]
+}

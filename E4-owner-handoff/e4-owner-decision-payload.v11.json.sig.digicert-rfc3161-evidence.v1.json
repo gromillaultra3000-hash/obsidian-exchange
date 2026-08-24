@@ -1,0 +1,83 @@
+{
+  "schemaVersion": "e4-rfc3161-timestamp-evidence.v1",
+  "evidenceId": "e4-digicert-ts-20260823-01",
+  "status": "CANDIDATE_NOT_AUTHORIZED",
+  "stage": "E4",
+  "route": "E4_OWNER_GATED_FRESH_PRODUCTION_DISCONNECTED_REHEARSAL",
+  "authority": {
+    "trustedClockAttested": true,
+    "executionAuthorized": false,
+    "rehearsalExecutionEligible": false,
+    "productionDatabaseContactAllowed": false,
+    "productionNetworkAllowed": false,
+    "productionCredentialsAllowed": false,
+    "containsSecrets": false,
+    "executionEffect": "NONE",
+    "promotionAllowed": false,
+    "actionAllowed": false
+  },
+  "provider": {
+    "name": "DigiCert",
+    "protocol": "RFC3161",
+    "endpoint": "http://timestamp.digicert.com",
+    "policyOid": "2.16.840.1.114412.7.1"
+  },
+  "boundArtifact": {
+    "payloadRef": "e4-owner-decision-payload.v11.json",
+    "payloadSha256": "08c1430754336cbaf4338546b95467d6b0c247e4b46e2e0014fa7241b68477d2",
+    "ownerSignatureRef": "e4-owner-decision-payload.v11.json.sig",
+    "ownerSignatureSha256": "efb5ec413d88719ff269b624bee7af9fb960c126f449d6941e3509bd81ed617f",
+    "ownerSignatureVerified": true,
+    "ownerFingerprint": "SHA256:G4szs+1DvEQygs3LZS1LDNNRyBYLUHZuX0a7C/gRjII"
+  },
+  "timestampRequest": {
+    "ref": "e4-owner-decision-payload.v11.json.sig.tsq",
+    "sha256": "98b3d20f50dbe83a68c74e8924e185726cc9689a237de92d6987add26b111db8",
+    "hashAlgorithm": "sha256",
+    "certReq": true
+  },
+  "timestampResponse": {
+    "ref": "e4-owner-decision-payload.v11.json.sig.tsr",
+    "sha256": "f56cbaae2efebccf2c265687f129b2e622343d6eb48ecac047466d3723385e4d",
+    "tokenRef": "e4-owner-decision-payload.v11.json.sig.token.der",
+    "tokenSha256": "d2aff7d686e87f3891217266df0bc054fbeb59a25410878055a01e1bb3a4f04d",
+    "responseStatus": "GRANTED",
+    "serialNumber": "3F0F898147E4AA73E817EC99158F2042",
+    "genTimeUtc": "2026-08-23T02:12:44Z",
+    "nonce": "270E3C6304B9A646"
+  },
+  "messageImprint": {
+    "hashAlgorithm": "sha256",
+    "value": "efb5ec413d88719ff269b624bee7af9fb960c126f449d6941e3509bd81ed617f",
+    "matchesBoundArtifact": true
+  },
+  "certificateChain": {
+    "tsaResponder": {
+      "ref": "DigiCertSHA256RSA4096TimestampResponder20251.cer",
+      "sha256": "4aa03fa22cd75c84c55c938f828e676b9caecab33fe36d269aa334f146110a33",
+      "sha256Fingerprint": "4A:A0:3F:A2:2C:D7:5C:84:C5:5C:93:8F:82:8E:67:6B:9C:AE:CA:B3:3F:E3:6D:26:9A:A3:34:F1:46:11:0A:33"
+    },
+    "timestampCa": {
+      "ref": "DigiCertTrustedG4TimeStampingRSA4096SHA2562025CA1.pem",
+      "sha256": "5e13de210e735b614d6ec948361aadef9dd6c0ef575382a75f57fd59e183b90e"
+    },
+    "pinnedRoot": {
+      "ref": "DigiCertAssuredIDRootCA.crt.pem",
+      "sha256": "b52fae9cd8dcf49285f0337cd815deca13fedd31f653bf07f61579451517e18c",
+      "sha256Fingerprint": "3E:90:99:B5:01:5E:8F:48:6C:00:BC:EA:9D:11:1E:E7:21:FA:BA:35:5A:89:BC:F1:DF:69:56:1E:3D:C6:32:5C"
+    }
+  },
+  "verification": {
+    "status": "VERIFIED",
+    "verifiedAtUtc": "2026-08-23T02:13:00Z",
+    "exactMessageImprintVerified": true,
+    "responseStatusVerified": true,
+    "noncePresent": true,
+    "tsaResponderChainVerified": true,
+    "pinnedRootChainVerified": true,
+    "opensslTsVerifyResult": "Verification: OK",
+    "plaintextSnapshotRead": false,
+    "productionContact": false
+  },
+  "nextAction": "Bind this evidence to the reviewer envelope and authenticated replay decision; do not treat the timestamp alone as execution authority."
+}

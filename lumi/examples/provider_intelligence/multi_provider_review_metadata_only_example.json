@@ -1,0 +1,8 @@
+{
+  "input": "Compare provider readiness",
+  "providerIds": [
+    "provider_openai_main",
+    "provider_groq_main"
+  ],
+  "mode": "metadata_only"
+}

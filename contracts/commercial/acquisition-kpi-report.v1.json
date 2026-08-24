@@ -1,0 +1,43 @@
+{
+  "schema": "obsidian-acquisition-kpi-report.v1",
+  "purpose": "privacy-safe, read-only aggregate evidence for buyer due diligence",
+  "final_fulfilled_order_status": "sent",
+  "paid_but_not_fulfilled_status": "paid",
+  "minimum_cohort_users": 10,
+  "required_sections": [
+    "schema",
+    "as_of",
+    "data_window",
+    "order_funnel",
+    "user_quality",
+    "monthly_performance",
+    "acquisition_cohorts",
+    "currency_mix",
+    "payment_session_provider_mix",
+    "evidence_limitations",
+    "report_sha256"
+  ],
+  "forbidden_output_fields": [
+    "user_id", "telegram_id", "username", "first_name", "last_name",
+    "phone", "email", "address", "crypto_address", "receive_address",
+    "txid", "tx_hash", "session_token", "client_ip", "user_agent",
+    "provider_payload", "receipt_path"
+  ],
+  "privacy_rules": [
+    "no row-level output",
+    "monthly and acquisition cohorts with fewer than minimum_cohort_users are suppressed",
+    "no stable customer pseudonym or customer-level hash",
+    "suppressed cohort labels and values are not emitted",
+    "report contains aggregates only and must be handled as confidential buyer evidence"
+  ],
+  "metric_truth_rules": [
+    "sent RUB volume is GMV, not revenue",
+    "paid orders are payment-confirmed but not fulfilled",
+    "repeat rate is based on fulfilled sent orders only",
+    "provider mix describes recorded payment sessions and is not provider profitability",
+    "revenue gross margin EBITDA SDE CAC and LTV remain unavailable until separately reconciled"
+  ],
+  "database_access": "read-only snapshot transaction",
+  "may_mutate_database": false,
+  "may_emit_customer_rows": false
+}

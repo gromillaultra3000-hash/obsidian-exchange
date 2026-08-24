@@ -1,0 +1,15 @@
+{
+  "actionId": "create_patch_preview",
+  "title": "Create Patch Preview",
+  "description": "Prepare a patch preview without applying changes",
+  "category": "project_maintenance",
+  "enabled": true,
+  "riskLevel": "medium",
+  "requiresApproval": true,
+  "supportsDryRun": true,
+  "supportsRollback": false,
+  "inputSchema": {"type": "object"},
+  "outputSchema": {"type": "object"},
+  "allowedModes": ["proposal", "dry_run"],
+  "metadata": {}
+}

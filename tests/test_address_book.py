@@ -40,6 +40,13 @@ conn.execute("""CREATE TABLE orders (
     order_id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, username TEXT,
     currency TEXT, network TEXT, rub_amount REAL, crypto_address TEXT,
     status TEXT, created_at TEXT)""")
+conn.execute("""CREATE TABLE wallet_links (
+    user_id INTEGER, chain TEXT, address TEXT, verified_at TEXT,
+    PRIMARY KEY(user_id,chain))""")
+conn.execute("""CREATE TABLE client_address_notes (
+    user_id INTEGER, currency TEXT, network TEXT, address TEXT, label TEXT,
+    hidden INTEGER, updated_at TEXT,
+    PRIMARY KEY(user_id,currency,network,address))""")
 
 
 def order(uid, cur, addr, when, net=None, status="sent"):

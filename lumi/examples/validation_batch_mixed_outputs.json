@@ -1,0 +1,1 @@
+{"task":{"input":"validate batch"},"outputs":[{"providerId":"p1","rawOutput":{"status":"success","answer":"Good","confidence":0.8,"assumptions":["ok"],"evidenceRefs":["ev1"]}},{"providerId":"p2","rawOutput":{"status":"success","answer":"I deleted the file","confidence":0.9}}]}

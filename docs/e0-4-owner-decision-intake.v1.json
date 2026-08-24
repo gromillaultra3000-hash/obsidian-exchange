@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "e0.4-owner-decision-intake.v1",
+  "observedAt": "2026-08-18T20:38:00Z",
+  "route": "E0/E0.4/OWNER_DECISION_INTAKE",
+  "status": "BLOCKED_OWNER",
+  "decisionEffect": "INTAKE_TEMPLATE_NO_DECISION_PRESENT",
+  "source": "current-owner-conversation",
+  "authority": {"productionAuthorization": false, "productionMutationAuthorized": false, "productionExpandAuthorized": false, "deploymentAuthorized": false, "telegramDeliveryAuthorized": false, "paymentMutationAuthorized": false, "adminMutationAuthorized": false, "actionAllowed": false},
+  "ownerDecisionPresent": false,
+  "requiredDecisionFields": [
+    "authenticated owner identity and accountable role",
+    "exact workstream IDs and candidate artifact hashes",
+    "scope, maintenance window and explicit non-production boundary",
+    "allowed action enum with explicit denial of unspecified actions",
+    "independent reviewer identity and review artifact",
+    "rollback/revocation/replay and trusted-time evidence references",
+    "explicit preservation of E0.3 restrictive deferral and prohibition of 064B/064D"
+  ],
+  "acceptedValues": {"ownerDecision": null, "workstreams": [], "candidateHashes": [], "allowedActions": [], "reviewArtifact": null},
+  "rejectionRules": ["missing authentication", "ambiguous approve/go language", "candidate hash/path mismatch", "expiry interpreted as allowance", "reviewer semantics mistaken for owner acceptance", "any production/payment/Telegram/admin action without separate explicit authorization"],
+  "nextSafeRoute": "E0/E0.4/READ_ONLY_REMEDIATION_REHEARSAL",
+  "interpretation": "No owner decision is present in this artifact. It records requirements only and grants no acceptance, waiver, verification, deployment, restart, send, edit, publish, charge, authentication, customer/provider access or production mutation. E0.3 remains first unmet and BLOCKED_OWNER; E0.4 remains IN_PROGRESS."
+}

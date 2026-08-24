@@ -1,0 +1,154 @@
+{
+  "schemaVersion": "e0-4-deployment-release-automation-runtime-observation.v1",
+  "observedAt": "2026-08-18T20:14:24Z",
+  "route": "E0/E0.4/DEPLOYMENT_RELEASE_AUTOMATION",
+  "status": "IN_PROGRESS",
+  "acceptance": "PARTIAL_NOT_ACCEPTED",
+  "workClass": "KEYLESS_READ_ONLY_SOURCE_SYSTEMD_AND_LOG_OBSERVATION",
+  "productionMutation": false,
+  "gitFetchOrPullExecuted": false,
+  "credentialValueRead": false,
+  "deployScriptExecuted": false,
+  "serviceRestarted": false,
+  "unitOrTimerChanged": false,
+  "source": {
+    "scriptPath": "/root/deploy.sh",
+    "scriptSha256": "a5855ec959f7193088ebc15123acddc44fa36bc2715e034160d8842a67a1f380",
+    "scriptGitTracked": false,
+    "repositoryPath": "/root",
+    "remote": "HTTPS_GITHUB_REDACTED",
+    "branch": "master",
+    "credentialHelper": "store",
+    "credentialFileMode": "0600",
+    "currentHead": "07b0015d4fa850d580acf8a68e1b06ec95e9a0dd",
+    "currentHeadSignatureStatus": "N",
+    "dirtyEntries": 889,
+    "trackedChangedEntries": 322,
+    "untrackedEntries": 567
+  },
+  "runtime": {
+    "timerPath": "/etc/systemd/system/obsidian-autodeploy.timer",
+    "timerSha256": "464aa9c2ece5b1ac97104a2f6ce324bb668a32e0ee7f1563abb8ee221407c271",
+    "servicePath": "/etc/systemd/system/obsidian-autodeploy.service",
+    "serviceSha256": "6ff371f118759795d162af38802496ac538af360f2abbce9c0fd494708403ab1",
+    "timerState": "ACTIVE_WAITING_ENABLED",
+    "interval": "15 minutes",
+    "persistent": true,
+    "serviceUser": "root",
+    "serviceSandboxing": "NONE_DECLARED",
+    "lastObservedTrigger": "2026-08-18T20:00:00Z",
+    "lastServiceResult": "success",
+    "lastRecordedDeployCompleteInLog": "2026-08-08T00:48:28Z",
+    "statePath": "/root/.deploy_state",
+    "stateSha256": "6e37dc182a75b99d1d35391292cc75e1f679c6fad31ceb352545be4f4c6647b4",
+    "logPath": "/var/log/obsidian-deploy.log",
+    "logMode": "0644"
+  },
+  "effectiveRuntimeDrift": [
+    {
+      "service": "relay-fastapi",
+      "effectiveSourcePrefix": "/opt/obsidian-exchange",
+      "dropInPath": "/etc/systemd/system/relay-fastapi.service.d/runtime-paths.conf",
+      "dropInSha256": "7a4acdc00db8cf7b06ab34ba5bab564dcea365423ab5d73dbabe3fb09b9f62c9"
+    },
+    {
+      "service": "exchange-bot",
+      "effectiveSourcePrefix": "/opt/obsidian-exchange",
+      "dropInPath": "/etc/systemd/system/exchange-bot.service.d/runtime-paths.conf",
+      "dropInSha256": "c4a453bc4d8c1175cd25830c7fe79d4a01114be519eb9f4675b0916b0e40e72d"
+    },
+    {
+      "service": "obsidian-monitor",
+      "effectiveSourcePrefix": "/opt/obsidian-exchange",
+      "dropInPath": "/etc/systemd/system/obsidian-monitor.service.d/runtime-paths.conf",
+      "dropInSha256": "d61c40cd835332f687f56c7990edf89f24b1b21a8da4c3e226a8ec26c05c6fdc"
+    }
+  ],
+  "surfaceMatrix": {
+    "telegramBot": {"mode": "N/A", "implementation": "NOT_IMPLEMENTED", "reason": "Customer Telegram has no release status, approval, deploy or rollback authority."},
+    "site": {"mode": "N/A", "implementation": "NOT_IMPLEMENTED", "reason": "Customer site appropriately exposes no deployment authority or release controls."},
+    "miniApp": {"mode": "N/A", "implementation": "NOT_IMPLEMENTED", "reason": "Mini App appropriately exposes no deployment authority or release controls."},
+    "admin": {"mode": "OPERATOR_ONLY", "implementation": "NOT_IMPLEMENTED", "reason": "No operator release identity, approval, progress, per-service version, rollback or incident UX exists."},
+    "api": {"mode": "OPERATOR_ONLY", "implementation": "NOT_IMPLEMENTED", "reason": "No bounded authenticated release-status/approval/rollback API exists; systemd timer invokes the script directly."},
+    "native": {"mode": "N/A", "implementation": "NOT_IMPLEMENTED", "reason": "Native wallet must never receive server deployment authority."}
+  },
+  "authorityBoundary": {
+    "triggerAuthority": "enabled persistent systemd timer",
+    "sourceSelectionAuthority": "mutable GitHub master and stored HTTPS credential",
+    "executionAuthority": "unrestricted root oneshot",
+    "restartAuthority": ["relay-fastapi", "exchange-bot", "obsidian-monitor"],
+    "stateAuthority": "mutable unauthenticated /root/.deploy_state",
+    "approvalAuthority": "NONE",
+    "rollbackAuthority": "NONE_IMPLEMENTED"
+  },
+  "positiveControls": [
+    "Root owns the script, units and credential file; credential file mode is 0600.",
+    "The script compares the last recorded revision with HEAD and avoids restart when equal.",
+    "A failed landmine check stops scripted restarts and leaves the recorded deployed revision unchanged.",
+    "Changed paths are considered across the deployed-to-new revision range for three named consumers.",
+    "The log demonstrates at least one historical landmine failure stopped service restart."
+  ],
+  "criticalFindings": [
+    {
+      "severity": "CRITICAL",
+      "id": "CHECKOUT_RUNTIME_SPLIT_FALSE_DEPLOYMENT",
+      "finding": "The controller pulls/checks /root, while effective Relay, bot and monitor units execute /opt/obsidian-exchange. It performs no copy, build, symlink switch or artifact promotion, yet can restart unchanged /opt processes and record /root HEAD as deployed."
+    },
+    {
+      "severity": "CRITICAL",
+      "id": "MUTABLE_UNSIGNED_BRANCH_TO_ROOT_EXECUTION",
+      "finding": "Every 15 minutes an unsigned mutable master can enter a root-owned dirty checkout and execute repository Python during preflight, without pinned approved commit, signed tag, protected-branch evidence, artifact provenance or independent approval."
+    },
+    {
+      "severity": "HIGH",
+      "id": "DIRTY_HYBRID_NOT_REPRODUCIBLE",
+      "finding": "The checkout has 889 changed/untracked entries and no clean-tree gate. Tests run against a hybrid tree while state records only HEAD, so recorded revision cannot identify tested or running bytes."
+    },
+    {
+      "severity": "HIGH",
+      "id": "HEALTH_FAILURE_RECORDED_SUCCESS",
+      "finding": "Each is-active failure is consumed by an OR echo that succeeds; execution continues to write NEW_REV and Deploy complete. A failed or quickly crashing service may therefore suppress later retry."
+    },
+    {
+      "severity": "HIGH",
+      "id": "NO_ATOMIC_PROMOTION_OR_ROLLBACK",
+      "finding": "Git pull mutates the source before checks, restarts are sequential, state is a non-atomic global text value, and there is no versioned release manifest, canary, automatic/manual rollback command or tested mixed-version recovery."
+    },
+    {
+      "severity": "HIGH",
+      "id": "PREFLIGHT_AND_SERVICE_COVERAGE_INCOMPLETE",
+      "finding": "Only one Relay file is compiled plus one mutable custom landmine script. Dependency locks, migrations, config, systemd/Nginx, bot/monitor imports, full tests and many code-consuming services are outside the gate and impact map."
+    },
+    {
+      "severity": "HIGH",
+      "id": "PLAINTEXT_CREDENTIAL_IN_ROOT_RCE_DOMAIN",
+      "finding": "credential.helper=store keeps the HTTPS credential in plaintext. Any fetched code executed by the root pipeline can read it; read-only scope and independent rotation/revocation evidence are unproved."
+    },
+    {
+      "severity": "MEDIUM",
+      "id": "UNHARDENED_ROOT_AND_LOG_EXPOSURE",
+      "finding": "The unit declares no sandboxing or capability limits, and a mode-0644 log receives test stdout/stderr. A separate legacy unit drop-in contains overridden inline sensitive material; its value was not read or copied into evidence."
+    }
+  ],
+  "independentReviews": [
+    {"reviewer": "deploy-security", "disposition": "NOT_ACCEPTED", "finding": "Unsigned mutable source, dirty root execution, plaintext credential, missing provenance and unrestricted host authority make the supply chain fail open."},
+    {"reviewer": "deploy-reliability", "disposition": "NOT_ACCEPTED", "finding": "Health failure can be recorded successful; rollout, state, coverage, locking, readiness, rollback and recovery are not reliable."},
+    {"reviewer": "deploy-surfaces", "disposition": "NOT_ACCEPTED", "finding": "The controller updates /root but production executes /opt, while no operator status/approval/rollback surface exists."}
+  ],
+  "coverageConclusion": {
+    "sixSurfacesClassified": true,
+    "deploymentAuthorityIdentified": true,
+    "sourceTrustAccepted": false,
+    "artifactProvenanceAccepted": false,
+    "preflightAccepted": false,
+    "runtimeByteBindingAccepted": false,
+    "restartHealthAccepted": false,
+    "rollbackRecoveryAccepted": false,
+    "productionAcceptanceProven": false,
+    "e0_4Complete": false,
+    "e0Closed": false
+  },
+  "rollout": "none; the timer was observed but not invoked or changed",
+  "rollback": "not applicable to this read-only observation",
+  "nextCanonicalItem": "Classify EDITORIAL_NEWS_DELIVERY across all six surfaces and verify subscription identity, source provenance, delivery idempotency, credentials, consent, retention and operator authority read-only."
+}

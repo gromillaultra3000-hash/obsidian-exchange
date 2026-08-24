@@ -1,0 +1,90 @@
+{
+  "schema": "native-wallet-ed25519-corpus-review-independence-issuer-auth.v1",
+  "domain_separator_utf8": "obsidian.ed25519-review.independence-issuer-auth.v1",
+  "challenge_hash": "SHA-256",
+  "text_field_encoding": "u16be byte length followed by exact UTF-8 bytes",
+  "digest_encoding": "raw 32 bytes decoded from canonical lowercase SHA-256 hex",
+  "integer_encoding": "u64be",
+  "ordered_fields": [
+    "independence_schema_sha256_raw_32_bytes",
+    "scorecard_sha256_raw_32_bytes",
+    "evidence_record_sha256_raw_32_bytes",
+    "issuer_id",
+    "issuer_trust_domain",
+    "authentication_root_sha256_raw_32_bytes",
+    "recovery_authority_id",
+    "revocation_epoch",
+    "caller_nonce_sha256_raw_32_bytes",
+    "issued_at_epoch_ms",
+    "expires_at_epoch_ms"
+  ],
+  "maximum_lifetime_ms": 600000,
+  "maximum_future_skew_ms": 1000,
+  "single_use_caller_nonce_required": true,
+  "monotonic_revocation_epoch_required": true,
+  "consumer_selected_root_required": true,
+  "authentication_options": [
+    {
+      "id": "threshold_dsse_offline_roots",
+      "mechanism": "closed issuer statement signed under a 2-of-3 policy with independently administered offline roots",
+      "required_properties": [
+        "exact payload type and bytes",
+        "two valid signatures from distinct active roots",
+        "root roles cannot sign recovery updates alone",
+        "threshold and epoch are consumer-selected"
+      ],
+      "residual_risks": [
+        "two compromised online-capable signers can forge evidence",
+        "key signatures do not prove the independence investigation was correct"
+      ],
+      "status": "SHORTLISTED_NOT_SELECTED"
+    },
+    {
+      "id": "dual_webauthn_human_issuers",
+      "mechanism": "two named non-generator issuers approve the exact challenge with separate roaming WebAuthn roots",
+      "required_properties": [
+        "distinct credential and recovery roots",
+        "UP and UV with non-backup-eligible authenticators",
+        "exact allowlisted RP and origin",
+        "neither issuer administers the reviewed verifier or builders"
+      ],
+      "residual_risks": [
+        "human review can be wrong or collusive",
+        "RP, enrollment and assertion verification remain operational dependencies"
+      ],
+      "status": "SHORTLISTED_NOT_SELECTED"
+    },
+    {
+      "id": "hardware_workload_attested_issuer",
+      "mechanism": "an isolated evidence service emits a nonce-bound hardware-attested result",
+      "required_properties": [
+        "measured code, policy and evidence inputs",
+        "independent vendor root and revocation verification",
+        "reproducible allowlisted service build"
+      ],
+      "residual_risks": [
+        "vendor trust and incomplete measurements",
+        "large platform-specific parser and recovery surface"
+      ],
+      "status": "DEFERRED_COMPLEXITY"
+    }
+  ],
+  "pair_policy": {
+    "minimum_authenticated_evidence_issuers": 2,
+    "distinct_issuer_ids_required": true,
+    "distinct_issuer_trust_domains_required": true,
+    "distinct_authentication_roots_required": true,
+    "distinct_recovery_authorities_required": true,
+    "distinct_host_failure_domains_required": true,
+    "issuer_must_not_administer_reviewed_reviewer_verifier_or_builder": true,
+    "same_mechanism_allowed_only_with_independent_roots": true
+  },
+  "selected_authentication_option": null,
+  "issuer_enrolled": false,
+  "real_issuer_assertion_present": false,
+  "issuer_authenticated": false,
+  "independence_evidence_accepted": false,
+  "selection_allowed": false,
+  "crypto_call_allowed": false,
+  "runtime_integration_allowed": false
+}

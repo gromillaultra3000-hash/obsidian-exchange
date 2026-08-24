@@ -1,0 +1,10 @@
+{
+ "schema":"obsidian.e0-3-bot-sell-order-capabilities.v1","stage":"E0.3","status":"EXACT_PACKAGE","productionAuthorization":false,"sourceSha256":"36006d5735d1f7ec4c7cc1179cdc3d6493f439b442e5581eac3f32219e06d874",
+ "capabilities":[
+  {"id":"sell_order_store.claim","access":"MONEY_WRITE","reads":{"sell_orders":["id","user_id","rub_amount","status"]},"mutations":{"sell_orders":["status","updated_at"]},"invariants":["EXACT_ID","ROW_LOCK_POSTGRES","PAID_OR_PAYING_NEVER_CLAIMED","OBSERVED_STATUS_TO_PAYING_CAS","SINGLE_WINNER","RETURN_CURRENT_STATE"]},
+  {"id":"sell_order_store.get","access":"OPERATOR_READ","reads":{"sell_orders":["id","user_id","currency","crypto_amount","rub_amount","sbp_phone","receive_address","tx_hash","status","payout_method","payout_bank","payout_details","payout_name","payout_provider","payout_ref","payout_status","created_at","updated_at"]},"invariants":["EXACT_ID","FULL_DECLARED_SELL_SCHEMA","OPERATOR_ONLY"]},
+  {"id":"sell_order_store.mark_manual_or_processing","access":"MONEY_WRITE","reads":{"sell_orders":["id","status"]},"mutations":{"sell_orders":["status","payout_provider","updated_at"]},"invariants":["EXACT_ID","PAYING_ONLY_CAS","SETTLED_SELECTS_PAID_OTHERWISE_PAYING","PROVIDER_RECORDED"]},
+  {"id":"sell_order_store.reject","access":"OPERATOR_WRITE","reads":{"sell_orders":["id","user_id","status"]},"mutations":{"sell_orders":["status","updated_at"]},"invariants":["EXACT_ID","ROW_LOCK_POSTGRES","PAID_OR_PAYING_NEVER_REJECTED","TO_REJECTED_CAS","RETURN_OWNER_AND_CHANGED"]},
+  {"id":"sell_order_store.release","access":"MONEY_WRITE","reads":{"sell_orders":["id","status"]},"mutations":{"sell_orders":["status","updated_at"]},"invariants":["EXACT_ID","PAYING_TO_PENDING_CAS"]}
+ ],"blockers":[],"remainingWork":["extract remaining bot repository packages"]
+}

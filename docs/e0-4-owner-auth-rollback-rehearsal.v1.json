@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "e0-4-owner-auth-rollback-rehearsal.v1",
+  "observedAt": "2026-08-18T02:07:37Z",
+  "route": "E0/E0.4/FEATURE_STATUS_SURFACE_MATRIX",
+  "status": "IN_PROGRESS",
+  "workClass": "NON_AUTHORIZING_CODE_ROLLBACK_PREFLIGHT",
+  "productionMutation": false,
+  "productionDeployed": false,
+  "productionAuthorization": false,
+  "sourceRelease": {
+    "releaseId": "e04rel_0e07692ee8ab88f252135f7949dfaa4f",
+    "bundleSha256": "8d71caba6ba77b3cfb63f4d20bd51bbba88033d0b9dbb69a981e47e1eaf38c93"
+  },
+  "rollback": {
+    "rollbackId": "e04rb_4b11b5db8aa1337541e168d6a99debde",
+    "bundleSha256": "5177ba83e948186dfe3ca584901e63cb018ec2f2d63645139de7e659dc5025e0",
+    "bundleBytes": 952320,
+    "presentPreimages": 6,
+    "absentPreimages": 1,
+    "deployable": false
+  },
+  "acceptance": [
+    "The rollback manifest is bound to externally pinned release and rollback archives and to an exact seven-path allowlist.",
+    "Six current production preimages bind bytes, SHA-256, root:root ownership and 0644 mode; relay/core/order_access.py binds exact prior absence.",
+    "Production-layout reads use component-wise dirfd O_NOFOLLOW traversal and a single file descriptor for fstat plus content; symlinks, non-regular files, hardlinks and metadata drift fail closed.",
+    "All 8 forward replacement prefix points crossed with all 8 rollback interruption points recover after rerun: 64 of 64 cases.",
+    "Recovery asserts exact SHA-256, mode, UID/GID and absence; file replacement and absence unlink fsync their parent directories.",
+    "A dangling symlink at the absent preimage fails closed."
+  ],
+  "verification": {
+    "focusedTests": "3 PASS via direct invocation because installed Python environments do not provide pytest",
+    "pyCompile": "PASS",
+    "gitDiffCheck": "PASS",
+    "faultMatrixCases": 64,
+    "faultMatrixRecovered": 64
+  },
+  "independentReviews": [
+    {"identity":"agent:/root/rollback_acceptance_review","disposition":"ACCEPT"},
+    {"identity":"agent:/root/rollback_security_review","disposition":"ACCEPT_NO_BLOCKER"}
+  ],
+  "scopeLimits": [
+    "This is copied-layout keyless code rollback evidence only.",
+    "It does not authorize production deploy, restart, config, database, Telegram or money-writer action.",
+    "Production-specific additive SQL migration and catalog rollback/forward-repair remain unbound and unrehearsed."
+  ],
+  "nextCanonicalItem": "Create narrow production-specific additive SQL migration plus exact catalog preimage and hash-bound rollback/forward-repair rehearsal while all code flags remain OFF."
+}

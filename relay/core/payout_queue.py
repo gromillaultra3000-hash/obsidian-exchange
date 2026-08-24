@@ -30,7 +30,7 @@ from __future__ import annotations
 
 import logging
 import os
-import sqlite3
+from repositories.operational_read_store import from_environment as _read_store_from_environment
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +46,9 @@ KIND_PAYOUT = "payout"
 KIND_RECEIPT = "receipt"
 
 _SLA_ICON = {"ok": "🟢", "warn": "🟠", "breach": "🔴"}
+def _store():return _read_store_from_environment(sqlite_path=DB_PATH)
+# Репозиторий исключает операторское решение `receipt_rejected`; одного
+# cancelled недостаточно, потому что этот статус может поставить сам клиент.
 
 
 def sla_level(age_min) -> str:
@@ -84,36 +87,6 @@ def human_age(age_min) -> str:
     return f"{m // (60 * 24)} сут {(m % (60 * 24)) // 60} ч"
 
 
-def _db():
-    conn = sqlite3.connect(DB_PATH, timeout=5)
-    conn.row_factory = sqlite3.Row
-    return conn
-
-
-_PAYOUT_SQL = """
-    SELECT o.order_id, o.user_id, o.username, o.rub_amount, o.currency,
-           o.crypto_address, o.network, o.status,
-           CAST((julianday('now')-julianday(COALESCE(NULLIF(o.updated_at,''),o.created_at)))
-                *24*60 AS INT) age_min
-    FROM orders o
-    WHERE o.status='paid' AND (o.paid_btc_tx IS NULL OR o.paid_btc_tx='')
-"""
-
-_RECEIPT_SQL = """
-    SELECT o.order_id, o.user_id, o.username, o.rub_amount, o.currency,
-           o.crypto_address, o.network, o.status,
-           (o.receipt_sent_at IS NOT NULL AND o.receipt_sent_at<>'') delivered,
-           CAST((julianday('now')-julianday(r.created_at))*24*60 AS INT) age_min
-    FROM order_receipts r JOIN orders o ON o.order_id=r.order_id
-    WHERE o.status NOT IN ('paid','sent')
-      -- Оператор посмотрел чек и отказал — решение принято, долга больше нет.
-      -- Статуса для этого мало: `cancelled` ставит и сам клиент, и тогда
-      -- решения по его деньгам как раз НЕ было. Различает след отклонения.
-      AND NOT EXISTS (SELECT 1 FROM sent_notifications sn
-                      WHERE sn.order_id=o.order_id AND sn.event='receipt_rejected')
-"""
-
-
 # «Без потолка»: явная константа вместо магического числа у вызывающего. Потолок
 # в выборке долгов опасен тем, что срабатывает ровно тогда, когда долгов много —
 # и часть из них исчезает из итогов и из клиентских отметок.
@@ -129,25 +102,21 @@ def queue(limit: int = 30, kind: str | None = None) -> list:
     """
     out = []
     try:
-        with _db() as conn:
-            if kind in (None, KIND_PAYOUT):
-                for r in conn.execute(_PAYOUT_SQL).fetchall():
-                    d = dict(r)
-                    d["kind"] = KIND_PAYOUT
+        store = _store()
+        if kind in (None, KIND_PAYOUT):
+            for d in store.payout_rows():
+                d["kind"] = KIND_PAYOUT
+                out.append(d)
+        if kind in (None, KIND_RECEIPT):
+            try:
+                for d in store.receipt_queue_rows():
+                    d["kind"] = KIND_RECEIPT
                     out.append(d)
-            if kind in (None, KIND_RECEIPT):
-                # Таблица чеков создаётся лениво — на базе без единого чека
-                # эта половина просто пуста, а не роняет очередь целиком.
-                try:
-                    for r in conn.execute(_RECEIPT_SQL).fetchall():
-                        d = dict(r)
-                        d["kind"] = KIND_RECEIPT
-                        out.append(d)
-                except sqlite3.OperationalError as e:
-                    # Молчать здесь нельзя: пропадает ПОЛОВИНА очереди, и
-                    # выглядит это как «долгов такого рода нет».
-                    logger.warning("payout_queue: половина очереди (чеки) "
-                                   "недоступна: %s", e)
+            except Exception as e:
+                # Молчать здесь нельзя: пропадает ПОЛОВИНА очереди, и
+                # выглядит это как «долгов такого рода нет».
+                logger.warning("payout_queue: половина очереди (чеки) "
+                               "недоступна: %s", e)
     except Exception as e:
         logger.error("payout_queue недоступна (%s)", type(e).__name__)
         return []
@@ -192,8 +161,8 @@ def client_state(order_id) -> dict:
     плану» ровно тогда, когда у оператора строка горит красным.
     """
     try:
-        with _db() as conn:
-            r = conn.execute(_PAYOUT_SQL + " AND o.order_id=?", (order_id,)).fetchone()
+        rows = _store().payout_rows(order_id=order_id)
+        r = rows[0] if rows else None
     except Exception:
         return {"delayed": False, "age_min": None, "kind": ""}
     if not r:

@@ -1,0 +1,3 @@
+# Packages supplied by the operating system, not PyPI.
+# Pin these by image/package-manager version in the deployment image.
+python3-bpfcc

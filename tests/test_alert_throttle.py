@@ -6,9 +6,15 @@ import os
 import sqlite3
 import sys
 import tempfile
+import pytest
 
 _TMP = tempfile.mkdtemp(prefix="alert_throttle_test_")
 os.environ["DB_PATH"] = os.path.join(_TMP, "test.db")
+with sqlite3.connect(os.environ["DB_PATH"]) as _schema_conn:
+    _schema_conn.executescript(
+        "CREATE TABLE alert_throttle(key TEXT PRIMARY KEY,last_sent TEXT NOT NULL);"
+        "CREATE TABLE alert_watermark(key TEXT PRIMARY KEY,value INTEGER NOT NULL);"
+    )
 # Путь к relay — ОТ СЕБЯ, а не боевой абсолютный. С «/root/relay» набор
 # проверял прод, а не ветку: правки в worktree он не видел вовсе и
 # оставался зелёным на заведомо сломанном коде.
@@ -94,4 +100,5 @@ import shutil  # noqa: E402
 shutil.rmtree(_TMP, ignore_errors=True)
 
 print(f"alert_throttle: зелёных {ok}, упавших {fail}")
-sys.exit(1 if fail else 0)
+if fail:
+    pytest.fail(f"alert throttle self-check failed: {fail}")

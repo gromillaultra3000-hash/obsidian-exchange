@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "e0-3-bot-b5-3-064b-disposable-rehearsal-scope.v1",
+  "observedAt": "2026-08-22T03:52:46Z",
+  "route": "E0/E0.3/B5.3/064B",
+  "status": "IN_PROGRESS",
+  "rehearsalResult": "NOT_RUN_BOUND_EXPAND_PACKAGE_MISSING",
+  "scope": "read-only inventory and static contract check only; no disposable database mutation was attempted",
+  "plan": {
+    "path": "docs/e0-3-bot-b5-3-production-migration-plan.v1.json",
+    "sha256": "22829255ff4b4d007b0686711c1649af35ddeb836042c93348c9a3ab7fe8272d",
+    "declaredPhase": "064B",
+    "declaredMutation": true,
+    "requirements": [
+      "nullable lifecycleVersion and v2 columns",
+      "new tables and versioned functions",
+      "NOT VALID conditional constraints",
+      "concurrent indexes outside transactions",
+      "old runtime remains compatible"
+    ]
+  },
+  "trackedInputs": [
+    {"path": "deploy/postgres/proposals/048_e0_bot_b5_3_notification_queue_writers.sql", "sha256": "71a80956384e39e97b404f205776e69016e65a3a23405375e734bc35fd22d3f8"},
+    {"path": "deploy/postgres/proposals/058_e0_bot_b5_3_hardened_delivery_lifecycle.sql", "sha256": "f50acf4fff7f8ed74f852ad282906ba34c62215c18c0c1c226a267964d8c0371"},
+    {"path": "deploy/postgres/proposals/059_e0_bot_b5_3_server_policy_producers.sql", "sha256": "74f24e9185aa0bfded8a5ad1633d385ac870615ab8b8d4efc3eda7b6f4d68f07"},
+    {"path": "deploy/postgres/proposals/060_e0_bot_b5_3_policy_governance_recipient_revocation.sql", "sha256": "20c70e3a1651aeeb7871287ca1a03eeea14c51abdf782db0c35deca71d4391af"},
+    {"path": "deploy/postgres/proposals/061_e0_bot_b5_3_pre_submit_authorization.sql", "sha256": "4a39552792a5c8e10a7487959a976682f730f9da86e2fa7b96f0eadbf759a521"},
+    {"path": "deploy/postgres/proposals/062_e0_bot_b5_3_truthful_evidence_reconciliation.sql", "sha256": "fc709748235cd969d5e253579e2f3520be156220535c6c52f038c9bcbe6e6af7"},
+    {"path": "deploy/postgres/proposals/063_e0_bot_b5_3_stale_review_reconciler.sql", "sha256": "cf1874de34bfd875632d18047bbad7b2e3562caf5d43de3b466b1472298481ee"}
+  ],
+  "findings": [
+    "No single tracked 064B EXPAND SQL bundle or ordered disposable runner exists.",
+    "The discovered proposals are dependent phases/components; several require expand/backfill state and are not a substitute for the missing 064B package.",
+    "Applying the discovered proposals as an invented sequence would not be a faithful 064B rehearsal."
+  ],
+  "verification": {
+    "staticPreflightTest": "PASS",
+    "readOnlyMigrationChecker": true,
+    "gitDiffCheck": "PASS",
+    "productionDatabaseMutation": false,
+    "productionServicesChanged": false,
+    "disposableCloneCreated": false
+  },
+  "authority": {
+    "syntheticTestAuthority": false,
+    "productionAuthorization": false,
+    "productionExpandAuthorized": false,
+    "actionAllowed": false
+  },
+  "blockers": [
+    "EXACT_064B_EXPAND_BUNDLE_AND_ROLLBACK_SCOPE_ABSENT",
+    "AUTHENTICATED_OWNER_AND_INDEPENDENT_REVIEWER_DECISION_OVER_EXACT_V4_CANDIDATE_ABSENT",
+    "064B_PRODUCTION_EXPAND_REMAINS_UNAUTHORIZED"
+  ],
+  "nextCanonicalItem": "AUTHENTICATED_ACCOUNTABLE_OWNER_AND_APPLICABLE_INDEPENDENT_REVIEWER_DECISION_OVER_EXACT_V4_CANDIDATE"
+}

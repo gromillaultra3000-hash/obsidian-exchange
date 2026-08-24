@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.obsidian.invalid/native-wallet/ed25519-corpus-review-checkpoint-webauthn-witness-evidence-v1.schema.json",
+  "title": "Bounded opaque WebAuthn checkpoint witness evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "witness_slot",
+    "witness_domain_id",
+    "authentication_root_sha256",
+    "checkpoint_bytes_sha256",
+    "challenge_sha256",
+    "credential_id_base64url",
+    "client_data_json_base64url",
+    "authenticator_data_base64url",
+    "signature_base64url",
+    "user_handle_base64url",
+    "evidence_sha256"
+  ],
+  "properties": {
+    "schema": { "const": "native-wallet-ed25519-corpus-review-checkpoint-webauthn-witness-evidence.v1" },
+    "witness_slot": { "type": "integer", "minimum": 0, "maximum": 1 },
+    "witness_domain_id": { "type": "string", "minLength": 8, "maxLength": 128, "pattern": "^[a-z0-9][a-z0-9._:-]*$" },
+    "authentication_root_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "checkpoint_bytes_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "challenge_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "credential_id_base64url": { "type": "string", "minLength": 1, "maxLength": 1366, "pattern": "^[A-Za-z0-9_-]+$" },
+    "client_data_json_base64url": { "type": "string", "minLength": 1, "maxLength": 10923, "pattern": "^[A-Za-z0-9_-]+$" },
+    "authenticator_data_base64url": { "type": "string", "minLength": 50, "maxLength": 1366, "pattern": "^[A-Za-z0-9_-]+$" },
+    "signature_base64url": { "type": "string", "minLength": 1, "maxLength": 1366, "pattern": "^[A-Za-z0-9_-]+$" },
+    "user_handle_base64url": { "type": ["string", "null"], "maxLength": 86, "pattern": "^[A-Za-z0-9_-]+$" },
+    "evidence_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  },
+  "decoded_limits_bytes": {
+    "credential_id": 1024,
+    "client_data_json": 8192,
+    "authenticator_data": 1024,
+    "signature": 1024,
+    "user_handle": 64,
+    "complete_serialized_evidence": 16384
+  },
+  "base64url_rule": "canonical unpadded RFC 4648 base64url; decoded bytes must re-encode exactly",
+  "declared_digests_trusted_before_assertion_verification": false,
+  "assertion_decoding_implemented": false,
+  "credential_lookup_implemented": false,
+  "signature_verification_implemented": false,
+  "real_evidence_present": false,
+  "checkpoint_authenticated": false
+}

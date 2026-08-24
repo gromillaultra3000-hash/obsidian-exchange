@@ -1,0 +1,1 @@
+{"providerId":"unsafe-claim","displayName":"Unsafe Claim","providerType":"mock","apiFormat":"json","enabled":true,"capabilities":["text_reasoning"],"roles":["reviewer"],"costProfile":{},"latencyProfile":{},"reliabilityScore":0.9,"notes":"unsafe_execution_claim"}

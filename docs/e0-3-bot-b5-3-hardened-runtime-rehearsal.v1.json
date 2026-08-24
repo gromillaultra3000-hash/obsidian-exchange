@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "route": "E0/E0.3/B5.3",
+  "status": "REHEARSED_PROPOSAL_ONLY",
+  "productionChanged": false,
+  "proposal061Sha256": "4a39552792a5c8e10a7487959a976682f730f9da86e2fa7b96f0eadbf759a521",
+  "runtimeSources": {
+    "relay/repositories/bot_notification_store.py": "a7b9eb9d27ec71279fb2289ae6c6abba8951be6e796a3bd3fa71d26f10ae695c",
+    "bot/main_bot.py": "7089e5137a9fc0a6fec44584ca96011b63220325bd78417a91bf731f23ba35a2"
+  },
+  "tests": {
+    "tests/test_e0_3_bot_b5_3_hardened_runtime_wiring.py": "7d83585c20901cb3cbb9f13a653f31d8141f76a308925cf2b009494223b6512d",
+    "tests/test_e0_3_bot_b5_3_governance_revocation_rehearsal.py": "82e085ebcfff2d5262d90816629867481542df817b936b79376512516515f80b"
+  },
+  "verified": {
+    "defaultOff": true,
+    "threeRequiredDistinctDsnPaths": true,
+    "legacyFlagConflictFailsClosed": true,
+    "serverPolicyProducerFunctions": true,
+    "recipientBoundSingleSend": true,
+    "monteraAdminDoesNotUseLiveAdminIds": true,
+    "uuidAttemptToken": true,
+    "immutableSubmitAuthorization": true,
+    "recipientLockBeforeJobLock": true,
+    "authorizationReplayAfterRevokeDenied": true,
+    "transportEvidenceAndTerminalTransitions": true,
+    "lateUncertainAfterRevokeToManual": true,
+    "renderFailureLocalManualContract": true,
+    "telegramMessageUniquenessRecipientScoped": true,
+    "postgres17RealAdapterRehearsal": true
+  },
+  "independentReviewDisposition": {
+    "fixed": [
+      "hardened SQLite fallback",
+      "pre-submit/revoke lock inversion",
+      "authorization replay after revoke",
+      "evidence observation time",
+      "render failure without terminal state",
+      "global Telegram message-id uniqueness",
+      "live ADMIN_IDS fanout"
+    ],
+    "openBlockers": [
+      "Runtime startup does not yet attest exact session_user and role membership for all three DSNs.",
+      "The 058 provider_request_id field still carries a client correlation UUID on ACCEPTED; schema semantics must be split before canary.",
+      "A single bot process holds producer, delivery and transport credentials; production requires process/service separation.",
+      "Accepted-evidence and finalization recovery needs a dedicated reconciler and restart tests.",
+      "Full barrier concurrency, fault injection, secret-log and exact privilege matrices remain incomplete.",
+      "Proposal migrations are clean-schema rehearsal artifacts, not production idempotent migrations."
+    ]
+  },
+  "rolloutDecision": "CANARY_REJECTED"
+}

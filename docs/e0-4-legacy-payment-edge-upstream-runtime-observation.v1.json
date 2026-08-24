@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "e0.4-legacy-payment-edge-upstream-runtime-observation.v1",
+  "observedAt": "2026-08-18T20:22:27Z",
+  "route": "E0/E0.4/LEGACY_PAYMENT_EDGE_UPSTREAM",
+  "status": "BLOCKED_OWNER",
+  "decisionEffect": "RESTRICTIVE_READ_ONLY_OBSERVATION_ONLY",
+  "source": "current-owner-conversation",
+  "authority": {
+    "productionAuthorization": false,
+    "productionMutationAuthorized": false,
+    "productionExpandAuthorized": false,
+    "deploymentAuthorized": false,
+    "paymentMutationAuthorized": false,
+    "customerDataAccessAuthorized": false,
+    "actionAllowed": false
+  },
+  "edge": {
+    "domains": ["pay.obsidian-exchange.org", "pay.obsidianbtc.org"],
+    "upstream": "http://127.0.0.1:8080",
+    "nginxConfigs": [
+      {"path": "/etc/nginx/sites-enabled/pay.conf", "sha256": "ac644a9c4a12922c87379be9fe56bd1c999b6c55b3949d57f764bb6877a7ef60"},
+      {"path": "/etc/nginx/sites-enabled/pay.obsidianbtc.org", "sha256": "cea3f62e2e94e6b6870a6b55616c0e2bc2a16d978d4c115dc14a7ac48c7092a9"}
+    ],
+    "symlinkTargets": ["/etc/nginx/sites-available/pay.conf", "/etc/nginx/sites-available/pay.obsidianbtc.org"],
+    "listenerObservation": "No :8080 listener was visible in the read-only ss observation; Docker API was inaccessible in the sandbox; no systemd unit containing 8080 was found by static scan.",
+    "nginxSyntaxObservation": "nginx -t reported syntax ok but could not open /run/nginx.pid because the sandbox filesystem is read-only; runtime validity is therefore unproven."
+  },
+  "surfaceClassification": {
+    "telegram": "N/A",
+    "site": "PARTIAL_PUBLIC_PAYMENT_DOMAIN_ALIAS",
+    "miniApp": "N/A",
+    "admin": "N/A_EDGE_OWNERSHIP_VISIBILITY_MISSING",
+    "api": "PARTIAL_UNBOUND_UPSTREAM",
+    "native": "N/A"
+  },
+  "findings": [
+    {"id": "PUBLIC_PAYMENT_ALIAS_UNOWNED", "severity": "CRITICAL", "detail": "Two enabled public TLS payment domains wildcard-proxy to loopback :8080 without a mapped systemd/container owner or payment-truth authority."},
+    {"id": "REACHABILITY_AND_TLS_RUNTIME_UNPROVEN", "severity": "HIGH", "detail": "Static config names certificates and proxying, but listener reachability and active upstream could not be established read-only; one domain config has Certbot-managed comments while the other has separate certificate references."},
+    {"id": "WILDCARD_ROUTE_SCOPE_UNBOUNDED", "severity": "HIGH", "detail": "location / forwards every path and method to the unknown upstream; no route allowlist, authentication boundary, rate limit, maintenance freeze, or explicit payment contract is present in these server blocks."},
+    {"id": "NO_DEPLOYMENT_OR_ROLLBACK_BINDING", "severity": "HIGH", "detail": "No release identity, owner, health/version probe, rollback target, or audit record binds the public aliases to a reviewed artifact."},
+    {"id": "DOMAIN_AND_CERTIFICATE_DRIFT", "severity": "MEDIUM", "detail": "Two separate enabled configs and certificate paths create independent DNS/TLS/renewal and ownership drift; no single canonical payment edge manifest was found."}
+  ],
+  "knownBlockers": ["authenticated owner acceptance absent", "independent reviewer approval absent", "production key registry/trusted time/revocation/replay controls not established", "no evidence permits 064B or separate 064D"],
+  "nextSafeRoute": "E0/E0.4/FRAMEWORK_GENERATED_ADMIN_HTTP_SURFACE",
+  "interpretation": "This is a read-only inventory and rejection of acceptance. It grants no payment, customer, provider, network, deployment, restart, or production authority. E0.3 remains first unmet and BLOCKED_OWNER; E0.4 remains non-production IN_PROGRESS."
+}

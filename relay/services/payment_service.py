@@ -1,4 +1,4 @@
-import sqlite3, os, time
+import os, time
 from datetime import datetime, timedelta
 from providers.fallback import FallbackProvider
 from utils.tokens import generate_session_token
@@ -11,6 +11,7 @@ from services.smart_router import (choose_provider, record_outcome, get_health_s
                                    is_provider_disabled, is_no_trader_error,
                                    is_provider_retired, has_required_env,
                                    client_trust_refusal)
+from repositories.payment_session_store import from_environment as payment_session_store
 
 DB_PATH = os.getenv('DB_PATH', '/root/exchange.db')
 logger = get_logger(__name__)
@@ -18,6 +19,7 @@ logger = get_logger(__name__)
 
 class PaymentService:
     def __init__(self, provider=None, amount=None, telegram_id=None):
+        self.sessions = payment_session_store(sqlite_path=DB_PATH)
         if provider is None:
             # Клиент нужен уже на выборе: часть провайдеров работает только с
             # повторными (core.client_trust). Не назван — считаем новым.
@@ -198,9 +200,6 @@ class PaymentService:
         if invoice is None or 'error' in invoice:
             logger.error(f"Все попытки создать инвойс для order {order_id} не удались")
             invoice = invoice or {"error": last_error or "Unknown error"}
-        conn = sqlite3.connect(DB_PATH, timeout=5)
-        c = conn.cursor()
-
         if 'error' in invoice:
             # Цепочка эскалации (ESCALATION_CHAIN, default stormtrade→fallback) —
             # только когда выбранный провайдер после ретраев не выдал реквизиты
@@ -209,10 +208,8 @@ class PaymentService:
             if provider_name is None or 'error' in invoice:
                 logger.error(f"Вся цепочка эскалации не выдала реквизиты для order {order_id}: "
                              f"{invoice.get('error')}")
-                c.execute("INSERT INTO payment_sessions (session_token, order_id, amount, provider, status) VALUES (?,?,?,?,'failed')",
-                          (token, order_id, amount, 'fallback'))
-                conn.commit()
-                conn.close()
+                self.sessions.create_failed(token=token, order_id=order_id, amount=amount,
+                                            provider='fallback')
                 # «All providers failed» клиенту ничего не объясняет: он не знает,
                 # что дело в сумме, и уходит. Если живые лимиты трейдеров говорят,
                 # что сумма выше потолка — называем потолок. Если лимиты неизвестны
@@ -237,12 +234,11 @@ class PaymentService:
                                   'RSPayProvider': 'rspay'}
                 provider_name = provider_names.get(self.provider.__class__.__name__, 'platega')
 
-        c.execute("INSERT INTO payment_sessions (session_token, order_id, amount, provider, status, expires_at, client_ip, user_agent, telegram_id) VALUES (?,?,?,?,'invoice_created',?,?,?,?)",
-                  (token, order_id, amount, provider_name, expires_at, client_ip, user_agent, telegram_id))
-        c.execute("UPDATE payment_sessions SET provider_invoice_id=?, qr_payload=?, provider_payload=?, updated_at=datetime('now') WHERE session_token=?",
-                  (invoice.get('invoice_id'), invoice.get('qr_payload'), str(invoice.get('raw', {})), token))
-        conn.commit()
-        conn.close()
+        self.sessions.create_invoice(
+            token=token, order_id=order_id, amount=amount, provider=provider_name,
+            expires_at=expires_at, client_ip=client_ip, user_agent=user_agent,
+            telegram_id=telegram_id, invoice_id=invoice.get('invoice_id'),
+            qr_payload=invoice.get('qr_payload'), provider_payload=str(invoice.get('raw', {})))
 
         logger.info(f"Session {token[:8]}… created for order {order_id}")
         return {
@@ -255,15 +251,7 @@ class PaymentService:
         }
 
     def get_session(self, token):
-        conn = sqlite3.connect(DB_PATH, timeout=5)
-        c = conn.cursor()
-        c.execute("SELECT * FROM payment_sessions WHERE session_token=?", (token,))
-        row = c.fetchone()
-        conn.close()
-        if not row:
-            return None
-        columns = [desc[0] for desc in c.description]
-        return dict(zip(columns, row))
+        return self.sessions.get(token)
 
     def update_status(self, token, new_status):
         session = self.get_session(token)
@@ -276,13 +264,11 @@ class PaymentService:
             logger.error(f"Invalid state transition: {e}")
             return False
         
-        conn = sqlite3.connect(DB_PATH, timeout=5)
-        c = conn.cursor()
-        c.execute("UPDATE payment_sessions SET status=?, updated_at=datetime('now') WHERE session_token=?",
-                  (new_status, token))
-        conn.commit()
-        conn.close()
-        return True
+        try:
+            return self.sessions.transition(token, new_status)
+        except ValueError as e:
+            logger.error(f"Invalid concurrent state transition: {e}")
+            return False
 
     def get_payment_methods(self, token):
         session = self.get_session(token)
@@ -294,4 +280,3 @@ class PaymentService:
     def get_provider_status(self) -> dict:
         """Возвращает health scores всех провайдеров из smart_router."""
         return get_health_scores()
-

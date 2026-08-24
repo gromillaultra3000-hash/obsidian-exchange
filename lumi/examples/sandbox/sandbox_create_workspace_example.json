@@ -1,0 +1,8 @@
+{
+  "projectId": "sample_project",
+  "source": "project_snapshots",
+  "patchPlanResultId": "replace-with-patch-plan-result-id",
+  "diffPreviewId": "replace-with-diff-preview-id",
+  "includeSnapshots": true,
+  "metadata": {"source": "example"}
+}

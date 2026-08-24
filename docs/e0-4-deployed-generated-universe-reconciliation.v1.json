@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "e0.4-deployed-generated-universe-reconciliation.v1",
+  "observedAt": "2026-08-18T20:30:00Z",
+  "route": "E0/E0.4/DEPLOYED_GENERATED_UNIVERSE_RECONCILIATION",
+  "status": "BLOCKED_OWNER",
+  "decisionEffect": "RESTRICTIVE_READ_ONLY_OBSERVATION_ONLY",
+  "source": "current-owner-conversation",
+  "authority": {"productionAuthorization": false, "productionMutationAuthorized": false, "productionExpandAuthorized": false, "deploymentAuthorized": false, "restartAuthorized": false, "actionAllowed": false},
+  "reconciliation": [
+    {"service": "relay-fastapi", "unitPath": "/etc/systemd/system/relay-fastapi.service", "unitSha256": "cb93951384fe15e0573cc2da9dba091c59c5e452901c688545f2e7f7dc8f848a", "unitExecPath": "/root/relay-fastapi/main.py", "observedDeployedSourcePath": "/opt/obsidian-exchange/relay-fastapi/main.py", "sourceSha256": "c1ef783e3005f4698540ddc5368ef9a4592612fcf666b403ecbb7c4a359bd7ff", "reconciled": false},
+    {"service": "kairos", "unitPath": "/etc/systemd/system/kairos.service", "unitSha256": "b1dd9d153c7dbd70729b1213d24f3ffdb7314a65ac5d7892f34db1c00032c479", "unitExecPath": "/root/kairos/app/main_v19.py", "observedDeployedSourcePath": "/opt/kairos/app/main_v19.py", "sourceSha256": "05306d4120cbc545aea3b7d571de5af4f1163d830bb14a02fef9ebce416578ee", "reconciled": false},
+    {"service": "lumi", "unitPath": "/etc/systemd/system/lumi.service", "unitSha256": "1f761f5542adcdb768c45874bb718a9f6074633b0264cd7043bb63cb4d3fcabc", "unitExecPath": "/root/lumi/lumi/app/main.py", "observedDeployedSourcePath": "/opt/lumi/lumi/app/main.py", "sourceSha256": "bada14a32cc465a7e2e547a8ce661c263792d13bb7429c60bbe254871a4eab16", "reconciled": false}
+  ],
+  "findings": [
+    {"id": "SYSTEMD_SOURCE_PATH_DRIFT", "severity": "CRITICAL", "detail": "Effective service units execute /root paths while route evidence and deployed/generated surfaces are under /opt; a route count or source hash cannot be claimed as the running artifact."},
+    {"id": "NO_ATOMIC_MANIFEST_BINDING", "severity": "HIGH", "detail": "No immutable release manifest binds unit, executable bytes, dependency environment, route manifest, Nginx upstream and generated cache into one deployed identity."},
+    {"id": "MULTIPLE_RUNTIME_UNIVERSES", "severity": "HIGH", "detail": "Shadow units and parallel /root,/opt trees coexist; static inspection cannot establish which universe serves traffic without runtime probes, which are outside this authorization."}
+  ],
+  "knownBlockers": ["authenticated owner acceptance absent", "independent reviewer approval absent", "production key registry/trusted time/revocation/replay controls not established", "no evidence permits 064B or separate 064D"],
+  "nextSafeRoute": "E0/E0.4/POST_CLOSURE_GAP_REGISTER",
+  "interpretation": "Read-only reconciliation only. No service start/restart, import, HTTP request, authentication, customer/provider access, deployment or mutation occurred. E0.3 remains first unmet and BLOCKED_OWNER; E0.4 remains non-production IN_PROGRESS."
+}

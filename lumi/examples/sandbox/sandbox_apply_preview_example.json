@@ -1,0 +1,5 @@
+{
+  "workspaceId": "replace-with-workspace-id",
+  "diffPreviewId": "replace-with-diff-preview-id",
+  "note": "Use POST /sandbox/workspaces/{workspaceId}/apply-diff-preview/{diffPreviewId}"
+}

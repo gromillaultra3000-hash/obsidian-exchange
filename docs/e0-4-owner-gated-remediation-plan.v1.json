@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "e0.4-owner-gated-remediation-plan.v1",
+  "observedAt": "2026-08-18T20:35:00Z",
+  "route": "E0/E0.4/OWNER_GATED_REMEDIATION_PLAN",
+  "status": "BLOCKED_OWNER",
+  "decisionEffect": "DOCUMENTATION_ONLY_NO_AUTHORITY",
+  "source": "current-owner-conversation",
+  "authority": {"productionAuthorization": false, "productionMutationAuthorized": false, "productionExpandAuthorized": false, "deploymentAuthorized": false, "telegramDeliveryAuthorized": false, "paymentMutationAuthorized": false, "adminMutationAuthorized": false, "actionAllowed": false},
+  "principles": ["freeze acceptance claims until evidence is immutable and independently reviewed", "preserve all prior artifacts and hashes", "separate read-only rehearsal from production authorization", "fail closed on expiry, replay, ambiguous outcomes and runtime drift"],
+  "workstreams": [
+    {"id": "W1_RUNTIME_IDENTITY", "priority": 1, "scope": "Bind exact source bytes, unit, dependencies, generated routes, Nginx and release manifest across /root and /opt.", "exitEvidence": ["immutable manifest", "raw-byte hashes", "runtime version/readiness proof", "rollback target and rehearsal"], "forbiddenUntilExit": ["deploy", "restart", "cutover"]},
+    {"id": "W2_MONEY_AND_PAYMENT_EDGE", "priority": 2, "scope": "Close RATE_LOCKS money arithmetic and reconcile public :8080 aliases to an owned, bounded payment contract.", "exitEvidence": ["fee/accounting proof", "quote provenance/idempotency", "owner/upstream/TLS/route manifest", "negative replay tests"], "forbiddenUntilExit": ["charge", "provider call", "payment mutation"]},
+    {"id": "W3_TELEGRAM_AND_EDITORIAL", "priority": 3, "scope": "Unify news/channel writers behind consent, provenance, idempotent outbox, least-privilege credentials and audit.", "exitEvidence": ["source/license/freshness ledger", "per-recipient delivery receipts", "session revocation/rotation", "operator reconciliation"], "forbiddenUntilExit": ["send", "edit", "publish", "Telegram authentication"]},
+    {"id": "W4_GENERATED_SURFACES", "priority": 4, "scope": "Produce closed admin/Livewire/FastAPI generated-route and static-mount manifests with role/action classification.", "exitEvidence": ["controlled generated manifest", "six-surface mapping", "auth/CSRF/MFA evidence", "audit and rollback coverage"], "forbiddenUntilExit": ["admin mutation", "app boot against production"]}
+  ],
+  "ownerDecisionsRequired": ["approve scope and accountable owner per workstream", "choose remediation order and maintenance window", "provide authenticated acceptance decision for each exit artifact", "commission an independent reviewer distinct from implementation", "explicitly retain E0.3 restrictive deferral and prohibit 064B/064D"],
+  "exitCriteria": ["all workstream exit evidence passes immutable-hash tests", "no unresolved critical/high gap", "independent review recorded", "rollback/revocation/replay rehearsal passes", "owner decision artifact is authenticated and bound to exact candidate bytes"],
+  "nextSafeRoute": "E0/E0.4/OWNER_DECISION_INTAKE",
+  "interpretation": "This plan is a non-authoritative documentation artifact. It grants no permission to implement, deploy, restart, authenticate, send, edit, publish, charge, access customer/provider data, or mutate production. E0.3 remains first unmet and BLOCKED_OWNER; E0.4 remains IN_PROGRESS."
+}

@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.obsidian.invalid/native-wallet/ed25519-corpus-review-checkpoint-dsse-witness-statement-v1.schema.json",
+  "title": "Strict local DSSE checkpoint witness statement",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "witness_slot",
+    "witness_domain_id",
+    "authentication_root_sha256",
+    "checkpoint_bytes_sha256",
+    "challenge_sha256",
+    "checkpoint_epoch",
+    "issued_at_epoch_ms",
+    "expires_at_epoch_ms",
+    "decision"
+  ],
+  "properties": {
+    "schema": { "const": "native-wallet-ed25519-corpus-review-checkpoint-dsse-witness-statement.v1" },
+    "witness_slot": { "type": "integer", "minimum": 0, "maximum": 1 },
+    "witness_domain_id": { "type": "string", "minLength": 8, "maxLength": 128, "pattern": "^[a-z0-9][a-z0-9._:-]*$" },
+    "authentication_root_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "checkpoint_bytes_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "challenge_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "checkpoint_epoch": { "type": "integer", "minimum": 1 },
+    "issued_at_epoch_ms": { "type": "integer", "minimum": 1 },
+    "expires_at_epoch_ms": { "type": "integer", "minimum": 1 },
+    "decision": { "const": "WITNESS" }
+  },
+  "maximum_decoded_bytes": 8192,
+  "maximum_json_depth": 4,
+  "maximum_json_tokens": 128,
+  "maximum_json_string_bytes": 256,
+  "duplicate_fields_rejected": true,
+  "unknown_fields_rejected": true,
+  "exact_payload_type": "application/vnd.obsidian.audit-checkpoint-witness.v1+json",
+  "semantics_evaluated_only_after_symbolic_signature_success": true,
+  "signature_outcome_symbolic": true,
+  "root_lookup_implemented": false,
+  "signature_verification_implemented": false,
+  "checkpoint_authenticated": false
+}

@@ -247,6 +247,7 @@
         <div class="tabs" role="tablist" aria-label="Разделы">
           <div class="tab active" data-tab="exchange" role="tab" tabindex="0" aria-selected="true"><span class="tab-icon">💎</span>Обмен</div>
           <div class="tab" data-tab="wallet" role="tab" tabindex="0" aria-selected="false"><span class="tab-icon">👛</span>Кошелёк</div>
+          <div class="tab" data-tab="market" role="tab" tabindex="0" aria-selected="false"><span class="tab-icon">📈</span>Рынок</div>
           <div class="tab" data-tab="history" role="tab" tabindex="0" aria-selected="false"><span class="tab-icon">📋</span>История</div>
           <div class="tab" data-tab="referral" role="tab" tabindex="0" aria-selected="false"><span class="tab-icon">👥</span>Рефералы</div>
           <div class="tab" data-tab="profile" role="tab" tabindex="0" aria-selected="false"><span class="tab-icon">👤</span>Профиль</div>
@@ -262,21 +263,6 @@
             <div id="pay-trust" style="display:none;margin-bottom:10px;padding:8px 10px;border-radius:10px;background:rgba(159,103,255,.06);border:1px solid rgba(159,103,255,.18)">
               <div style="font-size:11px;color:#c48cff;font-weight:700;letter-spacing:.03em;margin-bottom:3px">⚡ УМНЫЙ РОУТИНГ ОПЛАТЫ</div>
               <div id="pay-trust-body" style="font-size:11px;color:#cbd5e1;line-height:1.5"></div>
-            </div>
-            <!-- Trust-strip: живые честные метрики из БД -->
-            <div id="trust-strip" style="display:none;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px">
-              <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:10px;text-align:center">
-                <div id="ts-today" style="font-size:18px;font-weight:800;color:#c48cff">—</div>
-                <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">обменов сегодня</div>
-              </div>
-              <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:10px;text-align:center">
-                <div id="ts-vol24" style="font-size:18px;font-weight:800;color:#c48cff">—</div>
-                <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">объём 24ч</div>
-              </div>
-              <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:10px;text-align:center">
-                <div id="ts-total" style="font-size:18px;font-weight:800;color:#c48cff">—</div>
-                <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">сделок всего</div>
-              </div>
             </div>
             <!-- Курируемые резервы -->
             <div id="reserves-box" style="display:none;margin-bottom:16px;padding:10px 12px;background:rgba(159,103,255,.06);border:1px solid rgba(159,103,255,.2);border-radius:12px">
@@ -479,10 +465,55 @@
             </div>
         </div>
 
+        <!-- Рынок объединяет продукты, но не смешивает их правила и данные.
+             Биржевой аккаунт — отдельный кастодиальный контур самой биржи. -->
+        <div class="panel" id="panel-market">
+          <div style="margin-bottom:14px">
+            <div style="font-size:18px;font-weight:800">Как вы хотите обменивать?</div>
+            <div style="font-size:13px;color:var(--muted);margin-top:5px;line-height:1.5">
+              Кошелёк остаётся некастодиальным. Выберите отдельный маршрут — его правила будут показаны до любого действия.
+            </div>
+          </div>
+          <div id="market-modes" style="display:grid;gap:10px">
+            <div style="padding:16px;text-align:center;color:var(--muted)">Загрузка режимов…</div>
+          </div>
+          <div id="market-rule" style="display:none;margin-top:12px;padding:11px 13px;border-radius:12px;background:rgba(159,103,255,.08);border:1px solid rgba(159,103,255,.22);font-size:12px;color:#cbd5e1"></div>
+          <div style="margin-top:18px;font-size:16px;font-weight:800">Цены на биржах</div>
+          <div style="font-size:12px;color:var(--muted);margin:5px 0 10px">Только просмотр. Эти цены не являются заявкой и не дают KAIROS права совершать сделки.</div>
+          <div id="market-quotes" style="display:grid;gap:8px"><div style="padding:14px;color:var(--muted)">Загрузка котировок…</div></div>
+        </div>
+
         <!-- Кошелёк как самостоятельный раздел: свои деньги клиента, а не
              придаток к заявке. Ключ остаётся в его кошельке — мы показываем
              то, что видно в сети, и собираем сообщения на подпись. -->
         <div class="panel" id="panel-wallet">
+          <div id="unified-portfolio" style="margin-bottom:14px;padding:14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:16px">
+            <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:10px">
+              <div>
+                <div style="font-size:16px;font-weight:800">Весь портфель</div>
+                <div style="font-size:11px;color:var(--muted);margin-top:3px">Источники разделены по месту хранения средств</div>
+              </div>
+              <button type="button" id="portfolio-refresh" aria-label="Обновить портфель" style="background:none;border:1px solid rgba(255,255,255,.12);color:var(--muted);border-radius:9px;padding:6px 9px;cursor:pointer">↻</button>
+            </div>
+            <div id="unified-portfolio-note" style="display:none;font-size:11px;color:#fbbf24;margin-bottom:8px"></div>
+            <div id="unified-portfolio-lanes" style="display:grid;gap:9px"><div style="padding:10px;color:var(--muted);font-size:12px">Загрузка портфеля…</div></div>
+            <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.08)">
+              <div style="display:flex;justify-content:space-between;gap:10px;align-items:center">
+                <div>
+                  <div style="font-size:13px;font-weight:800">Подключения к биржам</div>
+                  <div style="font-size:10px;color:var(--muted);margin-top:2px">Только просмотр · торговля и вывод запрещены</div>
+                </div>
+                <button type="button" id="cex-connect-disabled" disabled
+                        title="Подключение станет доступно после отдельной безопасной настройки"
+                        style="border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);color:var(--muted);border-radius:9px;padding:6px 9px;opacity:.65">Подключить позже</button>
+              </div>
+              <div id="cex-management-note" style="font-size:11px;color:var(--muted);line-height:1.45;margin-top:7px">Новые ключи пока не принимаются. Мы не просим API-ключ в чате или форме.</div>
+              <div id="cex-management-list" style="display:grid;gap:7px;margin-top:8px"></div>
+              <div style="font-size:11px;font-weight:700;margin-top:10px">История доступа</div>
+              <div id="cex-event-retention" style="font-size:9px;color:var(--muted);margin-top:3px">События хранятся до 90 дней; старые записи удаляются автоматически.</div>
+              <div id="cex-event-list" style="display:grid;gap:5px;margin-top:6px"></div>
+            </div>
+          </div>
           <div id="w-empty" style="text-align:center;padding:26px 14px">
             <div style="font-size:40px;margin-bottom:10px">👛</div>
             <div style="font-size:15px;font-weight:800;margin-bottom:6px">Кошелёк не подключён</div>
@@ -895,27 +926,6 @@
         loadRates();
         setInterval(loadRates, 30000); // обновляем раз в 30с
 
-        // Trust-strip: честные метрики сервиса
-        function fmtRub(n) {
-            n = Number(n) || 0;
-            if (n >= 1e6) return (n / 1e6).toFixed(n >= 1e7 ? 0 : 1) + ' млн ₽';
-            if (n >= 1e3) return Math.round(n / 1e3) + 'к ₽';
-            return Math.round(n) + ' ₽';
-        }
-        async function loadTrust() {
-            try {
-                const r = await fetch('/api/stats/public');
-                if (!r.ok) return;
-                const d = await r.json();
-                document.getElementById('ts-today').textContent = d.exchanges_today ?? 0;
-                document.getElementById('ts-vol24').textContent = fmtRub(d.volume_24h);
-                document.getElementById('ts-total').textContent = d.exchanges_total ?? 0;
-                document.getElementById('trust-strip').style.display = 'grid';
-            } catch(e) {}
-        }
-        loadTrust();
-        setInterval(loadTrust, 60000);
-
         // Статус платёжной системы (агрегат, без внутренних деталей)
         async function loadSysStatus() {
             try {
@@ -1273,6 +1283,73 @@
         function walletShorten(a) {
             a = String(a || '');
             return a.length > 16 ? a.slice(0, 8) + '…' + a.slice(-6) : a;
+        }
+
+        function marketModesRender(data) {
+            const box = document.getElementById('market-modes');
+            const rule = document.getElementById('market-rule');
+            const modes = data && Array.isArray(data.modes) ? data.modes : [];
+            if (!modes.length) {
+                box.innerHTML = '<div style="padding:14px;color:var(--muted)">Режимы временно недоступны.</div>';
+                return;
+            }
+            box.innerHTML = modes.map(m => {
+                const ready = m.status === 'available';
+                return '<div style="padding:15px;background:rgba(255,255,255,.035);border:1px solid '
+                    + (ready ? 'rgba(159,103,255,.35)' : 'rgba(255,255,255,.09)')
+                    + ';border-radius:16px">'
+                    + '<div style="display:flex;justify-content:space-between;gap:8px;align-items:center">'
+                    + '<strong style="font-size:15px">' + esc(m.title) + '</strong>'
+                    + '<span style="font-size:10px;font-weight:800;padding:4px 8px;border-radius:99px;background:'
+                    + (ready ? 'rgba(34,197,94,.15);color:#86efac' : 'rgba(251,191,36,.12);color:#fcd34d')
+                    + '">' + esc(m.badge) + '</span></div>'
+                    + '<div style="font-size:12px;color:#cbd5e1;line-height:1.5;margin-top:8px">' + esc(m.description) + '</div>'
+                    + '<div style="font-size:11px;color:var(--muted);line-height:1.5;margin-top:8px">'
+                    + esc(m.custody) + '<br>' + esc(m.identity) + '</div>'
+                    + '<button type="button" class="market-mode-go" data-mode="' + esc(m.id) + '" '
+                    + (ready ? '' : 'disabled ')
+                    + 'style="width:100%;margin-top:12px;padding:10px;border:0;border-radius:11px;font-weight:700;color:#fff;background:'
+                    + (ready ? 'var(--accent);cursor:pointer' : 'rgba(255,255,255,.08);cursor:not-allowed')
+                    + '">' + esc(m.action) + '</button></div>';
+            }).join('');
+            box.querySelectorAll('.market-mode-go:not([disabled])').forEach(b => {
+                b.addEventListener('click', () => {
+                    if (b.dataset.mode === 'private_exchange') switchTab('exchange');
+                });
+            });
+            if (data.portfolioRule) {
+                rule.textContent = data.portfolioRule;
+                rule.style.display = 'block';
+            }
+        }
+
+        async function loadMarketModes() {
+            try {
+                const r = await fetch('/api/wallet/service-modes', {
+                    headers: {'X-Telegram-Init-Data': tg.initData || ''}
+                });
+                marketModesRender(r.ok ? await r.json() : null);
+            } catch (_) { marketModesRender(null); }
+            loadMarketQuotes();
+        }
+
+        function marketQuotesRender(data) {
+            const box = document.getElementById('market-quotes');
+            const rows = data && Array.isArray(data.quotes) ? data.quotes : [];
+            if (!rows.length) {
+                box.innerHTML = '<div style="padding:13px;border-radius:12px;background:rgba(255,255,255,.03);color:var(--muted)">Биржевые котировки временно недоступны. Приватный обмен продолжает работать.</div>';
+                return;
+            }
+            box.innerHTML = rows.map(q => '<div style="display:flex;justify-content:space-between;gap:10px;padding:11px 13px;border-radius:12px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.08)">'
+                + '<div><strong>' + esc(q.pair) + '</strong><div style="font-size:11px;color:var(--muted)">' + esc(String(q.exchange).toUpperCase()) + '</div></div>'
+                + '<div style="font-weight:800;text-align:right">' + Number(q.last).toLocaleString('ru-RU', {maximumFractionDigits:8}) + ' USDT</div></div>').join('');
+        }
+
+        async function loadMarketQuotes() {
+            try {
+                const r = await fetch('/api/wallet/market', {headers: {'X-Telegram-Init-Data': tg.initData || ''}});
+                marketQuotesRender(r.ok ? await r.json() : null);
+            } catch (_) { marketQuotesRender(null); }
         }
 
         let walletAddress = '';
@@ -2124,7 +2201,182 @@
                 + '</span></div>').join('');
         }
 
+        const custodyCopy = {
+            SELF_CUSTODY: {title: 'Ваши кошельки', badge: 'Ключи только у вас'},
+            OBSIDIAN_OPERATIONAL: {title: 'ObsidianExchange', badge: 'Без хранения средств'},
+            CEX_CUSTODY: {title: 'Внешние биржи', badge: 'KYC и custody у биржи'}
+        };
+        const laneStateCopy = {
+            AVAILABLE: 'Актуально', EMPTY: 'Нет данных', DEGRADED: 'Часть данных устарела',
+            UNAVAILABLE: 'Временно недоступно', READ_ONLY_VERIFIED: 'Только просмотр',
+            PENDING_PROOF: 'Проверяем доступ', BLOCKED: 'Доступ остановлен', REVOKED: 'Отключено'
+        };
+
+        function unifiedPortfolioRender(data) {
+            const box = document.getElementById('unified-portfolio-lanes');
+            const note = document.getElementById('unified-portfolio-note');
+            if (!box || !note) return;
+            const lanes = data && Array.isArray(data.lanes) ? data.lanes : [];
+            if (!lanes.length) {
+                box.innerHTML = '<div style="padding:10px;color:var(--muted);font-size:12px">Портфель временно недоступен. Кошелёк и обмен продолжают работать.</div>';
+                note.style.display = 'none';
+                return;
+            }
+            note.style.display = data.complete ? 'none' : '';
+            note.textContent = data.complete ? '' : '⚠ Итог неполный: часть источников недоступна или устарела.';
+            box.innerHTML = lanes.map(lane => {
+                const copy = custodyCopy[lane.custodyDomain] || {title: lane.id || 'Источник', badge: lane.custodyDomain || ''};
+                const state = laneStateCopy[lane.state] || lane.state || '—';
+                const warning = ['DEGRADED', 'UNAVAILABLE'].indexOf(lane.state) >= 0;
+                const sources = Array.isArray(lane.sources) ? lane.sources : [];
+                let body = '';
+                if (!sources.length) {
+                    body = '<div style="font-size:12px;color:var(--muted);margin-top:8px">'
+                         + (lane.state === 'UNAVAILABLE' ? 'Не удалось обновить данные.' : 'Подключённых источников пока нет.') + '</div>';
+                } else {
+                    body = sources.map(source => {
+                        const balances = Array.isArray(source.balances) ? source.balances : [];
+                        const activity = source.activity || null;
+                        let details = balances.map(balance => {
+                            const stale = balance.state === 'STALE';
+                            const unavailable = balance.total === null || balance.total === undefined;
+                            const amount = unavailable ? 'недоступно' : esc(String(balance.total)) + ' ' + esc(balance.assetId || '');
+                            return '<div style="display:flex;justify-content:space-between;gap:8px;margin-top:5px;font-size:12px">'
+                                 + '<span style="color:var(--muted)">' + esc(balance.assetId || 'Актив') + '</span>'
+                                 + '<span style="text-align:right;color:' + (stale || unavailable ? '#fbbf24' : 'inherit') + '">'
+                                 + amount + (stale ? ' · устарело' : '') + '</span></div>';
+                        }).join('');
+                        if (activity) {
+                            details += '<div style="font-size:12px;color:var(--muted);margin-top:6px">Заявок: '
+                                + Number(activity.orderCount || 0) + ' · успешно: ' + Number(activity.successfulOrderCount || 0) + '</div>';
+                        }
+                        if (!details) details = '<div style="font-size:12px;color:var(--muted);margin-top:6px">Балансов для хранения нет.</div>';
+                        return '<div style="margin-top:7px;padding-top:7px;border-top:1px solid rgba(255,255,255,.06)">'
+                             + '<div style="font-size:11px;color:var(--muted)">' + esc(source.providerId || copy.title)
+                             + ' · ' + esc(laneStateCopy[source.state] || source.state || '') + '</div>' + details + '</div>';
+                    }).join('');
+                }
+                return '<section style="padding:11px;border-radius:12px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.07)">'
+                     + '<div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">'
+                     + '<div><div style="font-size:13px;font-weight:800">' + esc(copy.title) + '</div>'
+                     + '<div style="font-size:10px;color:var(--muted);margin-top:2px">' + esc(copy.badge) + '</div></div>'
+                     + '<span style="font-size:10px;color:' + (warning ? '#fbbf24' : 'var(--muted)') + '">' + esc(state) + '</span></div>'
+                     + body + '</section>';
+            }).join('');
+        }
+
+        async function loadUnifiedPortfolio() {
+            try {
+                const r = await fetch('/api/wallet/portfolio', {
+                    headers: {'X-Telegram-Init-Data': tg.initData || ''}});
+                unifiedPortfolioRender(r.ok ? await r.json().catch(() => null) : null);
+            } catch (_) { unifiedPortfolioRender(null); }
+        }
+
+        function cexManagementRender(data) {
+            const box = document.getElementById('cex-management-list');
+            const note = document.getElementById('cex-management-note');
+            if (!box || !note) return;
+            const sources = data && Array.isArray(data.sources) ? data.sources : null;
+            if (sources === null) {
+                box.innerHTML = '<div style="font-size:11px;color:#fbbf24">Не удалось проверить подключения. Остальные части портфеля продолжают работать.</div>';
+                return;
+            }
+            const active = sources.filter(item => item && item.source && item.source.state !== 'REVOKED');
+            if (!active.length) {
+                box.innerHTML = '<div style="font-size:11px;color:var(--muted)">Активных подключений нет.</div>';
+                return;
+            }
+            box.innerHTML = active.map(item => {
+                const source = item.source || {};
+                const state = laneStateCopy[source.state] || source.state || '—';
+                const checked = item.permissionCheckedAt
+                    ? new Date(item.permissionCheckedAt).toLocaleString('ru-RU') : 'ещё не проверено';
+                const canDisconnect = source.state !== 'REVOKING';
+                return '<div style="padding:9px;border:1px solid rgba(255,255,255,.07);border-radius:10px;background:rgba(255,255,255,.02)">'
+                    + '<div style="display:flex;justify-content:space-between;gap:8px;align-items:center">'
+                    + '<div><div style="font-size:12px;font-weight:700">' + esc(source.providerId || 'Биржа') + '</div>'
+                    + '<div style="font-size:10px;color:var(--muted);margin-top:2px">' + esc(state) + ' · проверка: ' + esc(checked) + '</div></div>'
+                    + (canDisconnect ? '<button type="button" class="cex-disconnect" data-source-id="' + esc(source.sourceId || '')
+                        + '" style="border:1px solid rgba(248,113,113,.35);background:rgba(248,113,113,.08);color:#fca5a5;border-radius:8px;padding:6px 8px;font-size:11px">Отключить</button>' : '')
+                    + '</div></div>';
+            }).join('');
+            box.querySelectorAll('.cex-disconnect').forEach(button => {
+                button.addEventListener('click', () => cexDisconnect(button.dataset.sourceId, button));
+            });
+        }
+
+        async function loadCexManagement() {
+            try {
+                const r = await fetch('/api/wallet/cex-sources', {
+                    headers: {'X-Telegram-Init-Data': tg.initData || ''}});
+                cexManagementRender(r.ok ? await r.json().catch(() => null) : null);
+            } catch (_) { cexManagementRender(null); }
+        }
+
+        const cexEventCopy = {
+            CONNECT_REQUESTED: 'Подключение создано, ожидается безопасная проверка',
+            PERMISSION_VERIFIED: 'Подтверждён режим «только просмотр»',
+            BALANCE_REFRESHED: 'Данные баланса обновлены',
+            DATA_DEGRADED: 'Обновление временно недоступно',
+            ACCESS_BLOCKED: 'Доступ остановлен защитой',
+            DISCONNECT_REQUESTED: 'Запрошено отключение',
+            DISCONNECTED: 'Подключение и сохранённые данные удалены'
+        };
+
+        function cexEventsRender(data) {
+            const box = document.getElementById('cex-event-list');
+            const retention = document.getElementById('cex-event-retention');
+            if (!box || !retention) return;
+            const events = data && Array.isArray(data.events) ? data.events : null;
+            if (events === null) {
+                retention.textContent = 'Срок хранения истории сейчас не удалось подтвердить.';
+                box.innerHTML = '<div style="font-size:10px;color:#fbbf24">История временно недоступна.</div>';
+                return;
+            }
+            retention.textContent = 'События хранятся до ' + Number(data.retentionDays) + ' дней; старые записи удаляются автоматически.';
+            if (!events.length) {
+                box.innerHTML = '<div style="font-size:10px;color:var(--muted)">Событий подключений пока нет.</div>';
+                return;
+            }
+            box.innerHTML = events.slice(0, 12).map(event => {
+                const when = event.at ? new Date(event.at).toLocaleString('ru-RU') : 'время неизвестно';
+                const text = cexEventCopy[event.type] || 'Состояние подключения изменилось';
+                return '<div style="font-size:10px;color:var(--muted);padding-left:8px;border-left:2px solid rgba(159,103,255,.28)">'
+                    + '<span style="color:var(--text)">' + esc(event.providerId || 'Биржа') + '</span> · '
+                    + esc(text) + '<br><span>' + esc(when) + '</span></div>';
+            }).join('');
+        }
+
+        async function loadCexEvents() {
+            try {
+                const r = await fetch('/api/wallet/cex-events', {
+                    headers: {'X-Telegram-Init-Data': tg.initData || ''}});
+                cexEventsRender(r.ok ? await r.json().catch(() => null) : null);
+            } catch (_) { cexEventsRender(null); }
+        }
+
+        async function cexDisconnect(sourceId, button) {
+            if (!/^src_[A-Za-z0-9_]{16,64}$/.test(sourceId || '')) return;
+            if (!window.confirm('Отключить биржу? Доступ к балансу будет отозван, сохранённый снимок удалён. Кошелёк и история ObsidianExchange не изменятся.')) return;
+            if (button) { button.disabled = true; button.textContent = 'Отключаем…'; }
+            try {
+                const r = await fetch(`/api/wallet/cex-sources/${encodeURIComponent(sourceId)}`, {
+                    method: 'DELETE',
+                    headers: {'Content-Type': 'application/json', 'X-Telegram-Init-Data': tg.initData || ''},
+                    body: JSON.stringify({confirm: 'DISCONNECT'})
+                });
+                if (!r.ok) throw new Error('disconnect rejected');
+                await Promise.all([loadCexManagement(), loadCexEvents(), loadUnifiedPortfolio()]);
+            } catch (_) {
+                if (button) { button.disabled = false; button.textContent = 'Повторить отключение'; }
+            }
+        }
+
         async function loadWallets() {
+            loadUnifiedPortfolio();
+            loadCexManagement();
+            loadCexEvents();
             try {
                 const r = await fetch('/api/wallet/links', {
                     headers: { 'X-Telegram-Init-Data': tg.initData || '' } });
@@ -2168,6 +2420,7 @@
                 if (el) el.addEventListener('click', fn);
             };
             on('wallet-refresh', loadWallets);
+            on('portfolio-refresh', loadUnifiedPortfolio);
             on('wallet-disconnect', walletDisconnect);
             on('w-connect', () => tcConnect());
             on('w-act-recv', walletReceive);
@@ -2599,6 +2852,7 @@
                 if (tab.dataset.tab === 'referral') loadReferral();
                 if (tab.dataset.tab === 'profile') { loadProfile(); loadWallets(); }
                 if (tab.dataset.tab === 'wallet') { loadWallets(); loadWalletBook(); }
+                if (tab.dataset.tab === 'market') loadMarketModes();
                 if (tab.dataset.tab === 'admin') loadAdmin();
             };
             tab.addEventListener('click', activate);
@@ -2684,8 +2938,8 @@
                     const emoji = { pending:'⏳', paid:'✅', sent:'🚀' }[o.status] || '⚡';
                     const label = statusLabels[o.status] || o.status;
                     html += `<div class="history-item"><span class="status">${emoji} ${label}</span><strong>#${o.order_id}</strong> 👤${o.user_id}<br>${o.rub_amount} RUB → ${o.currency}<br><small>${o.created_at}</small>`;
-                    if (o.status !== 'sent') {
-                        html += `<br><button class="btn" style="margin-top:8px" onclick="adminForcePayout(${o.order_id})">💸 Принудительная выплата</button>`;
+                    if (o.status === 'paid') {
+                        html += `<br><button class="btn" style="margin-top:8px" onclick="adminForcePayout(${o.order_id})">💸 Указать TXID выплаты</button>`;
                     }
                     html += `</div>`;
                 });
@@ -2703,14 +2957,16 @@
         }
 
         async function adminForcePayout(orderId) {
-            if (!confirm(`Подтвердить выплату по заявке #${orderId}?`)) return;
+            const txid = prompt(`TXID уже отправленной выплаты по заявке #${orderId}:`);
+            if (!txid || !txid.trim()) return;
             try {
                 const res = await fetch('/api/admin/force_payout', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': tg.initData },
-                    body: JSON.stringify({ order_id: orderId })
+                    body: JSON.stringify({ order_id: orderId, txid: txid.trim() })
                 });
-                if (res.ok) { alert('Выплата отмечена'); loadAdmin(); } else { alert('Ошибка'); }
+                if (res.ok) { alert('Выплата подтверждена TXID'); loadAdmin(); }
+                else { alert(`Ошибка: ${await res.text()}`); }
             } catch(e) { alert('Ошибка'); }
         }
 

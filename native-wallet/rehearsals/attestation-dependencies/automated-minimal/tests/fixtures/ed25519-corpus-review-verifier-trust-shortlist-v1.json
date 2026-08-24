@@ -1,0 +1,117 @@
+{
+  "schema": "native-wallet-ed25519-corpus-review-verifier-trust-shortlist.v1",
+  "scope": "authentication of an external WebAuthn verifier result and its build identity",
+  "result_authentication_options": [
+    {
+      "id": "local_pinned_execution",
+      "mechanism": "execute an allowlisted verifier binary locally and consume its result over a private process boundary",
+      "strengths": [
+        "no portable result-signing key",
+        "result can be bound directly to caller nonce and exact input digests"
+      ],
+      "residual_risks": [
+        "compromised host can replace the process or forge IPC",
+        "binary digest alone does not prove source, configuration or execution integrity"
+      ],
+      "status": "SHORTLISTED_NOT_SELECTED"
+    },
+    {
+      "id": "dsse_signed_result",
+      "mechanism": "DSSE-sign the closed result with a dedicated offline-verifiable verifier-result key",
+      "strengths": [
+        "portable offline evidence",
+        "explicit payload type and exact-byte signature binding"
+      ],
+      "residual_risks": [
+        "key compromise can mint convincing results",
+        "signature proves key use but not which binary executed",
+        "requires independent root, epoch, revocation and replay policy"
+      ],
+      "status": "SHORTLISTED_NOT_SELECTED"
+    },
+    {
+      "id": "hardware_workload_quote",
+      "mechanism": "hardware-backed workload quote binds nonce, result digest and measured verifier identity",
+      "strengths": [
+        "can bind execution measurement to freshness",
+        "reduces reliance on an exportable result-signing key"
+      ],
+      "residual_risks": [
+        "vendor endorsement and revocation roots become trust dependencies",
+        "measurement may omit runtime configuration or mutable dependencies",
+        "large parser, privacy and cross-platform policy surface"
+      ],
+      "status": "DEFERRED_COMPLEXITY"
+    },
+    {
+      "id": "sigstore_keyless_bundle",
+      "mechanism": "bind the result to an OIDC identity, short-lived certificate and transparency proof",
+      "strengths": [
+        "auditable identity and transparency evidence",
+        "mature ecosystem tooling"
+      ],
+      "residual_risks": [
+        "OIDC, CA, transparency log and inclusion policy add shared control planes",
+        "offline acceptance needs pinned roots and checkpoint freshness"
+      ],
+      "status": "SUPPLEMENTAL_ONLY"
+    }
+  ],
+  "build_identity_sources": [
+    {
+      "id": "reproducible_binary_digest",
+      "claim": "two independent builders reproduce the exact verifier artifact digest from pinned source and dependencies",
+      "does_not_prove": ["artifact executed", "runtime configuration", "host integrity"],
+      "status": "REQUIRED_CANDIDATE_NOT_SELECTED"
+    },
+    {
+      "id": "intoto_slsa_dsse_provenance",
+      "claim": "signed provenance binds source, builder, parameters, dependencies and artifact digest",
+      "does_not_prove": ["reproducibility", "artifact executed", "result correctness"],
+      "status": "REQUIRED_CANDIDATE_NOT_SELECTED"
+    },
+    {
+      "id": "hardware_measurement",
+      "claim": "a platform quote reports an allowlisted executable or workload measurement",
+      "does_not_prove": ["source provenance", "semantic correctness", "complete mutable state unless explicitly measured"],
+      "status": "DEFERRED_COMPLEXITY"
+    },
+    {
+      "id": "package_or_container_digest",
+      "claim": "distribution metadata names exact package or image bytes",
+      "does_not_prove": ["source provenance", "artifact executed", "host integrity", "semantic correctness"],
+      "status": "INSUFFICIENT_ALONE"
+    }
+  ],
+  "mandatory_cross_bindings": [
+    "review_request_sha256",
+    "assertion_envelope_sha256",
+    "challenge_sha256",
+    "evidence_id",
+    "credential_root_sha256",
+    "revocation_epoch",
+    "verifier_build_sha256",
+    "verifier_policy_sha256",
+    "result_issued_at_epoch_ms",
+    "result_expires_at_epoch_ms",
+    "caller_nonce_sha256"
+  ],
+  "selection_prerequisites": [
+    "independent compromise and recovery roots",
+    "offline root and revocation verification",
+    "single-use caller nonce and evidence ledger",
+    "two independently reproduced verifier binaries",
+    "signed provenance checked separately from byte equality",
+    "negative corpus and parser differential tests",
+    "explicit platform configuration and dependency measurement policy",
+    "documented key or workload identity rotation and incident recovery"
+  ],
+  "selected_result_authentication": null,
+  "selected_build_identity_source": null,
+  "real_verifier_result_present": false,
+  "real_assertion_present": false,
+  "credential_enrolled": false,
+  "reviewer_authenticated": false,
+  "crypto_call_allowed": false,
+  "runtime_integration_allowed": false
+}

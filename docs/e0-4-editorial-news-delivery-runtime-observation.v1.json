@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "e0.4-editorial-news-delivery-runtime-observation.v1",
+  "observedAt": "2026-08-18T00:00:00Z",
+  "route": "E0/E0.4/EDITORIAL_NEWS_DELIVERY",
+  "status": "BLOCKED_OWNER",
+  "decisionEffect": "RESTRICTIVE_READ_ONLY_OBSERVATION_ONLY",
+  "source": "current-owner-conversation",
+  "authority": {
+    "productionAuthorization": false,
+    "productionMutationAuthorized": false,
+    "productionExpandAuthorized": false,
+    "deploymentAuthorized": false,
+    "telegramDeliveryAuthorized": false,
+    "actionAllowed": false
+  },
+  "scope": {
+    "serviceUnits": [
+      {"path": "/etc/systemd/system/crypto-news-bot.service", "sha256": "51b7b60b5de6d0ff2e5c0cf31d0b3aa6cbd7ffd3b13e053f50010038ee1a0b84"},
+      {"path": "/etc/systemd/system/callback-handler.service", "sha256": "8dd6d5aaba172573c3174cecb3e1bd067284b083c53a2dc59f4735ba6eec72f8"}
+    ],
+    "sourceFiles": [
+      {"path": "/root/crypto-news-aggregator/run_bot.py", "sha256": "59336525b11f9d0bfcd9f140f37013219b0a33c2a266a2da73c0202227d0c164"},
+      {"path": "/root/crypto-news-aggregator/app/bot/telegram_bot.py", "sha256": "4de47fd38a5b1b5a29bb821dfd47099ff29f03375aba47494920fcdb3760feb3"},
+      {"path": "/root/crypto-news-aggregator/app/storage/subscriptions.py", "sha256": "20d0c29bdb904dea437c9130d69d1bcffd4eec9792667c31b313dcd51cca26f5"},
+      {"path": "/root/crypto-news-aggregator/app/storage/mongodb.py", "sha256": "ed4f88c7d5e41e836201df4a0dc39ba2e6334307a15b50e530a79df708b8b105"},
+      {"path": "/root/crypto-news-aggregator/publish_news.py", "sha256": "d55237fc52d4506d129763b7f5e6d6e8e0be0dc594de42459ba69230e93c6964"},
+      {"path": "/root/callback_handler.py", "sha256": "8b86e92fdda7c2ba299ed3236775ba6308b6b897c57d8bd3da784f40cbc03566"}
+    ]
+  },
+  "surfaceClassification": {
+    "telegram": "REQUIRED_IMPLEMENTED_EFFECT_WRITER",
+    "site": "N/A",
+    "miniApp": "N/A",
+    "admin": "N/A_OPERATOR_VISIBILITY_MISSING",
+    "api": "PARTIAL_UNACCEPTED_SEPARATE_ARTICLES_ENDPOINT",
+    "native": "N/A"
+  },
+  "findings": [
+    {"id": "END_TO_END_DELIVERY_NOT_IDEMPOTENT", "severity": "HIGH", "detail": "Delivery advances only a per-subscriber timestamp after send_message; retries, concurrent loops, and partial failures have no durable article/subscriber attempt or idempotency key, allowing duplicates or skips."},
+    {"id": "SOURCE_PROVENANCE_AND_FRESHNESS_UNBOUND", "severity": "HIGH", "detail": "Ingestion stores source URL and local created_at but no fetched_at, source publication time, license/attribution, content hash, freshness bound, or provenance policy; duplicate handling is URL-hash only."},
+    {"id": "SUBSCRIPTION_CONSENT_RETENTION_AUDIT_GAPS", "severity": "HIGH", "detail": "start/stop directly toggle chat_id state; schema has no consent version, request receipt, deletion/retention policy, audit event, or operator reconciliation."},
+    {"id": "LEGACY_CALLBACK_BOT_SEPARATE_TRUST_BOUNDARY", "severity": "HIGH", "detail": "callback-handler.service independently polls Telegram with the same class of bearer token and sends replies; no deduplication, delivery receipt, rate limit, or lifecycle linkage is evidenced."},
+    {"id": "ROOT_SERVICE_AND_SECRET_CONFIGURATION", "severity": "HIGH", "detail": "Units run as root and load token/database configuration from environment/.env; sandboxing, least privilege, and secret rotation/ownership evidence are absent."},
+    {"id": "DELIVERY_FAILURE_FAILS_OPEN", "severity": "MEDIUM", "detail": "Per-article send exceptions are printed and skipped while the loop continues; no bounded retry/dead-letter/alert or customer-visible failure state exists."},
+    {"id": "LEGACY_DIRECT_TELEGRAM_PIPELINES_DRIFT", "severity": "HIGH", "detail": "publish_news.py and legacy news_bot.py send directly to Telegram outside the subscription/outbox path, creating separate cursor, token, and audit boundaries."}
+  ],
+  "knownBlockers": ["authenticated owner acceptance absent", "independent reviewer approval absent", "production key registry/trusted time/revocation/replay controls not established", "no evidence permits 064B or separate 064D"],
+  "nextSafeRoute": "E0/E0.4/TELEGRAM_CHANNEL_POST_PROCESSING",
+  "interpretation": "This is a read-only inventory and rejection of acceptance. It grants no delivery, deployment, Telegram, provider, customer, writer, or production authority. E0.3 remains first unmet and BLOCKED_OWNER; E0.4 remains non-production IN_PROGRESS."
+}

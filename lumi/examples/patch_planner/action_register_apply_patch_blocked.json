@@ -1,0 +1,1 @@
+{"actionId":"apply_patch","title":"Apply Patch","description":"Blocked real patch apply action","category":"project_maintenance","riskLevel":"high","requiresApproval":true,"supportsDryRun":true,"allowedModes":["proposal","dry_run","execute"],"inputSchema":{"type":"object"},"outputSchema":{"type":"object"}}

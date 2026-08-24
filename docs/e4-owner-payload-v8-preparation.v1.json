@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "e4-owner-payload-v8-preparation.v1",
+  "recordedOnUtc": "2026-08-23",
+  "stage": "E4",
+  "gate": "DISPOSABLE_FULL_SNAPSHOT_REHEARSAL",
+  "route": "E4_OWNER_GATED_FRESH_PRODUCTION_DISCONNECTED_REHEARSAL",
+  "status": "IN_PROGRESS",
+  "authority": {
+    "ownerSignatureVerified": false,
+    "reviewerSignatureVerified": false,
+    "trustedClockVerified": false,
+    "freshReplayClaimConsumed": false,
+    "rehearsalExecutionEligible": false,
+    "executionAuthorized": false,
+    "productionDatabaseContactAllowed": false,
+    "productionNetworkAllowed": false,
+    "productionCredentialsAllowed": false,
+    "moneyActionAllowed": false,
+    "executionEffect": "NONE"
+  },
+  "payload": {
+    "path": "E4-owner-handoff/e4-owner-decision-payload.v8.json",
+    "sha256": "251c8a8851c688701905fd99a6a744d25bc636d8fb380896cd84c77a94cb7ac1",
+    "status": "READY_FOR_OFFLINE_OWNER_SIGNATURE",
+    "ownerIssuer": "e4-owner-signing-v2",
+    "reviewerIssuer": "e4-independent-reviewer",
+    "ownerNamespace": "e4-owner@obsidian-exchange.local",
+    "reviewerNamespace": "e4-reviewer@obsidian-exchange.local",
+    "approvedAtEpochMs": 1787447323203,
+    "expiresAtEpochMs": 1787448223203,
+    "invocationLimit": 1,
+    "targetRef": "e4-disposable-pg-20260822-02",
+    "targetFingerprintSha256": "3545e043156cd9023d46a5ebaaa12f0c964ceea2887cea79c9703395a1588ad3",
+    "snapshotSha256": "47efc0dc293890243072bdf048d40cbcc1fee8fbe719e4b841fb5d156f658b3e",
+    "snapshotRefSha256": "d56f226fb3c38cc40f7265d1d15c2c751211bb86ff1beba655f82f99d5d4b619",
+    "keyRefSha256": "c7e21692ac64774b4229807d5b11338df72f722247a1bcebb22d54667a102109",
+    "nonceSha256": "3218ff1c02518f146fab3df4b771b0e7e033dd1700a6f63c4c6d23a7e122706d"
+  },
+  "ownerConfirmation": {
+    "existingSnapshotReuse": true,
+    "ciphertextRetentionAfterRehearsal": true,
+    "conversationConfirmationIsCryptographicAuthorization": false
+  },
+  "production": {
+    "snapshotDecrypted": false,
+    "dockerExecutionPerformed": false,
+    "postgresqlContactPerformed": false,
+    "fileBackedVerifierInvoked": false,
+    "currentReplayClaimRetried": false
+  },
+  "nextCanonicalItem": "OFFLINE_OWNER_SIGNATURE_THEN_INDEPENDENT_REVIEWER_ENVELOPE"
+}

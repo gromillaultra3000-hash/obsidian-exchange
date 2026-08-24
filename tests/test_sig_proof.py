@@ -261,6 +261,11 @@ with sqlite3.connect(tmp.name) as c:
     c.execute("CREATE TABLE orders (order_id TEXT, user_id INTEGER, currency TEXT,"
               " network TEXT, crypto_address TEXT, status TEXT, created_at TEXT,"
               " updated_at TEXT, agreed_crypto_amount REAL, paid_btc_tx TEXT)")
+    # Runtime code validates an already-migrated schema and deliberately owns
+    # no DDL.  The isolated fixture therefore creates the persistence contract
+    # it exercises instead of relying on an import-time production migration.
+    c.execute("CREATE TABLE wallet_links (user_id INTEGER, chain TEXT, address TEXT,"
+              " verified_at TEXT, PRIMARY KEY(user_id,chain))")
     c.commit()
 
 check("связь по подписи сохранена", wl.remember(UID, "BTC", addr))

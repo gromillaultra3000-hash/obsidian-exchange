@@ -1,0 +1,8 @@
+{
+  "input": "Analyze this request and return a safe decision.",
+  "context": {},
+  "requirements": {},
+  "metadata": {
+    "dialogSessionId": "replace-with-session-id"
+  }
+}

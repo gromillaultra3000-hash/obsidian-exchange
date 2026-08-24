@@ -1,0 +1,24 @@
+{
+  "schemaVersion":"e0-4-owner-auth-sql-release-rehearsal.v1",
+  "observedAt":"2026-08-18T02:30:00Z",
+  "route":"E0/E0.4/FEATURE_STATUS_SURFACE_MATRIX",
+  "status":"IN_PROGRESS",
+  "productionMutation":false,
+  "productionAuthorization":false,
+  "databaseMigrationAuthorized":false,
+  "featureFlagsRequired":"OFF",
+  "release":{"releaseId":"e04sql_9b64809fd87f26e46b8c0619db7bfa30","bundleSha256":"f240570b5fada7069a0b163ba05fccf14bf00ebb90179febb9f9e1df2a121e2b","bundleBytes":81920,"deployable":false},
+  "catalogPreimage":{"path":"docs/e0-4-owner-auth-production-catalog-preimage.v1.json","sha256":"192b4e5c5c7e2de91b21604653177c1ad9b0ad54c64d1a30645560e71b1e49b7","priorState":"ABSENT","owner":"obsidian_migrator","executor":"obsidian_app"},
+  "rehearsal":{"engine":"PostgreSQL 17-alpine","schemaSource":"read-only production schema-only dump with no owner or privileges","sequence":["ABSENT -> expand","exact installed -> rollback","ABSENT -> idempotent rollback","ABSENT -> forward repair","installed -> second expand rejected","ACL drift -> rollback rejected before DROP"],"finalDriftPreservedFunctionCount":8},
+  "acceptance":[
+    "Expand and forward repair use CREATE FUNCTION only after an in-transaction all-ABSENT guard.",
+    "Rollback accepts only all-ABSENT or all-eight exact installed fingerprints; partial, mixed, body, interface, metadata or ACL drift fails before DROP.",
+    "Each installed fingerprint binds direct prosrc, exact arguments/result shape, owner, language, volatility, kind, strict/leakproof/parallel/security-definer flags, search_path and exact owner/app non-grantable ACL tuples.",
+    "The 66-character proposal spelling is deliberately normalized to its exact 63-byte PostgreSQL catalog identity.",
+    "No roles, credentials, table privileges or legacy direct-SQL privileges are created, changed or revoked."
+  ],
+  "verification":{"focusedDirectTests":2,"pyCompile":"PASS","gitDiffCheck":"PASS","cleanExpandRollbackRepair":"PASS","repeatedRollback":"PASS","reExpandDriftRefusal":"PASS","aclDriftRollbackRefusal":"PASS"},
+  "independentReviews":[{"identity":"agent:/root/sql_security_review","disposition":"ACCEPT"},{"identity":"agent:/root/sql_acceptance_review","disposition":"ACCEPT"}],
+  "scopeLimits":["No production SQL was executed.","No deploy, restart, config, Telegram or money-writer action occurred.","The artifact is preflight-only and cannot authorize migration."],
+  "nextCanonicalItem":"Expand the E0.4 surface matrix with the first omitted family, DCA, using exact repository and runtime evidence for every required surface."
+}

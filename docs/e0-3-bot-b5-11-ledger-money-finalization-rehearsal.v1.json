@@ -1,0 +1,61 @@
+{
+  "schema": "obsidian.e0-3-bot-b5-11-ledger-money-finalization-rehearsal.v1",
+  "stage": "E0.3",
+  "status": "REHEARSED_DISPOSABLE_POSTGRESQL_17",
+  "observedAt": "2026-08-16T23:00:00Z",
+  "productionAuthorization": false,
+  "implementationDeployed": false,
+  "proposals": [
+    {"path":"deploy/postgres/proposals/056_e0_bot_b5_11_ledger_money_finalization.sql","sha256":"8791f2919396e88d05ca123f1b28fdc1b988650777fef2c40cc7aa5662769e10"},
+    {"path":"deploy/postgres/proposals/057_e0_bot_b5_11_source_reservations_and_manual_evidence.sql","sha256":"773231e87dc74fb9e12cacc5454e786e5d59ed11be0c0639505e6ba7a15c3f83"}
+  ],
+  "test": "tests/test_e0_3_bot_b5_11_ledger_money_finalization_rehearsal.py",
+  "testSha256": "67803f3b8994d8c2136cd83a7f5387d87af7d541b09cb36a6fed144a768bc996",
+  "supersedesLegacyMethods": [
+    "engagement_store.add_vip",
+    "engagement_store.credit_referral_bonus",
+    "reconciliation_store.reconcile_order",
+    "reconciliation_store.reconcile_referral",
+    "sell_order_store.mark_manual_or_processing"
+  ],
+  "supportingFunctions": [
+    "bot_b5_finalize_order_money(bigint,text)",
+    "bot_b5_request_referral_payout(bigint,text,numeric)",
+    "bot_b5_finalize_referral_money(bigint)",
+    "bot_b5_finalize_swap_referral(text,text)",
+    "bot_b5_sell_record_processing(bigint,text)",
+    "bot_b5_finalize_sell_money(bigint,text)",
+    "bot_b5_record_payout_hold(bigint,text)"
+  ],
+  "evidence": [
+    "immutable order terms replace live caller-supplied rates and percentages",
+    "gift redemption becomes an authoritative paid order and uses the same order finalizer",
+    "swap referral credit requires a principal-owned exact session valuation snapshot",
+    "referral requests reserve exact immutable credit-ledger allocations and later credits remain unspent",
+    "consumed principal-owned chain evidence is required before order or referral finalization",
+    "manual and Vertu sell finalization require principal-owned exact payment evidence",
+    "state, source-bound ledgers, projections and outboxes commit atomically",
+    "eight concurrent callers produce one mutation and seven stable replays across finalizers",
+    "injected order/referral/swap/sell faults roll back every earlier state, evidence, ledger and projection mutation",
+    "sell evidence binds positive user, RUB amount, destination digest and globally unique provider reference",
+    "canonical JSON-array encoding makes payout destination digest unambiguous across NULL, empty and delimiter-bearing fields",
+    "already-replayed order, swap and sell calls validate every immutable ledger, projection correlation and outbox payload; deliberate corruption fails closed",
+    "catalog audit proves exact owner, SECURITY DEFINER, fixed search_path, bot EXECUTE, PUBLIC denial and zero direct relation/sequence grants",
+    "payout hold consumes principal-owned evidence once and appends an immutable audit",
+    "NaN and nonpositive monetary terms are rejected",
+    "bot cannot author terms, valuations or payment evidence and has no raw projection update"
+  ],
+  "b5_6Resolution": {
+    "paidAndSent": "proposal 051 status-correlated delivery markers",
+    "payoutTriggered": "proposal 053 authoritative payout-intent creation",
+    "payoutHeld": "proposal 057 principal-evidence-bound hold audit"
+  },
+  "rolloutBlockers": [
+    "production adapters still execute legacy raw repository SQL and must be atomically rewired before execute-only credentials",
+    "shared bot login does not authenticate end-user or operator identity at the database boundary",
+    "principal-owned evidence and immutable terms producers require a separately authorized deployment design"
+  ],
+  "independentReview": "codex-subagent-b511-review findings accepted; generic caller-supplied additive API rejected",
+  "result": "PASS",
+  "nextPrerequisite": "B5 exact-set completion audit"
+}

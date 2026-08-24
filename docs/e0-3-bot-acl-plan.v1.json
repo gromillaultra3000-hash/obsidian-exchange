@@ -1,0 +1,265 @@
+{
+  "schema": "obsidian.e0-3-bot-acl-plan.v1",
+  "stage": "E0.3",
+  "status": "B5_REHEARSED_PROPOSAL_ONLY",
+  "accountableOwner": "project-owner",
+  "productionAuthorization": false,
+  "implementationDeployed": false,
+  "methodMatrix": "docs/e0-3-bot-method-capability-matrix.v1.json",
+  "sharedRelayEvidence": [
+    "docs/e0-3-relay-read-matrix.v1.json",
+    "docs/e0-3-relay-writer-matrix.v1.json"
+  ],
+  "capabilityPackages": [
+    "docs/e0-3-bot-admin-config-capabilities.v1.json",
+    "docs/e0-3-bot-dca-capabilities.v1.json",
+    "docs/e0-3-bot-engagement-capabilities.v1.json",
+    "docs/e0-3-bot-gift-capabilities.v1.json",
+    "docs/e0-3-bot-limit-order-capabilities.v1.json",
+    "docs/e0-3-bot-notification-capabilities.v1.json",
+    "docs/e0-3-bot-order-capabilities.v1.json",
+    "docs/e0-3-bot-order-read-capabilities.v1.json",
+    "docs/e0-3-bot-order-workflow-capabilities.v1.json",
+    "docs/e0-3-bot-payment-session-capabilities.v1.json",
+    "docs/e0-3-bot-payout-capabilities.v1.json",
+    "docs/e0-3-bot-reconciliation-capabilities.v1.json",
+    "docs/e0-3-bot-reporting-config-capabilities.v1.json",
+    "docs/e0-3-bot-sell-order-capabilities.v1.json",
+    "docs/e0-3-bot-small-store-capabilities.v1.json",
+    "docs/e0-3-bot-support-capabilities.v1.json"
+  ],
+  "roles": {
+    "login": "obsidian_exchange_bot",
+    "functionOwner": "obsidian_exchange_bot_owner",
+    "functionOwnerLogin": false,
+    "inherit": false,
+    "superuser": false,
+    "createDb": false,
+    "createRole": false,
+    "replication": false,
+    "bypassRls": false,
+    "connectionLimit": 10,
+    "connectionBudget": "docs/e0-3-bot-connection-budget.v1.json",
+    "connectionLimitStatus": "MEASURED_NOT_DEPLOYED"
+  },
+  "authorization": {
+    "strategy": "ONE_BOUNDED_SECURITY_DEFINER_FUNCTION_PER_METHOD",
+    "methodCount": 135,
+    "botOnlyPackageMethodCount": 119,
+    "sharedRelayEvidenceMethodCount": 16,
+    "readMethodCount": 66,
+    "writerOrSchemaMethodCount": 69,
+    "directRelationPrivileges": [],
+    "directSequencePrivileges": [],
+    "inheritedReadRoles": [],
+    "publicExecute": false,
+    "owner": "obsidian_exchange_bot_owner",
+    "loginPrivilege": "EXECUTE_ONLY"
+  },
+  "ambientPolicy": [
+    "PUBLIC_CONNECT_TEMP_SCHEMA_FUNCTION_REVOKED",
+    "NO_SCHEMA_CREATE",
+    "NO_TEMP",
+    "NO_ROLE_MEMBERSHIP",
+    "NO_DIRECT_TABLE_DML",
+    "NO_DIRECT_TABLE_SELECT",
+    "NO_DIRECT_SEQUENCE_ACCESS",
+    "FIXED_PG_CATALOG_SEARCH_PATH",
+    "STATEMENT_TIMEOUT_REQUIRED",
+    "LOCK_TIMEOUT_REQUIRED"
+  ],
+  "singleProcessConstraint": "The current exchange-bot process mixes owner, operator and background calls, so one login necessarily receives the union of all 135 function EXECUTEs. Splitting those authorities requires separate process identities and pools; it is not claimed by this plan.",
+  "functionAcceptance": [
+    "exact input SQL types and bounded sizes",
+    "closed return shape",
+    "package invariants enforced inside one transaction",
+    "owner predicates enforced inside functions",
+    "fresh row lock or CAS where declared",
+    "fixed search_path pg_catalog",
+    "schema-qualified relations",
+    "PUBLIC execute revoked",
+    "owner is NOLOGIN and has only body-required grants",
+    "login has only exact function execute",
+    "malicious input concurrency and injected-fault rollback tests"
+  ],
+  "rehearsalPackages": [
+    {
+      "id": "B1_ROLE_ENVELOPE_AND_REPRESENTATIVE_READS",
+      "status": "REHEARSED",
+      "evidence": "docs/e0-3-bot-b1-role-envelope-rehearsal.v1.json"
+    },
+    {
+      "id": "B2_OWNER_AND_OPERATOR_READS",
+      "status": "REHEARSED",
+      "subpackages": [
+        {
+          "id": "B2.1_OWNER_READS",
+          "status": "REHEARSED",
+          "evidence": "docs/e0-3-bot-b2-1-owner-reads-rehearsal.v1.json"
+        },
+        {
+          "id": "B2.2_OPERATOR_READS",
+          "status": "REHEARSED",
+          "coverageTest": "tests/test_e0_3_bot_b2_operator_read_completion.py",
+          "subpackages": [
+            {
+              "id": "B2.2A_OPERATOR_ENGAGEMENT_READS",
+              "status": "REHEARSED",
+              "evidence": "docs/e0-3-bot-b2-2a-operator-engagement-reads-rehearsal.v1.json"
+            },
+            {
+              "id": "B2.2B_OPERATOR_ORDER_READS",
+              "status": "REHEARSED",
+              "evidence": "docs/e0-3-bot-b2-2b-operator-order-reads-rehearsal.v1.json"
+            },
+            {
+              "id": "B2.2C_REMAINING_OPERATOR_READS",
+              "status": "REHEARSED",
+              "subpackages": [
+                {
+                  "id": "B2.2C1_PAYMENT_PAYOUT_READS",
+                  "status": "REHEARSED",
+                  "evidence": "docs/e0-3-bot-b2-2c1-operator-payment-payout-reads-rehearsal.v1.json"
+                },
+                {
+                  "id": "B2.2C2_REPORTING_SELL_SUPPORT_READS",
+                  "status": "REHEARSED",
+                  "subpackages": [
+                    {
+                      "id": "B2.2C2A_CONFIG_SELL_SUPPORT_READS",
+                      "status": "REHEARSED",
+                      "evidence": "docs/e0-3-bot-b2-2c2a-operator-config-sell-support-reads-rehearsal.v1.json"
+                    },
+                    {
+                      "id": "B2.2C2B_REPORTING_READS",
+                      "status": "REHEARSED",
+                      "evidence": "docs/e0-3-bot-b2-2c2b-operator-reporting-reads-rehearsal.v1.json"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "B3_NON_MONEY_WRITERS",
+      "status": "REHEARSED",
+      "coverageTest": "tests/test_e0_3_bot_b3_writer_completion.py",
+      "subpackages": [
+        {
+          "id": "B3.1_ENGAGEMENT_WRITERS",
+          "status": "REHEARSED",
+          "evidence": "docs/e0-3-bot-b3-1-engagement-non-money-writers-rehearsal.v1.json"
+        },
+        {
+          "id": "B3.2_ADMIN_CONFIG_OWNER_WORKFLOW_WRITERS",
+          "status": "REHEARSED",
+          "subpackages": [
+            {
+              "id": "B3.2A_ADMIN_CONFIG_WRITERS",
+              "status": "REHEARSED",
+              "evidence": "docs/e0-3-bot-b3-2a-admin-config-non-money-writers-rehearsal.v1.json"
+            },
+            {
+              "id": "B3.2B_OWNER_ORDER_WORKFLOW_WRITERS",
+              "status": "REHEARSED",
+              "evidence": "docs/e0-3-bot-b3-2b-owner-order-workflow-writers-rehearsal.v1.json"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "B4_ORDER_SESSION_AND_QUEUE_TRANSITIONS",
+      "status": "REHEARSED",
+      "subpackages": [
+        {
+          "id": "B4.1_REMAINING_ORDER_WORKFLOW_WRITERS",
+          "status": "REHEARSED",
+          "evidence": "docs/e0-3-bot-b4-1-order-workflow-writers-rehearsal.v1.json"
+        },
+        {
+          "id": "B4.2_RATE_LOCK_REPLACEMENT",
+          "status": "REHEARSED",
+          "evidence": "docs/e0-3-bot-b4-2-rate-lock-replacement-rehearsal.v1.json"
+        }
+      ]
+    },
+    {
+      "id": "B5_PAYOUT_SETTLEMENT_AND_RECONCILIATION",
+      "status": "REHEARSED",
+      "subpackages": [
+        {
+          "id": "B5.1_EXACT_REMAINING_WRITER_DECOMPOSITION",
+          "status": "VERIFIED",
+          "evidence": "docs/e0-3-bot-b5-1-writer-decomposition.v1.json"
+        },
+        {
+          "id": "B5.2_RESIDUAL_IDENTITY_SUPPORT_CONFIG_WRITERS",
+          "status": "REHEARSED",
+          "evidence": "docs/e0-3-bot-b5-2-residual-identity-support-config-writers-rehearsal.v1.json"
+        },
+        {
+          "id": "B5.3_BOT_NOTIFICATION_QUEUE_WRITERS",
+          "status": "REHEARSED",
+          "evidence": "docs/e0-3-bot-b5-3-notification-queue-writers-rehearsal.v1.json"
+        },
+        {
+          "id": "B5.4_ORDER_CREATION_WRITER",
+          "status": "REHEARSED",
+          "evidence": "docs/e0-3-bot-b5-4-order-creation-writer-rehearsal.v1.json"
+        },
+        {
+          "id": "B5.5_AUTOMATION_AND_GIFT_WRITERS",
+          "status": "REHEARSED",
+          "evidence": "docs/e0-3-bot-b5-5-automation-gift-writers-rehearsal.v1.json"
+        },
+        {
+          "id": "B5.6_STATUS_NOTIFICATION_COMPLETION_WRITER",
+          "status": "REHEARSED",
+          "evidence": "docs/e0-3-bot-b5-6-status-delivery-subset-rehearsal.v1.json"
+        },
+        {
+          "id": "B5.7_RECONCILIATION_OUTBOX_LIFECYCLE_WRITERS",
+          "status": "REHEARSED",
+          "evidence": "docs/e0-3-bot-b5-7-ambiguity-safe-outbox-rehearsal.v1.json"
+        },
+        {
+          "id": "B5.8_PAYOUT_INTENT_CREATION_WRITERS",
+          "status": "REHEARSED",
+          "evidence": "docs/e0-3-bot-b5-8-payout-intent-creation-rehearsal.v1.json"
+        },
+        {
+          "id": "B5.9_SELL_CLAIM_RELEASE_REJECT_WRITERS",
+          "status": "REHEARSED",
+          "evidence": "docs/e0-3-bot-b5-9-sell-safe-lifecycle-rehearsal.v1.json"
+        },
+        {
+          "id": "B5.10_PAYOUT_CHAIN_EVIDENCE_AND_RECOVERY_WRITERS",
+          "status": "REHEARSED",
+          "evidence": "docs/e0-3-bot-b5-10-chain-evidence-rehearsal.v1.json"
+        },
+        {
+          "id": "B5.11_MONEY_FINALIZATION_WRITERS",
+          "status": "REHEARSED",
+          "evidence": "docs/e0-3-bot-b5-11-ledger-money-finalization-rehearsal.v1.json"
+        }
+      ]
+    }
+  ],
+  "stopConditions": [
+    "connection envelope unmeasured",
+    "function body or SQL type unknown",
+    "package invariant not enforced",
+    "ambient privilege observed",
+    "cross-owner row returned or changed",
+    "ambiguous commit",
+    "money or queue reconciliation mismatch",
+    "fault rollback evidence missing"
+  ],
+  "rollback": "Proposal-only until every package passes in disposable PostgreSQL. A later authorized rollout must retain the prior credential reference as a time-bounded rollback path and reconcile before retrying ambiguous effects.",
+  "b5CompletionEvidence": "docs/e0-3-bot-b5-completion.v1.json",
+  "nextPrerequisite": "E0.3 production adapter wiring and separately authorized rollout rehearsal; this plan grants no rollout authority"
+}

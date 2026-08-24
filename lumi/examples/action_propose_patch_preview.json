@@ -1,0 +1,8 @@
+{
+  "actionId": "create_patch_preview",
+  "requestedMode": "proposal",
+  "proposedInput": {
+    "targetFiles": ["app/main.py"],
+    "changeSummary": "Prepare safe patch preview"
+  }
+}

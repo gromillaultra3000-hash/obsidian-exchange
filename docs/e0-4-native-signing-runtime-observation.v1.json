@@ -1,0 +1,72 @@
+{
+  "schemaVersion": "e0-4-native-signing-runtime-observation.v1",
+  "observedAt": "2026-08-18T04:10:00Z",
+  "route": "E0/E0.4/NATIVE_SIGNING",
+  "status": "IN_PROGRESS",
+  "acceptance": "PARTIAL_NOT_ACCEPTED",
+  "workClass": "KEYLESS_OFFLINE_CHECKOUT_AND_DEPLOYMENT_INVENTORY",
+  "productionMutation": false,
+  "networkUsed": false,
+  "keyMaterialObserved": false,
+  "keyMaterialGenerated": false,
+  "signatureGenerated": false,
+  "transactionBroadcast": false,
+  "mobileBuildProduced": false,
+  "runtime": {
+    "deployedNativeArtifactPresent": false,
+    "nativeServiceUnitPresent": false,
+    "iosApplicationPresent": false,
+    "androidApplicationPresent": false,
+    "e5PythonContractsDeployed": false,
+    "checkoutNativeWalletUntracked": true,
+    "checkoutE5ContractsUntracked": true
+  },
+  "artifacts": [
+    {"path":"native-wallet/Cargo.toml","sha256":"3d8fa7fa9b09d01a5e01e96eeae79e6db54f554874b1d1b4b610c5f7f5c05c22"},
+    {"path":"native-wallet/Cargo.lock","sha256":"13b7abffb71d2bae3c93952e3f03574b6037ce1dcfd70e19bcc29ddcd55f62c7"},
+    {"path":"native-wallet/rust-toolchain.toml","sha256":"8e390d6a0838315f972690f46ef8bae8b7ecc9ee6c1ed70140ef852869c2482e"},
+    {"path":"native-wallet/crates/wallet-core/src/lib.rs","sha256":"978a384b294c11c1fc3c7bd2b041a87073769a666e624d64968b5ae80c243a1f"},
+    {"path":"native-wallet/crates/wallet-ffi/src/lib.rs","sha256":"1ca2bc2b4c92e6375e0b8d01b0ec4ff4d3717847fb450ed06bc151b99a7ef1cf"},
+    {"path":"relay/core/e5_key_boundary.py","sha256":"088d61e2db3d02f7d3dbd4e45ebfebce2e098637c9113c5344b41044b4153989"},
+    {"path":"relay/core/e5_signing_consent.py","sha256":"4211d40c458943eade1291eb9975a81f2e0cb8c8b5731f2a45a07cb2c9067701"},
+    {"path":"relay/core/e5_authenticator_evidence.py","sha256":"549d4796ae99b7c3aa25a462ff5fca17158abfbb76e3552d7b293ff61272a90b"},
+    {"path":"relay/core/e5_readiness.py","sha256":"c9b9a025d0321ef760a6a37f0e0ed63684a394f82dff5fb59381c88c78ea6d7c"}
+  ],
+  "surfaceFindings": {
+    "telegramBot": {"mode":"N/A","implementation":"NOT_IMPLEMENTED","finding":"Native keys and signatures must not move into the Telegram bot; no native signing surface exists."},
+    "site": {"mode":"READ_ONLY","implementation":"NOT_IMPLEMENTED","finding":"No bounded server-to-native signing request bridge or customer handoff exists."},
+    "miniApp": {"mode":"READ_ONLY","implementation":"NOT_IMPLEMENTED","finding":"The deployed TON Connect send flow delegates signing to an external wallet and is not native signing."},
+    "admin": {"mode":"N/A","implementation":"NOT_IMPLEMENTED","finding":"Operators must not sign with user-local keys; no native signing control exists."},
+    "api": {"mode":"READ_ONLY","implementation":"PARTIAL","finding":"Checkout-only E5 modules describe synthetic fail-closed boundary and consent records, but expose no deployed HTTP bridge, persistence or durable replay ledger."},
+    "native": {"mode":"REQUIRED","implementation":"PARTIAL","finding":"Rust core and UniFFI validate an offline Bitcoin Signet preview and hard-code signing/action false; there is no mobile shell, device key lifecycle, authenticator, signature or broadcast."}
+  },
+  "positiveControls": [
+    "The Rust scaffold forbids unsafe code, pins toolchain/dependencies and performs no I/O, storage, key, signing or network operation.",
+    "Preview validation is Signet-only, bounds inputs/outputs/expiry and derives fees from inputs.",
+    "Rust and Python contracts explicitly keep signing, authenticator verification and production-action flags false."
+  ],
+  "blockers": [
+    "No device key generation, derivation, hardware wrapping, zeroization, signing or broadcast implementation exists.",
+    "No iOS or Android shell, Secure Enclave/Keystore integration, local biometric verification or platform attestation exists.",
+    "No durable single-use signing-request ledger, expiry/reconciliation transport or server-to-native bridge exists.",
+    "Recovery and trusted-chain/UTXO verification remain design-only; Python synthetic TST contracts and Rust Bitcoin Signet preview are not an end-to-end protocol.",
+    "No tracked provenance, reproducible signed mobile build, SBOM, store release or deployed native artifact exists."
+  ],
+  "verification": [
+    {"command":"cargo test --locked --workspace","result":"PASS","tests":50,"scope":"native-wallet Rust unit/integration/doc suites"},
+    {"command":"pytest -q selected E5 contract/scaffold suites","result":"PASS","tests":91,"scope":"synthetic fail-closed contracts only"}
+  ],
+  "externalTonConnectCorrection": {
+    "checkoutSendRequestRoutePresent": true,
+    "checkoutSendSignedRoutePresent": true,
+    "deployedSendRequestRoutePresent": true,
+    "deployedSendSignedRoutePresent": true,
+    "nativeSigningEvidence": false,
+    "note": "Independent reviewers' route-absence statement was rejected by exact checkout and deployed route scans; the existing routes still delegate signing to an external TON wallet."
+  },
+  "independentReviews": [
+    {"review":"native surface audit","disposition":"ACCEPTED_WITH_CORRECTION","accepted":"six-surface gaps, preview-only classification and release/provenance blockers","rejected":"claim that TON send-request/send-signed Relay routes are absent"},
+    {"review":"native security audit","disposition":"ACCEPTED_WITH_CORRECTION","accepted":"no key/signing/device/authenticator/replay/recovery/release acceptance","rejected":"claim that TON send-request/send-signed Relay routes are absent"}
+  ],
+  "nextCanonicalItem": "Expand the E0.4 surface matrix with LUMI advisory using exact six-surface evidence."
+}

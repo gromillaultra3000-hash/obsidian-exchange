@@ -1,0 +1,26 @@
+{
+  "schema":"obsidian.e0-3-relay-acl-plan.v1",
+  "stage":"E0.3",
+  "status":"IN_PROGRESS",
+  "accountableOwner":"project-owner",
+  "productionAuthorization":false,
+  "implementationDeployed":false,
+  "writerMatrix":"docs/e0-3-relay-writer-matrix.v1.json",
+  "roles":{"login":"obsidian_relay","functionOwner":"obsidian_relay_owner","functionOwnerLogin":false,"inherit":false,"superuser":false,"createDb":false,"createRole":false,"replication":false,"bypassRls":false,"connectionLimit":12,"connectionBudget":"docs/e0-3-relay-connection-budget.v1.json","connectionLimitStatus":"REHEARSED_DISPOSABLE_POSTGRESQL_17","envelopeEvidence":"docs/e0-3-relay-acl-envelope-rehearsal.v1.json"},
+  "ambientPolicy":["PUBLIC_CONNECT_TEMP_SCHEMA_FUNCTION_REVOKED","NO_SCHEMA_CREATE","NO_TEMP","NO_ROLE_MEMBERSHIP","NO_DIRECT_TABLE_DML","NO_DIRECT_SEQUENCE_ACCESS","FIXED_PG_CATALOG_SEARCH_PATH","STATEMENT_TIMEOUT_REQUIRED","LOCK_TIMEOUT_REQUIRED"],
+  "writerAuthorization":{"strategy":"ONE_SECURITY_DEFINER_FUNCTION_PER_WRITER_METHOD","naming":"relay_<repository_without_store>_<method>","directRelationPrivileges":[],"directSequencePrivileges":[],"publicExecute":false,"owner":"obsidian_relay_owner","ownerDirectPrivileges":"EXACT_FUNCTION_BODY_ONLY_AFTER_SQL_REHEARSAL","signatureStatus":"ALL_26_WRITER_BODIES_REHEARSED_PROPOSAL_ONLY"},
+  "packages":[
+    {"id":"R1_AUDIT_SUPPORT","writers":["ops_store.audit","support_store.create","support_store.user_reply"]},
+    {"id":"R2_OUTBOX_LIFECYCLE","writers":["order_lifecycle_store.claim_work","order_lifecycle_store.complete_work","order_lifecycle_store.retry_work","payment_transition_store.claim_notification","payment_transition_store.mark_notification_sent","payment_transition_store.retry_notification","sell_settlement_store.claim_notification","sell_settlement_store.mark_notification_sent"]},
+    {"id":"R3_ACCESS_RETENTION","writers":["admin_config_store.block_user","admin_config_store.unblock_user","ops_store.cleanup_audit"]},
+    {"id":"R4_INTENT_CREATION","writers":["order_creation_store.create","sell_order_store.create","swap_store.create"]},
+    {"id":"R5_ORDER_SESSION_SWAP_PAYOUT_METADATA_TRANSITIONS","writers":["order_lifecycle_store.expire_due","order_lifecycle_store.fail_session","order_workflow_store.mark_sent","order_workflow_store.request_verification","payment_transition_store.mark_paid","sell_order_store.cancel_pending","swap_store.transition","user_profile_store.set_referral_address"]},
+    {"id":"R6_SELL_SETTLEMENT","writers":["sell_settlement_store.settle_vertu"]}
+  ],
+  "readAuthorization":{"status":"ALL_43_BODIES_REHEARSED","relationLevelEvidence":"docs/e0-3-relay-capability-graph.v1.json","columnEvidence":"docs/e0-3-relay-read-matrix.v1.json","purposeEvidence":"docs/e0-3-relay-read-authorization-plan.v1.json","contractEvidence":"docs/e0-3-relay-read-contracts.v1.json","bodyCoverageEvidence":"docs/e0-3-relay-function-body-coverage.v1.json","strategy":"ONE_BOUNDED_SECURITY_DEFINER_READ_FUNCTION_PER_METHOD","directTableSelectGrants":[],"directColumnSelectGrants":[],"inheritedReadRoles":[],"reason":"All 43 Relay read bodies are rehearsed with exact owner grants; P5B additionally proves concurrency, transaction rollback and the exact implicit VIP UPSERT read"},
+  "functionAcceptance":["exact input SQL types and bounded sizes","closed return shape","all writer-matrix invariants enforced inside one transaction","fresh row lock or CAS where declared","exact idempotency or conflict result","fixed search_path pg_catalog","schema-qualified relations","PUBLIC execute revoked","login role gets only exact function execute","owner is NOLOGIN and holds only body-required privileges","malicious input and concurrent/fault rollback tests"],
+  "rolloutOrder":["R1_AUDIT_SUPPORT","R2_OUTBOX_LIFECYCLE","R3_ACCESS_RETENTION","R4_INTENT_CREATION","R5_ORDER_SESSION_SWAP_PAYOUT_METADATA_TRANSITIONS","R6_SELL_SETTLEMENT"],
+  "rollback":"Keep current obsidian_app credential only as a time-bounded per-service rollback reference; on denial or ambiguous mutation stop the affected workflow, restore only that prior reference, reconcile, and never drop additive roles/functions during incident rollback.",
+  "stopConditions":["read column unknown","SQL type or return shape unknown","writer invariant not enforced in function body","ambient privilege observed","permission denial on money path","ambiguous commit","queue or money reconciliation mismatch","rollback evidence missing"],
+  "nextPrerequisite":"build the exact exchange-bot caller-to-repository/database capability graph before role design or rollout"
+}

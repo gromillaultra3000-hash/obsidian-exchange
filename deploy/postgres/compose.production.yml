@@ -1,0 +1,51 @@
+name: obsidian-postgres
+
+# Production template. Provision the referenced root-owned secret and pull the
+# pinned image explicitly before starting this stack. `pull_policy: never`
+# prevents a service restart from reaching a registry or changing the image.
+services:
+  postgres:
+    image: postgres@sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193
+    pull_policy: never
+    container_name: obsidian-postgres
+    restart: "no"
+    environment:
+      POSTGRES_DB: obsidian_exchange
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      POSTGRES_INITDB_ARGS: >-
+        --data-checksums
+        --encoding=UTF8
+        --auth-host=scram-sha-256
+        --auth-local=trust
+    secrets:
+      - source: postgres_password
+        target: postgres_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    shm_size: 256m
+    pids_limit: 512
+    stop_grace_period: 2m
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready --quiet --username=postgres --dbname=obsidian_exchange
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: 20m
+        max-file: "5"
+
+volumes:
+  postgres_data:
+    name: obsidian-postgres-data
+
+secrets:
+  postgres_password:
+    file: ${OBSIDIAN_POSTGRES_PASSWORD_FILE:-/etc/obsidian-exchange/postgres/postgres-password}

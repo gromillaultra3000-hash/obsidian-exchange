@@ -1,0 +1,15 @@
+{
+  "schema":"obsidian.e0-3-bot-gift-capabilities.v1",
+  "stage":"E0.3",
+  "status":"EXACT_PACKAGE",
+  "productionAuthorization":false,
+  "sourceSha256":"239fe2ebc0657f5108e20e58e37e19286938636bccd52b91954d5cd977d6ef3b",
+  "capabilities":[
+    {"id":"gift_store.code_exists","access":"READ","reads":{"gift_vouchers":["code"]},"invariants":["EXACT_CODE","EXISTS_ONLY"]},
+    {"id":"gift_store.get_by_code","access":"READ","reads":{"gift_vouchers":["id","currency","rub_amount","status","sender_id","code"]},"invariants":["EXACT_CODE","SINGLE_ROW"]},
+    {"id":"gift_store.issue","access":"MONEY_WRITE","reads":{"orders":["order_id"],"gift_vouchers":["id","code"]},"mutations":{"orders":["user_id","username","currency","rub_amount","crypto_address","status","agreed_rate","agreed_crypto_amount","agreed_at"],"gift_vouchers":["sender_id","currency","rub_amount","code","order_id"]},"invariants":["PENDING_SENDER_ORDER","UNIQUE_GIFT_CODE","ORDER_AND_VOUCHER_ONE_TRANSACTION","CODE_CONFLICT_ROLLS_BACK_ORDER","RETURN_ORDER_AND_GIFT_IDS"]},
+    {"id":"gift_store.redeem","access":"MONEY_WRITE","reads":{"gift_vouchers":["id","currency","rub_amount","sender_id","status"],"orders":["order_id"]},"mutations":{"gift_vouchers":["status","recipient_id","recipient_address","claimed_at"],"orders":["user_id","username","currency","rub_amount","crypto_address","status","agreed_rate","agreed_crypto_amount","agreed_at"]},"invariants":["EXACT_GIFT_ID","VOUCHER_ROW_LOCK_POSTGRES","PAID_ONLY","SENDER_CANNOT_REDEEM","PAID_TO_REDEEMED_CAS","SINGLE_WINNER","PAID_RECIPIENT_ORDER","VOUCHER_AND_ORDER_ONE_TRANSACTION","ORDER_FAILURE_ROLLS_BACK_REDEMPTION","RETURN_TERMINAL_ACTION"]}
+  ],
+  "grantPolicy":{"tableWideAccess":false,"functionPerMethodRequired":true,"directSequenceAccess":false,"moneyWriterIsolated":true},
+  "remainingWork":["extract the next bot repository package","rehearse functions and ACL only after all bot packages are exact"]
+}

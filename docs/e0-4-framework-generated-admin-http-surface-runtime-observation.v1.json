@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "e0.4-framework-generated-admin-http-surface-runtime-observation.v1",
+  "observedAt": "2026-08-18T20:25:00Z",
+  "route": "E0/E0.4/FRAMEWORK_GENERATED_ADMIN_HTTP_SURFACE",
+  "status": "BLOCKED_OWNER",
+  "decisionEffect": "RESTRICTIVE_READ_ONLY_OBSERVATION_ONLY",
+  "source": "current-owner-conversation",
+  "authority": {"productionAuthorization": false, "productionMutationAuthorized": false, "productionExpandAuthorized": false, "deploymentAuthorized": false, "adminMutationAuthorized": false, "customerDataAccessAuthorized": false, "actionAllowed": false},
+  "observedDeclarations": {"filamentResourceClasses": 12, "resourcePageFiles": 16, "staticWebRoutes": 1, "generatedRuntimeRouteCount": "not provable without boot/import; Filament auth/dashboard/resource/Livewire/vendor routes are generated"},
+  "artifacts": [
+    {"path": "/opt/obsidian-exchange/admin-panel/app/Providers/Filament/AdminPanelProvider.php", "sha256": "c45d63866817ee304e1ea210c3365ba743fb8ba8afeadf3840f0a146c77d4b06"},
+    {"path": "/opt/obsidian-exchange/admin-panel/routes/web.php", "sha256": "248c7eeeb43bb61ee4fb6603e52b44843c64f72a841d671bcd41871aab23f970"},
+    {"path": "/opt/obsidian-exchange/admin-panel/app/Http/Middleware/RequireAdminMfa.php", "sha256": "c0d0cade905afe2e47c7f8fd26e50194db6a1b3fb6da4176069abe962ee7d688"}
+  ],
+  "surfaceClassification": {"telegram": "N/A", "site": "N/A", "miniApp": "N/A", "admin": "REQUIRED_GENERATED_SURFACE_PARTIAL_UNACCEPTED", "api": "N/A_PUBLIC_CONTRACT", "native": "N/A"},
+  "findings": [
+    {"id": "GENERATED_ROUTE_UNIVERSE_UNPROVEN", "severity": "HIGH", "detail": "Static declarations are not a complete deployed route manifest; framework-generated auth, dashboard, resource, Livewire and vendor routes require a controlled artifact or boot-time manifest."},
+    {"id": "ADMIN_MUTATION_SCOPE_NOT_CLOSED", "severity": "HIGH", "detail": "Resource discovery exposes create/edit/page behavior across operational models, but a closed action/field/role/effect inventory was not established under read-only constraints."},
+    {"id": "RUNTIME_ARTIFACT_BINDING_UNPROVEN", "severity": "HIGH", "detail": "Source declarations under /opt are not cryptographically bound to the running PHP/FPM/queue artifact, generated route cache, migrations or Nginx upstream."},
+    {"id": "ADMIN_AUDIT_RECONCILIATION_UNPROVEN", "severity": "MEDIUM", "detail": "MFA middleware and an AdminAudit helper are present, but complete durable audit coverage for generated Livewire/resource actions and rollback/reconciliation is not demonstrated."}
+  ],
+  "knownBlockers": ["authenticated owner acceptance absent", "independent reviewer approval absent", "production key registry/trusted time/revocation/replay controls not established", "no evidence permits 064B or separate 064D"],
+  "nextSafeRoute": "E0/E0.4/GENERATED_FASTAPI_DOCS",
+  "interpretation": "Read-only declaration inventory only; no Laravel boot, route listing, authentication, customer data access, admin action, deployment or production mutation occurred. E0.3 remains first unmet and BLOCKED_OWNER; E0.4 remains non-production IN_PROGRESS."
+}

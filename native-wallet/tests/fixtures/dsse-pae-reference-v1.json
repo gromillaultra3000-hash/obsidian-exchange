@@ -1,0 +1,20 @@
+{
+  "schema": "native-wallet-dsse-pae-reference.v1",
+  "derived_from": {
+    "repository": "https://github.com/secure-systems-lab/dsse",
+    "revision": "440901313676fedd0e31f16125c302b0df81e006",
+    "path": "implementation/signing_spec.py",
+    "source_sha256": "80d89fc66f8a9267ea30a7fedec4c277d9bf7570066c62e716af5a6ce09bec3c",
+    "license": "Apache-2.0"
+  },
+  "payload_type": "http://example.com/HelloWorld",
+  "payload_base64": "aGVsbG8gd29ybGQ=",
+  "payload_utf8": "hello world",
+  "expected_pae_utf8": "DSSEv1 29 http://example.com/HelloWorld 11 hello world",
+  "official_standalone_conformance_vector": false,
+  "contains_signature": false,
+  "contains_public_key": false,
+  "contains_private_or_signing_key": false,
+  "verification_implemented": false,
+  "production_action_allowed": false
+}

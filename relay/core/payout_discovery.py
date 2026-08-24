@@ -32,10 +32,12 @@ import json
 import logging
 import os
 from pathlib import Path
+from repositories.operational_read_store import from_environment as _read_store_from_environment
 
 logger = logging.getLogger(__name__)
 
 DB_PATH = os.getenv("DB_PATH", "/root/exchange.db")
+def _store():return _read_store_from_environment(sqlite_path=DB_PATH)
 
 # Насколько фактическая сумма может отличаться от ожидаемой. Комиссию сети
 # платит отправитель, поэтому расхождение обычно нулевое; допуск нужен на
@@ -979,41 +981,19 @@ def judge(order: dict, transfers: list[dict], used_txids: set,
 # ─────────────────────────────────────────────────────────────────
 # Проход по зависшим заявкам
 # ─────────────────────────────────────────────────────────────────
-def _db():
-    import sqlite3
-    conn = sqlite3.connect(DB_PATH, timeout=5)
-    conn.row_factory = sqlite3.Row
-    return conn
-
-
 def stuck_orders() -> list[dict]:
     """Заявки, оплаченные клиентом, но без доказательства выдачи."""
-    import sqlite3
     try:
-        with _db() as conn:
-            rows = conn.execute(
-                "SELECT order_id, user_id, rub_amount, currency, network, "
-                "       crypto_address, agreed_crypto_amount, "
-                "       CAST(strftime('%s', COALESCE(updated_at, created_at)) AS INT) paid_ts "
-                "FROM orders "
-                "WHERE status='paid' AND (paid_btc_tx IS NULL OR paid_btc_tx='') "
-                "  AND COALESCE(updated_at, created_at) <= datetime('now', ?) "
-                "  AND COALESCE(updated_at, created_at) >= datetime('now', ?) "
-                "ORDER BY COALESCE(updated_at, created_at)",
-                (f"-{MIN_AGE_MIN} minutes", f"-{MAX_AGE_DAYS} days")).fetchall()
-        return [dict(r) for r in rows]
-    except sqlite3.Error as e:
+        return _store().payout_evidence_orders(
+            min_age_minutes=MIN_AGE_MIN, max_age_days=MAX_AGE_DAYS)
+    except Exception as e:
         logger.error("payout_discovery: чтение orders: %s", e)
         return []
 
 
 def _used_txids() -> set:
     try:
-        with _db() as conn:
-            rows = conn.execute(
-                "SELECT paid_btc_tx FROM orders "
-                "WHERE paid_btc_tx IS NOT NULL AND paid_btc_tx != ''").fetchall()
-        return {_norm(r[0]) for r in rows}
+        return {_norm(txid) for txid in _store().used_payout_txids()}
     except Exception as e:
         logger.error("payout_discovery: чтение занятых txid: %s", e)
         # Fail-CLOSED: не зная, какие переводы уже закреплены, закрывать нельзя —
@@ -1157,12 +1137,7 @@ def candidates_for(order_id: int, rate_fn=None, fetch=None) -> dict:
     """
     fetch = fetch or incoming_transfers
     try:
-        with _db() as conn:
-            row = conn.execute(
-                "SELECT order_id, user_id, rub_amount, currency, network, "
-                "       crypto_address, agreed_crypto_amount, status, paid_btc_tx, "
-                "       CAST(strftime('%s', COALESCE(updated_at, created_at)) AS INT) paid_ts "
-                "FROM orders WHERE order_id=?", (order_id,)).fetchone()
+        row = _store().payout_evidence_order(order_id)
     except Exception as e:
         return {"error": f"чтение заявки: {type(e).__name__}: {e}"}
     if not row:
@@ -1192,6 +1167,30 @@ def candidates_for(order_id: int, rate_fn=None, fetch=None) -> dict:
     v["rub_amount"] = o.get("rub_amount")
     v["address"] = o.get("crypto_address")
     return v
+
+
+def candidates_for_debt(*, currency: str, network: str | None, destination: str,
+                        expected_amount: float, created_ts: int = 0,
+                        fetch=None) -> dict:
+    """Chain-evidence verdict for a non-order payout debt (for example referral)."""
+    fetch = fetch or incoming_transfers
+    cur = str(currency or "").upper()
+    try:
+        used = _used_txids()
+    except Exception:
+        return {"error": "не удалось прочитать занятые txid — подтверждать нельзя"}
+    try:
+        transfers = _fetch_transfers(fetch, cur, destination, network)
+    except ChainUnreadable as exc:
+        return {"error": f"{cur}: {exc.why}"}
+    except Exception as exc:
+        return {"error": f"цепочка недоступна: {type(exc).__name__}"}
+    verdict = judge({"order_id": None, "currency": cur, "network": network,
+                     "expected_amount": float(expected_amount),
+                     "expected_fixed": True, "paid_ts": int(created_ts or 0)},
+                    transfers, used, trusted_senders(cur))
+    verdict.update({"currency": cur, "network": network, "address": destination})
+    return verdict
 
 
 def alert_fingerprint(res: dict) -> str:

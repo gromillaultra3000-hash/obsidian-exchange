@@ -1,0 +1,15 @@
+{
+  "schema":"obsidian.e0-3-bot-payment-session-capabilities.v1",
+  "stage":"E0.3",
+  "status":"EXACT_PACKAGE",
+  "productionAuthorization":false,
+  "sourceSha256":"926060ece979ef003ddfcf066a6029247d0c96664603d483ce420bbbad26c1f5",
+  "capabilities":[
+    {"id":"payment_session_store.latest_for_order","access":"OPERATOR_READ","callers":["cmd_review_queue"],"reads":{"payment_sessions":["session_token","status","order_id","id"]},"invariants":["EXACT_ORDER_ID","LATEST_ID_ONLY","SINGLE_ROW","UNSCOPED_ORDER_LOOKUP_OPERATOR_ONLY"]},
+    {"id":"payment_session_store.latest_provider_invoice","access":"OPERATOR_READ","callers":["cmd_start"],"reads":{"payment_sessions":["provider_invoice_id","provider","order_id","created_at","id"]},"invariants":["EXACT_ORDER_ID","EXACT_OR_PREFIX_PROVIDER_MATCH","PROVIDER_INVOICE_NOT_NULL","LATEST_CREATED_AT_THEN_ID","SINGLE_ROW","UNSCOPED_ORDER_LOOKUP_OPERATOR_ONLY","PREFIX_MODE_BOOLEAN_CLOSED"]},
+    {"id":"payment_session_store.recent_for_order","access":"OPERATOR_READ","callers":["cmd_order_card"],"reads":{"payment_sessions":["provider","provider_invoice_id","amount","status","created_at","order_id","id"]},"invariants":["EXACT_ORDER_ID","LATEST_ID_FIRST","LIMIT_CLAMP_1_100","UNSCOPED_ORDER_LOOKUP_OPERATOR_ONLY"]}
+  ],
+  "grantPolicy":{"tableWideAccess":false,"functionPerMethodRequired":true,"operatorOnly":true,"customerCallable":false,"unboundedLimitAllowed":false},
+  "blockers":[],
+  "remainingWork":["extract the next bot repository package","rehearse functions and ACL only after all bot packages are exact"]
+}

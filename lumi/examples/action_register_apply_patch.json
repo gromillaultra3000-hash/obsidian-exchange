@@ -1,0 +1,15 @@
+{
+  "actionId": "apply_patch",
+  "title": "Apply Patch",
+  "description": "Apply a prepared patch after approval",
+  "category": "project_maintenance",
+  "enabled": true,
+  "riskLevel": "high",
+  "requiresApproval": true,
+  "supportsDryRun": true,
+  "supportsRollback": true,
+  "inputSchema": {"type": "object", "required": ["patchId"]},
+  "outputSchema": {"type": "object"},
+  "allowedModes": ["proposal", "dry_run", "execute"],
+  "metadata": {}
+}

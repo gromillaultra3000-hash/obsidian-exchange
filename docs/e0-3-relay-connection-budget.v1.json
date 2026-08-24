@@ -1,0 +1,78 @@
+{
+  "schema":"obsidian.e0-3-relay-connection-budget.v1",
+  "stage":"E0.3",
+  "status":"MEASURED_ENVELOPE_REHEARSED_NOT_DEPLOYED",
+  "accountableOwner":"project-owner",
+  "measuredAt":"2026-08-15T13:55:41Z",
+  "productionAuthorization":false,
+  "implementationDeployed":false,
+  "scope":"relay-fastapi PostgreSQL login proposed as obsidian_relay",
+  "topology":{
+    "systemdUnit":"relay-fastapi.service",
+    "activeProcesses":1,
+    "uvicornWorkersPerProcess":1,
+    "hostLogicalCpus":2,
+    "backgroundTasksEnabled":true,
+    "unitEvidenceSha256":{
+      "/etc/systemd/system/relay-fastapi.service":"cb93951384fe15e0573cc2da9dba091c59c5e452901c688545f2e7f7dc8f848a",
+      "/etc/systemd/system/relay-fastapi.service.d/runtime-paths.conf":"7a4acdc00db8cf7b06ab34ba5bab564dcea365423ab5d73dbabe3fb09b9f62c9",
+      "/etc/systemd/system/relay-fastapi.service.d/zz-runtime.conf":"deb7174d8fe32d6d797f3c65da00b512a72d927f29e9a188097922fd385b24fc",
+      "/etc/systemd/system/relay-fastapi.service.d/zz-postgres.conf":"351dcfca2819c1d0c4a796cf1b4f64f67a7a70089b77753129aa5d6d85440762"
+    }
+  },
+  "postgresObservation":{
+    "container":"obsidian-postgres",
+    "versionFamily":17,
+    "maxConnections":100,
+    "reservedConnections":0,
+    "superuserReservedConnections":3,
+    "ordinaryClientCapacity":97,
+    "observedTotalBackends":6,
+    "observedClientBackends":1,
+    "currentSharedRole":"obsidian_app",
+    "currentSharedRoleConnectionLimit":60,
+    "measurement":"read-only pg_settings, pg_stat_activity and pg_roles queries"
+  },
+  "enforcedRuntimeBound":{
+    "executorWorkers":8,
+    "executorHardMaximum":8,
+    "synchronousEventLoopSlots":1,
+    "connectionsPerCallingThread":1,
+    "processes":1,
+    "formula":"processes * (executorWorkers + synchronousEventLoopSlots) * connectionsPerCallingThread",
+    "maximumRelayClientConnections":9,
+    "evidence":[
+      "relay-fastapi/main.py sets the loop default ThreadPoolExecutor to at most 8",
+      "deploy/systemd/relay-fastapi-runtime.conf declares RELAY_EXECUTOR_WORKERS=8",
+      "repository factories create one short-lived connection per method and expose no pool"
+    ]
+  },
+  "decision":{
+    "proposedRole":"obsidian_relay",
+    "connectionLimit":12,
+    "operationalHeadroom":3,
+    "headroomUses":["one read-only diagnostic session","two shutdown/recovery or measurement sessions"],
+    "ordinaryCapacityAfterRelayLimit":85,
+    "utilizationOfOrdinaryCapacityPercent":12.37,
+    "reason":"Nine connections cover the enforced one-process runtime maximum; three additional slots permit bounded diagnosis/recovery without making concurrency unbounded."
+  },
+  "invariants":[
+    "ALTER ROLE obsidian_relay CONNECTION LIMIT 12 is rehearsal-only until separately authorized",
+    "no PgBouncer or implicit client pool is assumed",
+    "all repository connections close at method exit",
+    "a second process or Uvicorn worker requires a new budget",
+    "RELAY_EXECUTOR_WORKERS above 8 is clamped to 8",
+    "ordinary PostgreSQL capacity must remain at least twice the proposed role limit"
+  ],
+  "stopConditions":[
+    "active relay process count is not exactly one",
+    "Uvicorn workers per process is not exactly one",
+    "repository method can retain or nest more than one PostgreSQL connection",
+    "ordinary client capacity is below 24",
+    "role connection limit differs from 12",
+    "executor hard maximum exceeds 8",
+    "connection denial, ambiguous transaction, or outbox backlog appears during rehearsal"
+  ],
+  "rollback":"The bound is additive and not deployed. During a later authorized rollout, stop relay-fastapi before restoring its prior credential or role limit; reconcile ambiguous money/outbox state before restart.",
+  "nextPrerequisite":"rehearse the eight R5 transition writer bodies with concurrency, denial and fault rollback"
+}

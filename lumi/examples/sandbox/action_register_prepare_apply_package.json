@@ -1,0 +1,13 @@
+{
+  "actionId": "prepare_apply_package",
+  "title": "Prepare Apply Package",
+  "description": "Prepare an approval-gated apply package without applying changes",
+  "category": "project_maintenance",
+  "riskLevel": "high",
+  "requiresApproval": true,
+  "supportsDryRun": true,
+  "allowedModes": ["proposal", "dry_run"],
+  "inputSchema": {"type": "object"},
+  "outputSchema": {"type": "object"},
+  "metadata": {}
+}

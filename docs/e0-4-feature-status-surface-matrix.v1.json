@@ -1,0 +1,384 @@
+{
+  "schemaVersion": "e0-4-feature-status-surface-matrix.v1",
+  "observedAt": "2026-08-18T22:58:00Z",
+  "route": "E0/E0.4/FEATURE_STATUS_SURFACE_MATRIX",
+  "status": "IN_PROGRESS",
+  "scope": "BOUNDED_TWENTY_FIVE_FEATURE_SLICE",
+  "workClass": "KEYLESS_READ_ONLY_REPOSITORY_INVENTORY",
+  "productionMutation": false,
+  "surfaces": ["telegramBot", "site", "miniApp", "admin", "api", "native"],
+  "allowedModes": ["REQUIRED", "READ_ONLY", "OPERATOR_ONLY", "N/A"],
+  "allowedImplementationStates": ["IMPLEMENTED", "PARTIAL", "DORMANT", "NOT_IMPLEMENTED"],
+  "features": [
+    {
+      "id": "RUB_BUY_CRYPTO",
+      "cells": {
+        "telegramBot": {"mode":"REQUIRED","reason":"Primary Telegram customer exchange flow.","implementation":"IMPLEMENTED","evidence":["bot/main_bot.py#menu_exchange"]},
+        "site": {"mode":"REQUIRED","reason":"Authenticated web customer exchange flow.","implementation":"IMPLEMENTED","evidence":["relay-fastapi/main.py#/dashboard/exchange"]},
+        "miniApp": {"mode":"REQUIRED","reason":"Telegram Mini App exposes the buy flow.","implementation":"IMPLEMENTED","evidence":["relay/webapp.html#buy-wrap"]},
+        "admin": {"mode":"OPERATOR_ONLY","reason":"Operators inspect orders; customer order creation is not an admin function.","implementation":"IMPLEMENTED","evidence":["admin-panel/app/Filament/Resources/OrderResource.php#OrderResource"]},
+        "api": {"mode":"REQUIRED","reason":"Site and Mini App require a bounded server order-creation boundary.","implementation":"IMPLEMENTED","evidence":["relay-fastapi/main.py#/api/create_order"]},
+        "native": {"mode":"REQUIRED","reason":"Future unified native wallet must request exchange actions without holding server authority.","implementation":"NOT_IMPLEMENTED","evidence":["docs/ecosystem-master-roadmap.md#E4"]}
+      }
+    },
+    {
+      "id": "CRYPTO_SELL_RUB",
+      "cells": {
+        "telegramBot": {"mode":"REQUIRED","reason":"Telegram customer sell flow is exposed from the main menu.","implementation":"IMPLEMENTED","evidence":["bot/main_bot.py#menu_sell"]},
+        "site": {"mode":"REQUIRED","reason":"Authenticated web customers can prepare and submit sell orders.","implementation":"IMPLEMENTED","evidence":["relay-fastapi/main.py#/dashboard/sell"]},
+        "miniApp": {"mode":"REQUIRED","reason":"Mini App exposes a customer sell direction.","implementation":"IMPLEMENTED","evidence":["relay/webapp.html#deal-side"]},
+        "admin": {"mode":"OPERATOR_ONLY","reason":"Operators inspect sell orders; the Filament resource is read-only.","implementation":"IMPLEMENTED","evidence":["admin-panel/app/Filament/Resources/SellOrderResource.php#SellOrderResource"]},
+        "api": {"mode":"REQUIRED","reason":"Mini App requires a server endpoint to create the persisted sell request.","implementation":"IMPLEMENTED","evidence":["relay-fastapi/main.py#/api/sell/create"]},
+        "native": {"mode":"REQUIRED","reason":"Future unified native UX must support the action with explicit executor and custody disclosure.","implementation":"NOT_IMPLEMENTED","evidence":["docs/ecosystem-master-roadmap.md#E4"]}
+      }
+    },
+    {
+      "id": "CUSTOMER_ORDER_HISTORY",
+      "cells": {
+        "telegramBot": {"mode":"REQUIRED","reason":"Telegram users need owner-scoped status and history.","implementation":"IMPLEMENTED","evidence":["bot/main_bot.py#myhistory"]},
+        "site": {"mode":"REQUIRED","reason":"Web dashboard provides owner-scoped order history.","implementation":"IMPLEMENTED","evidence":["relay-fastapi/main.py#/dashboard/orders"]},
+        "miniApp": {"mode":"REQUIRED","reason":"Mini App provides an owner-scoped history tab.","implementation":"IMPLEMENTED","evidence":["relay/webapp.html#panel-history"]},
+        "admin": {"mode":"OPERATOR_ONLY","reason":"Operators may inspect orders under admin policy; it is not a customer surface.","implementation":"IMPLEMENTED","evidence":["admin-panel/app/Filament/Resources/OrderResource.php#OrderResource"]},
+        "api": {"mode":"REQUIRED","reason":"Mini App history is served through an authenticated owner-scoped API.","implementation":"IMPLEMENTED","evidence":["relay-fastapi/main.py#/api/history"]},
+        "native": {"mode":"REQUIRED","reason":"Future native wallet requires normalized history across custody domains.","implementation":"NOT_IMPLEMENTED","evidence":["docs/ecosystem-master-roadmap.md#E1"]}
+      }
+    },
+    {
+      "id": "CUSTOMER_SUPPORT",
+      "cells": {
+        "telegramBot": {"mode":"REQUIRED","reason":"The main Telegram bot must give customers a support entry point; the active handler redirects to the dedicated support bot while legacy in-bot tickets are explicitly disabled.","implementation":"PARTIAL","evidence":["bot/main_bot.py#menu_support","bot/main_bot.py#legacy-support-disabled"]},
+        "site": {"mode":"REQUIRED","reason":"Authenticated web customers can create, list, view and reply to owner-scoped support tickets.","implementation":"IMPLEMENTED","evidence":["relay-fastapi/main.py#/dashboard/support","relay-fastapi/templates/dashboard_support.html#support-form","relay-fastapi/templates/dashboard_support_ticket.html#support-thread"]},
+        "miniApp": {"mode":"REQUIRED","reason":"A unified customer surface should expose a direct support handoff or bounded ticket flow; the current Mini App has only incidental support text and no support route or tab.","implementation":"NOT_IMPLEMENTED","evidence":["relay/webapp.html#no-support-surface-observed"]},
+        "admin": {"mode":"OPERATOR_ONLY","reason":"Operators inspect, update and reply to support tickets under the admin surface.","implementation":"IMPLEMENTED","evidence":["admin-panel/app/Filament/Resources/SupportTicketResource.php#SupportTicketResource","admin-panel/app/Filament/Resources/SupportTicketResource/RelationManagers/MessagesRelationManager.php#MessagesRelationManager"]},
+        "api": {"mode":"REQUIRED","reason":"The web ticket lifecycle is backed by authenticated owner-scoped server routes, but there is no separate public JSON support contract.","implementation":"PARTIAL","evidence":["relay-fastapi/main.py#/dashboard/support"]},
+        "native": {"mode":"REQUIRED","reason":"The future native wallet needs a bounded support handoff without exposing keys or signing authority.","implementation":"NOT_IMPLEMENTED","evidence":["docs/ecosystem-master-roadmap.md#E5"]}
+      }
+    },
+    {
+      "id": "REFERRAL_PROGRAM",
+      "cells": {
+        "telegramBot": {"mode":"REQUIRED","reason":"Telegram customers can obtain a referral link, inspect aggregate rewards and request a BTC bonus payout intent.","implementation":"IMPLEMENTED","evidence":["bot/main_bot.py#menu_ref","bot/main_bot.py#ref_withdraw"]},
+        "site": {"mode":"REQUIRED","reason":"Linked web customers can view their referral link and aggregate statistics and manage the BTC referral address.","implementation":"IMPLEMENTED","evidence":["relay-fastapi/main.py#/dashboard/referral","relay-fastapi/templates/dashboard_referral.html#referral-dashboard","relay-fastapi/templates/dashboard_profile.html#referral-address"]},
+        "miniApp": {"mode":"READ_ONLY","reason":"The Mini App exposes referral link and aggregate statistics; payout is deliberately handed off to the bot.","implementation":"IMPLEMENTED","evidence":["relay/webapp.html#panel-referral","relay/webapp.html#loadReferral"]},
+        "admin": {"mode":"OPERATOR_ONLY","reason":"Referral payout review is an operator concern, but no dedicated Filament referral resource is present.","implementation":"NOT_IMPLEMENTED","evidence":["admin-panel/app/Filament/Resources#no-referral-resource-observed"]},
+        "api": {"mode":"READ_ONLY","reason":"The Mini App reads owner-authenticated aggregate referral statistics from a bounded JSON endpoint.","implementation":"IMPLEMENTED","evidence":["relay-fastapi/main.py#/api/referral_stats"]},
+        "native": {"mode":"READ_ONLY","reason":"A future native portfolio may show referral aggregates but must not gain payout or custody authority.","implementation":"NOT_IMPLEMENTED","evidence":["docs/ecosystem-master-roadmap.md#E4"]}
+      }
+    },
+    {
+      "id": "DCA_SCHEDULES",
+      "overallStatus": "PARTIAL_NOT_ACCEPTED",
+      "moneyWriter": true,
+      "cells": {
+        "telegramBot": {"mode":"REQUIRED","reason":"The approved current DCA contract is Telegram-only: customers create, list and owner-cancel schedules, while an hourly runner atomically creates a pending payment order and advances the schedule. Code is deployed, but no authenticated production lifecycle acceptance exists.","implementation":"IMPLEMENTED","evidence":["docs/e0-4-dca-runtime-observation.v1.json#telegramBot","/opt/obsidian-exchange/bot/main_bot.py#menu_dca","/opt/obsidian-exchange/bot/main_bot.py#dca_confirm","/opt/obsidian-exchange/bot/main_bot.py#dca_list","/opt/obsidian-exchange/bot/main_bot.py#dca_cancel","/opt/obsidian-exchange/bot/main_bot.py#dca_runner"]},
+        "site": {"mode":"N/A","reason":"The frozen DCA surface contract is Telegram-only; no owner decision requires a website DCA workflow and no route or template exists.","implementation":"NOT_IMPLEMENTED","evidence":["docs/e0-3-bot-b5-5-automation-gift-writers-rehearsal.v1.json#surfaceMatrix","docs/e0-4-dca-runtime-observation.v1.json#negativeSurfaces"]},
+        "miniApp": {"mode":"N/A","reason":"The frozen DCA surface contract is Telegram-only; the deployed Mini App has no DCA tab or handoff.","implementation":"NOT_IMPLEMENTED","evidence":["docs/e0-3-bot-b5-5-automation-gift-writers-rehearsal.v1.json#surfaceMatrix","docs/e0-4-dca-runtime-observation.v1.json#negativeSurfaces"]},
+        "admin": {"mode":"OPERATOR_ONLY","reason":"Operators have a deployed read-only list/view resource, but it references runs_limit and paused/completed states absent from the production schema, so the operator surface is only partial.","implementation":"PARTIAL","evidence":["/opt/obsidian-exchange/admin-panel/app/Filament/Resources/DcaScheduleResource.php#DcaScheduleResource","deploy/postgres/006_scheduled_orders.sql#dca_schedules","docs/e0-4-dca-runtime-observation.v1.json#admin"]},
+        "api": {"mode":"N/A","reason":"The current Telegram-only implementation calls its repository directly; no public or cross-surface HTTP DCA contract is approved or present.","implementation":"NOT_IMPLEMENTED","evidence":["docs/e0-3-bot-b5-5-automation-gift-writers-rehearsal.v1.json#surfaceMatrix","docs/e0-4-dca-runtime-observation.v1.json#negativeSurfaces"]},
+        "native": {"mode":"N/A","reason":"The current DCA contract does not require native-wallet creation or execution, and the native scaffold has no DCA surface.","implementation":"NOT_IMPLEMENTED","evidence":["docs/e0-3-bot-b5-5-automation-gift-writers-rehearsal.v1.json#surfaceMatrix","docs/e0-4-dca-runtime-observation.v1.json#negativeSurfaces"]}
+      }
+    },
+    {
+      "id": "LIMIT_ORDERS",
+      "overallStatus": "PARTIAL_NOT_ACCEPTED",
+      "moneyWriter": true,
+      "cells": {
+        "telegramBot": {"mode":"REQUIRED","reason":"The frozen current limit-order contract is Telegram-only: customers create, list and owner-cancel orders while a five-minute watcher may atomically create a pending payment order. Deployed code and an enabled PostgreSQL flag are observed, but no authenticated lifecycle acceptance exists and the watcher is not fail-closed on price provenance.","implementation":"IMPLEMENTED","evidence":["docs/e0-4-limit-order-runtime-observation.v1.json#telegramBot","/opt/obsidian-exchange/bot/main_bot.py#menu_limit","/opt/obsidian-exchange/bot/main_bot.py#lo_confirm","/opt/obsidian-exchange/bot/main_bot.py#lo_list","/opt/obsidian-exchange/bot/main_bot.py#cancelimit","/opt/obsidian-exchange/bot/main_bot.py#limit_order_watcher"]},
+        "site": {"mode":"N/A","reason":"The frozen limit-order surface contract is Telegram-only; no owner decision requires a website workflow and no deployed route or template was observed.","implementation":"NOT_IMPLEMENTED","evidence":["docs/e0-3-bot-b5-5-automation-gift-writers-rehearsal.v1.json#surfaceMatrix","docs/e0-4-limit-order-runtime-observation.v1.json#negativeSurfaces"]},
+        "miniApp": {"mode":"N/A","reason":"The frozen limit-order surface contract is Telegram-only; the deployed Mini App has no limit-order tab or handoff.","implementation":"NOT_IMPLEMENTED","evidence":["docs/e0-3-bot-b5-5-automation-gift-writers-rehearsal.v1.json#surfaceMatrix","docs/e0-4-limit-order-runtime-observation.v1.json#negativeSurfaces"]},
+        "admin": {"mode":"OPERATOR_ONLY","reason":"Operators have a deployed read-only list/view resource, but it declares a created_at field and permits sorting by it although the observed production catalog lacks that column, and it advertises ETH although the bot supports only BTC/LTC/USDT.","implementation":"PARTIAL","evidence":["/opt/obsidian-exchange/admin-panel/app/Filament/Resources/LimitOrderResource.php#LimitOrderResource","deploy/postgres/006_scheduled_orders.sql#limit_orders","docs/e0-4-limit-order-runtime-observation.v1.json#admin"]},
+        "api": {"mode":"N/A","reason":"The current Telegram-only implementation calls its repository directly; no public or cross-surface HTTP limit-order contract is approved or deployed.","implementation":"NOT_IMPLEMENTED","evidence":["docs/e0-3-bot-b5-5-automation-gift-writers-rehearsal.v1.json#surfaceMatrix","docs/e0-4-limit-order-runtime-observation.v1.json#negativeSurfaces"]},
+        "native": {"mode":"N/A","reason":"The current limit-order contract does not require native-wallet creation or execution, and the native scaffold has no limit-order surface.","implementation":"NOT_IMPLEMENTED","evidence":["docs/e0-3-bot-b5-5-automation-gift-writers-rehearsal.v1.json#surfaceMatrix","docs/e0-4-limit-order-runtime-observation.v1.json#negativeSurfaces"]}
+      }
+    },
+    {
+      "id": "GIFT_VOUCHERS",
+      "overallStatus": "PARTIAL_NOT_ACCEPTED",
+      "moneyWriter": true,
+      "cells": {
+        "telegramBot": {"mode":"REQUIRED","reason":"The frozen current gift contract is Telegram-only. Deployed handlers and repository support issue, lookup and redemption, but the redemption handler references an undefined store before its atomic transition, the promised paid-card sender has no caller, and authenticated lifecycle acceptance is absent.","implementation":"PARTIAL","evidence":["docs/e0-4-gift-runtime-observation.v1.json#telegramBot","/opt/obsidian-exchange/bot/main_bot.py#menu_gift","/opt/obsidian-exchange/bot/main_bot.py#gift_pay","/opt/obsidian-exchange/bot/main_bot.py#cmd_redeem","/opt/obsidian-exchange/bot/main_bot.py#gift_enter_recipient_address"]},
+        "site": {"mode":"N/A","reason":"The frozen gift workflow is Telegram-only. The deployed public site markets crypto gifts/vouchers but has no gift route, authenticated workflow or bounded bot handoff, so promotional presence is partial and must not be mistaken for functionality.","implementation":"PARTIAL","evidence":["docs/e0-3-bot-b5-5-automation-gift-writers-rehearsal.v1.json#surfaceMatrix","docs/e0-4-gift-runtime-observation.v1.json#negativeSurfaces"]},
+        "miniApp": {"mode":"N/A","reason":"The frozen gift workflow is Telegram-only. The deployed Mini App contains a promotional voucher chip but no gift tab, route, redemption UI or bounded handoff.","implementation":"PARTIAL","evidence":["docs/e0-3-bot-b5-5-automation-gift-writers-rehearsal.v1.json#surfaceMatrix","docs/e0-4-gift-runtime-observation.v1.json#negativeSurfaces"]},
+        "admin": {"mode":"OPERATOR_ONLY","reason":"A deployed read-only resource exists, but it exposes the bearer redemption code as searchable/copyable, uses claimed/expired/cancelled instead of production paid/redeemed statuses, and advertises unsupported ETH.","implementation":"PARTIAL","evidence":["/opt/obsidian-exchange/admin-panel/app/Filament/Resources/GiftVoucherResource.php#GiftVoucherResource","deploy/postgres/005_gift_vouchers.sql#gift_vouchers","docs/e0-4-gift-runtime-observation.v1.json#admin"]},
+        "api": {"mode":"N/A","reason":"The current Telegram-only implementation calls its repository directly; no public or cross-surface HTTP gift contract is approved or deployed.","implementation":"NOT_IMPLEMENTED","evidence":["docs/e0-3-bot-b5-5-automation-gift-writers-rehearsal.v1.json#surfaceMatrix","docs/e0-4-gift-runtime-observation.v1.json#negativeSurfaces"]},
+        "native": {"mode":"N/A","reason":"The current gift contract does not require native-wallet issue or redemption, and the native scaffold has no gift surface.","implementation":"NOT_IMPLEMENTED","evidence":["docs/e0-3-bot-b5-5-automation-gift-writers-rehearsal.v1.json#surfaceMatrix","docs/e0-4-gift-runtime-observation.v1.json#negativeSurfaces"]}
+      }
+    },
+    {
+      "id": "EXTERNAL_WALLET_LINKING",
+      "overallStatus": "PARTIAL_NOT_ACCEPTED",
+      "moneyWriter": false,
+      "privacySensitiveWriter": true,
+      "authorizationRelevantWriter": true,
+      "cells": {
+        "telegramBot": {"mode":"REQUIRED","reason":"Telegram exposes owner-scoped /verify signed-message linking and /mywallet reads, but has no direct TON Connect or unlink lifecycle and no authenticated production acceptance exists.","implementation":"PARTIAL","evidence":["docs/e0-4-wallet-link-runtime-observation.v1.json#telegramBot","/opt/obsidian-exchange/bot/main_bot.py#cmd_verify","/opt/obsidian-exchange/bot/main_bot.py#proof_take_signature","/opt/obsidian-exchange/bot/main_bot.py#cmd_mywallet"]},
+        "site": {"mode":"REQUIRED","reason":"The authenticated profile reads linked wallets and supports non-TON signed-message proofs, but TON linking and disconnect are handed to Telegram/Mini App, read failure can appear as not connected, and the lifecycle has no production acceptance.","implementation":"PARTIAL","evidence":["/opt/obsidian-exchange/relay-fastapi/templates/dashboard_profile.html#proof-get","docs/e0-4-wallet-link-runtime-observation.v1.json#site"]},
+        "miniApp": {"mode":"REQUIRED","reason":"The Mini App exposes TON Connect, generic proofs, owner-scoped list/history and disconnect UI, but persistence/disconnect failures can be reported as success, read outage can appear as an empty link set, and replay/revocation controls are incomplete.","implementation":"PARTIAL","evidence":["/opt/obsidian-exchange/relay/webapp.html#tcConnect","/opt/obsidian-exchange/relay/webapp.html#loadWallets","/opt/obsidian-exchange/relay/webapp.html#walletDisconnect","docs/e0-4-wallet-link-runtime-observation.v1.json#miniApp"]},
+        "admin": {"mode":"OPERATOR_ONLY","reason":"Operators need a privacy-minimized proof/revoke audit view for support and abuse review, explicitly not a raw full-address browser; no dedicated lifecycle view is deployed.","implementation":"NOT_IMPLEMENTED","evidence":["docs/e0-4-wallet-link-runtime-observation.v1.json#negativeSurfaces"]},
+        "api": {"mode":"REQUIRED","reason":"Customer surfaces require challenge, proof verification, owner-scoped list and revoke boundaries. Routes are deployed, but false-success, replay, throttling, audit and retention gaps prevent acceptance.","implementation":"PARTIAL","evidence":["/opt/obsidian-exchange/relay-fastapi/main.py#/api/tonconnect/payload","/opt/obsidian-exchange/relay-fastapi/main.py#/api/tonconnect/verify","/opt/obsidian-exchange/relay-fastapi/main.py#/api/proof/message","/opt/obsidian-exchange/relay-fastapi/main.py#/api/proof/verify","/opt/obsidian-exchange/relay-fastapi/main.py#/api/wallet/links","/opt/obsidian-exchange/relay-fastapi/main.py#/api/wallet/disconnect","docs/e0-4-wallet-link-runtime-observation.v1.json#api"]},
+        "native": {"mode":"REQUIRED","reason":"The future unified native wallet must manage public-address proof/link/revoke without exposing keys, but the native scaffold has no external wallet-link lifecycle surface.","implementation":"NOT_IMPLEMENTED","evidence":["docs/ecosystem-master-roadmap.md#E5","docs/e0-4-wallet-link-runtime-observation.v1.json#negativeSurfaces"]}
+      }
+    },
+    {
+      "id": "CEX_PORTFOLIO",
+      "overallStatus": "PARTIAL_NOT_ACCEPTED",
+      "moneyWriter": false,
+      "credentialLifecycle": true,
+      "cells": {
+        "telegramBot": {"mode":"REQUIRED","reason":"Portfolio parity requires Telegram to distinguish external CEX custody from verified wallets; deployed /mywallet has no KAIROS source or CEX lane.","implementation":"NOT_IMPLEMENTED","evidence":["docs/e0-4-cex-portfolio-runtime-observation.v1.json#surfaceFindings","/opt/obsidian-exchange/bot/main_bot.py#cmd_mywallet"]},
+        "site": {"mode":"REQUIRED","reason":"Owner-scoped cookie-capable APIs are deployed, but site dashboard templates expose no CEX portfolio or lifecycle UI.","implementation":"PARTIAL","evidence":["docs/e0-4-cex-portfolio-runtime-observation.v1.json#surfaceFindings","/opt/obsidian-exchange/relay-fastapi/main.py#/api/wallet/portfolio"]},
+        "miniApp": {"mode":"REQUIRED","reason":"The deployed Mini App renders custody-separated portfolio, connector events and disconnect, while connect is intentionally disabled and no real lifecycle is accepted.","implementation":"PARTIAL","evidence":["/opt/obsidian-exchange/relay/webapp.html#unified-portfolio","/opt/obsidian-exchange/relay/webapp.html#cex-management","docs/e0-4-cex-portfolio-runtime-observation.v1.json#surfaceFindings"]},
+        "admin": {"mode":"OPERATOR_ONLY","reason":"Laravel has no CEX resource; the separate KAIROS operator surface contradicts runtime with legacy credential fields and LIVE-CAPABLE wording while save/test are disabled.","implementation":"PARTIAL","evidence":["/opt/kairos/app/main_v19.py#/api/exchanges/save","docs/e0-4-cex-portfolio-runtime-observation.v1.json#surfaceFindings"]},
+        "api": {"mode":"REQUIRED","reason":"Internal scoped connector lifecycle and owner-scoped Relay list/events/disconnect/aggregate are deployed, but no approved user connect path or real lifecycle acceptance exists and malformed portfolio responses can appear empty/complete.","implementation":"PARTIAL","evidence":["/opt/kairos/app/main_v19.py#/internal/v1/connectors","/opt/obsidian-exchange/relay-fastapi/main.py#/api/wallet/cex-sources","/opt/obsidian-exchange/relay-fastapi/main.py#/api/wallet/portfolio","docs/e0-4-cex-portfolio-runtime-observation.v1.json#riskFindings"]},
+        "native": {"mode":"REQUIRED","reason":"The future unified native portfolio must show the same custody-separated read-only CEX sources without receiving credentials beyond an approved connector flow; no client surface exists.","implementation":"NOT_IMPLEMENTED","evidence":["docs/ecosystem-master-roadmap.md#E1","docs/e0-4-cex-portfolio-runtime-observation.v1.json#surfaceFindings"]}
+      }
+    },
+    {
+      "id": "OPERATOR_WORKFLOWS",
+      "overallStatus": "PARTIAL_NOT_ACCEPTED",
+      "moneyWriter": true,
+      "privilegedControlPlane": true,
+      "cells": {
+        "telegramBot": {"mode":"OPERATOR_ONLY","reason":"Telegram exposes reporting, support, moderation, blocking, configuration and money workflows, but broad roles, same-chat pseudo-2FA, incomplete audit and single-person high-risk actions prevent acceptance.","implementation":"PARTIAL","evidence":["/opt/obsidian-exchange/bot/main_bot.py#admin_panel","/opt/obsidian-exchange/bot/main_bot.py#cmd_payout","docs/e0-4-operator-workflows-runtime-observation.v1.json#surfaceFindings"]},
+        "site": {"mode":"N/A","reason":"The customer site must not expose operator controls; named operators use isolated admin surfaces.","implementation":"NOT_IMPLEMENTED","evidence":["docs/e0-4-operator-workflows-runtime-observation.v1.json#surfaceFindings"]},
+        "miniApp": {"mode":"OPERATOR_ONLY","reason":"A hidden deployed admin tab calls Relay stats/orders/block/unblock/force-payout routes, but Telegram initData alone provides no separate MFA, fresh action step-up or four-eyes.","implementation":"PARTIAL","evidence":["/opt/obsidian-exchange/relay/webapp.html#admin-tab","/opt/obsidian-exchange/relay-fastapi/main.py#/api/admin/force_payout","docs/e0-4-operator-workflows-runtime-observation.v1.json#surfaceFindings"]},
+        "admin": {"mode":"OPERATOR_ONLY","reason":"Laravel provides named is_admin identity, TOTP, CSRF and append-only audit, but binary RBAC, ambiguous force-close semantics and absent four-eyes/cross-service correlation keep it partial.","implementation":"PARTIAL","evidence":["/opt/obsidian-exchange/admin-panel/app/Providers/Filament/AdminPanelProvider.php#panel","/opt/obsidian-exchange/admin-panel/app/Support/AdminAudit.php#AdminAudit","/opt/obsidian-exchange/admin-panel/app/Filament/Resources/OrderResource.php#force_payout","docs/e0-4-operator-workflows-runtime-observation.v1.json#surfaceFindings"]},
+        "api": {"mode":"OPERATOR_ONLY","reason":"Relay Telegram-admin/shared-secret routes and KAIROS bearer/Ed25519 routes are deployed, but human identity, scope, step-up, idempotency, correlation and audit contracts are inconsistent.","implementation":"PARTIAL","evidence":["/opt/obsidian-exchange/relay-fastapi/main.py#/api/admin/stats","/opt/obsidian-exchange/relay-fastapi/main.py#/internal/admin/force_payout","/opt/kairos/app/main_v19.py#require_operator_token","docs/e0-4-operator-workflows-runtime-observation.v1.json#surfaceFindings"]},
+        "native": {"mode":"N/A","reason":"Privileged operator controls must not be added to the native custody/signing client; no operator workflow exists in the scaffold.","implementation":"NOT_IMPLEMENTED","evidence":["docs/ecosystem-master-roadmap.md#E5","docs/e0-4-operator-workflows-runtime-observation.v1.json#surfaceFindings"]}
+      }
+    },
+    {
+      "id": "NATIVE_SIGNING",
+      "overallStatus": "PARTIAL_NOT_ACCEPTED",
+      "moneyWriter": true,
+      "custodyCritical": true,
+      "cells": {
+        "telegramBot": {"mode":"N/A","reason":"User-local native keys and signatures must never move into the Telegram bot; no native signing surface exists.","implementation":"NOT_IMPLEMENTED","evidence":["docs/e0-4-native-signing-runtime-observation.v1.json#surfaceFindings"]},
+        "site": {"mode":"READ_ONLY","reason":"The site may only prepare and hand off a bounded request to a native signer; no native bridge or handoff is implemented.","implementation":"NOT_IMPLEMENTED","evidence":["docs/e0-4-native-signing-runtime-observation.v1.json#surfaceFindings"]},
+        "miniApp": {"mode":"READ_ONLY","reason":"The deployed TON Connect flow delegates to an external wallet and is not native signing; no native bridge exists.","implementation":"NOT_IMPLEMENTED","evidence":["/opt/obsidian-exchange/relay/webapp.html#tcUI.sendTransaction","docs/e0-4-native-signing-runtime-observation.v1.json#externalTonConnectCorrection"]},
+        "admin": {"mode":"N/A","reason":"Operators must not receive user-local signing authority; no native signing control exists.","implementation":"NOT_IMPLEMENTED","evidence":["docs/ecosystem-master-roadmap.md#E5","docs/e0-4-native-signing-runtime-observation.v1.json#surfaceFindings"]},
+        "api": {"mode":"READ_ONLY","reason":"Checkout-only E5 modules describe synthetic fail-closed boundaries, but there is no deployed HTTP bridge, durable replay ledger or reconciliation transport.","implementation":"PARTIAL","evidence":["relay/core/e5_key_boundary.py#build_key_boundary_contract","relay/core/e5_signing_consent.py#build_signing_consent_receipt","docs/e0-4-native-signing-runtime-observation.v1.json#surfaceFindings"]},
+        "native": {"mode":"REQUIRED","reason":"Rust core and UniFFI provide a strict offline Bitcoin Signet preview while explicitly forbidding signing and production actions; mobile shell, device key lifecycle, authenticator, signature, recovery and release are absent.","implementation":"PARTIAL","evidence":["native-wallet/README.md#Native wallet scaffold","native-wallet/crates/wallet-core/src/lib.rs#create_signet_preview","native-wallet/crates/wallet-ffi/src/lib.rs#create_signet_preview_draft","docs/e0-4-native-signing-runtime-observation.v1.json#surfaceFindings"]}
+      }
+    },
+    {
+      "id": "LUMI_ADVISORY",
+      "overallStatus": "PARTIAL_NOT_ACCEPTED",
+      "moneyWriter": false,
+      "advisoryOnly": true,
+      "cells": {
+        "telegramBot": {"mode":"N/A","reason":"Raw AI advice must not be presented to Telegram customers as payment authority; no direct LUMI workflow exists.","implementation":"NOT_IMPLEMENTED","evidence":["docs/e0-4-lumi-advisory-runtime-observation.v1.json#surfaceFindings"]},
+        "site": {"mode":"N/A","reason":"The current shadow operator advisory does not require a customer-site surface and must not gain customer money authority.","implementation":"NOT_IMPLEMENTED","evidence":["docs/e0-4-lumi-advisory-runtime-observation.v1.json#surfaceFindings"]},
+        "miniApp": {"mode":"N/A","reason":"The current shadow operator advisory does not require a customer Mini App surface and must not be shown as an execution verdict.","implementation":"NOT_IMPLEMENTED","evidence":["docs/e0-4-lumi-advisory-runtime-observation.v1.json#surfaceFindings"]},
+        "admin": {"mode":"OPERATOR_ONLY","reason":"The KAIROS operator UI exposes committee/provider controls and says AI cannot bypass numeric gates, but lacks a bounded LUMI review, egress, model, failure and retention view.","implementation":"PARTIAL","evidence":["/opt/kairos/app/static_frontend/index.html#AI","docs/e0-4-lumi-advisory-runtime-observation.v1.json#surfaceFindings"]},
+        "api": {"mode":"OPERATOR_ONLY","reason":"A live generic shared-token bridge and committee endpoints exist beside a safer dormant frozen wire; the live path lacks canonical schema, replay, receipt, durable audit and error-to-HOLD semantics.","implementation":"PARTIAL","evidence":["/opt/kairos/app/lumi_bridge.py#enrich","/opt/lumi/lumi/app/api/conflict.py#/conflict/resolve","/opt/kairos/app/shadow_advisory_wire.py#dispatch","docs/e0-4-lumi-advisory-runtime-observation.v1.json#riskFindings"]},
+        "native": {"mode":"N/A","reason":"LUMI must never receive user keys or native signing authority; no native advisory surface is required or implemented.","implementation":"NOT_IMPLEMENTED","evidence":["docs/ecosystem-master-roadmap.md#LUMI","docs/e0-4-lumi-advisory-runtime-observation.v1.json#surfaceFindings"]}
+      }
+    },
+    {
+      "id": "LUMI_CONTROL_PLANE",
+      "overallStatus": "PARTIAL_NOT_ACCEPTED",
+      "moneyWriter": false,
+      "authorizationRelevantWriter": true,
+      "cells": {
+        "telegramBot": {"mode":"N/A","reason":"No LUMI control-plane Telegram workflow is required or deployed.","implementation":"NOT_IMPLEMENTED","evidence":["docs/e0-4-lumi-control-plane-runtime-observation.v1.json#surfaceMatrix"]},
+        "site": {"mode":"N/A","reason":"No customer-site LUMI control-plane workflow is required or deployed.","implementation":"NOT_IMPLEMENTED","evidence":["docs/e0-4-lumi-control-plane-runtime-observation.v1.json#surfaceMatrix"]},
+        "miniApp": {"mode":"N/A","reason":"No Mini App LUMI control-plane workflow is required or deployed.","implementation":"NOT_IMPLEMENTED","evidence":["docs/e0-4-lumi-control-plane-runtime-observation.v1.json#surfaceMatrix"]},
+        "admin": {"mode":"OPERATOR_ONLY","reason":"A loopback dashboard exists but lacks durable operator identity, scoped roles and evidence-bound four-eyes approval.","implementation":"PARTIAL","evidence":["docs/e0-4-lumi-control-plane-runtime-observation.v1.json#surfaceMatrix"]},
+        "api": {"mode":"OPERATOR_ONLY","reason":"The broad control API is coarse-bearer protected and exceeds the accepted advisory boundary.","implementation":"PARTIAL","evidence":["docs/e0-4-lumi-control-plane-runtime-observation.v1.json#authorityBoundary"]},
+        "native": {"mode":"N/A","reason":"No native wallet LUMI control-plane integration exists.","implementation":"NOT_IMPLEMENTED","evidence":["docs/e0-4-lumi-control-plane-runtime-observation.v1.json#surfaceMatrix"]}
+      }
+    },
+    {
+      "id": "KAIROS_AUTONOMOUS_TRADE_CONTROL",
+      "overallStatus": "PARTIAL_NOT_ACCEPTED",
+      "moneyWriter": true,
+      "cells": {
+        "telegramBot": {"mode":"N/A","reason":"No Telegram KAIROS autonomous trading-control workflow is deployed.","implementation":"NOT_IMPLEMENTED","evidence":["docs/e0-4-kairos-autonomous-trade-control-runtime-observation.v1.json#surfaceMatrix"]},
+        "site": {"mode":"N/A","reason":"The customer site has no KAIROS autonomous trading control.","implementation":"NOT_IMPLEMENTED","evidence":["docs/e0-4-kairos-autonomous-trade-control-runtime-observation.v1.json#surfaceMatrix"]},
+        "miniApp": {"mode":"N/A","reason":"No Mini App KAIROS trading-control workflow is deployed.","implementation":"NOT_IMPLEMENTED","evidence":["docs/e0-4-kairos-autonomous-trade-control-runtime-observation.v1.json#surfaceMatrix"]},
+        "admin": {"mode":"OPERATOR_ONLY","reason":"The operator SPA exposes broad same-principal start/stop/config/limit controls and misleading live-capable UX.","implementation":"PARTIAL","evidence":["docs/e0-4-kairos-autonomous-trade-control-runtime-observation.v1.json#surfaceMatrix"]},
+        "api": {"mode":"OPERATOR_ONLY","reason":"Trade execution is currently hard-HOLD, but roles, immutable intents, idempotency and accepted recovery are absent.","implementation":"PARTIAL","evidence":["docs/e0-4-kairos-autonomous-trade-control-runtime-observation.v1.json#authorityBoundary"]},
+        "native": {"mode":"N/A","reason":"No native wallet KAIROS trading-control integration exists.","implementation":"NOT_IMPLEMENTED","evidence":["docs/e0-4-kairos-autonomous-trade-control-runtime-observation.v1.json#surfaceMatrix"]}
+      }
+    },
+    {
+      "id": "SWAPS",
+      "overallStatus": "PARTIAL_NOT_ACCEPTED",
+      "moneyWriter": true,
+      "externalProviderCustody": true,
+      "cells": {
+        "telegramBot": {"mode":"REQUIRED","reason":"The deployed FSM creates a SwapUZ order and polls status, but provider submit precedes durable intent and there is no final bound confirmation, accepted idempotency or ambiguous-submit recovery.","implementation":"PARTIAL","evidence":["/opt/obsidian-exchange/bot/main_bot.py#process_swap_address","/opt/obsidian-exchange/bot/main_bot.py#swap_status_monitor","docs/e0-4-swaps-runtime-observation.v1.json#criticalFindings"]},
+        "site": {"mode":"REQUIRED","reason":"Authenticated dashboard creation and owner-scoped history exist, but the resulting bearer GET exposes addresses, calls the provider and mutates status without owner binding or expiry.","implementation":"PARTIAL","evidence":["/opt/obsidian-exchange/relay-fastapi/main.py#/dashboard/swap","/opt/obsidian-exchange/relay-fastapi/main.py#/swap/{token}","docs/e0-4-swaps-runtime-observation.v1.json#authorityBoundary"]},
+        "miniApp": {"mode":"REQUIRED","reason":"The deployed Mini App advertises Swap 2% but has no workflow or safe handoff and conflicts with the approximately 1% site/bot claim.","implementation":"NOT_IMPLEMENTED","evidence":["/opt/obsidian-exchange/relay/webapp.html#Swap 2%","docs/e0-4-swaps-runtime-observation.v1.json#surfaceMatrix"]},
+        "admin": {"mode":"OPERATOR_ONLY","reason":"Filament is read-only but displays the bearer session token and customer/provider addresses, while provider and status filters drift from the active SwapUZ lifecycle.","implementation":"PARTIAL","evidence":["/opt/obsidian-exchange/admin-panel/app/Filament/Resources/SwapSessionResource.php#SwapSessionResource","docs/e0-4-swaps-runtime-observation.v1.json#criticalFindings"]},
+        "api": {"mode":"REQUIRED","reason":"Relay and bot directly couple provider adapters to session writers; there is no versioned immutable swap intent, durable attempt, provider-idempotency proof or reconciliation-before-retry contract.","implementation":"PARTIAL","evidence":["/opt/obsidian-exchange/relay/providers/swapuz.py#create_swap","/opt/obsidian-exchange/relay/repositories/swap_store.py#create","docs/e0-4-swaps-runtime-observation.v1.json#authorityBoundary"]},
+        "native": {"mode":"READ_ONLY","reason":"A future native surface may display or hand off a bounded request/status but must not receive provider credentials or mix the external swap with local signing authority; none exists.","implementation":"NOT_IMPLEMENTED","evidence":["docs/ecosystem-master-roadmap.md#E5","docs/e0-4-swaps-runtime-observation.v1.json#surfaceMatrix"]}
+      }
+    },
+    {
+      "id": "ACCOUNT_AUTH_PROFILE",
+      "overallStatus": "PARTIAL_NOT_ACCEPTED",
+      "identityAuthority": true,
+      "cells": {
+        "telegramBot": {"mode":"REQUIRED","reason":"Telegram sender identity drives the customer profile and adjacent money workflows, but product-controlled session, revocation, MFA and recovery are absent.","implementation":"PARTIAL","evidence":["/opt/obsidian-exchange/bot/main_bot.py#menu_profile","docs/e0-4-account-auth-profile-runtime-observation.v1.json#authorityBoundary"]},
+        "site": {"mode":"REQUIRED","reason":"Registration, login/logout, password, TOTP and Telegram binding are deployed, but identity merge, session lifecycle and recovery are unaccepted.","implementation":"PARTIAL","evidence":["/opt/obsidian-exchange/relay-fastapi/main.py#/login","/opt/obsidian-exchange/relay-fastapi/main.py#/dashboard/profile","docs/e0-4-account-auth-profile-runtime-observation.v1.json#criticalFindings"]},
+        "miniApp": {"mode":"REQUIRED","reason":"Signed Telegram initData is the primary customer authority for many APIs and is distinct from the site session; replay consumption and canonical account merge are absent.","implementation":"PARTIAL","evidence":["/opt/obsidian-exchange/relay/webapp.html#X-Telegram-Init-Data","/opt/obsidian-exchange/relay-fastapi/main.py#verify_init_data","docs/e0-4-account-auth-profile-runtime-observation.v1.json#surfaceMatrix"]},
+        "admin": {"mode":"OPERATOR_ONLY","reason":"Laravel uses a stronger separate named-admin and TOTP contour, but customer-account recovery, privacy and support authority are not formally bounded.","implementation":"PARTIAL","evidence":["/opt/obsidian-exchange/admin-panel/app/Filament/Pages/Auth/Login.php#authenticate","/opt/obsidian-exchange/admin-panel/app/Models/WebUser.php#WebUser","docs/e0-4-account-auth-profile-runtime-observation.v1.json#positiveControls"]},
+        "api": {"mode":"REQUIRED","reason":"Cookie sessions, CSRF, Telegram Login Widget/initData and repository mutations are exposed through mixed routes without a canonical versioned subject/session/recovery contract.","implementation":"PARTIAL","evidence":["/opt/obsidian-exchange/relay-fastapi/auth.py#create_session","/opt/obsidian-exchange/relay/repositories/web_auth_store.py#WebAuthStore","docs/e0-4-account-auth-profile-runtime-observation.v1.json#authorityBoundary"]},
+        "native": {"mode":"REQUIRED","reason":"No native account/session/profile/recovery bridge exists; future server-account recovery must never become native key recovery or signing authority.","implementation":"NOT_IMPLEMENTED","evidence":["docs/ecosystem-master-roadmap.md#E5","docs/e0-4-account-auth-profile-runtime-observation.v1.json#surfaceMatrix"]}
+      }
+    },
+    {
+      "id": "PAYMENT_PROVIDER_LIFECYCLE",
+      "overallStatus": "PARTIAL_NOT_ACCEPTED",
+      "moneyWriter": true,
+      "externalProviderCustody": true,
+      "cells": {
+        "telegramBot": {"mode":"REQUIRED","reason":"Creates live provider invoices and exposes payment requisites/status; operator manual confirmation is authority-bearing but lacks an accepted attempt/reconciliation lifecycle.","implementation":"PARTIAL","evidence":["docs/e0-4-payment-provider-lifecycle-runtime-observation.v1.json#surfaceMatrix"]},
+        "site": {"mode":"REQUIRED","reason":"Authenticated orders create provider sessions and use hosted bearer pages; the legacy numeric route can disclose that bearer without owner authority.","implementation":"PARTIAL","evidence":["/opt/obsidian-exchange/relay-fastapi/main.py#/pay/{token}","docs/e0-4-payment-provider-lifecycle-runtime-observation.v1.json#criticalFindings"]},
+        "miniApp": {"mode":"REQUIRED","reason":"Signed initData order creation reaches live providers, but recent-duplicate timing is not a durable idempotency or ambiguous-submit contract.","implementation":"PARTIAL","evidence":["/opt/obsidian-exchange/relay-fastapi/main.py#/api/create_order","docs/e0-4-payment-provider-lifecycle-runtime-observation.v1.json#surfaceMatrix"]},
+        "admin": {"mode":"OPERATOR_ONLY","reason":"Laravel provides read-only operator inspection but no provider lifecycle mutation or reconciliation workflow; manual confirmation instead belongs to Telegram and Relay API authority.","implementation":"PARTIAL","evidence":["docs/e0-4-payment-provider-lifecycle-runtime-observation.v1.json#surfaceMatrix"]},
+        "api": {"mode":"REQUIRED","reason":"Relay hosts customer status, provider callbacks and local pending-to-paid truth, but callbacks are not bound to one persisted provider attempt, amount and currency.","implementation":"PARTIAL","evidence":["/opt/obsidian-exchange/relay/services/payment_service.py#create_session","/opt/obsidian-exchange/relay/repositories/payment_transition_store.py#mark_paid","docs/e0-4-payment-provider-lifecycle-runtime-observation.v1.json#criticalFindings"]},
+        "native": {"mode":"N/A","reason":"No deployed native provider-payment lifecycle exists; future native UX must not receive provider secrets or local payment-truth writer authority.","implementation":"NOT_IMPLEMENTED","evidence":["docs/ecosystem-master-roadmap.md#E5","docs/e0-4-payment-provider-lifecycle-runtime-observation.v1.json#surfaceMatrix"]}
+      }
+    },
+    {
+      "id": "PAYOUT_SETTLEMENT_RECONCILIATION",
+      "overallStatus": "PARTIAL_NOT_ACCEPTED",
+      "moneyWriter": true,
+      "serverCustody": true,
+      "cells": {
+        "telegramBot": {"mode":"REQUIRED","reason":"Customer destination/status and the primary intent, review, recovery, discovery and single-admin payout controls live here; evidence and authority paths are not unified.","implementation":"PARTIAL","evidence":["/opt/obsidian-exchange/bot/main_bot.py#process_payout","/opt/obsidian-exchange/bot/main_bot.py#cmd_force_payout","docs/e0-4-payout-settlement-reconciliation-runtime-observation.v1.json#criticalFindings"]},
+        "site": {"mode":"REQUIRED","reason":"Site orders enter the same server-custodial payout lifecycle and display sent/TXID, but correctness depends on unaccepted local settlement truth.","implementation":"PARTIAL","evidence":["docs/e0-4-payout-settlement-reconciliation-runtime-observation.v1.json#surfaceMatrix"]},
+        "miniApp": {"mode":"REQUIRED","reason":"Customer order/status UX participates in the same server payout lifecycle; no Mini-App-specific completion writer is proven and correctness depends on unaccepted settlement truth.","implementation":"PARTIAL","evidence":["docs/e0-4-payout-settlement-reconciliation-runtime-observation.v1.json#surfaceMatrix"]},
+        "admin": {"mode":"OPERATOR_ONLY","reason":"Laravel inspects payouts and its Order action calls an internal paid-to-sent writer with supplied TXID but no exact chain proof or four-eyes.","implementation":"PARTIAL","evidence":["/opt/obsidian-exchange/admin-panel/app/Filament/Resources/OrderResource.php#force_payout","docs/e0-4-payout-settlement-reconciliation-runtime-observation.v1.json#criticalFindings"]},
+        "api": {"mode":"REQUIRED","reason":"Relay serves customer sent/TXID status and owns operator bypass writers plus lifecycle stores; exact finality, reserve, unified evidence and crash recovery remain incomplete.","implementation":"PARTIAL","evidence":["/opt/obsidian-exchange/relay/repositories/payout_store.py#PayoutStore","/opt/obsidian-exchange/relay/repositories/reconciliation_store.py#PostgresReconciliationStore","docs/e0-4-payout-settlement-reconciliation-runtime-observation.v1.json#custodyBoundary"]},
+        "native": {"mode":"N/A","reason":"No native Exchange payout signer exists; future native customer wallet must not inherit server hot-wallet credentials or operator authority.","implementation":"NOT_IMPLEMENTED","evidence":["docs/ecosystem-master-roadmap.md#E5","docs/e0-4-payout-settlement-reconciliation-runtime-observation.v1.json#surfaceMatrix"]}
+      }
+    },
+    {
+      "id": "WALLET_RECEIVE_TRANSFER",
+      "overallStatus": "PARTIAL_NOT_ACCEPTED",
+      "moneyWriter": false,
+      "externalWalletAction": true,
+      "cells": {
+        "telegramBot": {"mode":"READ_ONLY","reason":"Bot supplies sell/manual-deposit instructions and Mini App handoff/status but has no direct generic receive, free-transfer or signature workflow.","implementation":"PARTIAL","evidence":["/opt/obsidian-exchange/bot/main_bot.py#menu_sell","docs/e0-4-wallet-receive-transfer-runtime-observation.v1.json#surfaceMatrix"]},
+        "site": {"mode":"READ_ONLY","reason":"Site account/link views exist, but no deployed site-session external-wallet receive or transfer action flow was found.","implementation":"NOT_IMPLEMENTED","evidence":["docs/e0-4-wallet-receive-transfer-runtime-observation.v1.json#surfaceMatrix"]},
+        "miniApp": {"mode":"REQUIRED","reason":"The active receive, free transfer and sell-payment TON Connect UI preserves the customer-key boundary but lacks accepted durability, account/content binding and recovery.","implementation":"PARTIAL","evidence":["/opt/obsidian-exchange/relay/webapp.html#walletTransfer","/opt/obsidian-exchange/relay/webapp.html#walletPay","docs/e0-4-wallet-receive-transfer-runtime-observation.v1.json#criticalFindings"]},
+        "admin": {"mode":"OPERATOR_ONLY","reason":"Laravel read-only sell records expose receive address and chain outcome, but no wallet-send-intent inspection/recovery workflow or customer signing authority exists.","implementation":"PARTIAL","evidence":["/opt/obsidian-exchange/admin-panel/app/Filament/Resources/SellOrderResource.php#SellOrderResource","docs/e0-4-wallet-receive-transfer-runtime-observation.v1.json#surfaceMatrix"]},
+        "api": {"mode":"REQUIRED","reason":"Real initData-authenticated request builders and a best-effort ack exist without an immutable, idempotent, content-bound and recoverable transfer lifecycle.","implementation":"PARTIAL","evidence":["/opt/obsidian-exchange/relay-fastapi/main.py#/api/wallet/receive","/opt/obsidian-exchange/relay-fastapi/main.py#/api/wallet/transfer-request","/opt/obsidian-exchange/relay-fastapi/main.py#/api/wallet/send-request","/opt/obsidian-exchange/relay-fastapi/main.py#/api/wallet/send-signed","docs/e0-4-wallet-receive-transfer-runtime-observation.v1.json#authorityBoundary"]},
+        "native": {"mode":"REQUIRED","reason":"No deployed native receive/sign/broadcast action exists; external TON Connect signing cannot be credited as native signing.","implementation":"NOT_IMPLEMENTED","evidence":["docs/e0-4-native-signing-runtime-observation.v1.json#surfaceMatrix","docs/e0-4-wallet-receive-transfer-runtime-observation.v1.json#surfaceMatrix"]}
+      }
+    },
+    {
+      "id": "PUBLIC_MARKET_INFORMATION",
+      "overallStatus": "PARTIAL_NOT_ACCEPTED",
+      "moneyWriter": false,
+      "moneyAdjacent": true,
+      "cells": {
+        "telegramBot": {"mode":"REQUIRED","reason":"Displays rates and also consumes the same unlabelled fallback-capable price in customer calculations and automated limit triggers.","implementation":"PARTIAL","evidence":["/opt/obsidian-exchange/bot/main_bot.py#get_cached_rate","docs/e0-4-public-market-information-runtime-observation.v1.json#criticalFindings"]},
+        "site": {"mode":"REQUIRED","reason":"Public homepage and rates calculator use Relay rates, but do not expose source age, fallback state, confidence or a binding-quote boundary.","implementation":"PARTIAL","evidence":["/opt/obsidian-exchange/relay-fastapi/static/js/main.js#fetchMarketRates","docs/e0-4-public-market-information-runtime-observation.v1.json#surfaceMatrix"]},
+        "miniApp": {"mode":"REQUIRED","reason":"Direct CoinGecko ticker/chart, Relay RUB calculator and authenticated KAIROS USDT quotes have divergent validation/cache/freshness paths without one source contract.","implementation":"PARTIAL","evidence":["/opt/obsidian-exchange/relay/webapp.html#fetchRates","/opt/obsidian-exchange/relay/webapp.html#loadRates","/opt/obsidian-exchange/relay/webapp.html#loadMarket","docs/e0-4-public-market-information-runtime-observation.v1.json#criticalFindings"]},
+        "admin": {"mode":"OPERATOR_ONLY","reason":"Telegram operators curate public reserves and have nominal /setrate, but it writes legacy caches and no dedicated Laravel source-health/divergence/stale/circuit workflow exists.","implementation":"PARTIAL","evidence":["/opt/obsidian-exchange/bot/main_bot.py#cmd_setrate","/opt/obsidian-exchange/bot/main_bot.py#cmd_setreserve","docs/e0-4-public-market-information-runtime-observation.v1.json#surfaceMatrix"]},
+        "api": {"mode":"REQUIRED","reason":"Public rate endpoints return bare values and current response time without source age/fallback/confidence or immutable quote identity.","implementation":"PARTIAL","evidence":["/opt/obsidian-exchange/relay-fastapi/main.py#/api/rates","docs/e0-4-public-market-information-runtime-observation.v1.json#authorityBoundary"]},
+        "native": {"mode":"READ_ONLY","reason":"No native projection exists; a future client must receive labelled indicative data without pricing writer authority.","implementation":"NOT_IMPLEMENTED","evidence":["docs/ecosystem-master-roadmap.md#E5","docs/e0-4-public-market-information-runtime-observation.v1.json#surfaceMatrix"]}
+      }
+    },
+    {
+      "id": "CUSTOMER_ENGAGEMENT",
+      "overallStatus": "PARTIAL_NOT_ACCEPTED",
+      "moneyWriter": true,
+      "moneyAdjacent": true,
+      "cells": {
+        "telegramBot": {"mode":"REQUIRED","reason":"Primary outbound, rate-alert, review, promo, VIP/referral and campaign surface; consent, suppression, delivery recovery and discount authority are unaccepted.","implementation":"PARTIAL","evidence":["/opt/obsidian-exchange/bot/main_bot.py#rate_sub_toggle","/opt/obsidian-exchange/bot/main_bot.py#feature_broadcast","docs/e0-4-customer-engagement-runtime-observation.v1.json#criticalFindings"]},
+        "site": {"mode":"REQUIRED","reason":"Shows VIP/referral/reviews and operational status but no notification preference, consent history, engagement inbox or delivery lifecycle.","implementation":"PARTIAL","evidence":["/opt/obsidian-exchange/relay-fastapi/main.py#/dashboard/referral","docs/e0-4-customer-engagement-runtime-observation.v1.json#surfaceMatrix"]},
+        "miniApp": {"mode":"REQUIRED","reason":"Shows referral and promotional projections but no marketing preference, consent receipt, campaign archive or delivery controls.","implementation":"PARTIAL","evidence":["/opt/obsidian-exchange/relay/webapp.html#panel-referral","docs/e0-4-customer-engagement-runtime-observation.v1.json#surfaceMatrix"]},
+        "admin": {"mode":"OPERATOR_ONLY","reason":"Telegram controls broadcasts/promos and Laravel moderates review status, without durable campaign approval, consent snapshot, four-eyes or stuck-delivery recovery.","implementation":"PARTIAL","evidence":["/opt/obsidian-exchange/bot/main_bot.py#cmd_broadcast","/opt/obsidian-exchange/admin-panel/app/Filament/Resources/ReviewResource.php#ReviewResource","docs/e0-4-customer-engagement-runtime-observation.v1.json#surfaceMatrix"]},
+        "api": {"mode":"REQUIRED","reason":"Owner-bound projections and internal notification stores exist, but no versioned consent/preferences/suppression/campaign/delivery/retention contract spans producers.","implementation":"PARTIAL","evidence":["/opt/obsidian-exchange/relay-fastapi/main.py#/api/referral_stats","/opt/obsidian-exchange/relay/repositories/bot_notification_store.py#bot_notification_jobs","docs/e0-4-customer-engagement-runtime-observation.v1.json#authorityBoundary"]},
+        "native": {"mode":"READ_ONLY","reason":"No deployed native preference, inbox or engagement projection exists; future native must not inherit campaign or discount writer authority.","implementation":"NOT_IMPLEMENTED","evidence":["docs/ecosystem-master-roadmap.md#E5","docs/e0-4-customer-engagement-runtime-observation.v1.json#surfaceMatrix"]}
+      }
+    },
+    {
+      "id": "OPERATIONS_MONITORING",
+      "overallStatus": "PARTIAL_NOT_ACCEPTED",
+      "moneyWriter": false,
+      "moneyAdjacent": true,
+      "effectWriterExcluded": true,
+      "cells": {
+        "telegramBot": {"mode":"OPERATOR_ONLY","reason":"Primary alert/status destination; delivery, acknowledgement, escalation and incident recovery are unaccepted.","implementation":"PARTIAL","evidence":["/opt/obsidian-exchange/monitoring/monitor.py#send_alert","docs/e0-4-operations-monitoring-runtime-observation.v1.json#criticalFindings"]},
+        "site": {"mode":"READ_ONLY","reason":"Public aggregate status exists without accepted component coverage, freshness or readiness semantics.","implementation":"PARTIAL","evidence":["/opt/obsidian-exchange/relay-fastapi/main.py#/api/system-status","docs/e0-4-operations-monitoring-runtime-observation.v1.json#surfaceMatrix"]},
+        "miniApp": {"mode":"READ_ONLY","reason":"Renders aggregate status and can overstate one-route health as all-system payment readiness.","implementation":"PARTIAL","evidence":["/opt/obsidian-exchange/relay/webapp.html#loadSysStatus","docs/e0-4-operations-monitoring-runtime-observation.v1.json#criticalFindings"]},
+        "admin": {"mode":"OPERATOR_ONLY","reason":"Analytics and read-only risk events exist without a canonical incident, acknowledgement, SLO or runbook workflow.","implementation":"PARTIAL","evidence":["/opt/obsidian-exchange/admin-panel/app/Filament/Resources/RiskEventResource.php#RiskEventResource","docs/e0-4-operations-monitoring-runtime-observation.v1.json#surfaceMatrix"]},
+        "api": {"mode":"READ_ONLY","reason":"Status/read models exist without versioned liveness, readiness, metrics, check-run or incident contracts.","implementation":"PARTIAL","evidence":["/opt/obsidian-exchange/relay-fastapi/main.py#/api/system-status","docs/e0-4-operations-monitoring-runtime-observation.v1.json#authorityBoundary"]},
+        "native": {"mode":"READ_ONLY","reason":"No deployed native status projection exists; future native must not gain remediation or money authority.","implementation":"NOT_IMPLEMENTED","evidence":["docs/ecosystem-master-roadmap.md#E5","docs/e0-4-operations-monitoring-runtime-observation.v1.json#surfaceMatrix"]}
+      }
+    },
+    {
+      "id": "AI_ASSISTANT",
+      "overallStatus": "PARTIAL_NOT_ACCEPTED",
+      "moneyWriter": false,
+      "moneyAdjacent": true,
+      "effectWriterExcluded": true,
+      "cells": {
+        "telegramBot": {"mode":"READ_ONLY","reason":"No bot-native AI handler exists; Mini App handoff is not a Telegram conversational implementation.","implementation":"NOT_IMPLEMENTED","evidence":["docs/e0-4-ai-assistant-runtime-observation.v1.json#surfaceMatrix"]},
+        "site": {"mode":"READ_ONLY","reason":"The public site FAQ is static and has no observed AI route caller.","implementation":"NOT_IMPLEMENTED","evidence":["docs/e0-4-ai-assistant-runtime-observation.v1.json#surfaceMatrix"]},
+        "miniApp": {"mode":"REQUIRED","reason":"A text-only local-model FAQ assistant exists, but truth, privacy, abuse, provenance and advisory boundaries are unaccepted.","implementation":"PARTIAL","evidence":["/opt/obsidian-exchange/relay/webapp.html#sendAiQuestion","docs/e0-4-ai-assistant-runtime-observation.v1.json#criticalFindings"]},
+        "admin": {"mode":"OPERATOR_ONLY","reason":"No truthful customer-assistant health, prompt/eval, privacy-audit or kill-switch workflow exists; deterministic analytics heuristics are not model output.","implementation":"NOT_IMPLEMENTED","evidence":["docs/e0-4-ai-assistant-runtime-observation.v1.json#surfaceMatrix"]},
+        "api": {"mode":"REQUIRED","reason":"A public streaming route and loopback adapter exist without strict schema, authenticated admission, grounded response contract, safe errors or accepted model provenance.","implementation":"PARTIAL","evidence":["/opt/obsidian-exchange/relay-fastapi/main.py#/api/ai-ask","/opt/obsidian-exchange/relay-fastapi/ai_support.py#ask_ai","docs/e0-4-ai-assistant-runtime-observation.v1.json#scopeBoundary"]},
+        "native": {"mode":"READ_ONLY","reason":"No native assistant exists; any future projection must remain advisory-only without tool or signing authority.","implementation":"NOT_IMPLEMENTED","evidence":["docs/ecosystem-master-roadmap.md#E5","docs/e0-4-ai-assistant-runtime-observation.v1.json#surfaceMatrix"]}
+      }
+    },
+    {
+      "id":"KAIROS_EXCHANGE_DISCOVERY","overallStatus":"PARTIAL_NOT_ACCEPTED","moneyWriter":false,"moneyAdjacent":true,"effectWriter":true,
+      "cells":{
+        "telegramBot":{"mode":"N/A","implementation":"NOT_IMPLEMENTED","reason":"No bot adapter-discovery authority exists.","evidence":["docs/e0-4-kairos-exchange-discovery-runtime-observation.v1.json#surfaceMatrix"]},
+        "site":{"mode":"N/A","implementation":"NOT_IMPLEMENTED","reason":"Customer site must not register adapters.","evidence":["docs/e0-4-kairos-exchange-discovery-runtime-observation.v1.json#surfaceMatrix"]},
+        "miniApp":{"mode":"N/A","implementation":"NOT_IMPLEMENTED","reason":"Mini App must not register adapters.","evidence":["docs/e0-4-kairos-exchange-discovery-runtime-observation.v1.json#surfaceMatrix"]},
+        "admin":{"mode":"OPERATOR_ONLY","implementation":"PARTIAL","reason":"KAIROS SPA registers local candidates without accepted provenance/approval/recovery.","evidence":["/opt/kairos/app/static_frontend/index.html#discoverExchange","docs/e0-4-kairos-exchange-discovery-runtime-observation.v1.json#criticalFindings"]},
+        "api":{"mode":"OPERATOR_ONLY","implementation":"PARTIAL","reason":"Bearer-protected registry/draft effect writers exist but do not activate credentials, connectors or trades.","evidence":["/opt/kairos/app/main_v19.py#/api/exchange-registry/discover","docs/e0-4-kairos-exchange-discovery-runtime-observation.v1.json#authorityBoundary"]},
+        "native":{"mode":"N/A","implementation":"NOT_IMPLEMENTED","reason":"Native wallet must not gain adapter-onboarding authority.","evidence":["docs/e0-4-kairos-exchange-discovery-runtime-observation.v1.json#surfaceMatrix"]}
+      }
+    }
+  ],
+  "omittedFeatureFamilies": [],
+  "limitations": [
+    "Repository anchors prove declared code presence only, not production reachability or end-to-end correctness.",
+    "Relay and Telegram bot checkout artifacts currently differ from deployed production artifacts; only deployed hashes/anchors in the runtime evidence describe production.",
+    "The deployed route reconciliation is comprehensive for the five hash-bound application entrypoints, but each newly identified family still requires its own six-surface classification and acceptance evidence.",
+    "Negative repository observations identify absence in this checkout only and are not production observations.",
+    "This matrix does not close or bypass E0.3 and grants no production authority."
+    ,"The bounded 25-family omissions list is empty, but no post-expansion closure rescan of the full deployed/generated route, startup/import-writer, worker/service and UI/bot-consumer universe was performed; E0.4 completeness is not proved."
+  ],
+  "runtimeEvidence": [
+    "docs/e0-4-route-runtime-observations.v1.json",
+    "docs/e0-4-authenticated-synthetic-read-rehearsal.v1.json",
+    "docs/e0-4-artifact-drift-reconciliation.v1.json",
+    "docs/e0-4-owner-auth-candidate-build.v1.json",
+    "docs/e0-4-owner-auth-candidate-runtime-matrix.v1.json",
+    "docs/e0-4-owner-auth-pg-adapter-rehearsal.v1.json",
+    "docs/e0-4-owner-auth-release-preflight.v1.json",
+    "docs/e0-4-dca-runtime-observation.v1.json",
+    "docs/e0-4-limit-order-runtime-observation.v1.json",
+    "docs/e0-4-gift-runtime-observation.v1.json",
+    "docs/e0-4-wallet-link-runtime-observation.v1.json",
+    "docs/e0-4-cex-portfolio-runtime-observation.v1.json",
+    "docs/e0-4-operator-workflows-runtime-observation.v1.json",
+    "docs/e0-4-native-signing-runtime-observation.v1.json",
+    "docs/e0-4-lumi-advisory-runtime-observation.v1.json",
+    "docs/e0-4-deployed-route-feature-reconciliation.v1.json",
+    "docs/e0-4-lumi-control-plane-runtime-observation.v1.json",
+    "docs/e0-4-kairos-autonomous-trade-control-runtime-observation.v1.json",
+    "docs/e0-4-swaps-runtime-observation.v1.json",
+    "docs/e0-4-account-auth-profile-runtime-observation.v1.json",
+    "docs/e0-4-payment-provider-lifecycle-runtime-observation.v1.json",
+    "docs/e0-4-payout-settlement-reconciliation-runtime-observation.v1.json",
+    "docs/e0-4-wallet-receive-transfer-runtime-observation.v1.json",
+    "docs/e0-4-public-market-information-runtime-observation.v1.json",
+    "docs/e0-4-customer-engagement-runtime-observation.v1.json",
+    "docs/e0-4-operations-monitoring-runtime-observation.v1.json",
+    "docs/e0-4-ai-assistant-runtime-observation.v1.json"
+    ,"docs/e0-4-kairos-exchange-discovery-runtime-observation.v1.json"
+  ],
+  "nextCanonicalItem": "Return to owner-blocked E0.3 as the first unmet criterion; when safe keyless E0.4 work resumes, first perform the post-25 closure reconciliation before any E0.4 completeness claim."
+}

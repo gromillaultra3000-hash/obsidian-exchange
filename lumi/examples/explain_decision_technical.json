@@ -1,0 +1,6 @@
+{
+  "decisionId": "replace-with-decision-id",
+  "mode": "technical",
+  "includeTechnicalDetails": true,
+  "includeAuditTimeline": true
+}

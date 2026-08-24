@@ -13,37 +13,25 @@
 """
 from __future__ import annotations
 import os
-import sqlite3
 import logging
+from repositories.shadow_payout_store import from_environment as _store_from_environment
 
 logger = logging.getLogger(__name__)
 DB_PATH = os.getenv("DB_PATH", "/root/exchange.db")
 AUTO_PAYOUT_LIMIT = float(os.getenv("AUTO_PAYOUT_LIMIT", "5000") or 5000)
 
 
-def _db():
-    conn = sqlite3.connect(DB_PATH, timeout=5)
-    conn.row_factory = sqlite3.Row
-    return conn
+_store = _store_from_environment(sqlite_path=DB_PATH)
+
+
+def _storage():
+    if hasattr(_store, "path") and _store.path != DB_PATH:
+        return _store_from_environment(sqlite_path=DB_PATH)
+    return _store
 
 
 def ensure_schema():
-    with _db() as conn:
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS payout_shadow (
-                order_id       INTEGER PRIMARY KEY,
-                decided_at     TEXT DEFAULT CURRENT_TIMESTAMP,
-                verdict        TEXT,
-                detail         TEXT,
-                provider       TEXT,
-                circuit_action TEXT,
-                would_auto_pay INTEGER,
-                rub_amount     REAL,
-                currency       TEXT,
-                outcome        TEXT,
-                outcome_at     TEXT
-            )""")
-        conn.commit()
+    _storage().ensure_schema()
 
 
 def record_pending(limit: int = 25) -> dict:
@@ -58,14 +46,7 @@ def record_pending(limit: int = 25) -> dict:
 
     stats = {"checked": 0, "recorded": 0, "errors": 0}
     try:
-        with _db() as conn:
-            rows = conn.execute("""
-                SELECT o.order_id, o.rub_amount, o.currency, o.crypto_address
-                FROM orders o
-                WHERE o.status IN ('paid','sent')
-                  AND o.created_at >= datetime('now','-14 days')
-                  AND NOT EXISTS (SELECT 1 FROM payout_shadow s WHERE s.order_id=o.order_id)
-                ORDER BY o.order_id DESC LIMIT ?""", (limit,)).fetchall()
+        rows = _storage().pending_orders(limit)
     except Exception as e:
         logger.warning("shadow: выборка заявок: %s", e)
         return stats
@@ -80,16 +61,9 @@ def record_pending(limit: int = 25) -> dict:
             would = int(v.get("verdict") == "confirmed"
                         and cb.get("action") == "ok"
                         and float(r["rub_amount"] or 0) <= AUTO_PAYOUT_LIMIT)
-            with _db() as conn:
-                conn.execute("""
-                    INSERT OR REPLACE INTO payout_shadow
-                    (order_id, verdict, detail, provider, circuit_action,
-                     would_auto_pay, rub_amount, currency)
-                    VALUES (?,?,?,?,?,?,?,?)""",
-                    (oid, v.get("verdict"), (v.get("detail") or "")[:300],
-                     v.get("provider"), cb.get("action"), would,
-                     r["rub_amount"], r["currency"]))
-                conn.commit()
+            _storage().record(oid, v.get("verdict"), (v.get("detail") or "")[:300],
+                          v.get("provider"), cb.get("action"), would,
+                          r["rub_amount"], r["currency"])
             stats["recorded"] += 1
         except Exception as e:
             stats["errors"] += 1
@@ -101,19 +75,7 @@ def sync_outcomes() -> int:
     """Проставляет фактический исход: что человек сделал с заявкой."""
     ensure_schema()
     try:
-        with _db() as conn:
-            cur = conn.execute("""
-                UPDATE payout_shadow SET
-                    outcome = (SELECT CASE
-                        WHEN o.status='sent' AND o.paid_btc_tx LIKE 'manual%' THEN 'отправлено вручную'
-                        WHEN o.status='sent' THEN 'отправлено (авто/txid)'
-                        WHEN o.status='paid' THEN 'ещё не отправлено'
-                        ELSE o.status END FROM orders o WHERE o.order_id=payout_shadow.order_id),
-                    outcome_at = datetime('now')
-                WHERE outcome IS NULL
-                   OR outcome = 'ещё не отправлено'""")
-            conn.commit()
-            return cur.rowcount
+        return _storage().sync_outcomes()
     except Exception as e:
         logger.warning("shadow: sync_outcomes: %s", e)
         return 0
@@ -127,10 +89,7 @@ def summary(days: int = 14) -> dict:
            "would_pay_but_human_didnt": 0, "human_paid_but_guard_refused": 0,
            "pending": 0}
     try:
-        with _db() as conn:
-            rows = conn.execute(
-                "SELECT * FROM payout_shadow WHERE decided_at >= datetime('now', ?)",
-                (f"-{days} days",)).fetchall()
+        rows = _storage().recent(days)
     except Exception as e:
         out["error"] = str(e)
         return out

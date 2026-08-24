@@ -1,0 +1,67 @@
+{
+  "schemaVersion": "e0-3-bot-b5-3-064a-offline-signing-rehearsal.v1",
+  "observedAt": "2026-08-17T05:40:42Z",
+  "route": "E0/E0.3/B5.3/064A",
+  "status": "BLOCKED_OWNER",
+  "rehearsalLevel": "OFFLINE_CANDIDATE_SIGNING_FLOW_REHEARSED",
+  "implemented": [
+    "encrypted PKCS8 Ed25519 candidate-key generation",
+    "candidate public-entry and two-person keyring construction",
+    "short-lived exact decision statement generation with CSPRNG nonce",
+    "independent reviewer signature",
+    "accountable owner countersignature bound to exact reviewer envelope",
+    "stateless local signature and scope verification"
+  ],
+  "filesystemBoundary": {
+    "absolutePathsRequired": true,
+    "ownerOnlyParentRequired": true,
+    "privateKeyMode": "0600",
+    "noFollowOpen": true,
+    "regularFileAndOwnerCheckedAfterOpen": true,
+    "singleHardlinkRequired": true,
+    "exclusiveNoOverwriteOutputs": true,
+    "fileAndDirectoryFsync": true,
+    "maximumInputBytes": 1048576
+  },
+  "privacyAndAuthority": {
+    "passphraseInArgv": false,
+    "passphraseInEnvironment": false,
+    "privateKeyPrinted": false,
+    "signaturePrinted": false,
+    "networkCapability": false,
+    "productionAuthority": false,
+    "boundedEvidenceAccepted": false,
+    "productionExpandAuthorized": false,
+    "cutoverAuthorized": false,
+    "actionAllowed": false
+  },
+  "verification": {
+    "focusedTestsPassed": 9,
+    "focusedTestsFailed": 0,
+    "syntheticEndToEnd": "generate reviewer key -> generate owner key -> keyring -> statement -> reviewer envelope -> owner envelope -> SYNTHETIC_VALID",
+    "negativeCases": [
+      "statement scope tamper",
+      "existing output refusal",
+      "permissive private-key mode",
+      "private-key symlink",
+      "wrong or revoked role binding",
+      "expired signatures",
+      "missing signer",
+      "nonce replay"
+    ]
+  },
+  "artifacts": {
+    "cli": {"path":"scripts/b64_064a_offline_signer.py","sha256":"c6e70551f6203a8bfbc53c181247bec2b468e7612f4f46c3b722f6471e676fa4"},
+    "runbook": {"path":"docs/b64-064a-offline-signing.md","sha256":"4e7f3668cbb03860ecc6f3349c4fc9243e362975a3f945375e7d81c127881e81"},
+    "tests": {"path":"tests/test_e0_3_bot_b5_3_064a_offline_signer.py","sha256":"69341cce79b4df8f231c9d3b61a790a08cc06cd3f702a5679e323b700a65e678"},
+    "verifier": {"path":"relay/core/b64_064a_decision.py","sha256":"f0eac40ae2f8cf5f2e616bc6e1853621988eed9aebfd4e6658ab71c240b1c5fd"}
+  },
+  "limitations": [
+    "candidate keys are not enrolled in an authenticated production registry",
+    "stateless verification does not provide durable replay consumption",
+    "trusted time and revocation infrastructure are absent",
+    "software PKCS8 cannot prove hardware custody, host integrity, memory zeroization or human independence",
+    "real owner and reviewer private keys must be generated on separate offline devices and never enter this repository or server"
+  ],
+  "nextCanonicalItem": "Owner and selected independent reviewer execute the offline handoff on separate devices and return only public entries plus reviewer/owner envelopes; production acceptance remains blocked pending authenticated registry enrollment and durable replay verification."
+}

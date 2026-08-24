@@ -1,0 +1,46 @@
+{
+  "schema": "obsidian-financial-component-ledger.v1",
+  "purpose": "normalized order-level source evidence for buyer-grade monthly economics",
+  "currency": "RUB",
+  "final_fulfilled_order_status": "sent",
+  "component_types": [
+    "customer_consideration",
+    "crypto_acquisition_cost",
+    "payment_provider_fee",
+    "network_fee",
+    "refund",
+    "chargeback"
+  ],
+  "required_entry_fields": [
+    "entry_id", "order_id", "recognized_at", "component_type", "amount_rub",
+    "source_system", "source_record_sha256"
+  ],
+  "entry_rules": [
+    "entry_id is unique and immutable",
+    "order_id must resolve to one sent order",
+    "recognized_at is an RFC3339 timestamp",
+    "amount_rub is a non-negative two-decimal RUB amount; consideration and acquisition cost must be positive",
+    "source_record_sha256 is a lowercase SHA-256 digest of immutable source evidence",
+    "exactly one customer_consideration component exists per fulfilled order",
+    "customer_consideration equals the fulfilled order RUB amount",
+    "exactly one crypto_acquisition_cost component exists per fulfilled order",
+    "exactly one payment_provider_fee and one network_fee component exist per fulfilled order",
+    "zero-value fees must be evidenced explicitly and cannot be inferred from absence"
+  ],
+  "accounting_policy_gate": {
+    "gross_vs_net_policy_approved": false,
+    "revenue_publication_allowed": false,
+    "gross_margin_publication_allowed": false,
+    "reason": "principal-versus-agent presentation requires an approved accounting policy"
+  },
+  "reporting_rules": [
+    "incomplete orders are counted but excluded from economic spread",
+    "gross economic spread is customer consideration less acquisition cost fees refunds and chargebacks",
+    "gross economic spread is an operational metric and must not be labelled revenue gross profit EBITDA or SDE",
+    "monthly output is aggregate only and contains no customer identifiers or source record identifiers"
+  ],
+  "database_access": "read-only snapshot transaction",
+  "may_mutate_database": false,
+  "may_publish_revenue": false,
+  "may_publish_gross_margin": false
+}

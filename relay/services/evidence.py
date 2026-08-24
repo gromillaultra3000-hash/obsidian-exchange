@@ -17,9 +17,10 @@ API:
     evidence_summary(days=30) -> dict          # advisory: доля доказанных
 """
 from __future__ import annotations
-import sqlite3
+import os
+from repositories.reporting_store import from_environment as _reporting_store
 
-DB_PATH = "/root/exchange.db"
+DB_PATH = os.getenv("DB_PATH", "/root/exchange.db")
 PAID_STATUSES = ("paid", "sent")
 
 LEVELS = {"none": 0, "claimed": 1, "provider_confirmed": 2, "chain_confirmed": 3}
@@ -62,17 +63,8 @@ def order_evidence(order_row: dict) -> dict:
 
 def evidence_summary(days: int = 30, db_path: str = DB_PATH) -> dict:
     """Advisory: среди завершённых (paid/sent) заявок — сколько доказаны блокчейном."""
-    paid_set = ",".join("'%s'" % s for s in PAID_STATUSES)
-    sql = f"""
-        SELECT order_id, status, paid_btc_tx
-        FROM orders
-        WHERE status IN ({paid_set}) AND created_at > datetime('now', ?)
-    """
-    rows = []
     try:
-        with sqlite3.connect(db_path, timeout=5) as c:
-            c.row_factory = sqlite3.Row
-            rows = [dict(r) for r in c.execute(sql, (f"-{int(days)} days",)).fetchall()]
+        rows = _reporting_store(sqlite_path=db_path).completed_evidence_rows(days)
     except Exception as e:
         return {"error": str(e), "total": 0}
 

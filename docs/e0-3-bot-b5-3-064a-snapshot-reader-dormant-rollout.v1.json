@@ -1,0 +1,102 @@
+{
+  "schemaVersion": "obsidian-evidence.e0-3-b5-3-064a-snapshot-reader-dormant-rollout.v1",
+  "observedAt": "2026-08-23T22:58:12Z",
+  "route": ["E0", "E0.3", "B5.3", "064A"],
+  "status": "PRODUCTION_DORMANT_DEPLOYED",
+  "scope": {
+    "role": "obsidian_b64_snapshot_reader",
+    "sourceProfile": "FROZEN_001_023_SOURCE_PROFILE",
+    "e4Touched": false,
+    "customerRowsRead": false,
+    "migrationApplied": false,
+    "serviceRestarted": false,
+    "credentialIssued": false,
+    "hbaChanged": false,
+    "refreshExecuted": false
+  },
+  "contract": {
+    "login": false,
+    "credentialState": "ABSENT",
+    "inherit": false,
+    "connectionLimit": 2,
+    "tables": 54,
+    "columns": 423,
+    "sequences": 29,
+    "functions": 2,
+    "columnCatalogSha256": "adf9ef068c9778f3173bac3d824606ab4796b67f5647df770cbbc8be4ad53f99",
+    "profileInventorySha256": "cd65edefff6708dcb58b33fa554f8c19895f3312271819cce5eace9a276d7893",
+    "tableSelect": true,
+    "sequenceSelect": true,
+    "sequenceUsage": false,
+    "sequenceUpdate": false,
+    "functionExecute": false,
+    "writeOrDdl": false,
+    "otherUserSchemaAccess": false,
+    "violations": []
+  },
+  "transport": {
+    "observationPrincipal": "obsidian_readonly",
+    "mutationPrincipal": "postgres",
+    "mutationTransport": "BOUND_CONTAINER_UNIX_SOCKET",
+    "actualUnixSocketTransport": true,
+    "ambientLibpqEnvironmentAllowed": false,
+    "credentialPresent": false,
+    "passfile": "EMPTY_0600_MEMFD",
+    "deploymentNonceBoundAndMatched": true
+  },
+  "production": {
+    "database": "obsidian_exchange",
+    "serverVersionNum": 170010,
+    "containerId": "6147a2fbda1384185cfb524a2b0e096742afd0237accb8c163677051cccfe0fc",
+    "containerPid": 12829,
+    "imageId": "sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193",
+    "healthAfterApply": "healthy",
+    "applyStatus": "DEPLOYED_DORMANT",
+    "postDeployVerifierStatus": "match",
+    "directLoginDenied": true,
+    "directLoginDenial": "ROLE_NOT_PERMITTED_TO_LOG_IN"
+  },
+  "failedAttempt": {
+    "occurred": true,
+    "cause": "ADMIN_ENV_RESOLVED_TO_READONLY_PRINCIPAL",
+    "status": "FAILED_ROLE_ABSENT",
+    "roleAbsenceVerified": true,
+    "residualMutation": false,
+    "preventedInCurrentRunner": "ADMIN_POSTGRES_ENV_REQUIRED_FOR_APPLY"
+  },
+  "verification": {
+    "staticTests": {"passed": 104, "failed": 0},
+    "disposablePostgres17Integration": "PASS",
+    "faultInjectionScenarios": 4,
+    "compilation": "PASS",
+    "gitDiffCheck": "PASS",
+    "gitleaksChangedFileScope": "PASS",
+    "disposableContainersRemoved": true,
+    "independentLatestByteReviews": {
+      "acl": "PASS",
+      "adversarial": "PASS",
+      "operations": "PASS"
+    }
+  },
+  "bindings": {
+    "frozenPlanFileSha256": "a2932bfc6bf2f377e8e91cc063a494b75dd0483b4e6a19cbc07064dc7fb86239",
+    "frozenPlanCanonicalSha256": "f26c12db4813138b3e7b4d3322a9c9b2ed4ea5c1800d6d54e61084717096d68f",
+    "hardenedRunnerSha256": "eac7347cd4af8c32c7c823ccb344ed00a913248f854de9fdd13ddff9a9128a00",
+    "provisionSqlSha256": "10b6913d81438a3259843826c4fcf6b536cb370c22904c5547fff47c848e7fdc",
+    "rollbackSqlSha256": "e8c7c10c15020bec3a120132b914e312c698241e39c45a50fd95a3ff5ae06640",
+    "verifierSha256": "919f4f86e2551f62be8b70a9c434476f751ae9829ba96418176369aace0dcafa",
+    "deployRunnerSha256": "797d3cd29afce844a6a6b1c953f4d6e49e1fb9f5a80d0f86de2a95d155e6ad2b"
+  },
+  "activation": {
+    "status": "BLOCKED",
+    "authorized": false,
+    "blockers": [
+      "LOGIN_DISABLED",
+      "CREDENTIAL_NOT_ISSUED",
+      "OTHER_DATABASE_PUBLIC_ACL_OR_HBA_NOT_ISOLATED",
+      "EXACT_HBA_FIRST_MATCH_NOT_ATTESTED",
+      "TCP_SCRAM_EXPORTED_SNAPSHOT_NOT_REHEARSED"
+    ]
+  },
+  "next": "IMPLEMENT_EXACT_FIRST_MATCH_HBA_ISOLATION_THEN_SHORT_LIVED_SCRAM_CREDENTIAL_AND_TWO_CONNECTION_EXPORTED_SNAPSHOT_REHEARSAL"
+}

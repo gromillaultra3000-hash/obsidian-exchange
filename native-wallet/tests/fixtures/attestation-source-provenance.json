@@ -1,0 +1,68 @@
+{
+  "schema": "native-wallet-attestation-source-provenance.v1",
+  "generated_at": "2026-08-12T00:00:00Z",
+  "sources": [
+    {
+      "id": "dsse-1.0.2-protocol",
+      "revision": "440901313676fedd0e31f16125c302b0df81e006",
+      "path": "protocol.md",
+      "url": "https://raw.githubusercontent.com/secure-systems-lab/dsse/440901313676fedd0e31f16125c302b0df81e006/protocol.md",
+      "sha256": "6c0d965475162230f9f461acf634b4d4b409eab1a1839d31a9c24c76b3676253",
+      "license": "Apache-2.0",
+      "vendored": false
+    },
+    {
+      "id": "dsse-1.0.2-reference-vector",
+      "revision": "440901313676fedd0e31f16125c302b0df81e006",
+      "path": "implementation/signing_spec.py",
+      "url": "https://raw.githubusercontent.com/secure-systems-lab/dsse/440901313676fedd0e31f16125c302b0df81e006/implementation/signing_spec.py",
+      "sha256": "80d89fc66f8a9267ea30a7fedec4c277d9bf7570066c62e716af5a6ce09bec3c",
+      "license": "Apache-2.0",
+      "vendored": false
+    },
+    {
+      "id": "in-toto-attestation-1.2.0-statement-v1",
+      "revision": "df02077bf97218a8860a5c534eff1f1381f56984",
+      "path": "spec/v1/statement.md",
+      "url": "https://raw.githubusercontent.com/in-toto/attestation/df02077bf97218a8860a5c534eff1f1381f56984/spec/v1/statement.md",
+      "sha256": "cbe684a18b812b8b613d9202eb43b2ea24477f91a2ad6ca5be935185a455ebea",
+      "license": "Apache-2.0",
+      "vendored": false
+    },
+    {
+      "id": "slsa-1.2-provenance-cue",
+      "revision": "19e4e2f005f871270c4f555fc47afecfb37f3efe",
+      "path": "docs/spec/v1.2/schema/provenance.cue",
+      "url": "https://raw.githubusercontent.com/slsa-framework/slsa/19e4e2f005f871270c4f555fc47afecfb37f3efe/docs/spec/v1.2/schema/provenance.cue",
+      "sha256": "0ddd00372622d1c04f71d1fb2666579af089eb733c9c5d838d158489b2ea6145",
+      "license": "Community-Specification-1.0",
+      "vendored": false
+    },
+    {
+      "id": "slsa-1.2-verifying-artifacts",
+      "revision": "19e4e2f005f871270c4f555fc47afecfb37f3efe",
+      "path": "docs/spec/v1.2/verifying-artifacts.md",
+      "url": "https://raw.githubusercontent.com/slsa-framework/slsa/19e4e2f005f871270c4f555fc47afecfb37f3efe/docs/spec/v1.2/verifying-artifacts.md",
+      "sha256": "acdfe8f67f1f6ebc66094304491dde776fde01e9f5c14568e1f71e199de2c263",
+      "license": "Community-Specification-1.0",
+      "vendored": false
+    }
+  ],
+  "derived_fixtures": [
+    {
+      "id": "dsse-1.0.2-public-pae-doctest-extract",
+      "path": "dsse-pae-reference-v1.json",
+      "sha256": "8567d731d583aca2092db6ab8957d69e332542c6cd25f8a3133bb69d45867d82",
+      "derived_from_source_id": "dsse-1.0.2-reference-vector",
+      "license": "Apache-2.0",
+      "contains_signature": false,
+      "contains_key_material": false,
+      "official_standalone_conformance_vector": false,
+      "vendored": true
+    }
+  ],
+  "fixtures_vendored": true,
+  "dependencies_installed": false,
+  "verification_implemented": false,
+  "production_action_allowed": false
+}

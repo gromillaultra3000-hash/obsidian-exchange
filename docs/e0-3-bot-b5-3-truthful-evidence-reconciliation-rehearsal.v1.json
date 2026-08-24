@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "route": "E0/E0.3/B5.3",
+  "status": "REHEARSED_PROPOSAL_ONLY",
+  "productionChanged": false,
+  "artifacts": {
+    "deploy/postgres/proposals/062_e0_bot_b5_3_truthful_evidence_reconciliation.sql": "fc709748235cd969d5e253579e2f3520be156220535c6c52f038c9bcbe6e6af7",
+    "relay/repositories/bot_notification_store.py": "5cf9577075ad29b889f805642a641ff938005cbf03cc3f026f0bce07a9553edc",
+    "bot/main_bot.py": "ccee5af59e59b33b22da57ea1ecf0f7d89ac4ef018a2f7817705873ff169f528",
+    "tests/test_e0_3_bot_b5_3_hardened_runtime_wiring.py": "a6859f0532908eddd7f03d30331e5f92014c62648b4a8f61c728a4b76ab835e7",
+    "tests/test_e0_3_bot_b5_3_truthful_evidence_contract.py": "7b491fe8afeac9d5e4a9a5b4459bae900d40472a5a19ed1bf88721acac618eca",
+    "tests/test_e0_3_bot_b5_3_governance_revocation_rehearsal.py": "16d23a945c42b87d4ab772838a446b3185e8c0eb1652d0df0c0b3fa16827d1fc"
+  },
+  "verified": {
+    "clientCorrelationSeparateFromProviderRequest": true,
+    "telegramProviderRequestIdNull": true,
+    "evidenceExactAuthorizationCompositeFk": true,
+    "oldTransportRecorderDenied": true,
+    "oldMarkSentDenied": true,
+    "acceptedConsumeAppendOnlyAudit": true,
+    "eightWayReconciliationSingleWinner": true,
+    "reconciliationReplayNoop": true,
+    "acceptedMarkFailureDoesNotWriteUncertain": true,
+    "perConnectionPrincipalAttributeAttestation": true,
+    "perConnectionFunctionAclOwnerSecurityDefinerSearchPathManifest": true,
+    "perConnectionDirectRelationPrivilegeDenial": true,
+    "postgres17RealAdapterComposition": true
+  },
+  "reviewDisposition": {
+    "fixed": [
+      "client correlation recorded as provider request",
+      "legacy mark-sent audit bypass",
+      "legacy transport recorder access",
+      "ACCEPTED then conflicting UNCERTAIN runtime path",
+      "ambiguous old CHECK discovery",
+      "unneeded immutable-attempt UPDATE grant",
+      "public identity-attestation bypass"
+    ],
+    "openBlockers": [
+      "Proposal 062 aborts when evidence already exists and is not a production expand/backfill migration.",
+      "The reconciler is a tested SQL primitive, not a separately deployed supervised service.",
+      "Production process-level credential isolation and rotation are not proven.",
+      "Stale attempts with no terminal evidence still require a separate ambiguity-safe operator workflow.",
+      "Full production fault injection, monitoring, alerting, retention, backup/restore and rollback evidence remain missing."
+    ]
+  },
+  "reconciliationSemantics": "bounded row-serialized; no Telegram call; no resend",
+  "rolloutDecision": "CANARY_REJECTED"
+}

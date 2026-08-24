@@ -1,0 +1,121 @@
+server {
+    listen 80;
+    listen [::]:80;
+    server_name obsidian-exchange.org;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name obsidian-exchange.org;
+
+    # Global cutover freeze. The flag is root-controlled and blocks every
+    # external route, including webhook and GET endpoints that mutate state.
+    if (-f /etc/nginx/obsidian-maintenance.flag) {
+        return 503;
+    }
+    error_page 503 = @cutover_maintenance;
+    location @cutover_maintenance {
+        add_header Retry-After "300" always;
+        add_header Cache-Control "no-store" always;
+        return 503;
+    }
+
+    ssl_certificate /etc/letsencrypt/live/obsidian-exchange.org/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/obsidian-exchange.org/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    # Скрываем версию nginx
+    server_tokens off;
+
+    # Заголовки безопасности
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+    # Mini App — источник правды: /root/relay/webapp.html (через FastAPI)
+    location = /webapp {
+        proxy_pass http://127.0.0.1:5001;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        add_header Cache-Control "no-store, no-cache, must-revalidate" always;
+        add_header Pragma "no-cache" always;
+    }
+
+    # Админ-панель на Laravel + Filament
+    location /admin-panel {
+        proxy_pass http://127.0.0.1:8002;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Статические ассеты Filament/Livewire (отдаются по корневым путям)
+    location ~ ^/(css/filament|js/filament|livewire)/ {
+        proxy_pass http://127.0.0.1:8002;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Rate limiting: вход (5 запросов в минуту)
+    location = /login {
+        limit_req zone=login burst=3 nodelay;
+        limit_req_status 429;
+        proxy_pass http://127.0.0.1:5001;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Rate limiting: регистрация (3 в минуту)
+    location = /register {
+        limit_req zone=register burst=2 nodelay;
+        limit_req_status 429;
+        proxy_pass http://127.0.0.1:5001;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Rate limiting: вебхуки провайдеров (60 в минуту)
+    location ~ ^/(greenpay|montera|trocador|brabus|lava|stormtrade|xpay)/webhook {
+        limit_req zone=webhook burst=20 nodelay;
+        limit_req_status 429;
+        proxy_pass http://127.0.0.1:5001;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Rate limiting: публичное API (30 в минуту)
+    location /api/ {
+        limit_req zone=api burst=15 nodelay;
+        limit_req_status 429;
+        proxy_pass http://127.0.0.1:5001;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Прокси на ретранслятор для всех остальных запросов (включая /pay/...)
+    location / {
+        proxy_pass http://127.0.0.1:5001;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}

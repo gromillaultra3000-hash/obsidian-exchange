@@ -1,0 +1,7 @@
+{
+  "eventId": "event-error-log-001",
+  "hostAppId": "sample_desktop_app",
+  "eventType": "error_log",
+  "payload": {"message": "Sample error log without secrets"},
+  "metadata": {"source": "example"}
+}

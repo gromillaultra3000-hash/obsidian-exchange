@@ -1,0 +1,26 @@
+-- E0.3 PROPOSAL ONLY. Legacy-compatible order creation; no production rollout without immutable intent/idempotency.
+GRANT SELECT(order_id),INSERT(user_id,username,currency,rub_amount,crypto_address,status,network,agreed_rate,agreed_crypto_amount,agreed_at),UPDATE(agreed_rate,agreed_crypto_amount) ON public.orders TO obsidian_exchange_bot_owner;
+GRANT USAGE ON SEQUENCE public.orders_order_id_seq TO obsidian_exchange_bot_owner;
+GRANT SELECT(id,user_id,currency,used,locked_until),UPDATE(used,order_id) ON public.rate_locks TO obsidian_exchange_bot_owner;
+GRANT SELECT(id,is_active,valid_until,uses_count,max_uses),UPDATE(uses_count) ON public.promo_codes TO obsidian_exchange_bot_owner;
+GRANT SELECT(code_id,user_id),INSERT(code_id,user_id,order_id) ON public.promo_uses TO obsidian_exchange_bot_owner;
+
+CREATE OR REPLACE FUNCTION public.bot_b5_create_order(a_user_id bigint,a_username text,a_currency text,a_rub numeric,a_destination text,a_network text,a_preferred_rate numeric,a_preferred_crypto numeric,a_fallback_rate numeric,a_fallback_crypto numeric,a_lock_id bigint,a_promo_id bigint,a_lock_no_promo_rate numeric,a_lock_no_promo_crypto numeric,a_regular_no_promo_rate numeric,a_regular_no_promo_crypto numeric)
+RETURNS TABLE(order_id bigint,lock_used boolean,promo_used boolean,agreed_rate numeric,agreed_crypto_amount numeric) LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog AS $$
+DECLARE oid bigint;lu boolean:=false;pu boolean:=false;actual_rate numeric;actual_crypto numeric;
+BEGIN
+ a_currency=upper(trim(a_currency));a_destination=trim(a_destination);a_network=CASE WHEN a_network IS NULL THEN NULL ELSE upper(trim(a_network)) END;
+ IF a_user_id IS NULL OR a_user_id<=0 OR a_currency IS NULL OR a_currency NOT IN('BTC','LTC','USDT') OR a_rub IS NULL OR a_rub::text IN('NaN','Infinity','-Infinity') OR a_rub<=0 OR a_rub>999999999999999999.99 OR a_destination IS NULL OR length(a_destination)<1 OR length(a_destination)>512 OR (a_username IS NOT NULL AND length(a_username)>64) OR (a_network IS NOT NULL AND (length(a_network)<1 OR length(a_network)>32)) THEN RAISE EXCEPTION 'invalid_order'; END IF;
+ IF a_preferred_rate IS NULL OR a_preferred_crypto IS NULL OR a_fallback_rate IS NULL OR a_fallback_crypto IS NULL OR a_preferred_rate::text IN('NaN','Infinity','-Infinity') OR a_preferred_crypto::text IN('NaN','Infinity','-Infinity') OR a_fallback_rate::text IN('NaN','Infinity','-Infinity') OR a_fallback_crypto::text IN('NaN','Infinity','-Infinity') OR least(a_preferred_rate,a_preferred_crypto,a_fallback_rate,a_fallback_crypto)<=0 THEN RAISE EXCEPTION 'invalid_quote'; END IF;
+ IF a_lock_id IS NOT NULL AND a_lock_id<=0 OR a_promo_id IS NOT NULL AND a_promo_id<=0 THEN RAISE EXCEPTION 'invalid_reference'; END IF;
+ IF a_promo_id IS NOT NULL AND (a_lock_no_promo_rate IS NULL OR a_lock_no_promo_crypto IS NULL OR a_regular_no_promo_rate IS NULL OR a_regular_no_promo_crypto IS NULL OR least(a_lock_no_promo_rate,a_lock_no_promo_crypto,a_regular_no_promo_rate,a_regular_no_promo_crypto)<=0) THEN RAISE EXCEPTION 'invalid_promo_fallback'; END IF;
+ INSERT INTO public.orders(user_id,username,currency,rub_amount,crypto_address,status,network,agreed_rate,agreed_crypto_amount,agreed_at) VALUES(a_user_id,a_username,a_currency,a_rub,a_destination,'pending',a_network,a_preferred_rate,a_preferred_crypto,clock_timestamp()) RETURNING public.orders.order_id INTO oid;
+ IF a_lock_id IS NOT NULL THEN UPDATE public.rate_locks SET used=true,order_id=oid WHERE id=a_lock_id AND user_id=a_user_id AND currency=a_currency AND used=false AND locked_until>clock_timestamp();lu=FOUND;END IF;
+ IF a_promo_id IS NOT NULL THEN UPDATE public.promo_codes SET uses_count=uses_count+1 WHERE id=a_promo_id AND is_active=true AND valid_until>=clock_timestamp() AND uses_count<max_uses AND NOT EXISTS(SELECT 1 FROM public.promo_uses u WHERE u.code_id=a_promo_id AND u.user_id=a_user_id);pu=FOUND;IF pu THEN INSERT INTO public.promo_uses(code_id,user_id,order_id) VALUES(a_promo_id,a_user_id,oid);END IF;END IF;
+ IF lu THEN actual_rate=CASE WHEN pu OR a_promo_id IS NULL THEN a_preferred_rate ELSE a_lock_no_promo_rate END;actual_crypto=CASE WHEN pu OR a_promo_id IS NULL THEN a_preferred_crypto ELSE a_lock_no_promo_crypto END;ELSE actual_rate=CASE WHEN pu OR a_promo_id IS NULL THEN a_fallback_rate ELSE a_regular_no_promo_rate END;actual_crypto=CASE WHEN pu OR a_promo_id IS NULL THEN a_fallback_crypto ELSE a_regular_no_promo_crypto END;END IF;
+ UPDATE public.orders SET agreed_rate=actual_rate,agreed_crypto_amount=actual_crypto WHERE public.orders.order_id=oid;
+ RETURN QUERY SELECT oid,lu,pu,actual_rate,actual_crypto;
+END $$;
+ALTER FUNCTION public.bot_b5_create_order(bigint,text,text,numeric,text,text,numeric,numeric,numeric,numeric,bigint,bigint,numeric,numeric,numeric,numeric) OWNER TO obsidian_exchange_bot_owner;
+REVOKE ALL ON FUNCTION public.bot_b5_create_order(bigint,text,text,numeric,text,text,numeric,numeric,numeric,numeric,bigint,bigint,numeric,numeric,numeric,numeric) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.bot_b5_create_order(bigint,text,text,numeric,text,text,numeric,numeric,numeric,numeric,bigint,bigint,numeric,numeric,numeric,numeric) TO obsidian_exchange_bot;

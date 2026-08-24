@@ -1,0 +1,13 @@
+{
+  "eventId": "event-apply-preparation-001",
+  "hostAppId": "sample_desktop_app",
+  "eventType": "custom",
+  "payload": {
+    "subtype": "apply_preparation_request",
+    "projectId": "sample_project",
+    "patchPlanResultId": "replace-with-patch-plan-result-id",
+    "diffPreviewId": "replace-with-diff-preview-id",
+    "testRunResultId": "replace-with-test-run-result-id",
+    "rollbackMetadataId": "replace-with-rollback-metadata-id"
+  }
+}

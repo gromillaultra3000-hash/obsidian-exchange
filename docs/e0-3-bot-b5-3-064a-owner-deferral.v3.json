@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "e0-3-bot-b5-3-064a-owner-deferral.v3",
+  "observedAt": "2026-08-19T03:12:00Z",
+  "route": "E0/E0.3/B5.3/064A",
+  "source": "current-owner-conversation",
+  "sourceAuthentication": "CONVERSATION_CONTEXT_NOT_AUTHENTICATED_SIGNATURE",
+  "candidatePath": "docs/e0-3-bot-b5-3-064a-decision-candidate.v3.json",
+  "candidateSha256": "771ce159032de810d8b09731be109af6a2bb317fc1b8b6e2f5a0d3fff9a08ddf",
+  "supersedesDeferralPath": "docs/e0-3-bot-b5-3-064a-owner-deferral.v2.json",
+  "supersedesDeferralSha256": "e5d76a90c4f750ef936eb125eda011678a91ae7c76e794cd9dae634a46973ffb",
+  "sourceObservationPath": "docs/e0-3-bot-b5-3-064a-production-source-refresh.v3.json",
+  "sourceObservationSha256": "280e0b0de3c76992ef1674ef76495a0136138c9ee6ab114ff794f8377437d104",
+  "ownerInstruction": "RE_DEFER_V3_064A_AND_064B_CONTINUE_SAFE_KEYLESS_READ_ONLY_WORK",
+  "decisionEffect": "RESTRICTIVE_RE_DEFERRAL_ONLY",
+  "status": "BLOCKED_OWNER",
+  "ownerDecisionContextPresent": true,
+  "authenticatedOwnerDecisionPresent": false,
+  "authenticatedEvidenceAcceptancePresent": false,
+  "independentReviewerAcceptancePresent": false,
+  "deferredItems": ["064A_AUTHENTICATED_EVIDENCE_ACCEPTANCE", "064B_PRODUCTION_EXPAND", "064D_AMBIGUOUS_SENDING_DISPOSITION"],
+  "allowedWork": ["KEYLESS", "READ_ONLY", "NON_PRODUCTION", "DOCUMENTATION_AND_TESTS"],
+  "authority": {
+    "evidenceAccepted": false, "productionAuthorization": false, "productionMutationAuthorized": false,
+    "productionExpandAuthorized": false, "deploymentAuthorized": false, "restartAuthorized": false,
+    "cutoverAuthorized": false, "telegramDeliveryAuthorized": false,
+    "ambiguousSendingDispositionAuthorized": false, "automaticRetryAuthorized": false, "actionAllowed": false
+  },
+  "sourceFreshnessEffect": {"freshnessCanInvalidate": true, "freshnessCanAuthorize": false, "candidateMayExpireWhileDeferred": true, "expiredCandidateRequiresNewReadOnlyObservationAndNewDigest": true},
+  "remainingBlockers": [
+    "AUTHENTICATED_ACCOUNTABLE_OWNER_DECISION_ABSENT", "AUTHENTICATED_INDEPENDENT_REVIEWER_ACCEPTANCE_ABSENT",
+    "PRODUCTION_KEY_REGISTRY_TRUSTED_TIME_REVOCATION_AND_DURABLE_REPLAY_ACCEPTANCE_ABSENT",
+    "1_PENDING_MUST_DRAIN_OR_BE_RECONCILED_BEFORE_ANY_MIGRATION",
+    "13_LEGACY_SENDING_REQUIRE_064D_IMMUTABLE_OPERATOR_DISPOSITION", "064B_REMAINS_UNAUTHORIZED"
+  ],
+  "nextCanonicalItem": "AUTHENTICATED_ACCOUNTABLE_OWNER_AND_APPLICABLE_INDEPENDENT_REVIEWER_DECISION_OVER_EXACT_V3_CANDIDATE",
+  "interpretation": "This conversation records a restrictive re-deferral context only. It does not authenticate a signature, accept evidence, grant a waiver, authorize production, permit 064B/064D, or authorize deploy, restart, delivery, retry or row disposition. E0.3 remains first unmet and BLOCKED_OWNER."
+}

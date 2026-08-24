@@ -1,0 +1,113 @@
+{
+  "schemaVersion": "e4-disconnected-snapshot-staging-manifest-template.v1",
+  "templateId": "e4-disconnected-snapshot-staging-manifest-template-20260822",
+  "status": "TEMPLATE_NOT_AUTHORIZED",
+  "stage": "E4",
+  "purpose": "Secret-free provenance record for a pre-existing encrypted snapshot copy. This file does not create, copy, decrypt, or authorize a snapshot.",
+  "authority": {
+    "authenticated": false,
+    "snapshotUsableForExecution": false,
+    "productionDatabaseContactAllowed": false,
+    "productionNetworkAllowed": false,
+    "productionCredentialsAllowed": false,
+    "containsSecrets": false,
+    "containsConnectionMaterial": false,
+    "plaintextSnapshotIncluded": false,
+    "privateKeyMaterialIncluded": false,
+    "executionEffect": "NONE"
+  },
+  "frozenBinding": {
+    "planSchemaVersion": "e4-full-snapshot-rehearsal-runner-plan.v1",
+    "planId": "e4rrp_73040dd58161e760075b961004c173966291a8d33344f248cf6a43ec75893ffd",
+    "planSourcePath": "relay/core/e4_rehearsal_runner_plan.py",
+    "planSourceSha256": "eb70458a03fdb5b744f44f0fd390e78f17a65226e2a48b2c763db3ff2623cc2c",
+    "evidenceManifestPath": "deploy/postgres/proposals/e4_full_snapshot_rehearsal_manifest.json",
+    "evidenceManifestSha256": "2489745da1fd584c3d77965ebc7b4776ddad3115bcbea5dc7a623fc3d2981a03",
+    "targetClass": "ISOLATED_DISPOSABLE_POSTGRESQL",
+    "snapshotClass": "PREEXISTING_ENCRYPTED_IMMUTABLE_SNAPSHOT_COPY"
+  },
+  "snapshot": {
+    "snapshotRef": null,
+    "snapshotRefSha256": null,
+    "ciphertextSha256": null,
+    "byteLength": null,
+    "format": null,
+    "createdAtEpochMs": null,
+    "createdBeforeRehearsal": null,
+    "immutableHandle": null,
+    "readOnlyAtHandoff": null,
+    "plaintextPersistenceForbidden": true,
+    "sourceArtifactRef": null,
+    "sourceArtifactSha256": null
+  },
+  "encryption": {
+    "encryptedAtRest": true,
+    "encryptionFormat": null,
+    "keyRefSha256": null,
+    "keyPurpose": "E4_REHEARSAL_SNAPSHOT_DECRYPT_ONLY",
+    "keyMaterialPresentInHandoff": false,
+    "decryptionPerformedDuringPreparation": false,
+    "decryptionPerformedDuringRehearsal": null
+  },
+  "stagingEvidence": {
+    "opaqueStagingHandle": null,
+    "pathRefSha256": null,
+    "owner": null,
+    "group": null,
+    "mode": null,
+    "inode": null,
+    "device": null,
+    "sizeBytes": null,
+    "sha256": null,
+    "symlink": null,
+    "hardlinkCount": null,
+    "immutable": null,
+    "readOnly": null,
+    "stagingCreatedBeforeOwnerApproval": null,
+    "stagingCreatedBeforeRehearsal": null
+  },
+  "provenance": {
+    "sourceKind": "PREEXISTING_ENCRYPTED_SNAPSHOT_COPY",
+    "sourceSystemRef": null,
+    "sourceCaptureRef": null,
+    "captureOperatorRefSha256": null,
+    "captureTimeEpochMs": null,
+    "chainOfCustodyRef": null,
+    "chainOfCustodySha256": null,
+    "productionContactDuringRehearsal": false,
+    "productionCredentialsUsedDuringRehearsal": false,
+    "productionNetworkUsedDuringRehearsal": false,
+    "provenanceReviewedByOwner": false,
+    "provenanceReviewedByIndependentReviewer": false
+  },
+  "targetBinding": {
+    "targetRef": null,
+    "targetFingerprintSha256": null,
+    "targetMustBeAbsentBeforeStart": true,
+    "targetClass": "ISOLATED_DISPOSABLE_POSTGRESQL",
+    "persistentTargetAllowed": false,
+    "targetDestroyAfterRehearsal": true
+  },
+  "requiredChecks": [
+    "FULL_SNAPSHOT_MATCHED",
+    "TABLE_INVENTORY_CAPTURED",
+    "ACL_INVENTORY_CAPTURED",
+    "ROLLBACK_BOUNDARY_VERIFIED",
+    "HANDOFF_GATE_EXPLICITLY_FALSE",
+    "ROUTE_GATE_EXPLICITLY_FALSE",
+    "CONFIRM_ROUTE_ABSENT",
+    "ACTIVE_025_MIGRATION_ABSENT",
+    "SNAPSHOT_CIPHERTEXT_DIGEST_MATCHED",
+    "SNAPSHOT_HANDLE_DIGEST_MATCHED",
+    "SNAPSHOT_KEY_REFERENCE_MATCHED",
+    "TARGET_ABSENT_BEFORE_START",
+    "TARGET_AND_STAGED_SNAPSHOT_ABSENT_AFTER_TEARDOWN"
+  ],
+  "handoffState": {
+    "manifestFilledOffline": false,
+    "manifestSignedOrCountersigned": false,
+    "ownerApprovalBindingMatches": false,
+    "readyForExecutorVerification": false
+  },
+  "nextAction": "Fill this manifest only from an already-existing encrypted snapshot staging record. Record public digests and opaque references, never plaintext or key material. Then bind its snapshotRefSha256, ciphertextSha256, and keyRefSha256 to the authenticated owner decision."
+}

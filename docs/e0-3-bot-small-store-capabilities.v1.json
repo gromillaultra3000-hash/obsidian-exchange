@@ -1,0 +1,16 @@
+{
+  "schema":"obsidian.e0-3-bot-small-store-capabilities.v1",
+  "stage":"E0.3",
+  "status":"EXACT_PACKAGES_VERIFIED",
+  "productionAuthorization":false,
+  "sourceSha256":{"swap_store":"5195286bc79545fc51097aa780e1d75963be65ce258bac2d17610311c5b3a0a2","status_notification_store":"66c6ce9eb9079774d0dc3ec9f5b4e895cd7046d45376603d6c4db7e76192caae","user_profile_store":"dd47ffbc626795a51852e81f993c2e17e23283d7b19adc0a0664d12545dd69d8"},
+  "capabilities":[
+    {"id":"swap_store.unfinished","access":"BACKGROUND_READ","reads":{"swap_sessions":["session_token","user_id","trocador_id","coin_from","coin_to","status","provider","amount_from"]},"invariants":["EMPTY_FINAL_STATUS_LIST_RETURNS_EMPTY","EXCLUDES_CALLER_FINAL_STATUSES","STATUS_LIST_MAXIMUM_32","TOO_MANY_STATUSES_FAIL_CLOSED","RESULT_MAXIMUM_500","ID_ASC"]},
+    {"id":"status_notification_store.complete","access":"WRITE","reads":{"sent_notifications":["order_id","event"],"gift_vouchers":["order_id","status"]},"mutations":{"sent_notifications":["order_id","event"],"gift_vouchers":["status"]},"invariants":["EVENT_CLOSED_ALLOWLIST","ORDER_EVENT_UNIQUE_CONFLICT_NOOP","PAID_EVENT_PROMOTES_PENDING_GIFT_ONLY","MARKER_AND_GIFT_PROMOTION_ONE_TRANSACTION"]},
+    {"id":"status_notification_store.payout_candidates","access":"BACKGROUND_READ","reads":{"orders":["order_id","user_id","rub_amount","crypto_address","currency","network","status","updated_at","created_at"],"sent_notifications":["order_id","event"]},"invariants":["PAID_ONLY","WITHIN_CALLER_HOUR_WINDOW","NO_PAYOUT_TRIGGERED_MARKER","OLDEST_FIRST","HOURS_MINIMUM_ONE","HOURS_MAXIMUM_168","LIMIT_MINIMUM_ONE","LIMIT_MAXIMUM_100"]},
+    {"id":"user_profile_store.claim_referrer","access":"WRITE","reads":{"referrals":["referred_id"]},"mutations":{"referrals":["referrer_id","referred_id"]},"invariants":["SELF_REFERRAL_REJECTED","REFERRED_ID_FIRST_WRITER_WINS","UNIQUE_CONFLICT_NOOP"]},
+    {"id":"user_profile_store.upsert_user","access":"WRITE","reads":{"bot_users":["user_id"]},"mutations":{"bot_users":["user_id","username","first_name","last_name","last_seen"]},"invariants":["USER_ID_UNIQUE_UPSERT","SERVER_TIMESTAMP_LAST_SEEN","IDENTITY_FIELDS_ONLY"]}
+  ],
+  "blockers":[],
+  "remainingWork":[]
+}

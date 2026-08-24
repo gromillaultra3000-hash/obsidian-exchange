@@ -27,10 +27,13 @@ from __future__ import annotations
 import logging
 import os
 import re
-import sqlite3
+from repositories.sell_order_store import from_environment as _sell_store_from_environment
 
 logger = logging.getLogger(__name__)
 DB_PATH = os.getenv("DB_PATH", "/root/exchange.db")
+def _store():
+    # DB_PATH is deliberately mutable in isolated tests and maintenance tools.
+    return _sell_store_from_environment(sqlite_path=DB_PATH)
 
 CARD = "card"
 SBP = "sbp"
@@ -260,12 +263,7 @@ def target(row) -> dict:
 # ── отправка рублей ──────────────────────────────────────────────────────────
 
 def _row(sell_id):
-    conn = sqlite3.connect(DB_PATH, timeout=10)
-    conn.row_factory = sqlite3.Row
-    try:
-        return conn.execute("SELECT * FROM sell_orders WHERE id=?", (int(sell_id),)).fetchone()
-    finally:
-        conn.close()
+    return _store().get(int(sell_id))
 
 
 def already_sent(sell_id) -> dict:
@@ -361,15 +359,8 @@ def send_rub(sell_id, callback_url: str = "") -> dict:
     # видим; считать сбоем и вернуть в очередь — значит разрешить вторую
     # кнопку и второй перевод. Поэтому третий исход: заявка остаётся занятой,
     # решает человек, сверившись с кабинетом. Нашёл codex.
-    conn = sqlite3.connect(DB_PATH, timeout=10)
-    try:
-        conn.execute("UPDATE sell_orders SET payout_provider='vertu', payout_ref=?,"
-                     " payout_status=?, updated_at=datetime('now') WHERE id=?",
-                     (ref, ("unknown" if not ref else (res.get("status") or "pending")),
-                      int(sell_id)))
-        conn.commit()
-    finally:
-        conn.close()
+    _store().record_provider(int(sell_id),provider='vertu',ref=ref,
+        status="unknown" if not ref else (res.get("status") or "pending"))
     if not ref:
         logger.error("продажа #%s: рельс ответил успехом без номера выплаты — "
                      "нужен человек", sell_id)
@@ -405,15 +396,7 @@ def mark_settled(sell_id) -> bool:
     письмо клиенту «выполнено» обязаны случиться ровно один раз, а сюда
     приходят и фоновой обход, и обратный вызов провайдера — одновременно.
     """
-    conn = sqlite3.connect(DB_PATH, timeout=10)
-    try:
-        cur = conn.execute("UPDATE sell_orders SET status='paid',"
-                           " updated_at=datetime('now')"
-                           " WHERE id=? AND status!='paid'", (int(sell_id),))
-        conn.commit()
-        return cur.rowcount > 0
-    finally:
-        conn.close()
+    return _store().mark_settled(int(sell_id))
 
 
 def mark_rejected(sell_id) -> bool:
@@ -428,15 +411,7 @@ def mark_rejected(sell_id) -> bool:
     вернуло бы закрытый долг в очередь — то есть разрешило бы заплатить
     второй раз по уже оплаченной заявке. Нашёл codex.
     """
-    conn = sqlite3.connect(DB_PATH, timeout=10)
-    try:
-        cur = conn.execute("UPDATE sell_orders SET status='pending',"
-                           " updated_at=datetime('now')"
-                           " WHERE id=? AND status='paying'", (int(sell_id),))
-        conn.commit()
-        return cur.rowcount > 0
-    finally:
-        conn.close()
+    return _store().mark_rejected(int(sell_id))
 
 
 def stale_claims(minutes: int = 15) -> list:
@@ -451,16 +426,7 @@ def stale_claims(minutes: int = 15) -> list:
     запрос ушёл из процесса до его смерти. Решает человек, сверившись с
     кабинетом; отсюда — только список для тревоги.
     """
-    conn = sqlite3.connect(DB_PATH, timeout=10)
-    conn.row_factory = sqlite3.Row
-    try:
-        return conn.execute(
-            "SELECT id, user_id, rub_amount, updated_at FROM sell_orders"
-            " WHERE status='paying' AND (payout_ref IS NULL OR payout_ref='')"
-            "   AND datetime(updated_at) < datetime('now', ?)",
-            (f"-{int(minutes)} minutes",)).fetchall()
-    finally:
-        conn.close()
+    return _store().stale_unreferenced(int(minutes))
 
 
 def release_claim(sell_id) -> bool:
@@ -469,16 +435,7 @@ def release_claim(sell_id) -> bool:
     Открывает только строку БЕЗ номера выплаты: там, где номер есть, выплата
     существует, и «вернуть в очередь» означало бы разрешить второй перевод.
     """
-    conn = sqlite3.connect(DB_PATH, timeout=10)
-    try:
-        cur = conn.execute(
-            "UPDATE sell_orders SET status='pending', updated_at=datetime('now')"
-            " WHERE id=? AND status='paying' AND (payout_ref IS NULL OR payout_ref='')",
-            (int(sell_id),))
-        conn.commit()
-        return cur.rowcount > 0
-    finally:
-        conn.close()
+    return _store().release_unreferenced(int(sell_id))
 
 
 def refresh_status(sell_id) -> dict:
@@ -496,11 +453,5 @@ def refresh_status(sell_id) -> dict:
     res = VertuProvider().get_payout_status(ref) or {}
     st = res.get("status") or "unknown"
     if st != "unknown":
-        conn = sqlite3.connect(DB_PATH, timeout=10)
-        try:
-            conn.execute("UPDATE sell_orders SET payout_status=?,"
-                         " updated_at=datetime('now') WHERE id=?", (st, int(sell_id)))
-            conn.commit()
-        finally:
-            conn.close()
+        _store().update_payout_status(int(sell_id),st)
     return {"status": st, "raw_status": res.get("raw_status"), "ref": ref}

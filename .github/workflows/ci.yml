@@ -1,11 +1,61 @@
 name: CI
 on: [push]
 jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - name: Install checksum-pinned gitleaks
+        env:
+          GITLEAKS_VERSION: 8.30.0
+          GITLEAKS_SHA256: 79a3ab579b53f71efd634f3aaf7e04a0fa0cf206b7ed434638d1547a2470a66e
+        run: |
+          curl -fsSLo /tmp/gitleaks.tar.gz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  /tmp/gitleaks.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
+          sudo install -m 0755 /tmp/gitleaks /usr/local/bin/gitleaks
+      - name: Secret scan (full Git history, redacted)
+        run: gitleaks git . --redact=100 --no-banner
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.12'
+      - name: Install pinned security tools
+        run: pip install pip-audit==2.10.1 bandit==1.9.4
+      - name: Python dependency audit
+        run: |
+          # python-ecdsa has an unfixed P-256 timing advisory. It is present
+          # transitively for bitcoinlib, while active BTC/LTC use secp256k1;
+          # keep this one ID explicit until bitcoinlib is removed.
+          pip-audit -r requirements/bot-runtime.lock --progress-spinner=off \
+            --ignore-vuln PYSEC-2026-1325
+          pip-audit -r requirements/relay-runtime.lock --progress-spinner=off \
+            --ignore-vuln PYSEC-2026-1325
+      - name: Python SAST (fail on new medium/high findings)
+        run: |
+          bandit -r bot/main_bot.py bot/sell_guard.py bot/utils relay relay-fastapi payment monitoring support_bot \
+            -x relay/logs,bot/venv -b security/bandit-baseline.json -ll
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
+        with:
+          php-version: '8.3'
+      - name: Composer dependency audit
+        working-directory: admin-panel
+        run: composer audit --locked
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: admin-panel/package-lock.json
+      - name: npm dependency audit
+        working-directory: admin-panel
+        run: npm audit --audit-level=high
+
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: '3.11'
       - name: Зависимости ядра (без них доказательство владения мертво)
@@ -24,6 +74,13 @@ jobs:
         run: python3 tests/test_routes.py
       - name: Landmine check (дефекты, выглядящие как рабочий код)
         run: python3 tests/test_landmines.py
+      - name: P0 security regressions (admin auth + verified swap status)
+        run: python3 tests/test_security_p0.py
+      - name: Durable bot reminders (selectors, claims, exact delivery contract)
+        run: |
+          python3 tests/test_bot_notification_store.py
+          python3 tests/test_bot_notification_adapter.py
+          python3 tests/test_bot_notification_snapshot_inventory.py
       - name: Единый источник валют/сетей (core.assets)
         run: python3 tests/test_assets.py
       - name: Витрина направлений и тарифы (offerings + pricing)

@@ -1,0 +1,13 @@
+{
+  "providerId": "fallback-1",
+  "displayName": "Fallback Provider One",
+  "providerType": "mock",
+  "apiFormat": "json",
+  "enabled": true,
+  "capabilities": ["text_reasoning", "fallback_use", "fast_response", "low_cost_processing"],
+  "roles": ["fallback_provider"],
+  "costProfile": {"costPerCall": 0.001},
+  "latencyProfile": {"avgMs": 5},
+  "reliabilityScore": 0.7,
+  "notes": "fallback_success"
+}

@@ -16,16 +16,13 @@ from __future__ import annotations
 import logging
 import os
 import sqlite3
+from core import db_runtime
+from repositories.alert_store import from_environment as _alert_store_from_environment
 
 logger = logging.getLogger(__name__)
 
 DB_PATH = os.getenv("DB_PATH", "/root/exchange.db")
-
-_DDL = ("CREATE TABLE IF NOT EXISTS alert_throttle ("
-        " key TEXT PRIMARY KEY, last_sent TEXT NOT NULL)")
-_DDL_HW = ("CREATE TABLE IF NOT EXISTS alert_watermark ("
-           " key TEXT PRIMARY KEY, value INTEGER NOT NULL)")
-
+def _store():return _alert_store_from_environment(sqlite_path=DB_PATH)
 
 def should_send(key: str, min_interval_sec: int) -> bool:
     """True — отправлять; False — окно молчания ещё не истекло.
@@ -38,49 +35,19 @@ def should_send(key: str, min_interval_sec: int) -> bool:
     """
     if not key:
         return True
-    conn = None
     try:
-        conn = sqlite3.connect(DB_PATH, timeout=5)
-        conn.execute(_DDL)
-        # запись-заглушка с заведомо старым временем: дальше единственный UPDATE
-        # решает и «первый раз», и «окно истекло» одинаково.
-        conn.execute("INSERT OR IGNORE INTO alert_throttle (key, last_sent) "
-                     "VALUES (?, datetime('now', '-100 years'))", (key,))
-        cur = conn.execute(
-            "UPDATE alert_throttle SET last_sent=datetime('now') "
-            "WHERE key=? AND last_sent <= datetime('now', ?)",
-            (key, f"-{int(min_interval_sec)} seconds"))
-        conn.commit()
-        return cur.rowcount > 0
+        return _store().should_send(key,min_interval_sec)
     except Exception as e:
         logger.error("alert_throttle недоступен (%s) — шлём без троттлинга", type(e).__name__)
         return True
-    finally:
-        if conn is not None:
-            try:
-                conn.close()
-            except Exception:
-                pass
 
 
 def cleanup(older_than_days: int = 30) -> int:
     """Убирает отпечатки, о которых давно не вспоминали. Возвращает число строк."""
-    conn = None
     try:
-        conn = sqlite3.connect(DB_PATH, timeout=5)
-        conn.execute(_DDL)
-        cur = conn.execute("DELETE FROM alert_throttle WHERE last_sent < datetime('now', ?)",
-                           (f"-{int(older_than_days)} days",))
-        conn.commit()
-        return cur.rowcount
+        return _store().cleanup(older_than_days)
     except Exception:
         return 0
-    finally:
-        if conn is not None:
-            try:
-                conn.close()
-            except Exception:
-                pass
 
 
 def high_water(key: str, value) -> bool:
@@ -107,22 +74,8 @@ def high_water(key: str, value) -> bool:
         return False
     if not key:
         return True
-    conn = None
     try:
-        conn = sqlite3.connect(DB_PATH, timeout=5)
-        conn.execute(_DDL_HW)
-        conn.execute("INSERT OR IGNORE INTO alert_watermark (key, value) VALUES (?, -1)", (key,))
-        # Захват атомарный: поднять знак и узнать, что он поднялся, — один UPDATE.
-        cur = conn.execute("UPDATE alert_watermark SET value=? WHERE key=? AND value < ?",
-                           (v, key, v))
-        conn.commit()
-        return cur.rowcount > 0
+        return _store().high_water(key,v)
     except Exception as e:
         logger.error("alert_watermark недоступен (%s) — считаем беду новой", type(e).__name__)
         return True
-    finally:
-        if conn is not None:
-            try:
-                conn.close()
-            except Exception:
-                pass

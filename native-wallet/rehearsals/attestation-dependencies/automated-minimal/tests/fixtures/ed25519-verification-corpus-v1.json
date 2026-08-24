@@ -1,0 +1,80 @@
+{
+  "schema": "native-wallet-ed25519-verification-corpus.v1",
+  "source": {
+    "document": "RFC 8032",
+    "section": "7.1",
+    "vector": "TEST 2",
+    "url": "https://www.rfc-editor.org/rfc/rfc8032.html#section-7.1",
+    "published": "2017-01",
+    "retrieved": "2026-08-12",
+    "license_review": "IETF Trust Legal Provisions; public verification fields only",
+    "secret_fields_copied": false
+  },
+  "baseline": {
+    "algorithm": "Ed25519",
+    "public_key_hex": "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+    "message_hex": "72",
+    "signature_hex": "92a009a9f0d4cab8720e820b5f642540a2b27b5416503f8fb3762223ebdb69da085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00",
+    "expected": "VALID"
+  },
+  "mutations": [
+    {
+      "id": "public-key-bit-flip",
+      "field": "public_key_hex",
+      "operation": "xor-byte",
+      "offset": 0,
+      "operand": 1,
+      "expected": "INVALID"
+    },
+    {
+      "id": "message-bit-flip",
+      "field": "message_hex",
+      "operation": "xor-byte",
+      "offset": 0,
+      "operand": 1,
+      "expected": "INVALID"
+    },
+    {
+      "id": "signature-r-bit-flip",
+      "field": "signature_hex",
+      "operation": "xor-byte",
+      "offset": 0,
+      "operand": 1,
+      "expected": "INVALID"
+    },
+    {
+      "id": "signature-s-bit-flip",
+      "field": "signature_hex",
+      "operation": "xor-byte",
+      "offset": 63,
+      "operand": 128,
+      "expected": "INVALID"
+    },
+    {
+      "id": "public-key-all-zero",
+      "field": "public_key_hex",
+      "operation": "replace-all-bytes",
+      "operand": 0,
+      "expected": "INVALID"
+    },
+    {
+      "id": "public-key-truncated",
+      "field": "public_key_hex",
+      "operation": "truncate-bytes",
+      "operand": 1,
+      "expected": "INVALID"
+    },
+    {
+      "id": "signature-truncated",
+      "field": "signature_hex",
+      "operation": "truncate-bytes",
+      "operand": 1,
+      "expected": "INVALID"
+    }
+  ],
+  "contains_private_key": false,
+  "contains_seed": false,
+  "verification_executed": false,
+  "authoritative_success": false,
+  "runtime_integration_allowed": false
+}

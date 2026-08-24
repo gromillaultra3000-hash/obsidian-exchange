@@ -1,0 +1,3 @@
+# Preserve byte-exact external fixtures and keep whitespace checks textual-only.
+E4-owner-handoff/DigiCertTrustedRootG4.cer binary
+native-wallet/tests/fixtures/bip340-test-vectors.csv binary

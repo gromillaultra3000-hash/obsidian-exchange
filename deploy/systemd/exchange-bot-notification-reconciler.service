@@ -1,0 +1,28 @@
+[Unit]
+Description=Obsidian Exchange ambiguity-safe notification reconciler (proposal-only)
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=5min
+StartLimitBurst=3
+
+[Service]
+Type=oneshot
+User=obsidian-bot-reconciler
+Group=obsidian-bot-reconciler
+EnvironmentFile=/etc/obsidian-exchange/bot-notification-reconciler.env
+ExecStart=/opt/obsidian-exchange/relay-venv/bin/python /opt/obsidian-exchange/relay/bot_notification_reconciler.py
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+UMask=0077
+TimeoutStartSec=30s
+Restart=on-failure
+RestartSec=15s

@@ -1,0 +1,52 @@
+{
+  "schema": "obsidian-innovation-claims-registry.v1",
+  "claim_policy": {
+    "allowed_labels": ["DIFFERENTIATED", "PRIOR_ART_REVIEW_REQUIRED", "FTO_REVIEW_REQUIRED", "VALIDATED_MOAT"],
+    "unique_label_allowed": false,
+    "patentability_claim_allowed": false,
+    "requirements_for_validated_moat": [
+      "working production or isolated prototype evidence",
+      "measured customer or buyer value",
+      "documented alternatives and prior art search",
+      "independent technical review",
+      "freedom-to-operate legal review",
+      "reproducible evidence package"
+    ]
+  },
+  "claims": [
+    {
+      "id": "execution_trust_passport",
+      "label": "PRIOR_ART_REVIEW_REQUIRED",
+      "problem": "financial actions cross identity, custody, policy, execution and settlement domains whose evidence is fragmented and difficult to audit",
+      "proposed_differentiator": "one privacy-minimized content-bound passport links intent, lane, custody, consent, deterministic risk, provider execution and reconciliation without carrying credentials or granting action authority",
+      "current_evidence": ["existing versioned intent and evidence contracts", "payout and reconciliation ledgers", "E2-E4 fail-closed policy contracts"],
+      "missing_evidence": ["prototype verifier", "buyer interview evidence", "prior-art search", "FTO review", "production performance data"]
+    },
+    {
+      "id": "dual_lane_custody_truth_ui",
+      "label": "DIFFERENTIATED",
+      "problem": "users confuse private exchange, external CEX and self-custody balances and identity obligations",
+      "proposed_differentiator": "every action explicitly binds executor, identity/KYC authority and custody owner before confirmation",
+      "current_evidence": ["deployed market lane contract and UI", "service-mode tests"],
+      "missing_evidence": ["usability study", "conversion and error-rate comparison", "prior-art search"]
+    },
+    {
+      "id": "non_authoritative_advisory_risk",
+      "label": "DIFFERENTIATED",
+      "problem": "AI and external risk systems can accidentally broaden permissions or convert uncertainty into approval",
+      "proposed_differentiator": "advisory output can only tighten deterministic hard gates and every timeout, malformed result or conflict fails closed",
+      "current_evidence": ["frozen E2 decision and shadow contracts", "fault and replay tests"],
+      "missing_evidence": ["runtime LUMI producer", "measured divergence dataset", "independent safety evaluation", "prior-art search"]
+    },
+    {
+      "id": "isolated_intent_first_money_boundary",
+      "label": "DIFFERENTIATED",
+      "problem": "retries and uncertain signer outcomes can duplicate or lose financial actions",
+      "proposed_differentiator": "immutable intent, isolated signer, terminal review on uncertainty and idempotent reconciliation/outbox form one auditable money boundary",
+      "current_evidence": ["deployed payout worker and intent stores", "fault-injection and reconciliation tests"],
+      "missing_evidence": ["longitudinal production SLO data", "independent audit", "prior-art search"]
+    }
+  ],
+  "validated_moat_count": 0,
+  "legal_uniqueness_claim_allowed": false
+}

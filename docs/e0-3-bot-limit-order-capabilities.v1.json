@@ -1,0 +1,15 @@
+{
+  "schema":"obsidian.e0-3-bot-limit-order-capabilities.v1",
+  "stage":"E0.3",
+  "status":"EXACT_PACKAGE",
+  "productionAuthorization":false,
+  "sourceSha256":"da8616fb7b1c9ec55f2dae3f47af5ebd2854515bb41d5d41cefc466a75d1aaa4",
+  "capabilities":[
+    {"id":"limit_order_store.active","access":"READ","reads":{"limit_orders":["id","user_id","currency","target_rate","direction","rub_amount","crypto_address","expires_at","status"]},"invariants":["ACTIVE_ONLY","NOT_EXPIRED_AT_DATABASE_TIME"]},
+    {"id":"limit_order_store.cancel","access":"WRITE","reads":{"limit_orders":["id","user_id","status"]},"mutations":{"limit_orders":["status"]},"invariants":["EXACT_ID","ACTIVE_TO_CANCELLED_CAS","OPTIONAL_USER_OWNER_SCOPE","UNSCOPED_FORM_OPERATOR_ONLY"]},
+    {"id":"limit_order_store.expire","access":"WRITE","reads":{"limit_orders":["status","expires_at"]},"mutations":{"limit_orders":["status"]},"invariants":["ACTIVE_ONLY","EXPIRED_AT_DATABASE_TIME","ACTIVE_TO_EXPIRED_CAS","BULK_ALL_DUE_ROWS"]},
+    {"id":"limit_order_store.trigger","access":"MONEY_WRITE","reads":{"limit_orders":["id","user_id","currency","rub_amount","status","expires_at"],"orders":["order_id"]},"mutations":{"orders":["user_id","currency","rub_amount","crypto_address","status","username","agreed_rate","agreed_crypto_amount","agreed_at"],"limit_orders":["status","triggered_at","order_id"]},"invariants":["EXACT_ID_AND_EXPECTED_EXPIRY_CAS","ACTIVE_AND_NOT_EXPIRED_ONLY","LIMIT_ORDER_ROW_LOCK_POSTGRES","LOST_RACE_NO_WRITE","PENDING_ORDER_INSERT","ACTIVE_TO_TRIGGERED_CAS","SINGLE_WINNER","ORDER_AND_TRIGGER_ONE_TRANSACTION","TRIGGER_FAILURE_ROLLS_BACK_ORDER","RETURN_CREATED_ORDER_ID"]}
+  ],
+  "grantPolicy":{"tableWideAccess":false,"functionPerMethodRequired":true,"directSequenceAccess":false,"moneyWriterIsolated":true,"unscopedCancelOperatorOnly":true},
+  "remainingWork":["extract the next bot repository package","separate owner-scoped and operator-only cancel entry points during function design","rehearse functions and ACL only after all bot packages are exact"]
+}

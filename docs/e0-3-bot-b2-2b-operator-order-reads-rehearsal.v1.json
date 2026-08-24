@@ -1,0 +1,10 @@
+{
+  "schema":"obsidian.e0-3-bot-b2-2b-operator-order-reads-rehearsal.v1","stage":"E0.3","status":"REHEARSED_DISPOSABLE_POSTGRESQL_17","observedAt":"2026-08-15T22:56:49Z","accountableOwner":"project-owner","productionAuthorization":false,"implementationDeployed":false,
+  "proposal":"deploy/postgres/proposals/038_e0_bot_b2_2b_operator_order_reads.sql","proposalSha256":"5987782737461e934dd5a1ea0ba063ab361d1d00a9e303c52005e22af1b9f915","test":"tests/test_e0_3_bot_b2_2b_operator_order_reads_rehearsal.py","testSha256":"89583c231892450855ab5794c6d80e00821df5f5d474c94cfb7cfd7895787910",
+  "methodCoverage":["order_read_store.active_customer_ids","order_read_store.agreed_quote","order_read_store.customer_aggregates","order_read_store.customer_history","order_read_store.export_recent","order_read_store.find_customer","order_read_store.latest_customer_order_id","order_read_store.operator_dashboard","order_read_store.provider_success_count","order_read_store.snapshot"],
+  "evidence":["all ten operator order-read methods have one bounded execute-only function","missing agreed quote fails closed while missing snapshot remains null per source contract","history, dashboard, activity and export limits are enforced inside functions","customer lookup has a closed numeric-id versus username branch","aggregates expose no underlying row set","bot login retains zero direct table SELECT"],
+  "surfaceMatrix":{"telegramBot":"OPERATOR_ONLY","website":"N/A","miniApp":"N/A","admin":"N/A","api":"N/A","nativeApp":"N/A"},
+  "trustCustodyImpact":"Read-only order metadata projections; no secrets, custody, signing, payout, state transition or money-write capability.",
+  "rollout":"Proposal only; no production application authorized.","rollback":"Remove disposable database; later rollout must revoke exact function EXECUTEs before dropping functions.",
+  "container":{"image":"postgres:17-alpine","removedAfterRun":true},"result":"PASS","nextPrerequisite":"B2.2c remaining operator payment, payout, reporting, sell and support reads"
+}

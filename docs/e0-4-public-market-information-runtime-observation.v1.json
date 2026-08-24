@@ -1,0 +1,66 @@
+{
+  "schemaVersion":"e0-4-public-market-information-runtime-observation.v1",
+  "observedAt":"2026-08-18T19:20:00Z",
+  "route":"E0/E0.4/PUBLIC_MARKET_INFORMATION",
+  "acceptance":"PARTIAL_NOT_ACCEPTED",
+  "workClass":"KEYLESS_READ_ONLY_DEPLOYED_SOURCE_CLASSIFICATION",
+  "productionMutation":false,
+  "observationSafety":{"authenticatedCalls":false,"marketOrProviderCalls":false,"customerRowsRead":false,"secretValuesRead":false,"writersExercised":false,"deployOrRestart":false},
+  "deployedEntrypoints":[
+    {"path":"/opt/obsidian-exchange/relay-fastapi/main.py","sha256":"c1ef783e3005f4698540ddc5368ef9a4592612fcf666b403ecbb7c4a359bd7ff"},
+    {"path":"/opt/obsidian-exchange/relay-fastapi/static/js/main.js","sha256":"f065a8f23551627387b955d2752600000823e501be4463ce0e46886a8610e88a"},
+    {"path":"/opt/obsidian-exchange/relay/utils/exchange_calc.py","sha256":"39a3312103866be328604cc29384d77b906479b72992d7de4e060f3894a2617c"},
+    {"path":"/opt/obsidian-exchange/relay/webapp.html","sha256":"12545433f4004eef1df25592474b8e14db9558a5bb356bc245dc6b6826f9adcc"},
+    {"path":"/opt/obsidian-exchange/bot/main_bot.py","sha256":"a015b5b12870fa2f1eec7d0fb638cc2c94cb90235850d474ebb25455446372fb"},
+    {"path":"/opt/obsidian-exchange/relay/core/pricing.py","sha256":"0cb22550f6f942288c65ef35305bee686775d72fcb8abf1c990d985a410f0c05"},
+    {"path":"/opt/obsidian-exchange/relay/core/market_gateway.py","sha256":"35df75bda5b7ab09c31601eb9c49677b142922ee16a7f4f29d2a183119b2f7d1"},
+    {"path":"/opt/obsidian-exchange/relay/core/quote.py","sha256":"41231ea59af9e914ef0263ca3f2b7f703747ecb2d2c20fb388e4855492838ff9"},
+    {"path":"/opt/obsidian-exchange/relay/repositories/reconciliation_store.py","sha256":"0a399003008bda0c202d50ac1025cff0dee07d6d0e4ebccfa7ea7c9a7946fc52","role":"Transactional referral ledger converts RUB commission with the caller-supplied BTC rate and rejects only missing/nonpositive values, not stale provenance."},
+    {"path":"/opt/obsidian-exchange/relay/repositories/reporting_store.py","sha256":"730a40d2445ccea2d847176cd74ec2570e9fd8bd68c461765152de430ae54cc4","role":"Supplies curated reserves and local sent-order public statistics."},
+    {"path":"/opt/obsidian-exchange/relay-fastapi/templates/rates.html","sha256":"fac549472470e9e2e9678aa3633e5c28778077cb7cf95b1a35ce14da4f95f006"},
+    {"path":"/opt/obsidian-exchange/relay-fastapi/templates/index.html","sha256":"9c78dac6478cdc138236b4389dbaf41b03892c329403e0ff9ee20e5da1bd9899"}
+  ],
+  "publicRoutes":["GET /","GET /rates","GET /widget","GET /api/widget-rates","GET /api/rates","GET /rates.xml","GET /api/reserves","GET /api/stats/public"],
+  "authenticatedReadRoutes":["GET /api/wallet/market (Telegram initData; KAIROS informational market projection)"],
+  "authorityBoundary":{
+    "upstreams":"Relay and bot prefer CoinGecko RUB price, then Binance coin/USDT multiplied by USDTRUB, then an in-code static RUB fallback. Mini App separately calls CoinGecko for ticker/chart and an initData-authenticated Relay route reads fail-soft public USDT quotes from loopback KAIROS.",
+    "display":"Homepage, rates page, Telegram and Mini App show indicative market/rate calculations.",
+    "moneyCoupling":"The same unversioned rate functions also feed buy/sell order amounts, limit-order triggering, swap/referral conversions and other money-adjacent decisions; public market information is not isolated from execution truth.",
+    "nonAuthorityClaim":"Public display endpoints are indicative and non-binding. Order-creation endpoints independently recompute with the same fallback-capable helper and then persist the binding agreed_rate/agreed_crypto_amount; they expose no upstream receipt, source/as-of identity or accepted quote provenance."
+  },
+  "positiveControls":[
+    "Unknown assets fail instead of silently inheriting the USDT price, and XMR explicitly has no invented Binance pair.",
+    "A successful backend market fetch is cached for ten minutes and the public aggregate is cached for sixty seconds.",
+    "Website widgets consume the backend rates and server tariff tiers rather than directly duplicating their primary price source.",
+    "Unavailable dynamically offered assets are omitted when no positive price can be produced.",
+    "The separate KAIROS market gateway restricts its configured URL to loopback HTTP, uses a six-second timeout and HTTP status/partial shape checks, and fails soft to an unavailable read-only projection without creating trades."
+  ],
+  "criticalFindings":[
+    {"severity":"CRITICAL","id":"UNBOUNDED_STALE_OR_STATIC_FALLBACK_REACHES_MONEY_DECISIONS","finding":"When both upstreams fail, get_cached_rate returns the prior process cache regardless of age or a hard-coded RUB value. That same function feeds order calculations, rate locks, the limit-order watcher and referral conversion, so stale emergency data can trigger or price money workflows rather than placing them on HOLD."},
+    {"severity":"HIGH","id":"FRESHNESS_AND_PROVENANCE_ERASED","finding":"Rate values carry no source, upstream timestamp, observed-at, confidence or fallback flag. /api/rates emits the current response time even for an old cache or static fallback, making stale/fallback data appear freshly observed."},
+    {"severity":"HIGH","id":"RUB_PRICING_NO_QUORUM_OR_SANITY_GUARD","finding":"In the CoinGecko-to-Binance RUB helpers, sources are sequential fallbacks rather than independently compared observations. Responses have no explicit HTTP status, schema, finite/positive bounds, cross-source deviation or circuit validation before becoming shared price truth."},
+    {"severity":"HIGH","id":"DISPLAY_AND_EXECUTION_NOT_SEPARATED","finding":"The public endpoint mixes market prices with tariff tiers, offerings, sell commission and capacity, while identical price helpers drive transactional calculations. There is no immutable quote ID, expiry, source snapshot or explicit indicative-only contract."},
+    {"severity":"HIGH","id":"DIVERGENT_MINI_APP_MARKET_PATH","finding":"Mini App directly fetches CoinGecko for ticker/change/chart while its transaction calculator separately loads /api/rates. These paths have different cache/fallback semantics and can show mutually inconsistent prices without source or stale labels."},
+    {"severity":"MEDIUM","id":"PROCESS_LOCAL_CACHE_AND_RESTART_DRIFT","finding":"Caches are process-local memory with no shared snapshot, monotonic observation ID or restart continuity. Bot and Relay may hold different values and ages for up to ten minutes."},
+    {"severity":"MEDIUM","id":"UPSTREAM_TIMEOUT_INCONSISTENCY","finding":"Relay uses eight-second timeouts, while bot Binance fallback requests omit explicit timeouts. A public/transactional rate read can therefore block unpredictably during upstream degradation."},
+    {"severity":"MEDIUM","id":"NO_CUSTOMER_STALENESS_DISCLOSURE","finding":"Public UI shows a numeric rate or n/d but does not disclose provider, as-of time, fallback/stale state, spread/confidence or that the calculator is non-binding."},
+    {"severity":"MEDIUM","id":"COMMERCIAL_EXPORT_AND_RESERVE_OVERCLAIM","finding":"rates.xml exports executable-looking buy/sell offers and constant maxamount from the same degraded price. api/reserves converts operator-curated declarations, not confirmed available-to-promise funds, with the same rate and no age/reservation/safety-buffer evidence."},
+    {"severity":"MEDIUM","id":"INEFFECTIVE_MANUAL_OVERRIDE","finding":"Telegram /setrate accepts an unbounded float and reports success after writing legacy per-coin cache objects, while the effective getter reads a different _RATE_CACHE. It is not a proven incident-control path."},
+    {"severity":"MEDIUM","id":"FRONTEND_FALLBACK_AND_FAKE_CHANGE_DRIFT","finding":"Server tier-export failure is silently replaced by compiled frontend tiers, and Mini App starts with hard-coded 24-hour percentage labels that can survive a failed market fetch. Successful-looking presentation can therefore diverge from server policy or observation."},
+    {"severity":"MEDIUM","id":"KAIROS_DISPLAY_CONTRACT_INCOMPLETE","finding":"The separate display-only KAIROS projection exposes source labels/asOf and partial validation, but does not enforce finite last/bid/ask values, asOf freshness, spread/outlier bounds or cross-exchange divergence/quorum. No money-writer consumer was proven in this slice."},
+    {"severity":"MEDIUM","id":"PUBLIC_STATS_ARE_LOCAL_LIFECYCLE_NOT_FINALITY","finding":"api/stats/public reports counts and RUB volume from local orders.status='sent'. That state is not independent chain-finality proof; the response has no schema/as-of/cache provenance, route DB failure is unhandled, and frontend silently preserves its compiled prior/default display on error."},
+    {"severity":"MEDIUM","id":"NO_OPERATOR_PRICE_HEALTH_SURFACE","finding":"No dedicated Laravel market-source health, divergence, stale/fallback or circuit workflow was observed; operator reserve/nominal rate commands do not establish source-market authority."}
+  ],
+  "surfaceMatrix":{
+    "telegramBot":{"mode":"REQUIRED","implementation":"PARTIAL","reason":"Displays rates and uses them in customer calculations and automated triggers; provenance/freshness and safe degradation are unaccepted."},
+    "site":{"mode":"REQUIRED","implementation":"PARTIAL","reason":"Public homepage and rates calculator use /api/rates, but present unlabelled indicative values that are coupled to transaction pricing."},
+    "miniApp":{"mode":"REQUIRED","implementation":"PARTIAL","reason":"Shows direct CoinGecko ticker/chart, Relay RUB calculator and KAIROS USDT exchange quotes with divergent validation/cache/freshness semantics and no unified source contract."},
+    "admin":{"mode":"OPERATOR_ONLY","implementation":"PARTIAL","reason":"Telegram operators can curate public reserves and invoke nominal /setrate, but the latter writes legacy caches and no dedicated Laravel health/divergence/stale/circuit workflow exists."},
+    "api":{"mode":"REQUIRED","implementation":"PARTIAL","reason":"Public rate endpoints exist, but return bare values/current response ts without source age, fallback state, confidence or an immutable quote boundary."},
+    "native":{"mode":"READ_ONLY","implementation":"NOT_IMPLEMENTED","reason":"No deployed native market-information projection exists; future native UI must consume labelled indicative data and never inherit pricing writer authority."}
+  },
+  "coverageConclusion":{"sixSurfacesClassified":true,"publicInformationReachableBySource":true,"readOnlyAuthorityIsolated":false,"freshnessAndProvenanceAccepted":false,"productionPricingAccepted":false,"e0_4Complete":false,"e0Closed":false},
+  "independentReviews":[{"role":"security","disposition":"PARTIAL_NOT_ACCEPTED"},{"role":"surface","disposition":"PARTIAL_NOT_ACCEPTED"},{"role":"acceptance","disposition":"PARTIAL_NOT_ACCEPTED"}],
+  "limitations":["No market/provider request, authenticated route, customer row, secret, writer, deploy or restart was exercised.","Static source presence does not prove route reachability, current upstream data, process cache contents or production pricing correctness.","This classification does not accept an exact quote, limit-order trigger, accounting conversion or provider execution lifecycle."],
+  "nextCanonicalItem":"Classify CUSTOMER_ENGAGEMENT across all six surfaces and verify consent, delivery, retention and non-custodial authority."
+}

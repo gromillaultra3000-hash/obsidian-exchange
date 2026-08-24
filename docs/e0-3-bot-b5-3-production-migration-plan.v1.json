@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "e0-3-bot-b5-3-production-migration-plan.v1",
+  "route": "E0/E0.3/B5.3/064",
+  "status": "IN_PROGRESS",
+  "productionAuthorization": false,
+  "principles": [
+    "legacy history remains lifecycleVersion 1 and never receives fabricated attempt, token, recipient or provider evidence",
+    "new jobs use lifecycleVersion 2 and exact policy, recipient, attempt and evidence bindings",
+    "legacy montera_admin recipient is never inferred from payload.user_id or current ADMIN_IDS",
+    "legacy sending is ambiguous and cannot be retried or cut over until operator reconciliation",
+    "after any v2 provider invocation rollback is repair-forward only"
+  ],
+  "orderedPhases": [
+    {"id":"064A","name":"PRECHECK_RESTORE","requirements":["aggregate dirty-data scan","schema/ACL/object hashes","custom-format backup","clean PostgreSQL 17 restore","authenticated owner and reviewer evidence with digest and expiry"],"mutation":false},
+    {"id":"064B","name":"EXPAND","requirements":["nullable lifecycleVersion and v2 columns","new tables and versioned functions","NOT VALID conditional constraints","concurrent indexes outside transactions","old runtime remains compatible"],"mutation":true},
+    {"id":"064C","name":"PRODUCER_FENCE_AND_PENDING_DRAIN","requirements":["stop and revoke legacy producers first","keep bounded legacy dispatcher only for existing pending jobs","pending equals zero","no new jobs across two poll intervals"],"mutation":true},
+    {"id":"064D","name":"DISPATCHER_FENCE_AND_RECONCILE","requirements":["stop dispatcher and revoke claim/retry/id-only sent","ACCESS EXCLUSIVE barrier after old transactions","prepared and old-binary sessions absent","sending equals zero","ambiguous cases have immutable operator evidence","no recipient inference for montera_admin"],"mutation":true},
+    {"id":"064E","name":"BACKFILL","requirements":["bounded resumable batches","historical rows remain lifecycleVersion 1","policy approval and activation use authenticated governance primitives","progress evidence"],"mutation":true},
+    {"id":"064F","name":"VALIDATE","requirements":["all constraints validated","truth-table and orphan checks","exact ACL and default ACL matrix","backup capacity and restore proof"],"businessDataMutation":false,"catalogMutation":true},
+    {"id":"064G","name":"CUTOVER","requirements":["separate DSNs and startup attestation","hardened flag enabled","reconciler service attested","alerts live","synthetic pre-submit-only probe","producers enabled last"],"mutation":true},
+    {"id":"064H","name":"CONTRACT","requirements":["soak complete","zero legacy active rows and sessions","owner GO","second backup/restore proof","old APIs removed in separate window"],"mutation":true}
+  ],
+  "rollback": {
+    "beforeFirstV2Submit": "stop new units, disable hardened flag and v1 insert fence, restore legacy code/EXECUTE while retaining additive schema",
+    "afterFirstV2Submit": "freeze producers and dispatchers, preserve evidence, reconcile SENT or MANUAL, repair forward; downgrade forbidden",
+    "destructiveDownMigration": false
+  },
+  "surfaceMatrix": {
+    "database":"REQUIRED",
+    "telegramBot":"REQUIRED_BUT_FENCED_DURING_CUTOVER",
+    "operatorAdmin":"OPERATOR_ONLY_FOR_AMBIGUOUS_RECONCILIATION",
+    "website":"N/A",
+    "miniApp":"N/A",
+    "nativeApp":"N/A"
+  },
+  "nextCriterion": "064A catalog/ACL hash plus custom backup and clean PostgreSQL 17 restore equality; 064D later owns persisted ambiguous-row disposition"
+}

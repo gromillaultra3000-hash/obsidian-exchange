@@ -1,0 +1,67 @@
+{
+  "schemaVersion": "e0-4-owner-auth-pg-adapter-rehearsal.v1",
+  "observedAt": "2026-08-17T15:42:57Z",
+  "route": "E0/E0.4/FEATURE_STATUS_SURFACE_MATRIX",
+  "status": "IN_PROGRESS",
+  "workClass": "TWO_DOMAIN_DISPOSABLE_POSTGRESQL17_EXECUTE_ONLY_REHEARSAL",
+  "productionMutation": false,
+  "productionCredentialsUsed": false,
+  "productionDatabaseQueried": false,
+  "deploymentAuthorized": false,
+  "restartAuthorized": false,
+  "image": {
+    "reference": "postgres:17-alpine",
+    "digest": "sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193"
+  },
+  "isolation": {
+    "databases": "two separate fresh containers: Relay 028+032 and bot 035+042",
+    "storage": "tmpfs PostgreSQL data, synthetic credentials, random loopback ports",
+    "mounts": "none",
+    "cleanup": "both e04 adapter rehearsal containers removed; removal confirmations observed"
+  },
+  "featureGates": {
+    "relay": "RELAY_P3_AUTHORIZED_READ_FUNCTIONS_ENABLED",
+    "bot": "BOT_B3_ENGAGEMENT_ACL_ADAPTER_ENABLED",
+    "default": "OFF",
+    "errorFallback": false
+  },
+  "sqlEvidence": [
+    {"path":"deploy/postgres/proposals/028_e0_relay_acl_envelope.sql","sha256":"91601ad8a803772261e612a8101ddd8c9099d6c2b7f94f09888967202b30fa28"},
+    {"path":"deploy/postgres/proposals/032_e0_relay_p3_authorized_order_reads.sql","sha256":"d155a41f78ac03bb337dbd5b16ca7f3122d9ca5278f1a0de1d7af4a0c1069e62"},
+    {"path":"deploy/postgres/proposals/035_e0_bot_b1_role_envelope.sql","sha256":"9c3b1cb2e0601dc5a5e328213f69642ca4d147b9e64681c24146c1da70c3ceec"},
+    {"path":"deploy/postgres/proposals/042_e0_bot_b3_1_engagement_non_money_writers.sql","sha256":"18ca6c872292c76ba3db739c5c42a565856f2ef1246fd7b2ed5908a94248a172"}
+  ],
+  "acceptance": [
+    "All six Relay candidate Postgres methods preserve dict/scalar shapes through approved SECURITY DEFINER functions under obsidian_relay.",
+    "Owner and matching-token reads succeed; foreign owner/token and receipt mismatches fail closed.",
+    "Both bot review adapters run under obsidian_exchange_bot, deny foreign owners, publish the owner review once and return None on replay.",
+    "A deliberately inconsistent review.user_id versus orders.user_id is denied and remains unchanged.",
+    "With each feature gate disabled, direct SQL under the execute-only role fails with InsufficientPrivilege; adapters never catch and bypass function errors.",
+    "Direct relation capabilities remain denied while the proposal function rehearsals, concurrency and rollback checks pass."
+  ],
+  "corrections": [
+    "The first adapter rehearsal imported the deployed regular package instead of candidate overlays and was rejected before claims; the corrected test copies the deployed package layout and overlays digest-built candidate files.",
+    "The first bot adapter call exposed tuple row semantics in PostgresEngagementStore; the adapter now reads index zero and validates JSONB result shape.",
+    "Review comment/finalize now require reviews.user_id and orders.user_id consistency in SQLite, direct Postgres fallback and proposal 042 functions; finalize repeats that predicate in its terminal CAS to close the ownership-change race."
+  ],
+  "tests": [
+    "tests/test_e0_3_relay_p3_authorized_order_rehearsal.py",
+    "tests/test_e0_3_bot_b3_1_engagement_non_money_writers_rehearsal.py",
+    "tests/test_e0_4_candidate_pg_adapters.py",
+    "tests/test_e0_4_candidate_pg_acl_blocker.py"
+  ],
+  "independentReviews": [
+    {"identity":"agent:/root/adapter_relay_review","disposition":"DESIGN_INCORPORATED"},
+    {"identity":"agent:/root/adapter_bot_review","disposition":"DESIGN_INCORPORATED"},
+    {"identity":"agent:/root/adapter_pg_rehearsal_review","disposition":"TWO_DOMAIN_REHEARSAL_DESIGN_INCORPORATED"}
+  ],
+  "limitations": [
+    "Feature gates and SQL packages remain proposal-only and are not deployed.",
+    "The direct-SQL fallback remains for current broad-role compatibility and must not be enabled under execute-only roles.",
+    "Review database finalization and Telegram delivery are not atomic; this rehearsal proves DB ownership/ACL semantics only.",
+    "The shared RELAY_SECRET proof/query residual risk remains outside this adapter slice."
+  ],
+  "rollout": "None; no production migration, config change, deploy or restart.",
+  "rollback": "Not applicable to production; disposable containers were removed.",
+  "nextCanonicalItem": "Freeze the exact immutable candidate release manifest and coordinated Relay+bot rollout/rollback preflight, while keeping production deployment and restart owner-authorized."
+}

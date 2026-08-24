@@ -1,0 +1,7 @@
+{
+  "input": "Review this task",
+  "providerIds": [
+    "provider_openai_main"
+  ],
+  "mode": "live_if_allowed"
+}

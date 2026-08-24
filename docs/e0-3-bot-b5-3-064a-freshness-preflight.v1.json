@@ -1,0 +1,28 @@
+{
+  "schemaVersion":"e0-3-bot-b5-3-064a-freshness-preflight.v1",
+  "observedAt":"2026-08-18T18:57:23Z",
+  "route":"E0/E0.3/B5.3/064A",
+  "gateStatus":"BLOCKED_OWNER",
+  "preflightStatus":"REFRESH_REQUIRED",
+  "workClass":"KEYLESS_SECRET_FREE_READ_ONLY_REPOSITORY_PREFLIGHT",
+  "policy":{"path":"docs/e0-3-bot-b5-3-064a-freshness-policy.v1.json","sha256":"d94fd95fd7e2c59a509380d61a2d783280b474832e4d5f1edbd9db7085bcb6b9","maximumSourceObservationAgeSeconds":86400,"maximumFutureSkewSeconds":60,"evaluatedTimeSource":"CALLER_INJECTED_HOST_UTC_UNTRUSTED"},
+  "implementation":{"path":"scripts/b64_064a_decision_freshness.py","sha256":"b8e1406f3ffa30a3dd0cf64bf125fec1dda06d5b267616c198ab02d0cfaea188"},
+  "tests":{"path":"tests/test_e0_3_bot_b5_3_064a_freshness.py","sha256":"14ea857e9f7d9e2f527e9da8b9ab77a04c5103c19e8fe5e7896c5fdb5624a1b1","passed":10,"failed":0},
+  "currentEvaluation":{"evaluatedAtEpoch":1787079443,"receiptSha256":"070017ce2876f8f4c0429310c2847e927d5d8788afd98c32a6fe6b2475bd918a","decisionInputSha256":"f8abf0cb858232df2497221c44a319975403ccb7a8e2d2403bd57bda8c904bbb","packageIntegrity":true,"decisionArtifactDigestsMatched":7,"supportingArtifactDigestsMatched":8,"ownerDeferralBindingMatched":true,"authenticatedRehearsalBindingMatched":true,"ownerDeferralActive":true,"decisionScopeUnambiguous":false,"sourceObservationFresh":false,"reasonCodes":["ACTIVE_RESTRICTIVE_OWNER_DEFERRAL","DECISION_SCOPE_LABEL_AMBIGUOUS","SOURCE_OBSERVATION_STALE:e0-3-bot-b5-3-catalog-source-restore-rehearsal.v1.json","SOURCE_OBSERVATION_STALE:e0-3-bot-b5-3-production-dirty-data-scan-rehearsal.v1.json"]},
+  "sourceObservations":[
+    {"path":"docs/e0-3-bot-b5-3-production-dirty-data-scan-rehearsal.v1.json","observedAt":"2026-08-17T04:30:26Z","ageSeconds":138417,"maxAgeSeconds":86400,"fresh":false},
+    {"path":"docs/e0-3-bot-b5-3-catalog-source-restore-rehearsal.v1.json","observedAt":"2026-08-17T05:15:24Z","ageSeconds":135719,"maxAgeSeconds":86400,"fresh":false}
+  ],
+  "authorityBoundary":{"observerOnly":true,"moneyWriter":false,"schemaWriter":false,"decisionAuthority":false,"freshnessCanInvalidate":true,"freshnessCanAuthorize":false,"deferralCannotExpireIntoAllowance":true,"signingPreparationEligible":false,"authenticatedAcceptancePresent":false,"productionMutationAuthorized":false,"productionExpandAuthorized":false,"cutoverAuthorized":false,"telegramDeliveryAuthorized":false,"ambiguousSendingDispositionAuthorized":false,"actionAllowed":false},
+  "surfaceMatrix":{
+    "telegramBot":{"mode":"N/A","implementation":"NOT_IMPLEMENTED","reason":"Chat cannot assert freshness or approve migration evidence."},
+    "site":{"mode":"N/A","implementation":"NOT_IMPLEMENTED","reason":"No customer role in operational evidence acceptance."},
+    "miniApp":{"mode":"N/A","implementation":"NOT_IMPLEMENTED","reason":"No customer role in operational evidence acceptance."},
+    "admin":{"mode":"OPERATOR_ONLY","implementation":"NOT_IMPLEMENTED","reason":"No production UI exists; any future view may show HOLD reasons only, never approval or migration actions."},
+    "api":{"mode":"OPERATOR_ONLY","implementation":"NOT_IMPLEMENTED","reason":"The offline CLI is operator tooling, not an API; no authenticated internal service contract or trusted-time source exists."},
+    "native":{"mode":"N/A","implementation":"NOT_IMPLEMENTED","reason":"Customer wallet key domain must never sign server migration acceptance."}
+  },
+  "verification":{"jsonValid":true,"pythonCompile":true,"focusedTestsPassed":10,"combinedTestsPassed":13,"gitDiffCheckClean":true,"productionReadPerformed":false,"secretValueRead":false,"customerDataRead":false,"fileWriterExercised":false,"dbWriterExercised":false,"deployOrRestart":false},
+  "limitations":["packageIntegrity means local allowlisted byte consistency only; it does not authenticate policy, evidence origin, observation truth or unchanged production state.","Caller-injected host UTC is not trusted-time attestation.","The preflight does not bind a new exported production snapshot, keyring/revocation state or durable replay ledger.","Eleven legacy SENDING rows remain a separate 064D blocker and were not re-read or dispositioned."],
+  "nextCanonicalItem":"Perform fresh exact secret-free read-only production observations; prepare a new candidate decision input with unambiguous evidence-only scope and new hashes; preserve the old deferral immutably and require a new authenticated owner accept-or-re-defer decision over the exact new digest plus independent reviewer acceptance where applicable. No 064B."
+}

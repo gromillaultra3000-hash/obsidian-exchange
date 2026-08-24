@@ -1,0 +1,63 @@
+{
+  "schemaVersion":"e0-4-wallet-receive-transfer-runtime-observation.v1",
+  "observedAt":"2026-08-18T18:10:00Z",
+  "route":"E0/E0.4/WALLET_RECEIVE_TRANSFER",
+  "acceptance":"PARTIAL_NOT_ACCEPTED",
+  "workClass":"KEYLESS_READ_ONLY_DEPLOYED_SOURCE_CLASSIFICATION",
+  "productionMutation":false,
+  "observationSafety":{"authenticatedCalls":false,"walletOrRpcCalls":false,"customerRowsRead":false,"secretValuesRead":false,"writersExercised":false,"signatureOrBroadcastProduced":false,"deployOrRestart":false},
+  "deployedEntrypoints":[
+    {"path":"/opt/obsidian-exchange/relay-fastapi/main.py","sha256":"c1ef783e3005f4698540ddc5368ef9a4592612fcf666b403ecbb7c4a359bd7ff","checkoutByteEqual":false},
+    {"path":"/opt/obsidian-exchange/relay/webapp.html","sha256":"12545433f4004eef1df25592474b8e14db9558a5bb356bc245dc6b6826f9adcc","checkoutByteEqual":true},
+    {"path":"/opt/obsidian-exchange/relay/core/wallet_send.py","sha256":"4f8c1003657f991317c4ee524cc54f5e33cc0c3dafa69aeaa5984eada2f8f865","checkoutByteEqual":true},
+    {"path":"/opt/obsidian-exchange/relay/core/wallet_link.py","sha256":"26e69d7112951a3f131a0f7c62a292b64763089b49c26c32adc5962edcc51e4a"},
+    {"path":"/opt/obsidian-exchange/relay/core/tonconnect.py","sha256":"69ffd1157f222b97358bdd01017e2779ab37db9de6d63bfe546c968797b4ad1d"},
+    {"path":"/opt/obsidian-exchange/relay/core/address.py","sha256":"904c47f1cee07fd110edd5141936ecf219c2dd4715b4e740b494f8af1ca593ce"},
+    {"path":"/opt/obsidian-exchange/relay/repositories/wallet_store.py","sha256":"68faf78392b02f88ae840c477baa9bef7f6518ef36d89c978295041d3b6b1b8b","checkoutByteEqual":false},
+    {"path":"/opt/obsidian-exchange/bot/sell_guard.py","sha256":"981399455403e38c242c9d81256c8cfd3e8f8405505cce0808c60d374fec56f8"},
+    {"path":"/opt/obsidian-exchange/relay/wallet/ton_wallet.py","sha256":"519cb6dc2f78f56447dc54d841b61f3f801386fc608629790b35a57c29fe5d3e"},
+    {"path":"/opt/obsidian-exchange/deploy/postgres/014_wallet_store.sql","sha256":"f3a80021620f4c1804806f4348a28b7e0122491d4c251baa1500499caa5e446f"},
+    {"path":"/opt/obsidian-exchange/relay-fastapi/static/js/tonconnect-ui-3.0.0.min.js","sha256":"64964c3ae13c752bbabba990ddc51f7dd20759083368541d9199e04e3342656d"},
+    {"path":"/opt/obsidian-exchange/admin-panel/app/Filament/Resources/SellOrderResource.php","sha256":"d57f18c5585ec9e445a81d4cfb5865ba0b856279da9c320103e4003f25ae4a3e"}
+  ],
+  "actionRoutes":["GET /api/wallet/receive","POST /api/wallet/transfer-request","POST /api/wallet/send-request","POST /api/wallet/send-signed"],
+  "authorityBoundary":{
+    "receive":"Relay returns the authenticated subject's stored verified public TON address and QR; it does not accept an address parameter.",
+    "freeTransfer":"Customer selects destination, amount and comment; Relay validates and constructs a TON mainnet request but does not sign or broadcast.",
+    "sellPayment":"Relay selects owner-bound sell order destination, amount, marker and network from server state before constructing the external-wallet request.",
+    "signAndBroadcast":"The customer's external TON Connect wallet holds the key, renders its own approval and performs signature/broadcast. No customer private key enters Relay.",
+    "settlement":"send-signed is non-authoritative; sell_guard chain observation, confirmation threshold and unique TXID claim are the local deposit truth. Exchange hot-wallet payout and future native signing are separate custody domains."
+  },
+  "positiveControls":[
+    "All action routes require fresh-checked Telegram initData and use its server-derived subject.",
+    "Receive address comes only from the stored verified link; sell request accepts only sell_id and checks owner, TON, pending state, stored receive address and exact stored amount.",
+    "Free transfer validates TON checksum, positive nano amount and bounded memo and labels the draft client_chosen.",
+    "Drafts are TON mainnet and expire in the external-wallet request after 300 seconds; Mini App passes the server draft unchanged to self-hosted TON Connect UI.",
+    "Relay route code contains no customer signing key or broadcast operation, and send-signed does not close settlement truth."
+  ],
+  "criticalFindings":[
+    {"severity":"CRITICAL","id":"INTENT_PERSISTENCE_FAIL_OPEN","finding":"Order-bound build_request ignores remember_intent returning None after a database error and still returns an ok draft. A customer wallet can therefore sign and broadcast while the required pre-sign local intent was never persisted."},
+    {"severity":"HIGH","id":"NO_REQUEST_ID_OR_IDEMPOTENCY","finding":"wallet_send_intents has no unique idempotency key, immutable content digest, request ID, expiry, lifecycle state, wallet response or txid. Repeated clicks create overlapping drafts that can become separate transfers."},
+    {"severity":"HIGH","id":"FREE_TRANSFER_HAS_NO_DURABLE_LIFECYCLE","finding":"Free transfer persists no intent or audit correlation at all; Mini App discards the TON Connect response and has no submitted/unknown/final/rejected state, tx hash, reconciliation or recovery."},
+    {"severity":"HIGH","id":"SEND_SIGNED_UNBOUND_AND_FALSE_SUCCESS","finding":"send-signed accepts only sell_id, receives no request ID/message digest/account/wallet response/BOC/txid and updates every unsigned intent for that user and sell. It returns ok:true even when noted:false, and Mini App ignores the response before showing signed/waiting-network success."},
+    {"severity":"HIGH","id":"CURRENT_WALLET_ACCOUNT_NOT_BOUND","finding":"Draft metadata uses the historically stored linked address, but the server draft does not bind an expected current TON Connect account and Mini App does not compare it immediately before send. A switched wallet can broadcast while local intent records the stale sender."},
+    {"severity":"HIGH","id":"NO_CONTENT_BOUND_APPROVAL_RECEIPT","finding":"No durable receipt binds subject, purpose, exact message, origin/session, wallet account, what the user approved and the wallet/network result. Server compromise can alter a draft; safety ultimately depends on external wallet confirmation semantics not proven here."},
+    {"severity":"MEDIUM","id":"STALE_INTENTS_NEVER_CLOSE","finding":"The 300-second validUntil is not stored or enforced server-side. Intent rows have only created_at/signed_at, never expire or consume, and remembered senders remain eligible for later deposit binding."},
+    {"severity":"MEDIUM","id":"MARKER_ONLY_DEGRADATION","finding":"Sell deposit binding accepts marker OR remembered sender. Storage/read failures degrade to marker-only, and marker becomes predictable OE-<id> if the cross-purpose RELAY_SECRET is absent/fallback."},
+    {"severity":"MEDIUM","id":"TON_ONLY_SURFACE_GAP","finding":"Receive and transfers are hard-coded to TON mainnet; other linked chains have no action contract, fee/balance preview or asset/network capability negotiation."},
+    {"severity":"MEDIUM","id":"RETENTION_AND_PRIVACY_UNBOUNDED","finding":"Intent rows retain full from/to addresses, amount and marker without retention, deletion or backup expiry contract; action logs retain raw Telegram user and sell identifiers."},
+    {"severity":"MEDIUM","id":"DEPENDENCY_PROVENANCE_INCOMPLETE","finding":"TON Connect UI is self-hosted and version-labelled, not CDN-executed, but license/SBOM/upstream provenance and exact wallet confirmation/broadcast semantics were not accepted."}
+  ],
+  "surfaceMatrix":{
+    "telegramBot":{"mode":"READ_ONLY","implementation":"PARTIAL","reason":"Bot provides sell/manual-deposit instructions and Mini App handoff/status, but has no direct generic receive/free-transfer/signature workflow."},
+    "site":{"mode":"READ_ONLY","implementation":"NOT_IMPLEMENTED","reason":"Site account/link views exist, but no deployed site-session external-wallet receive or transfer action flow was found."},
+    "miniApp":{"mode":"REQUIRED","implementation":"PARTIAL","reason":"Only active customer receive, free transfer and sell-payment TON Connect UI; durability, account/content binding and recovery are unaccepted."},
+    "admin":{"mode":"OPERATOR_ONLY","implementation":"PARTIAL","reason":"Laravel read-only sell records expose receive address and chain outcome, but no wallet-send-intent inspection/recovery surface or signing authority exists."},
+    "api":{"mode":"REQUIRED","implementation":"PARTIAL","reason":"Real authenticated request builders and best-effort acknowledgement exist without an accepted immutable single-use transfer lifecycle."},
+    "native":{"mode":"REQUIRED","implementation":"NOT_IMPLEMENTED","reason":"No deployed native receive/sign/broadcast action exists; current TON Connect is an external wallet and cannot count as native signing."}
+  },
+  "coverageConclusion":{"sixSurfacesClassified":true,"receiveTransferAccepted":false,"customerKeyBoundaryPreserved":true,"productionLifecycleAccepted":false,"e0_4Complete":false,"e0Closed":false},
+  "independentReviews":[{"role":"security","disposition":"PARTIAL_NOT_ACCEPTED"},{"role":"surface","disposition":"PARTIAL_NOT_ACCEPTED"},{"role":"acceptance","disposition":"PARTIAL_NOT_ACCEPTED"}],
+  "limitations":["No authenticated route, wallet, RPC, database row, secret, signature, broadcast, customer data or writer was exercised.","Static source and bundle presence do not prove wallet confirmation UX, network acceptance/finality, route reachability or production schema/ACL.","Wallet-link proof lifecycle remains independently PARTIAL_NOT_ACCEPTED and is inherited by receive/transfer."],
+  "nextCanonicalItem":"Classify PUBLIC_MARKET_INFORMATION across all six surfaces and verify pricing, provenance, freshness and read-only authority."
+}

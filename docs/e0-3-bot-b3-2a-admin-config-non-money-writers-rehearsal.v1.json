@@ -1,0 +1,23 @@
+{
+  "schema":"obsidian.e0-3-bot-b3-2a-admin-config-non-money-writers-rehearsal.v1",
+  "stage":"E0.3",
+  "status":"REHEARSED_DISPOSABLE_POSTGRESQL_17",
+  "observedAt":"2026-08-16T21:15:07Z",
+  "accountableOwner":"project-owner",
+  "productionAuthorization":false,
+  "implementationDeployed":false,
+  "proposal":"deploy/postgres/proposals/043_e0_bot_b3_2a_admin_config_non_money_writers.sql",
+  "proposalSha256":"2d0e66a2c1e03b0269c6a7436aa3937be48878515cd626fc3892e4049731a429",
+  "test":"tests/test_e0_3_bot_b3_2a_admin_config_non_money_writers_rehearsal.py",
+  "testSha256":"c72e1e83a6daad5fbfa5a40c7b4fa048096b1625156ff266bbbd6c2569a47ac3",
+  "methodCoverage":["admin_config_store.block_address","admin_config_store.block_user","admin_config_store.deactivate_staff","admin_config_store.set_reserve","admin_config_store.set_staff","admin_config_store.unblock_addresses","admin_config_store.unblock_user"],
+  "evidence":["seven admin/config methods have one execute-only function each","staff role is closed to worker/operator and conflict updates only username plus active state","block insert is first-writer-wins and eight concurrent callers produce one winner","address UPSERT and reserve UPSERT use bounded inputs; injected reserve failure leaves no row","bulk unblock is capped at 100, deduplicates through set membership and changes exact matches only","direct table SELECT/DML remains denied to the bot login"],
+  "residualRisk":["the current single bot login receives the union of operator and background functions; database functions cannot prove caller admin identity","reserve configuration is operationally consequential despite its non-money classification and remains proposal-only"],
+  "surfaceMatrix":{"telegramBot":"REQUIRED","website":"N/A","miniApp":"N/A","admin":"N/A","api":"N/A","nativeApp":"N/A"},
+  "trustCustodyImpact":"Admin/config state only; no order creation, payout, settlement, custody, signing or secret capability. Reserve configuration can affect operator decisions and therefore remains bounded and undeployed.",
+  "rollout":"Proposal only; production application is not authorized.",
+  "rollback":"Remove disposable database; later rollout revokes exact EXECUTEs and reconciles configuration before credential rollback.",
+  "container":{"image":"postgres:17-alpine","removedAfterRun":true},
+  "result":"PASS",
+  "nextPrerequisite":"B3.2b exact-owner cancel and retry-amount writer bodies"
+}

@@ -1,0 +1,37 @@
+{
+  "schema": "native-wallet-ed25519-corpus-review-checkpoint-auth-scorecard.v1",
+  "decision_rule": "every common and candidate-specific gate must be PASS with current hash-bound evidence; no quorum degradation, weighted score or fallback is allowed",
+  "allowed_gate_states": ["PASS", "FAIL", "UNKNOWN", "NOT_EVALUATED"],
+  "current_gate_state": "NOT_EVALUATED",
+  "common_mandatory_gates": [
+    { "id": "k01_exact_checkpoint_bytes", "requirement": "both witnesses authenticate the exact same closed checkpoint bytes", "minimum_evidence": ["checkpoint schema digest", "cross-witness byte-equality report digest"] },
+    { "id": "k02_two_domain_independence", "requirement": "witness identity, auth, recovery, host and evidence roots differ and neither controls the audit store", "minimum_evidence": ["two witness control registry digests", "conflict matrix digest"] },
+    { "id": "k03_nonce_freshness", "requirement": "caller nonce is atomically single-use and issue/expiry is bounded to ten minutes", "minimum_evidence": ["nonce ledger fault report digest", "time-boundary mutation digest"] },
+    { "id": "k04_monotonic_high_water", "requirement": "epoch, sequence and previous checkpoint advance atomically in a rollback-resistant store", "minimum_evidence": ["high-water store contract digest", "rollback fault report digest"] },
+    { "id": "k05_equivocation_quarantine", "requirement": "same-sequence alternate heads and divergent descendants quarantine the chain", "minimum_evidence": ["fork corpus digest", "quarantine transition report digest"] },
+    { "id": "k06_root_rotation_recovery", "requirement": "rotation requires independent recovery authorization, higher epoch, continuous predecessor and old-root revocation", "minimum_evidence": ["rotation policy digest", "compromise rehearsal digest"] },
+    { "id": "k07_parser_dependency", "requirement": "bounded parsers, dependencies, licenses and advisories are independently reviewed", "minimum_evidence": ["parser corpus digest", "locked graph digest", "license/advisory report digest"] },
+    { "id": "k08_availability_no_degrade", "requirement": "loss of a witness or high-water state blocks acceptance rather than reducing quorum", "minimum_evidence": ["availability fault report digest", "disaster recovery rehearsal digest"] }
+  ],
+  "candidate_specific_gates": {
+    "dual_dsse_offline_witnesses": [
+      { "id": "s01_distinct_active_roots", "requirement": "two signatures verify under distinct active consumer-selected roots", "minimum_evidence": ["root snapshot digest", "duplicate-root denial digest"] },
+      { "id": "s02_exact_dsse", "requirement": "both envelopes use exact payload type, canonical signature shape and PAE over checkpoint bytes", "minimum_evidence": ["DSSE contract digest", "mutation corpus digest"] },
+      { "id": "s03_witness_signer_isolation", "requirement": "witness signing keys are unavailable to audit store, build jobs and the other witness", "minimum_evidence": ["access-boundary report digest", "cross-domain denial digest"] },
+      { "id": "s04_offline_recovery", "requirement": "each witness has a distinct offline recovery root and rehearsed epoch advance", "minimum_evidence": ["two recovery policy digests", "two recovery rehearsal digests"] }
+    ],
+    "dual_webauthn_human_witnesses": [
+      { "id": "h01_distinct_enrollments", "requirement": "two independently witnessed roaming-authenticator enrollments have distinct credential/recovery roots", "minimum_evidence": ["two enrollment provenance digests", "root independence digest"] },
+      { "id": "h02_exact_rp_origin", "requirement": "both assertions require exact allowlisted RP ID and origin with no fallback", "minimum_evidence": ["RP/origin policy digest", "negative assertion digest"] },
+      { "id": "h03_profile_flags", "requirement": "both require ES256, UP, UV, non-backup flags and exact checkpoint challenge", "minimum_evidence": ["profile digest", "flag/challenge mutation digest"] },
+      { "id": "h04_human_recovery_availability", "requirement": "loss, replacement and collusion procedures preserve two independent human domains without emergency quorum reduction", "minimum_evidence": ["replacement policy digest", "availability/collusion rehearsal digest"] }
+    ]
+  },
+  "selected_candidate": null,
+  "all_common_gates_pass": false,
+  "any_candidate_gates_pass": false,
+  "selection_allowed": false,
+  "real_evidence_present": false,
+  "gate_i09_pass": false,
+  "runtime_integration_allowed": false
+}

@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "e0.4-telegram-channel-post-processing-runtime-observation.v1",
+  "observedAt": "2026-08-18T00:00:00Z",
+  "route": "E0/E0.4/TELEGRAM_CHANNEL_POST_PROCESSING",
+  "status": "BLOCKED_OWNER",
+  "decisionEffect": "RESTRICTIVE_READ_ONLY_OBSERVATION_ONLY",
+  "source": "current-owner-conversation",
+  "authority": {
+    "productionAuthorization": false,
+    "productionMutationAuthorized": false,
+    "productionExpandAuthorized": false,
+    "deploymentAuthorized": false,
+    "telegramDeliveryAuthorized": false,
+    "channelEditAuthorized": false,
+    "actionAllowed": false
+  },
+  "scope": {
+    "service": {"path": "/etc/systemd/system/emoji-userbot.service", "sha256": "cd98f9dad26efc14150e6ebfd15f6cf719e3255b1717707a9cbe57314d55059a", "mode": "0644"},
+    "source": {"path": "/root/bot/emoji_userbot.py", "sha256": "c90d4c8a2f63d39aed5d7b84296edb33cdeed965c7e8468db6a2c9a81b306fa8", "mode": "0644"},
+    "brandAsset": {"path": "/root/bot/images/stickers/emoji_ids.json", "sha256": "2324f352bb134e73fb650510bda389792284398bf59434de36424393c2358088", "mode": "0644"},
+    "envMetadata": {"path": "/root/bot/.env", "mode": "0600", "valuesRead": false}
+  },
+  "surfaceClassification": {
+    "telegram": "REQUIRED_IMPLEMENTED_EFFECT_WRITER",
+    "site": "N/A",
+    "miniApp": "N/A",
+    "admin": "N/A_OPERATOR_APPROVAL_AND_AUDIT_MISSING",
+    "api": "N/A_PUBLIC_CONTRACT",
+    "native": "N/A"
+  },
+  "findings": [
+    {"id": "PREMIUM_USER_SESSION_IS_HIGH_AUTHORITY_BEARER", "severity": "CRITICAL", "detail": "Telethon runs with a premium user account session and channel edit capability; session/API credential ownership, rotation, revocation, and least-privilege boundaries are not evidenced."},
+    {"id": "CHANNEL_TARGET_AND_EDIT_SCOPE_NOT_POLICY_BOUND", "severity": "HIGH", "detail": "CHANNEL_ID is loaded from local .env and edit mode accepts an arbitrary message id; no immutable channel allowlist, post-origin binding, operator approval, or change policy is enforced in code."},
+    {"id": "WATCH_DEDUPLICATION_AND_RECONCILIATION_MISSING", "severity": "HIGH", "detail": "The watcher reacts to every NewMessage and skips only messages already containing any custom emoji entity; there is no durable event receipt, edit idempotency key, retry ledger, or reconciliation of partial edits."},
+    {"id": "UNRELATED_CUSTOM_EMOJI_FALSE_SKIP", "severity": "MEDIUM", "detail": "Any existing custom emoji entity suppresses processing, even when the branded sequence is absent or a different custom emoji was applied; this is not a proof of this worker's prior edit."},
+    {"id": "DUPLICATE_SOURCE_COPIES_DRIFT", "severity": "MEDIUM", "detail": "Identical copies exist under /root, /root/night-dev, and /root/night-audit while the unit executes /root/bot; provenance and deployment binding across copies are not established."},
+    {"id": "ROOT_UNSANDBOXED_PERSISTENT_SERVICE", "severity": "HIGH", "detail": "The systemd unit omits User and sandbox controls, so it defaults to root with broad filesystem/network access and restarts indefinitely."},
+    {"id": "BRAND_ASSET_PROVENANCE_AND_POLICY_UNBOUND", "severity": "MEDIUM", "detail": "emoji_ids.json is mutable local configuration with no signature, source/license record, expiry, or review binding; changing IDs changes the edit payload."},
+    {"id": "NO_OPERATOR_HEALTH_AUDIT_OR_ROLLBACK", "severity": "HIGH", "detail": "Only stdout messages are emitted; no structured edit evidence, approval/reason, failure queue, alert, rollback record, or operator surface is present."}
+  ],
+  "knownBlockers": ["authenticated owner acceptance absent", "independent reviewer approval absent", "production key registry/trusted time/revocation/replay controls not established", "no evidence permits 064B or separate 064D"],
+  "nextSafeRoute": "E0/E0.4/LEGACY_PAYMENT_EDGE_UPSTREAM",
+  "interpretation": "This is a read-only inventory and rejection of acceptance. It grants no Telegram, channel-edit, deployment, provider, customer, writer, or production authority. E0.3 remains first unmet and BLOCKED_OWNER; E0.4 remains non-production IN_PROGRESS."
+}

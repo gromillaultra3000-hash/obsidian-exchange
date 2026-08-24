@@ -17,6 +17,7 @@
 import ast
 import inspect
 import os
+import sqlite3
 import sys
 import tempfile
 
@@ -25,6 +26,11 @@ sys.path.insert(0, os.path.join(ROOT, "relay"))
 
 _TMP = tempfile.mkdtemp(prefix="wallet_link_test_")
 os.environ["DB_PATH"] = os.path.join(_TMP, "test.db")
+with sqlite3.connect(os.environ["DB_PATH"]) as _fixture_db:
+    _fixture_db.execute(
+        "CREATE TABLE wallet_links (user_id INTEGER, chain TEXT, address TEXT, "
+        "verified_at TEXT, PRIMARY KEY(user_id,chain))"
+    )
 
 from core import wallet_link as wl  # noqa: E402
 

@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.obsidian.invalid/native-wallet/webauthn-corpus-manifest.v1.json",
+  "title": "Native wallet WebAuthn RP corpus manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "corpus_sha256",
+    "expectations_sealed_before_results",
+    "cases",
+    "reviewers",
+    "implementation_results",
+    "agreement",
+    "official_conformance_claimed",
+    "authentication_allowed",
+    "production_action_allowed"
+  ],
+  "properties": {
+    "schema": { "const": "native-wallet-webauthn-rp-corpus-manifest.v1" },
+    "corpus_sha256": { "$ref": "#/$defs/sha256" },
+    "expectations_sealed_before_results": { "const": true },
+    "cases": {
+      "type": "array",
+      "minItems": 24,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/case" }
+    },
+    "reviewers": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": { "$ref": "#/$defs/reviewer" }
+    },
+    "implementation_results": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": { "$ref": "#/$defs/result" }
+    },
+    "agreement": { "type": "boolean" },
+    "official_conformance_claimed": { "const": false },
+    "authentication_allowed": { "const": false },
+    "production_action_allowed": { "const": false }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "expected", "mutation_dimension", "standards_clauses",
+        "rationale", "context_sha256", "enrollment_sha256", "artifact_sha256",
+        "generator", "recipe_sha256", "contains_private_key"
+      ],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[A-Z0-9_]{3,96}$" },
+        "expected": { "enum": ["ACCEPT_NON_AUTHORITATIVE", "REJECT"] },
+        "mutation_dimension": { "type": "string", "minLength": 1, "maxLength": 96 },
+        "standards_clauses": {
+          "type": "array", "minItems": 1, "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 256 }
+        },
+        "rationale": { "type": "string", "minLength": 1, "maxLength": 1024 },
+        "context_sha256": { "$ref": "#/$defs/sha256" },
+        "enrollment_sha256": { "$ref": "#/$defs/sha256" },
+        "artifact_sha256": { "$ref": "#/$defs/sha256" },
+        "recipe_sha256": { "$ref": "#/$defs/sha256" },
+        "generator": {
+          "type": "object", "additionalProperties": false,
+          "required": ["name", "version", "revision", "toolchain_sha256", "network_disabled"],
+          "properties": {
+            "name": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "version": { "type": "string", "minLength": 1, "maxLength": 64 },
+            "revision": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+            "toolchain_sha256": { "$ref": "#/$defs/sha256" },
+            "network_disabled": { "const": true }
+          }
+        },
+        "contains_private_key": { "const": false }
+      }
+    },
+    "reviewer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reviewer_id", "administrative_domain", "generator_author", "review_sha256"],
+      "properties": {
+        "reviewer_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "administrative_domain": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "generator_author": { "const": false },
+        "review_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["implementation", "administrative_domain", "corpus_sha256", "result_sha256"],
+      "properties": {
+        "implementation": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "administrative_domain": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "corpus_sha256": { "$ref": "#/$defs/sha256" },
+        "result_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    }
+  }
+}

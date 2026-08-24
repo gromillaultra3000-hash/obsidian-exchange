@@ -33,6 +33,10 @@ def check(cond, msg):
 conn = sqlite3.connect(_DB)
 conn.execute("""CREATE TABLE orders (id INTEGER PRIMARY KEY AUTOINCREMENT,
     order_id TEXT, user_id INTEGER, status TEXT)""")
+conn.execute("""CREATE TABLE provider_health (
+    provider TEXT PRIMARY KEY, is_healthy INTEGER, last_checked TEXT,
+    avg_response_time REAL, failed_count INTEGER, status TEXT, blocker TEXT
+)""")
 # 111 — новичок, 222 — две сделки, 333 — четыре, 444 — четыре, но половина
 # заявок в статусах, которые оплатой не считаются.
 rows = [(111, "pending")]

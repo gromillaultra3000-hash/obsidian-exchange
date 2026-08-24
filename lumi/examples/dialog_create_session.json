@@ -1,0 +1,8 @@
+{
+  "hostAppId": "sample_host_app",
+  "userId": "user_001",
+  "title": "Sample Lumi Session",
+  "metadata": {
+    "source": "quickstart"
+  }
+}

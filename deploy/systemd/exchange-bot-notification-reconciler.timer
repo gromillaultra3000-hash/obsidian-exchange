@@ -1,0 +1,13 @@
+[Unit]
+Description=Run Obsidian notification reconciliation every minute (proposal-only)
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+AccuracySec=5s
+RandomizedDelaySec=5s
+Persistent=false
+Unit=exchange-bot-notification-reconciler.service
+
+[Install]
+WantedBy=timers.target

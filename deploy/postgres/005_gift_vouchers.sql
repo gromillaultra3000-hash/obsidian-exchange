@@ -1,0 +1,1 @@
+CREATE TABLE gift_vouchers(id BIGSERIAL PRIMARY KEY,sender_id BIGINT NOT NULL,currency TEXT NOT NULL,rub_amount NUMERIC(20,2) NOT NULL,code TEXT NOT NULL UNIQUE,status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN('pending','paid','redeemed')),order_id BIGINT,recipient_id BIGINT,recipient_address TEXT,created_at TIMESTAMPTZ DEFAULT now(),claimed_at TIMESTAMPTZ);

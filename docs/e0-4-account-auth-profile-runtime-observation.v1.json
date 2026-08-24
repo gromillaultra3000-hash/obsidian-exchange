@@ -1,0 +1,94 @@
+{
+  "schemaVersion": "e0-4-account-auth-profile-runtime-observation.v1",
+  "observedAt": "2026-08-18T17:44:14Z",
+  "route": "E0/E0.4/ACCOUNT_AUTH_PROFILE",
+  "status": "IN_PROGRESS",
+  "acceptance": "PARTIAL_NOT_ACCEPTED",
+  "workClass": "KEYLESS_READ_ONLY_DEPLOYED_SOURCE_AND_PUBLIC_RUNTIME_OBSERVATION",
+  "productionMutation": false,
+  "authenticatedCallsMade": false,
+  "credentialsUsed": false,
+  "secretValuesRead": false,
+  "customerDataRead": false,
+  "accountWritersExercised": false,
+  "deployedEntrypoints": [
+    {"component":"relay","path":"/opt/obsidian-exchange/relay-fastapi/main.py","sha256":"c1ef783e3005f4698540ddc5368ef9a4592612fcf666b403ecbb7c4a359bd7ff","checkoutByteEqual":false},
+    {"component":"customerAuth","path":"/opt/obsidian-exchange/relay-fastapi/auth.py","sha256":"cb0c3831f2d862a5519824b317dd537f7e592fdeb678a7d34a083b26436c9746","checkoutByteEqual":true},
+    {"component":"authStore","path":"/opt/obsidian-exchange/relay/repositories/web_auth_store.py","sha256":"bead6a76687b3062a53421a58ca0311d9a6e1b266abab4bdcc2a3e73f3b38e08","checkoutByteEqual":true},
+    {"component":"miniApp","path":"/opt/obsidian-exchange/relay/webapp.html","sha256":"12545433f4004eef1df25592474b8e14db9558a5bb356bc245dc6b6826f9adcc","checkoutByteEqual":true},
+    {"component":"telegramBot","path":"/opt/obsidian-exchange/bot/main_bot.py","sha256":"a015b5b12870fa2f1eec7d0fb638cc2c94cb90235850d474ebb25455446372fb","checkoutByteEqual":false},
+    {"component":"telegramFreshness","path":"/opt/obsidian-exchange/relay/core/telegram_freshness.py","sha256":"40bef427a0daa3069e05565fdb65217836414ed581960b64f1cff5c1c266d601","checkoutByteEqual":true},
+    {"component":"adminAuth","path":"/opt/obsidian-exchange/admin-panel/app/Filament/Pages/Auth/Login.php","sha256":"41b9786617614320add1a2af6bde20ee0417f1c6ac6ad923d2ea961416e1d029","checkoutByteEqual":true},
+    {"component":"adminIdentity","path":"/opt/obsidian-exchange/admin-panel/app/Models/User.php","sha256":"393ac2e1b2f2a5038f4d062e9b2fffb38318086e9853c40f37f6c5c1d056abea","checkoutByteEqual":true},
+    {"component":"adminPolicy","path":"/opt/obsidian-exchange/admin-panel/app/Providers/Filament/AdminPanelProvider.php","sha256":"c45d63866817ee304e1ea210c3365ba743fb8ba8afeadf3840f0a146c77d4b06","checkoutByteEqual":true},
+    {"component":"adminMfaMiddleware","path":"/opt/obsidian-exchange/admin-panel/app/Http/Middleware/RequireAdminMfa.php","sha256":"c0d0cade905afe2e47c7f8fd26e50194db6a1b3fb6da4176069abe962ee7d688","checkoutByteEqual":true},
+    {"component":"edge","path":"/etc/nginx/sites-available/obsidian-exchange.org","sha256":"d7319e93f22e0bd6e7b37071b1517e25f52be760cc15cb496a3c4a151294aa0f"}
+  ],
+  "runtime": {
+    "relay": {"unit":"relay-fastapi.service","activeState":"active","subState":"running","principal":"relay-svc:relay-svc","bind":"127.0.0.1:5001","nRestarts":0},
+    "telegramBot": {"unit":"exchange-bot.service","activeState":"active","subState":"running","principal":"root","nRestarts":0},
+    "admin": {"unit":"admin-panel.service","activeState":"active","subState":"running","principal":"root","bind":"127.0.0.1:8002","nRestarts":0},
+    "publicObservations": [{"path":"/","status":200},{"path":"/login","status":200}]
+  },
+  "authorityBoundary": {
+    "siteIdentity": "Unique normalized email plus bcrypt password; optional customer TOTP; opaque 30-day database-backed cookie session.",
+    "telegramIdentity": "Telegram platform sender ID in bot and signed initData in Mini App/API; most initData consumers accept up to 24 hours and do not consume a nonce.",
+    "identityMerge": "A logged-in site account may overwrite its telegram_id through a signed Telegram Login Widget callback; downstream history, swaps, wallets and CEX resolution use the merged Telegram ID.",
+    "adminIdentity": "Separate Laravel password, immutable is_admin policy and mandatory encrypted TOTP with replay timestamp; it is not the customer account lifecycle.",
+    "nativeIdentity": "No deployed native authentication, profile, account recovery or server-session handoff.",
+    "sessionStorage": "Raw bearer and CSRF tokens are stored in web_sessions; expiry is enforced but there is no hash-at-rest, device inventory, rotation, revoke-all or security epoch.",
+    "recovery": "No verified email ownership, forgot-password/reset, recovery-code, Telegram unlink/recovery, account deletion or formal support recovery workflow is deployed.",
+    "profileMoneyAuthority": "The merged Telegram ID selects customer orders, swaps, wallet links, portfolio sources and referral state; this family does not itself sign funds but controls who can see and initiate adjacent customer workflows."
+  },
+  "positiveControls": [
+    "Passwords use bcrypt with per-hash salt; generic login failure does not distinguish unknown email from wrong password.",
+    "Session and CSRF tokens use cryptographic randomness; cookie is Secure, HttpOnly, SameSite=Lax and path-bound.",
+    "Profile password, referral-address and TOTP mutations require an owner session plus CSRF; password change also checks the current password and TOTP disable checks the current factor.",
+    "Telegram assertions are HMAC verified and Mini App freshness has a strict shared future-skew check.",
+    "Database uniqueness prevents one email or Telegram identity from being linked to multiple web users concurrently.",
+    "Nginx applies explicit per-IP request limits to exact /login and /register routes.",
+    "Laravel operator auth has stronger encrypted TOTP and replay-timestamp semantics and is kept separate from customer identity."
+  ],
+  "criticalFindings": [
+    "GET /auth/telegram/callback mutates the current account without CSRF/state, single-use nonce or fresh password/TOTP. A reusable signed Login Widget URL can overwrite an existing Telegram binding in a logged-in victim browser (login-CSRF/confused deputy), changing which Telegram-keyed orders, swaps, wallets, CEX sources and allowlist identity that victim site session resolves; it does not give the attacker the victim cookie directly.",
+    "Password change and TOTP enable/disable do not rotate or revoke any existing 30-day sessions; the password template explicitly tells the user that all sessions continue.",
+    "Customer TOTP secrets are stored as plaintext in web_users. Enrollment trusts a client-roundtripped hidden totp_secret and requires no fresh password/old-factor step-up; TOTP verification accepts a ±1 window and has no replay ledger.",
+    "The second-step login token is stateless and replayable for five minutes, uses a truncated 64-bit MAC, is coupled to INTERNAL_ADMIN_SECRET when configured, and accepts arbitrarily future timestamps because it checks only now minus timestamp greater than 300.",
+    "Raw 30-day session bearer tokens and CSRF tokens are database values. A database read becomes immediate session takeover; there is no session list, per-device metadata, rotation, revoke-all, password/2FA security epoch or inactivity bound.",
+    "Registration proves only email syntax, not ownership, and reveals whether an email exists. Password policy is only eight-character minimum; no reset/recovery lifecycle exists.",
+    "Logout is POST but performs no CSRF verification. SameSite=Lax is a useful browser mitigation, not an accepted application-level state-change authorization contract.",
+    "Nginx throttles only exact /login and /register. Password change, TOTP enable/disable and Telegram binding have no dedicated app/edge attempt limit; a stolen live session can make unbounded current-password or TOTP guesses.",
+    "Telegram Login Widget freshness only rejects assertions older than 24 hours and has no future-skew/lower-bound check, unlike the shared Mini App validator. A far-future timestamp still requires a valid Telegram signature, but clock/freshness drift fails open rather than closed.",
+    "Telegram identity, independent web-only negative IDs and Mini App initData form fragmented principals. There is no canonical merge/unmerge/recovery state machine or durable audit binding old identity, new identity, fresh authorization and session revocation.",
+    "Audit events log raw email or Telegram identifiers and lack a shared session/security-epoch correlation and explicit retention evidence."
+  ],
+  "surfaceMatrix": {
+    "telegramBot": {"requirement":"REQUIRED","status":"PARTIAL","reason":"Telegram sender identity drives the customer profile and adjacent money workflows, but product-controlled session, revocation, MFA and recovery are absent."},
+    "site": {"requirement":"REQUIRED","status":"PARTIAL","reason":"Registration, login/logout, profile, password, TOTP and Telegram binding are deployed with several positive controls, but identity merge, session lifecycle and recovery are unaccepted."},
+    "miniApp": {"requirement":"REQUIRED","status":"PARTIAL","reason":"Signed Telegram initData is the primary customer authority for many APIs, generally reusable for up to 24 hours without nonce consumption; it is not the site session and inherits fragmented binding semantics."},
+    "admin": {"requirement":"OPERATOR_ONLY","status":"PARTIAL","reason":"Laravel has a stronger separate named-admin/TOTP contour and read-only WebUser model use, but customer-account recovery, privacy and operator support authority are not formally bounded."},
+    "api": {"requirement":"REQUIRED","status":"PARTIAL","reason":"Cookie sessions, CSRF, Telegram widget/initData and repository mutations are directly exposed through mixed HTML/API routes without a versioned canonical subject/session/recovery contract."},
+    "native": {"requirement":"REQUIRED","status":"NOT_IMPLEMENTED","reason":"No native account/session/profile/recovery bridge exists; any future bridge must not turn server account recovery into native key recovery or signing authority."}
+  },
+  "limitations": [
+    "Only public root/login GETs and service metadata were observed; no register/login/logout/profile/admin/API mutation or customer row was exercised.",
+    "Source shape proves deployed behavior and missing controls, not real-user lifecycle success, email ownership, Telegram account ownership or recovery outcomes.",
+    "Relay and bot checkout files differ from deployed production; all production claims are bound to exact deployed hashes.",
+    "No environment value, session/cookie, password hash, TOTP secret, customer identifier, database count or account record was read."
+  ],
+  "independentReviews": [
+    {"reviewer":"auth-security-review","disposition":"PARTIAL_NOT_ACCEPTED","finding":"Login-CSRF binding, long-lived non-revoked sessions, plaintext customer TOTP/session material and replayable second-step tokens prevent acceptance."},
+    {"reviewer":"auth-surface-review","disposition":"PARTIAL_NOT_ACCEPTED","finding":"All six surfaces are classifiable, but identity authority is fragmented and recovery/unlink/native lifecycle is missing."},
+    {"reviewer":"auth-acceptance-critic","disposition":"PARTIAL_NOT_ACCEPTED","finding":"Positive bcrypt/cookie/CSRF/throttle controls support only a bounded source-verified classification, not production auth acceptance."}
+  ],
+  "coverageConclusion": {
+    "accountAuthProfileFamilyClassified": true,
+    "sixSurfaceClassificationComplete": true,
+    "authenticationRecoveryAuthorizationBoundaryClassifiedReadOnly": true,
+    "recoveryLifecycleVerified": false,
+    "productionAcceptanceProven": false,
+    "e0_4Complete": false,
+    "e0GateClosed": false
+  },
+  "nextCanonicalItem": "Classify PAYMENT_PROVIDER_LIFECYCLE across all six surfaces and verify provider callback, payment truth and money authority read-only."
+}

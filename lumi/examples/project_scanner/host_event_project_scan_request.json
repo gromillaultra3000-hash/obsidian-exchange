@@ -1,0 +1,11 @@
+{
+  "eventId": "event-project-scan-001",
+  "hostAppId": "sample_desktop_app",
+  "eventType": "custom",
+  "payload": {
+    "subtype": "project_scan_request",
+    "projectId": "sample_project",
+    "scanMode": "static_inspection",
+    "includeImprovementPlan": true
+  }
+}

@@ -76,6 +76,11 @@ def test_fraud():
     conn = sqlite3.connect(dbf)
     conn.executescript("""
         CREATE TABLE orders(order_id INT PRIMARY KEY, user_id INT, status TEXT);
+        CREATE TABLE order_receipts(
+            order_id INT PRIMARY KEY, path TEXT NOT NULL, filename TEXT NOT NULL,
+            content_type TEXT NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            dispute_opened_at TEXT, sha256 TEXT
+        );
         INSERT INTO orders VALUES(10, 555, 'pending');
         INSERT INTO orders VALUES(11, 555, 'expired');
         INSERT INTO orders VALUES(12, 555, 'expired');

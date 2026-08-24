@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "e4-full-snapshot-rehearsal-manifest.v1",
+  "manifestId": "e4-full-snapshot-rehearsal-20260811",
+  "targetClass": "ISOLATED_DISPOSABLE_POSTGRESQL",
+  "productionNetworkAllowed": false,
+  "productionCredentialsAllowed": false,
+  "writesAllowed": false,
+  "proposalMigrationPath": "deploy/postgres/proposals/025_e4_action_handoff.sql",
+  "proposalMigrationSha256": "c1212dae3e431e745c7f2cd28ab993b681da4c0c5f909d494ffe6126e069af56",
+  "proposalAclPath": "deploy/postgres/proposals/025_e4_action_handoff_acl.sql",
+  "proposalAclSha256": "f481217d86bd4b51c07f751b5a88391024ecea16bd345f7af8fa010d1159b1b4",
+  "rollbackPlanPath": "docs/postgresql-cutover-runbook.md",
+  "rollbackPlanSha256": "fc88b29bc81ff30f71bea2ca965bf6d897f4aed5ce7b1539a72bba3995d5b2ef",
+  "requiredChecks": [
+    "FULL_SNAPSHOT_MATCHED",
+    "TABLE_INVENTORY_CAPTURED",
+    "ACL_INVENTORY_CAPTURED",
+    "ROLLBACK_BOUNDARY_VERIFIED",
+    "HANDOFF_GATE_EXPLICITLY_FALSE",
+    "ROUTE_GATE_EXPLICITLY_FALSE",
+    "CONFIRM_ROUTE_ABSENT",
+    "ACTIVE_025_MIGRATION_ABSENT"
+  ]
+}

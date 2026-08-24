@@ -1,0 +1,87 @@
+{
+  "schema": "native-wallet-ed25519-corpus-review-audit-retention-policy.v1",
+  "data_classes": [
+    {
+      "id": "public_contract_material",
+      "examples": ["ADR", "JSON Schema", "synthetic test vector", "negative corpus without real identities"],
+      "storage": "source repository",
+      "retention_ms": null,
+      "disposition": "retain while contract version is supported",
+      "personal_or_credential_data_allowed": false
+    },
+    {
+      "id": "hash_only_audit_metadata",
+      "examples": ["bundle digest", "decision", "gate states", "opaque domain IDs", "epoch", "timestamps"],
+      "storage": "append-only dedicated audit store",
+      "retention_ms": 220752000000,
+      "disposition": "expire through audited tombstone after seven 365-day years",
+      "personal_or_credential_data_allowed": false
+    },
+    {
+      "id": "external_sensitive_evidence",
+      "examples": ["personnel registry", "credential enrollment evidence", "recovery roster", "host ownership record"],
+      "storage": "owner-controlled encrypted review workspace outside repository and ordinary backups",
+      "retention_ms": 86400000,
+      "disposition": "delete review copy after decision or expiry, whichever occurs first",
+      "personal_or_credential_data_allowed": true
+    },
+    {
+      "id": "webauthn_assertion_bytes",
+      "examples": ["clientDataJSON", "authenticatorData", "credential ID", "signature", "user handle"],
+      "storage": "isolated encrypted verifier workspace outside repository and ordinary backups",
+      "retention_ms": 600000,
+      "disposition": "delete verifier copy immediately after final bounded result or expiry",
+      "personal_or_credential_data_allowed": true
+    },
+    {
+      "id": "secrets_and_private_keys",
+      "examples": ["private key", "seed", "recovery secret", "authentication cookie"],
+      "storage": "prohibited from evidence bundle, audit trail, repository and rehearsal workspace",
+      "retention_ms": 0,
+      "disposition": "reject input and trigger incident handling; never copy for review",
+      "personal_or_credential_data_allowed": false
+    }
+  ],
+  "audit_minimization": {
+    "allowed_fields": [
+      "event_id",
+      "event_type",
+      "occurred_at_epoch_ms",
+      "actor_domain_id",
+      "subject_domain_id",
+      "object_sha256",
+      "policy_sha256",
+      "previous_event_sha256",
+      "decision",
+      "reason_code"
+    ],
+    "forbidden_fields": [
+      "person_name",
+      "email",
+      "phone",
+      "credential_id",
+      "user_handle",
+      "assertion_bytes",
+      "artifact_path",
+      "artifact_contents",
+      "network_address",
+      "free_text"
+    ],
+    "opaque_ids_must_not_embed_personal_data": true,
+    "free_text_allowed": false
+  },
+  "external_storage_requirements": [
+    "encryption at rest and in transit",
+    "access limited to the assigned issuer review domain",
+    "no ordinary backup or repository synchronization",
+    "complete storage-location inventory before review",
+    "automatic expiry plus explicit deletion attempt",
+    "access and deletion events recorded only as minimized hash-only audit metadata"
+  ],
+  "current_external_workspace_exists": false,
+  "real_data_present": false,
+  "policy_implemented": false,
+  "gate_i09_pass": false,
+  "selection_allowed": false,
+  "runtime_integration_allowed": false
+}

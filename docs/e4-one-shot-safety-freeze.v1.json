@@ -1,0 +1,72 @@
+{
+  "schemaVersion": "e4-one-shot-safety-freeze.v1",
+  "recordedOnUtc": "2026-08-23",
+  "stage": "E4",
+  "route": "E4_OWNER_GATED_FRESH_PRODUCTION_DISCONNECTED_REHEARSAL",
+  "status": "NO_GO_IN_PROGRESS",
+  "decision": "DISABLE_ONE_SHOT_EXECUTION_UNTIL_AUTHORITY_AND_TEARDOWN_GAPS_ARE_CLOSED",
+  "artifacts": {
+    "server": {
+      "path": "relay/core/e4_owner_one_shot_server.py",
+      "sha256": "649003aa0a5353142053cce86b4fae662f8b51096da6a9eac77f76a9c670cced",
+      "operationalExecutionEnabled": false
+    },
+    "termuxHelper": {
+      "path": "E4-owner-handoff/e4_one_shot_termux.py",
+      "sha256": "1eb941838b8037c2a8c467d71ed7c31057e438875f67281f5592a0abe3ac4a2c",
+      "operationalExecutionEnabled": false
+    },
+    "legacyPrivateKeyHandoff": {
+      "path": "E4-owner-handoff/e4_memfd_handoff.py",
+      "sha256": "34a01a0a841f01d5507983ce2c2df59b671ccd31b6303173b5541d5c417210d9",
+      "status": "SUPERSEDED_FAIL_CLOSED"
+    }
+  },
+  "hardeningCompleted": {
+    "authorizationLifetimeMs": 900000,
+    "sameDeviceReviewerPrivateKeyRejected": true,
+    "reviewerRequestResponseBoundToExactArtifactDigest": true,
+    "termuxHelperBoundBySignedRelease": true,
+    "tsaRootSha256": "b52fae9cd8dcf49285f0337cd815deca13fedd31f653bf07f61579451517e18c",
+    "tsaIntermediateSha256": "5e13de210e735b614d6ec948361aadef9dd6c0ef575382a75f57fd59e183b90e",
+    "tsaResponderSha256": "4aa03fa22cd75c84c55c938f828e676b9caecab33fe36d269aa334f146110a33",
+    "reviewerChecksPolicyNonceGenTimeAndOwnerWindow": true,
+    "legacyPrivateKeyStreamingDisabled": true,
+    "sourceRetentionReviewCannotReturnClientSuccess": true,
+    "releaseIncludesRefreshGeneratorAndTsaChain": true
+  },
+  "blockingConditions": [
+    "Frozen plan v1 requires staged-snapshot destruction, while the owner selected immutable ciphertext retention and the executor reports the teardown steps incomplete.",
+    "Owner and trust-root signatures still need separate offline file handoffs; signing them on a network-connected courier device does not satisfy the existing offline-key boundary.",
+    "A trusted fresh timestamp over the final owner-reviewer-trust-root bundle is not yet the verifier evaluation clock.",
+    "Replay state is per-run rather than one durable cross-run authority.",
+    "The server-computed execution release is not yet an independently frozen reviewed allowlist.",
+    "A real accountable reviewer on a genuinely independent device and trust path has not supplied a fresh decision."
+  ],
+  "sixSurfaceImpact": {
+    "user": "No production E4 action route or UX gate is promoted.",
+    "data": "No snapshot was opened, decrypted, replaced or destroyed in this slice.",
+    "money": "No order, settlement, payout, fee or money-moving writer is reachable.",
+    "ops": "The experimental one-shot and legacy private-key handoff fail before network or execution effects.",
+    "security": "Reviewer separation, payload schema and TSA pinning are stricter; unresolved offline signing, final trusted time and durable replay remain blockers.",
+    "product": "Full E4 product UX, accessibility, localization, responsive and usability acceptance remain outside this safety slice and incomplete."
+  },
+  "capabilityMatrix": {
+    "independentAcceptanceReview": "USED_NO_GO",
+    "independentSecurityDiffReview": "USED_FINDINGS_ADDRESSED_OR_BLOCKED",
+    "independentOperatorUxReview": "USED_NO_GO",
+    "webResearch": "NOT_NEEDED_LOCAL_REPOSITORY_EVIDENCE",
+    "specializedSkill": "NOT_APPLICABLE",
+    "productionDeploymentOrRestart": "NOT_AUTHORIZED_NOT_USED",
+    "e4VerifierOrExecutorRerun": "OMITTED_BY_OWNER_DIRECTION"
+  },
+  "verification": {
+    "focusedGeneratorTests": "10/10 PASS",
+    "pythonCompilation": "PASS",
+    "diffCheck": "PASS"
+  },
+  "rollout": "NONE_DISABLED",
+  "rollback": "Keep OPERATIONAL_EXECUTION_ENABLED=false and retain the legacy handoff fail-closed guard.",
+  "recovery": "Expired payloads are never revived; create a fresh payload only after all blockers and independent review are closed.",
+  "nextCanonicalItem": "FREEZE_VERSIONED_V2_PLAN_AND_RECEIPT_SEMANTICS_FOR_RETAINED_IMMUTABLE_CIPHERTEXT_AND_DESTROYED_TRANSIENT_TARGET_PLAINTEXT"
+}

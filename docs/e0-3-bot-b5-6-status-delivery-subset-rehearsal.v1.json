@@ -1,0 +1,25 @@
+{
+  "schema":"obsidian.e0-3-bot-b5-6-status-delivery-subset-rehearsal.v1",
+  "stage":"E0.3",
+  "status":"REHEARSED_SPLIT_CONTRACT",
+  "observedAt":"2026-08-16T22:48:08Z",
+  "accountableOwner":"project-owner",
+  "productionAuthorization":false,
+  "implementationDeployed":false,
+  "proposal":"deploy/postgres/proposals/051_e0_bot_b5_6_status_delivery_subset.sql",
+  "proposalSha256":"426da6e8269522458096f18b9521f0558648e37340fb31c95e3c2c5009311301",
+  "test":"tests/test_e0_3_bot_b5_6_status_delivery_subset_rehearsal.py",
+  "testSha256":"85a712b591b4b1bebbcaee7e1db807aa7a903393b5aa8199083f19c4c1283220",
+  "methodCoverage":["status_notification_store.complete"],
+  "splitSemantics":{
+    "paidAndSent":"proposal 051 status-correlated delivery marker",
+    "payoutTriggered":"proposal 053 authoritative payout intent replaces unsafe marker",
+    "payoutHeld":"proposal 057 principal-evidence-bound immutable hold audit replaces unsafe marker"
+  },
+  "evidence":["eight paid completions yield one marker","order status must exactly match paid/sent event","paid marker and pending gift promotion share one transaction","payout events are rejected by the delivery function and resolved by dedicated money/evidence functions"],
+  "surfaceMatrix":{"telegramBot":"REQUIRED","website":"N/A","miniApp":"N/A","admin":"N/A","api":"N/A","nativeApp":"N/A"},
+  "rollout":"No rollout; source adapter must be split across proposals 051, 053 and 057 before execute-only credential use.",
+  "container":{"image":"postgres:17-alpine","removedAfterRun":true},
+  "independentReview":{"reviewer":"codex-subagent-b54-b56-review","findingsDisposition":"accepted trust split; unsafe generic payout markers were not reproduced"},
+  "result":"PASS"
+}

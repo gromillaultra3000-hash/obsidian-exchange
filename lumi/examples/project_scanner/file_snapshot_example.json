@@ -1,0 +1,13 @@
+{
+  "snapshotId": "snapshot-main-py",
+  "projectId": "sample_project",
+  "path": "app/main.py",
+  "fileName": "main.py",
+  "extension": ".py",
+  "sizeBytes": 1240,
+  "contentPreview": "def main():\n    pass\n",
+  "contentHash": "example-hash",
+  "isBinary": false,
+  "isGenerated": false,
+  "metadata": {"source": "example"}
+}

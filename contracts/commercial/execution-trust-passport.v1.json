@@ -1,0 +1,55 @@
+{
+  "schema": "obsidian-execution-trust-passport.v1",
+  "purpose": "portable read-only evidence that one financial action preserved identity, custody, consent, policy, execution and settlement bindings",
+  "required_sections": [
+    "passport_id",
+    "action_intent",
+    "service_lane",
+    "identity_custody",
+    "quote_or_preview",
+    "user_consent",
+    "policy_decision",
+    "execution_attempt",
+    "settlement_or_reconciliation",
+    "evidence_chain"
+  ],
+  "section_contracts": {
+    "passport_id": ["schema_version", "action_type", "intent_id", "intent_sha256", "created_at_epoch_ms"],
+    "action_intent": ["immutable_parameters_sha256", "idempotency_key_sha256", "actor_subject_sha256"],
+    "service_lane": ["PRIVATE_EXCHANGE", "VERIFIED_CEX", "SELF_CUSTODY"],
+    "identity_custody": ["identity_authority", "custody_owner", "executor", "permission_snapshot_sha256"],
+    "quote_or_preview": ["market_or_transaction_snapshot_sha256", "fees_sha256", "expires_at_epoch_ms"],
+    "user_consent": ["display_sha256", "consent_sha256", "consented_parameters_sha256", "consented_at_epoch_ms"],
+    "policy_decision": ["hard_policy_sha256", "hard_decision", "advisory_evidence_sha256", "advisory_decision", "effective_decision", "decision_reason_code"],
+    "execution_attempt": ["attempt_id", "attempt_parameters_sha256", "submitted_at_epoch_ms", "provider_evidence_sha256", "outcome"],
+    "settlement_or_reconciliation": ["observed_evidence_sha256", "reconciliation_policy_sha256", "final_state", "finalized_at_epoch_ms"],
+    "evidence_chain": ["previous_passport_event_sha256", "passport_head_sha256", "independent_checkpoint_sha256"]
+  },
+  "effective_decisions": ["ALLOW", "HOLD", "MANUAL", "FREEZE"],
+  "execution_outcomes": ["NOT_SUBMITTED", "SUBMITTED", "CONFIRMED", "REJECTED", "UNKNOWN_REVIEW"],
+  "final_states": ["NOT_FINAL", "RECONCILED", "REJECTED", "REVIEW"],
+  "privacy_rules": [
+    "no seed private key credential token cookie biometric or raw identity document",
+    "user provider and network identifiers are opaque digests unless disclosure is separately authorized",
+    "free text is forbidden",
+    "external evidence bytes remain outside the passport and are digest-referenced"
+  ],
+  "verification_order": [
+    "closed bounded schema",
+    "intent and immutable parameter binding",
+    "service lane identity custody and executor consistency",
+    "quote preview and consent freshness",
+    "hard policy cannot be weakened by advisory",
+    "execution parameters equal consented parameters",
+    "settlement evidence and final-state consistency",
+    "hash-chain and independent checkpoint consistency"
+  ],
+  "action_authority": "NONE",
+  "may_trigger_execution": false,
+  "may_retry_execution": false,
+  "prototype_implemented": false,
+  "production_emission_enabled": false,
+  "buyer_value_validated": false,
+  "prior_art_review_complete": false,
+  "freedom_to_operate_review_complete": false
+}

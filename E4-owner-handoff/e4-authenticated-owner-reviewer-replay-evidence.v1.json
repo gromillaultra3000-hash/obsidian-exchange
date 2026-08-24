@@ -1,0 +1,68 @@
+{
+  "schemaVersion": "e4-authenticated-owner-reviewer-replay-evidence.v1",
+  "evidenceId": "e4-authenticated-replay-20260822-01",
+  "status": "VERIFIED",
+  "stage": "E4",
+  "route": "E4_OWNER_GATED_FRESH_PRODUCTION_DISCONNECTED_REHEARSAL",
+  "authority": {
+    "trustRegistryAuthenticated": true,
+    "trustedClockAttested": true,
+    "replayRegistryChecked": true,
+    "replayClaimConsumed": true,
+    "hardenedExecutorAvailable": false,
+    "rehearsalExecutionEligible": false,
+    "executionAuthorized": false,
+    "productionDatabaseContactAllowed": false,
+    "productionNetworkAllowed": false,
+    "productionCredentialsAllowed": false,
+    "containsSecrets": false,
+    "containsConnectionMaterial": false,
+    "executionEffect": "NONE",
+    "promotionAllowed": false,
+    "actionAllowed": false
+  },
+  "promotion": {
+    "payloadRef": "e4-trust-registry-promotion-payload.v1.json",
+    "payloadSha256": "63635fad160683ca50496831e4cdcc418c346e226def3e612cfec0b7b1f8458a",
+    "signatureRef": "e4-trust-registry-promotion-payload.v1.json.sig",
+    "signatureSha256": "5668d7eadffc3025edb940d3ed170b356c1262d63edbc97bb990eaa1ca91e713",
+    "trustRootFingerprint": "SHA256:Ja+GZ9/o52eFmzZDztpju70RWmYpSvc0Fp+ayO1GcfM",
+    "registryCandidateRef": "e4-owner-reviewer-trust-anchor-and-binding-candidate.v4.json",
+    "registryCandidateSha256": "3de9ccbeb67178f46af1be68a139712b8d6acbe6954d7eef340625d472af4bfe",
+    "registryId": "e4-owner-reviewer-anchors-20260822-v4",
+    "registryStatus": "AUTHENTICATED_ACTIVE"
+  },
+  "verifiedArtifacts": {
+    "ownerPayloadSha256": "93ff56d0a1dc4bf91fffb796eab9cd605b53fca0fd0169933f4371233f9887a6",
+    "ownerSignatureSha256": "4be6ffd27a816983cfac8767035402765aefbfc11eb208af6ba2769919591f02",
+    "reviewerEnvelopeSha256": "d31243c3959b2d3758b7053854ab83654e28eedc93d99f742f073f1cb0294a9b",
+    "reviewerSignatureSha256": "7697bd2660ae3b2594d4d35feb0e1f905840ce7f87385782082eced76aa85ccd",
+    "timestampEvidenceSha256": "56789ace73f80579ddd5111a35861929404202eca2e24464dcf4f6e246db6377",
+    "ownerSignatureVerified": true,
+    "reviewerSignatureVerified": true,
+    "exactBindingVerified": true,
+    "freshnessVerified": true,
+    "timestampGenTimeUtc": "2026-08-22T23:06:34Z"
+  },
+  "replay": {
+    "ledgerPath": "/tmp/e4-owner-reviewer-replay-v5.db",
+    "ledgerClass": "TEMPORARY_NON_PRODUCTION",
+    "status": "CONSUMED",
+    "claimId": "e4orr_6c04eca3ed40e2ab9a625424b615b44d338c4b5816123708cad6b2f09ea2ed29",
+    "artifactDigest": "31c3a8b3802dfdade60124b99b5185c5cf8a1f82e1f5a22226bb1ca38246664a",
+    "payloadId": "e4-owner-decision-payload-20260822-06-1787439606929",
+    "envelopeId": "e4-review-envelope-20260822-06-1787440185681",
+    "claimedAtEpochMs": 1787441617674,
+    "replayClaimAllowed": true,
+    "executionEffect": "NONE",
+    "actionAllowed": false
+  },
+  "verification": {
+    "verificationId": "e4ovr_194a4a4be7e872fd2e95320444b01699ce682007579f233d9bcf8bc19733a4f5",
+    "verifiedAtEpochMs": 1787441617674,
+    "blockers": [
+      "HARDENED_EXECUTOR_NOT_AVAILABLE"
+    ]
+  },
+  "nextAction": "Keep the one-shot claim consumed; add and independently review the hardened non-production executor with TOCTOU, encrypted-snapshot key handoff, network-none Docker, bounded health, teardown and absence proof before any launch consideration."
+}

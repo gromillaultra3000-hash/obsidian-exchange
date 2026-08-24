@@ -1,0 +1,97 @@
+{
+  "schemaVersion": "e4-owner-reviewer-trust-anchor-and-binding-candidate.v1",
+  "candidateId": "e4-owner-reviewer-binding-20260822-02",
+  "status": "CANDIDATE_NOT_AUTHORIZED",
+  "stage": "E4",
+  "route": "E4_OWNER_GATED_FRESH_PRODUCTION_DISCONNECTED_REHEARSAL",
+  "purpose": "Public, secret-free candidate binding for later offline owner and independent-reviewer signatures.",
+  "authority": {
+    "conversationConfirmation": true,
+    "authenticated": false,
+    "ownerApproval": false,
+    "independentReview": false,
+    "rehearsalExecutionEligible": false,
+    "executionAuthorized": false,
+    "productionDatabaseContactAllowed": false,
+    "productionNetworkAllowed": false,
+    "productionCredentialsAllowed": false,
+    "containsSecrets": false,
+    "containsConnectionMaterial": false,
+    "executionEffect": "NONE",
+    "promotionAllowed": false,
+    "actionAllowed": false
+  },
+  "trustAnchorProposal": {
+    "status": "CONVERSATION_CONFIRMED_NOT_AUTHENTICATED",
+    "registryId": "e4-owner-reviewer-anchors-20260822",
+    "owner": {
+      "role": "ACCOUNTABLE_OWNER",
+      "issuerId": "e4-owner-signing",
+      "trustRootId": "e4-owner-reviewer-anchors-20260822",
+      "publicKeyRef": "owner-signing.pub",
+      "publicKeySha256": "ffc50e83209a96b00eccc282ce89308b0675da244895a277c133845c099b422d",
+      "fingerprint": "SHA256:rH+p26jdfF3/NIt+7g+jgST6t1qrU0xr6FPeLopipYU"
+    },
+    "reviewer": {
+      "role": "INDEPENDENT_REVIEWER",
+      "issuerId": "e4-independent-reviewer",
+      "trustRootId": "e4-owner-reviewer-anchors-20260822",
+      "publicKeyRef": "reviewer-signing.pub",
+      "publicKeySha256": "27aa392a26727208d2f519672cab6e56dc5a153ec84477c29a54027e100e00f8",
+      "fingerprint": "SHA256:fectcTsd7rxR2gztCa+SmgJ6wzbeJKqYDS1W7JsACyU"
+    },
+    "offlineFingerprintVerificationRequired": true
+  },
+  "frozenBinding": {
+    "planSchemaVersion": "e4-full-snapshot-rehearsal-runner-plan.v1",
+    "planId": "e4rrp_73040dd58161e760075b961004c173966291a8d33344f248cf6a43ec75893ffd",
+    "planSourcePath": "relay/core/e4_rehearsal_runner_plan.py",
+    "planSourceSha256": "eb70458a03fdb5b744f44f0fd390e78f17a65226e2a48b2c763db3ff2623cc2c",
+    "evidenceManifestPath": "deploy/postgres/proposals/e4_full_snapshot_rehearsal_manifest.json",
+    "evidenceManifestSha256": "2489745da1fd584c3d77965ebc7b4776ddad3115bcbea5dc7a623fc3d2981a03",
+    "targetClass": "ISOLATED_DISPOSABLE_POSTGRESQL",
+    "snapshotClass": "PREEXISTING_ENCRYPTED_IMMUTABLE_SNAPSHOT_COPY",
+    "scope": "ONE_E4_ISOLATED_FULL_SNAPSHOT_REHEARSAL",
+    "invocationLimit": 1
+  },
+  "targetBinding": {
+    "targetRef": "e4-disposable-pg-20260822-02",
+    "targetFingerprintSha256": "3545e043156cd9023d46a5ebaaa12f0c964ceea2887cea79c9703395a1588ad3",
+    "targetMustBeAbsentBeforeStart": true,
+    "persistentTargetAllowed": false,
+    "targetDestroyAfterRehearsal": true
+  },
+  "snapshotBinding": {
+    "snapshotRef": "e4-staged-obsidian-exchange-cutover-20260810-age-20260822",
+    "snapshotRefSha256": "d56f226fb3c38cc40f7265d1d15c2c751211bb86ff1beba655f82f99d5d4b619",
+    "ciphertextSha256": "47efc0dc293890243072bdf048d40cbcc1fee8fbe719e4b841fb5d156f658b3e",
+    "keyRefSha256": "c7e21692ac64774b4229807d5b11338df72f722247a1bcebb22d54667a102109",
+    "immutableHandle": "fs-801-2412135",
+    "mode": "0400",
+    "immutable": true,
+    "readOnly": true,
+    "plaintextPersistenceForbidden": true,
+    "keyMaterialPresent": false
+  },
+  "approvalWindow": {
+    "approvalRef": null,
+    "approvedAtEpochMs": null,
+    "expiresAtEpochMs": null,
+    "nonceSha256": null,
+    "shortSingleUseWindowRequired": true
+  },
+  "signatures": {
+    "ownerSignatureRef": null,
+    "ownerSignatureSha256": null,
+    "reviewerSignatureRef": null,
+    "reviewerSignatureSha256": null
+  },
+  "requiredBeforeOfflineSigning": [
+    "Owner and reviewer independently verify the two public-key fingerprints offline.",
+    "Issue a fresh short approval window and one-time nonce; do not reuse this candidate window.",
+    "Owner signs the exact canonical decision payload with the owner private key offline.",
+    "Reviewer checks the exact binding, immutable staging evidence, scope and expiry through the separate trust path, then signs the review envelope.",
+    "A real verifier accepts both signatures, trust anchors, freshness, replay state and all bindings before any executor is eligible."
+  ],
+  "nextAction": "Generate a fresh exact canonical payload with a short window and nonce only when the owner is ready to sign; this candidate itself is not a receipt, signature or execution command."
+}

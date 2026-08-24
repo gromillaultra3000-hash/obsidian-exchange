@@ -1,0 +1,282 @@
+{
+  "schemaVersion": "e0-3-bot-b5-3-064a-refresh-launch-preflight.v1",
+  "observedAt": "2026-08-23T19:10:32Z",
+  "route": "E0/E0.3/B5.3/064A_REFRESH_LAUNCH_PREFLIGHT",
+  "boundedSliceStatus": "BLOCKED_OWNER",
+  "result": "NO_GO_BEFORE_PRODUCTION_CONTACT",
+  "conversationAuthorization": {
+    "present": true,
+    "source": "CURRENT_OWNER_CONVERSATION_CONTEXT_ONLY",
+    "scope": "ONE_BOUNDED_READ_ONLY_064A_PRODUCTION_REFRESH_AFTER_ALL_HARD_PREREQUISITES_PASS",
+    "singleUse": true,
+    "consumed": false,
+    "authenticatedCryptographicDecision": false,
+    "evidenceAcceptance": false,
+    "activationAllowed": false,
+    "materiallyRevisedCommandRequiresFreshOwnerReview": true
+  },
+  "canonicalGateStatus": {
+    "stage": "E0",
+    "stageStatus": "IN_PROGRESS",
+    "firstUnmetCriterion": "E0.3",
+    "firstUnmetStatus": "BLOCKED_OWNER",
+    "e4ExcludedFromCurrentTask": true,
+    "e4StatusPreserved": "IN_PROGRESS",
+    "e4GateDecisionPreserved": "NO_GO"
+  },
+  "evidenceBindings": [
+    {
+      "path": "docs/e0-3-bot-b5-3-064a-current-authority-reconciliation.v1.json",
+      "sha256": "4060eac085698ee8b4dc3237381b2788e69611a50cdf9bf38cc0d82e9350440d"
+    },
+    {
+      "path": "docs/e0-3-bot-b5-3-064a-production-source-refresh.v4.json",
+      "sha256": "99531224f6eac8d13ce07b14fdf6408f333fca2a10426e7876613ce3da812a80"
+    },
+    {
+      "path": "docs/b64-064a-offline-signing-v4.md",
+      "sha256": "07670fb2368786c2d6b7b7b89649b032ea3d5fd6adb490bfcc562f82ec525854"
+    },
+    {
+      "path": "scripts/b64_064a_offline_signer.py",
+      "sha256": "fafe307ba81a1f08eb762ecbea26578728b5688fe552529a5b1a5b56fafca2f2"
+    },
+    {
+      "path": "relay/core/b64_064a_decision.py",
+      "sha256": "f0eac40ae2f8cf5f2e616bc6e1853621988eed9aebfd4e6658ab71c240b1c5fd"
+    },
+    {
+      "path": "docs/e0-3-bot-b5-3-064a-v4-synthetic-one-device-preflight.v1.json",
+      "sha256": "0e82f5854a5416f3eeedce967eb81cb4cce4a8a0b77c4d129aa325dc499b87f4"
+    },
+    {
+      "path": "deploy/postgres/check_b64_notification_migration.py",
+      "sha256": "9f7941d2945701b92918ef561b22663e2a307407c6194462f2e2dac83a05fc0f"
+    },
+    {
+      "path": "deploy/postgres/b64_snapshot_dump.py",
+      "sha256": "5fae39a32b195b4dd8eba3e9834fee1834f010538bc87a3bb04e623aa91921a2"
+    },
+    {
+      "path": "tests/test_e0_3_bot_b5_3_snapshot_dump.py",
+      "sha256": "5d59de5cd65b77c4acb6098991135f01e9d9f5af6041a26af67d2517e11e4cc9"
+    }
+  ],
+  "hardReadinessPredicates": [
+    {
+      "id": "OWNER_CONVERSATION_AUTHORIZATION_FOR_ONE_READ_ONLY_REFRESH",
+      "status": "PASS_CONDITIONAL"
+    },
+    {
+      "id": "ACCOUNTABLE_OWNER_OFFLINE_SIGNING_PATH_READY",
+      "status": "FAIL_NOT_PROVEN"
+    },
+    {
+      "id": "GENUINELY_INDEPENDENT_REVIEWER_AND_SEPARATE_OFFLINE_DEVICE_READY",
+      "status": "FAIL_NOT_PROVEN"
+    },
+    {
+      "id": "PRODUCTION_AUTHENTICATED_KEY_REGISTRY_AND_ENROLLMENT_READY",
+      "status": "FAIL_ABSENT"
+    },
+    {
+      "id": "TRUSTED_TIME_ATTESTATION_READY",
+      "status": "FAIL_ABSENT"
+    },
+    {
+      "id": "REVOCATION_SOURCE_READY",
+      "status": "FAIL_ABSENT"
+    },
+    {
+      "id": "DURABLE_ATOMIC_REPLAY_LEDGER_AND_CONSUMER_READY",
+      "status": "FAIL_ABSENT"
+    },
+    {
+      "id": "EXACT_SECRET_SAFE_READ_ONLY_OPERATOR_COMMAND_AND_CREDENTIAL_MAPPING_REVIEWED",
+      "status": "FAIL_ABSENT"
+    },
+    {
+      "id": "PATCHED_DIGEST_PINNED_PG_DUMP_CLIENT_AT_LEAST_17_11",
+      "status": "FAIL_CURRENT_EVIDENCE_17_10"
+    },
+    {
+      "id": "DEDICATED_ATTESTED_LEAST_PRIVILEGE_DUMP_PRINCIPAL",
+      "status": "FAIL_RUNNER_USES_POSTGRES"
+    },
+    {
+      "id": "FAIL_SAFE_CLEANUP_AND_ABSENCE_VERIFICATION_FOR_ALL_TRANSIENTS",
+      "status": "FAIL_INCOMPLETE"
+    },
+    {
+      "id": "STATEMENT_EXPIRY_CANNOT_EXCEED_SOURCE_EVIDENCE_EXPIRY",
+      "status": "FAIL_NOT_ENFORCED_AT_VERIFY"
+    },
+    {
+      "id": "CURRENT_IMPLEMENTATION_AND_SOURCE_PACKAGE",
+      "status": "FAIL_EXPIRED_AND_DRIFTED"
+    }
+  ],
+  "localGuardHardening": {
+    "status": "HARDENED_LOCAL",
+    "previousCondition": "dirty_data.status == IN_PROGRESS",
+    "risk": "TARGET_OR_LEGACY_SHAPE_FAILURE_ALSO_RETURNED_IN_PROGRESS_AND_COULD_REACH_PG_DUMP",
+    "newCondition": "EXACT_AGGREGATE_SCHEMA_COUNTER_RELATION_AND_ALLOWED_BLOCKER_CONTRACT",
+    "acceptsObservedBusinessBlockers": [
+      "LEGACY_PENDING_DRAINED",
+      "LEGACY_SENDING_RECONCILED"
+    ],
+    "rejects": [
+      "TARGET_PG17_READONLY_AND_LEGACY_SHAPE_EXACT",
+      "EMPTY_OR_PARTIAL_COUNTS",
+      "UNKNOWN_OR_DUPLICATE_BLOCKERS",
+      "INCONSISTENT_CRITERION_STATUS",
+      "INCONSISTENT_TOTAL_OR_SUBSET_COUNTS",
+      "EXTRA_OR_MISSING_FIELDS"
+    ],
+    "focusedTests": {
+      "result": "PASS",
+      "count": 14
+    },
+    "doesNotClaimWholeRefreshRunnerSafe": true
+  },
+  "currentPackageFindings": {
+    "sourceObservedAt": "2026-08-22T03:25:06Z",
+    "sourceExpiredAt": "2026-08-23T03:25:06Z",
+    "sourcePostgresVersionNum": 170010,
+    "sourceCurrent": false,
+    "packageIntegrity": false,
+    "technicalEvidenceCurrent": false,
+    "implementationDriftPresent": true,
+    "candidateCanBeSignedNow": false
+  },
+  "securityResearch": [
+    {
+      "source": "https://www.postgresql.org/support/security/CVE-2026-19385/",
+      "finding": "PG_DUMP_BEFORE_17_11_AFFECTED_BY_CVE_2026_19385_CVSS_8_8"
+    },
+    {
+      "source": "https://www.rfc-editor.org/rfc/inline-errata/rfc3161.html",
+      "finding": "TIMELINESS_AND_TSA_CERTIFICATE_STATUS_REQUIRE_INDEPENDENT_VERIFICATION"
+    },
+    {
+      "source": "https://www.rfc-editor.org/info/rfc6960/",
+      "finding": "REVOCATION_STATUS_IS_A_SEPARATE_CURRENT_STATUS_INPUT"
+    },
+    {
+      "source": "https://pages.nist.gov/800-63-4/sp800-63b/authenticators/",
+      "finding": "NONCE_OR_CHALLENGE_FRESHNESS_IS_REQUIRED_FOR_REPLAY_RESISTANCE"
+    },
+    {
+      "source": "https://www.sqlite.org/transactional.html",
+      "finding": "DURABLE_ONE_SHOT_CONSUMPTION_REQUIRES_A_TRANSACTIONAL_PERSISTENT_WRITE_PATH"
+    }
+  ],
+  "externalToolingObservation": {
+    "plugin": "GitHub",
+    "repository": "gromillaultra3000-hash/obsidian-exchange",
+    "remoteHead": "07b0015d4fa850d580acf8a68e1b06ec95e9a0dd",
+    "combinedStatusCount": 0,
+    "pullRequestWorkflowRunCount": 0,
+    "provesProductionReadiness": false,
+    "localUncommittedWorkRepresented": false
+  },
+  "independentReviews": [
+    {
+      "review": "ROUTE_AND_AUTHORITY",
+      "result": "NO_GO"
+    },
+    {
+      "review": "LOCAL_STATE_AND_PREREQUISITES",
+      "result": "NO_GO"
+    },
+    {
+      "review": "SECURITY_AND_DEVOPS_REPEATABILITY",
+      "result": "NO_GO"
+    }
+  ],
+  "postChangeReviews": [
+    {
+      "review": "ROUTE_AND_AUTHORITY_EXACTNESS",
+      "localSliceResult": "PASS",
+      "operationalRefreshResult": "NO_GO"
+    },
+    {
+      "review": "ADVERSARIAL_COUNTER_AND_EVIDENCE_MUTATIONS",
+      "localSliceResult": "PASS",
+      "operationalRefreshResult": "NO_GO"
+    },
+    {
+      "review": "SECURITY_AND_DEVOPS_SQL_SEMANTICS",
+      "localSliceResult": "PASS",
+      "operationalRefreshResult": "NO_GO"
+    }
+  ],
+  "verification": {
+    "dirtyScanGuardTests": 14,
+    "rootFocused064aAndSnapshotTests": 68,
+    "independentExtendedSelectedTests": 71,
+    "jsonValidation": "PASS",
+    "pythonCompilation": "PASS",
+    "gitDiffCheck": "PASS",
+    "gitCachedDiffCheck": "PASS",
+    "gitleaksVersion": "8.30.0",
+    "gitleaksScopedResult": "PASS"
+  },
+  "refreshExecution": {
+    "preflightCompleted": true,
+    "productionContact": false,
+    "productionDatabaseConnection": false,
+    "dockerOrPostgresInvoked": false,
+    "secretOrPrivateKeyRead": false,
+    "customerDataRead": false,
+    "signatureCreated": false,
+    "refreshAttempted": false,
+    "new24HourWindowCreated": false,
+    "authorizationConsumed": false,
+    "automaticRetry": false
+  },
+  "authority": {
+    "evidenceAccepted": false,
+    "productionContactActivated": false,
+    "productionMutationAuthorized": false,
+    "productionExpandAuthorized": false,
+    "deploymentAuthorized": false,
+    "restartAuthorized": false,
+    "cutoverAuthorized": false,
+    "telegramDeliveryAuthorized": false,
+    "ambiguousSendingDispositionAuthorized": false,
+    "automaticRetryAuthorized": false,
+    "e4ExecutionAuthorized": false,
+    "actionAllowed": false
+  },
+  "worktreeScope": {
+    "repositoryFilesTouchedByThisSlice": [
+      "deploy/postgres/check_b64_notification_migration.py",
+      "deploy/postgres/b64_snapshot_dump.py",
+      "tests/test_e0_3_bot_b5_3_snapshot_dump.py",
+      "docs/e0-3-bot-b5-3-064a-refresh-launch-preflight.v1.json",
+      "tests/test_e0_3_bot_b5_3_064a_refresh_launch_preflight.py",
+      "tests/test_e0_3_bot_b5_3_064a_current_authority_reconciliation.py",
+      "docs/e0-gate-status.v1.json",
+      "docs/ecosystem-master-roadmap.md",
+      "PROJECT_MEMORY.md"
+    ],
+    "unrelatedPreExistingWorktreeChangesPresent": true,
+    "unrelatedPreExistingWorktreeChangesPreserved": true,
+    "claimsWholeWorktreeCleanOrReviewed": false
+  },
+  "remainingBlockers": [
+    "INDEPENDENT_REVIEWER_AND_SEPARATE_OFFLINE_DEVICE_NOT_PROVEN_READY",
+    "PRODUCTION_REGISTRY_TRUSTED_TIME_REVOCATION_AND_DURABLE_REPLAY_ABSENT",
+    "READ_ONLY_OPERATOR_COMMAND_AND_CREDENTIAL_MAPPING_NOT_REVIEWED",
+    "PG_DUMP_17_10_EVIDENCE_IS_AFFECTED_BY_CVE_2026_19385",
+    "PG_DUMP_RUNS_AS_POSTGRES_WITHOUT_LEAST_PRIVILEGE_ATTESTATION",
+    "TRANSIENT_CLEANUP_IS_NOT_ONE_FAIL_SAFE_VERIFIED_ORCHESTRATION",
+    "STATEMENT_EXPIRY_MAY_OUTLIVE_SOURCE_EVIDENCE_EXPIRY",
+    "SOURCE_WINDOW_EXPIRED_AND_CURRENT_IMPLEMENTATION_BINDINGS_DRIFTED",
+    "064B_REMAINS_UNAUTHORIZED",
+    "064D_REMAINS_UNAUTHORIZED"
+  ],
+  "nextCanonicalItem": "HARDEN_AND_INDEPENDENTLY_REVIEW_ONE_EXACT_064A_REFRESH_RUNBOOK_WITH_PATCHED_PINNED_PG_DUMP_LEAST_PRIVILEGE_COMPLETE_CLEANUP_SOURCE_WINDOW_BINDING_AND_CONCRETE_AUTHENTICATION_PATH_BEFORE_FRESH_OWNER_AUTHORIZATION",
+  "interpretation": "The owner conversationally authorized one bounded read-only refresh only after readiness passes. Three independent reviews found conjunctive readiness failures, so production contact did not begin and the authorization was not consumed. One local fail-open dirty-scan guard was hardened and regression-tested, but this does not make the overall refresh procedure safe or current. E0.3 remains BLOCKED_OWNER; E4 remains excluded and unchanged."
+}

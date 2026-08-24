@@ -1,0 +1,1 @@
+{"advisoryTightenedCount":0,"byCombinedVerdict":{"ALLOW":0,"FREEZE":0,"HOLD":0,"MANUAL":0},"byFreshness":{"FRESH":0,"STALE":0,"UNKNOWN":0},"bySignal":{"ADVISORY_UNAVAILABLE":0,"CONNECTOR_DEGRADED":0,"MARKET_DATA_STALE":0,"PERMISSION_DRIFT":0,"PROVIDER_RATE_LIMIT":0},"evidenceCount":0,"hardAdvisoryDisagreementCount":0,"schemaVersion":"shadow-metrics.v1","submissionCount":0}

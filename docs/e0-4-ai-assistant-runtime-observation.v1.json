@@ -1,0 +1,53 @@
+{
+  "schemaVersion":"e0-4-ai-assistant-runtime-observation.v1",
+  "observedAt":"2026-08-18T22:20:00Z",
+  "route":"E0/E0.4/AI_ASSISTANT",
+  "acceptance":"PARTIAL_NOT_ACCEPTED",
+  "workClass":"KEYLESS_READ_ONLY_DEPLOYED_SOURCE_AND_UNIT_METADATA_CLASSIFICATION",
+  "observationSafety":{"authenticatedCalls":false,"customerRowsRead":false,"secretValuesRead":false,"modelCalls":false,"externalCalls":false,"writersExercised":false,"deployOrRestart":false},
+  "scopeBoundary":{"included":"The customer-facing Relay /api/ai-ask and Mini App FAQ assistant only.","excluded":"KAIROS committee/control chat remains attributed to KAIROS_AUTONOMOUS_TRADE_CONTROL and KAIROS_EXCHANGE_DISCOVERY. LUMI dialog/control and frozen shadow advisory remain attributed to LUMI_CONTROL_PLANE and LUMI_ADVISORY.","effectBoundary":"The inspected Relay path has no tools, retrieval, customer/order context, persistence, signing, broadcast, provider mutation or money writer. This bounded absence must remain regression-tested and does not authorize future tools.","advisoryAuthority":"Generated text has no accepted policy veto, quote, order-state, payment, support-agent or execution authority."},
+  "runtimeObservation":{"ollamaUnitActive":true,"ollamaUnitEnabled":true,"observedVia":"systemctl show at 2026-08-18T22:05Z","unitPrincipal":"ollama","configuredAdapterUrl":"http://localhost:11434/api/generate","configuredModelTag":"qwen2:1.5b","modelCallExercised":false,"modelRuntimeReady":false},
+  "deployedEntrypoints":[
+    {"path":"/opt/obsidian-exchange/relay-fastapi/ai_support.py","sha256":"2bbd4cd3d135397d6512c721ae68762188e10c263d63c5e37f91bf4fd26a2541"},
+    {"path":"/opt/obsidian-exchange/relay-fastapi/main.py","sha256":"c1ef783e3005f4698540ddc5368ef9a4592612fcf666b403ecbb7c4a359bd7ff"},
+    {"path":"/opt/obsidian-exchange/relay/webapp.html","sha256":"12545433f4004eef1df25592474b8e14db9558a5bb356bc245dc6b6826f9adcc"},
+    {"path":"/opt/obsidian-exchange/bot/main_bot.py","sha256":"a015b5b12870fa2f1eec7d0fb638cc2c94cb90235850d474ebb25455446372fb"},
+    {"path":"/opt/obsidian-exchange/relay-fastapi/templates/admin_analytics.html","sha256":"ad7719f45bc54e9340d830b8ed2c88716411c865579b1bd076dd5eb821a39e53"},
+    {"path":"/etc/nginx/nginx.conf","sha256":"05be01f2b48a39207ca6d01a5fb9b36449bb63d8d4fb848a8d6c59ef0d2eb152"},
+    {"path":"/etc/nginx/sites-available/obsidian-exchange.org","sha256":"d7319e93f22e0bd6e7b37071b1517e25f52be760cc15cb496a3c4a151294aa0f"},
+    {"path":"/etc/systemd/system/ollama.service","sha256":"11758d469d3f103e53a9612a8ffcb3a3e61834c994c08d412bb051f3c827dbd3"},
+    {"path":"/usr/share/ollama/.ollama/models/manifests/registry.ollama.ai/library/qwen2/1.5b","sha256":"f6daf2b25194025ae2d5288f2afd041997ce48116807a3b612c1a96b09bec03a"}
+  ],
+  "observedFlow":["Mini App accepts one question","public POST /api/ai-ask coerces and slices it to 500 Python characters","Relay sends fixed system prompt plus question to loopback Ollama with temperature 0.3 and num_predict 200","Ollama JSONL chunks are converted to SSE text","Mini App renders question and answer with textContent"],
+  "positiveControls":[
+    "The adapter URL is literal loopback, and no external AI provider is used by this customer path in inspected source.",
+    "Question and model output are rendered with textContent rather than HTML/Markdown execution.",
+    "The path is single-turn and passes no conversation history, tools, customer/order database context, credentials or signing capability.",
+    "Generic Nginx /api limiting applies 30 requests per minute with burst 15 per source IP; this is edge protection but not an AI admission budget.",
+    "A qwen2:1.5b manifest with content digests is present, but presence/tag/unit activity is not runtime readiness or accepted provenance."
+  ],
+  "criticalFindings":[
+    {"severity":"HIGH","id":"PUBLIC_INFERENCE_RESOURCE_ABUSE","finding":"The endpoint is unauthenticated and has no per-principal quota, global concurrency semaphore, bounded queue, cancellation/load-shed policy, AI circuit breaker or co-resident resource isolation. Generic per-IP limiting still permits distributed and concurrent long-lived generation."},
+    {"severity":"HIGH","id":"HARDCODED_FINANCIAL_TRUTH_CONTRADICTS_RUNTIME","finding":"The system prompt says minimum 1000 RUB while Relay defaults to 2000; it promises referral 0.5 percent of every exchange while deployed policy defines 10 percent of service commission. Static fees, assets, max, no-KYC and 5-15 minute payout claims have no canonical source, version, as-of, availability or legal qualifier."},
+    {"severity":"HIGH","id":"NO_HARD_ADVISORY_OR_SAFE_ESCALATION_CONTRACT","finding":"The prompt does not deterministically forbid payment requisites, addresses, seed/API-key collection, order/payment-status claims, guarantees or legal/investment advice. Prompt injection or hallucination cannot execute tools today, but customer action on false guidance remains a money/safety risk."},
+    {"severity":"HIGH","id":"PRIVACY_COPY_OVERCLAIMS","finding":"The UI says local AI and data are not transmitted, while the question is transmitted browser-to-Relay-to-a separate local Ollama process. No scoped notice, sensitive-data warning, retention/deletion/access policy, no-prompt logging proof or Ollama egress/telemetry evidence was observed."},
+    {"severity":"HIGH","id":"MODEL_PROVENANCE_AND_READINESS_UNACCEPTED","finding":"Import success sets AI_ENABLED without a startup model probe. The mutable model tag is not bound to an approved digest, source/license/SBOM, runtime version, safety evaluation, canary or rollback. Model files live below a nobody:nogroup 0750 home while the unit principal is ollama, so fresh model accessibility is not proven; no model call was exercised."},
+    {"severity":"MEDIUM","id":"RAW_ERROR_DISCLOSURE_AND_PROTOCOL_DRIFT","finding":"Synchronous failures are returned as raw exception text in an ordinary JSON 200 while the client expects SSE. Streaming failures after headers have no safe terminal error event, request ID or bounded failure class."},
+    {"severity":"MEDIUM","id":"STREAM_PARSER_DROPS_OR_MISSTATES_OUTPUT","finding":"The adapter streaming branch does not raise on non-2xx and silently discards malformed JSONL. The browser decodes each network chunk independently without carrying partial lines, ignores HTTP status/content type and can display an empty generic failure after a JSON error."},
+    {"severity":"MEDIUM","id":"INPUT_SCHEMA_AND_BODY_BOUND_WEAK","finding":"Relay reads the whole JSON body before coercing any value through str and slicing 500 characters. Lists, objects and numbers are accepted; exact fields/content type/byte bounds/control-only input and unknown fields are not rejected."},
+    {"severity":"MEDIUM","id":"NO_GROUNDING_EVAL_OR_OUTPUT_VALIDATION","finding":"No canonical FAQ/policy retrieval, citations, confidence/abstention, address/URL/command safety filter, multilingual jailbreak corpus, fact regression, model update evaluation or human escalation is present. Low temperature and a system prompt are not safety controls."},
+    {"severity":"MEDIUM","id":"SURFACE_AND_OPERATOR_LIFECYCLE_GAP","finding":"Only Mini App exposes the assistant. Telegram bot, public site and native have no equivalent projection, and operator surfaces have no truthful model health, prompt/policy version, privacy-safe audit, eval results, kill switch or incident workflow; deterministic admin heuristics labelled AI insights are not model evidence."}
+  ],
+  "surfaceMatrix":{
+    "telegramBot":{"mode":"READ_ONLY","implementation":"NOT_IMPLEMENTED","reason":"No bot-native AI handler exists; launching Mini App is not a Telegram conversational assistant."},
+    "site":{"mode":"READ_ONLY","implementation":"NOT_IMPLEMENTED","reason":"The public site FAQ is static and no site caller of /api/ai-ask was observed."},
+    "miniApp":{"mode":"REQUIRED","implementation":"PARTIAL","reason":"A real single-turn local-model FAQ chat exists with text-only rendering, but truth, privacy, abuse, provenance and advisory boundaries are unaccepted."},
+    "admin":{"mode":"OPERATOR_ONLY","implementation":"NOT_IMPLEMENTED","reason":"No customer-assistant model-health, prompt/eval, privacy audit or kill-switch workflow exists; deterministic analytics heuristics must not be represented as AI model output."},
+    "api":{"mode":"REQUIRED","implementation":"PARTIAL","reason":"The public streaming route and loopback adapter exist without strict schema, authenticated admission, resource budgets, grounded response contract or safe errors."},
+    "native":{"mode":"READ_ONLY","implementation":"NOT_IMPLEMENTED","reason":"No deployed native assistant projection exists; any future client remains advisory-only and must never receive signing/tool authority."}
+  },
+  "coverageConclusion":{"sixSurfacesClassified":true,"customerKeysTouched":false,"toolsOrRetrievalPresent":false,"moneyWriterPresent":false,"advisoryAuthorityAccepted":false,"privacyAccepted":false,"modelProvenanceAccepted":false,"productionAssistantAccepted":false,"e0_4Complete":false,"e0Closed":false},
+  "independentReviews":[{"role":"security","disposition":"PARTIAL_NOT_ACCEPTED"},{"role":"surface","disposition":"PARTIAL_NOT_ACCEPTED"},{"role":"acceptance","disposition":"PARTIAL_NOT_ACCEPTED"}],
+  "limitations":["No model/network/authenticated/customer-row/secret/writer/deploy/restart action was exercised.","Loopback source, active unit and manifest presence do not prove loaded-model identity, inference success, no egress, retention, output safety or customer understanding.","KAIROS and LUMI are referenced only to prevent authority conflation; their separate accepted/rejected boundaries are not reclassified here."],
+  "nextCanonicalItem":"Classify KAIROS_EXCHANGE_DISCOVERY across all six surfaces and verify discovery provenance, draft safety, connector authority and no automatic credential/trade activation."
+}

@@ -1,0 +1,71 @@
+{
+  "schema": "obsidian.e0-3-remediation-plan.v1",
+  "asOf": "2026-08-15",
+  "stage": "E0.3",
+  "status": "IN_PROGRESS",
+  "designReviewed": true,
+  "designOwnerAccepted": false,
+  "implementationDeployed": false,
+  "ownerDecision": "docs/decisions/2026-08-15-e0-accountability-map.md",
+  "productionAuthorization": false,
+  "workstreams": [
+    {
+      "id": "secret-bundle-split",
+      "independentlyPlanable": true,
+      "deploymentReady": false,
+      "targetBundles": [
+        {"id":"telegram-bot-identity","members":["BOT_TOKEN"],"consumers":["relay-fastapi.service","exchange-bot.service","exchange-notifier.service","obsidian-monitor.service"],"note":"currently shared by real Telegram auth/send paths; reduce only after architectural replacement"},
+        {"id":"relay-auth","members":["RELAY_SECRET"],"consumers":["relay-fastapi.service","exchange-bot.service"]},
+        {"id":"admin-relay-auth","members":["INTERNAL_ADMIN_SECRET"],"consumers":["relay-fastapi.service","admin-panel.service"]},
+        {"id":"provider-isolated","providerFamilyAllowlist":["btcpay","platega","greenpay","swapuz","montera","lava","brabus","vertu","stormtrade","xpay","rspay-qr","rspay-bt"],"forbiddenFamilyIds":["telegram-bot-identity","relay-auth","admin-relay-auth","telegram-user-api"],"forbiddenConsumers":["exchange-notifier.service","obsidian-monitor.service","admin-panel.service","support-bot.service"]},
+        {"id":"telegram-user-api-offline","members":["TG_API_ID","TG_API_HASH"],"consumers":["explicit offline operator command only"]},
+        {"id":"common-config","membersRule":"proven non-secret configuration only","forbiddenNamePatterns":["TOKEN","SECRET","PASSWORD","PRIVATE","API_KEY","API_HASH"]}
+      ],
+      "providerConsumerProposals": [
+        {"family":"btcpay","desiredConsumers":[],"effectiveConsumers":["relay-fastapi.service","exchange-bot.service","exchange-notifier.service","obsidian-monitor.service"],"consumerEvidenceStatus":"NO_GO_SOURCE_USE_UNVERIFIED"},
+        {"family":"platega","desiredConsumers":["relay-fastapi.service","exchange-bot.service"],"effectiveConsumers":["relay-fastapi.service","exchange-bot.service","exchange-notifier.service","obsidian-monitor.service"],"consumerEvidenceStatus":"NO_GO_CALL_GRAPH_REVIEW_REQUIRED"},
+        {"family":"greenpay","desiredConsumers":["relay-fastapi.service","exchange-bot.service"],"effectiveConsumers":["relay-fastapi.service","exchange-bot.service","exchange-notifier.service","obsidian-monitor.service"],"consumerEvidenceStatus":"NO_GO_CALL_GRAPH_REVIEW_REQUIRED"},
+        {"family":"swapuz","desiredConsumers":["relay-fastapi.service"],"effectiveConsumers":["relay-fastapi.service","exchange-bot.service","exchange-notifier.service","obsidian-monitor.service"],"consumerEvidenceStatus":"NO_GO_BOT_NEED_UNVERIFIED"},
+        {"family":"montera","desiredConsumers":["relay-fastapi.service","exchange-bot.service"],"effectiveConsumers":["relay-fastapi.service","exchange-bot.service","exchange-notifier.service","obsidian-monitor.service"],"consumerEvidenceStatus":"NO_GO_CALL_GRAPH_REVIEW_REQUIRED"},
+        {"family":"lava","desiredConsumers":["relay-fastapi.service","exchange-bot.service"],"effectiveConsumers":["relay-fastapi.service","exchange-bot.service","exchange-notifier.service","obsidian-monitor.service"],"consumerEvidenceStatus":"NO_GO_CALL_GRAPH_REVIEW_REQUIRED"},
+        {"family":"brabus","desiredConsumers":["relay-fastapi.service","exchange-bot.service"],"effectiveConsumers":["relay-fastapi.service","exchange-bot.service","exchange-notifier.service","obsidian-monitor.service"],"consumerEvidenceStatus":"NO_GO_CALL_GRAPH_REVIEW_REQUIRED"},
+        {"family":"vertu","desiredConsumers":["relay-fastapi.service","exchange-bot.service"],"effectiveConsumers":["relay-fastapi.service","exchange-bot.service","exchange-notifier.service","obsidian-monitor.service"],"consumerEvidenceStatus":"NO_GO_CALL_GRAPH_REVIEW_REQUIRED"},
+        {"family":"stormtrade","desiredConsumers":["relay-fastapi.service","exchange-bot.service"],"effectiveConsumers":["relay-fastapi.service","exchange-bot.service","exchange-notifier.service","obsidian-monitor.service"],"consumerEvidenceStatus":"NO_GO_CALL_GRAPH_REVIEW_REQUIRED"},
+        {"family":"xpay","desiredConsumers":["relay-fastapi.service","exchange-bot.service"],"effectiveConsumers":["relay-fastapi.service","exchange-bot.service","exchange-notifier.service","obsidian-monitor.service"],"consumerEvidenceStatus":"NO_GO_CALL_GRAPH_REVIEW_REQUIRED"},
+        {"family":"rspay-qr","desiredConsumers":["relay-fastapi.service","exchange-bot.service"],"effectiveConsumers":["relay-fastapi.service","exchange-bot.service","exchange-notifier.service","obsidian-monitor.service"],"consumerEvidenceStatus":"NO_GO_CALL_GRAPH_REVIEW_REQUIRED"},
+        {"family":"rspay-bt","desiredConsumers":["relay-fastapi.service","exchange-bot.service"],"effectiveConsumers":["relay-fastapi.service","exchange-bot.service","exchange-notifier.service","obsidian-monitor.service"],"consumerEvidenceStatus":"NO_GO_CALL_GRAPH_REVIEW_REQUIRED"}
+      ],
+      "quarantineTargets": ["WHITE_PROXY until semantics proven","TONCENTER_API_KEY and TRONGRID_API_KEY until observer consumers proven","OPENAI_API_KEY offline utility only"],
+      "referenceSplitSteps": ["freeze names-only manifest","add schema validators and inactive templates","create host files atomically without emitting values","preflight one family","canary every proven consumer","remove family from old bundle only after all consumer proofs"],
+      "credentialRotationSteps": ["issue secondary or new credential where supported","establish bounded overlap or explicit fail-closed maintenance","for webhook secrets deploy dual verification before provider rotation","canary every consumer","observe bounded window","obtain provider revoke proof","delete old generation by deadline"],
+      "unknownOutcome": "disable affected connector or edge; reconcile provider state; HOLD/MANUAL; never blindly retry rotation",
+      "rollback": "before revoke restore a still-valid previous reference for only the affected consumers; after revoke roll forward or remain disabled; never restore a revoked or suspected-exposed credential"
+    },
+    {
+      "id": "database-role-narrowing",
+      "independentlyPlanable": true,
+      "deploymentReady": false,
+      "targetLoginRoles": ["obsidian_relay","obsidian_bot","obsidian_notifier","obsidian_relay_shadow"],
+      "offlineRoles": ["obsidian_migrator","obsidian_transition_owner"],
+      "requiredProperties": ["NOINHERIT","NOSUPERUSER","NOCREATEDB","NOCREATEROLE","NOREPLICATION","NOBYPASSRLS","no TEMP or schema CREATE","fixed search_path","bounded timeouts and connection limits"],
+      "serviceOrder": ["obsidian_relay_shadow","obsidian_notifier","obsidian_relay","obsidian_bot"],
+      "policy": ["one login credential per process","money transitions use reviewed bounded functions or exact column grants","SECURITY DEFINER owner is NOLOGIN and least-privilege","PUBLIC execute and default grants are revoked","shadow has no money DML","notifier cannot read or mutate unrelated money state","payout role remains isolated"],
+      "verification": ["checked-in repository-method capability manifest","fresh PostgreSQL 17 rehearsal","positive and negative privilege tests","search_path and malicious-input tests","live secret-free ACL verifier","queue and money-state reconciliation"],
+      "unknownOutcome": "hold affected workflow; reconcile ambiguous commit; never broaden grants ad hoc or replay money mutation",
+      "rollback": "atomically restore only the affected service's prior role reference while obsidian_app remains time-bounded; restart and reconcile; do not drop additive roles/functions during incident rollback"
+    }
+  ],
+  "sharedAcceptanceGates": [
+    "no secret values, DSNs, hashes, fingerprints or environment dumps in repository/evidence",
+    "exact effective and desired consumers are known",
+    "rotation owner, overlap window, revoke proof and deletion deadline exist per credential family",
+    "systemd definitions and role map match point-in-time runtime evidence",
+    "synthetic positive and adversarial negative tests pass",
+    "backup/restore and rollback are rehearsed before each writer cutover",
+    "no unresolved provider, database or money outcome",
+    "two independent reviews accept each material cutover"
+  ],
+  "stopConditions": ["unknown active secret or consumer","credential mismatch between endpoints","provider rotation/revoke ambiguity","permission denial on a money path","unreconciled queue/payment/payout state","missing rollback evidence","secret detected in logs or evidence"],
+  "remainingE03Blockers": ["production bundle split not deployed","broad obsidian_app still active","root money-capable services remain","retention/deletion/backup/expiry policies incomplete","rotation and revocation ceremonies not evidenced"],
+  "nextAuthorizedWithoutProductionMutation": "build names-only unit-to-file allowlist and repository-method-to-DB-capability manifest with synthetic negative tests"
+}

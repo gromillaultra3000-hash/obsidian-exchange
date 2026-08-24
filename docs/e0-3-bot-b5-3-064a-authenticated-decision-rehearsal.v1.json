@@ -1,0 +1,75 @@
+{
+  "schemaVersion": "e0-3-bot-b5-3-064a-authenticated-decision-rehearsal.v1",
+  "observedAt": "2026-08-17T05:25:11Z",
+  "route": "E0/E0.3/B5.3/064A",
+  "status": "BLOCKED_OWNER",
+  "rehearsalLevel": "SYNTHETIC_APPROVAL_PROTOCOL_REHEARSED",
+  "technicalEvidenceStatus": "DECLARED_BOUNDED_PROJECTION_REHEARSED",
+  "decisionInputSha256": "f8abf0cb858232df2497221c44a319975403ccb7a8e2d2403bd57bda8c904bbb",
+  "protocol": {
+    "signatureAlgorithm": "Ed25519",
+    "canonicalEncoding": "closed integer-string-boolean-null JSON subset, UTF-8, sorted keys, compact separators",
+    "reviewerSigns": "exact statement digest and bounded-evidence-only scope",
+    "ownerSigns": "exact statement digest plus exact reviewer envelope digest",
+    "rolesFromAuthenticatedRegistry": true,
+    "distinctKeyRequired": true,
+    "distinctIdentityRequired": true,
+    "distinctTrustDomainRequired": true,
+    "maximumLifetimeSeconds": 86400,
+    "atomicPairReplayConsumptionRequired": true
+  },
+  "syntheticVerification": {
+    "validTwoSignaturePath": "SYNTHETIC_VALID",
+    "productionAuthenticatedModeExercisedSymbolically": true,
+    "testsPassed": 6,
+    "testsFailed": 0,
+    "negativeCases": [
+      "decision-input digest drift",
+      "route substitution",
+      "cutover flag escalation",
+      "signature corruption",
+      "owner-review envelope mismatch",
+      "revoked reviewer key",
+      "expired statement and envelopes",
+      "nonce/decision replay",
+      "missing reviewer",
+      "missing owner",
+      "chat text cannot create approval"
+    ]
+  },
+  "currentDecision": {
+    "authenticatedOwnerSignaturePresent": false,
+    "authenticatedIndependentReviewerSignaturePresent": false,
+    "productionKeyRegistryPresent": false,
+    "productionReplayLedgerPresent": false,
+    "trustedTimeAttested": false,
+    "boundedEvidenceAccepted": false,
+    "packagePreparationEligible": false,
+    "productionExpandAuthorized": false,
+    "cutoverAuthorized": false,
+    "telegramDeliveryAuthorized": false,
+    "ambiguousSendingDispositionAuthorized": false,
+    "actionAllowed": false
+  },
+  "explicitInterpretation": "The owner's chat instruction 'continue' authorizes preparation only and is not authenticated evidence acceptance, migration GO, production mutation, cutover, rollout, Telegram delivery, or disposition of ambiguous SENDING rows.",
+  "syntheticLimits": [
+    "does not prove real owner or reviewer identity, different humans, informed review or independence",
+    "does not prove production key custody, MFA, hardware backing, revocation feed, trusted clock or durable replay ledger",
+    "does not prove production state remained unchanged after observation",
+    "does not authorize 064B deployment or any later migration phase"
+  ],
+  "knownLaterBlockers": [
+    "11 legacy SENDING rows require immutable 064D operator disposition before cutover readiness",
+    "064B through 064H remain unapplied",
+    "a separate change-window authorization is required before any production mutation"
+  ],
+  "artifacts": {
+    "decisionInput": "docs/e0-3-bot-b5-3-064a-decision-input.v1.json",
+    "decisionInputSha256": "f8abf0cb858232df2497221c44a319975403ccb7a8e2d2403bd57bda8c904bbb",
+    "verifier": "relay/core/b64_064a_decision.py",
+    "verifierSha256": "f0eac40ae2f8cf5f2e616bc6e1853621988eed9aebfd4e6658ab71c240b1c5fd",
+    "tests": "tests/test_e0_3_bot_b5_3_064a_decision.py",
+    "testsSha256": "8a9f65b554257e1ed21fc671fbdd99d3230ef65e09f88fcda916ab3ba834b5c7"
+  },
+  "nextCanonicalItem": "Obtain real authenticated signatures from one accountable owner and one independent reviewer over the exact current decision input, or explicitly reject/defer it. No further migration phase may be treated as authorized until then."
+}

@@ -1,0 +1,107 @@
+{
+  "schema": "native-wallet-ed25519-corpus-review-verifier-selection-scorecard.v1",
+  "decision_rule": "every common and option-specific mandatory gate must be PASS with hash-bound evidence; FAIL, UNKNOWN, NOT_EVALUATED or missing evidence blocks selection",
+  "allowed_gate_states": ["PASS", "FAIL", "UNKNOWN", "NOT_EVALUATED"],
+  "current_gate_state": "NOT_EVALUATED",
+  "common_mandatory_gates": [
+    {
+      "id": "c01_closed_exact_bytes",
+      "requirement": "the authenticated object is the exact closed verifier-result bytes and payload type",
+      "minimum_evidence": ["result schema digest", "canonical parser corpus digest", "unknown-field and duplicate-field rejection report"]
+    },
+    {
+      "id": "c02_complete_cross_binding",
+      "requirement": "all ADR 0024 request, assertion, challenge, credential, epoch, build, policy, time and nonce fields are bound",
+      "minimum_evidence": ["cross-binding test report digest", "mutation matrix digest"]
+    },
+    {
+      "id": "c03_build_provenance",
+      "requirement": "two independent builders verify signed provenance for pinned source, dependencies, parameters and artifact digest",
+      "minimum_evidence": ["two builder provenance digests", "builder root snapshot digest"]
+    },
+    {
+      "id": "c04_reproducible_bytes",
+      "requirement": "two administratively independent builds produce the exact same verifier artifact digest",
+      "minimum_evidence": ["builder A artifact digest", "builder B artifact digest", "byte-equality report digest"]
+    },
+    {
+      "id": "c05_policy_identity",
+      "requirement": "the exact verifier policy/configuration digest is allowlisted and cross-bound to the result",
+      "minimum_evidence": ["policy bytes digest", "configuration coverage report digest"]
+    },
+    {
+      "id": "c06_freshness_replay",
+      "requirement": "caller nonce and evidence ID are single-use with atomic consumption, bounded time and monotonic revocation epoch",
+      "minimum_evidence": ["fault-injection report digest", "rollback/replay test digest"]
+    },
+    {
+      "id": "c07_parser_parity",
+      "requirement": "producer and consumer reject the same malformed, oversized and non-canonical corpus",
+      "minimum_evidence": ["shared negative corpus digest", "differential result digest"]
+    },
+    {
+      "id": "c08_independent_administration",
+      "requirement": "reviewer, credential, recovery, verifier and builder trust domains satisfy the independence contract",
+      "minimum_evidence": ["two completed independence evidence records", "conflict-of-control review digest"]
+    },
+    {
+      "id": "c09_rotation_recovery",
+      "requirement": "compromise, revocation, rotation, rollback prevention and recovery rehearsal are documented and tested",
+      "minimum_evidence": ["recovery runbook digest", "successful rehearsal evidence digest"]
+    },
+    {
+      "id": "c10_dependency_license",
+      "requirement": "the verifier and consumer graphs have reviewed advisories, licenses and target-platform impact",
+      "minimum_evidence": ["locked graph digests", "advisory report digest", "license report digest"]
+    }
+  ],
+  "option_specific_gates": {
+    "local_pinned_execution": [
+      {
+        "id": "l01_private_process_boundary",
+        "requirement": "result transport is private, peer-authenticated and inaccessible to untrusted local processes",
+        "minimum_evidence": ["process boundary design digest", "impersonation test report digest"]
+      },
+      {
+        "id": "l02_executed_identity",
+        "requirement": "the launched executable, policy and mutable dependency set are measured before result acceptance",
+        "minimum_evidence": ["launch measurement report digest", "dependency coverage digest"]
+      },
+      {
+        "id": "l03_host_failure_domain",
+        "requirement": "a single compromised host cannot satisfy both independent reviewer decisions",
+        "minimum_evidence": ["host separation evidence digest", "failure-domain review digest"]
+      }
+    ],
+    "dsse_signed_result": [
+      {
+        "id": "d01_dedicated_result_key",
+        "requirement": "the result key is purpose-limited, unavailable to build jobs and independently administered",
+        "minimum_evidence": ["key policy digest", "access-boundary test digest"]
+      },
+      {
+        "id": "d02_root_epoch_revocation",
+        "requirement": "consumer-selected root, monotonic epoch and offline revocation are checked before signature use",
+        "minimum_evidence": ["root snapshot digest", "revocation snapshot digest", "stale/future/revoked mutation report digest"]
+      },
+      {
+        "id": "d03_signer_execution_binding",
+        "requirement": "the signer can sign only results emitted by the allowlisted measured verifier build and policy",
+        "minimum_evidence": ["signer-to-verifier channel design digest", "wrong-binary denial report digest"]
+      },
+      {
+        "id": "d04_key_compromise_recovery",
+        "requirement": "key compromise cannot authorize rollback and a rehearsed independent recovery root can advance epoch",
+        "minimum_evidence": ["compromise rehearsal digest", "epoch advance evidence digest"]
+      }
+    ]
+  },
+  "tie_rule": "no automatic winner; if both options pass, a separate ADR must choose based on smaller independently reviewed trust and runtime surface",
+  "selected_option": null,
+  "all_common_gates_pass": false,
+  "any_option_specific_gates_pass": false,
+  "selection_allowed": false,
+  "real_evidence_present": false,
+  "crypto_call_allowed": false,
+  "runtime_integration_allowed": false
+}

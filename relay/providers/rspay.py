@@ -16,8 +16,8 @@
   `external_id` в вебхуке мерчанта НЕ приходит (сказано в доке прямым текстом).
 
 Учётные данные (bot/.env):
-    RSPAY_SHOP_API_KEY  — ключ КОНКРЕТНОГО магазина (раздел «Магазины»)
-    RSPAY_API_SECRET    — секрет МЕРЧАНТА (раздел «Настройки»), им подписываем
+    RSPAY_SHOP_API_KEY / RSPAY_API_SECRET       — QR/deeplink кабинет
+    RSPAY_BT_SHOP_API_KEY / RSPAY_BT_API_SECRET — card/sbp кабинет
     RSPAY_BASE_URL      — по умолчанию https://rspay.win/api/v1
 
 Ключ и секрет — из разных разделов кабинета. Перепутать их местами легко, а
@@ -29,11 +29,11 @@ import time
 import uuid
 import hmac
 import hashlib
-import sqlite3
 import requests
 
 from providers.base import PaymentProvider
 from core import attempt_id
+from repositories.operational_read_store import from_environment as _read_store_from_environment
 from config.config import PROVIDER_TIMEOUT
 from utils.logger import get_logger
 
@@ -42,8 +42,11 @@ logger = get_logger(__name__)
 RSPAY_BASE_URL = os.getenv('RSPAY_BASE_URL', 'https://rspay.win/api/v1').rstrip('/')
 RSPAY_SHOP_API_KEY = os.getenv('RSPAY_SHOP_API_KEY', '')
 RSPAY_API_SECRET = os.getenv('RSPAY_API_SECRET', '')
+RSPAY_BT_SHOP_API_KEY = os.getenv('RSPAY_BT_SHOP_API_KEY', '')
+RSPAY_BT_API_SECRET = os.getenv('RSPAY_BT_API_SECRET', '')
 PUBLIC_RELAY = os.getenv('PUBLIC_RELAY', 'https://obsidian-exchange.org')
 DB_PATH = os.getenv('DB_PATH', '/root/exchange.db')
+def _store():return _read_store_from_environment(sqlite_path=DB_PATH)
 
 # Коды методов у RSPay зависят от того, что включено КОНКРЕТНОМУ магазину
 # (дока: «Список ниже соответствует методам, доступным вашему магазину»), и
@@ -118,6 +121,15 @@ def credentials_hint() -> str:
     return "RSPay: не заданы " + ", ".join(missing) if missing else ""
 
 
+def bt_credentials_hint() -> str:
+    missing = []
+    if not RSPAY_BT_SHOP_API_KEY:
+        missing.append("RSPAY_BT_SHOP_API_KEY")
+    if not RSPAY_BT_API_SECRET:
+        missing.append("RSPAY_BT_API_SECRET")
+    return "RSPay BT: не заданы " + ", ".join(missing) if missing else ""
+
+
 def _client_counters(user_id) -> dict:
     """Сколько заявок клиент создал и сколько оплатил — поля антифрода RSPay.
 
@@ -131,17 +143,11 @@ def _client_counters(user_id) -> dict:
     if uid <= 0:
         return {}
     try:
-        conn = sqlite3.connect(DB_PATH, timeout=5)
-        c = conn.cursor()
-        c.execute("SELECT COUNT(*), SUM(CASE WHEN status IN ('paid','sent','completed')"
-                  " THEN 1 ELSE 0 END) FROM orders WHERE user_id=?", (uid,))
-        row = c.fetchone()
-        conn.close()
+        counts = _store().client_order_counts(uid, ('paid','sent','completed'))
     except Exception as e:
         logger.warning("RSPay: счётчики клиента %s не прочитались: %s", uid, e)
         return {}
-    created = int((row or [0])[0] or 0)
-    paid = int((row or [0, 0])[1] or 0)
+    created, paid = counts['created'], counts['paid']
     return {"client_created_count": created, "client_paid_count": paid}
 
 
@@ -150,6 +156,21 @@ class RSPayProvider(PaymentProvider):
         self.base_url = RSPAY_BASE_URL
         self.api_key = RSPAY_SHOP_API_KEY
         self.secret = RSPAY_API_SECRET
+        self.bt_api_key = RSPAY_BT_SHOP_API_KEY
+        self.bt_secret = RSPAY_BT_API_SECRET
+
+    def _use_profile(self, profile: str):
+        if profile == "bt":
+            self.api_key, self.secret = self.bt_api_key, self.bt_secret
+        else:
+            self.api_key, self.secret = RSPAY_SHOP_API_KEY, RSPAY_API_SECRET
+
+    @staticmethod
+    def _profile_for_method(method: str) -> str:
+        return "bt" if method in (RSPAY_METHOD_CARD, RSPAY_METHOD_SBP, "card", "sbp") else "qr"
+
+    def _profile_for_invoice(self, invoice_id) -> str:
+        return "bt" if str(invoice_id or "").endswith("_bt") else "qr"
 
     # ── подписанный транспорт ───────────────────────────────────────────────
 
@@ -234,14 +255,15 @@ class RSPayProvider(PaymentProvider):
         return RSPAY_METHOD_DEFAULT
 
     def create_invoice(self, order_id, amount, payment_method=None, user_id=None):
-        hint = credentials_hint()
+        method = self._method_code(payment_method)
+        profile = self._profile_for_method(method)
+        hint = bt_credentials_hint() if profile == "bt" else credentials_hint()
         if hint:
             return {"error": hint}
-
-        method = self._method_code(payment_method)
+        self._use_profile(profile)
         # Суффикс попытки: три быстрых ретрая с одним transaction_id упрутся
         # в 409 Conflict, и клиент не получит реквизиты из-за нашей же защиты.
-        tx_id = attempt_id.make(order_id)
+        tx_id = f"{attempt_id.make(order_id)}_{profile}"
 
         # `user` обязателен и уходит в антифрод RSPay. Для платежей без телеграм-
         # идентификатора (веб-кабинет) честнее послать стабильный ключ заявки,
@@ -333,8 +355,11 @@ class RSPayProvider(PaymentProvider):
         """Платёжный статус по НАШЕМУ transaction_id (POST /requisites/status/)."""
         if not invoice_id:
             return {"status": "unknown"}
-        if credentials_hint():
+        profile = self._profile_for_invoice(invoice_id)
+        hint = bt_credentials_hint() if profile == "bt" else credentials_hint()
+        if hint:
             return {"status": "unknown"}
+        self._use_profile(profile)
         r = self._post("/requisites/status/", {"transaction_id": str(invoice_id)})
         data, err = self._json(r, "status")
         if err:
@@ -396,6 +421,7 @@ class RSPayProvider(PaymentProvider):
         """
         if not invoice_id:
             return {"ok": False, "error": "нет transaction_id"}
+        self._use_profile(self._profile_for_invoice(invoice_id))
         r = self._post("/transactions/cancel/", {"transaction_id": str(invoice_id)})
         data, err = self._json(r, "cancel")
         if err:
@@ -425,8 +451,11 @@ class RSPayProvider(PaymentProvider):
         """
         if not invoice_id:
             return {"ok": False, "error": "нет transaction_id"}
-        if credentials_hint():
-            return {"ok": False, "error": credentials_hint()}
+        profile = self._profile_for_invoice(invoice_id)
+        hint = bt_credentials_hint() if profile == "bt" else credentials_hint()
+        if hint:
+            return {"ok": False, "error": hint}
+        self._use_profile(profile)
         ext = str(filename).rsplit(".", 1)[-1].lower()
         ctype = self._RECEIPT_EXT.get(ext)
         if not ctype:

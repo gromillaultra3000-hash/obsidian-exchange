@@ -1,0 +1,72 @@
+{
+  "schemaVersion": "e4-reviewer-review-envelope.v1",
+  "envelopeId": "e4-review-envelope-20260822-04-1787436377932",
+  "status": "READY_FOR_OFFLINE_REVIEWER_SIGNATURE",
+  "stage": "E4",
+  "route": "E4_OWNER_GATED_FRESH_PRODUCTION_DISCONNECTED_REHEARSAL",
+  "purpose": "Independent non-authoritative review of one exact owner payload and its public staging evidence.",
+  "disposition": "REVIEW_PASS_NON_AUTHORITATIVE",
+  "reviewedAtEpochMs": 1787436377932,
+  "reviewNonceSha256": "7549d7f53508971b88865d230be81a410fa48f9a6614a46b0545d314ae03a23f",
+  "authority": {
+    "authenticated": false,
+    "ownerApproval": false,
+    "independentReview": false,
+    "rehearsalExecutionEligible": false,
+    "executionAuthorized": false,
+    "productionDatabaseContactAllowed": false,
+    "productionNetworkAllowed": false,
+    "productionCredentialsAllowed": false,
+    "proposalApplicationAllowed": false,
+    "persistentTargetAllowed": false,
+    "automaticRetryAllowed": false,
+    "containsSecrets": false,
+    "containsConnectionMaterial": false,
+    "executionEffect": "NONE",
+    "promotionAllowed": false,
+    "actionAllowed": false
+  },
+  "reviewer": {
+    "role": "INDEPENDENT_REVIEWER",
+    "issuerId": "e4-independent-reviewer",
+    "namespace": "e4-reviewer@obsidian-exchange.local",
+    "publicKeySha256": "27aa392a26727208d2f519672cab6e56dc5a153ec84477c29a54027e100e00f8",
+    "fingerprint": "SHA256:fectcTsd7rxR2gztCa+SmgJ6wzbeJKqYDS1W7JsACyU",
+    "trustRootId": "e4-owner-reviewer-anchors-20260822-v2"
+  },
+  "ownerPayload": {
+    "payloadRef": "e4-owner-decision-payload.v3.json",
+    "payloadId": "e4-owner-decision-payload-20260822-04-1787436176608",
+    "payloadSha256": "5cdadbb68c2d69bea6542fb9d7f238afa1ec8548b71e52be0c80f735b5f200cf",
+    "ownerSignatureRef": "e4-owner-decision-payload.v3.json.sig",
+    "ownerSignatureSha256": "e04a41e9f99d01d9b3a624951303266d278efdceb5e45cac0479ce425a06c97b",
+    "ownerIssuerId": "e4-owner-signing-v2",
+    "ownerFingerprint": "SHA256:G4szs+1DvEQygs3LZS1LDNNRyBYLUHZuX0a7C/gRjII",
+    "approvedAtEpochMs": 1787436176608,
+    "expiresAtEpochMs": 1787437076608
+  },
+  "binding": {
+    "planId": "e4rrp_73040dd58161e760075b961004c173966291a8d33344f248cf6a43ec75893ffd",
+    "planSourceSha256": "eb70458a03fdb5b744f44f0fd390e78f17a65226e2a48b2c763db3ff2623cc2c",
+    "evidenceManifestSha256": "2489745da1fd584c3d77965ebc7b4776ddad3115bcbea5dc7a623fc3d2981a03",
+    "stagedManifestSha256": "c9d94148fe163a284e8ad6df3640e4da9be1f2a090ea7d873e8a7d9bcab2594a",
+    "targetRef": "e4-disposable-pg-20260822-02",
+    "targetFingerprintSha256": "3545e043156cd9023d46a5ebaaa12f0c964ceea2887cea79c9703395a1588ad3",
+    "snapshotRefSha256": "d56f226fb3c38cc40f7265d1d15c2c751211bb86ff1beba655f82f99d5d4b619",
+    "snapshotSha256": "47efc0dc293890243072bdf048d40cbcc1fee8fbe719e4b841fb5d156f658b3e",
+    "keyRefSha256": "c7e21692ac64774b4229807d5b11338df72f722247a1bcebb22d54667a102109",
+    "immutableHandle": "fs-801-2412135",
+    "scope": "ONE_E4_ISOLATED_FULL_SNAPSHOT_REHEARSAL",
+    "invocationLimit": 1
+  },
+  "checks": {
+    "ownerSignatureBoundToExactPayload": true,
+    "ownerKeyMatchesV2TrustCandidate": true,
+    "reviewerKeyIsDistinctFromOwnerKey": true,
+    "snapshotIsEncryptedAndImmutableAtStaging": true,
+    "targetWasOwnerSelectedButNotAuthenticated": true,
+    "productionContactAndCredentialsExcluded": true,
+    "executionAuthorityGranted": false
+  },
+  "nextAction": "Verify the owner signature, exact binding, staging evidence and freshness independently; sign this exact envelope with the reviewer key. A real verifier must still accept both signatures before any executor eligibility, and this envelope does not authorize execution."
+}

@@ -1,0 +1,8 @@
+{
+  "callbackId": "sample-callback",
+  "hostAppId": "sample_desktop_app",
+  "enabled": true,
+  "eventTypes": ["decision_created"],
+  "mode": "mock",
+  "metadata": {"source": "example"}
+}

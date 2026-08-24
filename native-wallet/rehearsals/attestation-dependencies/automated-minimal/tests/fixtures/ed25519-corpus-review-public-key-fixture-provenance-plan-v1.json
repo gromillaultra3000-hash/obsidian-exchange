@@ -1,0 +1,58 @@
+{
+  "schema": "native-wallet-ed25519-corpus-review-public-key-fixture-provenance-plan.v1",
+  "fixture_classes": [
+    {
+      "id": "ed25519_public_verification_keys",
+      "allowed_fields": ["public_key_hex", "message_hex", "signature_hex", "expected_verification"],
+      "required_primary_source": "RFC 8032 Section 7.1 public verification fields",
+      "required_mutations": [
+        "public key bit flip",
+        "non-canonical compressed-y encoding",
+        "small-order public point",
+        "signature R bit flip",
+        "signature S non-canonical",
+        "message bit flip"
+      ]
+    },
+    {
+      "id": "webauthn_es256_cose_public_keys",
+      "allowed_fields": ["cose_key_hex", "client_data_hash_hex", "authenticator_data_hex", "signature_hex", "expected_verification"],
+      "required_primary_source": "published WebAuthn or FIDO verification-only conformance vectors with explicit redistribution terms",
+      "required_mutations": [
+        "duplicate COSE label",
+        "unknown COSE label",
+        "wrong kty alg or curve",
+        "short or long coordinate",
+        "off-curve point",
+        "non-deterministic or indefinite CBOR",
+        "signature or signed-data bit flip"
+      ]
+    }
+  ],
+  "per_fixture_required_metadata": [
+    "upstream URL and immutable revision or document section",
+    "retrieved byte SHA-256",
+    "exact retained public-field SHA-256",
+    "license or redistribution reference",
+    "extraction procedure digest",
+    "independent reviewer A decision digest",
+    "independent reviewer B decision digest"
+  ],
+  "review_requirements": [
+    "two reviewers are not fixture generator",
+    "reviewers have distinct identity and trust domains",
+    "all retained fields are public verification inputs",
+    "no seed private scalar recovery secret credential cookie or personal identifier",
+    "expected valid and invalid outcomes match primary source or reviewed mutation recipe",
+    "license treatment is approved",
+    "fixture and provenance digests are bound into parser test manifest"
+  ],
+  "import_gate": "all metadata and both independent authenticated reviews must pass before public fixture bytes enter the repository",
+  "sources_selected": false,
+  "licenses_reviewed": false,
+  "independent_reviews_present": false,
+  "fixture_bytes_imported": false,
+  "parser_dependency_selected": false,
+  "crypto_call_allowed": false,
+  "runtime_integration_allowed": false
+}

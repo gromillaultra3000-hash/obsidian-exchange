@@ -1,0 +1,16 @@
+{
+  "taskType": "project_improvement",
+  "input": "Prepare a patch preview for the detected issue.",
+  "context": {},
+  "requirements": {},
+  "metadata": {
+    "requestedAction": {
+      "actionId": "create_patch_preview",
+      "mode": "proposal",
+      "input": {
+        "targetFiles": ["app/main.py"],
+        "changeSummary": "Prepare safe patch preview"
+      }
+    }
+  }
+}

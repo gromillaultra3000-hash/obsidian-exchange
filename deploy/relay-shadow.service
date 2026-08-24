@@ -1,0 +1,44 @@
+[Unit]
+Description=ObsidianExchange Relay non-root shadow
+After=network.target obsidian-postgres.service kairos.service
+Requires=obsidian-postgres.service
+
+[Service]
+Type=simple
+User=relay-svc
+Group=relay-svc
+WorkingDirectory=/opt/obsidian-exchange/relay-fastapi
+EnvironmentFile=/etc/obsidian-exchange/app.env
+EnvironmentFile=/etc/obsidian-exchange/runtime.env
+EnvironmentFile=-/etc/obsidian-exchange/postgres/app.active.env
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=RELAY_BACKGROUND_TASKS_ENABLED=0
+Environment=RELAY_BIND_HOST=127.0.0.1
+Environment=RELAY_PORT=15001
+Environment=RELAY_KAIROS_PRIVATE_KEY_FILE=/etc/obsidian-relay/signing.key
+Environment=RELAY_KAIROS_PRINCIPAL_KEY_FILE=/etc/obsidian-relay/principal.key
+Environment=RECEIPT_DIR=/var/lib/obsidian-exchange-receipts
+Environment=RELAY_LOG_DIR=/var/log/obsidian-relay
+ExecStart=/opt/obsidian-exchange/relay-venv/bin/python /opt/obsidian-exchange/relay-fastapi/main.py
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+ProtectProc=invisible
+ProcSubset=pid
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+AmbientCapabilities=
+ReadWritePaths=/var/lib/obsidian-exchange-receipts /var/log/obsidian-relay
+UMask=0077

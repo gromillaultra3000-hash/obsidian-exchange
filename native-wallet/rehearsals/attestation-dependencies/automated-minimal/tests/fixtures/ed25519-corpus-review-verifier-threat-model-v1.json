@@ -1,0 +1,90 @@
+{
+  "schema": "native-wallet-ed25519-corpus-review-verifier-threat-model.v1",
+  "assets": [
+    "review decision authenticity",
+    "assertion and challenge byte integrity",
+    "reviewer credential and revocation state",
+    "verifier policy and build identity",
+    "freshness and single-use evidence state",
+    "independence of the two reviewer trust domains"
+  ],
+  "trust_boundaries": [
+    "untrusted assertion envelope to verifier parser",
+    "verifier process or workload to result consumer",
+    "build system and provenance signer to verifier allowlist",
+    "credential and revocation administration to verifier",
+    "result consumer to replay and evidence ledger",
+    "each reviewer domain to the other reviewer domain"
+  ],
+  "attacker_capabilities": [
+    "supply malformed or oversized assertion and result bytes",
+    "replay a valid assertion, result, nonce or evidence ID",
+    "substitute RP ID, origin, challenge, credential root, epoch, policy or build digest",
+    "compromise one reviewer, one builder, one verifier host or one result-signing key",
+    "serve stale revocation or allowlist state",
+    "present valid provenance for a non-reproducible or non-executed artifact",
+    "exploit parser disagreement between producer and consumer"
+  ],
+  "abuse_cases": [
+    {
+      "id": "tm01_result_shape_impersonation",
+      "attack": "submit a structurally all-green unsigned verifier result",
+      "required_control": "authenticate the exact closed result bytes under a separately pinned mechanism",
+      "residual_status": "OPEN_UNTIL_MECHANISM_SELECTED"
+    },
+    {
+      "id": "tm02_build_digest_substitution",
+      "attack": "name an attacker build digest in an otherwise authentic result",
+      "required_control": "consumer-selected build allowlist plus provenance and independent reproducibility",
+      "residual_status": "OPEN_UNTIL_ALLOWLIST_SOURCE_SELECTED"
+    },
+    {
+      "id": "tm03_signed_wrong_binary",
+      "attack": "a valid result-signing key signs output from a modified verifier",
+      "required_control": "cross-bind authenticated result to verified build and policy digests",
+      "residual_status": "OPEN"
+    },
+    {
+      "id": "tm04_provenance_only_acceptance",
+      "attack": "use valid SLSA provenance as proof that the named artifact executed correctly",
+      "required_control": "treat provenance, reproducibility and execution identity as separate checks",
+      "residual_status": "MITIGATED_BY_CONTRACT_ONLY"
+    },
+    {
+      "id": "tm05_replay_and_rollback",
+      "attack": "reuse old valid evidence with a stale but once-valid revocation epoch",
+      "required_control": "caller nonce, bounded lifetime, monotonic epoch and atomic single-use ledger",
+      "residual_status": "IMPLEMENTATION_ABSENT"
+    },
+    {
+      "id": "tm06_parser_differential",
+      "attack": "make verifier and consumer interpret result, Base64URL or client data differently",
+      "required_control": "exact-byte digest binding, closed models, canonical decoding and shared mutation corpus",
+      "residual_status": "TEST_CORPUS_INCOMPLETE"
+    },
+    {
+      "id": "tm07_one_domain_controls_both_reviews",
+      "attack": "reuse credential, recovery, verifier or build roots across nominally independent reviewers",
+      "required_control": "reject shared credential, recovery, verifier administration and build trust roots",
+      "residual_status": "VERIFIER_AND_BUILD_ROOTS_NOT_YET_DEFINED"
+    },
+    {
+      "id": "tm08_host_or_workload_compromise",
+      "attack": "forge IPC or modify dependencies/configuration around an allowlisted binary",
+      "required_control": "private authenticated process boundary or measured workload with explicit configuration coverage",
+      "residual_status": "OPEN"
+    }
+  ],
+  "out_of_scope": [
+    "proving the WebAuthn specification or ES256 primitive correct",
+    "protecting a reviewer whose authenticator and UV secret are both compromised",
+    "authorizing production wallet signing or any customer action"
+  ],
+  "acceptance_decision": "BLOCKED",
+  "blockers": [
+    "result-authentication mechanism not selected",
+    "verifier build identity and allowlist source not selected",
+    "independent verifier administration and recovery roots not defined",
+    "no real verifier build, assertion, credential, result or replay ledger exists"
+  ]
+}

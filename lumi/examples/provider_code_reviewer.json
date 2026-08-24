@@ -1,0 +1,13 @@
+{
+  "providerId": "code-reviewer-1",
+  "displayName": "Code Reviewer One",
+  "providerType": "mock",
+  "apiFormat": "json",
+  "enabled": true,
+  "capabilities": ["code_analysis", "critique", "validation", "error_analysis"],
+  "roles": ["code_reviewer", "critic", "validator"],
+  "costProfile": {"costPerCall": 0.01},
+  "latencyProfile": {"avgMs": 50},
+  "reliabilityScore": 0.95,
+  "notes": "code_review_success"
+}

@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "e0-3-bot-b5-3-snapshot-restore-equality-rehearsal.v1",
+  "observedAt": "2026-08-17T04:52:52Z",
+  "route": "E0/E0.3/B5.3/064A",
+  "status": "IN_PROGRESS",
+  "productionAuthorization": false,
+  "sourceOperation": "REPEATABLE_READ_READ_ONLY plus pg_export_snapshot; pg_dump imported the exact snapshot",
+  "archive": {"format":"PostgreSQL custom","serverMajor":17,"clientMajor":17,"sha256":"72dcbc1c0adcbe9cba212b35537af8df4c1fe142c6c9783463bc34eb9e328924","bytes":515837,"retained":false},
+  "restoreTarget": {"image":"sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193","postgresVersionNum":170010,"network":"none","readOnlyRootfs":true,"data":"tmpfs","clusterDistinctFromSource":true,"removed":true},
+  "verified": {
+    "publicTableRowMultisets": {"tables":54,"sourceAndRestoreSha256":"ac9b0b4bf9996363d1370e81f371b04fd81470f79d308141cd3c154a37c8c1b5","differentTables":[]},
+    "normalizedSchemaDump": {"sourceAndRestoreSha256":"4805d1f43bc4897f6b34f0295a4ca9df96d73a95d1126659d99dd41a3c740d28"},
+    "selectedEffectiveAcl": {"entries":835,"sourceAndRestoreSha256":"5377d1e9371735aa8e93566594a817eb3bc79fd097d2614dfd7ec1074bdde5ed"},
+    "baselineRoleEnvelopes": {"roles":4,"sourceAndRestoreSha256":"181cb15a03f2252b7e3bb5211c4c8106dfcbff39aee4ca6da3c6a794d16a4602"},
+    "cleanup": "host archives/manifests, source-container temp archive, disposable container and tmpfs all absent"
+  },
+  "claimBoundary": [
+    "table equality covers row multisets for 54 public ordinary/partitioned tables in one exported snapshot",
+    "schema equality is normalized pg_dump schema output without owner/privilege statements",
+    "ACL equality covers current public relations/sequences/functions/schema/database effective entries and four baseline role envelopes after canonical ACL reapplication",
+    "sequence last_value/is_called is not part of MVCC snapshot equality",
+    "column/default ACL, memberships, database-specific role settings, RLS/policies, trigger/security attributes and future B5 roles remain unverified"
+  ],
+  "artifacts": {
+    "deploy/postgres/b64_snapshot_dump.py":"d6e36c2cdfc3f4a5bb7fb2a12b039619063cd27efa9cc9fd83ee71900d170083",
+    "deploy/postgres/b64_acl_fingerprint.sql":"51838e3a9fcd4564d519bcda144e51f9ec432c9e498f4951a888d65690579ac2",
+    "deploy/postgres/b64_table_fingerprint.sql":"b121a8597b91a979d87a08ac83ae25e725fc1243edf3cec97c941948c3619bc1",
+    "deploy/postgres/b64_compare_table_fingerprints.py":"a4f8825366639cf1babcb98afd295948022170b481215c8da8b5077c48821ffa"
+  },
+  "acceptanceEvidence": ["six focused tests passed","Python compile passed","git diff check passed","single-transaction pg_restore exited successfully","independent migration and adversarial reviews accepted the bounded table/schema/baseline-ACL claim after cleanup"],
+  "surfaceMatrix": {"productionDatabase":"READ_ONLY","disposableRestore":"REQUIRED","telegramBot":"N/A","operatorAdmin":"N/A","webMiniAppNative":"N/A"},
+  "trustAndCustody": {"moneyWriter":false,"productionMutation":false,"temporaryDataClassification":"PRODUCTION_SENSITIVE","temporaryDataRetained":false,"credentialsEmitted":false},
+  "remainingBlockers": ["FULL_CATALOG_SECURITY_FINGERPRINT","AUTHENTICATED_OWNER_REVIEW","LEGACY_SENDING_RECONCILED"],
+  "gateStatus": "E0.3_IN_PROGRESS_CUTOVER_BLOCKED",
+  "nextCanonicalItem": "064A expand catalog-security fingerprint to column/default ACL, memberships, DB role settings, RLS/policies, triggers, function security attributes and sequence definitions; rehearse drift detection"
+}

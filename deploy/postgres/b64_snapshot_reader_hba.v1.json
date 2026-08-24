@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "obsidian-b64-snapshot-reader-hba.v1",
+  "route": ["E0", "E0.3", "B5.3", "064A"],
+  "role": "obsidian_b64_snapshot_reader",
+  "database": "obsidian_exchange",
+  "systemIdentifier": "7672203973020184609",
+  "dataDirectory": "/var/lib/postgresql/data",
+  "dataVolumeName": "obsidian-postgres-data",
+  "hbaFile": "/var/lib/postgresql/data/pg_hba.conf",
+  "rollbackDirectory": "/var/lib/postgresql/data/.obsidian-b64-hba-v1",
+  "rollbackBackupFile": "/var/lib/postgresql/data/.obsidian-b64-hba-v1/original.pg_hba",
+  "journalFile": "/var/lib/postgresql/data/.obsidian-b64-hba-v1/journal.json",
+  "expectedOriginalSha256": "45b68cd420caab6d19725857c309871880a66a4c195bcd7e1604e7c334b6be82",
+  "managedBlockSha256": "a40eae525e810f9b1014e8b7e434ae5ddeead55feb9fc8c80d63804488a30ff3",
+  "expectedDeployedSha256": "08b049674e7593bc87c8e78744ba6b65b557750807c17e860920931aa1b3d3b6",
+  "expectedSourceTransport": {
+    "networkNamespace": "container:obsidian-postgres",
+    "serverObservedClientAddress": "127.0.0.1/32",
+    "tcpHost": "127.0.0.1",
+    "tcpPort": 5432
+  },
+  "managedRules": [
+    ["local", "all", "obsidian_b64_snapshot_reader", "reject"],
+    ["local", "replication", "obsidian_b64_snapshot_reader", "reject"],
+    ["host", "obsidian_exchange", "obsidian_b64_snapshot_reader", "127.0.0.1/32", "scram-sha-256"],
+    ["host", "replication", "obsidian_b64_snapshot_reader", "0.0.0.0/0", "reject"],
+    ["host", "replication", "obsidian_b64_snapshot_reader", "::/0", "reject"],
+    ["host", "all", "obsidian_b64_snapshot_reader", "0.0.0.0/0", "reject"],
+    ["host", "all", "obsidian_b64_snapshot_reader", "::/0", "reject"]
+  ],
+  "requiredRoleState": {
+    "login": false,
+    "credential": "ABSENT",
+    "replication": false,
+    "contract": "FROZEN_001_023_SOURCE_PROFILE"
+  },
+  "deployment": {
+    "restartRequired": false,
+    "reloadRequired": true,
+    "containerIdentityBindingRequired": true,
+    "containerPidBindingRequired": true,
+    "secretlessUnixAdminTransportRequired": true,
+    "byteExactRollbackRequired": true,
+    "automaticRetryOnUnknown": false
+  }
+}

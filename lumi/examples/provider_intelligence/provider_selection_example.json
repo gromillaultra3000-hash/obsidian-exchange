@@ -1,0 +1,7 @@
+{
+  "strategy": "balanced",
+  "candidateProviderIds": [
+    "provider_openai_main",
+    "provider_groq_main"
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "projectId": "sample_project",
+  "source": "manual",
+  "title": "Prepare README improvement preview",
+  "summary": "Create a safe preview for adding project documentation.",
+  "targetFiles": ["README.md"],
+  "requestedChanges": [{"changeType": "docs_change", "description": "Add basic README sections."}],
+  "riskLevel": "low",
+  "metadata": {"source": "example"}
+}

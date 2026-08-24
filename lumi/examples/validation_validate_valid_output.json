@@ -1,0 +1,1 @@
+{"providerId":"provider-valid","rawOutput":{"providerId":"provider-valid","status":"success","answer":"The result is acceptable based on the provided context.","confidence":0.86,"suggestedStatus":"APPROVE","riskFlags":[],"assumptions":["Input context is sufficient"],"evidenceRefs":["mock_evidence_1"]}}

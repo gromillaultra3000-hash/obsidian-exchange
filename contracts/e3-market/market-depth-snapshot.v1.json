@@ -1,0 +1,13 @@
+{
+  "actionAllowed": false,
+  "asks": [["101", "1"], ["102", "2"]],
+  "baseAsset": "BTC",
+  "bids": [["99", "2"], ["98", "3"]],
+  "executionEffect": "NONE",
+  "observedAtEpochMs": 1786420800123,
+  "quoteAsset": "USDT",
+  "schemaVersion": "market-depth-snapshot.v1",
+  "snapshotId": "md_8de22902966e65972a61696a5b1abd72819d15693b218735ac2f414c04fe4377",
+  "source": "bybit",
+  "symbol": "BTCUSDT"
+}

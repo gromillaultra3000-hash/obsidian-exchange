@@ -1,0 +1,6 @@
+{
+  "providerId": "provider_openai_main",
+  "enabled": true,
+  "maxCallsPerSession": 20,
+  "maxEstimatedTokensPerSession": 50000
+}

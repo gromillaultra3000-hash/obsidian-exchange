@@ -12,6 +12,7 @@
 import ast
 import os
 import re
+import sqlite3
 import sys
 import tempfile
 
@@ -20,6 +21,11 @@ sys.path.insert(0, os.path.join(ROOT, "relay"))
 
 # Своя пустая база: боевая закрыта, да и трогать её отсюда нечего.
 os.environ["DB_PATH"] = os.path.join(tempfile.mkdtemp(prefix="portfolio-"), "t.db")
+with sqlite3.connect(os.environ["DB_PATH"]) as _fixture_db:
+    _fixture_db.execute(
+        "CREATE TABLE wallet_links (user_id INTEGER, chain TEXT, address TEXT, "
+        "verified_at TEXT, PRIMARY KEY(user_id,chain))"
+    )
 
 FAILS = []
 

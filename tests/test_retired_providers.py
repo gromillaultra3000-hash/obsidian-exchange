@@ -56,7 +56,8 @@ def seed():
 seed()
 # Учётные данные, чтобы required_env не выкинул провайдеров раньше снятия.
 for env in ("VERTU_LOGIN", "XPAY_API_KEY", "LAVA_SHOP_ID", "STORMTRADE_API_KEY",
-            "RSPAY_SHOP_API_KEY", "RSPAY_API_SECRET"):
+            "RSPAY_SHOP_API_KEY", "RSPAY_API_SECRET",
+            "RSPAY_BT_SHOP_API_KEY", "RSPAY_BT_API_SECRET"):
     os.environ[env] = "test"
 os.environ.pop("DISABLED_PROVIDERS", None)
 os.environ.pop("RETIRED_PROVIDERS", None)
@@ -160,4 +161,4 @@ check("отказ идёт ДО разбора тела",
       gp.index("is_provider_retired") < gp.index("await request.body()"))
 
 print(f"\n{ok} проверок пройдено, {fail} провал(ов)")
-sys.exit(1 if fail else 0)
+assert fail == 0, f"{fail} retired-provider checks failed"

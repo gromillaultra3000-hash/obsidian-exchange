@@ -49,6 +49,19 @@ def setup_db():
         id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, currency TEXT,
         crypto_amount REAL, rub_amount REAL, sbp_phone TEXT, receive_address TEXT,
         status TEXT, tx_hash TEXT, created_at TEXT, updated_at TEXT)""")
+    # Runtime DDL is deliberately forbidden; tests create the migration-owned
+    # wallet schema explicitly instead of relying on repository side effects.
+    conn.execute("""CREATE TABLE IF NOT EXISTS wallet_links (
+        user_id INTEGER NOT NULL, chain TEXT NOT NULL, address TEXT NOT NULL,
+        verified_at TEXT NOT NULL, PRIMARY KEY(user_id, chain))""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS wallet_send_intents (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
+        chain TEXT NOT NULL, sell_id INTEGER NOT NULL,
+        from_address TEXT NOT NULL, to_address TEXT NOT NULL,
+        amount REAL NOT NULL CHECK(amount > 0), marker TEXT NOT NULL,
+        created_at TEXT NOT NULL, signed_at TEXT)""")
+    conn.execute("""CREATE INDEX IF NOT EXISTS idx_wallet_send_sell
+        ON wallet_send_intents(sell_id, id)""")
     conn.commit()
     conn.close()
 

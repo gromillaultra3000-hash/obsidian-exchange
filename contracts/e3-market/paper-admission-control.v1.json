@@ -1,0 +1,15 @@
+{
+  "accountId": "sandbox_1",
+  "actionAllowed": false,
+  "controlHash": "pac_bcf5b4458c81e076c8a155465607d309708a779c07df7be669bb6ec4d8cd260b",
+  "controlId": "pctrl_e51fe3ae28c99d91873f9696ca6e54052f0087c0120766ae4ab2e0cb95687d84",
+  "events": [],
+  "executionEffect": "NONE",
+  "headHash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "paperOnly": true,
+  "schemaVersion": "paper-admission-control.v1",
+  "sequence": 0,
+  "status": "OPEN",
+  "terminalEvidenceHash": null,
+  "terminalReason": null
+}

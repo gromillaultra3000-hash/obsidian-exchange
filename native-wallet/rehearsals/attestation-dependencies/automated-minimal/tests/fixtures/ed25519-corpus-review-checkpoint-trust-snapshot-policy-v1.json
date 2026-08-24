@@ -1,0 +1,33 @@
+{
+  "schema": "native-wallet-ed25519-corpus-review-checkpoint-trust-snapshot-policy.v1",
+  "validation_order": [
+    "consumer selects exact policy slot domain and expected epoch",
+    "bounded closed snapshot parse",
+    "snapshot policy slot domain and epoch equal expectation",
+    "snapshot status is ACTIVE",
+    "current time is inside snapshot validity window",
+    "declared evidence root or credential digest equals snapshot",
+    "snapshot recovery authority is distinct from witness authentication domain",
+    "algorithm and candidate-specific metadata are exact",
+    "public key or credential bytes independently match stored snapshot digests",
+    "candidate signature verification may run"
+  ],
+  "rotation_contract": [
+    "new epoch is strictly greater than highest accepted epoch",
+    "new snapshot predecessor equals highest accepted snapshot digest",
+    "new authentication material digest differs from old material digest",
+    "two independent recovery domains authorize exact new snapshot digest",
+    "old snapshot becomes REVOKED or COMPROMISED in the same atomic advancement",
+    "rollback to old root or credential is permanently rejected",
+    "rotation failure exposes neither new active snapshot nor old-state rollback"
+  ],
+  "stale_future_retired_revoked_or_compromised_snapshot_rejects": true,
+  "keyid_or_credential_input_can_select_snapshot": false,
+  "rotation_implemented": false,
+  "snapshot_store_implemented": false,
+  "real_snapshot_present": false,
+  "crypto_call_allowed": false,
+  "checkpoint_authenticated": false,
+  "gate_i09_pass": false,
+  "runtime_integration_allowed": false
+}

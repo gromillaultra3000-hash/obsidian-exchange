@@ -1,0 +1,14 @@
+{
+  "accountId": "sandbox_1",
+  "actionAllowed": false,
+  "entries": [],
+  "executionEffect": "NONE",
+  "headHash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "notionalQuote": "0",
+  "paperOnly": true,
+  "schemaVersion": "paper-daily-usage.v1",
+  "tradeCount": 0,
+  "usageDayEpoch": 20676,
+  "usageHash": "pdu_a55d9a38ee52271a2cd815924376bcb2dc0b5856316ded24579e01cc72bc6b61",
+  "usageId": "pdug_d6a21526c24b3a28c7e31a8234730026685aa25b6f8e2bbc4020d1262a8ae333"
+}

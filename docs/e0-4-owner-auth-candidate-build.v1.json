@@ -1,0 +1,62 @@
+{
+  "schemaVersion": "e0-4-owner-auth-candidate-build.v1",
+  "observedAt": "2026-08-17T15:32:00Z",
+  "route": "E0/E0.4/FEATURE_STATUS_SURFACE_MATRIX",
+  "status": "IN_PROGRESS",
+  "workClass": "HERMETIC_SURGICAL_CANDIDATE_BUILD",
+  "accountableOwner": "project-owner",
+  "productionMutation": false,
+  "deploymentAuthorized": false,
+  "restartAuthorized": false,
+  "databaseQueriesMade": false,
+  "telegramMessagesSent": false,
+  "builder": "scripts/e0_4_build_owner_auth_candidate.py",
+  "artifacts": [
+    {"component":"relay","candidateSha256":"cdd840fe11ff1726d0aa20e7a5fd9016867821f82d8eca9c1de42bd02daa04f3"},
+    {"component":"bot","candidateSha256":"ec7f39fa93a744aa88910b5c0373cdeabec4ff4486c73e5cd16a255455f54c78"},
+    {"component":"order_access","candidateSha256":"2736446380833c881460e997ebc07237c55e4c3d26bb2723a411ceed25a08dfb"},
+    {"component":"order_read_store","candidateSha256":"54b73860ad154c9e86c4c00092779037fc0bba2edba230f5cbb6d8c29cd50c21"},
+    {"component":"payment_session_store","candidateSha256":"94836d4549d5255acea6d878b51de6e7fba150a47b126c892f4fe4e6942f6409"},
+    {"component":"receipt_store","candidateSha256":"fe6703df36f739cdcbd01e37d04eea28c7149186bd2e5fd1133e18ea31a8b960"},
+    {"component":"engagement_store","candidateSha256":"0668f07dfad22612a1add32a01c051762a0ab1f670e74d43317d35f66edc9057"}
+  ],
+  "includedScope": [
+    "owner-bound order, payment-session and receipt reads",
+    "short-lived signed numeric payment-link proof",
+    "bot review ownership and state checks",
+    "bot internal order-status request bound to stored user id",
+    "removal of authority-free webhook reads"
+  ],
+  "excludedScope": [
+    "notification delivery/evidence writer proposal",
+    "ThreadPoolExecutor and connection-budget runtime change",
+    "OBSIDIAN_SKIP_DOTENV test control",
+    "unrelated repository pagination, DDL and operational changes",
+    "environment, virtualenv, database, mutable cursor and secret files"
+  ],
+  "verification": {
+    "exactInputDigestGuards": "PASS",
+    "exclusiveOutputCreation": "PASS",
+    "allSevenArtifactsCompile": "PASS",
+    "candidateHashAssertions": "PASS",
+    "forbiddenSymbolAssertions": "PASS",
+    "digestMismatchFailClosed": "PASS",
+    "runtimeRouteMatrix": "PASS_IN_SEPARATE_EVIDENCE",
+    "postgresPrivilegeCompatibility": "PASS_IN_SEPARATE_EVIDENCE"
+  },
+  "independentReviews": [
+    {"identity":"agent:/root/candidate_scope_review","disposition":"ACCEPTED_MULTI_FILE_BOUNDARY"},
+    {"identity":"agent:/root/candidate_test_review","disposition":"REQUIRES_PRODUCTION_LAYOUT_HERMETIC_MATRIX"},
+    {"identity":"agent:/root/candidate_security_review","disposition":"CONDITIONAL_ACCEPT"}
+  ],
+  "limitations": [
+    "The initial two-entrypoint candidate was rejected because deployed dependencies lacked the new owner-bound methods; the corrected seven-artifact build is symbol-complete.",
+    "Compilation and structural assertions do not prove runtime compatibility.",
+    "/api/order is not read-only: existing provider polling may call _mark_order_paid, so future hermetic tests must trap network and effectful callbacks.",
+    "The two-hour URL bearer reuses RELAY_SECRET and has URL/log/referrer leakage and shared-secret blast-radius risk; this is residual risk, not production acceptance.",
+    "The production-layout hermetic route matrix passed after credential-precedence and unauthenticated-audit corrections, but the candidate remains incompatible with the target execute-only PostgreSQL ACL."
+  ],
+  "rollout": "None; candidate build only.",
+  "rollback": "Not applicable; no production state changed.",
+  "nextCanonicalItem": "Run the seven-artifact candidate in a copied production-layout hermetic tree with network/writer traps and cross-owner, invalid/expired proof, opaque-token, internal-key identity, review ownership and PostgreSQL privilege compatibility checks."
+}

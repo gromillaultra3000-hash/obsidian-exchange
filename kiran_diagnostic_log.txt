@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "/root/kairos/preflight_v19.py", line 12, in main
+    raise RuntimeError(f'Missing required files: {missing_files}')
+RuntimeError: Missing required files: ['app/main_v19.py', 'app/kairos_engine.py', 'app/static_frontend/index.html']

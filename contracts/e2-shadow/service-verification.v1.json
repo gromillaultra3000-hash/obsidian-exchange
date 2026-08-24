@@ -1,0 +1,1 @@
+{"actionAllowed":false,"audience":"lumi-shadow","executionEffect":"NONE","expiresAt":1786424435,"issuedAt":1786424405,"issuer":"kairos-shadow","keyId":"kairos-shadow-test-v1","replayProtected":true,"requestHash":"4a0e19bf7c74c949dbe7f92f2f77c8c239b5aafbe0f6977cb57f01813fc5c86e","schemaVersion":"shadow-service-verification.v1","scope":"shadow:advisory","verified":true}

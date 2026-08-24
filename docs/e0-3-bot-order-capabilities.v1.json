@@ -1,0 +1,14 @@
+{
+  "schema":"obsidian.e0-3-bot-order-capabilities.v1",
+  "stage":"E0.3",
+  "status":"EXACT_PACKAGE",
+  "productionAuthorization":false,
+  "sourceSha256":"01e836e04d21b27a073d7a2558b216ed33a62853a8c9742d5edb12a0ffc19885",
+  "capabilities":[
+    {"id":"bot_order_store.active_rate_lock","access":"READ","reads":{"rate_locks":["id","locked_rate","fee_rub","user_id","currency","used","locked_until"]},"invariants":["EXACT_USER_AND_CURRENCY","UNUSED_ONLY","NOT_EXPIRED","LATEST_ID_ONLY","SINGLE_ROW"]},
+    {"id":"bot_order_store.create_order","access":"MONEY_WRITE","reads":{"rate_locks":["id","user_id","currency","used","locked_until"],"promo_codes":["id","is_active","valid_until","uses_count","max_uses"],"promo_uses":["code_id","user_id"],"orders":["order_id"]},"mutations":{"orders":["user_id","username","currency","rub_amount","crypto_address","status","network","agreed_rate","agreed_crypto_amount","agreed_at"],"rate_locks":["used","order_id"],"promo_codes":["uses_count"],"promo_uses":["code_id","user_id","order_id"]},"invariants":["PENDING_ORDER_INSERT","RATE_AND_AMOUNT_PERSISTED_WITH_ORDER","LOCK_EXACT_ID_USER_CURRENCY","LOCK_UNUSED_AND_NOT_EXPIRED_CAS","PROMO_ACTIVE_NOT_EXPIRED_CAPACITY_CAS","PROMO_PER_USER_UNIQUENESS_CHECK","PROMO_LEDGER_ON_SUCCESS_ONLY","LOCK_OR_PROMO_LOSS_REPRICES_TO_DECLARED_FALLBACK","ORDER_LOCK_PROMO_ONE_TRANSACTION","RETURN_ORDER_ID_AND_ACTUAL_QUOTE"]},
+    {"id":"bot_order_store.replace_rate_lock","access":"WRITE","reads":{"rate_locks":["id","user_id","currency","used"]},"mutations":{"rate_locks":["user_id","currency","locked_rate","fee_rub","locked_until","used"]},"invariants":["EXACT_USER_AND_CURRENCY","LOCK_EXISTING_ACTIVE_ROWS_POSTGRES","INVALIDATE_ALL_UNUSED_PREDECESSORS","INSERT_NEW_UNUSED_LOCK","INVALIDATION_AND_INSERT_ONE_TRANSACTION","RETURN_NEW_ID"]}
+  ],
+  "grantPolicy":{"tableWideAccess":false,"functionPerMethodRequired":true,"directSequenceAccess":false,"moneyWriterIsolated":true},
+  "remainingWork":["extract the next bot repository package","rehearse functions and ACL only after all bot packages are exact"]
+}

@@ -1,0 +1,156 @@
+{
+  "schema": "native-wallet-ed25519-corpus-review-independence-issuer-selection-scorecard.v1",
+  "decision_result_envelope_schema": "native-wallet-ed25519-corpus-review-independence-issuer-selection-decision-result.v1",
+  "owner_reviewer_handoff_schema": "native-wallet-ed25519-corpus-review-independence-owner-reviewer-handoff.v1",
+  "decision_rule": "all common and option-specific mandatory gates must be PASS with current hash-bound evidence; any other state or missing evidence blocks selection",
+  "allowed_gate_states": ["PASS", "FAIL", "UNKNOWN", "NOT_EVALUATED"],
+  "current_gate_state": "NOT_EVALUATED",
+  "common_mandatory_gates": [
+    {
+      "id": "i01_exact_challenge",
+      "requirement": "authentication binds the exact ADR 0026 challenge bytes and domain separator",
+      "minimum_evidence": ["challenge vector digest", "all-fields mutation report digest"]
+    },
+    {
+      "id": "i02_complete_bundle",
+      "requirement": "the exact complete unexpired ADR 0027 hash-only bundle is bound",
+      "minimum_evidence": ["bundle schema digest", "bundle manifest digest", "completeness report digest"]
+    },
+    {
+      "id": "i03_conflict_matrix",
+      "requirement": "every direct and transitive matrix cell is SEPARATE_WITH_EVIDENCE",
+      "minimum_evidence": ["matrix digest", "transitive-control review digest"]
+    },
+    {
+      "id": "i04_two_issuer_independence",
+      "requirement": "two issuers have distinct identity, trust, authentication, recovery and host roots",
+      "minimum_evidence": ["two issuer control registry digests", "pairwise independence report digest"]
+    },
+    {
+      "id": "i05_subject_non_control",
+      "requirement": "no issuer administers or can recover the reviewed reviewer, verifier, result root or builders",
+      "minimum_evidence": ["conflict-of-control denial report digest", "delegation inventory digest"]
+    },
+    {
+      "id": "i06_freshness_replay",
+      "requirement": "caller nonce and issuer evidence IDs are atomically single-use with bounded time and monotonic epoch",
+      "minimum_evidence": ["replay ledger fault-injection digest", "epoch rollback test digest"]
+    },
+    {
+      "id": "i07_root_recovery",
+      "requirement": "authentication and recovery roots are separate and compromise recovery advances epoch without rollback",
+      "minimum_evidence": ["root policy digest", "compromise recovery rehearsal digest"]
+    },
+    {
+      "id": "i08_parser_corpus",
+      "requirement": "all issuer evidence parsers share bounded closed models and a negative differential corpus",
+      "minimum_evidence": ["parser contract digest", "negative corpus digest", "differential report digest"]
+    },
+    {
+      "id": "i09_audit_privacy_retention",
+      "requirement": "audit retains digests and decisions without committing personnel, credential or operational artifact bytes",
+      "minimum_evidence": ["retention policy digest", "privacy review digest", "deletion rehearsal digest"]
+    },
+    {
+      "id": "i10_dependency_incident",
+      "requirement": "dependencies, licenses, advisories, monitoring and incident ownership are reviewed",
+      "minimum_evidence": ["locked graph digest", "license/advisory report digest", "incident runbook digest"]
+    }
+  ],
+  "option_specific_gates": {
+    "threshold_dsse_offline_roots": [
+      {
+        "id": "t01_threshold_policy",
+        "requirement": "2-of-3 is enforced over three distinct active roots and duplicate signer identities cannot count twice",
+        "minimum_evidence": ["threshold policy digest", "duplicate/one-of-three denial report digest"]
+      },
+      {
+        "id": "t02_role_separation",
+        "requirement": "ordinary issuer signers cannot alone rotate roots, lower threshold or clear revocation",
+        "minimum_evidence": ["role matrix digest", "unauthorized rotation denial report digest"]
+      },
+      {
+        "id": "t03_dsse_exact_bytes",
+        "requirement": "bounded DSSE parsing, exact payload type, canonical signatures and PAE preserve the issuer statement bytes",
+        "minimum_evidence": ["DSSE contract digest", "canonical/mutation corpus digest"]
+      },
+      {
+        "id": "t04_offline_root_ceremony",
+        "requirement": "root creation, storage, activation, revocation and recovery ceremonies are independently witnessed",
+        "minimum_evidence": ["ceremony policy digest", "rehearsal evidence digest"]
+      }
+    ],
+    "dual_webauthn_human_issuers": [
+      {
+        "id": "w01_enrollment_provenance",
+        "requirement": "both issuers have separately witnessed roaming-authenticator enrollment with independent credential/recovery roots",
+        "minimum_evidence": ["two enrollment provenance digests", "root independence report digest"]
+      },
+      {
+        "id": "w02_exact_rp_origin",
+        "requirement": "both assertions use the exact consumer-allowlisted RP ID and origin with no fallback",
+        "minimum_evidence": ["RP/origin policy digest", "wrong-RP/origin denial report digest"]
+      },
+      {
+        "id": "w03_profile_flags",
+        "requirement": "both assertions require ES256, UP, UV, non-backup eligibility/state and exact challenge",
+        "minimum_evidence": ["WebAuthn profile digest", "flag/challenge mutation report digest"]
+      },
+      {
+        "id": "w04_human_collusion_controls",
+        "requirement": "issuer assignment, conflict disclosure and out-of-band review prevent one operator from satisfying both approvals",
+        "minimum_evidence": ["assignment policy digest", "collusion/conflict review digest"]
+      }
+    ]
+  },
+  "non_selection_reasons": {
+    "threshold_dsse_offline_roots": [
+      "no roots, threshold ceremony, role policy, parser or recovery evidence exists"
+    ],
+    "dual_webauthn_human_issuers": [
+      "no RP, origin, enrollment, authenticator, assertion verifier or human issuer evidence exists"
+    ]
+  },
+  "tie_rule": "no automatic winner; a separate ADR must select the option with the smaller independently reviewed trust, parser, recovery and operational surface",
+  "handoff_contract": {
+    "required_fields": [
+      "selection_scorecard_sha256",
+      "independence_evidence_sha256",
+      "supporting_bundle_sha256",
+      "conflict_matrix_sha256",
+      "issuer_challenge_sha256",
+      "subject_review_domain_id"
+    ],
+    "canonical_digest_fields": [
+      "selection_scorecard_sha256",
+      "independence_evidence_sha256",
+      "supporting_bundle_sha256",
+      "conflict_matrix_sha256",
+      "issuer_challenge_sha256"
+    ],
+    "closed": true,
+    "exact_context_required": true,
+    "no_implicit_current_state": true
+  },
+  "selection_decision_contract": {
+    "allowed_outcomes": [
+      "NOT_EVALUATED",
+      "REVIEW_REQUIRED_SINGLE_CANDIDATE",
+      "TIE_REQUIRES_SEPARATE_ADR",
+      "BLOCKED_INVALID_STATE"
+    ],
+    "automatic_selection_allowed": false,
+    "all_pass_grants_capability": false,
+    "tie_requires_separate_adr": true,
+    "explicit_owner_and_independent_review_required": true,
+    "selected_option_must_remain_null_until_explicit_decision": true
+  },
+  "selected_option": null,
+  "all_common_gates_pass": false,
+  "any_option_specific_gates_pass": false,
+  "selection_allowed": false,
+  "real_evidence_present": false,
+  "issuer_authenticated": false,
+  "crypto_call_allowed": false,
+  "runtime_integration_allowed": false
+}

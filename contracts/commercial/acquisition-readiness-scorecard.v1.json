@@ -1,0 +1,56 @@
+{
+  "schema": "obsidian-acquisition-readiness-scorecard.v1",
+  "as_of": "2026-08-15",
+  "scoring_rule": "a category contributes only when every required evidence item is current and independently verifiable; UNKNOWN and BLOCKED contribute zero and cannot be overridden by narrative",
+  "evidence_states": ["VERIFIED", "BLOCKED", "UNKNOWN", "NOT_APPLICABLE"],
+  "categories": [
+    {
+      "id": "financial_quality",
+      "weight": 25,
+      "required_evidence": ["24-month monthly revenue", "gross margin", "normalized EBITDA or SDE", "cohort retention", "provider concentration", "bank and ledger reconciliation"],
+      "current_state": "UNKNOWN"
+    },
+    {
+      "id": "legal_regulatory",
+      "weight": 20,
+      "required_evidence": ["entity and beneficial ownership", "jurisdictional regulatory opinion", "customer terms and privacy basis", "sanctions and fraud controls", "transferable provider contracts", "open dispute and liability schedule"],
+      "current_state": "BLOCKED"
+    },
+    {
+      "id": "traction_market",
+      "weight": 15,
+      "required_evidence": ["monthly active transacting users", "repeat transaction rate", "cohort volume and contribution margin", "organic acquisition share", "churn and support burden", "addressable buyer synergies"],
+      "current_state": "UNKNOWN"
+    },
+    {
+      "id": "technology_security",
+      "weight": 15,
+      "required_evidence": ["reproducible clean release", "architecture and data-flow inventory", "independent security assessment", "dependency and secret provenance", "disaster recovery rehearsal", "production SLO history"],
+      "current_state": "BLOCKED"
+    },
+    {
+      "id": "operations_transferability",
+      "weight": 10,
+      "required_evidence": ["founder-independent runbooks", "credential and domain transfer plan", "provider onboarding playbooks", "incident ownership", "staff and vendor dependency map", "30-day buyer handover rehearsal"],
+      "current_state": "BLOCKED"
+    },
+    {
+      "id": "ip_defensibility",
+      "weight": 10,
+      "required_evidence": ["source and dependency IP inventory", "contributor assignments", "innovation claims registry", "prior-art and freedom-to-operate review", "trademark and domain inventory", "buyer-reproducible evidence bundle"],
+      "current_state": "BLOCKED"
+    },
+    {
+      "id": "transaction_readiness",
+      "weight": 5,
+      "required_evidence": ["data room index", "normalized KPI pack", "asset and liability schedule", "customer and provider concentration", "management presentation", "redacted buyer demo"],
+      "current_state": "BLOCKED"
+    }
+  ],
+  "weights_sum": 100,
+  "verified_score": null,
+  "score_publication_allowed": false,
+  "unsupported_valuation_claim_allowed": false,
+  "buyer_data_room_ready": false,
+  "sale_process_ready": false
+}

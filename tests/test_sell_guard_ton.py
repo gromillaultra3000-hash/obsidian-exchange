@@ -54,6 +54,11 @@ conn.execute("""CREATE TABLE sell_orders (
     id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, currency TEXT,
     crypto_amount REAL, rub_amount REAL, sbp_phone TEXT, receive_address TEXT,
     status TEXT, tx_hash TEXT, created_at TEXT, updated_at TEXT)""")
+conn.execute("""CREATE TABLE wallet_send_intents (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
+    chain TEXT NOT NULL, sell_id INTEGER NOT NULL, from_address TEXT NOT NULL,
+    to_address TEXT NOT NULL, amount REAL NOT NULL, marker TEXT NOT NULL,
+    created_at TEXT NOT NULL, signed_at TEXT)""")
 conn.commit()
 conn.close()
 

@@ -1,0 +1,1 @@
+{"projectId":"sample_project","source":"manual","title":"Add documentation","targetFiles":["README.md"],"requestedChanges":[{"changeType":"docs_change","description":"Add README structure"}],"riskLevel":"low"}

@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "e0-3-bot-b5-3-production-dirty-data-scan-rehearsal.v1",
+  "observedAt": "2026-08-17T04:30:26Z",
+  "route": "E0/E0.3/B5.3/064A",
+  "status": "IN_PROGRESS",
+  "scope": "read-only aggregate dirty-data scan and phased migration contract",
+  "productionMutation": false,
+  "productionObservation": {
+    "source": "production PostgreSQL 17 through existing application read path",
+    "privacy": "NO_IDENTIFIERS_OR_PAYLOAD",
+    "criterionStatus": "BLOCKED",
+    "counts": {"total":80,"sent":69,"pending":0,"sending":11,"staleSending":11,"monteraAdmin":1,"activeMonteraAdmin":0,"invalidState":0,"invalidKind":0,"invalidLifecycle":0,"invalidActiveRecipientShape":0},
+    "blockers": ["LEGACY_SENDING_RECONCILED"]
+  },
+  "artifacts": {
+    "deploy/postgres/check_b64_notification_migration.py": "e00ee9cfd3ae1e7796e0fd0c0a9223342c454d8dcb1ce5b52d6b0c3ee481d2cf",
+    "docs/e0-3-bot-b5-3-production-migration-plan.v1.json": "22829255ff4b4d007b0686711c1649af35ddeb836042c93348c9a3ab7fe8272d",
+    "tests/test_e0_3_bot_b5_3_migration_preflight.py": "072f81aa657b6e5b092e7284cfbe8dfdcdea599f77e2b24087281ec2fe466802",
+    "tests/test_e0_3_bot_b5_3_migration_preflight_postgres.py": "c6acab1cccf1cc97c667943d02ed6f21cb236e3dca2cd0712d5b74e142de0083"
+  },
+  "acceptanceEvidence": [
+    "three focused static tests passed",
+    "synthetic-shaped PostgreSQL 17 rehearsal reproduced 69 sent plus 11 stale sending and remained BLOCKED without mutating ambiguity",
+    "production scan attested expected database, PostgreSQL 17, repeatable-read read-only transaction and exact critical column types/nullability",
+    "Python compile, JSON parse and git diff check passed"
+  ],
+  "surfaceMatrix": {"database":"READ_ONLY","telegramBot":"N/A","operatorAdmin":"OPERATOR_ONLY_LATER","website":"N/A","miniApp":"N/A","nativeApp":"N/A"},
+  "trustAndCustody": {"moneyWriter":false,"telegramAccess":false,"credentials":"existing read path; values never inspected or emitted","automaticRetryAllowed":false},
+  "independentReviews": [
+    {"reviewer":"codex-subagent-proposal064-migration-review","disposition":"accepted corrections: no GO overclaim, producer fence before pending drain, dispatcher barrier later, asymmetric rollback and historical v1 preservation"},
+    {"reviewer":"codex-subagent-proposal064-adversarial","disposition":"accepted corrections: removed fabricated sending-to-sent test, env-only DSN, null-safe lifecycle checks, exact target/type guard and explicit unverified gates"}
+  ],
+  "unverifiedGates": ["CATALOG_ACL_OBJECT_HASH","BACKUP_RESTORE_EQUALITY","AUTHENTICATED_OWNER_REVIEW","AMBIGUOUS_OPERATOR_DISPOSITION"],
+  "rollout": "none; no migration, service change, restart, credential creation or Telegram call",
+  "rollback": "not applicable to production because scan was read-only",
+  "gateStatus": "E0.3_IN_PROGRESS_CUTOVER_BLOCKED",
+  "nextCanonicalItem": "064A catalog/ACL object hash and custom backup to clean PostgreSQL 17 restore equality rehearsal"
+}

@@ -1,0 +1,9 @@
+import sqlite3,sys,tempfile
+from pathlib import Path
+ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT/'relay'))
+from repositories.admin_config_store import SQLiteAdminConfigStore
+with tempfile.TemporaryDirectory() as td:
+ p=str(Path(td)/'a.db')
+ with sqlite3.connect(p) as c:c.executescript("""CREATE TABLE workers(user_id INTEGER PRIMARY KEY,username TEXT,added_by INTEGER,added_at TEXT DEFAULT CURRENT_TIMESTAMP,is_active INTEGER DEFAULT 1);CREATE TABLE operators(user_id INTEGER PRIMARY KEY,username TEXT,added_by INTEGER,added_at TEXT DEFAULT CURRENT_TIMESTAMP,is_active INTEGER DEFAULT 1);CREATE TABLE blocked_users(user_id INTEGER PRIMARY KEY,reason TEXT,blocked_at TEXT DEFAULT CURRENT_TIMESTAMP);CREATE TABLE blocked_addresses(address TEXT PRIMARY KEY,reason TEXT,blocked_by INTEGER,created_at TEXT DEFAULT CURRENT_TIMESTAMP);CREATE TABLE reserves(currency TEXT PRIMARY KEY,amount REAL,updated_at TEXT DEFAULT CURRENT_TIMESTAMP);""")
+ s=SQLiteAdminConfigStore(p);s.set_staff(role='worker',user_id=1,username='u',added_by=9);assert s.active_staff_ids(role='worker')=={1};rows=s.staff_rows(role='worker');assert len(rows)==1 and rows[0][0:2]==(1,'u') and rows[0][3]==1;assert s.deactivate_staff(role='worker',user_id=1);assert s.active_staff_ids(role='worker')==set();s.set_staff(role='worker',user_id=1,username='v',added_by=9);assert s.block_user(user_id=2,reason='x') and not s.block_user(user_id=2);assert s.is_user_blocked(2);assert s.blocked_user_rows()[0][0:2]==(2,'x');assert s.unblock_user(2);assert not s.is_user_blocked(2);s.block_address(address='a',reason='x',blocked_by=9);s.block_address(address='b',reason='y',blocked_by=9);assert s.unblock_addresses(['a','b'])==2;s.set_reserve(currency='BTC',amount=1);s.set_reserve(currency='BTC',amount=2)
+print('SQLite admin-config repository checks: OK')

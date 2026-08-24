@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.obsidian.invalid/native-wallet/ed25519-corpus-review-independence-evidence-v1.schema.json",
+  "title": "Verifier trust-domain independence evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "reviewer_id",
+    "reviewer_trust_domain",
+    "credential_root_sha256",
+    "recovery_authority_id",
+    "verifier_administration_root_sha256",
+    "verifier_recovery_authority_id",
+    "builder_a_root_sha256",
+    "builder_b_root_sha256",
+    "result_authentication_root_sha256",
+    "host_failure_domain_id",
+    "evidence_issuer_id",
+    "issued_at_epoch_ms",
+    "expires_at_epoch_ms",
+    "supporting_evidence_sha256",
+    "decision"
+  ],
+  "properties": {
+    "schema": { "const": "native-wallet-ed25519-corpus-review-independence-evidence.v1" },
+    "reviewer_id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-z0-9][a-z0-9._:-]*$" },
+    "reviewer_trust_domain": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-z0-9][a-z0-9._:-]*$" },
+    "credential_root_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "recovery_authority_id": { "type": "string", "minLength": 8, "maxLength": 128, "pattern": "^[a-z0-9][a-z0-9._:-]*$" },
+    "verifier_administration_root_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "verifier_recovery_authority_id": { "type": "string", "minLength": 8, "maxLength": 128, "pattern": "^[a-z0-9][a-z0-9._:-]*$" },
+    "builder_a_root_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "builder_b_root_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "result_authentication_root_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "host_failure_domain_id": { "type": "string", "minLength": 8, "maxLength": 128, "pattern": "^[a-z0-9][a-z0-9._:-]*$" },
+    "evidence_issuer_id": { "type": "string", "minLength": 8, "maxLength": 128, "pattern": "^[a-z0-9][a-z0-9._:-]*$" },
+    "issued_at_epoch_ms": { "type": "integer", "minimum": 1 },
+    "expires_at_epoch_ms": { "type": "integer", "minimum": 1 },
+    "supporting_evidence_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "decision": { "const": "INDEPENDENT" }
+  },
+  "pairwise_distinct_across_reviews": [
+    "reviewer_id",
+    "reviewer_trust_domain",
+    "credential_root_sha256",
+    "recovery_authority_id",
+    "verifier_administration_root_sha256",
+    "verifier_recovery_authority_id",
+    "result_authentication_root_sha256",
+    "host_failure_domain_id",
+    "evidence_issuer_id"
+  ],
+  "distinct_within_each_record": [
+    ["credential_root_sha256", "verifier_administration_root_sha256", "result_authentication_root_sha256"],
+    ["recovery_authority_id", "verifier_recovery_authority_id"],
+    ["builder_a_root_sha256", "builder_b_root_sha256"]
+  ],
+  "maximum_lifetime_ms": 86400000,
+  "issuer_authentication_defined": false,
+  "real_evidence_present": false,
+  "selection_allowed": false
+}

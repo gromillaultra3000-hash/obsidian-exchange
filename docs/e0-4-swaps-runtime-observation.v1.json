@@ -1,0 +1,103 @@
+{
+  "schemaVersion": "e0-4-swaps-runtime-observation.v1",
+  "observedAt": "2026-08-18T17:35:04Z",
+  "route": "E0/E0.4/SWAPS",
+  "status": "IN_PROGRESS",
+  "acceptance": "PARTIAL_NOT_ACCEPTED",
+  "workClass": "KEYLESS_READ_ONLY_DEPLOYED_SOURCE_AND_PUBLIC_RUNTIME_OBSERVATION",
+  "productionMutation": false,
+  "authenticatedCallsMade": false,
+  "credentialsUsed": false,
+  "secretValuesReadByPrimaryObservation": false,
+  "independentReviewSecretExposureIncident": true,
+  "customerDataRead": false,
+  "externalProviderCallsMade": false,
+  "moneyWritersExercised": false,
+  "deployedEntrypoints": [
+    {"component":"relay","path":"/opt/obsidian-exchange/relay-fastapi/main.py","sha256":"c1ef783e3005f4698540ddc5368ef9a4592612fcf666b403ecbb7c4a359bd7ff","checkoutByteEqual":false},
+    {"component":"telegramBot","path":"/opt/obsidian-exchange/bot/main_bot.py","sha256":"a015b5b12870fa2f1eec7d0fb638cc2c94cb90235850d474ebb25455446372fb","checkoutByteEqual":false},
+    {"component":"provider","path":"/opt/obsidian-exchange/relay/providers/swapuz.py","sha256":"4c0b6b65de753d5d17b49e9c1e3784ff138fc07690709480597a57e3aa947a9e","checkoutByteEqual":true},
+    {"component":"repository","path":"/opt/obsidian-exchange/relay/repositories/swap_store.py","sha256":"d034923545896be4a7b35deb30853fb36c1701547ce3f3aea76c63a25ca46f2b","checkoutByteEqual":false},
+    {"component":"admin","path":"/opt/obsidian-exchange/admin-panel/app/Filament/Resources/SwapSessionResource.php","sha256":"12daf8cd55a9adc4df38fdbde8f368d56f58554543cae78d92cb8badfaf810cb","checkoutByteEqual":true},
+    {"component":"token","path":"/opt/obsidian-exchange/relay/utils/tokens.py","sha256":"66154208ce8958a35135551bcf2663474732158a4128d86dbd9ee9ca3bde4a28","checkoutByteEqual":true}
+  ],
+  "runtime": {
+    "relay": {"unit":"relay-fastapi.service","activeState":"active","subState":"running","principal":"relay-svc:relay-svc","bind":"127.0.0.1:5001","nRestarts":0},
+    "telegramBot": {"unit":"exchange-bot.service","activeState":"active","subState":"running","principal":"root","nRestarts":0},
+    "admin": {"unit":"admin-panel.service","activeState":"active","subState":"running","principal":"root","bind":"127.0.0.1:8002","nRestarts":0}
+  },
+  "authorityBoundary": {
+    "customerCreationPrincipals": ["authenticated web session plus CSRF", "Telegram sender identity plus conversational FSM"],
+    "provider": "SwapUZ receives source/destination assets, amount, destination address and a generated opaque UUID; the service credential is read by both Relay and bot from an overbroad shared environment bundle.",
+    "custody": "The customer sends assets directly to the provider deposit address and the provider sends to the customer destination; ObsidianExchange does not sign or hold the swap assets, but it creates the provider order and stores both addresses and lifecycle state.",
+    "providerOrderCreatedBeforeDurableIntent": true,
+    "persistedImmutableIntentBeforeSubmit": false,
+    "durablePreSubmitAttempt": false,
+    "providerIdempotencyContractAccepted": false,
+    "ambiguousSubmitRecoveryAccepted": false,
+    "statusTransitionAllowlistForSwapUz": false,
+    "statusCompareAndSet": true,
+    "statusPageAuthorization": "32-byte-class opaque URL bearer only; possession exposes destination/deposit addresses and a GET also performs provider status I/O plus a local status transition.",
+    "callbackTrust": "Legacy unauthenticated Trocador callback is correlation-only and re-fetches provider state before a forward-only transition; active SwapUZ lifecycle is polled instead and lacks the same recognized-status/forward-only guard.",
+    "referralMoneyWriter": "The bot monitor can invoke ledger-backed referral finalization after a locally observed finished status; this slice did not exercise or re-accept that separate money writer."
+  },
+  "criticalFindings": [
+    "Both customer flows call SwapUZ create-order before inserting a local swap session. Timeout, malformed response, process crash or local insert failure can leave an externally created order with no accepted durable pre-submit attempt or reconciliation record; retry may create another provider order.",
+    "The generated UUID is sent to SwapUZ, but deployed evidence contains no accepted provider idempotency/read-back contract proving exact retry or recovery after an ambiguous submit.",
+    "SwapUZ maps unknown numeric states to status_<number> and failures to unknown; Relay and the background bot accept any truthy changed value into the local status column without a recognized transition graph. Terminal states are therefore not immutable for this active provider path.",
+    "The public /swap/{token} bearer page returns customer destination and provider deposit addresses and performs provider I/O plus a database transition on GET. The token is high entropy and not logged by the route, but there is no authenticated owner binding, expiry, revocation or read-only GET behavior.",
+    "The web flow re-fetches limits before create but does not content-bind an explicit quote/expiry/fee preview to a confirmation intent; the Telegram flow displays an estimate, then submits later without re-quoting or binding customer consent to the final provider terms.",
+    "Customer copy is internally inconsistent: public/site surfaces advertise approximately 1% while the landing Mini App chip says 2%; the UI does not bind exact provider, network, fee, expiry, refund path or irreversibility before submit.",
+    "SwapUZ credential scope is overbroad: Relay, bot, notifier and monitor consume the shared application secret bundle although the target ownership plan calls for a dedicated swap routing worker."
+  ],
+  "surfaceMatrix": {
+    "telegramBot": {"requirement":"REQUIRED","status":"PARTIAL","reason":"A customer FSM quotes, validates a destination, creates a SwapUZ order, stores the session and later polls status; submit precedes durable intent and quote/transition/recovery controls are unaccepted."},
+    "site": {"requirement":"REQUIRED","status":"PARTIAL","reason":"Authenticated dashboard plus CSRF creates swaps and lists owner-scoped history, but the resulting status page is an unexpired bearer URL and GET mutates state after provider I/O."},
+    "miniApp": {"requirement":"REQUIRED","status":"NOT_IMPLEMENTED","reason":"The deployed Mini App only advertises a Swap 2% chip and has no swap workflow or explicit safe handoff; it conflicts with the approximately 1% site/bot claim."},
+    "admin": {"requirement":"OPERATOR_ONLY","status":"PARTIAL","reason":"Filament exposes a read-only swap resource, including bearer token and both addresses, behind the general admin/MFA contour; status/provider filters are stale relative to deployed SwapUZ values."},
+    "api": {"requirement":"REQUIRED","status":"PARTIAL","reason":"Relay exposes dashboard create, bearer status and legacy Trocador callback routes plus repository/provider adapters, but no versioned swap-intent API, durable attempt, accepted idempotency or ambiguous-submit recovery exists."},
+    "native": {"requirement":"READ_ONLY","status":"NOT_IMPLEMENTED","reason":"No native swap request/status handoff exists; any future surface must keep local signing authority and provider credentials separate."}
+  },
+  "limitations": [
+    "Relay, bot and deployed swap repository differ from checkout, so production claims are bound to exact deployed hashes rather than inferred from current checkout revisions.",
+    "No authenticated customer/admin route, bearer swap page, callback, provider endpoint, database row or referral finalizer was exercised.",
+    "No customer identifier, address, token, provider credential or provider response was read; runtime status was limited to service metadata and a public root observation.",
+    "An independent reviewer accidentally caused one provider secret value to appear in its private tool output while searching environment names. The value is intentionally omitted; the credential requires external rotation, but no replacement credential or provider-console access exists in this slice.",
+    "Static source proves reachable code shape, not provider-side idempotency or legal/terms readiness; both remain unproven."
+    ,"Existing rows already holding unknown, status_* or other non-canonical states require explicit manual reconciliation before any rollout; the fail-closed candidate intentionally does not auto-promote poisoned legacy state."
+  ],
+  "checkoutP0Candidate": {
+    "productionDeployed": false,
+    "scope": "Strictly decode documented integer SwapUZ states and allow only idempotent or forward transitions; terminal states cannot regress.",
+    "specificChainClosed": "finished -> provider error/unknown -> finished -> repeated referral credit",
+    "verification": ["five focused assertion functions", "Python compilation", "JSON validation", "git diff --check"],
+    "remainingBlockers": ["referral credit itself remains non-idempotent", "no effect-level monitor/CAS/credit integration test", "legacy poisoned rows require manual reconciliation", "submit-before-persist remains", "ambiguous-submit recovery remains", "Trocador monitor transition guard remains separate", "no production rollout or runtime acceptance"]
+  },
+  "independentReviews": [
+    {
+      "reviewer": "swaps-security-review",
+      "disposition": "ACCEPT_BOUNDED_CHECKOUT_P0_ONLY",
+      "finding": "After catching and correcting a monitor-scope import regression, strict decoding plus terminal immutability closes the demonstrated SwapUZ finished-to-unknown-to-finished duplicate-credit chain; broader lifecycle blockers remain."
+    },
+    {
+      "reviewer": "swaps-acceptance-critic",
+      "disposition": "ACCEPT_BOUNDED_CHECKOUT_P0_ONLY",
+      "finding": "Strict typed decoding, caller binding, honest legacy-state handling and focused assertions are sufficient for the narrow candidate, while deployed SWAPS remains PARTIAL_NOT_ACCEPTED."
+    },
+    {
+      "reviewer": "swaps-surface-review",
+      "disposition": "PARTIAL_NOT_ACCEPTED",
+      "finding": "Telegram/site/provider/admin reachability is real, but six-surface product and money-authority acceptance fails on persistence order, status integrity, bearer privacy, provider custody/fees and reconciliation."
+    }
+  ],
+  "coverageConclusion": {
+    "swapsFamilyClassified": true,
+    "sixSurfaceClassificationComplete": true,
+    "customerAndMoneyAuthorityVerifiedReadOnly": true,
+    "externalProviderOrderCreationReachable": true,
+    "productionAcceptanceProven": false,
+    "e0_4Complete": false,
+    "e0GateClosed": false
+  },
+  "nextCanonicalItem": "Classify ACCOUNT_AUTH_PROFILE across all six surfaces and verify its authentication, recovery and authorization authority read-only."
+}

@@ -1,0 +1,45 @@
+{
+  "schemaVersion":"e0-4-limit-order-runtime-observation.v1",
+  "observedAt":"2026-08-18T02:57:18Z",
+  "route":"E0/E0.4/FEATURE_STATUS_SURFACE_MATRIX",
+  "status":"IN_PROGRESS",
+  "productionMutation":false,
+  "authenticatedCustomerAction":false,
+  "telegramDelivery":false,
+  "moneyWriterExercised":false,
+  "surfaceContractSource":"docs/e0-3-bot-b5-5-automation-gift-writers-rehearsal.v1.json#surfaceMatrix",
+  "telegramBot":{
+    "unit":{"name":"exchange-bot.service","activeState":"active","subState":"running","mainPidObserved":15516},
+    "deployedMainSha256":"a015b5b12870fa2f1eec7d0fb638cc2c94cb90235850d474ebb25455446372fb",
+    "checkoutMainSha256":"cae69ae8d33b01c51b88cf36a78e5a4a69da0339408e86bae9f5b058edfaf800",
+    "sourceDrift":true,
+    "deployedAnchors":["menu_limit","lo_confirm","lo_list","cancelimit","limit_order_watcher","asyncio.create_task(limit_order_watcher())"],
+    "configuredEnvironmentNameObserved":"LIMIT_ORDER_POSTGRES_ENABLED",
+    "configuredValueObserved":true,
+    "configuredEnabled":true,
+    "claim":"deployed source and running unit presence only; not authenticated create/list/cancel or watcher acceptance"
+  },
+  "repository":{
+    "deployedPath":"/opt/obsidian-exchange/relay/repositories/limit_order_store.py",
+    "deployedAndCheckoutSha256":"da8616fb7b1c9ec55f2dae3f47af5ebd2854515bb41d5d41cefc466a75d1aaa4",
+    "semantics":["create limit order","owner-scoped list","owner-scoped customer cancel","active scan","transactional single-winner pending-order insert plus trigger CAS","bulk expiry"]
+  },
+  "database":{"engine":"PostgreSQL 17.10","tablePresent":true,"catalogSource":"information_schema.columns","observedColumns":["id","user_id","currency","target_rate","direction","rub_amount","crypto_address","payment_method","status","expires_at","triggered_at","order_id"],"createdAtPresent":false,"totalRows":0,"activeRows":0,"triggeredRows":0,"expiredRows":0,"cancelledRows":0,"limitAttributedOrderRows":0,"customerIdentifiersReturnedByObservation":false},
+  "admin":{"unit":{"name":"admin-panel.service","activeState":"active","subState":"running"},"effectiveWorkingDirectory":"/opt/obsidian-exchange/admin-panel","resourceSha256":"b727ae11718f4cef2755f83b91274db932a48e080bd502b0293f5cf064eb14b5","readOnly":true,"schemaDrift":["resource declares and displays created_at and permits sorting by it, but the observed production catalog has no created_at column","resource offers ETH while the Telegram flow supports only BTC, LTC and USDT"]},
+  "negativeSurfaces":{"site":"no limit-order route or template in deployed Relay scope","miniApp":"no limit-order string, tab or route in deployed webapp","api":"no HTTP limit-order endpoint; bot calls repository directly","native":"no limit-order contract or implementation in native-wallet scope"},
+  "positiveControls":["customer list and cancel are owner-scoped by Telegram user id","PostgreSQL trigger locks the active row and performs order insert plus trigger transition in one transaction","stored destination is revalidated before trigger"],
+  "riskFindings":[
+    "The watcher is a money writer because it creates a pending order without a separate immutable execution intent, client idempotency key or audit correlation record.",
+    "Price provenance is not fail-closed: get_cached_rate may return arbitrarily stale cached data or a hard-coded fallback after provider failure, and any positive value may trigger an order.",
+    "Confirmation has no replay/idempotency guard and does not repeat blocked-user or offering-policy checks, so duplicate callbacks, mid-flow revocation or a closed currency can still create active orders.",
+    "The database commit precedes Telegram delivery and the customer-send exception is swallowed, so notification failure can leave a silent pending order.",
+    "The deployed active scan and expiry update are unbounded; the bounded proposal is rehearsal-only and not deployed.",
+    "Customer success copy points to /limits, but that command is admin-only; the customer list is available only through the lo_list callback.",
+    "The label automatic purchase overstates behavior: the watcher creates a payment-required pending order; it does not debit the customer automatically.",
+    "The schema has no order_id foreign key, uniqueness or status-to-triggered evidence constraint, and customer history omits expired and cancelled rows."
+  ],
+  "acceptance":"PARTIAL_NOT_ACCEPTED",
+  "blockers":["no owner-authorized authenticated create/list/cancel acceptance","no bounded non-production watcher-to-payment-handoff acceptance","no fresh authenticated rate-evidence fail-closed gate","generic order-producing idempotency/intent blocker remains","no durable customer notification reconciliation"],
+  "independentReviews":[{"identity":"agent:/root/limit_inventory","scope":"context-aware accuracy and boundedness review; not lifecycle acceptance or production authorization","disposition":"ACCEPT_CONTEXT_AWARE_PARTIAL_NOT_ACCEPTED_WITH_RECORDED_MONEY_WRITER_PRICE_PROVENANCE_NOTIFICATION_AND_ADMIN_SCHEMA_BLOCKERS"},{"identity":"agent:/root/limit_security_review","scope":"adversarial diff/security review after catalog binding and scoped landmine corrections","disposition":"ACCEPT_PARTIAL_NOT_ACCEPTED_AFTER_CATALOG_BINDING_AND_SCOPED_LANDMINE_CORRECTIONS"}],
+  "nextCanonicalItem":"Add gifts to the six-surface E0.4 inventory with exact repository and runtime evidence."
+}

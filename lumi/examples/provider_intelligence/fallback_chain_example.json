@@ -1,0 +1,8 @@
+{
+  "chainId": "chain_main",
+  "displayName": "Main fallback",
+  "providerIds": [
+    "provider_openai_main",
+    "provider_groq_main"
+  ]
+}

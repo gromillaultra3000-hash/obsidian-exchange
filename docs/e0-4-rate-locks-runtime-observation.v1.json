@@ -1,0 +1,165 @@
+{
+  "schemaVersion": "e0-4-rate-locks-runtime-observation.v1",
+  "observedAt": "2026-08-18T20:10:00Z",
+  "route": "E0/E0.4/RATE_LOCKS",
+  "status": "IN_PROGRESS",
+  "acceptance": "PARTIAL_NOT_ACCEPTED",
+  "workClass": "KEYLESS_READ_ONLY_PRODUCTION_SOURCE_AND_AGGREGATE_OBSERVATION",
+  "productionMutation": false,
+  "authenticatedCallsMade": false,
+  "secretValuesRead": false,
+  "customerIdentifiersRead": false,
+  "externalPriceCallsMade": false,
+  "lockOrOrderWritersExercised": false,
+  "servicesRestarted": false,
+  "deployedSources": [
+    {
+      "component": "telegramBot",
+      "path": "/opt/obsidian-exchange/bot/main_bot.py",
+      "sha256": "a015b5b12870fa2f1eec7d0fb638cc2c94cb90235850d474ebb25455446372fb"
+    },
+    {
+      "component": "botOrderStore",
+      "path": "/opt/obsidian-exchange/relay/repositories/bot_order_store.py",
+      "sha256": "01e836e04d21b27a073d7a2558b216ed33a62853a8c9742d5edb12a0ffc19885"
+    }
+  ],
+  "productionAggregate": {
+    "transaction": "READ ONLY",
+    "privacy": "COUNTS_ONLY_NO_IDENTIFIERS_OR_QUOTES",
+    "total": 3,
+    "used": 0,
+    "active": 1,
+    "expiredUnused": 2,
+    "unboundOrder": 3,
+    "feeNot100": 0
+  },
+  "surfaceMatrix": {
+    "telegramBot": {
+      "mode": "REQUIRED",
+      "implementation": "IMPLEMENTED",
+      "reason": "The sole customer surface displays rates and terms, immediately creates/replaces a durable lock, later reads and atomically consumes it during buy-order creation."
+    },
+    "site": {
+      "mode": "N/A",
+      "implementation": "NOT_IMPLEMENTED",
+      "reason": "No website rate-lock route, template or consumer was observed; current feature contract is Telegram-only."
+    },
+    "miniApp": {
+      "mode": "N/A",
+      "implementation": "NOT_IMPLEMENTED",
+      "reason": "No Mini App rate-lock control, disclosure or status projection was observed."
+    },
+    "admin": {
+      "mode": "OPERATOR_ONLY",
+      "implementation": "NOT_IMPLEMENTED",
+      "reason": "No Filament model/resource or order projection exposes lock terms, fee, source, replacement or consumption evidence."
+    },
+    "api": {
+      "mode": "N/A",
+      "implementation": "NOT_IMPLEMENTED",
+      "reason": "The internal repository adapter is not a public HTTP contract; no rate-lock API route exists."
+    },
+    "native": {
+      "mode": "N/A",
+      "implementation": "NOT_IMPLEMENTED",
+      "reason": "No native rate-lock UX or contract exists and the feature grants no signing authority."
+    }
+  },
+  "authorityBoundary": {
+    "customerIdentityAuthority": "Telegram callback sender ID",
+    "priceAuthority": "Bot CoinGecko then Binance cache with static fallback",
+    "applicabilityAuthority": "rate_locks PostgreSQL/SQLite state",
+    "moneyAuthority": "Bot-calculated preferred/fallback quote vectors selected by transactional order writer",
+    "custodyAuthority": "NONE",
+    "signingAuthority": "NONE"
+  },
+  "positiveControls": [
+    "Active reads bind user, currency, unused state and database-time expiry.",
+    "Order creation consumes a lock with an atomic id/user/currency/unused/unexpired compare-and-set in the same transaction.",
+    "A lost race or expired lock falls back instead of applying one locked quote twice.",
+    "Promo capacity and one-use claim are transactionally selected with explicit no-promo fallback vectors.",
+    "Direction availability is checked before creating the lock and again before creating the order.",
+    "The proposal-only B4 function rehearses advisory serialization, rollback and execute-only least privilege."
+  ],
+  "criticalFindings": [
+    {
+      "severity": "CRITICAL",
+      "id": "ADVERTISED_FEE_NOT_APPLIED",
+      "finding": "Telegram twice says 100 RUB will be deducted, but fee_rub is only stored/read. Crypto is calculated from the full RUB amount; the order and accounting contain no lock-fee debit or attribution."
+    },
+    {
+      "severity": "HIGH",
+      "id": "STALE_OR_STATIC_PRICE_CAN_BECOME_GUARANTEE",
+      "finding": "After source failure get_cached_rate can return an arbitrarily old process cache or a static fallback without source, as-of, fallback or confidence metadata; that scalar is persisted as a new 15-minute guarantee."
+    },
+    {
+      "severity": "HIGH",
+      "id": "FREE_REPLAY_AND_RENEWAL",
+      "finding": "The ratelock callback has no confirmation, payment, idempotency key, nonce or receipt. Repetition creates a fresh free 15-minute promise and marks prior unused locks used."
+    },
+    {
+      "severity": "HIGH",
+      "id": "PERSISTED_LOCK_NOT_BOUND_TO_FINAL_QUOTE",
+      "finding": "Consumption verifies lock ownership/currency/expiry but trusts caller-supplied preferred rate and crypto vectors rather than deriving and validating them from persisted locked_rate, fee, amount and versioned policy."
+    },
+    {
+      "severity": "HIGH",
+      "id": "POSTGRES_FIRST_INSERT_RACE",
+      "finding": "The deployed PostgreSQL adapter locks only existing rows and the schema has a non-unique partial index, so concurrent first inserts may leave multiple active locks. The advisory-lock function remains proposal-only."
+    },
+    {
+      "severity": "HIGH",
+      "id": "NOT_AN_IMMUTABLE_FULL_QUOTE",
+      "finding": "Only the raw market component is frozen. Final rate remains dependent on later amount and promo commission; displayed menu rate and persisted selection are separate reads without quote identity or customer confirmation."
+    },
+    {
+      "severity": "MEDIUM",
+      "id": "SILENT_FALLBACK_WITHOUT_RECONSENT",
+      "finding": "If consumption loses a race or expires, the order silently adopts a regular quote without an explicit renewed customer consent step."
+    },
+    {
+      "severity": "MEDIUM",
+      "id": "SCHEMA_AUDIT_RETENTION_INCOMPLETE",
+      "finding": "No CHECKs, active uniqueness, order foreign key, provenance, policy version, paid/refunded/replaced reason, audit correlation, retention, deletion or compensation lifecycle exists; used=true conflates replacement and consumption."
+    }
+  ],
+  "proposalBoundary": {
+    "rateLockSchemaPath": "deploy/postgres/004_rate_locks.sql",
+    "rateLockSchemaSha256": "9f0d33a12467ab127d2a383ac01d016a8d44e344bec35c67840b5b057de60a6a",
+    "replacementProposalPath": "deploy/postgres/proposals/046_e0_bot_b4_2_rate_lock_replacement.sql",
+    "replacementProposalSha256": "228c3db136eae3b97fbd1262b545c9dc76eeb58cc7aa200db3f3fedd61a95ecc",
+    "orderWriterProposalPath": "deploy/postgres/proposals/049_e0_bot_b5_4_order_creation_writer.sql",
+    "orderWriterProposalSha256": "feaebf7571bdf462cd2320105e623958a85c9c9b0d426e9e3ce08c4a52d1430c",
+    "deployed": false,
+    "acceptanceEffect": "NONE"
+  },
+  "independentReviews": [
+    {
+      "reviewer": "rate-lock-money",
+      "disposition": "NOT_ACCEPTED",
+      "finding": "Fee is fictional, renewal is free, price provenance fails open, first-insert concurrency is unsafe and DB quote integrity trusts the caller."
+    },
+    {
+      "reviewer": "rate-lock-security",
+      "disposition": "NOT_ACCEPTED",
+      "finding": "Idempotency, provenance, monetary binding, schema constraints, audit/retention and compensation are absent despite positive owner/expiry/CAS controls."
+    },
+    {
+      "reviewer": "rate-lock-surfaces",
+      "disposition": "NOT_ACCEPTED",
+      "finding": "Telegram is the only implemented surface; operator evidence and cross-surface disclosures are absent, and the feature is not a full immutable quote."
+    }
+  ],
+  "coverageConclusion": {
+    "sixSurfacesClassified": true,
+    "moneyAuthorityIdentified": true,
+    "feeTruthAccepted": false,
+    "quoteProvenanceAccepted": false,
+    "singleUseLifecycleAccepted": false,
+    "productionAcceptanceProven": false,
+    "e0_4Complete": false,
+    "e0Closed": false
+  },
+  "nextCanonicalItem": "Classify DEPLOYMENT_RELEASE_AUTOMATION across all six surfaces and verify its source trust, credentials, checks, restart authority, audit, rollback and recovery boundary read-only."
+}

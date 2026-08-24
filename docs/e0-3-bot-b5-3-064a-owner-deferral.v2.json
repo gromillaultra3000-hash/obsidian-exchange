@@ -1,0 +1,68 @@
+{
+  "schemaVersion": "e0-3-bot-b5-3-064a-owner-deferral.v2",
+  "observedAt": "2026-08-18T19:55:14Z",
+  "source": "current-owner-conversation",
+  "route": "E0/E0.3/B5.3/064A",
+  "candidatePath": "docs/e0-3-bot-b5-3-064a-decision-candidate.v2.json",
+  "candidateSha256": "760ef8b1a6848ce782dea27c0e3da672ce79f264590b40b1fbd47b25c2dbc99e",
+  "candidateRequestedDecision": "ACCEPT_BOUNDED_EVIDENCE_ONLY",
+  "candidateEffect": "EVIDENCE_ACCEPTANCE_ONLY",
+  "ownerInstruction": "RE_DEFER_064A_AND_064B_CONTINUE_SAFE_KEYLESS_READ_ONLY_WORK",
+  "decisionEffect": "RESTRICTIVE_RE_DEFERRAL_ONLY",
+  "status": "BLOCKED_OWNER",
+  "ownerReDeferralDecisionPresent": true,
+  "authenticatedEvidenceAcceptancePresent": false,
+  "independentReviewerAcceptancePresent": false,
+  "deferredItems": [
+    "064A_AUTHENTICATED_EVIDENCE_ACCEPTANCE",
+    "064B_PRODUCTION_EXPAND",
+    "064D_AMBIGUOUS_SENDING_DISPOSITION"
+  ],
+  "allowedWork": [
+    "KEYLESS",
+    "READ_ONLY",
+    "NON_PRODUCTION",
+    "DOCUMENTATION_AND_TESTS"
+  ],
+  "authority": {
+    "evidenceAccepted": false,
+    "productionAuthorization": false,
+    "productionMutationAuthorized": false,
+    "productionExpandAuthorized": false,
+    "deploymentAuthorized": false,
+    "restartAuthorized": false,
+    "cutoverAuthorized": false,
+    "telegramDeliveryAuthorized": false,
+    "ambiguousSendingDispositionAuthorized": false,
+    "automaticRetryAuthorized": false,
+    "actionAllowed": false
+  },
+  "sourceFreshnessEffect": {
+    "freshnessCanInvalidate": true,
+    "freshnessCanAuthorize": false,
+    "candidateMayExpireWhileDeferred": true,
+    "expiredCandidateRequiresNewReadOnlyObservationAndNewDigest": true
+  },
+  "immutablePriorState": {
+    "priorDeferralPath": "docs/e0-3-bot-b5-3-064a-owner-deferral.v1.json",
+    "priorDeferralSha256": "a701300a921f5345aaaab3772fc62ffae8be001d719671a1dd9b3478ecb60196",
+    "priorDecisionInputPath": "docs/e0-3-bot-b5-3-064a-decision-input.v1.json",
+    "priorDecisionInputSha256": "f8abf0cb858232df2497221c44a319975403ccb7a8e2d2403bd57bda8c904bbb"
+  },
+  "observedProductionBlockers": {
+    "sendingRows": 13,
+    "staleSendingRows": 11,
+    "rowsMutatedByDecision": 0,
+    "separate064DDispositionRequired": true
+  },
+  "remainingBlockers": [
+    "AUTHENTICATED_ACCOUNTABLE_OWNER_ACCEPTANCE_ABSENT",
+    "AUTHENTICATED_INDEPENDENT_REVIEWER_ACCEPTANCE_ABSENT",
+    "PRODUCTION_KEY_REGISTRY_ABSENT",
+    "TRUSTED_TIME_AND_REVOCATION_ABSENT",
+    "DURABLE_ATOMIC_REPLAY_LEDGER_ABSENT",
+    "13_LEGACY_SENDING_REQUIRE_064D_IMMUTABLE_OPERATOR_DISPOSITION"
+  ],
+  "nextSafeRoute": "E0/E0.4/POST_25_CLOSURE_RECONCILIATION",
+  "interpretation": "This owner instruction re-defers the exact v2 candidate. It does not accept evidence, verify E0.3, authorize 064B, or permit any production or ambiguous-row effect."
+}

@@ -1,0 +1,84 @@
+{
+  "schemaVersion":"e0-4-operator-workflows-runtime-observation.v1",
+  "observedAt":"2026-08-18T04:45:00Z",
+  "route":"E0/E0.4/FEATURE_STATUS_SURFACE_MATRIX",
+  "status":"IN_PROGRESS",
+  "acceptance":"PARTIAL_NOT_ACCEPTED",
+  "productionMutation":false,
+  "operatorAuthenticationUsed":false,
+  "operatorWriterExercised":false,
+  "customerDataObserved":false,
+  "secretValueObserved":false,
+  "surfaceContract":"Human operator actions must use named least-privilege identity, MFA or action step-up, fresh-state/CAS, bounded effects, immutable correlation and four-eyes where money or safety controls justify it.",
+  "runtime":{
+    "admin":{"unit":"admin-panel.service","activeState":"active","subState":"running","user":"root","listen":"127.0.0.1:8002"},
+    "telegramBot":{"unit":"exchange-bot.service","activeState":"active","subState":"running","user":"root"},
+    "relay":{"unit":"relay-fastapi.service","activeState":"active","subState":"running","user":"relay-svc","listen":"127.0.0.1:5001"},
+    "kairos":{"unit":"kairos.service","activeState":"active","subState":"running","user":"kairos-svc","listen":"127.0.0.1:8000"}
+  },
+  "unauthenticatedProbes":[
+    {"surface":"admin","path":"/admin-panel","statusCode":302,"result":"redirect_to_login"},
+    {"surface":"api","path":"/api/admin/stats","statusCode":403},
+    {"surface":"api","path":"/api/admin/block","method":"POST","body":"empty_object","statusCode":403,"claim":"rejected before writer"},
+    {"surface":"kairos","path":"/","statusCode":200,"claim":"loopback shell only; external edge Basic Auth is separate prior evidence"}
+  ],
+  "artifacts":{
+    "filamentLogin":{"sha256":"41b9786617614320add1a2af6bde20ee0417f1c6ac6ad923d2ea961416e1d029","checkoutEqualsDeployed":true},
+    "filamentMfaMiddleware":{"sha256":"c0d0cade905afe2e47c7f8fd26e50194db6a1b3fb6da4176069abe962ee7d688","checkoutEqualsDeployed":true},
+    "filamentPanel":{"sha256":"c45d63866817ee304e1ea210c3365ba743fb8ba8afeadf3840f0a146c77d4b06","checkoutEqualsDeployed":true},
+    "orderResource":{"sha256":"235d77a954ec59e5f19178c4601c62017b2b13bcdee6a5422dbc5d85c57a0a8e","checkoutEqualsDeployed":true},
+    "adminAudit":{"sha256":"77495e1e92758e3d71a9390c996add80931bcd6bf13c03a45991d1ff53024d4c","checkoutEqualsDeployed":true},
+    "adminAuditMigration":{"sha256":"bf8147c982ddbdc2a729015055ca405b251b7dbd475b3b5049adf2e888435810","checkoutEqualsDeployed":true},
+    "miniApp":{"sha256":"12545433f4004eef1df25592474b8e14db9558a5bb356bc245dc6b6826f9adcc","checkoutEqualsDeployed":true},
+    "kairosMain":{"sha256":"05306d4120cbc545aea3b7d571de5af4f1163d830bb14a02fef9ebce416578ee","checkoutEqualsDeployed":true},
+    "kairosFrontend":{"sha256":"cb65a6ca90bd6fc29319d68bdbfc8d893a210235cbecd944e8610298c13db823","checkoutEqualsDeployed":true},
+    "telegramBot":{"checkoutSha256":"ccee5af59e59b33b22da57ea1ecf0f7d89ac4ef018a2f7817705873ff169f528","deployedSha256":"a015b5b12870fa2f1eec7d0fb638cc2c94cb90235850d474ebb25455446372fb","checkoutEqualsDeployed":false},
+    "relayMain":{"checkoutSha256":"ed67ddfba2dae22572eb9e2a174adfe89ac79a35f00500bd24d2425ba3049193","deployedSha256":"c1ef783e3005f4698540ddc5368ef9a4592612fcf666b403ecbb7c4a359bd7ff","checkoutEqualsDeployed":false,"deployedAdminRoutesPresent":true,"deployedInternalForcePayoutPresent":true}
+  },
+  "surfaceFindings":{
+    "telegramBot":{"implementation":"PARTIAL","claim":"Static admin IDs and database operator roles expose reporting, support, blocking, moderation, configuration and money workflows; controls are broad and high-risk actions remain single-person."},
+    "site":{"implementation":"NOT_IMPLEMENTED","claim":"Customer site intentionally has no operator controls; operator access belongs to isolated admin surfaces."},
+    "miniApp":{"implementation":"PARTIAL","claim":"A hidden deployed admin tab calls authenticated Relay stats/orders/block/unblock/force-payout routes; it is functional code presence but has no separate MFA, action step-up or four-eyes."},
+    "admin":{"implementation":"PARTIAL","claim":"Laravel provides the strongest named identity, TOTP, CSRF and audit contour, but binary RBAC and allowlisted mutations lack four-eyes and complete transactional evidence."},
+    "api":{"implementation":"PARTIAL","claim":"Relay Telegram-admin and shared-secret Laravel routes plus KAIROS bearer and Ed25519 internal routes are deployed, but human identity, scope, correlation and audit semantics are inconsistent."},
+    "native":{"implementation":"NOT_IMPLEMENTED","claim":"No operator workflow exists in the custody app scaffold; this is intentionally N/A to avoid privileged admin controls in the signing client."}
+  },
+  "positiveControls":[
+    "Filament panel requires immutable is_admin authorization, encrypted TOTP, login throttling, session regeneration, atomic TOTP timestamp replay guard and CSRF middleware.",
+    "Most financial/domain Filament resources inherit deny-create/edit/delete defaults; mutations are explicit exceptions.",
+    "Admin audit records named actor, request UUID, event/model identity, changed field names and hashed IP/user-agent; database triggers deny audit update/delete.",
+    "Order force-close refreshes current state and Relay applies a paid-to-sent compare-and-set with TXID validation.",
+    "Relay internal admin secret fails closed and uses constant-time comparison.",
+    "KAIROS operator bearer fails closed when absent or short; live trade HTTP remains hard-disabled, and internal connector routes use scoped Ed25519 identity and replay protection.",
+    "Telegram payout repeats current-state, preflight and circuit checks and uses wallet idempotency evidence."
+  ],
+  "riskFindings":[
+    "Production Laravel admin and Telegram bot run as root; compromise crosses filesystem, credential and money-writer boundaries despite Relay and KAIROS using dedicated service users.",
+    "Laravel has one binary is_admin role for support, moderation, blocking and payout evidence; least-privilege operator roles are absent.",
+    "Critical payout, force-close, unfreeze and override paths have one-person confirmation only; no four-eyes or independent action step-up is accepted.",
+    "Laravel force-payout wording says 'Выплатить' although the action only records an already-broadcast TXID and marks paid to sent; it does not independently prove chain destination, amount or confirmation.",
+    "Laravel audit is append-only in the primary database but not tamper-evident or independently anchored; cross-service Relay audit receives no named actor or shared correlation ID.",
+    "Audit write and business action are not a durable outbox transaction across Laravel and Relay; an ambiguous response or post-action audit failure can mislead the operator even though CAS blocks a second status transition.",
+    "Support reply commits message and answered status before Telegram notification and ignores notification failure; no durable delivery outbox proves the customer was notified.",
+    "Review and support status edits are last-write-wins without expected-version/CAS or conflict review.",
+    "Telegram audit helper is explicitly fail-open and coverage is incomplete; multiple block, promo, configuration and moderation paths have no durable correlated audit evidence.",
+    "Telegram's four-digit confirmation is generated in memory and sent into the same Telegram conversation, so it is not an independent MFA factor, is lost on restart and provides no durable approval receipt.",
+    "Telegram payout and force-payout are single-admin flows; force-payout performs additional referral/VIP effects after the status transition outside one atomic transaction.",
+    "Mini App admin routes rely on up-to-24-hour signed Telegram initData and static admin IDs without a fresh action challenge for block/unblock/force-payout.",
+    "External KAIROS uses one shared Basic Auth identity which Nginx maps to one all-powerful bearer; there is no named actor, MFA, RBAC, per-action step-up or four-eyes.",
+    "KAIROS operator mutations lack accepted immutable audit, correlation, idempotency and CAS/version semantics; read-modify-write configuration saves can lose concurrent changes.",
+    "KAIROS UI claims CEX LIVE-CAPABLE and shows legacy credential controls while corresponding save/test endpoints are hard-disabled, creating dangerous operator-semantic drift.",
+    "Production Telegram bot and Relay main differ from checkout, so whole-file repository claims do not describe deployed operator behavior."
+  ],
+  "verification":{
+    "laravel":{"runner":"php artisan test --compact","result":"PASS","tests":14,"assertions":76,"scope":"Filament authorization, TOTP replay, admin audit and panel access"},
+    "python":{"runner":"pytest with deployed Relay and KAIROS site-packages","result":"PASS","tests":17,"scope":"P0 security, landmines, order workflow store and the complete E0.4 inventory regression set"},
+    "knownHarnessLimitations":["tests/test_postgres_order_workflow_store.py exits during pytest collection and was not counted; it is a standalone legacy script.","No authenticated operator action or production writer was exercised."]
+  },
+  "blockers":["no authoritative consolidated operator trust model","root runtime for admin and bot","binary RBAC and shared KAIROS principal","no four-eyes for money/safety overrides","Telegram pseudo-2FA is same-factor","incomplete non-tamper-evident cross-service audit","support notification is non-durable","last-write-wins moderation/support edits","operator UI semantics contradict effects","checkout/deployed bot and Relay drift","no accepted audit retention/backup/export/access policy"],
+  "independentReviews":[
+    {"reviewer":"agent:/root/operator_surface_audit","disposition":"ACCEPTED_WITH_CORRECTIONS","accepted":"surface split, Telegram pseudo-2FA, four-eyes, audit, KAIROS identity/UI and drift findings","rejected":"claim that Relay admin routes are absent or Mini App admin is dead; exact checkout and deployed route scans prove both public and internal routes exist"},
+    {"reviewer":"agent:/root/operator_security_audit","disposition":"ACCEPTED_WITH_CORRECTIONS","accepted":"RBAC, four-eyes, audit, support delivery, KAIROS shared principal and Telegram payout findings","rejected":"claim that all services run as root; runtime shows only admin and bot root while Relay and KAIROS use dedicated service users"}
+  ],
+  "nextCanonicalItem":"Add native signing to the six-surface E0.4 inventory with exact repository and runtime evidence."
+}

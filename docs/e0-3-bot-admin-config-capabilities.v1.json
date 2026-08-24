@@ -1,0 +1,23 @@
+{
+  "schema":"obsidian.e0-3-bot-admin-config-capabilities.v1",
+  "stage":"E0.3",
+  "status":"EXACT_PACKAGE",
+  "productionAuthorization":false,
+  "sourceSha256":"826764058151dd89b468a3fd9e57fdc63d6e1af956ea51591dcce33ba98ac6d4",
+  "dynamicRelationAllowlist":{"role=worker":"workers","role=operator":"operators"},
+  "capabilities":[
+    {"id":"admin_config_store.active_staff_ids","access":"READ","reads":{"operators":["user_id","is_active"],"workers":["user_id","is_active"]},"invariants":["ROLE_ALLOWLIST","ACTIVE_ONLY"]},
+    {"id":"admin_config_store.block_address","access":"WRITE","reads":{"blocked_addresses":["address"]},"mutations":{"blocked_addresses":["address","reason","blocked_by"]},"invariants":["ADDRESS_UNIQUE_UPSERT","UPDATE_REASON_AND_BLOCKED_BY_ONLY"]},
+    {"id":"admin_config_store.block_user","access":"WRITE","reads":{"blocked_users":["user_id"]},"mutations":{"blocked_users":["user_id","reason"]},"invariants":["INSERT_ONLY","USER_ID_UNIQUE_CONFLICT_NOOP"]},
+    {"id":"admin_config_store.blocked_address_rows","access":"READ","reads":{"blocked_addresses":["address","reason","created_at"]},"invariants":["CREATED_AT_DESC","CALLER_LIMIT"]},
+    {"id":"admin_config_store.deactivate_staff","access":"WRITE","reads":{"operators":["user_id","is_active"],"workers":["user_id","is_active"]},"mutations":{"operators":["is_active"],"workers":["is_active"]},"invariants":["ROLE_ALLOWLIST","EXACT_USER_ID","ACTIVE_TO_INACTIVE_CAS"]},
+    {"id":"admin_config_store.is_user_blocked","access":"READ","reads":{"blocked_users":["user_id"]},"invariants":["EXACT_USER_ID","EXISTS_ONLY"]},
+    {"id":"admin_config_store.set_reserve","access":"WRITE","reads":{"reserves":["currency"]},"mutations":{"reserves":["currency","amount","updated_at"]},"invariants":["CURRENCY_UNIQUE_UPSERT","SERVER_TIMESTAMP"]},
+    {"id":"admin_config_store.set_staff","access":"WRITE","reads":{"operators":["user_id"],"workers":["user_id"]},"mutations":{"operators":["user_id","username","added_by","is_active"],"workers":["user_id","username","added_by","is_active"]},"invariants":["ROLE_ALLOWLIST","USER_ID_UNIQUE_UPSERT","CONFLICT_REACTIVATES_AND_UPDATES_USERNAME_ONLY"]},
+    {"id":"admin_config_store.staff_rows","access":"READ","reads":{"operators":["user_id","username","added_at","is_active"],"workers":["user_id","username","added_at","is_active"]},"invariants":["ROLE_ALLOWLIST","ADDED_AT_DESC"]},
+    {"id":"admin_config_store.unblock_addresses","access":"WRITE","reads":{"blocked_addresses":["address"]},"mutations":{"blocked_addresses":["__ROW_DELETE__"]},"invariants":["EMPTY_INPUT_NOOP","INPUT_DEDUPLICATED","DELETE_MATCHING_ADDRESSES_ONLY"]},
+    {"id":"admin_config_store.unblock_user","access":"WRITE","reads":{"blocked_users":["user_id"]},"mutations":{"blocked_users":["__ROW_DELETE__"]},"invariants":["DELETE_MATCHING_USER_ID_ONLY"]}
+  ],
+  "grantPolicy":{"tableWideAccess":false,"functionPerMethodRequired":true,"dynamicRelationsClosed":true},
+  "remainingWork":["extract the next bot repository package","rehearse functions and ACL only after all bot packages are exact"]
+}

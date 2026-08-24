@@ -1,0 +1,25 @@
+[extend]
+useDefault = true
+
+# These matches are immutable public digests or deliberately fake test values.
+# Keep the allowlist value-specific: paths are intentionally not suppressed, so
+# a real credential added beside a fixture still fails the scan.
+[[allowlists]]
+description = "Public SHA-256 identifiers and deterministic fixture keys"
+targetRules = ["generic-api-key"]
+regexTarget = "match"
+regexes = [
+  '''(?i)(keyRefSha256|tokenSha256|credential_root_sha256|replayKey)["']?\s*[:=]\s*["']?[0-9a-f]{16,}''',
+  '''idempotencyKey["']?\s*:\s*["']fixture_[0-9a-f]{16}''',
+  '''relay-fastapi\.service["']?\s*:\s*["'][0-9a-f]{64}''',
+  '''d01_dedicated_result_key["']?\s*,\s*["']d02_root_epoch_revocation''',
+  '''OpenAPI, Filament/Livewire upload/update/storage''',
+  '''(?i)(password|confirmPassword)["']?\s*[:=]\s*["']StrongPass123["']''',
+  '''sk-(?:test-)?secret-?123456''',
+  '''(?:REQUEST_KEY|RESPONSE_KEY)\s*=\s*["'](?:kairos|lumi)-shadow-test-v1["']''',
+]
+
+[[allowlists]]
+description = "Static route-inventory prose whose OpenAPI wording resembles a token"
+targetRules = ["generic-api-key"]
+paths = ['''^docs/e0-4-post-25-closure-reconciliation\.v1\.json$''']

@@ -1,0 +1,44 @@
+# Production template only. Install deliberately after provisioning the
+# secret, persistent-volume backup policy, pinned image and restore test.
+[Unit]
+Description=ObsidianExchange PostgreSQL 17
+Documentation=file:/opt/obsidian-exchange/docs/postgresql-cutover-runbook.md
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=3
+ConditionPathExists=/opt/obsidian-exchange/deploy/postgres/compose.production.yml
+ConditionPathExists=/etc/obsidian-exchange/postgres/postgres-password
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/obsidian-exchange
+ExecStartPre=/usr/bin/docker compose --project-name obsidian-postgres --file /opt/obsidian-exchange/deploy/postgres/compose.production.yml config --quiet
+ExecStart=/usr/bin/docker compose --project-name obsidian-postgres --file /opt/obsidian-exchange/deploy/postgres/compose.production.yml up --no-color --no-log-prefix --abort-on-container-exit --exit-code-from postgres
+ExecStartPost=/bin/sh -ec 'i=0; while [ "$$i" -lt 60 ]; do status=$$(/usr/bin/docker inspect --format={{.State.Health.Status}} obsidian-postgres 2>/dev/null || true); [ "$$status" = healthy ] && exit 0; i=$$((i + 1)); sleep 1; done; exit 1'
+ExecStop=/usr/bin/docker compose --project-name obsidian-postgres --file /opt/obsidian-exchange/deploy/postgres/compose.production.yml stop --timeout 120 postgres
+TimeoutStartSec=90
+TimeoutStopSec=150
+Restart=on-failure
+RestartSec=10
+
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictRealtime=true
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+[Install]
+WantedBy=multi-user.target

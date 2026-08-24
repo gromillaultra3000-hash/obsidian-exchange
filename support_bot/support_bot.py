@@ -5,7 +5,12 @@ from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, C
 from aiogram.filters import Command
 from secret_guard import contains_secret, secret_reason
 
-env_path = Path('/root/support_bot/.env')
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PROJECT_ROOT / 'relay'))
+from core import db_runtime
+from repositories.admin_config_store import from_environment as admin_config_store_from_environment
+
+env_path = Path(__file__).resolve().parent / '.env'
 if env_path.exists():
     with open(env_path) as f:
         for line in f:
@@ -19,7 +24,7 @@ ADMIN_ID = int(os.getenv('ADMIN_ID', 0))
 ADMIN_ID_2 = int(os.getenv('ADMIN_ID_2', 0))
 ADMIN_IDS = {a for a in (ADMIN_ID, ADMIN_ID_2) if a}
 # Общая БД обменника — оттуда берём операторов (таблицу ведёт основной бот)
-EXCHANGE_DB = os.getenv('EXCHANGE_DB', '/root/exchange.db')
+EXCHANGE_DB = os.getenv('EXCHANGE_DB', os.getenv('DB_PATH', '/root/exchange.db'))
 
 if not TOKEN or not ADMIN_ID:
     print("Не заданы SUPPORT_BOT_TOKEN или ADMIN_ID")
@@ -28,11 +33,12 @@ if not TOKEN or not ADMIN_ID:
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "support.db")
+DB_PATH = os.getenv('SUPPORT_DB_PATH',
+                     os.path.join(os.path.dirname(os.path.abspath(__file__)), "support.db"))
 
 
 def init_db():
-    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn = db_runtime.auxiliary_sqlite_connect(DB_PATH, timeout=10)
     conn.execute("""CREATE TABLE IF NOT EXISTS support_messages (
         admin_msg_id INTEGER PRIMARY KEY,
         user_id INTEGER NOT NULL,
@@ -53,15 +59,15 @@ init_db()
 # Кеш операторов из exchange.db (60 сек)
 _operators_cache = {"ids": set(), "ts": 0.0}
 
+def _admin_config_store():
+    return admin_config_store_from_environment(sqlite_path=EXCHANGE_DB)
+
 def get_staff_ids() -> set[int]:
     """Админы + активные операторы из общей БД обменника."""
     now = time.time()
     if now - _operators_cache["ts"] > 60:
         try:
-            conn = sqlite3.connect(EXCHANGE_DB, timeout=5)
-            rows = conn.execute("SELECT user_id FROM operators WHERE is_active=1").fetchall()
-            conn.close()
-            _operators_cache["ids"] = {r[0] for r in rows}
+            _operators_cache["ids"] = _admin_config_store().active_staff_ids(role="operator")
         except Exception as e:
             print(f"operators fetch: {e}")
         _operators_cache["ts"] = now
@@ -69,7 +75,7 @@ def get_staff_ids() -> set[int]:
 
 
 def save_staff_msg(staff_id: int, msg_id: int, user_id: int):
-    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn = db_runtime.auxiliary_sqlite_connect(DB_PATH, timeout=10)
     conn.execute("INSERT OR REPLACE INTO staff_messages (staff_id, msg_id, user_id) VALUES (?,?,?)",
                  (staff_id, msg_id, user_id))
     conn.commit()
@@ -77,7 +83,7 @@ def save_staff_msg(staff_id: int, msg_id: int, user_id: int):
 
 
 def lookup_user(staff_id: int, msg_id: int):
-    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn = db_runtime.auxiliary_sqlite_connect(DB_PATH, timeout=10)
     c = conn.cursor()
     c.execute("SELECT user_id FROM staff_messages WHERE staff_id=? AND msg_id=?", (staff_id, msg_id))
     row = c.fetchone()

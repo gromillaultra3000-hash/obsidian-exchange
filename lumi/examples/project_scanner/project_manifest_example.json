@@ -1,0 +1,15 @@
+{
+  "projectId": "sample_project",
+  "hostAppId": "sample_desktop_app",
+  "displayName": "Sample Project",
+  "projectType": "python",
+  "version": "0.1.0",
+  "rootLabel": "sample_project_root",
+  "description": "Sample project for read-only scanner",
+  "declaredEntryPoints": ["run_lumi.py"],
+  "declaredTestPaths": ["tests"],
+  "declaredConfigFiles": ["requirements.txt"],
+  "declaredDocs": ["README.md"],
+  "allowedScanModes": ["manifest_only", "snapshot", "static_inspection", "improvement_plan"],
+  "metadata": {"source": "example"}
+}

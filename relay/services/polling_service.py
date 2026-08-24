@@ -1,26 +1,25 @@
-import sqlite3, logging, time, threading, os
-from datetime import datetime, timedelta
+import logging, time, threading, os
+from datetime import datetime, timedelta, timezone
+from repositories.payment_session_store import from_environment as payment_session_store
 
 DB_PATH = os.getenv('DB_PATH', '/root/exchange.db')
 
 def start_polling_service():
     """Запускает умную фоновую проверку статусов сессий с приоритетами."""
     def poll():
+        sessions = payment_session_store(sqlite_path=DB_PATH)
         while True:
             try:
-                conn = sqlite3.connect(DB_PATH, timeout=5)
-                c = conn.cursor()
-                
-                # Выбираем сессии, ожидающие оплаты
-                c.execute("SELECT session_token, provider_invoice_id, created_at, expires_at FROM payment_sessions WHERE status IN ('invoice_created', 'awaiting_payment')")
-                rows = c.fetchall()
-                conn.close()
+                rows = sessions.active()
 
-                now = datetime.now()
-                for token, invoice_id, created_str, expires_str in rows:
+                now = datetime.now(timezone.utc)
+                for row in rows:
+                    token, invoice_id = row['session_token'], row['provider_invoice_id']
+                    created_str, expires_str = row['created_at'], row['expires_at']
                     if not created_str:
                         continue
-                    created = datetime.strptime(created_str, '%Y-%m-%d %H:%M:%S')
+                    created = (created_str if isinstance(created_str, datetime) else
+                               datetime.strptime(created_str, '%Y-%m-%d %H:%M:%S').replace(tzinfo=timezone.utc))
 
                     # Экспирация — ТОЛЬКО по собственному expires_at сессии.
                     # Раньше здесь стоял жёсткий порог 900 с: сессия с окном 30 мин
@@ -28,20 +27,15 @@ def start_polling_service():
                     # и оплата уходила трейдеру без подтверждения провайдеру.
                     if expires_str:
                         try:
-                            expires = datetime.strptime(expires_str, '%Y-%m-%d %H:%M:%S')
-                        except ValueError:
+                            expires = (expires_str if isinstance(expires_str, datetime) else
+                                       datetime.strptime(expires_str, '%Y-%m-%d %H:%M:%S').replace(tzinfo=timezone.utc))
+                        except (ValueError, TypeError):
                             expires = created + timedelta(minutes=30)
                     else:
                         expires = created + timedelta(minutes=30)
 
                     if now >= expires:
-                        conn = sqlite3.connect(DB_PATH, timeout=5)
-                        c = conn.cursor()
-                        c.execute(
-                            "UPDATE payment_sessions SET status='expired', "
-                            "updated_at=datetime('now') WHERE session_token=?", (token,))
-                        conn.commit()
-                        conn.close()
+                        sessions.expire(token)
                         continue
                     
                     # Пока нет реальной проверки статуса (нужен API провайдера)

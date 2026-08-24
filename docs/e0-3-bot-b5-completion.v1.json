@@ -1,0 +1,32 @@
+{
+  "schema":"obsidian.e0-3-bot-b5-completion.v1",
+  "stage":"E0.3",
+  "status":"REHEARSED_PROPOSAL_ONLY",
+  "observedAt":"2026-08-16T23:00:46Z",
+  "productionAuthorization":false,
+  "implementationDeployed":false,
+  "scope":"B5.2 through B5.11, including the user-requested continuous B5.3-B5.11 route",
+  "decomposition":"docs/e0-3-bot-b5-1-writer-decomposition.v1.json",
+  "plan":{"path":"docs/e0-3-bot-acl-plan.v1.json","sha256":"a4f08a2706151dc4e92180f909ce4746f9c71b17e033eba3d54d1b1630a21e9a"},
+  "completionTest":{"path":"tests/test_e0_3_bot_b5_completion.py","sha256":"df695a16efa3ee157691bd52cef2c574a2ed6eb74c2d63422d0806d77510f52f"},
+  "planTest":{"path":"tests/test_e0_3_bot_acl_plan.py","sha256":"7792e6eef562225a13a7a71e1a0536addadd9b07bc7baed2197a326a8e7dbb71"},
+  "methodSet":{"expected":39,"observed":39,"unique":39,"exactEquality":true},
+  "proposalRange":"047_e0_bot_b5_2 through 057_e0_bot_b5_11",
+  "acceptance":[
+    "each decomposed method is covered exactly once by methodCoverage or an explicit safe superseding contract",
+    "every proposal function is SECURITY DEFINER with pg_catalog search_path, owner-bound and PUBLIC-revoked",
+    "bot login receives EXECUTE only and zero direct relation/sequence privileges in rehearsals",
+    "money, value and outbox paths include concurrency, idempotency or fail-closed ambiguity contracts proportional to risk",
+    "B5.11 clean PostgreSQL 17 rehearsal includes mismatch, corruption, privilege and four-path injected rollback checks",
+    "B5.6 overloaded delivery/payout method is split across delivery marker, payout intent and evidence-bound hold contracts",
+    "all evidence artifacts are hash-bound to current proposals/tests",
+    "independent final review accepted with no remaining B5.11 blocker"
+  ],
+  "productionResiduals":[
+    "legacy repository adapters still use raw SQL and are not wired to these proposal functions",
+    "the shared bot login collapses end-user, operator and background provenance",
+    "evidence/terms producer identities and deployment sequencing require a separately authorized rollout design"
+  ],
+  "result":"PASS",
+  "nextPrerequisite":"E0.3 adapter wiring and separately authorized rollout rehearsal"
+}

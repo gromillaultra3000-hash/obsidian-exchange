@@ -1143,8 +1143,11 @@ def check_failed_autopayout_reaches_a_human():
             continue
         var = m.group(1)
         falsy = None
-        for j in range(i + 1, min(i + 12, len(lines))):
-            if re.match(rf"\s*if\s+not\s+{var}\s*:\s*$", lines[j]):
+        # Durable-intent callers may need a short ledger lookup before deciding
+        # whether None means "queued" or "no debt was recorded".
+        for j in range(i + 1, min(i + 30, len(lines))):
+            if (re.match(rf"\s*if\s+not\s+{var}\s*:\s*$", lines[j]) or
+                    re.match(rf"\s*if\s+{var}\s+is\s+None\s*:\s*$", lines[j])):
                 falsy = _block_after(j)                 # охранная форма
                 break
             if re.match(rf"\s*if\s+{var}\s*:\s*$", lines[j]):
@@ -1961,6 +1964,34 @@ def check_blocklist_matches_account_not_string():
     src = _read(os.path.join(ROOT, rel))
     if not src:
         return
+    repository = _read(os.path.join(
+        ROOT, "relay", "repositories", "admin_config_store.py"))
+    validate = _nodoc(_slice(src, "def validate_crypto_address(", "\ndef "))
+    block = _nodoc(_slice(src, "async def cmd_blockaddr(", "\nasync def ", "\n@router."))
+    unblock = _nodoc(_slice(src, "async def cmd_unblockaddr(", "\nasync def ", "\n@router."))
+
+    # The bot now delegates storage to a backend-neutral repository.  Validate
+    # the security property at the adapter boundary: reads fetch the list and
+    # compare normalized stored/input account identities in Python; writes
+    # persist/delete normalized forms.  A raw table-name search in the bot
+    # would be blind specifically because the SQL was correctly extracted.
+    if "_admin_config.blocked_address_rows(" in validate:
+        if not repository or "FROM blocked_addresses" not in repository:
+            fail("чёрный список", "admin_config_store.py: repository не читает "
+                 "blocked_addresses — проверка ослепла")
+        if "want = _blocklist_key(addr)" not in validate \
+                or "_blocklist_key(stored) == want" not in validate:
+            fail("чёрный список", "bot/main_bot.py: repository-строки чёрного "
+                 "списка не сравниваются после нормализации обеих сторон")
+        if "_admin_config.block_address(" not in block \
+                or "address=_blocklist_key(addr)" not in block:
+            fail("чёрный список", "bot/main_bot.py: запись блокировки обходит "
+                 "_blocklist_key и сохраняет строковую форму адреса")
+        if "_admin_config.unblock_addresses(_blocklist_forms(addr))" not in unblock:
+            fail("чёрный список", "bot/main_bot.py: снятие блокировки не удаляет "
+                 "все эквивалентные формы счёта")
+        return
+
     lines = src.splitlines()
     norm = ("_blocklist_forms", "_blocklist_key")
     hits = 0
@@ -2218,10 +2249,14 @@ def check_dead_deal_is_not_silent():
                   "которого не бывает")
 
     body = _nodoc(_slice(main, "def handle_dead_session(", "\nasync def ", "\ndef "))
+    dispatcher = _nodoc(_slice(main, "def _dispatch_lifecycle_work(",
+                               "\nasync def ", "\ndef "))
     if not body:
         fail(tag, "relay-fastapi/main.py: нет handle_dead_session — смерть сделки "
                   "у провайдера снова видна только в журнале")
     else:
+        if "_order_lifecycle.fail_session(" not in body:
+            fail(tag, "handle_dead_session не использует атомарный lifecycle repository")
         for need, why in (
             ("notify_telegram", "клиенту не говорят ничего, а он смотрит на "
                                 "реквизиты, по которым уже не примут"),
@@ -2234,11 +2269,17 @@ def check_dead_deal_is_not_silent():
                                    "провайдера запроса доп. проверки — а у "
                                    "половины его нет вовсе"),
         ):
-            if need not in body:
+            # SQL/idempotency теперь принадлежит repository, а внешние эффекты —
+            # durable dispatcher. Проверяем весь контракт, не старую функцию-клубок.
+            proof = body + dispatcher
+            if need == "sent_notifications":
+                proof += _read(os.path.join(ROOT, "relay", "repositories",
+                                            "order_lifecycle_store.py"))
+            if need not in proof:
                 fail(tag, f"handle_dead_session: {why} (нет {need})")
         # Статус заявки трогать нельзя: «сделка не состоялась» у провайдера НЕ
         # доказывает, что клиент не платил.
-        if re.search(r"UPDATE\s+orders\s+SET\s+status=", body):
+        if re.search(r"UPDATE\s+orders\s+SET\s+status=", body + dispatcher):
             fail(tag, "handle_dead_session меняет статус заявки — человеку, чьи "
                       "деньги уже у трейдера, будет сказано «оплаты не было»")
 
@@ -2376,16 +2417,23 @@ def check_debt_queue_is_visible():
                   "— очередь не узнает, что по заявке уже решили")
 
     # 2. Клиенту говорят. Одноразово, и по ТОМУ ЖЕ порогу, что видит оператор.
+    notification_store = _read(os.path.join(
+        ROOT, "relay", "repositories", "bot_notification_store.py"))
     b = _nodoc(_slice(bot, "async def payout_delay_notice_task(", "\nasync def ", "\ndef "))
     if not b:
         fail(tag, "bot/main_bot.py: нет payout_delay_notice_task — клиент, чьи "
                   "деньги у нас, снова узнаёт о задержке только из тишины")
     else:
-        if "payout_queue" not in b:
+        if "payout_queue" not in b or "SLA_WARN_MIN" not in b:
             fail(tag, "bot/main_bot.py: уведомление о задержке считает порог само, "
                       "мимо payout_queue — клиенту скажут «всё по плану» тогда, "
                       "когда у оператора строка уже красная")
-        if "payout_delayed" not in b or "sent_notifications" not in b:
+        if "queue_due_payout_delays(" not in b:
+            fail(tag, "bot/main_bot.py: уведомление о задержке обходит атомарный "
+                      "notification repository — отбор и одноразовый claim снова "
+                      "могут разойтись")
+        if "payout_delayed" not in notification_store or \
+                "sent_notifications" not in notification_store:
             fail(tag, "bot/main_bot.py: уведомление о задержке не одноразовое "
                       "(нет метки в sent_notifications) — клиент получит одно и "
                       "то же извинение каждые десять минут")
@@ -2432,51 +2480,108 @@ def check_migrations_agree():
     tag = "миграции разъехались"
     bot = _read(os.path.join(ROOT, "bot", "main_bot.py"))
     main = _read(os.path.join(ROOT, "relay-fastapi", "main.py"))
-    if not bot or not main:
-        fail(tag, "не прочитан bot/main_bot.py или relay-fastapi/main.py")
+    validator = _read(os.path.join(
+        ROOT, "relay", "repositories", "runtime_schema_store.py"))
+    if not bot or not main or not validator:
+        fail(tag, "не прочитан bot/main_bot.py, relay-fastapi/main.py или "
+                  "runtime_schema_store.py")
         return
-    bot_cols = set(re.findall(r"ALTER TABLE orders ADD COLUMN (\w+)", bot))
-    m = re.search(r"needed = \{(.*?)\n    \}", main, re.S)
-    if not m:
-        fail(tag, "relay-fastapi/main.py: не найден список миграций orders — "
-                  "проверка ослепла")
+    try:
+        validator_tree = ast.parse(validator)
+        assignments = {}
+        for node in validator_tree.body:
+            if not isinstance(node, ast.Assign):
+                continue
+            for target in node.targets:
+                if isinstance(target, ast.Name) and target.id in {
+                        "_REQUIRED_COLUMNS", "_BOT_REQUIRED_COLUMNS"}:
+                    assignments[target.id] = ast.literal_eval(node.value)
+        required = assignments["_REQUIRED_COLUMNS"]
+        bot_required = assignments["_BOT_REQUIRED_COLUMNS"]
+    except Exception:
+        fail(tag, "runtime_schema_store.py: не разобран фиксированный контракт "
+                  "обязательных колонок — проверка ослепла")
         return
-    web_cols = set(re.findall(r'["\'](\w+)["\']\s*:', m.group(1)))
-    if not bot_cols:
-        fail(tag, "bot/main_bot.py: не найдено ни одной миграции orders — "
-                  "проверка ослепла")
-        return
+    if "_runtime_schema.validate()" not in main:
+        fail(tag, "relay-fastapi/main.py: startup не проверяет применённую схему")
+    if '_runtime_schema.validate(profile="bot")' not in bot:
+        fail(tag, "bot/main_bot.py: startup не проверяет полный bot-профиль схемы")
+    if re.search(r"\b(?:CREATE|ALTER)\s+TABLE\b|PRAGMA\s+table_info", main, re.I):
+        fail(tag, "relay-fastapi/main.py: runtime снова владеет DDL вместо "
+                  "read-only schema validation")
+    if re.search(r"\b(?:CREATE|ALTER)\s+TABLE\b|PRAGMA\s+(?:table_info|journal_mode)",
+                 bot, re.I) or re.search(r"\b(?:def\s+init_db|db_conn)\b", bot):
+        fail(tag, "bot/main_bot.py: runtime снова владеет DDL/SQLite connection "
+                  "вместо read-only schema validation")
+    main_body = _slice(bot, "async def main():", "\nif __name__")
+    validation_at = main_body.find('_runtime_schema.validate(profile="bot")')
+    first_worker_at = main_body.find("asyncio.create_task(")
+    if validation_at < 0 or first_worker_at < 0 or validation_at > first_worker_at:
+        fail(tag, "bot/main_bot.py: фоновые задачи могут стартовать до проверки схемы")
+
+    critical_bot_tables = {
+        "bot_users", "operators", "blocked_users", "reserves", "admin_log",
+        "reviews", "swap_sessions", "order_receipts", "user_vip_volume",
+        "referrals", "rate_subscriptions", "payout_intents",
+        "payout_reconciliations", "notification_outbox",
+    }
+    # The bot profile is the union of the shared runtime contract and its
+    # process-specific additions.  A critical table required by the shared
+    # contract is not missing from the bot merely because it is not duplicated
+    # in _BOT_REQUIRED_COLUMNS.
+    absent_tables = critical_bot_tables - (set(required) | set(bot_required))
+    if absent_tables:
+        fail(tag, "runtime_schema_store.py: bot-профиль не требует критичные "
+                  f"таблицы {sorted(absent_tables)}")
     # Та же беда, но с ТАБЛИЦАМИ. `sent_notifications` — журнал, на котором
     # держится вся идемпотентность уведомлений и защита от двойной выплаты, —
     # не создавался НИГДЕ: в боевую базу попал руками. На свежей базе первый же
     # INSERT валился, унося вместе с уведомлением и защиту от повтора.
     shared = ("sent_notifications", "order_receipts")
+    from pathlib import Path as _Path
+    postgres_tools = os.path.join(ROOT, "deploy", "postgres")
+    if postgres_tools not in sys.path:
+        sys.path.insert(0, postgres_tools)
+    from migration_profile import selected_paths as _selected_migrations
+    migration_schema = "\n".join(
+        _read(str(path))
+        for path in _selected_migrations(_Path(ROOT), "repository-complete")
+    )
     for t in shared:
         for src, rel, other in ((bot, "bot/main_bot.py", "relay-fastapi"),
                                 (main, "relay-fastapi/main.py", "бот")):
             uses = re.search(rf"(FROM|INTO|UPDATE)\s+{t}\b", src)
             creates = re.search(rf"CREATE TABLE IF NOT EXISTS\s+{t}\b", src)
-            if uses and not creates:
+            canonical = re.search(rf"CREATE TABLE\s+{t}\b", migration_schema)
+            if uses and not creates and not canonical:
                 fail(tag, f"{rel}: работает с таблицей {t}, но не создаёт её. "
                           f"Процессы стартуют в любом порядке: если этот окажется "
                           f"первым, запрос упадёт — а вместе с ним пропадёт то, "
                           f"ради чего таблица нужна ({other} её создаёт или нет — "
                           f"полагаться на это нельзя)")
 
-    for name, cols, other in (("bot/main_bot.py", bot_cols - web_cols, "relay-fastapi"),
-                              ("relay-fastapi/main.py", web_cols - bot_cols, "бот")):
-        if cols:
-            fail(tag, f"{name}: колонки {sorted(cols)} мигрирует только он, а "
-                      f"{other} — нет. Оба процесса делят один файл БД и "
-                      f"стартуют в любом порядке: чей старт был первым, тот и "
-                      f"определил схему, и читающий упадёт на «no such column»")
+    all_required = {table: set(columns) for table, columns in required.items()}
+    for table, columns in bot_required.items():
+        all_required.setdefault(table, set()).update(columns)
+    for table, columns in all_required.items():
+        canonical = re.search(
+            rf"CREATE TABLE\s+{table}\b(.*?);", migration_schema, re.I | re.S)
+        if not canonical:
+            fail(tag, f"PostgreSQL migrations: нет canonical table {table}")
+            continue
+        absent = {column for column in columns
+                  if not re.search(rf"\b{re.escape(column)}\b", canonical.group(1))}
+        if absent:
+            fail(tag, f"PostgreSQL migrations: {table} не содержит обязательные "
+                      f"колонки {sorted(absent)}")
 
 
 def check_receipt_beats_the_timer():
     tag = "чек против таймера"
     files = {}
     for rel in ("relay-fastapi/main.py", "relay/webapp.html",
-                "relay-fastapi/templates/dashboard_orders.html", "bot/main_bot.py"):
+                "relay-fastapi/templates/dashboard_orders.html", "bot/main_bot.py",
+                "relay/repositories/receipt_store.py"):
         files[rel] = _read(os.path.join(ROOT, rel))
         if not files[rel]:
             fail(tag, f"{rel}: файл не прочитан — проверка ослепла")
@@ -2491,6 +2596,11 @@ def check_receipt_beats_the_timer():
     # мина, довольная собственным описанием рядом, — не мина.
     body = _nodoc(_slice(main, "def _receipt_state(", "\ndef ", "\n@app."))
     body = "\n".join(re.sub(r"#.*$", "", ln) for ln in body.splitlines())
+    # The adapter may delegate the fact lookup to the backend-neutral receipt
+    # repository.  In that case validate the implementation, not only the thin
+    # call site, so moving SQL out of FastAPI cannot blind this invariant.
+    if "_receipts.state(" in body or "_receipts.authorized_state(" in body:
+        body += "\n" + files.get("relay/repositories/receipt_store.py", "")
     if not body.strip():
         fail(tag, "relay-fastapi/main.py: нет _receipt_state() — единственного "
                   "источника факта о чеке для клиентских поверхностей")
@@ -2638,6 +2748,10 @@ def check_receipt_beats_the_timer():
     # существования таблицы), а РАБОТАЮЩЕЕ условие отбора: NOT EXISTS по чекам,
     # и чтобы собранный кусок SQL был реально подставлен в запрос.
     push = r"NOT EXISTS\s*\(\s*SELECT\s+1\s+FROM\s+order_receipts"
+    lifecycle = _read(os.path.join(ROOT, "relay", "repositories",
+                                   "order_lifecycle_store.py"))
+    reminders = _read(os.path.join(ROOT, "relay", "repositories",
+                                   "bot_notification_store.py"))
     for rel, fn, human, pat in (
         ("bot/main_bot.py", "async def my_orders(", "«Мои заявки»", r"receipts_for\s*\("),
         ("bot/main_bot.py", "async def abandoned_order_reminder(",
@@ -2652,7 +2766,18 @@ def check_receipt_beats_the_timer():
         if not b:
             fail(tag, f"{rel}: не найдена {fn} — проверка ослепла")
             continue
-        if not re.search(pat, b):
+        guarded = re.search(pat, b)
+        if fn == "async def cleanup_expired_orders(" and "_order_lifecycle.expire_due(" in b:
+            guarded = re.search(pat, lifecycle)
+        if fn == "async def abandoned_order_reminder(" and \
+                "_bot_notifications.queue_due_abandoned(" in b:
+            guarded = re.search(pat, _slice(
+                reminders, "def queue_due_abandoned(", "\n    def ", "\nclass "))
+        if fn == "async def winback_promo_task(" and \
+                "_bot_notifications.queue_due_winbacks(" in b:
+            guarded = re.search(pat, _slice(
+                reminders, "def queue_due_winbacks(", "\n    def ", "\nclass "))
+        if not guarded:
             fail(tag, f"{rel}: {human} не отсеивает заявки с чеком — клиента, "
                       f"который уже заплатил и прислал чек, зовут сделать это "
                       f"ещё раз")
@@ -2682,7 +2807,8 @@ def check_receipt_beats_the_timer():
     b = _slice(main, "async def payment_callback(", "\n@app.", "\nasync def ", "\ndef ")
     if not b:
         fail(tag, "relay-fastapi/main.py: не найден /payment/callback — проверка ослепла")
-    elif "rowcount" not in b:
+    elif ("rowcount" not in b and
+          not ("result[\"action\"]" in b and '!= "transitioned"' in b)):
         fail(tag, "relay-fastapi/main.py: /payment/callback не смотрит, сколько строк "
                   "изменил, и отвечает успехом всегда. По закрытой заявке это "
                   "ложное «подтверждено» человеку, который держит в руках деньги "
@@ -3438,6 +3564,17 @@ def check_balance_is_shown_only_for_proven_ownership():
     SHOWS_WALLET = ("balances_for", "history_for")
     if any(s in main_src for s in SHOWS_WALLET):
         t = ast.parse(main_src)
+        auth_helper = next((
+            node for node in ast.walk(t)
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.name == "_connector_web_user"
+        ), None)
+        auth_helper_seg = ast.get_source_segment(main_src, auth_helper) if auth_helper else ""
+        connector_auth_is_guarded = bool(
+            auth_helper_seg
+            and "get_web_user" in auth_helper_seg
+            and "verify_init_data" in auth_helper_seg
+        )
         seen = False
         for node in ast.walk(t):
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -3446,7 +3583,10 @@ def check_balance_is_shown_only_for_proven_ownership():
             if not any(s in seg for s in SHOWS_WALLET):
                 continue
             seen = True
-            if "verify_init_data" not in seg and "get_web_user" not in seg:
+            if (
+                "verify_init_data" not in seg and "get_web_user" not in seg
+                and not ("_connector_web_user(" in seg and connector_auth_is_guarded)
+            ):
                 fail(tag, f"main.py: {node.name}() показывает баланс без опознания "
                           f"клиента — эндпоинт станет публичным пробником кошельков")
             # Запрещён не любой параметр запроса (страница профиля читает из
@@ -4552,13 +4692,14 @@ def check_payout_is_marked_after_the_money_moves():
     # функции: искать по одному литералу значило бы, что мина падает от
     # переноса строки, а не от беды.
     glued = re.sub(r"[\"']\s*[\"']", "", body)
+    repository_claim = "_sell_store.claim(" in body
     claim = re.search(r"UPDATE sell_orders SET status='paying'.{0,120}?"
                       r"WHERE id=\?\s*AND status NOT IN", glued, re.S)
-    if not claim:
+    if not claim and not repository_claim:
         fail(tag, "заявка не занимается одним UPDATE с проверкой текущего "
                   "статуса — две одновременные кнопки создадут ДВА перевода "
                   "одному клиенту, у рельса нет идемпотентности по нашему id")
-    elif "rowcount" not in body:
+    elif claim and "rowcount" not in body:
         fail(tag, "результат захвата строки не проверяется (нет rowcount) — "
                   "проигравшая гонку кнопка пойдёт платить как ни в чём "
                   "не бывало")
@@ -4581,7 +4722,7 @@ def check_payout_is_marked_after_the_money_moves():
         if "update_user_vip_volume" in pre:
             fail(tag, "объём начисляется до отправки рублей — за перевод, "
                       "которого может не быть")
-        if "SET status=" not in post:
+        if "SET status=" not in post and "mark_manual_or_processing" not in post:
             fail(tag, "_do_sell_payout() не помечает заявку выплаченной — она "
                       "останется в захваченном состоянии навсегда")
         # И этого мало: рельс отвечает на создание выплаты «Pending». Закрыть
@@ -4614,7 +4755,7 @@ def check_payout_is_marked_after_the_money_moves():
                     if name:
                         called.add(name)
         if tree is not None and "_vertu_payout_sweep" in called:
-            if "mark_settled" not in called:
+            if "mark_settled" not in called and "settle_vertu" not in called:
                 fail(tag, "обход выплат не закрывает подтверждённую заявку — "
                           "она навсегда останется занятой, а клиент не узнает, "
                           "что деньги дошли")
@@ -5089,6 +5230,70 @@ def check_proven_address_can_show_its_balance():
                           f"отвечать «недоступно»")
 
 
+def check_bot_reminders_are_durable():
+    tag = "одноразовые напоминания бота"
+    bot = _read(os.path.join(ROOT, "bot", "main_bot.py"))
+    store = _read(os.path.join(ROOT, "relay", "repositories",
+                               "bot_notification_store.py"))
+    if not bot or not store:
+        fail(tag, "не прочитан bot/main_bot.py или bot_notification_store.py — "
+                  "проверка ослепла")
+        return
+
+    flows = (
+        ("recall_inactive_users", "queue_due_recalls"),
+        ("montera_receipt_reminder", "queue_due_montera"),
+        ("abandoned_order_reminder", "queue_due_abandoned"),
+        ("payout_delay_notice_task", "queue_due_payout_delays"),
+        ("winback_promo_task", "queue_due_winbacks"),
+    )
+    for function, selector in flows:
+        body = _nodoc(_slice(bot, f"async def {function}(", "\nasync def ", "\ndef "))
+        if f"_bot_notifications.{selector}(" not in body:
+            fail(tag, f"{function} обходит фиксированный selector {selector}")
+        if "db_conn(" in body or ".execute(" in body:
+            fail(tag, f"{function} снова содержит SQL/SQLite вместо repository")
+        if f"def {selector}(" not in store:
+            fail(tag, f"repository не реализует {selector}")
+
+    recall = _slice(store, "def queue_due_recalls(", "\n    def ", "\nclass ")
+    if "sn.created_at" in recall or "event='recall'" not in recall:
+        fail(tag, "recall marker снова временный, а должен быть lifetime-once")
+    montera = _slice(store, "def queue_due_montera(", "\n    def ", "\nclass ")
+    for invariant in ("receipt_deadline", "receipt_sent_at IS NULL", "has_file",
+                      '"montera_customer"', '"montera_admin"'):
+        if invariant not in montera:
+            fail(tag, f"Montera selector потерял {invariant}")
+    abandoned = _slice(store, "def queue_due_abandoned(", "\n    def ", "\nclass ")
+    for invariant in ("order_receipts", "payment_sessions", "ORDER BY ps.id DESC",
+                      "NOT IN('failed','expired')"):
+        if invariant not in abandoned:
+            fail(tag, f"abandoned selector потерял {invariant}")
+    payout = _slice(store, "def queue_due_payout_delays(", "\n    def ", "\nclass ")
+    if "payout_delayed" not in payout or "self._mark(" not in payout \
+            or "self._job(" not in payout:
+        fail(tag, "payout-delay marker и job не создаются одной repository-транзакцией")
+    winback = _slice(store, "def queue_due_winbacks(", "\n    def ", "\nclass ")
+    for invariant in ("promo_codes", "winback_promo", "order_receipts",
+                      "blocked_users", "paid.status IN('paid','sent')"):
+        if invariant not in winback:
+            fail(tag, f"winback selector потерял {invariant}")
+
+    dispatcher = _nodoc(_slice(bot, "async def _dispatch_bot_notification_jobs(",
+                               "\nasync def ", "\ndef "))
+    for invariant in ("claim_notification(", "mark_notification_sent(",
+                      "retry_notification(", "delivered_count == 0",
+                      "remains sending after uncertain outcome"):
+        if invariant not in dispatcher:
+            fail(tag, f"durable dispatcher потерял {invariant}")
+    for promise in ("PDF-чек из банка", "Оплатить сейчас", "повторно платить не нужно",
+                    "скидка <b>уже активирована</b>"):
+        if promise not in dispatcher:
+            fail(tag, f"dispatcher потерял точный клиентский текст: {promise}")
+    if "create_task(bot_notification_dispatcher())" not in bot:
+        fail(tag, "durable dispatcher определён, но не запущен")
+
+
 def main():
     for fn in (check_no_diverging_duplicates, check_config_keys_are_read,
                check_no_fail_open_in_guards, check_session_expiry_uses_expires_at,
@@ -5152,7 +5357,8 @@ def main():
                check_client_threshold_guards_every_door,
                check_sell_price_has_one_formula,
                check_no_foreign_code_on_money_pages,
-               check_proven_address_can_show_its_balance):
+               check_proven_address_can_show_its_balance,
+               check_bot_reminders_are_durable):
         try:
             fn()
         except Exception as e:

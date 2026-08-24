@@ -1,0 +1,77 @@
+{
+  "schemaVersion": "e0-4-artifact-drift-reconciliation.v1",
+  "observedAt": "2026-08-17T15:18:22Z",
+  "route": "E0/E0.4/FEATURE_STATUS_SURFACE_MATRIX",
+  "status": "IN_PROGRESS",
+  "workClass": "READ_ONLY_ARTIFACT_DRIFT_RECONCILIATION",
+  "accountableOwner": "project-owner",
+  "productionMutation": false,
+  "deploymentAuthorized": false,
+  "restartAuthorized": false,
+  "telegramMessagesSent": false,
+  "databaseQueriesMade": false,
+  "runtimeProvenance": {
+    "relay": {
+      "entrypoint": "/opt/obsidian-exchange/relay-fastapi/main.py",
+      "workingDirectory": "/opt/obsidian-exchange/relay-fastapi",
+      "selectionEvidence": [
+        {"path":"/etc/systemd/system/relay-fastapi.service.d/zz-runtime.conf","sha256":"deb7174d8fe32d6d797f3c65da00b512a72d927f29e9a188097922fd385b24fc"},
+        {"path":"/etc/systemd/system/relay-fastapi.service.d/runtime-paths.conf","sha256":"7a4acdc00db8cf7b06ab34ba5bab564dcea365423ab5d73dbabe3fb09b9f62c9"}
+      ],
+      "obsoleteComparisonExcluded": "/opt/obsidian-exchange/relay/main.py"
+    },
+    "telegramBot": {
+      "entrypoint": "/opt/obsidian-exchange/bot/main_bot.py",
+      "workingDirectory": "/opt/obsidian-exchange/bot",
+      "selectionEvidence": [
+        {"path":"/etc/systemd/system/exchange-bot.service.d/runtime-paths.conf","sha256":"c4a453bc4d8c1175cd25830c7fe79d4a01114be519eb9f4675b0916b0e40e72d"},
+        {"path":"/etc/systemd/system/exchange-bot.service.d/override.conf","sha256":"3c4ccff2db5fb76c399f0c799ed22962e1d491c1a05968538649abeb7bc72db7"}
+      ]
+    },
+    "limitation": "Drop-in files identify configured paths. This slice did not restart units or claim a new live process observation."
+  },
+  "artifacts": [
+    {
+      "component": "relay",
+      "checkoutPath": "relay-fastapi/main.py",
+      "checkoutSha256": "5bc78d72e1d06654f2874dcb8dce0027f39d47bdd669d1abcd903b5b58e6cfa8",
+      "deployedPath": "/opt/obsidian-exchange/relay-fastapi/main.py",
+      "deployedSha256": "c1ef783e3005f4698540ddc5368ef9a4592612fcf666b403ecbb7c4a359bd7ff",
+      "equal": false,
+      "diff": {"insertions":79,"deletions":45,"patchSha256":"5301e881ff8abd4322ff408cac7920904b1d84eec7879606d04131a0fa6b804d"},
+      "classification": ["SECURITY_RELEVANT_OWNER_BOUND_READS","TEST_ONLY_DEFAULT_OFF_DOTENV_CONTROL","CONNECTION_BUDGET_RUNTIME_CHANGE"],
+      "commonBaseline": ["Decimal reserve normalization P0 fix","bounded Brabus cancel-drain P0 fix"]
+    },
+    {
+      "component": "telegramBot",
+      "checkoutPath": "bot/main_bot.py",
+      "checkoutSha256": "ccee5af59e59b33b22da57ea1ecf0f7d89ac4ef018a2f7817705873ff169f528",
+      "deployedPath": "/opt/obsidian-exchange/bot/main_bot.py",
+      "deployedSha256": "a015b5b12870fa2f1eec7d0fb638cc2c94cb90235850d474ebb25455446372fb",
+      "equal": false,
+      "diff": {"insertions":183,"deletions":11,"patchSha256":"87a66b170242eb4f01f89f4f797d4a823e9e60db8609e3d400e7d82636f0381f"},
+      "classification": ["SECURITY_RELEVANT_REVIEW_OWNERSHIP","COUPLED_PAYMENT_PROOF","DEFERRED_NOTIFICATION_MONEY_WRITER_PROPOSAL"]
+    }
+  ],
+  "findings": [
+    "The earlier Relay checkout digest is stale because the isolated test harness added a default-off dotenv control after that observation.",
+    "Checkout owner-bound order/session reads and the bot payment-proof flow are coupled; deploying only one side can create an availability or compatibility failure.",
+    "The bot diff includes a substantially larger notification-delivery proposal, so whole-file synchronization is not a bounded E0.4 reconciliation.",
+    "The dirty checkout and deployed files are not cryptographically bound to one reproducible release manifest; deployed provenance remains UNKNOWN.",
+    "Repository anchors remain checkout-only evidence and cannot be promoted to production acceptance."
+  ],
+  "independentReviews": [
+    {"identity":"agent:/root/relay_drift_review","disposition":"ACCEPTED_READ_ONLY_FINDINGS"},
+    {"identity":"agent:/root/bot_drift_review","disposition":"ACCEPTED_READ_ONLY_FINDINGS"},
+    {"identity":"agent:/root/e04_evidence_review","disposition":"ACCEPTED_WITH_BOUNDED_RELEASE_REQUIREMENT"}
+  ],
+  "rollout": "None. A later owner-authorized slice must build an immutable reviewed candidate, preserve exact rollback bytes, exclude mutable state/env/database/venv files, test the coupled proof contract hermetically, then attest post-restart paths and hashes.",
+  "rollback": "Not applicable; this slice changed documentation and tests only.",
+  "securityInterruption": {
+    "status": "BLOCKED_OWNER",
+    "finding": "A backup-like legacy systemd drop-in contains a plaintext historical payout secret even though active overrides clear that variable.",
+    "secretValueRecorded": false,
+    "requiredAction": "Treat the secret as compromised; owner-authorized rotation/revocation and safe removal require a separate exact-target preflight."
+  },
+  "nextCanonicalItem": "Build and hermetically verify an immutable minimal Relay+bot reconciliation candidate that includes only the coupled owner/auth hardening and excludes the deferred notification writer; deployment and restart remain separately owner-authorized."
+}

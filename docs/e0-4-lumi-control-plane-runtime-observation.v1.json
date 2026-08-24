@@ -1,0 +1,76 @@
+{
+  "schemaVersion": "e0-4-lumi-control-plane-runtime-observation.v1",
+  "observedAt": "2026-08-18T16:59:25Z",
+  "route": "E0/E0.4/LUMI_CONTROL_PLANE",
+  "status": "IN_PROGRESS",
+  "acceptance": "PARTIAL_NOT_ACCEPTED",
+  "workClass": "KEYLESS_READ_ONLY_DEPLOYED_SOURCE_AND_PUBLIC_RUNTIME_OBSERVATION",
+  "productionMutation": false,
+  "authenticatedCallsMade": false,
+  "credentialsUsed": false,
+  "secretValuesRead": false,
+  "customerDataRead": false,
+  "externalProviderCallsMade": false,
+  "moneyWritersExercised": false,
+  "deployedEntrypoint": {
+    "path": "/opt/lumi/lumi/app/main.py",
+    "sha256": "bada14a32cc465a7e2e547a8ce661c263792d13bb7429c60bbe254871a4eab16",
+    "checkoutByteEqual": true,
+    "bind": "127.0.0.1:8010",
+    "runtimePrincipal": "lumi-svc:lumi-svc",
+    "writablePath": "/var/lib/lumi"
+  },
+  "exactStaticRouteUniverse": {
+    "routerModules": 28,
+    "routes": 203,
+    "methods": {"GET": 107, "POST": 94, "DELETE": 2},
+    "enumeration": "AST over every mounted deployed API router decorator without importing the application",
+    "backgroundWorkersObserved": 0
+  },
+  "effectDomains": [
+    {"id":"REAL_APPLY","routes":20,"authority":"HOST_FILESYSTEM_MUTATION","examples":["POST /real-apply/backups/create","POST /real-apply/execute","POST /real-apply/rollback"]},
+    {"id":"SANDBOX","routes":12,"authority":"PREVIEW_AND_IN_MEMORY_STATE_ONLY","examples":["POST /sandbox/tests/run","POST /sandbox/apply/prepare"]},
+    {"id":"SECRET_VAULT","routes":13,"authority":"SESSION_AND_SECRET_INTEGRITY_AVAILABILITY","examples":["POST /security/vault/secrets","DELETE /security/vault/secrets/{secretId}","POST /security/vault/resolve"]},
+    {"id":"PROVIDER_RUNTIME","routes":16,"authority":"PROVIDER_CONFIGURATION_WITH_LIVE_CALL_CODE_GATED","examples":["POST /provider-runtime/providers/{providerId}/allow-live","POST /provider-runtime/live-call"]},
+    {"id":"POLICY_ACTIONS","routes":20,"authority":"IN_MEMORY_POLICY_ACTION_AND_APPROVAL_MUTATION"},
+    {"id":"PROJECT_PATCH_INTEGRATION_PERSISTENCE","routes":48,"authority":"PROJECT_HOST_CALLBACK_AND_DURABLE_RUNTIME_STATE"}
+  ],
+  "authorityBoundary": {
+    "moneyOrAclAuthorityObserved": false,
+    "plaintextSecretDisclosureObserved": false,
+    "hostFileMutationCapabilityPresent": true,
+    "externalProviderExecutionObserved": false,
+    "kairosServiceExceptionPaths": ["POST /conflict/resolve", "POST /integration/hosts/register"],
+    "kairosExceptionCanReachEffectfulControlPlane": false,
+    "generalAuthModel": "one bearer session gate for all non-public routes; no route roles/scopes",
+    "livePublicSecurityObservation": {"mode":"protected","configured":false,"status":"not_configured"},
+    "bootstrapRisk": "After each fresh process start the first loopback caller can claim the public setup endpoint and obtain an all-control-plane bearer.",
+    "advisoryOnlyCharterConformance": false
+  },
+  "criticalFindings": [
+    "ApplyGate accepts any non-empty approvalPromptId and testRunResultId without resolving ownership, freshness, approval decision or passed test evidence; gateId, backupPlanId and applyPackageId are not authoritative.",
+    "The same bearer can enable controlled apply, register and enable a writable workspace, and submit an apply; rollback also accepts a presence-only approvalPromptId.",
+    "Security password/configured state is process-memory only while setup and unlock are public; live read-only status was protected but configured:false.",
+    "Public dashboard safety labels claim no host writes/real patch apply while the deployed real-apply writer is mounted.",
+    "Path validation and later file replacement/removal are not inode/dirfd bound, leaving an authenticated TOCTOU/symlink risk within writable ancestors."
+  ],
+  "surfaceMatrix": {
+    "telegramBot":{"requirement":"N/A","status":"NOT_IMPLEMENTED","reason":"No LUMI control-plane Telegram workflow."},
+    "site":{"requirement":"N/A","status":"NOT_IMPLEMENTED","reason":"No customer-site control-plane workflow."},
+    "miniApp":{"requirement":"N/A","status":"NOT_IMPLEMENTED","reason":"No Mini App control-plane workflow."},
+    "admin":{"requirement":"OPERATOR_ONLY","status":"PARTIAL","reason":"A separate loopback LUMI dashboard exists, but it lacks durable operator identity, scoped roles and four-eyes approval."},
+    "api":{"requirement":"OPERATOR_ONLY","status":"PARTIAL","reason":"All 203 routes are mounted behind a coarse bearer gate, with two narrow KAIROS service exceptions."},
+    "native":{"requirement":"N/A","status":"NOT_IMPLEMENTED","reason":"No native wallet integration."}
+  },
+  "limitations": [
+    "Static source proves capability presence, not adversarial acceptance of every gate and effect.",
+    "The public status/dashboard GETs prove current bootstrap state only; no setup, unlock, authenticated or mutating call was made.",
+    "No money/ACL writer, provider call, shell execution or plaintext-secret disclosure was observed."
+  ],
+  "independentReviews": [
+    {"reviewer":"lumi-routes","disposition":"PARTIAL_NOT_ACCEPTED","finding":"Exact route inventory and live public status confirm broad control authority plus claimable bootstrap."},
+    {"reviewer":"lumi-security","disposition":"PARTIAL_NOT_ACCEPTED","finding":"Presence-only apply evidence, shared bearer authority, restart bootstrap and file-write TOCTOU violate the advisory boundary."}
+  ],
+  "coverageConclusion": {"lumiControlPlaneFamilyClassified":true,"sixSurfaceClassificationComplete":true,"authorityBoundaryVerifiedReadOnly":true,"productionAcceptanceProven":false,"e0_4Complete":false,"e0GateClosed":false},
+  "nextCanonicalItem": "Classify KAIROS_AUTONOMOUS_TRADE_CONTROL across all six surfaces and verify its execution authority read-only."
+}

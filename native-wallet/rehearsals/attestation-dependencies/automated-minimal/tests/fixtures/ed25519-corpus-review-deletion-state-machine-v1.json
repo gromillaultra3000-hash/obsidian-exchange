@@ -1,0 +1,43 @@
+{
+  "schema": "native-wallet-ed25519-corpus-review-deletion-state-machine.v1",
+  "states": [
+    "PLANNED",
+    "CLAIMED",
+    "DELETING",
+    "SCANNING",
+    "AWAITING_WITNESS",
+    "COMPLETE",
+    "REVIEW_REQUIRED",
+    "FAILED"
+  ],
+  "initial_state": "PLANNED",
+  "terminal_states": ["COMPLETE", "REVIEW_REQUIRED", "FAILED"],
+  "transitions": [
+    { "from": "PLANNED", "event": "CLAIM", "to": "CLAIMED", "guard": "single atomic claimant and exact plan/inventory digests" },
+    { "from": "CLAIMED", "event": "BEGIN", "to": "DELETING", "guard": "retention trigger active and no ordinary backup copies expected" },
+    { "from": "DELETING", "event": "ALL_LOCATION_OUTCOMES_KNOWN", "to": "SCANNING", "guard": "every inventory location attempted with zero failures" },
+    { "from": "DELETING", "event": "PARTIAL_OR_UNKNOWN", "to": "REVIEW_REQUIRED", "guard": "any failed or uncertain side effect" },
+    { "from": "SCANNING", "event": "SCAN_COVERS_INVENTORY", "to": "AWAITING_WITNESS", "guard": "post-delete scan digest covers exact inventory" },
+    { "from": "SCANNING", "event": "SCAN_MISMATCH", "to": "REVIEW_REQUIRED", "guard": "missing location, remaining copy or inventory drift" },
+    { "from": "AWAITING_WITNESS", "event": "INDEPENDENT_WITNESS_APPROVES", "to": "COMPLETE", "guard": "witness differs from executor and receipt fields are complete" },
+    { "from": "AWAITING_WITNESS", "event": "WITNESS_REJECTS_OR_UNKNOWN", "to": "REVIEW_REQUIRED", "guard": "rejection, timeout or shared control" },
+    { "from": "PLANNED", "event": "PLAN_INVALID", "to": "FAILED", "guard": "invalid or incomplete inventory before side effects" },
+    { "from": "CLAIMED", "event": "PRE_SIDE_EFFECT_FAILURE", "to": "FAILED", "guard": "proof that no deletion side effect began" }
+  ],
+  "crash_policy": [
+    { "state": "PLANNED", "recovery": "safe to claim once" },
+    { "state": "CLAIMED", "recovery": "resume only if durable marker proves no side effect began; otherwise REVIEW_REQUIRED" },
+    { "state": "DELETING", "recovery": "REVIEW_REQUIRED unless every per-location outcome is durably known" },
+    { "state": "SCANNING", "recovery": "repeat read-only scan; do not repeat deletion automatically" },
+    { "state": "AWAITING_WITNESS", "recovery": "repeat witness evaluation over same receipt digest; do not repeat deletion" }
+  ],
+  "automatic_retry_after_any_deletion_side_effect": false,
+  "terminal_state_mutation_allowed": false,
+  "new_attempt_after_review_requires_new_plan_and_links_previous_receipt": true,
+  "append_audit_event_before_state_visibility": true,
+  "real_state_machine_implemented": false,
+  "real_deletion_attempt_present": false,
+  "gate_i09_pass": false,
+  "selection_allowed": false,
+  "runtime_integration_allowed": false
+}

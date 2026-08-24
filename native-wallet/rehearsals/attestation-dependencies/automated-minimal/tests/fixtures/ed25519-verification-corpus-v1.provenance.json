@@ -1,0 +1,17 @@
+{
+  "schema": "native-wallet-ed25519-corpus-provenance.v1",
+  "corpus_path": "ed25519-verification-corpus-v1.json",
+  "corpus_sha256": "daca329e7885b3bc50b869631cd0b92070d9efdc472a6047e3af96082db0895c",
+  "source_url": "https://www.rfc-editor.org/rfc/rfc8032.html#section-7.1",
+  "source_identity": "RFC 8032 Section 7.1 TEST 2",
+  "source_publisher": "RFC Editor",
+  "source_status": "IRTF Informational RFC",
+  "source_errata_checked": "2026-08-12",
+  "source_errata_effect_on_selected_vector": "none identified",
+  "license_source": "https://trustee.ietf.org/documents/trust-legal-provisions/",
+  "license_review": "Redistribution review required before runtime integration; this fixture copies only public verification data and attributes the RFC source.",
+  "review_state": "PINNED_FOR_INDEPENDENT_REVIEW",
+  "private_material_present": false,
+  "crypto_call_allowed": false,
+  "runtime_integration_allowed": false
+}

@@ -1,0 +1,13 @@
+{
+  "schema":"obsidian.e0-3-bot-support-capabilities.v1","stage":"E0.3","status":"EXACT_PACKAGE_VERIFIED","productionAuthorization":false,"sourceSha256":"06cf96c102f038bb4a6e79c81eb8232551f6597ee2368029c9130d84d59d9539",
+  "capabilities":[
+    {"id":"support_store.admin_reply","access":"OPERATOR_WRITE","reads":{"support_tickets":["id","user_id","subject"]},"mutations":{"support_messages":["ticket_id","sender","message"],"support_tickets":["status","updated_at"]},"invariants":["EXACT_TICKET","TICKET_ROW_LOCK_POSTGRES","MESSAGE_AND_ANSWERED_STATUS_ONE_TRANSACTION","MISSING_TICKET_NO_WRITE"]},
+    {"id":"support_store.list_for_telegram_user","access":"OWNER_READ","reads":{"support_tickets":["id","user_id","subject","status","updated_at"]},"invariants":["EXACT_TELEGRAM_OWNER","UPDATED_DESC","LIMIT_MINIMUM_ONE","LIMIT_MAXIMUM_100"]},
+    {"id":"support_store.open_count","access":"OPERATOR_AGGREGATE_READ","reads":{"support_tickets":["id","status"]},"invariants":["OPEN_OR_ANSWERED_ONLY","COUNT_ONLY"]},
+    {"id":"support_store.open_count_for_telegram_user","access":"OWNER_AGGREGATE_READ","reads":{"support_tickets":["id","user_id","status"]},"invariants":["EXACT_TELEGRAM_OWNER","OPEN_ONLY","COUNT_ONLY"]},
+    {"id":"support_store.staff_new_tickets","access":"OPERATOR_READ","reads":{"support_tickets":["id","username","user_id","subject","updated_at","status"]},"invariants":["OPEN_ONLY","OLDEST_UPDATED_FIRST","LIMIT_MINIMUM_ONE","LIMIT_MAXIMUM_100"]},
+    {"id":"support_store.staff_open_tickets","access":"OPERATOR_READ","reads":{"support_tickets":["id","user_id","username","subject","status","updated_at"]},"invariants":["OPEN_OR_ANSWERED_ONLY","LATEST_UPDATED_FIRST","LIMIT_MINIMUM_ONE","LIMIT_MAXIMUM_100"]},
+    {"id":"support_store.thread_for_telegram_user","access":"OWNER_READ","reads":{"support_tickets":["id","user_id","subject","status"],"support_messages":["ticket_id","sender","message","created_at","id"]},"invariants":["EXACT_TICKET_AND_TELEGRAM_OWNER","CROSS_OWNER_RETURNS_NONE","LATEST_500_MESSAGES","MESSAGE_ID_ASC"]}
+  ],
+  "blockers":[],"remainingWork":[]
+}

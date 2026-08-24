@@ -1,0 +1,68 @@
+{
+  "schema": "obsidian-e0-gate-status.v1",
+  "canonicalRoadmap": "docs/ecosystem-master-roadmap.md",
+  "observedAt": "2026-08-18T18:57:23Z",
+  "observationSources": [
+    "repository search and file inspection",
+    "systemctl is-active for seven named core units",
+    "systemctl show of user group working directory and ExecStart",
+    "ss -lntp socket inventory"
+  ],
+  "statusReconciliation": {
+    "reconciledAt": "2026-08-23T21:19:17Z",
+    "scope": ["E0.3 064A PostgreSQL privilege-inventory reconciliation", "E0.4 latest restrictive evidence pointers"],
+    "productionReobserved": false,
+    "runtimeReobserved": false,
+    "preservesOriginalStageObservationProvenance": true
+  },
+  "stage": {
+    "id": "E0",
+    "title": "foundation-and-inventory",
+    "status": "IN_PROGRESS",
+    "firstUnmetCriterion": "E0.3",
+    "criteria": [
+      {
+        "id": "E0.1",
+        "title": "assign-aurevia-role",
+          "status": "SUPERSEDED",
+        "accountableOwner": "project-owner",
+          "evidence": ["docs/e0-gate-audit.md"],
+          "blocker": "Superseded by the owner's 2026-08-15 decision to remove Aurevia from the ecosystem scope."
+      },
+      {
+        "id": "E0.2",
+        "title": "current-api-data-and-trust-contracts",
+          "status": "VERIFIED",
+        "accountableOwner": "project-owner",
+          "evidence": ["docs/ecosystem-contracts.v1.json", "docs/ecosystem-contracts.md", "tests/test_ecosystem_contract_inventory.py"],
+          "acceptance": "One current authoritative inventory covers the implemented and dormant Wallet, Exchange, KAIROS, LUMI, provider, operator and signer trust edges without mixing superseded runtime claims."
+      },
+      {
+        "id": "E0.3",
+        "title": "data-secret-writer-owner-registry",
+        "status": "BLOCKED_OWNER",
+        "accountableOwner": "project-owner",
+        "evidence": ["docs/operational-ownership.v1.json", "docs/operational-ownership.md", "tests/test_operational_ownership.py", "docs/secret-reference-members.v1.json", "docs/secret-reference-members.md", "tests/test_secret_reference_members.py", "docs/decisions/2026-08-15-e0-accountability-map.md", "docs/e0-3-remediation-plan.v1.json", "tests/test_e0_3_remediation_plan.py", "docs/e0-3-unit-environment-allowlist.v1.json", "docs/e0-3-observed-environment-names.v1.json", "scripts/e0_names_only_observer.py", "tests/test_e0_3_observed_environment_names.py", "docs/e0-3-db-capability-manifest.v1.json", "docs/e0-3-capability-manifests.md", "tests/test_e0_3_capability_manifests.py", "deploy/postgres/proposals/026_e0_notifier_functions.sql", "tests/test_e0_3_notifier_acl_rehearsal.py", "deploy/postgres/proposals/027_e0_relay_shadow_no_db.sql", "tests/test_e0_3_relay_shadow_denial_rehearsal.py", "docs/e0-3-relay-capability-graph.v1.json", "scripts/e0_relay_capability_graph.py", "tests/test_e0_3_relay_capability_graph.py", "docs/e0-3-relay-writer-matrix.v1.json", "tests/test_e0_3_relay_writer_matrix.py", "docs/e0-3-relay-read-matrix.v1.json", "tests/test_e0_3_relay_read_matrix.py", "docs/e0-3-relay-read-authorization-plan.v1.json", "tests/test_e0_3_relay_read_authorization_plan.py", "docs/e0-3-relay-acl-plan.v1.json", "tests/test_e0_3_relay_acl_plan.py", "docs/e0-3-bot-capability-graph.v1.json", "scripts/e0_bot_capability_graph.py", "tests/test_e0_3_bot_capability_graph.py", "docs/e0-3-bot-method-capability-matrix.v1.json", "scripts/e0_bot_method_capability_matrix.py", "tests/test_e0_3_bot_method_capability_matrix.py", "docs/e0-3-bot-admin-config-capabilities.v1.json", "tests/test_e0_3_bot_admin_config_capabilities.py", "docs/e0-3-bot-notification-capabilities.v1.json", "tests/test_e0_3_bot_notification_capabilities.py", "docs/e0-3-bot-order-capabilities.v1.json", "tests/test_e0_3_bot_order_capabilities.py"],
+        "latestEvidence": ["docs/e0-3-bot-b5-3-064a-postgres-inventory-reconciliation.v1.json", "deploy/postgres/migration-profile.v1.json", "tests/test_postgres_migration_profile.py", "tests/test_postgres_dormant_024_privileges.py", "docs/e0-3-bot-b5-3-064a-hardened-refresh-lifecycle.v1.json", "docs/e0-3-bot-b5-3-064a-hardened-refresh-plan.v1.json", "tests/test_e0_3_bot_b5_3_064a_hardened_refresh.py", "docs/e0-3-bot-b5-3-064a-source-window-v2-closure.v1.json", "tests/test_e0_3_bot_b5_3_064a_source_window_v2_closure.py", "docs/e0-3-bot-b5-3-064a-refresh-launch-preflight.v1.json", "tests/test_e0_3_bot_b5_3_064a_refresh_launch_preflight.py", "docs/e0-3-bot-b5-3-064a-current-authority-reconciliation.v1.json", "docs/e0-3-bot-b5-3-064a-production-source-refresh.v4.json", "docs/e0-3-bot-b5-3-064a-decision-candidate.v4.json", "docs/e0-3-bot-b5-3-064a-owner-deferral.v3.json", "docs/e0-3-bot-b5-3-064a-v4-handoff.v1.json", "tests/test_e0_3_bot_b5_3_064a_current_authority_reconciliation.py"],
+        "blocker": "The 064A lifecycle and PostgreSQL privilege inventory are locally reconciled and independently reviewed while preserving the exact 001-023/54-table source profile. Migration 024 is separately content-bound as repository-present with current production disposition UNKNOWN_NOT_REOBSERVED; it receives no runtime grants, and all migration selection is manifest-driven rather than wildcard-driven. This creates no authority; operational refresh remains NO_GO. The obsidian_b64_snapshot_reader principal, production source/dump/restore adapters, current production schema observation, registry/trusted-time/revocation/durable replay, a hard external process deadline and fresh exact-plan owner plus separate reviewer acceptance are absent. The changed ACL/plan bytes are not covered by prior authorization, which remains unconsumed. Shared source networking does not prove egress isolation; external copies and physical erasure are outside verified scope. No refresh, 064B, 064D, production migration/ACL/principal mutation, deploy, restart, Telegram delivery, retry, row disposition or E4 action is authorized. Next canonical item: DESIGN_AND_REHEARSE_EXACT_OBSIDIAN_B64_SNAPSHOT_READER_ROLE_PROVISIONING_AGAINST_THE_FROZEN_001_023_PROFILE."
+      },
+      {
+        "id": "E0.4",
+        "title": "three-surface-feature-status-inventory",
+        "status": "IN_PROGRESS",
+        "accountableOwner": "project-owner",
+        "evidence": ["docs/e0-gate-audit.md", "docs/e0-4-feature-status-surface-matrix.v1.json", "docs/e0-4-route-runtime-observations.v1.json", "docs/e0-4-authenticated-synthetic-read-rehearsal.v1.json", "docs/e0-4-artifact-drift-reconciliation.v1.json", "docs/e0-4-owner-auth-candidate-build.v1.json", "docs/e0-4-owner-auth-candidate-runtime-matrix.v1.json", "docs/e0-4-owner-auth-pg-adapter-rehearsal.v1.json", "docs/e0-4-owner-auth-release-preflight.v1.json", "docs/e0-4-owner-auth-rollback-rehearsal.v1.json", "docs/e0-4-owner-auth-production-catalog-preimage.v1.json", "docs/e0-4-owner-auth-sql-release-rehearsal.v1.json", "docs/e0-4-dca-runtime-observation.v1.json", "tests/test_e0_4_authenticated_synthetic_reads.py", "tests/test_e0_4_feature_status_surface_matrix.py", "tests/test_e0_4_dca_surface_inventory.py", "tests/test_e0_4_owner_auth_candidate.py", "tests/test_e0_4_owner_auth_candidate_runtime.py", "tests/test_e0_4_candidate_pg_acl_blocker.py", "tests/test_e0_4_candidate_pg_adapters.py", "tests/test_e0_4_owner_auth_release.py", "tests/test_e0_4_owner_auth_rollback.py", "tests/test_e0_4_owner_auth_sql_release.py"],
+        "latestEvidence": ["docs/e0-4-post-closure-gap-register.v1.json", "docs/e0-4-owner-gated-remediation-plan.v1.json", "docs/e0-4-owner-decision-intake-review.v1.json", "docs/e0-4-restrictive-status-report.v1.json"],
+        "blocker": "The bounded six-surface inventory and restrictive report remain unaccepted. Eight confirmed closure gaps are a lower bound; authenticated owner decision, independent acceptance, a current immutable runtime manifest, trusted-time freshness and rollback/revocation/replay evidence are absent. E0.4 remains IN_PROGRESS and cannot bypass first-unmet E0.3."
+      },
+      {
+        "id": "E0.5",
+        "title": "define-cex-slo-metrics-and-runbooks",
+        "status": "VERIFIED",
+        "accountableOwner": "project-owner",
+        "evidence": ["docs/cex-readonly-operations.md", "tests/test_cex_readonly_operations.py"],
+        "acceptance": "The canonical E0 definition requirement is satisfied; runtime dashboards and rehearsals remain later pre-credential readiness work."
+      }
+    ]
+  }
+}

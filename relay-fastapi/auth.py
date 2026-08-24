@@ -1,25 +1,29 @@
 """Аутентификация личных кабинетов ObsidianExchange (email/пароль + сессии + 2FA)."""
 import os
-import sqlite3
 import secrets
 import re
 import hmac
 import hashlib
 import time
+from pathlib import Path
+import sys
 from datetime import datetime, timedelta
 
 import bcrypt
 import pyotp
 
 DB_PATH = os.getenv('DB_PATH', '/root/exchange.db')
+RELAY_PATH = str(Path(__file__).resolve().parent.parent / 'relay')
+if RELAY_PATH not in sys.path:
+    sys.path.insert(0, RELAY_PATH)
+from repositories import web_auth_store as _web_auth_store
 SESSION_COOKIE = 'oe_session'
 SESSION_TTL_DAYS = 30
 
 EMAIL_RE = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
 
 
-def _conn():
-    return sqlite3.connect(DB_PATH, timeout=5)
+_store = _web_auth_store.from_environment(sqlite_path=DB_PATH)
 
 
 def is_valid_email(email: str) -> bool:
@@ -38,58 +42,31 @@ def verify_password(password: str, password_hash: str) -> bool:
 
 
 def get_user_by_email(email: str):
-    conn = _conn()
-    c = conn.cursor()
-    c.execute("SELECT id, email, password_hash, telegram_id, telegram_username, totp_secret, totp_enabled FROM web_users WHERE email=?", (email,))
-    row = c.fetchone()
-    conn.close()
-    if not row:
-        return None
-    return {"id": row[0], "email": row[1], "password_hash": row[2], "telegram_id": row[3],
-            "telegram_username": row[4], "totp_secret": row[5], "totp_enabled": bool(row[6])}
+    return _store.get_user_by_email(email)
 
 
 def get_user_by_id(user_id: int):
-    conn = _conn()
-    c = conn.cursor()
-    c.execute("SELECT id, email, telegram_id, telegram_username, totp_secret, totp_enabled FROM web_users WHERE id=?", (user_id,))
-    row = c.fetchone()
-    conn.close()
-    if not row:
-        return None
-    return {"id": row[0], "email": row[1], "telegram_id": row[2], "telegram_username": row[3],
-            "totp_secret": row[4], "totp_enabled": bool(row[5])}
+    return _store.get_user_by_id(user_id)
+
+
+def get_user_by_telegram_id(telegram_id: int):
+    return _store.get_user_by_telegram_id(telegram_id)
 
 
 def create_user(email: str, password: str) -> int:
-    conn = _conn()
-    c = conn.cursor()
-    c.execute("INSERT INTO web_users (email, password_hash) VALUES (?, ?)", (email, hash_password(password)))
-    conn.commit()
-    user_id = c.lastrowid
-    conn.close()
-    return user_id
+    return _store.create_user(email, hash_password(password))
 
 
 def create_session(web_user_id: int):
     token = secrets.token_urlsafe(32)
     csrf_token = secrets.token_urlsafe(16)
-    expires_at = (datetime.now() + timedelta(days=SESSION_TTL_DAYS)).strftime('%Y-%m-%d %H:%M:%S')
-    conn = _conn()
-    conn.execute(
-        "INSERT INTO web_sessions (token, web_user_id, csrf_token, expires_at) VALUES (?, ?, ?, ?)",
-        (token, web_user_id, csrf_token, expires_at)
-    )
-    conn.commit()
-    conn.close()
+    expires_at = datetime.now().astimezone() + timedelta(days=SESSION_TTL_DAYS)
+    _store.create_session(token, web_user_id, csrf_token, expires_at)
     return token, csrf_token
 
 
 def destroy_session(token: str):
-    conn = _conn()
-    conn.execute("DELETE FROM web_sessions WHERE token=?", (token,))
-    conn.commit()
-    conn.close()
+    _store.destroy_session(token)
 
 
 def get_web_user(request):
@@ -97,27 +74,34 @@ def get_web_user(request):
     token = request.cookies.get(SESSION_COOKIE)
     if not token:
         return None
-    conn = _conn()
-    c = conn.cursor()
-    c.execute("""
-        SELECT u.id, u.email, u.telegram_id, u.telegram_username, s.csrf_token, u.totp_enabled
-        FROM web_sessions s
-        JOIN web_users u ON u.id = s.web_user_id
-        WHERE s.token = ? AND s.expires_at > datetime('now')
-    """, (token,))
-    row = c.fetchone()
-    conn.close()
+    row = _store.get_session_user(token)
     if not row:
         return None
     return {
-        "id": row[0],
-        "email": row[1],
-        "telegram_id": row[2],
-        "telegram_username": row[3],
-        "csrf_token": row[4],
+        "id": row["id"],
+        "email": row["email"],
+        "telegram_id": row["telegram_id"],
+        "telegram_username": row["telegram_username"],
+        "csrf_token": row["csrf_token"],
         "session_token": token,
-        "totp_enabled": bool(row[5]),
+        "totp_enabled": bool(row["totp_enabled"]),
     }
+
+
+def is_web_admin(web_user: dict | None, admin_ids) -> bool:
+    """Deny-by-default web admin check using an immutable Telegram identity.
+
+    Email text is user-controlled at registration time and must never grant a
+    role.  Normalize IDs to strings because SQLite/env values can differ in
+    type while still representing the same Telegram account.
+    """
+    if not web_user:
+        return False
+    telegram_id = web_user.get("telegram_id")
+    if telegram_id in (None, ""):
+        return False
+    allowed = {str(admin_id) for admin_id in admin_ids if admin_id not in (None, "")}
+    return str(telegram_id) in allowed
 
 
 def set_session_cookie(response, token: str):
@@ -152,17 +136,26 @@ def verify_totp_code(secret: str, code: str) -> bool:
 
 
 def enable_totp(user_id: int, secret: str):
-    conn = _conn()
-    conn.execute("UPDATE web_users SET totp_secret=?, totp_enabled=1 WHERE id=?", (secret, user_id))
-    conn.commit()
-    conn.close()
+    return _store.set_totp(user_id, secret)
 
 
 def disable_totp(user_id: int):
-    conn = _conn()
-    conn.execute("UPDATE web_users SET totp_secret=NULL, totp_enabled=0 WHERE id=?", (user_id,))
-    conn.commit()
-    conn.close()
+    return _store.set_totp(user_id, None)
+
+
+def set_password_hash(user_id: int, password_hash: str):
+    return _store.set_password_hash(user_id, password_hash)
+
+
+def link_telegram(user_id: int, telegram_id: int, telegram_username: str | None):
+    return _store.link_telegram(user_id, telegram_id, telegram_username)
+
+
+def cleanup_expired_sessions() -> int:
+    return _store.cleanup_expired_sessions()
+
+
+DuplicateIdentityError = _web_auth_store.DuplicateIdentityError
 
 
 _TOTP_STEP_SECRET = os.getenv('INTERNAL_ADMIN_SECRET', secrets.token_hex(16))

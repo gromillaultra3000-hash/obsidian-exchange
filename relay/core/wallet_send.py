@@ -35,8 +35,9 @@ import hmac
 import logging
 import os
 import re
-import sqlite3
 import time
+from repositories.wallet_store import from_environment as _wallet_store_from_environment
+from repositories.sell_order_store import from_environment as _sell_store_from_environment
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Any, Dict, List, Optional
 
@@ -150,23 +151,8 @@ def comment_matches(comment: Any, sell_id) -> bool:
 
 
 # ── журнал намерений ─────────────────────────────────────────────────────────
-_DDL = ("CREATE TABLE IF NOT EXISTS wallet_send_intents ("
-        " id INTEGER PRIMARY KEY AUTOINCREMENT,"
-        " user_id INTEGER NOT NULL,"
-        " chain TEXT NOT NULL,"
-        " sell_id INTEGER NOT NULL,"
-        " from_address TEXT NOT NULL,"
-        " to_address TEXT NOT NULL,"
-        " amount REAL NOT NULL,"
-        " marker TEXT NOT NULL,"
-        " created_at TEXT NOT NULL,"
-        " signed_at TEXT)")
-
-
-def _conn():
-    conn = sqlite3.connect(DB_PATH, timeout=5)
-    conn.execute(_DDL)
-    return conn
+def _store():return _wallet_store_from_environment(sqlite_path=DB_PATH)
+def _sell_store():return _sell_store_from_environment(sqlite_path=DB_PATH)
 
 
 def _now_iso() -> str:
@@ -183,14 +169,9 @@ def remember_intent(user_id, sell_id, from_address: str, to_address: str,
     пропущенное означает депозит, который не к чему привязать.
     """
     try:
-        with _conn() as conn:
-            cur = conn.execute(
-                "INSERT INTO wallet_send_intents (user_id, chain, sell_id, from_address,"
-                " to_address, amount, marker, created_at) VALUES (?,?,?,?,?,?,?,?)",
-                (int(user_id), CHAIN, int(sell_id), str(from_address), str(to_address),
-                 float(amount), str(marker), _now_iso()))
-            conn.commit()
-            return cur.lastrowid
+        return _store().remember_intent(user_id=int(user_id),chain=CHAIN,sell_id=int(sell_id),
+            from_address=str(from_address),to_address=str(to_address),amount=float(amount),
+            marker=str(marker),created_at=_now_iso())
     except Exception as e:
         logger.warning("wallet_send: не записали намерение uid=%s sell=%s: %s",
                        user_id, sell_id, e)
@@ -201,13 +182,7 @@ def mark_signed(user_id, sell_id) -> bool:
     """Клиент сообщил, что подписал. Это НЕ поступление денег — только отметка
     времени, чтобы поверхности могли сказать «ждём сеть» вместо молчания."""
     try:
-        with _conn() as conn:
-            cur = conn.execute(
-                "UPDATE wallet_send_intents SET signed_at=? WHERE user_id=? AND sell_id=?"
-                " AND signed_at IS NULL",
-                (_now_iso(), int(user_id), int(sell_id)))
-            conn.commit()
-            return bool(cur.rowcount)
+        return _store().mark_signed(user_id=int(user_id),sell_id=int(sell_id),signed_at=_now_iso())
     except Exception as e:
         logger.warning("wallet_send: не отметили подпись uid=%s sell=%s: %s",
                        user_id, sell_id, e)
@@ -216,12 +191,7 @@ def mark_signed(user_id, sell_id) -> bool:
 
 def intents_for_order(sell_id) -> List[Dict[str, Any]]:
     try:
-        with _conn() as conn:
-            rows = conn.execute(
-                "SELECT from_address, marker, created_at, signed_at FROM wallet_send_intents"
-                " WHERE sell_id=? ORDER BY id", (int(sell_id),)).fetchall()
-        return [{"from_address": r[0], "marker": r[1], "created_at": r[2],
-                 "signed_at": r[3]} for r in rows]
+        return _store().intents_for(int(sell_id))
     except Exception as e:
         logger.warning("wallet_send: не прочитали намерения sell=%s: %s", sell_id, e)
         return []
@@ -262,14 +232,7 @@ def to_nano(amount) -> Optional[int]:
 
 
 def _sell_row(sell_id):
-    conn = sqlite3.connect(DB_PATH, timeout=5)
-    try:
-        conn.row_factory = sqlite3.Row
-        return conn.execute(
-            "SELECT id, user_id, currency, crypto_amount, rub_amount, receive_address,"
-            " status, created_at FROM sell_orders WHERE id=?", (int(sell_id),)).fetchone()
-    finally:
-        conn.close()
+    return _sell_store().get(int(sell_id))
 
 
 def pending_sells(user_id, currency: str = CHAIN) -> List[Dict[str, Any]]:
@@ -280,15 +243,8 @@ def pending_sells(user_id, currency: str = CHAIN) -> List[Dict[str, Any]]:
     except (TypeError, ValueError):
         return []
     try:
-        conn = sqlite3.connect(DB_PATH, timeout=5)
-        try:
-            conn.row_factory = sqlite3.Row
-            rows = conn.execute(
-                "SELECT id, currency, crypto_amount, rub_amount, receive_address, created_at"
-                " FROM sell_orders WHERE user_id=? AND status='pending' AND currency=?"
-                " ORDER BY id DESC LIMIT 10", (uid, (currency or CHAIN).upper())).fetchall()
-        finally:
-            conn.close()
+        rows = _sell_store().pending_for_user(
+            user_id=uid, currency=(currency or CHAIN).upper(), limit=10)
     except Exception as e:
         logger.warning("wallet_send: не прочитали заявки продажи uid=%s: %s", user_id, e)
         return []

@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "e0.4-post-closure-gap-register.v1",
+  "observedAt": "2026-08-18T20:32:00Z",
+  "route": "E0/E0.4/POST_CLOSURE_GAP_REGISTER",
+  "status": "BLOCKED_OWNER",
+  "decisionEffect": "RESTRICTIVE_READ_ONLY_REGISTER_ONLY",
+  "source": "current-owner-conversation",
+  "authority": {"productionAuthorization": false, "productionMutationAuthorized": false, "productionExpandAuthorized": false, "deploymentAuthorized": false, "telegramDeliveryAuthorized": false, "paymentMutationAuthorized": false, "adminMutationAuthorized": false, "actionAllowed": false},
+  "confirmedGaps": [
+    "RATE_LOCKS money authority not accepted",
+    "DEPLOYMENT_RELEASE_AUTOMATION untrusted root mutable-branch writer",
+    "EDITORIAL_NEWS_DELIVERY non-idempotent provenance/audit gaps",
+    "TELEGRAM_CHANNEL_POST_PROCESSING premium-session high-authority writer",
+    "LEGACY_PAYMENT_EDGE_UPSTREAM public aliases unowned at 127.0.0.1:8080",
+    "FRAMEWORK_GENERATED_ADMIN_HTTP_SURFACE runtime route universe unproven",
+    "GENERATED_FASTAPI_DOCS public generated docs and mounts unclassified",
+    "DEPLOYED_GENERATED_UNIVERSE_RECONCILIATION /root versus /opt drift"
+  ],
+  "evidence": [
+    "docs/e0-4-rate-locks-runtime-observation.v1.json",
+    "docs/e0-4-deployment-release-automation-runtime-observation.v1.json",
+    "docs/e0-4-editorial-news-delivery-runtime-observation.v1.json",
+    "docs/e0-4-telegram-channel-post-processing-runtime-observation.v1.json",
+    "docs/e0-4-legacy-payment-edge-upstream-runtime-observation.v1.json",
+    "docs/e0-4-framework-generated-admin-http-surface-runtime-observation.v1.json",
+    "docs/e0-4-generated-fastapi-docs-runtime-observation.v1.json",
+    "docs/e0-4-deployed-generated-universe-reconciliation.v1.json"
+  ],
+  "ownerGatedRequirements": ["immutable release and runtime manifest", "authenticated owner decision", "independent acceptance review", "closed six-surface classification", "replay/revocation/trusted-time controls", "tested rollback and reconciliation"],
+  "nextSafeRoute": "E0/E0.4/OWNER_GATED_REMEDIATION_PLAN",
+  "interpretation": "Aggregate register only. It grants no authority and does not accept, waive, verify, deploy, publish, edit, send, charge, restart, or mutate anything. E0.3 remains first unmet and BLOCKED_OWNER; E0.4 remains IN_PROGRESS."
+}

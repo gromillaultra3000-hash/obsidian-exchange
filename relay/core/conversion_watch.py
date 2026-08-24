@@ -32,9 +32,12 @@
 """
 from __future__ import annotations
 import os
-import sqlite3
+from repositories.operational_read_store import from_environment as _read_store_from_environment
 
 DB_PATH = os.getenv("DB_PATH", "/root/exchange.db")
+def _store():return _read_store_from_environment(sqlite_path=DB_PATH)
+# Operational read model исключает отметку `receipt_rejected`, чтобы тревога не
+# возвращала оператору уже решённый им чек.
 
 WINDOW_HOURS = int(os.getenv("CONV_WATCH_WINDOW_HOURS", "3") or 3)
 MIN_ISSUED = int(os.getenv("CONV_WATCH_MIN_ISSUED", "8") or 8)
@@ -56,101 +59,21 @@ RECEIPT_UNRESOLVED_MIN = int(os.getenv("CONV_WATCH_RECEIPT_UNRESOLVED_MIN", "90"
 RECEIPT_UNRESOLVED_DAYS = int(os.getenv("CONV_WATCH_RECEIPT_UNRESOLVED_DAYS", "7") or 7)
 
 
-def _db():
-    conn = sqlite3.connect(DB_PATH, timeout=5)
-    conn.row_factory = sqlite3.Row
-    return conn
-
-
 def check_conversion(window_hours: int | None = None) -> dict:
     """Считает симптомы за окно. Ничего не шлёт — только факты."""
     h = window_hours or WINDOW_HOURS
-    win = f"-{h} hours"
     out = {"window_hours": h, "alerts": [], "issued": 0, "paid": 0, "early_expiry": 0,
            "stuck_payouts": [], "undelivered_receipts": [], "unresolved_receipts": []}
     try:
-        with _db() as conn:
-            out["issued"] = conn.execute(
-                "SELECT COUNT(*) c FROM payment_sessions WHERE created_at >= datetime('now', ?)",
-                (win,)).fetchone()["c"]
-            # оплату считаем по orders: payment_sessions.status в 'paid' не переводится
-            out["paid"] = conn.execute(
-                "SELECT COUNT(*) c FROM orders WHERE status IN ('paid','sent') "
-                "AND updated_at >= datetime('now', ?)", (win,)).fetchone()["c"]
-            # сессия закрыта раньше собственного срока — признак возврата бага
-            out["early_expiry"] = conn.execute(
-                "SELECT COUNT(*) c FROM payment_sessions WHERE status='expired' "
-                "AND created_at >= datetime('now', ?) AND expires_at IS NOT NULL "
-                "AND updated_at IS NOT NULL AND updated_at < expires_at", (win,)).fetchone()["c"]
-            # оплачено клиентом, но крипта не отправлена дольше порога — деньги у
-            # нас, клиент ждёт выдачу. Окно тут НЕ применяем: зависшая выплата
-            # опасна независимо от того, когда была оплата.
-            # updated_at IS NULL = древняя оплата без отметки времени: сравнение
-            # NULL <= datetime(...) даёт NULL (строка молча выпадает), поэтому такую
-            # выплату считаем ЗАВИСШЕЙ безусловно, а возраст меряем от created_at.
-            out["stuck_payouts"] = [dict(r) for r in conn.execute(
-                "SELECT order_id, rub_amount, currency, "
-                "  CAST((julianday('now')-julianday(COALESCE(updated_at,created_at)))*24*60 AS INT) age_min "
-                "FROM orders WHERE status='paid' "
-                "AND (paid_btc_tx IS NULL OR paid_btc_tx='') "
-                "AND (updated_at IS NULL OR updated_at <= datetime('now', ?)) "
-                "ORDER BY COALESCE(updated_at, created_at)",
-                (f"-{STUCK_PAYOUT_MIN} minutes",)).fetchall()]
-            # Чек залит, но провайдеру НЕ ушёл (receipt_sent_at пуст) дольше
-            # порога. Только по сделкам, что ещё требуют подтверждения — по
-            # выданной крипте (sent) и отменённым оператором (cancelled) уже
-            # неважно. order_receipts/receipt_sent_at могут отсутствовать в
-            # совсем старой БД — оборачиваем отдельно, чтобы не глушить весь чек.
-            try:
-                out["undelivered_receipts"] = [dict(r) for r in conn.execute(
-                    "SELECT o.order_id, o.rub_amount, o.currency, o.status, "
-                    "  COALESCE(ps.provider,'?') provider, "
-                    "  CAST((julianday('now')-julianday(r.created_at))*24*60 AS INT) age_min "
-                    "FROM order_receipts r JOIN orders o ON o.order_id=r.order_id "
-                    "LEFT JOIN payment_sessions ps ON ps.id=("
-                    "  SELECT id FROM payment_sessions WHERE order_id=o.order_id ORDER BY id DESC LIMIT 1) "
-                    "WHERE (o.receipt_sent_at IS NULL OR o.receipt_sent_at='') "
-                    "AND o.status NOT IN ('sent','cancelled') "
-                    "AND r.created_at <= datetime('now', ?) "
-                    # только пока случай ещё actionable: сделка у провайдера жива
-                    # часы, не дни. Древние expired-жертвы уже не спасти — не нудим.
-                    "AND r.created_at >= datetime('now','-24 hours') "
-                    "ORDER BY r.created_at",
-                    (f"-{RECEIPT_UNDELIVERED_MIN} minutes",)).fetchall()]
-            except sqlite3.OperationalError:
-                out["undelivered_receipts"] = []
-            # Чек есть, а решения по заявке нет. Гоняться за доставкой чека — дело
-            # соседнего симптома, и пока он этим занят (первые сутки), дублировать
-            # его не нужно: одна беда, звучащая дважды, приучает игнорировать обе.
-            # А вот ПОСЛЕ его окна недоставленный чек обязан всплыть здесь, иначе
-            # худший случай — деньги у трейдера, чек у нас, сделка у провайдера
-            # мертва — навсегда исчезал из обоих. Заявка в expired/cancelled тоже
-            # берётся: закрытый статус не возвращает клиенту деньги.
-            # Возраст считаем от чека: именно с этого момента клиент считает, что
-            # заплатил.
-            already = {p["order_id"] for p in out["undelivered_receipts"]}
-            try:
-                rows = [dict(r) for r in conn.execute(
-                    "SELECT o.order_id, o.rub_amount, o.currency, o.status, "
-                    "  (o.receipt_sent_at IS NOT NULL AND o.receipt_sent_at<>'') delivered, "
-                    "  COALESCE(ps.provider,'?') provider, "
-                    "  CAST((julianday('now')-julianday(r.created_at))*24*60 AS INT) age_min "
-                    "FROM order_receipts r JOIN orders o ON o.order_id=r.order_id "
-                    "LEFT JOIN payment_sessions ps ON ps.id=("
-                    "  SELECT id FROM payment_sessions WHERE order_id=o.order_id ORDER BY id DESC LIMIT 1) "
-                    "WHERE o.status NOT IN ('paid','sent') "
-                    # Отклонённое оператором — решённое: тревожить о нём значит
-                    # звать человека посмотреть на собственное решение.
-                    "AND NOT EXISTS (SELECT 1 FROM sent_notifications sn "
-                    "                WHERE sn.order_id=o.order_id AND sn.event='receipt_rejected') "
-                    "AND r.created_at <= datetime('now', ?) "
-                    "AND r.created_at >= datetime('now', ?) "
-                    "ORDER BY r.created_at",
-                    (f"-{RECEIPT_UNRESOLVED_MIN} minutes",
-                     f"-{RECEIPT_UNRESOLVED_DAYS} days")).fetchall()]
-                out["unresolved_receipts"] = [r for r in rows if r["order_id"] not in already]
-            except sqlite3.OperationalError:
-                out["unresolved_receipts"] = []
+        snapshot = _store().conversion_snapshot(
+            window_hours=h, stuck_minutes=STUCK_PAYOUT_MIN,
+            undelivered_minutes=RECEIPT_UNDELIVERED_MIN,
+            unresolved_minutes=RECEIPT_UNRESOLVED_MIN,
+            unresolved_days=RECEIPT_UNRESOLVED_DAYS)
+        out.update(snapshot)
+        already = {p["order_id"] for p in out["undelivered_receipts"]}
+        out["unresolved_receipts"] = [
+            row for row in out["unresolved_receipts"] if row["order_id"] not in already]
     except Exception as e:
         out["error"] = f"{type(e).__name__}: {e}"
         return out

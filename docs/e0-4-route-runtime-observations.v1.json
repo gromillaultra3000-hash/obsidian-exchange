@@ -1,0 +1,105 @@
+{
+  "schemaVersion": "e0-4-route-runtime-observations.v1",
+  "observedAt": "2026-08-17T14:56:24Z",
+  "route": "E0/E0.4/FEATURE_STATUS_SURFACE_MATRIX",
+  "status": "IN_PROGRESS",
+  "accountableOwner": "project-owner",
+  "observationClass": "READ_ONLY_UNAUTHENTICATED_LOCAL_PRODUCTION",
+  "productionMutation": false,
+  "authenticationUsed": false,
+  "postRequestsMade": false,
+  "telegramMessagesSent": false,
+  "databaseQueriesMade": false,
+  "source": {
+    "host": "local-production-host",
+    "httpOrigin": "http://127.0.0.1",
+    "hostHeader": "obsidian-exchange.org",
+    "nginxConfigResult": "syntax-ok",
+    "serviceStates": {
+      "relay-fastapi": "active",
+      "nginx": "active",
+      "exchange-bot": "active",
+      "support-bot": "active",
+      "admin-panel": "active"
+    },
+    "artifactHashes": {
+      "miniAppCheckoutSha256": "12545433f4004eef1df25592474b8e14db9558a5bb356bc245dc6b6826f9adcc",
+      "miniAppDeployedSha256": "12545433f4004eef1df25592474b8e14db9558a5bb356bc245dc6b6826f9adcc",
+      "relayCheckoutSha256": "8cd2d3c3a60168095b600d6a33620404e6154aeaaeec5e2099de9e237db78da0",
+      "relayDeployedSha256": "c1ef783e3005f4698540ddc5368ef9a4592612fcf666b403ecbb7c4a359bd7ff",
+      "botCheckoutSha256": "ccee5af59e59b33b22da57ea1ecf0f7d89ac4ef018a2f7817705873ff169f528",
+      "botDeployedSha256": "a015b5b12870fa2f1eec7d0fb638cc2c94cb90235850d474ebb25455446372fb"
+    },
+    "checkoutDeploymentEquality": {
+      "miniApp": true,
+      "relay": false,
+      "telegramBot": false
+    }
+  },
+  "httpObservations": [
+    {"surface":"miniApp","path":"/webapp","port":5001,"statusCode":200,"contentType":"text/html; charset=utf-8","interpretation":"PUBLIC_ROUTE_REACHABLE"},
+    {"surface":"site","path":"/dashboard/exchange","port":5001,"statusCode":302,"redirectSuffix":"/login","interpretation":"AUTH_GATE_REACHABLE"},
+    {"surface":"site","path":"/dashboard/sell","port":5001,"statusCode":302,"redirectSuffix":"/login","interpretation":"AUTH_GATE_REACHABLE"},
+    {"surface":"site","path":"/dashboard/orders","port":5001,"statusCode":302,"redirectSuffix":"/login","interpretation":"AUTH_GATE_REACHABLE"},
+    {"surface":"site","path":"/dashboard/support","port":5001,"statusCode":302,"redirectSuffix":"/login","interpretation":"AUTH_GATE_REACHABLE"},
+    {"surface":"site","path":"/dashboard/referral","port":5001,"statusCode":302,"redirectSuffix":"/login","interpretation":"AUTH_GATE_REACHABLE"},
+    {"surface":"api","path":"/api/history","port":5001,"statusCode":403,"contentType":"application/json","interpretation":"OWNER_AUTH_REJECTS_UNAUTHENTICATED"},
+    {"surface":"api","path":"/api/referral_stats","port":5001,"statusCode":403,"contentType":"application/json","interpretation":"OWNER_AUTH_REJECTS_UNAUTHENTICATED"},
+    {"surface":"api","path":"/api/sell/options","port":5001,"statusCode":200,"contentType":"application/json","interpretation":"PUBLIC_READ_ROUTE_PRESENT"},
+    {"surface":"api","path":"/api/sell/pending","port":5001,"statusCode":403,"contentType":"application/json","interpretation":"OWNER_AUTH_REJECTS_UNAUTHENTICATED"},
+    {"surface":"api","path":"/api/create_order","method":"GET","port":5001,"statusCode":405,"contentType":"application/json","interpretation":"POST_ONLY_ROUTE_FENCE_PRESENT"},
+    {"surface":"api","path":"/api/sell/create","method":"GET","port":5001,"statusCode":405,"contentType":"application/json","interpretation":"POST_ONLY_ROUTE_FENCE_PRESENT"},
+    {"surface":"admin","path":"/admin-panel","port":8002,"statusCode":302,"redirectSuffix":"/admin-panel/login","interpretation":"ADMIN_AUTH_GATE_REACHABLE"},
+    {"surface":"admin","path":"/admin-panel/orders","port":8002,"statusCode":302,"redirectSuffix":"/admin-panel/login","interpretation":"ADMIN_AUTH_GATE_REACHABLE"},
+    {"surface":"admin","path":"/admin-panel/sell-orders","port":8002,"statusCode":302,"redirectSuffix":"/admin-panel/login","interpretation":"ADMIN_AUTH_GATE_REACHABLE"},
+    {"surface":"admin","path":"/admin-panel/support-tickets","port":8002,"statusCode":302,"redirectSuffix":"/admin-panel/login","interpretation":"ADMIN_AUTH_GATE_REACHABLE"}
+  ],
+  "deployedSourceAnchors": {
+    "relay-fastapi/main.py": [875, 902, 1060, 1261, 1345, 1482, 1585, 1784, 1794, 1812, 1825, 2719, 2760, 2805, 2942, 2970],
+    "bot/main_bot.py": [1579, 2161, 2172, 5680, 7712]
+  },
+  "miniAppDomMarkers": {
+    "observedFromServedHtml": true,
+    "present": [
+      "data-tab=exchange",
+      "data-tab=history",
+      "data-tab=referral",
+      "id=panel-history",
+      "id=panel-referral",
+      "/api/history",
+      "/api/referral_stats"
+    ],
+    "absent": ["data-tab=support", "id=panel-support"]
+  },
+  "featureFindings": [
+    {"feature":"RUB_BUY_CRYPTO","runtimeEvidence":"Mini App exchange surface is publicly reachable; authenticated site route is reachable behind login.","acceptance":"PARTIAL_ROUTE_ONLY"},
+    {"feature":"CRYPTO_SELL_RUB","runtimeEvidence":"Authenticated site sell route is reachable behind login; the shared Mini App exchange surface is reachable.","acceptance":"PARTIAL_ROUTE_ONLY"},
+    {"feature":"CUSTOMER_ORDER_HISTORY","runtimeEvidence":"Mini App history markers are served, site route is behind login and API rejects missing Telegram owner authentication.","acceptance":"PARTIAL_ROUTE_AND_AUTH_BOUNDARY"},
+    {"feature":"CUSTOMER_SUPPORT","runtimeEvidence":"Site ticket route is behind login, admin route is behind admin login and both bot units are active; no Mini App support tab/panel is served.","acceptance":"PARTIAL_ROUTE_AND_NEGATIVE_SURFACE"},
+    {"feature":"REFERRAL_PROGRAM","runtimeEvidence":"Mini App referral markers are served, site route is behind login and aggregate API rejects missing Telegram owner authentication.","acceptance":"PARTIAL_ROUTE_AND_AUTH_BOUNDARY"}
+  ],
+  "limitations": [
+    "No authenticated customer, Telegram, operator or admin flow was exercised.",
+    "A 302 or active unit proves reachability/process state only, not successful feature behavior.",
+    "A 403 proves the unauthenticated boundary for this request only, not cross-owner isolation.",
+    "No native surface exists to observe.",
+    "Checkout and deployed Relay and Telegram bot artifacts have different SHA-256 digests; checkout anchors are not production evidence.",
+    "Playwright CLI produced no snapshot or artifact in this environment, so no browser result is claimed.",
+    "This evidence does not close E0.4 or bypass E0.3/064A."
+  ],
+  "independentReview": {
+    "identity": "agent:/root/e04_runtime_review",
+    "scope": "Read-only E0.4 matrix, deployed routing/artifacts and unauthenticated GET boundaries",
+    "changesMade": false,
+    "findings": [
+      "Accept only STATIC_UI_PRESENT, ROUTE_PRESENT, AUTH_FENCE_PRESENT and SERVICE_ACTIVE classifications.",
+      "Do not treat active services, redirects, 403 responses or static Mini App panels as authenticated E2E acceptance.",
+      "Do not exercise referral payout or create-order routes during inventory.",
+      "Checkout/deployed digest drift prevents repository anchors from serving as production evidence."
+    ],
+    "disposition": "ACCEPTED_AND_INCORPORATED"
+  },
+  "rollout": "None; read-only observation only.",
+  "rollback": "Not applicable; no state changed.",
+  "nextCanonicalItem": "Add bounded authenticated synthetic acceptance observations for the existing site and Mini App owner-scoped read paths without exercising money writers."
+}

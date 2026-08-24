@@ -1,0 +1,77 @@
+{
+  "schema": "obsidian.e0-3-bot-b5-3-adapter-rehearsal.v1",
+  "stage": "E0.3",
+  "status": "IN_PROGRESS",
+  "observedAt": "2026-08-16T23:55:05Z",
+  "accountableOwner": "project-owner",
+  "scope": [
+    "bot_notification_store.queue_due_recalls",
+    "bot_notification_store.queue_due_montera",
+    "bot_notification_store.queue_due_abandoned",
+    "bot_notification_store.queue_due_payout_delays",
+    "bot_notification_store.queue_due_winbacks",
+    "bot_notification_store.claim_notification",
+    "bot_notification_store.mark_notification_sent",
+    "bot_notification_store.retry_notification"
+  ],
+  "adapter": {
+    "path": "relay/repositories/bot_notification_store.py",
+    "sha256": "a27b89d2470c90ae9e499d91e61f57b91ac92c6af474514f71718f8e744e84ed",
+    "class": "PostgresB5BotNotificationStore",
+    "gate": "BOT_NOTIFICATION_B5_ACL_ADAPTER_ENABLED",
+    "defaultEnabled": false,
+    "legacyFallbackRetained": true,
+    "noncanonicalDirectEnqueueDisabled": true
+  },
+  "proposal": {
+    "path": "deploy/postgres/proposals/048_e0_bot_b5_3_notification_queue_writers.sql",
+    "sha256": "71a80956384e39e97b404f205776e69016e65a3a23405375e734bc35fd22d3f8",
+    "productionMigration": false
+  },
+  "tests": [
+    {
+      "path": "tests/test_e0_3_bot_b5_3_adapter_wiring.py",
+      "sha256": "89bf52e323b7ab5f64a2137eb21df81f962a912cec24373792855d3b4f7c54a3",
+      "result": "PASS"
+    },
+    {
+      "path": "tests/test_e0_3_bot_b5_3_adapter_postgres.py",
+      "sha256": "4f0ae5c81823fbc10188edd798937536c4968767dc3b869da07b62ec00660556",
+      "result": "PASS_DISPOSABLE_POSTGRESQL_17"
+    }
+  ],
+  "acceptanceEvidence": [
+    "all eight canonical runtime methods call only schema-qualified B5.3 functions in ACL mode",
+    "five producer selectors create six independent delivery jobs exactly once",
+    "eight concurrent adapter claims return six unique jobs and no duplicates",
+    "sent completion is compare-and-set and exact repeat is a no-op",
+    "invalid payout and winback parameters fail closed without legacy fallback",
+    "bot login has zero direct job/marker/sequence privileges",
+    "ambiguous Telegram transport outcomes remain claimed; retry is called only for explicit rejection before any recipient succeeded"
+  ],
+  "surfaceMatrix": {
+    "telegramBot": "REQUIRED",
+    "website": "N/A",
+    "miniApp": "N/A",
+    "admin": "OPERATOR_ONLY",
+    "api": "N/A",
+    "nativeApp": "N/A"
+  },
+  "productionAuthorization": false,
+  "productionChanged": false,
+  "rollout": "NO_ROLLOUT: gate remains disabled and proposal 048 remains rehearsal-only",
+  "rollback": "leave BOT_NOTIFICATION_B5_ACL_ADAPTER_ENABLED unset or false; no production database change exists",
+  "securityReview": {
+    "verdict": "DEFAULT_OFF_REHEARSAL_ACCEPTED_PRODUCTION_CANARY_REJECTED",
+    "blockers": [
+      "claim, mark-sent and retry are ID-only rather than attempt-token-bound",
+      "database does not independently require pre-submit evidence for retry or create MANUAL/REVIEW for ambiguity",
+      "due selectors trust caller time instead of database time or a tight drift bound",
+      "winback discount and duration are caller-controlled rather than immutable-policy-bound",
+      "multi-recipient partial delivery has no per-recipient evidence and review workflow",
+      "shared bot login does not authenticate a distinct background principal",
+      "production needs a narrow idempotent migration and schema/default-privilege preflight"
+    ]
+  },
+  "nextPrerequisite": "replace proposal 048 lifecycle with attempt-token, pre-submit-evidence and MANUAL/REVIEW semantics plus server-time/policy-bound producers before any notification canary"
+}

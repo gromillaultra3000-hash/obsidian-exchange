@@ -1,0 +1,28 @@
+{
+  "schema":"obsidian.e0-3-relay-read-authorization-plan.v1",
+  "stage":"E0.3",
+  "status":"PURPOSE_PARTITION_AND_SIGNATURES_COMPLETE",
+  "accountableOwner":"project-owner",
+  "productionAuthorization":false,
+  "implementationDeployed":false,
+  "readMatrix":"docs/e0-3-relay-read-matrix.v1.json",
+  "readContracts":"docs/e0-3-relay-read-contracts.v1.json",
+  "capabilityGraph":"docs/e0-3-relay-capability-graph.v1.json",
+  "decision":{"loginRole":"obsidian_relay","directTableSelectGrants":[],"directColumnSelectGrants":[],"inheritedReadRoles":[],"strategy":"ONE_BOUNDED_SECURITY_DEFINER_READ_FUNCTION_PER_METHOD","reason":"A single login inheriting purpose roles receives their union and can bypass repository row predicates; EXECUTE-only functions preserve purpose, predicates and closed returns.","publicExecute":false,"ownerLogin":false,"fixedSearchPath":"pg_catalog","schemaQualifiedRelations":true},
+  "packages":[
+    {"id":"P1_PUBLIC_AGGREGATES","sensitivity":"PUBLIC_AGGREGATE","methods":["reporting_store.public_stats","reporting_store.reserves","reporting_store.site_stats","reporting_store.today_status_counts"]},
+    {"id":"P2_CUSTOMER_SCOPED","sensitivity":"CUSTOMER_PRIVATE","methods":["engagement_store.referral_stats","order_read_store.customer_orders","order_read_store.receipt_order_ids","order_read_store.web_customer_orders","sell_order_store.pending_view_for_user","sell_order_store.sells_for_user","support_store.exists_for_web_user","support_store.list_for_web_user","support_store.open_count_for_web_user","support_store.thread_for_web_user","swap_store.swaps_for_web_user","user_profile_store.referral_address"]},
+    {"id":"P3_INTERACTIVE_ORDER_PAYMENT","sensitivity":"ORDER_PAYMENT_PRIVATE","methods":["order_creation_store.recent_duplicate","order_read_store.authorized_snapshot","payment_session_store.get_by_token","payment_session_store.latest_active_for_authorized_order","payment_session_store.latest_for_authorized_order","payment_session_store.latest_provider_invoice_for_authorized_order","receipt_store.authorized_state","swap_store.get_by_token"]},
+    {"id":"P4_OPERATOR_REPORTING","sensitivity":"OPERATOR_PRIVATE","methods":["admin_config_store.blocked_user_rows","order_read_store.admin_recent","reporting_store.admin_analytics","reporting_store.admin_stats"]},
+    {"id":"P5_BACKGROUND_STATE_MACHINE","sensitivity":"MONEY_AND_TRANSACTION_INTERNAL","methods":["order_lifecycle_store.claim_work","order_lifecycle_store.expire_due","order_lifecycle_store.fail_session","order_workflow_store.mark_sent","payment_session_store.pending_vertu","payment_transition_store.claim_notification","payment_transition_store.mark_paid","sell_order_store.active_vertu_payouts","sell_settlement_store.claim_notification","sell_settlement_store.settle_vertu","support_store.user_reply"]},
+    {"id":"P6_PROVIDER_CALLBACK","sensitivity":"PROVIDER_CORRELATION_PRIVATE","methods":["order_workflow_store.request_verification","sell_order_store.vertu_payout_by_ref","swap_store.get_by_external_id"]},
+    {"id":"P7_RUNTIME_METADATA","sensitivity":"SCHEMA_METADATA","methods":["runtime_schema_store.validate"]}
+  ],
+  "multiPurposeMethods":[{"method":"swap_store.get_by_token","purposes":["interactive-swap","provider-callback"]},{"method":"order_workflow_store.mark_sent","purposes":["operator-action","internal-action"]}],
+  "sensitiveReturnBlockers":[],
+  "functionAcceptance":["exact SQL input types and bounded lengths","closed named return fields with no table rowtype or wildcard","caller-purpose and ownership predicates enforced inside function","owner has only declared column SELECT","fixed pg_catalog search_path and schema-qualified relations","PUBLIC execute revoked","login gets only exact function EXECUTE","negative cross-user cross-purpose and raw-table denial tests"],
+  "rolloutOrder":["P7_RUNTIME_METADATA","P1_PUBLIC_AGGREGATES","P2_CUSTOMER_SCOPED","P3_INTERACTIVE_ORDER_PAYMENT","P6_PROVIDER_CALLBACK","P4_OPERATOR_REPORTING","P5_BACKGROUND_STATE_MACHINE"],
+  "stopConditions":["input type or bound unknown","return field consumer unknown","sensitive field not proven necessary","row ownership predicate absent","cross-purpose caller ambiguity unresolved","direct SELECT or role inheritance required","adversarial denial missing"],
+  "rollback":"Keep the current shared credential only as a time-bounded per-service reference; restore it solely after stopping the affected workflow and reconciling any ambiguous state. Do not drop additive functions during incident rollback.",
+  "nextPrerequisite":"rehearse the eight R5 transition writer bodies with concurrency, denial and fault rollback"
+}

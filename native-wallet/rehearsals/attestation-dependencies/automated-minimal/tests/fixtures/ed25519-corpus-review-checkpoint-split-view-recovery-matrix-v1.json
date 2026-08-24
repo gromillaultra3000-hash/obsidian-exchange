@@ -1,0 +1,28 @@
+{
+  "schema": "native-wallet-ed25519-corpus-review-checkpoint-split-view-recovery-matrix.v1",
+  "cases": [
+    { "id": "r01_same_sequence_different_head", "observation": "two checkpoints claim the same chain/sequence with different audit heads", "decision": "QUARANTINE", "automatic_recovery": false },
+    { "id": "r02_divergent_descendants", "observation": "two later checkpoints descend from different accepted predecessors", "decision": "QUARANTINE", "automatic_recovery": false },
+    { "id": "r03_one_witness_unavailable", "observation": "only one of two mandatory witness domains responds", "decision": "BLOCK", "automatic_recovery": false },
+    { "id": "r04_high_water_store_lost", "observation": "highest accepted epoch/sequence/checkpoint cannot be recovered", "decision": "BLOCK", "automatic_recovery": false },
+    { "id": "r05_old_root_after_rotation", "observation": "checkpoint uses a revoked pre-rotation root after epoch advance", "decision": "REJECT", "automatic_recovery": false },
+    { "id": "r06_valid_root_rotation", "observation": "independent recovery authorizes new roots, higher epoch and continuous predecessor", "decision": "ALLOW_REVIEWED_ADVANCE", "automatic_recovery": false },
+    { "id": "r07_local_store_ahead_of_checkpoint", "observation": "local audit head is newer than the independently witnessed checkpoint", "decision": "WAIT_FOR_FRESH_CHECKPOINT", "automatic_recovery": true },
+    { "id": "r08_checkpoint_ahead_of_local_store", "observation": "checkpoint claims an audit head absent from the local store", "decision": "QUARANTINE", "automatic_recovery": false },
+    { "id": "r09_transparency_split_view", "observation": "supplemental transparency proofs expose inconsistent log checkpoints", "decision": "QUARANTINE", "automatic_recovery": false },
+    { "id": "r10_recovery_authority_overlap", "observation": "the two witness roots share a recovery authority directly or transitively", "decision": "REJECT", "automatic_recovery": false }
+  ],
+  "quarantine_exit_requires": [
+    "independently authenticated incident record",
+    "complete conflicting checkpoint set and control investigation",
+    "new consumer-approved policy epoch",
+    "continuous link from the last non-conflicting accepted checkpoint or explicit permanent chain retirement",
+    "two independent witness approvals under non-conflicting active roots"
+  ],
+  "quarantine_does_not_select_a_winning_fork": true,
+  "emergency_single_witness_mode_allowed": false,
+  "high_water_reconstruction_from_untrusted_local_chain_allowed": false,
+  "real_split_view_test_executed": false,
+  "real_recovery_executed": false,
+  "gate_i09_pass": false
+}

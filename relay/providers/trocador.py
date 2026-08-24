@@ -3,6 +3,47 @@ import requests
 
 TROCADOR_BASE_URL = "https://trocador.app"
 
+TROCADOR_STATUSES = frozenset({
+    "new", "waiting", "confirming", "sending", "finished", "failed",
+    "expired", "refunded",
+})
+TROCADOR_TERMINAL_STATUSES = frozenset({"finished", "failed", "expired", "refunded"})
+TROCADOR_TRANSITIONS = {
+    "new": frozenset({"waiting", "confirming", "sending", "finished", "failed", "expired", "refunded"}),
+    "waiting": frozenset({"confirming", "sending", "finished", "failed", "expired", "refunded"}),
+    "confirming": frozenset({"sending", "finished", "failed", "expired", "refunded"}),
+    "sending": frozenset({"finished", "failed", "expired", "refunded"}),
+}
+
+
+def verified_trocador_status(info):
+    """Return only a provider-fetched, recognized status.
+
+    Callback payload status is intentionally not accepted by this helper.
+    Unknown values fail closed so a provider/API change cannot invent a local
+    money-state transition.
+    """
+    if not isinstance(info, dict) or info.get("error"):
+        return None
+    status = info.get("Status") or info.get("status")
+    if not isinstance(status, str):
+        return None
+    status = status.strip().lower()
+    return status if status in TROCADOR_STATUSES else None
+
+
+def safe_trocador_transition(old_status, new_status):
+    """Accept idempotent or forward-only transitions; terminal states stay immutable."""
+    old = str(old_status or "").strip().lower()
+    new = str(new_status or "").strip().lower()
+    if new not in TROCADOR_STATUSES:
+        return None
+    if new == old:
+        return new
+    if old not in TROCADOR_TRANSITIONS or new not in TROCADOR_TRANSITIONS[old]:
+        return None
+    return new
+
 
 class TrocadorProvider:
     """Неконсьюдиальный своп через AnonPay-виджет Trocador.

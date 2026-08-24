@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "decision-envelope.v1",
+  "policyVersion": "e2-monotonic-hard-gate.v1",
+  "hardVerdict": "HOLD",
+  "advisoryVerdict": "ALLOW",
+  "combinedVerdict": "HOLD",
+  "actionAllowed": false,
+  "evidenceRefs": ["ev_defb7be259e9d925f531dbf038f748cc0c0bee152bb7986036beaf059cb2807d"],
+  "reasonCodes": ["HARD_GATE_APPLIED"],
+  "decidedAt": "2026-08-11T00:00:00Z"
+}

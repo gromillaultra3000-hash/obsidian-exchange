@@ -1,0 +1,18 @@
+{
+  "accountId": "sandbox_1",
+  "actionAllowed": false,
+  "entries": [],
+  "executionEffect": "NONE",
+  "headHash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "headLedgerHash": "pl_start",
+  "journalHash": "ppjv_f888b24ea1050bb593e61236d2dcdffe33e2b1108b8acaf82e25841d08894771",
+  "journalId": "ppj_b0e668dec905ec8ea182874635df6213499e3dc1b6ebe84528dbcf7b59358121",
+  "paperOnly": true,
+  "quoteAsset": "USDT",
+  "schemaVersion": "paper-pnl-journal.v1",
+  "startLedgerHash": "pl_start",
+  "totalFeesQuote": "0",
+  "totalGrossExecutionPnlQuote": "0",
+  "totalNetExecutionPnlQuote": "0",
+  "tradeCount": 0
+}

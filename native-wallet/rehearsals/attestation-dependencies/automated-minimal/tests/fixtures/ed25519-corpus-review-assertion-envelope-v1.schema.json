@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.obsidian.invalid/native-wallet/ed25519-corpus-review-assertion-envelope-v1.schema.json",
+  "title": "Bounded WebAuthn assertion import envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "evidence_id",
+    "credential_id_base64url",
+    "client_data_json_base64url",
+    "authenticator_data_base64url",
+    "signature_base64url",
+    "user_handle_base64url"
+  ],
+  "properties": {
+    "schema": { "const": "native-wallet-ed25519-corpus-review-assertion-envelope.v1" },
+    "evidence_id": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 64,
+      "pattern": "^[a-z0-9][a-z0-9_-]*$"
+    },
+    "credential_id_base64url": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1366,
+      "pattern": "^[A-Za-z0-9_-]+$"
+    },
+    "client_data_json_base64url": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 10923,
+      "pattern": "^[A-Za-z0-9_-]+$"
+    },
+    "authenticator_data_base64url": {
+      "type": "string",
+      "minLength": 50,
+      "maxLength": 1366,
+      "pattern": "^[A-Za-z0-9_-]+$"
+    },
+    "signature_base64url": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1366,
+      "pattern": "^[A-Za-z0-9_-]+$"
+    },
+    "user_handle_base64url": {
+      "type": ["string", "null"],
+      "maxLength": 86,
+      "pattern": "^[A-Za-z0-9_-]+$"
+    }
+  },
+  "decoded_limits_bytes": {
+    "credential_id": 1024,
+    "client_data_json": 8192,
+    "authenticator_data": 1024,
+    "signature": 1024,
+    "user_handle": 64,
+    "whole_envelope": 16384
+  },
+  "encoding": "canonical unpadded RFC 4648 base64url; decode then exact re-encode required",
+  "assertion_verified": false,
+  "credential_enrolled": false,
+  "runtime_integration_allowed": false
+}

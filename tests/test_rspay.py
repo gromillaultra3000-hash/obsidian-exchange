@@ -17,6 +17,8 @@ sys.path.insert(0, os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "relay"))
 os.environ.setdefault("RSPAY_SHOP_API_KEY", "shopkey")
 os.environ.setdefault("RSPAY_API_SECRET", "s3cret")
+os.environ.setdefault("RSPAY_BT_SHOP_API_KEY", "bt-shopkey")
+os.environ.setdefault("RSPAY_BT_API_SECRET", "bt-s3cret")
 # Счётчики клиента читаются из базы; боевую трогать незачем, а в CI её нет —
 # путь в никуда проверяет заодно, что отсутствие базы не срывает платёж.
 os.environ["DB_PATH"] = "/tmp/rspay-test-no-such.db"
@@ -99,11 +101,12 @@ def provider(*answers):
     R.requests = fake
     p = R.RSPayProvider()
     p.api_key, p.secret = "shopkey", "s3cret"
+    p.bt_api_key, p.bt_secret = "bt-shopkey", "bt-s3cret"
     return p, fake
 
 
-def expected_sig(body: bytes) -> str:
-    return hmac.new(b"s3cret", body, hashlib.sha256).hexdigest()
+def expected_sig(body: bytes, secret: bytes = b"s3cret") -> str:
+    return hmac.new(secret, body, hashlib.sha256).hexdigest()
 
 
 OK_CARD = {
@@ -119,10 +122,10 @@ p, fake = provider(Resp(200, OK_CARD))
 p.create_invoice(4242, 8571, payment_method="card", user_id=777)
 call = fake.calls[0]
 sent = call["body"] if isinstance(call["body"], bytes) else str(call["body"]).encode()
-check(call["headers"].get("X-Signature") == expected_sig(sent),
+check(call["headers"].get("X-Signature") == expected_sig(sent, b"bt-s3cret"),
       "подпись POST не совпадает с HMAC от отправленного тела — RSPay ответит 401, "
       "а причина будет выглядеть как «неверный ключ»")
-check(call["headers"].get("X-Shop-API-Key") == "shopkey",
+check(call["headers"].get("X-Shop-API-Key") == "bt-shopkey",
       "ключ магазина не уходит в X-Shop-API-Key")
 ts = call["headers"].get("X-Timestamp", "")
 check(ts.isdigit() and len(ts) >= 13,
@@ -171,6 +174,8 @@ check(inv["qr_payload"] == "BANK0001|SUM2500",
       "показать код, ссылка ведёт на другую страницу")
 check(inv["raw"]["requisites"].get("payment_link") == "https://qr.nspk.ru/AS10",
       "ссылка на оплату потерялась")
+check(fake.calls[0]["headers"].get("X-Shop-API-Key") == "shopkey",
+      "QR ушёл в БТ-кабинет вместо QR-кабинета")
 
 # форма, которой мы не знаем: показать клиенту пустую карточку нельзя
 p, fake = provider(Resp(200, {**OK_CARD, "requisites": {"iban": "RU00"}}))
@@ -270,10 +275,10 @@ check(p.cancel_order("obsidian_1_1")["already_cancelled"],
 # ── 9. чек ───────────────────────────────────────────────────────────────────
 
 p, fake = provider(Resp(200, {"ok": True, "result": {"status": "uploaded"}}))
-res = p.upload_receipt("obsidian_1_1", b"%PDF-1.4 fake", "receipt.pdf")
+res = p.upload_receipt("obsidian_1_1_bt", b"%PDF-1.4 fake", "receipt.pdf")
 check(res.get("ok"), f"корректный PDF не принят: {res}")
 sendcall = [c for c in fake.calls if c["m"] == "SEND"][0]
-check(sendcall["headers"]["X-Signature"] == expected_sig(sendcall["body"]),
+check(sendcall["headers"]["X-Signature"] == expected_sig(sendcall["body"], b"bt-s3cret"),
       "чек подписан не тем телом, которое отправлено — multipart собирается один раз, "
       "подписывать надо готовые байты")
 check(b"proof" in sendcall["body"], "файл чека не попал в поле proof")
@@ -316,6 +321,8 @@ check(not sr.has_required_env("RSPayProvider"),
       "половины учётных данных хватило, чтобы роутер счёл канал настроенным — "
       "каждый запрос упадёт по подписи, а здоровье оштрафуется за нашу недонастройку")
 os.environ["RSPAY_API_SECRET"] = "sec"
+os.environ["RSPAY_BT_SHOP_API_KEY"] = "bt-key"
+os.environ["RSPAY_BT_API_SECRET"] = "bt-sec"
 check(sr.has_required_env("RSPayProvider"), "полные учётные данные не приняты")
 os.environ.clear()
 os.environ.update(saved)

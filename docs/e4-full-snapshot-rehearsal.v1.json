@@ -1,0 +1,67 @@
+{
+  "schemaVersion": "e4-full-snapshot-rehearsal-evidence.v1",
+  "stage": "E4",
+  "recordedAtUtc": "2026-08-22T05:10:29Z",
+  "status": "NO_GO_NON_AUTHORITATIVE",
+  "executionEffect": "NONE",
+  "productionAuthorization": false,
+  "promotionAllowed": false,
+  "actionAllowed": false,
+  "source": {
+    "container": "obsidian-postgres",
+    "database": "obsidian_exchange",
+    "serverVersion": "17.10",
+    "contactedReadOnly": true,
+    "writesPerformed": false,
+    "snapshotSha256": "e1a9b6b682df8841cbbff7d3c959c3ff8b70a0c9c88988036bfcf14bc1fc8325",
+    "encryptedSnapshotBytes": 578528
+  },
+  "target": {
+    "targetClass": "ISOLATED_DISPOSABLE_POSTGRESQL",
+    "targetRef": "e4-full-snapshot-20260822-01",
+    "targetFingerprintSha256": "20989486782bb23d24732d9a543e416d71b458c2191765c9824e8214208a21de",
+    "image": "postgres@sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193",
+    "network": "none",
+    "readOnlyRoot": true,
+    "publishedPorts": false,
+    "persistentVolume": false,
+    "createdAndDestroyedInOneInvocation": true
+  },
+  "checks": {
+    "snapshotDecryptedOnlyIntoTargetTmpfs": true,
+    "restoreExitCode": 0,
+    "targetTableCount": 54,
+    "targetTableInventorySha256": "3a5a40ecea1f9c3884d5e4caedb3b92aa7b06696fbd99da8297093c1ed4f7460",
+    "sourceCurrentTableCount": 54,
+    "sourceCurrentTableInventorySha256": "806a5c83eaa8786d0fd3970ea6b75ad0aeec3972df71ba6ff2c909e032052c19",
+    "sourceAclInventory": {
+      "objectCount": 54,
+      "sha256": "2e418a47f0f2ba2c5936a3835ed285be"
+    },
+    "targetAclInventory": {
+      "objectCount": 54,
+      "sha256": "bbad3c2b42eb4184949966839fa03abf"
+    },
+    "proposal025ObjectsAbsentInSource": true,
+    "proposal025ObjectsAbsentInTarget": true,
+    "productionInvokerReferences": 0
+  },
+  "observedDriftAfterSnapshot": [
+    "public.bot_users count differed (source current 1845, restored snapshot 1844)",
+    "public.bot_notification_jobs content digest differed at equal count 145",
+    "public.order_lifecycle_work content digest differed at equal count 139"
+  ],
+  "blockers": [
+    "live source changed after the point-in-time snapshot; current source is not the snapshot state",
+    "fixture ACLs intentionally differ from production because restore used --no-owner --no-privileges",
+    "no machine-readable single-use authorization receipt was created",
+    "the rehearsal contacted production only to acquire and diagnose the snapshot, so it is not a promotion-ready proof of the no-production-contact runner contract"
+  ],
+  "cleanup": {
+    "targetAbsentAfterRun": true,
+    "stagedSnapshotAndEphemeralKeyAbsentAfterRun": true,
+    "productionSchemaChanged": false,
+    "productionServiceRestarted": false,
+    "productionMigrationApplied": false
+  }
+}

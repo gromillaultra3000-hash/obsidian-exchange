@@ -1,0 +1,8 @@
+{
+  "taskType": "code_review",
+  "input": "Review this Python code for security vulnerabilities and performance issues",
+  "context": {"language": "python", "file": "main.py"},
+  "requirements": {"minConfidence": 0.75},
+  "expectedOutput": "Code review report with findings",
+  "metadata": {"priority": "high"}
+}

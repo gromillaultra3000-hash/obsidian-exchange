@@ -1,0 +1,53 @@
+{
+  "schema": "native-wallet-ed25519-corpus-review-audit-checkpoint-policy.v1",
+  "validation_order": [
+    "bounded closed envelope",
+    "exact consumer-selected chain and policy",
+    "two distinct authentication domains",
+    "both authentication evidence records valid under active consumer-selected roots",
+    "caller nonce unused and exact",
+    "issue/expiry window valid and at most ten minutes",
+    "checkpoint epoch not below highest accepted epoch",
+    "audit sequence strictly above highest accepted sequence",
+    "previous checkpoint digest equals highest accepted checkpoint",
+    "local audit sequence and head equal checkpoint claims",
+    "atomically consume nonce and advance highest epoch/sequence/checkpoint"
+  ],
+  "rollback_rules": [
+    "lower checkpoint epoch rejects",
+    "lower or equal audit sequence rejects",
+    "same sequence with different head is equivocation and rejects",
+    "wrong previous checkpoint digest rejects",
+    "local audit head or sequence mismatch rejects",
+    "unknown chain or policy rejects",
+    "expired, future or reused nonce rejects"
+  ],
+  "authentication_shortlist": [
+    {
+      "id": "dual_dsse_offline_witnesses",
+      "mechanism": "two independent witness domains DSSE-sign exact checkpoint bytes under separate offline-verifiable roots",
+      "residual_risks": ["two compromised witness roots can collude", "signatures do not prove audit-store completeness before observation"],
+      "status": "SHORTLISTED_NOT_SELECTED"
+    },
+    {
+      "id": "dual_webauthn_human_witnesses",
+      "mechanism": "two independent roaming-authenticator witnesses approve the exact checkpoint challenge",
+      "residual_risks": ["human availability and collusion", "RP/origin/enrollment/revocation operations required"],
+      "status": "SHORTLISTED_NOT_SELECTED"
+    },
+    {
+      "id": "dsse_witness_plus_transparency_inclusion",
+      "mechanism": "one independent DSSE witness plus a separately rooted transparency inclusion/checkpoint proof",
+      "residual_risks": ["log split-view and checkpoint freshness policy", "online/shared transparency control plane"],
+      "status": "SUPPLEMENTAL_CANDIDATE"
+    }
+  ],
+  "selected_authentication": null,
+  "highest_state_store_implemented": false,
+  "nonce_ledger_implemented": false,
+  "authentication_verifier_implemented": false,
+  "real_checkpoint_present": false,
+  "checkpoint_acceptance_allowed": false,
+  "gate_i09_pass": false,
+  "runtime_integration_allowed": false
+}

@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "e0.4-read-only-remediation-rehearsal.v1",
+  "observedAt": "2026-08-18T20:40:00Z",
+  "route": "E0/E0.4/READ_ONLY_REMEDIATION_REHEARSAL",
+  "status": "BLOCKED_OWNER",
+  "decisionEffect": "SYNTHETIC_VALIDATION_ONLY",
+  "source": "current-owner-conversation",
+  "authority": {"productionAuthorization": false, "productionMutationAuthorized": false, "productionExpandAuthorized": false, "deploymentAuthorized": false, "telegramDeliveryAuthorized": false, "paymentMutationAuthorized": false, "adminMutationAuthorized": false, "actionAllowed": false},
+  "rehearsal": {"environment": "temporary synthetic copies only", "productionFilesRead": false, "productionFilesWritten": false, "servicesStarted": false, "networkCalls": false, "customerData": false, "secretsRead": false, "checks": ["schema parse", "authority flags all false", "required owner gates present", "candidate/path/hash binding rules present", "expiry cannot produce allowance", "E0.3/064B/064D restrictions preserved"], "result": "PASS"},
+  "unresolved": ["no authenticated owner decision", "no independent acceptance review", "no immutable release manifest bound to runtime", "no production remediation authorization"],
+  "nextSafeRoute": "E0/E0.4/OWNER_DECISION_INTAKE_REVIEW",
+  "interpretation": "Synthetic validation confirms the restrictive contract only. It is not remediation, acceptance, deployment, restart, authentication, send/edit, publish, charge, customer/provider access or production mutation. E0.3 remains first unmet and BLOCKED_OWNER; E0.4 remains IN_PROGRESS."
+}

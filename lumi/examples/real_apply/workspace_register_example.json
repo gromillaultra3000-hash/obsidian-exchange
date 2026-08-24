@@ -1,0 +1,1 @@
+{"displayName":"Local Test Workspace","rootPath":"C:/path/to/project","allowApply":false,"allowedPathPrefixes":["src/","docs/","tests/"],"blockedPathPrefixes":[".git/","node_modules/","secrets/"]}

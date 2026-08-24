@@ -1,0 +1,76 @@
+{
+  "schemaVersion": "e4-owner-reviewer-trust-anchor-and-binding-candidate.v4",
+  "candidateId": "e4-owner-reviewer-binding-20260822-05",
+  "supersedes": "e4-owner-reviewer-binding-20260822-04",
+  "status": "CANDIDATE_NOT_AUTHORIZED",
+  "stage": "E4",
+  "route": "E4_OWNER_GATED_FRESH_PRODUCTION_DISCONNECTED_REHEARSAL",
+  "authority": {
+    "authenticated": false,
+    "ownerApproval": false,
+    "independentReview": false,
+    "rehearsalExecutionEligible": false,
+    "executionAuthorized": false,
+    "productionDatabaseContactAllowed": false,
+    "productionNetworkAllowed": false,
+    "productionCredentialsAllowed": false,
+    "containsSecrets": false,
+    "containsConnectionMaterial": false,
+    "executionEffect": "NONE",
+    "promotionAllowed": false,
+    "actionAllowed": false
+  },
+  "trustAnchors": {
+    "registryId": "e4-owner-reviewer-anchors-20260822-v4",
+    "status": "CANDIDATE_NOT_AUTHORIZED",
+    "trustRoot": {
+      "role": "E4_AUTHENTICATION_TRUST_ROOT",
+      "issuerId": "e4-trust-root",
+      "publicKeyRef": "e4-trust-root.pub",
+      "publicKeySha256": "5669b2922f49c3c661be658c969566ce256bf7874d3fd1790c31299a4c4519d0",
+      "fingerprint": "SHA256:Ja+GZ9/o52eFmzZDztpju70RWmYpSvc0Fp+ayO1GcfM",
+      "activationCandidateRef": "e4-trust-root-activation-candidate.v1.json",
+      "activationCandidateSha256": "7dc9c77b1a1a1e01a737e7d4d76f97953d4e8414aa183521e7aaadacbd329634",
+      "offlineOriginAttested": true,
+      "active": false
+    },
+    "owner": {
+      "role": "ACCOUNTABLE_OWNER",
+      "issuerId": "e4-owner-signing-v2",
+      "trustRootId": "e4-owner-reviewer-anchors-20260822-v4",
+      "publicKeyRef": "owner-signing-v2.pub",
+      "publicKeySha256": "8ee7fb9b018e485b1e3cb9c0f36bb94ede78848af4323470a43adbd0bef71d63",
+      "fingerprint": "SHA256:G4szs+1DvEQygs3LZS1LDNNRyBYLUHZuX0a7C/gRjII"
+    },
+    "reviewer": {
+      "role": "INDEPENDENT_REVIEWER",
+      "issuerId": "e4-independent-reviewer",
+      "trustRootId": "e4-owner-reviewer-anchors-20260822-v4",
+      "publicKeyRef": "reviewer-signing-v2.pub",
+      "publicKeySha256": "79013979c27cae19fc304269fd390861cb7bdd561d2ca955b96eda8a9e29a095",
+      "fingerprint": "SHA256:3YtNkuP+qf7PIcj9AmqSSTLr+Ocd4luwbeQSB8oRNq4"
+    }
+  },
+  "binding": {
+    "planId": "e4rrp_73040dd58161e760075b961004c173966291a8d33344f248cf6a43ec75893ffd",
+    "planSourceSha256": "eb70458a03fdb5b744f44f0fd390e78f17a65226e2a48b2c763db3ff2623cc2c",
+    "evidenceManifestSha256": "2489745da1fd584c3d77965ebc7b4776ddad3115bcbea5dc7a623fc3d2981a03",
+    "stagedManifestSha256": "c9d94148fe163a284e8ad6df3640e4da9be1f2a090ea7d873e8a7d9bcab2594a",
+    "targetRef": "e4-disposable-pg-20260822-02",
+    "targetFingerprintSha256": "3545e043156cd9023d46a5ebaaa12f0c964ceea2887cea79c9703395a1588ad3",
+    "snapshotRefSha256": "d56f226fb3c38cc40f7265d1d15c2c751211bb86ff1beba655f82f99d5d4b619",
+    "snapshotSha256": "47efc0dc293890243072bdf048d40cbcc1fee8fbe719e4b841fb5d156f658b3e",
+    "keyRefSha256": "c7e21692ac64774b4229807d5b11338df72f722247a1bcebb22d54667a102109",
+    "immutableHandle": "fs-801-2412135",
+    "scope": "ONE_E4_ISOLATED_FULL_SNAPSHOT_REHEARSAL",
+    "invocationLimit": 1
+  },
+  "trustedClock": {
+    "provider": "DigiCert",
+    "protocol": "RFC3161",
+    "endpoint": "http://timestamp.digicert.com",
+    "exactArtifactBindingRequired": true,
+    "attested": false
+  },
+  "nextAction": "Issue a new short-window owner payload bound to this v4 candidate; obtain a DigiCert RFC 3161 token for the exact signed artifact; do not reuse prior payload or reviewer signature fields."
+}

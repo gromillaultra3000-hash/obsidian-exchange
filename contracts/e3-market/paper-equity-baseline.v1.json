@@ -1,0 +1,12 @@
+{
+  "accountId": "sandbox_1",
+  "actionAllowed": false,
+  "baselineEquityQuote": "1200",
+  "baselineId": "peb_38a0430bde392117c5e8daf67259e66f7427e5aa490c0ef84620044cecab5a55",
+  "baselineLedgerHash": "pl_7aaa81bc641be77c552d0920e35fa15bc285d05b818a2a21c6fa7757f4c80be9",
+  "baselineValuationId": "pev_47a57f3e4f9e1afc2286a2ebf979b532d7c69effed7e3dffb6172907e7766df9",
+  "executionEffect": "NONE",
+  "paperOnly": true,
+  "quoteAsset": "USDT",
+  "schemaVersion": "paper-equity-baseline.v1"
+}

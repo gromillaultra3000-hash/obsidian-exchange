@@ -5,7 +5,6 @@ Runs every 5 minutes, checks order health and provider status,
 alerts admin via Telegram if anomalies detected.
 """
 import asyncio
-import sqlite3
 import logging
 import os
 import sys
@@ -13,7 +12,9 @@ import httpx
 from datetime import datetime
 from pathlib import Path
 
-sys.path.insert(0, '/root/relay')
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PROJECT_ROOT / 'relay'))
+from repositories import legacy_runtime_store, reporting_store
 
 logging.basicConfig(
     level=logging.INFO,
@@ -21,7 +22,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger("monitor")
 
-DB_PATH = "/root/exchange.db"
+DB_PATH = os.getenv("DB_PATH", "/root/exchange.db")
 BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 ADMIN_ID = os.getenv("ADMIN_ID", "")
 CHECK_INTERVAL = int(os.getenv("MONITOR_INTERVAL", "300"))  # 5 min
@@ -29,22 +30,28 @@ CHECK_INTERVAL = int(os.getenv("MONITOR_INTERVAL", "300"))  # 5 min
 
 def load_env():
     """Load variables from bot .env file."""
-    env_path = Path("/root/bot/.env")
+    env_path = PROJECT_ROOT / "bot" / ".env"
     if env_path.exists():
         for line in env_path.read_text().splitlines():
             line = line.strip()
             if line and not line.startswith("#") and "=" in line:
                 k, v = line.split("=", 1)
                 os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
-    global BOT_TOKEN, ADMIN_ID
+    global BOT_TOKEN, ADMIN_ID, DB_PATH
     BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
     ADMIN_ID = os.environ.get("ADMIN_ID", "")
+    DB_PATH = os.environ.get("DB_PATH", DB_PATH)
 
 
-def db():
-    conn = sqlite3.connect(DB_PATH, timeout=5)
-    conn.row_factory = sqlite3.Row
-    return conn
+def reports():
+    return reporting_store.from_environment(sqlite_path=DB_PATH)
+
+
+def age_minutes(value):
+    if isinstance(value, str):
+        value = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    now = datetime.now(value.tzinfo) if value.tzinfo else datetime.now()
+    return int((now - value).total_seconds() / 60)
 
 
 async def send_alert(text: str, level: str = "warning"):
@@ -74,28 +81,21 @@ async def check_stuck_orders():
     """Find pending orders older than 30 minutes."""
     issues = []
     try:
-        with db() as conn:
-            stuck = conn.execute("""
-                SELECT order_id, currency, rub_amount, created_at FROM orders
-                WHERE status='pending'
-                AND datetime(created_at) < datetime('now', '-30 minutes')
-                AND datetime(created_at) > datetime('now', '-24 hours')
-            """).fetchall()
-            if stuck:
-                issues.append(f"<b>Зависшие заявки ({len(stuck)}):</b>")
-                for o in stuck[:5]:
-                    try:
-                        age_min = int(
-                            (datetime.now() - datetime.fromisoformat(o['created_at']))
-                            .total_seconds() / 60
-                        )
-                    except Exception:
-                        age_min = "?"
-                    issues.append(
-                        f"  #{o['order_id']} · {o['currency']} · {o['rub_amount']:.0f}₽ · {age_min} мин"
-                    )
-                if len(stuck) > 5:
-                    issues.append(f"  ... и ещё {len(stuck) - 5}")
+        result = reports().stuck_pending_orders(
+            older_than_minutes=30, newer_than_hours=24, limit=5
+        )
+        if result["count"]:
+            issues.append(f"<b>Зависшие заявки ({result['count']}):</b>")
+            for o in result["rows"]:
+                try:
+                    age_min = age_minutes(o["created_at"])
+                except Exception:
+                    age_min = "?"
+                issues.append(
+                    f"  #{o['order_id']} · {o['currency']} · {o['rub_amount']:.0f}₽ · {age_min} мин"
+                )
+            if result["count"] > 5:
+                issues.append(f"  ... и ещё {result['count'] - 5}")
     except Exception as e:
         logger.error("check_stuck_orders error: %s", e)
     return issues
@@ -122,22 +122,14 @@ async def check_conversion_rate():
     """Alert if conversion rate drops below 5% in last hour (min 5 orders)."""
     issues = []
     try:
-        with db() as conn:
-            row = conn.execute("""
-                SELECT
-                    COUNT(*) as total,
-                    SUM(CASE WHEN status IN ('paid','sent') THEN 1 ELSE 0 END) as paid
-                FROM orders
-                WHERE datetime(created_at) > datetime('now', '-1 hour')
-            """).fetchone()
-            total = row['total'] or 0
-            paid = row['paid'] or 0
-            if total >= 5:
-                rate = paid / total * 100
-                if rate < 5:
-                    issues.append(
-                        f"<b>Низкая конверсия за последний час:</b> {rate:.1f}% ({paid}/{total})"
-                    )
+        row = reports().recent_conversion(minutes=60)
+        total, paid = row["total"], row["paid"]
+        if total >= 5:
+            rate = paid / total * 100
+            if rate < 5:
+                issues.append(
+                    f"<b>Низкая конверсия за последний час:</b> {rate:.1f}% ({paid}/{total})"
+                )
     except Exception as e:
         logger.error("check_conversion_rate error: %s", e)
     return issues
@@ -147,22 +139,12 @@ async def check_payout_queue():
     """Alert if payout queue has items stuck longer than 20 minutes."""
     issues = []
     try:
-        with db() as conn:
-            # Check if payout_queue table exists
-            tbl = conn.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name='payout_queue'"
-            ).fetchone()
-            if not tbl:
-                return issues
-            stuck = conn.execute("""
-                SELECT COUNT(*) as cnt FROM payout_queue
-                WHERE status='new'
-                AND datetime(created_at) < datetime('now', '-20 minutes')
-            """).fetchone()
-            if stuck and stuck['cnt'] > 0:
-                issues.append(
-                    f"<b>Очередь выплат заморожена:</b> {stuck['cnt']} ждут > 20 мин"
-                )
+        store = legacy_runtime_store.from_environment(sqlite_path=DB_PATH)
+        stuck = store.stuck_payout_count(older_than_minutes=20)
+        if stuck > 0:
+            issues.append(
+                f"<b>Очередь выплат заморожена:</b> {stuck} ждут > 20 мин"
+            )
     except Exception as e:
         logger.error("check_payout_queue error: %s", e)
     return issues
@@ -171,28 +153,17 @@ async def check_payout_queue():
 async def daily_stats():
     """Send daily summary."""
     try:
-        with db() as conn:
-            stats = conn.execute("""
-                SELECT
-                    COUNT(*) as total,
-                    SUM(CASE WHEN status IN ('paid','sent') THEN 1 ELSE 0 END) as paid,
-                    SUM(CASE WHEN status IN ('paid','sent') THEN rub_amount ELSE 0 END) as volume,
-                    COUNT(DISTINCT user_id) as users
-                FROM orders
-                WHERE date(created_at) = date('now')
-            """).fetchone()
-            total = stats['total'] or 0
-            paid = stats['paid'] or 0
-            volume = stats['volume'] or 0
-            users = stats['users'] or 0
-            conv = (paid / total * 100) if total else 0
-            msg = (
-                f"<b>Итоги дня</b>\n\n"
-                f"Заявок: {total} (успешных: {paid})\n"
-                f"Объём: {volume:,.0f} ₽\n"
-                f"Конверсия: {conv:.1f}%\n"
-                f"Уникальных юзеров: {users}"
-            )
+        stats = reports().daily_order_stats()
+        total, paid = stats["total"], stats["paid"]
+        volume, users = stats["volume"], stats["users"]
+        conv = (paid / total * 100) if total else 0
+        msg = (
+            f"<b>Итоги дня</b>\n\n"
+            f"Заявок: {total} (успешных: {paid})\n"
+            f"Объём: {volume:,.0f} ₽\n"
+            f"Конверсия: {conv:.1f}%\n"
+            f"Уникальных юзеров: {users}"
+        )
         await send_alert(msg, "info")
     except Exception as e:
         logger.error("daily_stats error: %s", e)

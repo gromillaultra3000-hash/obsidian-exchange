@@ -1,0 +1,1 @@
+{"providerId":"valid-with-evidence","displayName":"Valid With Evidence","providerType":"mock","apiFormat":"json","enabled":true,"capabilities":["text_reasoning"],"roles":["reviewer"],"costProfile":{},"latencyProfile":{},"reliabilityScore":0.9,"notes":"valid_with_evidence"}

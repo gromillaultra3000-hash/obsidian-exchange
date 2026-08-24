@@ -1,0 +1,42 @@
+{
+  "schema": "native-wallet-ed25519-corpus-review-checkpoint-auth-challenge.v1",
+  "domain_separator_utf8": "obsidian.ed25519-review.audit-checkpoint-auth.v1",
+  "challenge_hash": "SHA-256",
+  "text_encoding": "u16be byte length followed by exact UTF-8 bytes",
+  "digest_encoding": "raw 32 bytes decoded from canonical lowercase SHA-256 hex",
+  "previous_checkpoint_encoding": "presence byte 0 plus 32 zero bytes for null; presence byte 1 plus raw digest for non-null",
+  "integer_encoding": "u64be except witness_slot encoded as one byte",
+  "ordered_fields": [
+    "checkpoint_schema_sha256_raw_32_bytes",
+    "exact_checkpoint_bytes_sha256_raw_32_bytes",
+    "chain_id",
+    "policy_sha256_raw_32_bytes",
+    "audit_sequence",
+    "audit_head_sha256_raw_32_bytes",
+    "previous_checkpoint_present_u8",
+    "previous_checkpoint_sha256_or_zero_raw_32_bytes",
+    "checkpoint_epoch",
+    "caller_nonce_sha256_raw_32_bytes",
+    "issued_at_epoch_ms",
+    "expires_at_epoch_ms",
+    "witness_slot_u8",
+    "witness_domain_id",
+    "authentication_root_sha256_raw_32_bytes",
+    "recovery_authority_id",
+    "host_failure_domain_id"
+  ],
+  "witness_slot_allowed_values": [0, 1],
+  "maximum_lifetime_ms": 600000,
+  "candidate_mapping": {
+    "dual_dsse_offline_witnesses": "each closed witness statement binds its slot-specific challenge and exact checkpoint digest; DSSE signs exact statement bytes",
+    "dual_webauthn_human_witnesses": "each WebAuthn clientDataJSON challenge is the raw 32-byte slot-specific challenge encoded by the WebAuthn client"
+  },
+  "slot_swap_allowed": false,
+  "challenge_reuse_across_chain_policy_epoch_or_witness_allowed": false,
+  "signature_or_assertion_decoding_implemented": false,
+  "witness_enrolled": false,
+  "real_authentication_evidence_present": false,
+  "checkpoint_authentication_allowed": false,
+  "gate_i09_pass": false,
+  "runtime_integration_allowed": false
+}

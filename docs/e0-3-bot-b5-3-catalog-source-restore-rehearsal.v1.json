@@ -1,0 +1,102 @@
+{
+  "schemaVersion": "e0-3-bot-b5-3-catalog-source-restore-rehearsal.v1",
+  "observedAt": "2026-08-17T05:15:24Z",
+  "route": "E0/E0.3/B5.3/064A",
+  "status": "IN_PROGRESS",
+  "rehearsalLevel": "SNAPSHOT_BOUND_BOUNDED_CATALOG_RESTORE_MATCH",
+  "productionMutation": false,
+  "cutoverAuthorized": false,
+  "source": {
+    "databaseExpected": true,
+    "postgresVersionNum": 170010,
+    "transaction": "REPEATABLE READ READ ONLY",
+    "exportedSnapshotImportedByPgDump": true,
+    "sourceClusterSha256": "9c26ac2556afe7f93eb8d52e2632f36e311c3fd3919d7f5bc229669f4b2bc69f"
+  },
+  "archive": {
+    "format": "PostgreSQL custom",
+    "bytes": 515865,
+    "sha256": "bb5c8273704be49d15fab2971b32b484b4d3a7d347a83ec77913ff9bff5f5a7f",
+    "ownerAndPrivilegesIncluded": false,
+    "retained": false
+  },
+  "target": {
+    "postgresVersionNum": 170010,
+    "image": "sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193",
+    "clusterSha256": "b4b5e6c10795c09c17c5846bfffda8756d19603999e51726341e68b3fd1d8b84",
+    "clusterDistinctFromSource": true,
+    "network": "none",
+    "readOnlyRootFilesystem": true,
+    "persistentMounts": 0,
+    "publishedPorts": 0,
+    "databaseStorage": "tmpfs",
+    "removed": true
+  },
+  "results": {
+    "tableRows": {
+      "status": "MATCH",
+      "tables": 54,
+      "sourceAndRestoreSha256": "57be8e722a7b292122c30f08d3ebb5bff6c8d59b743ff52cb6e8e92a30bde473",
+      "differentTables": []
+    },
+    "catalogFingerprint": {
+      "coverageVersion": "b64-catalog-security-fingerprint.v2",
+      "sections": 13,
+      "sourceAggregateSha256": "0cb79cb12d1140be628784d9aa680646b6e2d45e7f7ca730271f269355008b25",
+      "databaseLocal": {
+        "status": "MATCH",
+        "sections": 11,
+        "differentSections": []
+      },
+      "separatelyReconstructedClusterGlobal": {
+        "status": "MATCH",
+        "sections": ["membership", "db_role_setting"],
+        "differentSections": [],
+        "archiveCarriedTheseObjects": false
+      }
+    },
+    "negativeControl": {
+      "mutation": "disposable target column ACL grant",
+      "exitCode": 1,
+      "databaseLocalStatus": "MISMATCH",
+      "differentDatabaseLocalSections": ["column_acl"],
+      "clusterGlobalStatus": "MATCH"
+    },
+    "focusedTests": {"passed": 11, "failed": 0}
+  },
+  "normalization": {
+    "order": ["bootstrap_roles", "prepare_database", "restore_as_obsidian_migrator", "runtime_privileges"],
+    "meaning": "ACL, ownership and selected cluster globals were deterministically reconstructed after a no-owner/no-privileges restore; equality is not archive carriage fidelity",
+    "artifactSha256": {
+      "bootstrapRoles": "c6d7ee94ebde14f38ba0fa298f6fb323afc05aa81e5bbf19d733754f13968933",
+      "prepareDatabase": "125a4d92fe81792684ecf306adadae90c9eaba3f22792993c01f50d4577640f6",
+      "runtimePrivileges": "09ce38a7aabd92013fe149dfce3ff9ea24eedff7f254a5597b4a389600de48d2"
+    }
+  },
+  "implementationSha256": {
+    "snapshotDump": "f519caf6ab1fad9cecb01099ee3f135f4c1c7d8552cc8e648d7277ce0326d2e1",
+    "catalogFingerprint": "98935fb650ecc86969e2d67c319b3b59a81e33beccad01043df28e528d5e5d44",
+    "catalogComparator": "c87f1d719f4bb940057de22e4ffa6e5f61dedee45760b82863ed31cad414da16",
+    "tableComparator": "13cf6cca448bbcc450c8f9989b70651f77b57d939b8e218c10eae8ea69dd49b7"
+  },
+  "claimBoundary": [
+    "The table and catalog source projections were computed in the same exported MVCC snapshot imported by pg_dump",
+    "Catalog equality covers only the 13 declared v2 sections",
+    "Sequence definitions are included but sequence last_value, log_cnt and is_called are excluded as non-MVCC state",
+    "Cluster roles, memberships and role settings are not carried by a database archive; the two selected global sections matched only after explicit bootstrap",
+    "The archive used --no-owner and --no-privileges; matching owners and ACLs demonstrate deterministic reapplication, not archive preservation",
+    "This is not physical backup, PITR, complete PostgreSQL catalog equality or authenticated migration approval"
+  ],
+  "cleanup": {
+    "archiveAbsent": true,
+    "manifestsAbsent": true,
+    "containerAbsent": true,
+    "tmpfsDestroyed": true
+  },
+  "remainingBlockers": [
+    "authenticated owner and independent reviewer decision",
+    "11 ambiguous legacy SENDING rows require immutable 064D operator disposition",
+    "full migration expand/fence/drain/backfill/validate/cutover package remains unapplied"
+  ],
+  "nextCanonicalItem": "Define and rehearse authenticated owner/reviewer decision evidence for 064A without authorizing cutover; then proceed to 064B only after explicit owner GO."
+}

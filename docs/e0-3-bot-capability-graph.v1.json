@@ -1,0 +1,14 @@
+{
+  "schema":"obsidian.e0-3-bot-capability-graph-summary.v1",
+  "stage":"E0.3",
+  "status":"EXACT_STATIC_GRAPH",
+  "productionAuthorization":false,
+  "valuesIncluded":false,
+  "entrypoint":"bot/main_bot.py",
+  "canonicalOutputSha256":"e0aac6556e0def7804edf276ad2a9a8282af11f5e5627f9c75b1b23afe509af5",
+  "counts":{"repositoryImports":22,"factoryBindings":19,"callEdges":183,"relationObjects":39,"directSqlOrConnectionSites":0,"unresolvedMethods":0},
+  "uncalledImportedRepositories":[],
+  "unresolvedMethods":[],
+  "finding":"The bot entrypoint has no direct SQL/connection call site; allowlisted workers/operators and four lazy bot-order calls are source-resolved; the SQL LIMIT keyword is excluded from relation objects.",
+  "nextPrerequisite":"classify exact bot read columns, writer columns and transition invariants before role design"
+}

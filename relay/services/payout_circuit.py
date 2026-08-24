@@ -20,33 +20,17 @@ Payout circuit-breaker: защита горячего кошелька от ан
 Стоп-кран персистентен (таблица system_flags), снимается оператором командой бота.
 """
 import os
-import sqlite3
 import logging
-from datetime import datetime
 from pathlib import Path
+from repositories.ops_store import from_environment as _ops_store_from_environment
 
-DB_PATH = Path("/root/exchange.db")
+DB_PATH = Path(os.getenv("DB_PATH", "/root/exchange.db"))
 logger = logging.getLogger(__name__)
-
-_schema_ready = False
-
-
-def _db():
-    conn = sqlite3.connect(str(DB_PATH), timeout=5)
-    conn.row_factory = sqlite3.Row
-    return conn
-
+def _store():return _ops_store_from_environment(sqlite_path=str(DB_PATH))
 
 def _ensure_schema():
-    global _schema_ready
-    if _schema_ready:
-        return
     try:
-        with _db() as conn:
-            conn.execute("CREATE TABLE IF NOT EXISTS system_flags ("
-                         "key TEXT PRIMARY KEY, value TEXT, updated_at TEXT)")
-            conn.commit()
-        _schema_ready = True
+        _store().get_flag("payout_frozen")
     except Exception as e:
         logger.warning("payout_circuit schema init failed: %s", e)
 
@@ -60,24 +44,15 @@ def _int_env(name, default):
 
 
 def get_flag(key):
-    _ensure_schema()
     try:
-        with _db() as conn:
-            row = conn.execute("SELECT value FROM system_flags WHERE key=?", (key,)).fetchone()
-        return row["value"] if row else None
+        return _store().get_flag(key)
     except Exception:
         return None
 
 
 def set_flag(key, value):
-    _ensure_schema()
     try:
-        with _db() as conn:
-            conn.execute("INSERT INTO system_flags (key, value, updated_at) VALUES (?,?,?) "
-                         "ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at",
-                         (key, str(value), datetime.now().isoformat()))
-            conn.commit()
-        return True
+        return _store().set_flags({key:value})
     except Exception as e:
         logger.error("payout_circuit set_flag failed: %s", e)
         return False
@@ -88,26 +63,19 @@ def is_frozen():
 
 
 def freeze(reason=""):
-    set_flag("payout_frozen", "1")
-    set_flag("payout_frozen_reason", reason[:300])
+    _store().set_flags({"payout_frozen":"1","payout_frozen_reason":reason[:300]})
     logger.warning("PAYOUT CIRCUIT BREAKER TRIPPED: %s", reason)
 
 
 def unfreeze():
-    set_flag("payout_frozen", "0")
-    set_flag("payout_frozen_reason", "")
+    _store().set_flags({"payout_frozen":"0","payout_frozen_reason":""})
     logger.info("payout circuit breaker reset (unfrozen)")
 
 
 def _paid_last(hours):
     """(сумма RUB, число) авто-/ручных выплат (status='sent') за последние N часов."""
     try:
-        with _db() as conn:
-            row = conn.execute(
-                "SELECT COALESCE(SUM(rub_amount),0) s, COUNT(*) n FROM orders "
-                "WHERE status='sent' AND updated_at >= datetime('now', ?)",
-                (f'-{hours} hours',)).fetchone()
-        return float(row["s"] or 0), int(row["n"] or 0)
+        return _store().payout_totals(hours)
     except Exception as e:
         logger.warning("payout_circuit _paid_last failed: %s", e)
         return 0.0, 0
@@ -143,12 +111,9 @@ def _addr_payouts_24h(address, currency=None):
     if not want:
         return 0
     try:
-        with _db() as conn:
-            rows = conn.execute(
-                "SELECT crypto_address, currency FROM orders WHERE status='sent' "
-                "AND updated_at >= datetime('now','-1 day')").fetchall()
+        rows = _store().recent_payout_destinations(24)
         return sum(1 for r in rows
-                   if _account_key(r["crypto_address"], r["currency"]) == want)
+                   if _account_key(r[0], r[1]) == want)
     except Exception:
         return 0
 

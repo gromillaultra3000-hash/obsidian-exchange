@@ -1,0 +1,20 @@
+{
+  "schema":"obsidian.e0-3-bot-b1-role-envelope-rehearsal.v1",
+  "stage":"E0.3",
+  "status":"REHEARSED_DISPOSABLE_POSTGRESQL_17",
+  "observedAt":"2026-08-15T22:15:15Z",
+  "productionAuthorization":false,
+  "implementationDeployed":false,
+  "proposal":"deploy/postgres/proposals/035_e0_bot_b1_role_envelope.sql",
+  "proposalSha256":"9c3b1cb2e0601dc5a5e328213f69642ca4d147b9e64681c24146c1da70c3ceec",
+  "test":"tests/test_e0_3_bot_b1_role_envelope_rehearsal.py",
+  "testSha256":"178756ecfb5f8c8b6a2e7972662857188142554483199019a6775b38c15f543e",
+  "container":{"image":"postgres:17-alpine","database":"bot_b1","removedAfterRun":true},
+  "roles":{"login":"obsidian_exchange_bot","connectionLimit":10,"owner":"obsidian_exchange_bot_owner","ownerLogin":false,"membershipCount":0},
+  "functions":["bot_b1_blocked_users(integer)","bot_b1_customer_history(bigint,integer)","bot_b1_payout_candidates(integer,integer)","bot_b1_reserves_detailed()"],
+  "positiveEvidence":["operator blocked-user read returns bounded rows","customer history returns only the exact requested user in descending order","background payout candidates exclude an already-notified order","reserve detail is currency ordered and capped","statement and lock timeouts are role defaults"],
+  "negativeEvidence":["direct table SELECT denied","direct UPDATE denied","persistent and temporary DDL denied","direct sequence use denied","zero and excessive limits denied","non-positive customer identity denied","payout window above 168 hours denied","eleventh simultaneous login denied"],
+  "aclEvidence":{"loginDirectTableSelect":false,"schemaCreate":false,"databaseTemporary":false,"exactExecutableFunctions":4},
+  "result":"PASS",
+  "nextPrerequisite":"B2 owner and operator read bodies in disposable PostgreSQL 17"
+}

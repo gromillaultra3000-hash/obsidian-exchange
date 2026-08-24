@@ -1,0 +1,67 @@
+{
+  "schemaVersion": "unified-portfolio.v1",
+  "observedAt": "2026-08-10T22:00:10+00:00",
+  "complete": true,
+  "issues": [],
+  "lanes": [
+    {
+      "id": "wallets",
+      "custodyDomain": "SELF_CUSTODY",
+      "state": "AVAILABLE",
+      "sources": [{
+        "sourceId": "wallet_fixture_opaque",
+        "kind": "VERIFIED_WALLET",
+        "custodyDomain": "SELF_CUSTODY",
+        "providerId": "btc",
+        "state": "AVAILABLE",
+        "balances": [{
+          "assetId": "BTC", "network": "BTC", "total": "0.5",
+          "available": null, "locked": null, "state": "FRESH",
+          "asOf": "2026-08-10T22:00:10+00:00",
+          "observedAt": "2026-08-10T22:00:10+00:00", "errorCode": null
+        }]
+      }]
+    },
+    {
+      "id": "obsidian_exchange",
+      "custodyDomain": "OBSIDIAN_OPERATIONAL",
+      "state": "AVAILABLE",
+      "sources": [
+        {
+          "sourceId": "obsidian_exchange",
+          "kind": "OBSIDIAN_EXCHANGE",
+          "custodyDomain": "OBSIDIAN_OPERATIONAL",
+          "providerId": "obsidian_exchange",
+          "state": "AVAILABLE",
+          "balances": [],
+          "activity": {
+            "orderCount": 2,
+            "successfulOrderCount": 1,
+            "latestOrderAt": "2026-08-10T21:00:00+00:00"
+          }
+        }
+      ]
+    },
+    {
+      "id": "verified_exchanges",
+      "custodyDomain": "CEX_CUSTODY",
+      "state": "AVAILABLE",
+      "sources": [{
+        "sourceId": "src_fixture_readonly_0001",
+        "kind": "CEX_ACCOUNT",
+        "custodyDomain": "CEX_CUSTODY",
+        "providerId": "bybit",
+        "state": "READ_ONLY_VERIFIED",
+        "balances": [{
+          "assetId": "USDT", "network": null, "total": "12.3400",
+          "available": "12.3400", "locked": "0", "state": "FRESH",
+          "asOf": "2026-08-10T22:00:05+00:00",
+          "observedAt": "2026-08-10T22:00:10+00:00", "errorCode": null
+        }],
+        "permissionCheckedAt": "2026-08-10T22:00:00+00:00",
+        "balanceCheckedAt": "2026-08-10T22:00:05+00:00",
+        "lastErrorCode": null
+      }]
+    }
+  ]
+}

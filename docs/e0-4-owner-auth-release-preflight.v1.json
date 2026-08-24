@@ -1,0 +1,64 @@
+{
+  "schemaVersion": "e0-4-owner-auth-release-preflight.v1",
+  "observedAt": "2026-08-17T15:52:19Z",
+  "route": "E0/E0.4/FEATURE_STATUS_SURFACE_MATRIX",
+  "status": "IN_PROGRESS",
+  "workClass": "DETERMINISTIC_NON_AUTHORIZING_RELEASE_PREFLIGHT",
+  "productionMutation": false,
+  "productionDeployed": false,
+  "productionAuthorization": false,
+  "databaseMigrationAuthorized": false,
+  "deploymentAuthorized": false,
+  "configWriteAuthorized": false,
+  "serviceStopAuthorized": false,
+  "restartAuthorized": false,
+  "telegramDeliveryAuthorized": false,
+  "moneyWriterAuthorized": false,
+  "release": {
+    "releaseId": "e04rel_0e07692ee8ab88f252135f7949dfaa4f",
+    "bundleSha256": "8d71caba6ba77b3cfb63f4d20bd51bbba88033d0b9dbb69a981e47e1eaf38c93",
+    "bundleBytes": 1013760,
+    "format": "deterministic uncompressed USTAR",
+    "deployable": false,
+    "memberCount": 12,
+    "payload": "seven candidate Python artifacts, four explicitly non-deployable rehearsal SQL evidence files, one canonical manifest"
+  },
+  "tooling": [
+    {"path":"scripts/e0_4_build_owner_auth_candidate.py","sha256":"1fbf059a0a61d0caedf6832b65283edde4a0e67f5af583841faa9cc430c5c7d3"},
+    {"path":"scripts/e0_4_prepare_owner_auth_release.py","sha256":"94e58d870d5c073f483b090b651e26449020b9102a3b03ddbb45f9ed9763e103"},
+    {"path":"tests/test_e0_4_owner_auth_release.py","sha256":"d61df8a32ff2a576434780e163b48ec927af7da07b617695dae5e7752a9f3aa3"}
+  ],
+  "acceptance": [
+    "Two independent temporary builds are byte-identical and have identical manifest/release IDs.",
+    "All archive members are sorted regular files with fixed uid/gid/name/mtime/mode metadata.",
+    "Manifest binds exact base/source/candidate digests, sizes, selected functions and target paths for all seven source artifacts.",
+    "SQL proposals are isolated under rehearsal-evidence and marked deployable=false.",
+    "Every production/config/service/database/Telegram/money authorization is false and owner approval is required.",
+    "Existing output is never overwritten and unlisted env, DB, log, venv, cache, cursor and secret artifacts are excluded.",
+    "Candidate and release builders accept explicit deployed/source roots rather than requiring one hard-coded checkout layout."
+    ,"A strict verifier requires externally pinned bundle SHA-256 and release ID, checks the raw archive before parsing, recomputes manifest digest/release ID and every payload hash/size, and rejects traversal, duplicates, non-regular members, metadata drift and unlisted members."
+    ,"A self-consistent rehashed manifest tamper is rejected against the external pins; target uid/gid are fixed at 0/0 and copied-root preimages must preserve that production ownership."
+    ,"A build from explicit copied source/deployed roots is byte-identical to the default-root build."
+  ],
+  "rolloutPreflight": [
+    "Owner authorization and a maintenance window are prerequisites.",
+    "Production requires new narrow idempotent additive migrations; the bundled proposals cannot be executed as release migrations.",
+    "Code is staged and restarted with both flags OFF; Relay flag/canary precedes bot flag/canary.",
+    "Legacy direct SQL privileges are not revoked in this slice because non-candidate methods still require them.",
+    "Flags are independent rollback levers; coordinated rollout is phased, not simultaneous."
+  ],
+  "blockers": [
+    "Exact seven-file rollback preimage archive, metadata and injected partial-install recovery are not yet rehearsed.",
+    "Production catalog preimage plus narrow forward and rollback/repair SQL artifacts are not hash-bound.",
+    "Owner-authorized maintenance/deploy/restart/config/database decision is absent.",
+    "The historical plaintext payout-secret rotation/removal remains a separate owner-blocked P0 item."
+  ],
+  "independentReviews": [
+    {"identity":"agent:/root/release_manifest_review","disposition":"PREFLIGHT_ONLY_NO_GO_REQUIRED"},
+    {"identity":"agent:/root/release_rollout_review","disposition":"PHASED_EXPAND_CODE_RELAY_FLAG_BOT_FLAG"},
+    {"identity":"agent:/root/release_repro_review","disposition":"ALLOWLIST_DETERMINISM_AND_ROLLBACK_REQUIREMENTS"}
+  ],
+  "rollout": "None. The bundle was created only under /tmp for evidence and is explicitly non-deployable.",
+  "rollback": "Not applicable to production; no production action occurred.",
+  "nextCanonicalItem": "Create an exact allowlist-only rollback preimage bundle for the seven currently deployed files and rehearse recovery after every partial replacement point in copied production-layout trees."
+}

@@ -1,0 +1,2 @@
+CREATE TABLE alert_throttle(key TEXT PRIMARY KEY,last_sent TIMESTAMPTZ NOT NULL);
+CREATE TABLE alert_watermark(key TEXT PRIMARY KEY,value BIGINT NOT NULL);

@@ -1,0 +1,8 @@
+FROM python:3.12-slim
+WORKDIR /app
+RUN pip install aiogram aiohttp redis qrcode bitcoinlib requests
+RUN mkdir -p /root/bot
+COPY bot/main_bot.py /app/
+COPY bot/.env /app/
+COPY exchange.db /app/
+CMD ["python", "main_bot.py"]

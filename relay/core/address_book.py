@@ -30,8 +30,8 @@ from __future__ import annotations
 
 import logging
 import os
-import sqlite3
 from datetime import datetime, timezone
+from repositories.address_book_store import from_environment as _store_from_environment
 
 logger = logging.getLogger(__name__)
 
@@ -45,28 +45,20 @@ DB_PATH = os.getenv("DB_PATH", "/root/exchange.db")
 # бота и payment_service. Признать только `sent` значило бы, что у давнего
 # клиента книга пуста. Нашёл codex.
 DELIVERED_STATUSES = ("sent", "completed")
-_DELIVERED_SQL = "(" + ",".join(f"'{s}'" for s in DELIVERED_STATUSES) + ")"
 
 # Сколько адресов отдаём поверхности. Список — подсказка, а не архив: длинный
 # перечень одинаковых с виду строк опаснее пустого, в нём промахиваются.
 MAX_ENTRIES = int(os.getenv("ADDRESS_BOOK_MAX", "8") or 8)
 
-_DDL = ("CREATE TABLE IF NOT EXISTS client_address_notes ("
-        " user_id INTEGER NOT NULL,"
-        " currency TEXT NOT NULL,"
-        " network TEXT NOT NULL DEFAULT '',"
-        " address TEXT NOT NULL,"
-        " label TEXT NOT NULL DEFAULT '',"
-        " hidden INTEGER NOT NULL DEFAULT 0,"
-        " updated_at TEXT NOT NULL,"
-        " PRIMARY KEY (user_id, currency, network, address))")
+_store = _store_from_environment(sqlite_path=DB_PATH)
 
 
-def _conn():
-    conn = sqlite3.connect(DB_PATH, timeout=5)
-    conn.row_factory = sqlite3.Row
-    conn.execute(_DDL)
-    return conn
+def _storage():
+    # Tests and maintenance utilities deliberately redirect DB_PATH at runtime.
+    # Keep that supported without rebuilding a configured PostgreSQL adapter.
+    if hasattr(_store, "path") and _store.path != DB_PATH:
+        return _store_from_environment(sqlite_path=DB_PATH)
+    return _store
 
 
 def _now() -> str:
@@ -176,30 +168,15 @@ def entries_for(user_id, currency=None, network=None, limit: int = MAX_ENTRIES,
 
     rows, notes, links = [], {}, []
     try:
-        with _conn() as conn:
-            # Только заявки, по которым монеты ДОШЛИ. Иначе адрес, из-за
-            # которого заявку и отменили («не тот кошелёк»), останется
-            # предложением в один тап навсегда: клиент отменил заявку именно
-            # чтобы туда не отправлять, а мы бы это подсказали. Нашёл codex.
-            sql = ("SELECT currency, COALESCE(network,'') AS network, crypto_address,"
-                   "       MAX(created_at) AS last_at, COUNT(*) AS uses"
-                   "  FROM orders"
-                   " WHERE user_id = ? AND crypto_address IS NOT NULL"
-                   "   AND TRIM(crypto_address) != ''"
-                   "   AND LOWER(COALESCE(status,'')) IN " + _DELIVERED_SQL)
-            args = [uid]
-            if cur_filter:
-                sql += " AND UPPER(currency) = ?"
-                args.append(cur_filter)
-            sql += (" GROUP BY UPPER(currency), UPPER(COALESCE(network,'')), crypto_address"
-                    " ORDER BY last_at DESC LIMIT 200")
-            rows = [dict(r) for r in conn.execute(sql, args).fetchall()]
-            for r in conn.execute(
-                    "SELECT currency, network, address, label, hidden FROM "
-                    "client_address_notes WHERE user_id = ?", (uid,)).fetchall():
-                key = (str(r["currency"]).upper(), str(r["network"] or "").upper(),
-                       str(r["address"]))
-                notes[key] = {"label": r["label"] or "", "hidden": bool(r["hidden"])}
+        # Только заявки, по которым монеты ДОШЛИ. Иначе адрес, из-за
+        # которого заявку и отменили («не тот кошелёк»), останется
+        # предложением в один тап навсегда: клиент отменил заявку именно
+        # чтобы туда не отправлять, а мы бы это подсказали. Нашёл codex.
+        rows, note_rows = _storage().entries(uid, DELIVERED_STATUSES, cur_filter or None)
+        for r in note_rows:
+            key = (str(r["currency"]).upper(), str(r["network"] or "").upper(),
+                   str(r["address"]))
+            notes[key] = {"label": r["label"] or "", "hidden": bool(r["hidden"])}
     except Exception as e:
         logger.warning("address_book: не прочитали заявки клиента: %s", e)
         return []
@@ -327,20 +304,11 @@ def deliveries_for(user_id, limit: int = 10) -> list[dict]:
     if uid <= 0:
         return []
     try:
-        with _conn() as conn:
-            rows = conn.execute(
-                "SELECT order_id, currency, COALESCE(network,'') AS network,"
-                "       crypto_address, agreed_crypto_amount, paid_btc_tx,"
-                "       COALESCE(updated_at, created_at) AS ts"
-                "  FROM orders"
-                # Все выданные заявки, в том числе без хеша: путь ручной отправки
-                # в боте помечает заявку `sent`, не заполняя `paid_btc_tx`
-                # (main_bot.py). Отсечь их по «нет хеша» значило бы спрятать от
-                # клиента выдачу, которая состоялась. Нашёл codex.
-                " WHERE user_id = ? AND LOWER(COALESCE(status,'')) IN "
-                + _DELIVERED_SQL +
-                " ORDER BY ts DESC LIMIT ?",
-                (uid, max(1, int(limit or 10)))).fetchall()
+        # Все выданные заявки, в том числе без хеша: путь ручной отправки
+        # в боте помечает заявку `sent`, не заполняя `paid_btc_tx`
+        # (main_bot.py). Отсечь их по «нет хеша» значило бы спрятать от
+        # клиента выдачу, которая состоялась. Нашёл codex.
+        rows = _storage().deliveries(uid, DELIVERED_STATUSES, max(1, int(limit or 10)))
     except Exception as e:
         logger.warning("address_book: приходы не прочитаны: %s", e)
         return []
@@ -418,22 +386,7 @@ def _note(user_id, currency, address, network, label=None, hidden=None) -> bool:
         return False
     net = _resolve_network(uid, cur, addr, network)
     try:
-        with _conn() as conn:
-            row = conn.execute(
-                "SELECT label, hidden FROM client_address_notes WHERE user_id=? "
-                "AND currency=? AND network=? AND address=?",
-                (uid, cur, net, addr)).fetchone()
-            new_label = row["label"] if (row and label is None) else (label or "")
-            new_hidden = row["hidden"] if (row and hidden is None) else int(hidden or 0)
-            conn.execute(
-                "INSERT INTO client_address_notes"
-                " (user_id, currency, network, address, label, hidden, updated_at)"
-                " VALUES (?,?,?,?,?,?,?)"
-                " ON CONFLICT(user_id, currency, network, address) DO UPDATE SET"
-                " label=excluded.label, hidden=excluded.hidden,"
-                " updated_at=excluded.updated_at",
-                (uid, cur, net, addr, new_label, new_hidden, _now()))
-            conn.commit()
+        _storage().upsert_note(uid, cur, net, addr, label, hidden, _now())
         return True
     except Exception as e:
         logger.warning("address_book: заметку не сохранили: %s", e)

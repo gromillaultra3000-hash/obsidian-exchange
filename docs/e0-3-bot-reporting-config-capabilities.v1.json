@@ -1,0 +1,18 @@
+{
+  "schema":"obsidian.e0-3-bot-reporting-config-capabilities.v1","stage":"E0.3","status":"EXACT_PACKAGES_VERIFIED","productionAuthorization":false,
+  "sourceSha256":{"promo_admin_store":"fcf13c813566bddb5f20eaf6e16bc7edae42f0cc67f45152f9acccfd5ec55f03","provider_health_store":"f4f46547d4b734247c16c36ea467b5721d2581c848a37cfde29de1de28c8af9c","reporting_store":"e41508b871d4abf1e446a64f5db766c3cf1547771fe26027d638b8242b7bf30d"},
+  "capabilities":[
+    {"id":"promo_admin_store.active","access":"OPERATOR_READ","reads":{"promo_codes":["code","discount_percent","uses_count","max_uses","valid_until","is_active","id"]},"invariants":["ACTIVE_ONLY","LATEST_ID_FIRST","LIMIT_CLAMP_1_100"]},
+    {"id":"promo_admin_store.create","access":"WRITE","reads":{"promo_codes":["id","code"]},"mutations":{"promo_codes":["code","discount_percent","max_uses","valid_until"]},"invariants":["UNIQUE_CODE","CONFLICT_EXPLICIT","RETURN_ID"]},
+    {"id":"promo_admin_store.validate_for_user","access":"READ","reads":{"promo_codes":["id","code","discount_percent","max_uses","uses_count","is_active","valid_until"],"promo_uses":["code_id","user_id"]},"invariants":["CASE_INSENSITIVE_EXACT_CODE","ACTIVE_NOT_EXPIRED","CAPACITY_AVAILABLE","USER_HAS_NOT_USED","NO_MUTATION"]},
+    {"id":"provider_health_store.all_health","access":"OPERATOR_READ","reads":{"provider_health":["provider","avg_response_time","failed_count","last_checked","is_healthy","status","blocker"]},"invariants":["FULL_DECLARED_HEALTH_PROJECTION","MIGRATION_REQUIRED"]},
+    {"id":"provider_health_store.attempt_stats","access":"OPERATOR_READ","reads":{"provider_attempts":["provider","ts","success"]},"invariants":["EXACT_PROVIDER","SINCE_INCLUSIVE","COUNT_AND_SUCCESS_SUM_ONLY","MIGRATION_REQUIRED"]},
+    {"id":"provider_health_store.reset","access":"OPERATOR_WRITE","reads":{"provider_health":["provider"]},"mutations":{"provider_health":["failed_count","is_healthy","status","blocker"]},"invariants":["EXACT_PROVIDER","RESET_TO_READY","MIGRATION_REQUIRED"]},
+    {"id":"reporting_store.bot_today_summary","access":"OPERATOR_AGGREGATE_READ","reads":{"orders":["order_id","rub_amount","status","created_at","user_id"],"limit_orders":["status"],"dca_schedules":["status"]},"invariants":["DATABASE_CURRENT_DATE","AGGREGATE_ONLY","NEW_USER_ANTI_JOIN"]},
+    {"id":"reporting_store.cumulative_stats","access":"OPERATOR_AGGREGATE_READ","reads":{"orders":["order_id","rub_amount","status","created_at","currency"]},"invariants":["AGGREGATE_ONLY","PERIOD_CURRENCY_STATUS_LISTS_MAX_32_FAIL_CLOSED"]},
+    {"id":"reporting_store.period_order_report","access":"OPERATOR_AGGREGATE_READ","reads":{"orders":["order_id","rub_amount","status","created_at","currency","user_id"]},"invariants":["INCLUSIVE_DATE_RANGE","SENT_BREAKDOWN","NEW_USER_ANTI_JOIN","CURRENCY_GROUP_LIMIT_100"]},
+    {"id":"reporting_store.reserves_detailed","access":"OPERATOR_READ","reads":{"reserves":["currency","amount","updated_at"]},"invariants":["CURRENCY_ORDER","RESULT_LIMIT_100"]}
+  ],
+  "blockers":[],
+  "remainingWork":["design bot ACL from verified capability packages"]
+}

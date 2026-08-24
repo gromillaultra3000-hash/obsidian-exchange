@@ -1,0 +1,107 @@
+{
+  "schemaVersion": "e4-disconnected-snapshot-staging-manifest.v1",
+  "manifestId": "e4-staged-obsidian-exchange-cutover-20260810-age-20260822",
+  "status": "STAGED_NOT_AUTHORIZED",
+  "stage": "E4",
+  "authority": {
+    "authenticated": false,
+    "snapshotUsableForExecution": false,
+    "productionDatabaseContactAllowed": false,
+    "productionNetworkAllowed": false,
+    "productionCredentialsAllowed": false,
+    "containsSecrets": false,
+    "containsConnectionMaterial": false,
+    "plaintextSnapshotIncluded": false,
+    "privateKeyMaterialIncluded": false,
+    "executionEffect": "NONE"
+  },
+  "frozenBinding": {
+    "planSchemaVersion": "e4-full-snapshot-rehearsal-runner-plan.v1",
+    "planId": "e4rrp_73040dd58161e760075b961004c173966291a8d33344f248cf6a43ec75893ffd",
+    "planSourcePath": "relay/core/e4_rehearsal_runner_plan.py",
+    "planSourceSha256": "eb70458a03fdb5b744f44f0fd390e78f17a65226e2a48b2c763db3ff2623cc2c",
+    "evidenceManifestPath": "deploy/postgres/proposals/e4_full_snapshot_rehearsal_manifest.json",
+    "evidenceManifestSha256": "2489745da1fd584c3d77965ebc7b4776ddad3115bcbea5dc7a623fc3d2981a03",
+    "targetClass": "ISOLATED_DISPOSABLE_POSTGRESQL",
+    "snapshotClass": "PREEXISTING_ENCRYPTED_IMMUTABLE_SNAPSHOT_COPY"
+  },
+  "sourceArtifact": {
+    "path": "/var/backups/obsidian-exchange/postgres/obsidian_exchange-cutover-20260810.dump",
+    "type": "PostgreSQL custom database dump - v1.16-0",
+    "sizeBytes": 459703,
+    "sha256": "d61b888edabf3ff69cbbe861a5ea33f8b8f172b9a01e2a94f4bab82627dcf001",
+    "checksumRecordPath": "/var/backups/obsidian-exchange/postgres/obsidian_exchange-cutover-20260810.dump.sha256",
+    "capturedAtUtc": "2026-08-10T01:40:33Z",
+    "sourceWasOpenedByAgent": false,
+    "sourceWasDecryptedByAgent": false
+  },
+  "snapshot": {
+    "snapshotRef": "e4-staged-obsidian-exchange-cutover-20260810-age-20260822",
+    "snapshotRefSha256": "d56f226fb3c38cc40f7265d1d15c2c751211bb86ff1beba655f82f99d5d4b619",
+    "path": "/root/E4-owner-handoff/obsidian_exchange-cutover-20260810.dump.age",
+    "pathRefSha256": "caa9d15195b42cd288c8ca398012a74eb1f16873e21356c222050ba31d67dcfc",
+    "ciphertextSha256": "47efc0dc293890243072bdf048d40cbcc1fee8fbe719e4b841fb5d156f658b3e",
+    "byteLength": 460027,
+    "format": "age encrypted file, ssh-ed25519 recipient",
+    "createdAtUtc": "2026-08-22T18:22:23Z",
+    "createdBeforeRehearsal": true,
+    "immutableHandle": "fs-801-2412135",
+    "readOnlyAtHandoff": true,
+    "plaintextPersistenceForbidden": true
+  },
+  "encryption": {
+    "encryptedAtRest": true,
+    "encryptionFormat": "age",
+    "recipientType": "ssh-ed25519",
+    "keyRefSha256": "c7e21692ac64774b4229807d5b11338df72f722247a1bcebb22d54667a102109",
+    "keyMaterialPresentInHandoff": false,
+    "privateKeyPresentOnServer": false,
+    "decryptionPerformedDuringPreparation": false
+  },
+  "stagingEvidence": {
+    "owner": "root",
+    "group": "root",
+    "mode": "0400",
+    "sizeBytes": 460027,
+    "sha256": "47efc0dc293890243072bdf048d40cbcc1fee8fbe719e4b841fb5d156f658b3e",
+    "symlink": false,
+    "inode": 2412135,
+    "device": "801",
+    "hardlinkCount": 1,
+    "immutable": true,
+    "readOnly": true,
+    "stagingCreatedBeforeOwnerApproval": true,
+    "stagingCreatedBeforeRehearsal": true
+  },
+  "provenance": {
+    "sourceKind": "PREEXISTING_POSTGRESQL_CUSTOM_DUMP",
+    "productionContactDuringStaging": false,
+    "productionCredentialsUsedDuringStaging": false,
+    "productionNetworkUsedDuringStaging": false,
+    "sourceProvenanceReviewedByOwner": false,
+    "sourceProvenanceReviewedByIndependentReviewer": false,
+    "chainOfCustodyRef": null,
+    "chainOfCustodySha256": null
+  },
+  "targetBinding": {
+    "targetRef": "e4-disposable-pg-20260822-02",
+    "targetFingerprintSha256": "3545e043156cd9023d46a5ebaaa12f0c964ceea2887cea79c9703395a1588ad3",
+    "targetMustBeAbsentBeforeStart": true,
+    "targetClass": "ISOLATED_DISPOSABLE_POSTGRESQL",
+    "persistentTargetAllowed": false,
+    "targetDestroyAfterRehearsal": true
+  },
+  "checkResults": {
+    "SOURCE_CHECKSUM_MATCHED": "PASS",
+    "AGE_CIPHERTEXT_CREATED": "PASS",
+    "AGE_RECIPIENT_TYPE_CAPTURED": "PASS",
+    "E4_MANIFEST_PROVENANCE_BOUND": "PENDING_OWNER_REVIEW",
+    "IMMUTABLE_STAGING_HANDLE": "PASS",
+    "OWNER_AUTHENTICATION": "PENDING",
+    "INDEPENDENT_REVIEW": "PENDING",
+    "TARGET_IDENTITY": "OWNER_SELECTED_NOT_AUTHENTICATED",
+    "FULL_12_STEP_EXECUTOR": "BLOCKED",
+    "ONE_SHOT_CONSUMPTION": "PENDING_EXECUTOR"
+  },
+  "nextAction": "Owner reviews source provenance and key binding offline; independent reviewer countersigns. Do not decrypt, run Docker, contact production, or treat this staged artifact as an authorization receipt."
+}

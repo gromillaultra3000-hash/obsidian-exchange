@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "connector-events.v1",
+  "retentionDays": 90,
+  "maxStoredEvents": 1000,
+  "events": [
+    {
+      "providerId": "bybit",
+      "type": "PERMISSION_VERIFIED",
+      "state": "READ_ONLY_VERIFIED",
+      "at": "2026-08-10T22:00:00+00:00",
+      "category": null
+    }
+  ]
+}
