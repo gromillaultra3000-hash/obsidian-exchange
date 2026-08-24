@@ -39,6 +39,8 @@ assert "Requires=docker.service" in unit
 assert "ConditionPathExists=/etc/obsidian-exchange/postgres/postgres-password" in unit
 assert "compose.production.yml config --quiet" in unit
 assert "--abort-on-container-exit --exit-code-from postgres" in unit
+assert "up --force-recreate" in unit
+assert "ConditionPathExists=/opt/obsidian-exchange/deploy/postgres/verify_b64_snapshot_reader.py" in unit
 assert "State.Health.Status" in unit
 assert "b64_snapshot_reader_transition_gate.py" in unit
 assert "b64_snapshot_reader_transition_gate.py --expected-image-id" in unit

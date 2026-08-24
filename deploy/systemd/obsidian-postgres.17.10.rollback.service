@@ -9,12 +9,15 @@ StartLimitIntervalSec=300
 StartLimitBurst=3
 ConditionPathExists=/opt/obsidian-exchange/deploy/postgres/compose.production.yml
 ConditionPathExists=/etc/obsidian-exchange/postgres/postgres-password
+ConditionPathExists=/opt/obsidian-exchange/deploy/postgres/verify_b64_snapshot_reader.py
+ConditionPathExists=/opt/obsidian-exchange/deploy/postgres/load_sqlite_snapshot.py
+ConditionPathExists=/opt/obsidian-exchange/deploy/postgres/verify_runtime_privileges.py
 
 [Service]
 Type=simple
 WorkingDirectory=/opt/obsidian-exchange
 ExecStartPre=/usr/bin/docker compose --project-name obsidian-postgres --file /opt/obsidian-exchange/deploy/postgres/compose.production.yml config --quiet
-ExecStart=/usr/bin/docker compose --project-name obsidian-postgres --file /opt/obsidian-exchange/deploy/postgres/compose.production.yml up --no-color --no-log-prefix --abort-on-container-exit --exit-code-from postgres
+ExecStart=/usr/bin/docker compose --project-name obsidian-postgres --file /opt/obsidian-exchange/deploy/postgres/compose.production.yml up --force-recreate --no-color --no-log-prefix --abort-on-container-exit --exit-code-from postgres
 ExecStartPost=/bin/sh -ec 'i=0; while [ "$$i" -lt 60 ]; do status=$$(/usr/bin/docker inspect --format={{.State.Health.Status}} obsidian-postgres 2>/dev/null || true); [ "$$status" = healthy ] && exit 0; i=$$((i + 1)); sleep 1; done; exit 1'
 ExecStartPost=/opt/obsidian-exchange/relay-venv/bin/python /opt/obsidian-exchange/deploy/postgres/b64_snapshot_reader_transition_gate.py --expected-image-id sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193 --expected-server-version-num 170010 --apply
 ExecStartPost=/opt/obsidian-exchange/relay-venv/bin/python /opt/obsidian-exchange/deploy/postgres/b64_snapshot_reader_watchdog.py --expected-image-id sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193 --expected-server-version-num 170010 --require-dormant

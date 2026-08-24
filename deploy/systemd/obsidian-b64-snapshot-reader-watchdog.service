@@ -4,6 +4,9 @@ Requires=obsidian-postgres.service
 BindsTo=obsidian-postgres.service
 After=obsidian-postgres.service
 ConditionPathExists=/opt/obsidian-exchange/deploy/postgres/b64_snapshot_reader_watchdog.py
+ConditionPathExists=/opt/obsidian-exchange/deploy/postgres/verify_b64_snapshot_reader.py
+ConditionPathExists=/opt/obsidian-exchange/deploy/postgres/load_sqlite_snapshot.py
+ConditionPathExists=/opt/obsidian-exchange/deploy/postgres/verify_runtime_privileges.py
 
 [Service]
 Type=oneshot

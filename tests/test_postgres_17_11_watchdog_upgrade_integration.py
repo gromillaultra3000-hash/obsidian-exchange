@@ -221,7 +221,7 @@ Wants={timer}
 [Service]
 Type=simple
 ExecStartPre=/usr/bin/docker compose --project-name obsidian-postgres-contract --file {compose} config --quiet
-ExecStart=/usr/bin/docker compose --project-name obsidian-postgres-contract --file {compose} up --no-color --no-log-prefix --abort-on-container-exit --exit-code-from postgres-contract
+ExecStart=/usr/bin/docker compose --project-name obsidian-postgres-contract --file {compose} up --force-recreate --no-color --no-log-prefix --abort-on-container-exit --exit-code-from postgres-contract
 ExecStartPost=/bin/sh -ec 'i=0; while [ "$$i" -lt 60 ]; do status=$$(/usr/bin/docker inspect --format={{{{.State.Health.Status}}}} {name} 2>/dev/null || true); [ "$$status" = healthy ] && exit 0; i=$$((i + 1)); sleep 1; done; exit 1'
 ExecStartPost={python} {POSTGRES / 'b64_snapshot_reader_transition_gate.py'} --container {name} --expected-image-id {image_id} --expected-volume-name {volume} --expected-server-version-num {version} --expected-system-identifier {system_id} --allow-contract-container --apply
 ExecStartPost={python} {POSTGRES / 'b64_snapshot_reader_watchdog.py'} --container {name} --expected-image-id {image_id} --expected-volume-name {volume} --expected-server-version-num {version} --expected-system-identifier {system_id} --allow-contract-container --require-dormant
