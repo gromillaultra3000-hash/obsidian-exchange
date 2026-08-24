@@ -1683,3 +1683,48 @@ watchdog, boot and abnormal-exit reconciliation while preserving the dormant
 role and exact HBA policy. Production `LOGIN` remains unauthorized until that
 gate, authenticated rehearsal-evidence consumption and a concrete production
 Dump/Restore supervisor all pass.
+
+## 2026-08-24 — 064A production PostgreSQL 17.11 and dormant watchdog rollout
+
+The separately bounded PostgreSQL prerequisite is deployed on
+`E0 → E0.3 → B5.3 → 064A`. Production now runs the exact linux/amd64
+PostgreSQL 17.11 digest. The forward transition and a controlled
+force-recreate restart each produced a new container ID while preserving the
+cluster system identifier, page checksums and exact HBA SHA-256. The
+`obsidian_b64_snapshot_reader` role remains `NOLOGIN`, password-absent, limited
+to two connections and has zero sessions. A root-owned crash-resumable journal
+is rebound under the same advisory/host locks, and the enabled systemd timer
+repeatedly verifies dormant authority. All seven consumers are active after a
+bounded maintenance interlock was removed; payout processing was restored
+last, `systemctl --failed` is empty and the restore window has no
+error-priority consumer entries.
+
+Rollback evidence is root-only and includes a fresh custom-format logical
+dump, a clean-shutdown physical archive, the exact PostgreSQL 17.10 image and
+unit/config preimages. A restored physical clone passed 17.10, forward 17.11
+and reverse 17.10 transitions; a fresh logical restore produced the expected
+54 public tables and two functions. The literal systemd lifecycle integration
+also passed 17.10 → 17.11, forced restart, orphan-authority reconciliation and
+reverse 17.10 without changing the production tuple.
+
+Two failed attempts were contained and converted into regression controls.
+The initial disposable integration reused production Compose labels and
+interrupted the live PostgreSQL unit; production recovered on the exact
+volume/system identifier, contract labels were isolated and the test now
+asserts the exact production tuple before and after. The first production
+staging start then retained the old 17.10 container because Compose had not
+been told to recreate it, while the timer also exposed an incomplete Python
+import closure. No reader authority was enabled. Units now require the full
+import closure and use `--force-recreate` in both directions. During that
+recovery `relay-fastapi` auto-started once and an external cancellation request
+was rejected with HTTP 400; no successful provider outcome is claimed and no
+customer row payloads were inspected. Consumers were subsequently held behind
+a runtime condition until the final gate passed.
+
+Evidence:
+`docs/e0-3-bot-b5-3-064a-postgres-17-11-watchdog-rollout.v1.json`. Production
+`LOGIN`, credential issuance and refresh remain blocked by named
+prerequisites, not by a standing project state. The next canonical item is a
+concrete bounded production Dump/Restore supervisor plus authenticated exact
+consumption of the disposable rehearsal evidence while the reader remains
+dormant. Only a later separately reviewed activation slice may change LOGIN.

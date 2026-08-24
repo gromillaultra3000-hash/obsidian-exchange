@@ -21,19 +21,21 @@ post-deploy verification is `match` / HBA `EXACT`; evidence is
 `docs/e0-3-bot-b5-3-064a-snapshot-reader-dormant-rollout.v1.json` and
 `docs/e0-3-bot-b5-3-064a-snapshot-reader-hba-rollout.v1.json`.
 
-The next contract layer is verified in a disposable PostgreSQL 17.11 cluster:
-short-lived SCRAM issuance, two independent sealed credential FDs, an
-exported-snapshot SourceAdapter, a digest-pinned real `pg_dump`, exact
-revocation/reconciliation and adversarial supervisor-failure cases all pass.
-The reviewed closure from pushed commit `abb22afc99e504cee29881d5e4b19ba15c0f343d`
-is now published as an immutable root-owned inactive release under
-`/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/`; its `candidate` pointer
-has no service, timer or process consumer. Production remained unchanged:
-PostgreSQL 17.10, reader `NOLOGIN`/credential-absent, HBA `EXACT`, healthy with
-zero restarts. Evidence is
-`docs/e0-3-bot-b5-3-064a-scram-source-adapter-rehearsal.v1.json` and
-`docs/e0-3-bot-b5-3-064a-dormant-runtime-artifact-rollout.v1.json`. This does
-not authorize production `LOGIN` or a refresh.
+The short-lived SCRAM, independent sealed credential-FD and exported-snapshot
+SourceAdapter contract remains verified only in its disposable rehearsal.
+Its PostgreSQL prerequisite is now deployed: production runs the exact pinned
+PostgreSQL 17.11 image, and both the forward transition and a controlled
+force-recreate restart preserved the cluster system identifier, checksums,
+the dormant `NOLOGIN`/credential-absent reader and exact HBA. A root-owned
+atomic runtime journal follows each new container ID; the enabled systemd
+watchdog repeatedly verifies or removes orphaned reader authority. All seven
+consumers were restored after the gate passed, with the payout worker last;
+there are no failed units or error-priority entries in the restore window.
+Fresh logical and cold physical backups passed 17.10, 17.11, reverse-17.10 and
+logical restore rehearsals. Evidence is
+`docs/e0-3-bot-b5-3-064a-postgres-17-11-watchdog-rollout.v1.json`; independent
+architecture, security and operations reviews found no current P0. This still
+does not authorize production `LOGIN`, credential issuance or a refresh.
 
 Deployed contract:
 
@@ -71,9 +73,8 @@ Telegram actions; 064B/064D row disposition; unrelated worktree cleanup.
 
 ## Active bounded next slice
 
-Take a separately bounded production PostgreSQL 17.11 upgrade plus watchdog,
-boot and abnormal-exit reconciliation slice. It must preserve the dormant
-reader and exact HBA policy through upgrade/restart and prove cleanup after
-supervisor death. Only after that gate, authenticated consumption of the
-disposable rehearsal evidence and a concrete bounded Dump/Restore supervisor
-exist may a separate `LOGIN` activation be considered.
+Implement and independently review one concrete production Dump/Restore
+supervisor plus authenticated consumption of the exact disposable-rehearsal
+evidence. Keep the reader `NOLOGIN` and credential-absent throughout this
+slice. A separate activation gate may be considered only after those two
+named prerequisites pass; it is not implied by the PostgreSQL rollout.

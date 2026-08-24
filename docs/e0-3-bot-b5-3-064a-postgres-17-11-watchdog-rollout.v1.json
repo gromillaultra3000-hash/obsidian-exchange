@@ -1,0 +1,168 @@
+{
+  "schemaVersion": "obsidian-evidence.e0-3-b5-3-064a-postgres-17-11-watchdog-rollout.v1",
+  "observedAt": "2026-08-24T05:10:12Z",
+  "route": [
+    "E0",
+    "E0.3",
+    "B5.3",
+    "064A"
+  ],
+  "status": "PRODUCTION_POSTGRES_17_11_DORMANT_WATCHDOG_ACTIVE",
+  "repository": {
+    "implementationCommit": "b6a0141d2ab2ed5e6f8c15542864728601f3271d",
+    "forceRecreateCommit": "5a3a061a18a7071321c6cb7365768be18eefd68a",
+    "remote": "origin",
+    "remoteRef": "refs/heads/master",
+    "remoteRefMatchedDeploymentCommit": true,
+    "releaseArchive": "/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/5a3a061a18a7071321c6cb7365768be18eefd68a/source.tar.gz",
+    "releaseArchiveSha256": "78992ff22a90f157770a7b8f9c28ff44e8e8951d56cf2ed29cbd426c753bfd4e"
+  },
+  "scope": {
+    "e4Touched": false,
+    "migration024OrLaterApplied": false,
+    "customerRowPayloadsInspected": false,
+    "aggregateOperationalStateCountsObserved": true,
+    "snapshotReaderLoginEnabled": false,
+    "snapshotReaderCredentialReadOrIssued": false,
+    "refreshExecuted": false
+  },
+  "productionBefore": {
+    "serverVersionNum": 170010,
+    "containerId": "6147a2fbda1384185cfb524a2b0e096742afd0237accb8c163677051cccfe0fc",
+    "imageId": "sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193",
+    "systemIdentifier": "7672203973020184609",
+    "dataChecksums": true,
+    "health": "healthy",
+    "readerCanLogin": false,
+    "readerCredentialAbsent": true,
+    "readerConnectionLimit": 2,
+    "readerSessions": 0,
+    "hbaSha256": "08b049674e7593bc87c8e78744ba6b65b557750807c17e860920931aa1b3d3b6"
+  },
+  "productionAfter": {
+    "serverVersionNum": 170011,
+    "containerIdAfterForwardTransition": "5e596da1d2dde765f7ce74e8cb62ea43e34530d8cc9a97655d0035789f9f030a",
+    "containerIdAfterControlledRestart": "818735cd7df301eeb54b3630a6dbae1551db99a8368a2e4c96596c1a2572a3a4",
+    "imageId": "sha256:7456ef82e5f5bc43d997f4781bbd7c0d6389bff397564649a356e206ba473aee",
+    "systemIdentifier": "7672203973020184609",
+    "dataChecksums": true,
+    "health": "healthy",
+    "restartCount": 0,
+    "readerCanLogin": false,
+    "readerCredentialAbsent": true,
+    "readerValidUntil": null,
+    "readerConnectionLimit": 2,
+    "readerSessions": 0,
+    "hbaSha256": "08b049674e7593bc87c8e78744ba6b65b557750807c17e860920931aa1b3d3b6",
+    "journalOwner": "root:root",
+    "journalMode": "0600",
+    "journalTemporaryFiles": 0,
+    "watchdogTimerActive": true,
+    "watchdogTimerEnabled": true,
+    "systemdFailedUnits": 0
+  },
+  "runtimeConsumers": {
+    "maintenanceInterlockRemoved": true,
+    "startOrder": [
+      "admin-panel",
+      "relay-fastapi",
+      "exchange-bot",
+      "exchange-notifier",
+      "support-bot",
+      "obsidian-monitor",
+      "obsidian-payout-worker"
+    ],
+    "allActive": true,
+    "errorPriorityEntriesAfterRestore": 0,
+    "payoutWorkerStartedLast": true
+  },
+  "rollback": {
+    "bundle": "/var/backups/obsidian-exchange/postgres-17.11-b6a0141-20260824T0458Z",
+    "owner": "root:root",
+    "directoryMode": "0700",
+    "manifestSha256": "c8c80e6fcef6423728e3ad7d46fe055bcfaf9b2f55cf6d1fa526e3a84bcbbc69",
+    "coldPhysicalArchiveSha256": "be03f0b6229e243c2e84d301a7e357e434ba6c3656bff3d3ad06695ed936515c",
+    "logicalDumpSha256": "e2f88d811d6d214d8c640d7786cd6c349c8cb17b1c066e26302ab49c513d35d2",
+    "postgres17_10ImageArchiveSha256": "f3b3c1d6917b8d769b15447c94d8961777541c675688deb9cb08bac21d604bd5",
+    "manifestHashesVerified": true,
+    "physicalClone17_10": "PASS",
+    "physicalClone17_11": "PASS",
+    "physicalCloneReverse17_10": "PASS",
+    "logicalRestore": "PASS",
+    "restoredPublicTables": 54,
+    "restoredPublicFunctions": 2,
+    "coldRestoreCutoff": "BEFORE_FIRST_POST_UPGRADE_WRITER_RESUME_ONLY",
+    "sameMajorBinaryRollbackAvailable": true
+  },
+  "verification": {
+    "focusedWatchdogAndHbaTests": "133 passed",
+    "postDeployFocusedRegression": "40 passed in 0.34s",
+    "literalSystemdLifecycleIntegration": "1 passed in 38.01s",
+    "lifecycleTransitions": [
+      "17.10_TO_17.11",
+      "17.11_FORCE_RECREATE_RESTART",
+      "ORPHAN_AUTHORITY_REVOKE",
+      "17.11_TO_17.10"
+    ],
+    "disposableProductionTupleUnchanged": true,
+    "pythonCompilation": "PASS",
+    "deploymentAssetStaticChecks": "PASS",
+    "systemdAnalyzeRelevantErrors": 0,
+    "gitDiffCheck": "PASS",
+    "gitleaksStaged": "NO_LEAKS",
+    "fullPytest": "NOT_USED_STANDALONE_TEST_MODULES_EXIT_DURING_COLLECTION",
+    "transitionGateAfterForward": "TRANSITION_GATE_VERIFIED",
+    "watchdogAfterForward": "DORMANT_VERIFIED",
+    "transitionGateAfterControlledRestart": "TRANSITION_GATE_VERIFIED",
+    "watchdogAfterControlledRestart": "DORMANT_VERIFIED"
+  },
+  "observedFailuresAndRecovery": [
+    {
+      "failure": "INITIAL_DISPOSABLE_INTEGRATION_REUSED_PRODUCTION_COMPOSE_LABELS",
+      "impact": "The production foreground Compose unit attached to contract containers and PostgreSQL was interrupted repeatedly.",
+      "recovery": "Production 17.10 was restored on the exact volume/system identifier; labels were separated and the integration now asserts the exact production tuple before and after.",
+      "closed": true
+    },
+    {
+      "failure": "FIRST_PRODUCTION_STAGING_START_DID_NOT_RECREATE_EXISTING_CONTAINER",
+      "impact": "The service restarted the existing PostgreSQL 17.10 container; the 17.11 image was not adopted.",
+      "recovery": "ExecStart now uses --force-recreate in forward, rollback and integration units; the corrected production transition and controlled restart both produced new exact-image container IDs.",
+      "closed": true
+    },
+    {
+      "failure": "WATCHDOG_IMPORT_CLOSURE_WAS_INCOMPLETE_ON_FIRST_STAGING_ATTEMPT",
+      "impact": "The timer failed before reconciliation because verifier dependencies were absent; the role remained dormant.",
+      "recovery": "All three imported dependencies are explicit unit conditions, installed from the final commit, compiled and hash-matched before the successful transition.",
+      "closed": true
+    },
+    {
+      "failure": "RELAY_FASTAPI_AUTO_STARTED_DURING_THE_FIRST_RECOVERY",
+      "impact": "One external-provider cancellation request returned HTTP 400; no successful provider-side outcome is claimed and no customer row payloads were inspected.",
+      "recovery": "All consumers were stopped and protected by runtime maintenance conditions until final validation; the conditions were then removed and services restored in bounded order.",
+      "closed": true
+    }
+  ],
+  "independentPostDeployReviews": {
+    "architecture": "GO_CURRENT_DORMANT_SLICE_NO_P0_LOGIN_REFRESH_NO_GO",
+    "security": "GO_CURRENT_DORMANT_SLICE_NO_P0_LOGIN_REFRESH_NO_GO",
+    "operations": "GO_CURRENT_DORMANT_SLICE_NO_P0"
+  },
+  "nonBlockingFollowUps": [
+    "COPY_ROLLBACK_BUNDLE_TO_AN_INDEPENDENT_OFF_HOST_FAILURE_DOMAIN_WITHOUT_PUBLIC_DISCLOSURE",
+    "PACKAGE_FORWARD_AND_REVERSE_AS_ONE_AUDITED_COMMAND_AND_MACHINE_READABLE_RECEIPT",
+    "AUTOMATE_CONSUMER_RETURN_AFTER_A_FUTURE_ABNORMAL_POSTGRES_RESTART",
+    "ASSERT_DIRECT_REBIND_JOURNAL_IMAGE_EQUALS_THE_SUPPLIED_TRANSITION_IMAGE",
+    "ADD_BOUNDED_ADVISORY_HOLDER_DISAPPEARANCE_RETRY_AND_SESSION_NONCE_BINDING_BEFORE_LOGIN",
+    "ADD_AN_ABSOLUTE_CLEANUP_DEADLINE_AND_REVIEW_SIGTERM_SUCCESS_SEMANTICS_BEFORE_LOGIN"
+  ],
+  "activation": {
+    "status": "BLOCKED_NAMED_PREREQUISITES",
+    "authorized": false,
+    "blockers": [
+      "PRODUCTION_DUMP_RESTORE_SUPERVISOR_NOT_IMPLEMENTED",
+      "DISPOSABLE_REHEARSAL_EVIDENCE_NOT_AUTHENTICATED_BY_PRODUCTION_PREFLIGHT",
+      "SEPARATE_LOGIN_ACTIVATION_NOT_AUTHORIZED"
+    ]
+  },
+  "next": "Implement and independently review the concrete production Dump/Restore supervisor plus authenticated exact-evidence consumption while keeping the reader NOLOGIN and credential-absent."
+}

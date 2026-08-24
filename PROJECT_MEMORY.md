@@ -10,32 +10,34 @@ Updated: 2026-08-24 UTC
   not a permanent suffix. New sessions use `docs/CURRENT_ROUTE.md`; unchanged
   long charters and history are not repeatedly reread within one logical task.
 
-- 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migration 024
-  remain out of scope. Production still has the frozen-001–023 reader as exact
-  `NOLOGIN`/credential-absent with HBA `EXACT` SHA
-  `08b049674e7593bc87c8e78744ba6b65b557750807c17e860920931aa1b3d3b6`.
-  PostgreSQL is 17.10, container health is green/restarts zero, reader sessions
-  and runtime advisory locks are zero. The short-lived SCRAM/two-sealed-memfd
-  lifecycle and SourceAdapter are implemented and a disposable PostgreSQL
-  17.11 run passed a real exported-snapshot `pg_dump`, archive list validation,
-  exact revoke/reconcile and seven failure cases; its exact container and
-  volume are absent. Selected tests pass 205/205, compile/diff/frozen bindings/
-  Gitleaks pass, and architecture/security/ops reviews allow only an inert
-  versioned artifact rollout. Commit
-  `abb22afc99e504cee29881d5e4b19ba15c0f343d` is pushed and published as the
-  root-owned read-only inactive release under
-  `/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/`; `candidate` has no
-  unit/timer/process consumer. Post-publication production state is unchanged:
-  same container identity/start time, healthy/restarts zero, reader
-  `NOLOGIN`/credential-absent with zero sessions/locks and HBA `EXACT`.
-  Evidence: `docs/e0-3-bot-b5-3-064a-scram-source-adapter-rehearsal.v1.json`
-  and `docs/e0-3-bot-b5-3-064a-dormant-runtime-artifact-rollout.v1.json`.
-  Production `LOGIN` remains blocked until a rehearsed PG17.11 upgrade,
-  watchdog/boot/abnormal-exit reconcile, production Dump/Restore supervisor
-  and activation evidence-consumption gate exist. Exact next: take the PG17.11
-  plus watchdog/reconcile slice while preserving the dormant role and HBA. No
-  customer rows, database or HBA mutation, service restart, refresh, money
-  action or E4 path occurred.
+- 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
+  `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
+  pinned 17.11 digest and healthy after a controlled force-recreate restart;
+  cluster system identifier `7672203973020184609`, checksums and HBA SHA
+  `08b049674e7593bc87c8e78744ba6b65b557750807c17e860920931aa1b3d3b6`
+  are preserved. `obsidian_b64_snapshot_reader` remains `NOLOGIN`,
+  password-absent, connection-limit two and session-free. The root-only atomic
+  journal follows container ID changes, and the enabled watchdog timer returns
+  `DORMANT_VERIFIED`. All seven consumers are active, payout worker was
+  restored last, and the post-restore window has no error-priority entries or
+  failed units. Independent architecture/security/operations post-deploy
+  reviews report GO with no current P0; LOGIN/refresh remain excluded. Commits
+  `b6a0141d2ab2ed5e6f8c15542864728601f3271d` and
+  `5a3a061a18a7071321c6cb7365768be18eefd68a` are pushed. The root-only rollback
+  bundle at
+  `/var/backups/obsidian-exchange/postgres-17.11-b6a0141-20260824T0458Z`
+  contains verified logical/cold-physical backups, the 17.10 image and
+  preimages; restored physical 17.10/17.11/reverse-17.10 and logical rehearsals
+  pass. Evidence:
+  `docs/e0-3-bot-b5-3-064a-postgres-17-11-watchdog-rollout.v1.json`.
+  An initial test-label collision interrupted PostgreSQL and the first staging
+  start retained 17.10; both recovered without enabling reader authority and
+  are closed by isolated contract labels, exact production-tuple assertions,
+  full import-closure conditions and `--force-recreate`. Exact next: implement
+  and independently review a production Dump/Restore supervisor plus
+  authenticated consumption of the disposable-rehearsal evidence while the
+  role remains dormant. Production LOGIN/credential issuance/refresh are not
+  authorized.
 
 - 2026-08-23 E4 retained status is `IN_PROGRESS` with a `NO_GO` gate decision.
   The experimental one-shot and its server entry point are
