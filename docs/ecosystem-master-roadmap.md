@@ -1791,3 +1791,34 @@ short-lived exact payload and obtain both detached signatures. The completed
 package may then be deployed only as a non-activating slice while the reader
 stays dormant. This step grants no LOGIN, credential, refresh, mutation,
 migration or money authority.
+
+## 2026-08-24 — 064A dedicated public-key intake and unsigned acceptance
+
+The dedicated 064A owner and independent-reviewer public entries were received
+without either private key or passphrase. The strict production decoder accepts
+both entries; their key IDs, identity IDs and trust domains are pairwise
+distinct. An explicit empty revocation snapshot, registry-version-one v2
+keyring and exact two-hour unsigned evidence-only acceptance were created. The
+keyring digest is
+`a83cfac0c2a61edb83480ae782e077d3fafc6401b3e2f1694aeebf6fd24b113c`;
+the acceptance digest is
+`b482504a2166b1e410e6a4b97829dbfcf818807b872f6ca73530a6d130dd54ba`;
+all eight authority fields are literal `false`. The secret-free signing-request
+archive SHA-256 is
+`7616d3de896eb33201a59259c19befd8b2d7a552c605807488ae3a5e425352c1`.
+
+The exact owner/reviewer ceremony and supervisor focused suite passes 21 tests;
+one systemd-bus test is skipped inside the test sandbox, while host read-only
+checks show both timers active, no failed units and watchdog
+`DORMANT_VERIFIED`. No package was deployed, no signature exists yet, and no
+credential issuer, dump, restore, customer-row read or production mutation was
+invoked. Evidence:
+`docs/e0-3-bot-b5-3-064a-public-key-intake-unsigned-acceptance.v1.json`.
+
+E0.3 remains `IN_PROGRESS`. The one next canonical item is to obtain exactly
+one detached signature from each originating offline device before the
+acceptance expires at `2026-08-24T10:08:02Z`, assemble and verify the package
+against the externally pinned keyring digest, then deploy only that completed
+non-activating package and require `AUTHENTICATED_EXACT_EVIDENCE_ACCEPTED` while
+the reader remains `NOLOGIN` and credential-absent. An expired payload must be
+replaced, not reused.

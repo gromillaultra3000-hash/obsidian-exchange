@@ -54,11 +54,22 @@ server. An observed false error receipt after `--help` was corrected in commit
 `bfe53faaba17a4e9e0cca83024f602d9d59c965a`; the full focused regression now
 passes 165/165 and the current secret-free Termux signing kit SHA-256 is
 `42582645ccc35e9888f46f6edf07b8861a06819eb89c24d45bfd177f4ffa02c6`.
-No dedicated production 064A public keys or signatures exist yet, and
-independent agent review remains unavailable under the current system mode.
-Evidence is
+Two dedicated public entries from distinct owner/reviewer identities and trust
+domains are now validated. An explicit empty revocation snapshot, seven-day
+digest-pinned v2 keyring and two-hour unsigned evidence-only acceptance were
+created at `2026-08-24T08:08:02Z`; every authority field is false. The public
+signing-request archive SHA-256 is
+`7616d3de896eb33201a59259c19befd8b2d7a552c605807488ae3a5e425352c1`,
+the keyring digest is
+`a83cfac0c2a61edb83480ae782e077d3fafc6401b3e2f1694aeebf6fd24b113c`
+and the unsigned acceptance digest is
+`b482504a2166b1e410e6a4b97829dbfcf818807b872f6ca73530a6d130dd54ba`.
+No private key or passphrase was received or read, no signature exists yet,
+and independent agent review remains unavailable under the current system
+mode. Evidence is
 `docs/e0-3-bot-b5-3-064a-dump-restore-supervisor-rollout.v1.json` and
-`docs/e0-3-bot-b5-3-064a-authenticated-evidence-signing-rollout.v1.json`.
+`docs/e0-3-bot-b5-3-064a-authenticated-evidence-signing-rollout.v1.json`, plus
+`docs/e0-3-bot-b5-3-064a-public-key-intake-unsigned-acceptance.v1.json`.
 
 Deployed contract:
 
@@ -96,14 +107,12 @@ Telegram actions; 064B/064D row disposition; unrelated worktree cleanup.
 
 ## Active bounded next slice
 
-Receive only one dedicated 064A owner public entry and one independent-reviewer
-public entry from separate offline devices; do not implicitly reuse the E4
-keys. Independently compare their SHA-256 values, then create a fresh explicit
-revocation snapshot, digest-pinned v2 keyring and short-lived exact unsigned
-acceptance over the deployed rehearsal evidence/plan/closure digests. Obtain
-the two detached signatures without transferring either private key, deploy
-the completed package as a separate non-activating slice and require the
-supervisor to return `AUTHENTICATED_EXACT_EVIDENCE_ACCEPTED`. Keep the reader
-`NOLOGIN` and credential-absent; this item does not authorize an execution
-entrypoint, credential issuance or refresh. A later separately reviewed
-activation slice may be considered only after this gate passes.
+Obtain exactly one detached owner signature and one detached reviewer signature
+over the current acceptance before its `2026-08-24T10:08:02Z` expiry, without
+transferring either private key or passphrase. Assemble and verify them against
+the independently pinned keyring digest, deploy the completed package as a
+separate non-activating slice and require the supervisor to return
+`AUTHENTICATED_EXACT_EVIDENCE_ACCEPTED`. Keep the reader `NOLOGIN` and
+credential-absent; this item does not authorize an execution entrypoint,
+credential issuance or refresh. If the acceptance expires first, create a new
+nonce/window and obtain fresh signatures; never reuse the expired payload.
