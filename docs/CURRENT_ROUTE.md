@@ -50,7 +50,11 @@ a seven-day maximum validity interval, an explicit revocation snapshot and an
 externally supplied expected keyring digest. A tested offline ceremony creates
 encrypted dedicated keys, an exact unsigned acceptance, two detached
 signatures and a verified final package without moving private keys to the
-server. No dedicated production 064A public keys or signatures exist yet, and
+server. An observed false error receipt after `--help` was corrected in commit
+`bfe53faaba17a4e9e0cca83024f602d9d59c965a`; the full focused regression now
+passes 165/165 and the current secret-free Termux signing kit SHA-256 is
+`42582645ccc35e9888f46f6edf07b8861a06819eb89c24d45bfd177f4ffa02c6`.
+No dedicated production 064A public keys or signatures exist yet, and
 independent agent review remains unavailable under the current system mode.
 Evidence is
 `docs/e0-3-bot-b5-3-064a-dump-restore-supervisor-rollout.v1.json` and

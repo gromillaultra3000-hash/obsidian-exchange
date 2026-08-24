@@ -1771,13 +1771,17 @@ unsigned acceptance, emits one detached signature per independent role and
 assembles only after the production verifier accepts the complete package.
 E4 keys are not silently reused.
 
-The focused 064A/snapshot regression passes 164/164; Python compilation,
+The focused 064A/snapshot regression passes 165/165; Python compilation,
 systemd verification, diff and Gitleaks pass. The deployed oneshot returned
 `DORMANT_SUPERVISOR_VERIFIED_AUTH_PENDING` with exit zero. PostgreSQL remains
 healthy on the same image, container and cluster identifier; the reader is
 `NOLOGIN` and credential-absent, all seven consumers are active, no units are
 failed and no 064A-related error-priority entry occurred. Evidence:
 `docs/e0-3-bot-b5-3-064a-authenticated-evidence-signing-rollout.v1.json`.
+The first Termux `--help` probe exposed a false error receipt caused by catching
+`SystemExit`; commit `bfe53faaba17a4e9e0cca83024f602d9d59c965a` narrows the
+handler to ordinary exceptions and adds a zero-exit regression. No key was
+created during that probe.
 
 The gate remains `IN_PROGRESS` because the two dedicated 064A public entries,
 fresh pinned keyring and detached owner/reviewer signatures do not exist yet.

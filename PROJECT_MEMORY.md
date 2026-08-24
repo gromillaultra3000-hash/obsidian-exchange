@@ -44,7 +44,7 @@ Updated: 2026-08-24 UTC
   public-key-derived key IDs, an explicit seven-day revocation snapshot,
   external keyring-digest pin and two detached signatures; private keys never
   enter the server, and E4 keys are not implicitly reused. Focused regression
-  passes 164/164; post-rollout PostgreSQL/watchdog/seven consumers are healthy,
+  passes 165/165; post-rollout PostgreSQL/watchdog/seven consumers are healthy,
   the cluster ID is unchanged, the reader remains `NOLOGIN`/credential-absent,
   and no unit or 064A-related error failed. Evidence:
   `docs/e0-3-bot-b5-3-064a-dump-restore-supervisor-rollout.v1.json` and
@@ -55,6 +55,12 @@ Updated: 2026-08-24 UTC
   offline devices, compare their hashes, create the short-lived exact payload,
   collect both detached signatures and deploy only the non-activating package.
   Production LOGIN/credential issuance/refresh remain unauthorized.
+  Termux exposed a false `--help` error receipt before key generation; commit
+  `bfe53faaba17a4e9e0cca83024f602d9d59c965a` fixes `SystemExit` handling and
+  is pushed. Current secret-free signing kit `/root/k2.tar` has SHA-256
+  `42582645ccc35e9888f46f6edf07b8861a06819eb89c24d45bfd177f4ffa02c6`;
+  current signer SHA-256 is
+  `ca1fedebe4fba5498a72260aa2957c697170b8ef5b327c75bcf2565a88694879`.
 
 - 2026-08-23 E4 retained status is `IN_PROGRESS` with a `NO_GO` gate decision.
   The experimental one-shot and its server entry point are

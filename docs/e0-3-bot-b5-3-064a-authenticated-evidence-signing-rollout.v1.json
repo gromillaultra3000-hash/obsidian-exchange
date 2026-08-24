@@ -20,6 +20,9 @@
     "sourceArchiveSha256": "2ee9c225e55a63bf1d8966eb6da65347dc25c442d9ac21f61df8e272b8143e74",
     "supervisorSha256": "83c4d2d424944c6cea96bd8835f115676cd6c2a400fdfb2f422efd61bf3393eb",
     "offlineCeremonySha256": "8036a9cc797fdd74e4de6830c90e3be0360d8c67b240b06829dd34d0c4ffacf5",
+    "operatorHelpFixCommit": "bfe53faaba17a4e9e0cca83024f602d9d59c965a",
+    "currentOfflineCeremonySha256": "ca1fedebe4fba5498a72260aa2957c697170b8ef5b327c75bcf2565a88694879",
+    "currentSigningKitSha256": "42582645ccc35e9888f46f6edf07b8861a06819eb89c24d45bfd177f4ffa02c6",
     "deployedUnitSha256": "6575fe3cd046dd26c2ac92e4f1ec9b1d4fdc96a3420fe19e32454e6c35a3c84a",
     "priorUnitRollbackSha256": "aad110f3fe7017c7da54a7abfd33964328f4459d38538de0842d3dee66380705",
     "timerSha256": "5b1e85aaa7b2f9e6d277a621304279af917a567d9a5e85bf2a2c64b06e09c553"
@@ -53,7 +56,8 @@
     "rehearsalReleaseCommit": "abb22afc99e504cee29881d5e4b19ba15c0f343d"
   },
   "verification": {
-    "focusedRegression": "164 passed",
+    "focusedRegression": "165 passed",
+    "helpExitReceiptRegression": "PASS",
     "pythonCompile": "PASS",
     "gitDiffCheck": "PASS",
     "systemdAnalyzeVerify": "PASS_WITH_UNRELATED_EXISTING_XRAY_NOBODY_WARNING",
