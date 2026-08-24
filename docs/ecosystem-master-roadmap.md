@@ -1865,3 +1865,47 @@ disposable rehearsal of a separate fail-closed activation entrypoint. It must
 require a new activation-specific owner/reviewer decision and may not infer
 `LOGIN`, credential, refresh, mutation, 064B or 064D authority from this
 evidence-only package.
+
+## 2026-08-24 — 064A activation boundary and disposable full-lifecycle rehearsal
+
+The separate activation-specific boundary is now project code. Its plan,
+decision and receipt schemas use an Ed25519 domain distinct from authenticated
+evidence acceptance. A valid decision must bind the exact target, legacy
+accepted-evidence prerequisite, current live artifact digests, one run, a
+180-second credential TTL, 150-second work deadline, reserved 30-second cleanup
+window, 16 MiB archive ceiling, disposable restore equality and post-close
+dormant verification. The evidence-only acceptance cannot parse or authorize
+this decision.
+
+The durable journal atomically claims the decision and permits one attempt with
+no retry. `CLAIMED`, `RUNNING` and `HOLD` abnormal states reconcile only to
+`RECONCILED_HOLD`; a cross-process lock prevents the reconciler racing a live
+runner. Production consumption additionally requires the internally observed
+synchronized trusted clock. The CLI deliberately verifies packages only and
+registers no production executor.
+
+A real disposable PostgreSQL 17.11 rehearsal completed the entire bounded
+lifecycle with synthetic activation-only owner/reviewer keys: short-lived SCRAM
+credential issue, exported snapshot, pinned `pg_dump`, distinct read-only-root
+tmpfs restore, equality across all 54 table fingerprints and 13 catalog
+sections, source close, credential revoke, container/workspace/archive cleanup
+and dormant post-verification. The journal closed, the same decision replay was
+rejected before a second executor call, and receipt SHA-256 is
+`ebb45b20515124ef7217016b25502a15fcfd78b0e4bb847404c1ad183d2bb09b`.
+The disposable container, volume, archive and temporary HBA copy were removed.
+
+Focused regression passes 164 tests with one test-sandbox systemd-bus skip;
+the standalone activation suite passes 30/30, compilation and diff checks pass,
+and targeted secret scans find no leaks. Final production read-only checks show
+PostgreSQL healthy with zero restarts, reader `NOLOGIN`, credential absent, zero
+reader sessions and unchanged deployed HBA SHA-256
+`08b049674e7593bc87c8e78744ba6b65b557750807c17e860920931aa1b3d3b6`.
+No production database or configuration mutation occurred. Evidence:
+`docs/e0-3-bot-b5-3-064a-activation-entrypoint-rehearsal.v1.json`.
+
+E0.3 remains `IN_PROGRESS`: the production executor intentionally does not
+exist and no activation package or activation-specific human signatures were
+created. The one next canonical item is an independently reviewed inert
+production executor plus no-contact rehearsal, followed by a fresh exact
+activation signing package. The evidence-only package must not be promoted or
+reused, and production activation remains unauthorized.

@@ -1,0 +1,137 @@
+{
+  "schemaVersion": "obsidian-e0-3-bot-b5-3-064a-activation-entrypoint-rehearsal.v1",
+  "observedAt": "2026-08-24T09:34:32Z",
+  "route": ["E0", "E0.3", "B5.3", "064A"],
+  "status": "VERIFIED_DISPOSABLE_ACTIVATION_BOUNDARY",
+  "productionActivationStatus": "NOT_AUTHORIZED",
+  "implementationBaseCommit": "5c81b12f9e60911dccd85f3aa497ef14cdb11121",
+  "implementation": {
+    "activationEntrypoint": {
+      "path": "deploy/postgres/b64_064a_activation_entrypoint.py",
+      "sha256": "d77ff41b7cac6fc1eac9592afaf13ad25ef5a3b573f410028b973d0a48a3dc08"
+    },
+    "unitTest": {
+      "path": "tests/test_b64_064a_activation_entrypoint.py",
+      "sha256": "a961fbd2d3571904cd4537a999419268e27357889e484bb44569b320dabe852b"
+    },
+    "integrationTest": {
+      "path": "tests/test_b64_064a_activation_entrypoint_integration.py",
+      "sha256": "4fbd68316bb4fca6f75c274a679b5b92cdbd9d32bbfb3aceebfbce412af24b7d"
+    }
+  },
+  "authorizationBoundary": {
+    "activationPlanSchema": "b64-064a-production-activation-plan.v1",
+    "activationDecisionSchema": "b64-064a-production-activation-decision.v1",
+    "executionReceiptSchema": "b64-064a-production-activation-receipt.v1",
+    "signatureDomain": "OBSIDIAN\\0B64_064A_PRODUCTION_ACTIVATION\\0V1\\0",
+    "distinctFromEvidenceAcceptance": true,
+    "evidenceAcceptanceCannotBePromoted": true,
+    "freshOwnerAndIndependentReviewerSignaturesRequired": true,
+    "freshRevocationSnapshotRequired": true,
+    "trustedProductionClockRequired": true,
+    "liveArtifactClosureRequired": true,
+    "productionExecutorPresent": false,
+    "cliExecutionSurfacePresent": false
+  },
+  "exactLimits": {
+    "maximumRuns": 1,
+    "credentialTtlSeconds": 180,
+    "workDeadlineSeconds": 150,
+    "cleanupReserveSeconds": 30,
+    "overallDeadlineSeconds": 180,
+    "maximumArchiveBytes": 16777216,
+    "disposableRestoreRequired": true,
+    "catalogEqualityRequired": true,
+    "tableEqualityRequired": true,
+    "postCloseDormantRequired": true,
+    "automaticRetryAllowed": false
+  },
+  "failClosedLifecycle": {
+    "atomicDecisionClaim": true,
+    "crossProcessExecutionLock": true,
+    "durableStates": ["CLAIMED", "RUNNING", "CLOSED", "HOLD", "RECONCILED_HOLD"],
+    "claimedCrashReconciliation": true,
+    "liveRunnerReconcilerRaceRejected": true,
+    "oneAttemptNoRetry": true,
+    "workAndCleanupDeadlinesSeparated": true,
+    "credentialIssueRevokeReconcileBound": true,
+    "sourceSessionCloseRequired": true,
+    "dumpRestoreContainerAbsenceRequired": true,
+    "registeredWorkspaceAbsenceRequired": true,
+    "postCloseNoLoginRequired": true
+  },
+  "artifactClosure": {
+    "legacyAcceptedRehearsalPlanDigest": "14d38a9fc0cc7c78014d16230553359939aad7d7a15abaf7c7cc8672c3c8d0c6",
+    "hardenedPlanRawSha256": "fb3c019d86a000a13188b0e703b760ef4b843dc172c2e2e5fc630d11ae60aea0",
+    "hardenedRefreshSha256": "eac73bddc94a4ccf3b605dde0a5f1ff31329ceae24560ed0100c629a0ad0022f",
+    "snapshotReaderRuntimeSha256": "cda2c5351d80eefc2800c83a8016ae79bfe2b93c51584e8b3e2dfede62ffeec0",
+    "dumpRestoreSupervisorSha256": "83c4d2d424944c6cea96bd8835f115676cd6c2a400fdfb2f422efd61bf3393eb",
+    "activationEntrypointSha256": "d77ff41b7cac6fc1eac9592afaf13ad25ef5a3b573f410028b973d0a48a3dc08"
+  },
+  "disposableRehearsal": {
+    "environment": "DISPOSABLE_CONTRACT",
+    "sourceContainerName": "b64-hba-contract-2026082421",
+    "sourceContainerId": "a7d0d861f68e0a4f6d3553904ca411043ce24151a32b23303f8152f3f0fab125",
+    "clientImage": "docker.io/library/postgres@sha256:7456ef82e5f5bc43d997f4781bbd7c0d6389bff397564649a356e206ba473aee",
+    "clientVersion": "PostgreSQL 17.11",
+    "syntheticOwnerReviewerKeys": true,
+    "syntheticPrivateKeysPersisted": false,
+    "realShortLivedScramLease": true,
+    "realExportedSnapshot": true,
+    "realDigestPinnedPgDump": true,
+    "realReadOnlyRootTmpfsRestore": true,
+    "tableEqualityCount": 54,
+    "catalogEqualitySectionCount": 13,
+    "restoreSystemIdentifierDistinct": true,
+    "journalState": "CLOSED",
+    "executorCalls": 1,
+    "replayReason": "ACTIVATION_REPLAY_OR_INCOMPLETE",
+    "receiptSha256": "ebb45b20515124ef7217016b25502a15fcfd78b0e4bb847404c1ad183d2bb09b",
+    "readerLoginStateAfter": "DISABLED",
+    "readerCredentialStateAfter": "ABSENT",
+    "readerActiveSessionsAfter": 0,
+    "automaticRetryAllowed": false,
+    "actionAllowed": false
+  },
+  "productionObservation": {
+    "databaseContactByRehearsal": false,
+    "hbaOriginalReadOnlyCopyUsedByHarness": true,
+    "configurationMutation": false,
+    "databaseMutation": false,
+    "readerLoginState": "DISABLED",
+    "readerCredentialState": "ABSENT",
+    "readerActiveSessions": 0,
+    "hbaSha256": "08b049674e7593bc87c8e78744ba6b65b557750807c17e860920931aa1b3d3b6",
+    "containerStatus": "running",
+    "containerHealth": "healthy",
+    "containerRestartCount": 0
+  },
+  "cleanup": {
+    "sourceContainerAbsent": true,
+    "sourceVolumeAbsent": true,
+    "dumpContainerAbsent": true,
+    "restoreContainerAbsent": true,
+    "workspaceAbsent": true,
+    "archiveAbsent": true,
+    "temporaryHbaCopyAbsent": true,
+    "sourceHbaRolledBackByteExact": true
+  },
+  "verification": {
+    "activationUnitTests": "30 passed",
+    "focusedRegression": "164 passed, 1 sandbox systemd-bus skip",
+    "disposableIntegration": "PASS",
+    "pythonCompile": "PASS",
+    "diffCheck": "PASS",
+    "gitleaksDeployPostgres": "NO_LEAKS",
+    "gitleaksNewUnitTest": "NO_LEAKS",
+    "gitleaksNewIntegrationTest": "NO_LEAKS"
+  },
+  "remainingBlockers": [
+    "PRODUCTION_EXECUTOR_NOT_IMPLEMENTED",
+    "PRODUCTION_ACTIVATION_PACKAGE_NOT_CREATED",
+    "FRESH_ACTIVATION_OWNER_SIGNATURE_ABSENT",
+    "FRESH_ACTIVATION_REVIEWER_SIGNATURE_ABSENT",
+    "PRODUCTION_ACTIVATION_NOT_AUTHORIZED"
+  ],
+  "next": "Implement and independently review an inert production executor that can only plug this decision/journal boundary into the already rehearsed credential, dump, restore, equality and reconciliation components. Rehearse it without production contact, then create a fresh activation-specific offline signing package; do not reuse the evidence-only acceptance."
+}

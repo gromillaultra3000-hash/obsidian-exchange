@@ -70,10 +70,25 @@ Updated: 2026-08-24 UTC
   `docs/e0-3-bot-b5-3-064a-authenticated-evidence-acceptance-rollout.v1.json`.
   An unrelated duplicate `/swapfile` line in `/etc/fstab` caused
   systemd-generator errors during daemon-reload; swap remains active and
-  failed units are zero. It was observed, not changed. Exact next: implement
-  and independently review a separate fail-closed activation entrypoint plus
-  disposable rehearsal requiring a new activation-specific owner/reviewer
-  decision. Current evidence grants no LOGIN/credential/refresh/064B/064D.
+  failed units are zero. It was observed, not changed. The separate fail-closed
+  activation boundary is now implemented with distinct activation schemas and
+  Ed25519 domain, live artifact closure, trusted production time, a durable
+  one-attempt journal/cross-process lock, abnormal-exit reconciliation, 150s
+  work plus 30s cleanup deadlines, strict restore equality and post-close
+  dormant verification. A real disposable PostgreSQL 17.11 lifecycle passed:
+  SCRAM lease, exported snapshot, pinned pg_dump, read-only-root tmpfs restore,
+  54 table and 13 catalog equality, revoke/cleanup, `CLOSED` journal and replay
+  rejection with one executor call. Receipt SHA-256 is
+  `ebb45b20515124ef7217016b25502a15fcfd78b0e4bb847404c1ad183d2bb09b`;
+  focused tests pass 164 with one sandbox bus skip. Disposable artifacts are
+  absent; production stayed healthy with reader `NOLOGIN`, credential absent,
+  zero sessions and unchanged HBA. Evidence:
+  `docs/e0-3-bot-b5-3-064a-activation-entrypoint-rehearsal.v1.json`. No
+  production executor, activation package or activation-specific signatures
+  exist. Exact next: implement and independently review an inert production
+  executor, rehearse it without production contact, then create a fresh
+  activation-only offline signing package. Current evidence grants no
+  LOGIN/credential/refresh/064B/064D and cannot be promoted.
   Termux exposed a false `--help` error receipt before key generation; commit
   `bfe53faaba17a4e9e0cca83024f602d9d59c965a` fixes `SystemExit` handling and
   is pushed. Current secret-free signing kit `/root/k2.tar` has SHA-256

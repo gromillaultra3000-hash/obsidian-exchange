@@ -78,6 +78,28 @@ row read or production mutation occurred. An unrelated duplicate `/swapfile`
 entry in `/etc/fstab` caused two daemon-reload generator errors; swap remains
 active and failed units remain zero. This slice did not change `fstab`.
 
+A separate activation-specific plan/decision/receipt boundary is now
+implemented and verified in a real disposable PostgreSQL 17.11 rehearsal. It
+uses a distinct Ed25519 signature domain, fresh two-role signatures and
+revocation snapshot, exact live artifact closure, a durable one-attempt journal
+plus cross-process execution lock, 150-second work deadline with a reserved
+30-second cleanup window, mandatory restore equality and post-close dormant
+verification. The final rehearsal issued and revoked a real short-lived SCRAM
+credential, used one exported snapshot and digest-pinned `pg_dump`, matched all
+54 table fingerprints and 13 catalog sections in a distinct read-only-root
+tmpfs restore, closed the journal, and rejected replay without a second
+executor call. Final receipt SHA-256 is
+`ebb45b20515124ef7217016b25502a15fcfd78b0e4bb847404c1ad183d2bb09b`.
+The disposable source, volume, dump/restore containers, archive, workspace and
+temporary HBA copy are absent. Production remained healthy with reader
+`NOLOGIN` / credential absent / zero sessions and HBA SHA-256
+`08b049674e7593bc87c8e78744ba6b65b557750807c17e860920931aa1b3d3b6`.
+Evidence is
+`docs/e0-3-bot-b5-3-064a-activation-entrypoint-rehearsal.v1.json`.
+The CLI intentionally exposes package verification only: no production
+executor or production activation package exists, and the earlier
+evidence-only acceptance cannot authorize this boundary.
+
 Deployed contract:
 
 - exact non-elevated, no-membership NOLOGIN role, two-connection bound and
@@ -114,11 +136,11 @@ Telegram actions; 064B/064D row disposition; unrelated worktree cleanup.
 
 ## Active bounded next slice
 
-Implement and independently review a separate fail-closed production activation
-entrypoint plus disposable rehearsal. It must bind explicit one-shot limits,
-credential issue/revoke/reconcile, dump/restore deadlines, complete cleanup and
-post-close dormant verification to a new activation-specific owner/reviewer
-decision. The deployed evidence-only acceptance explicitly does not authorize
-`LOGIN`, credential issuance, refresh, production mutation, 064B or 064D and
-must never be promoted into that authority. Do not activate production in the
-implementation/rehearsal slice.
+Implement and independently review an inert production executor that can only
+plug the new activation decision/journal boundary into the already rehearsed
+credential issue/revoke/reconcile, dump, restore, equality and cleanup
+components. Rehearse that executor without production contact, then create a
+fresh activation-specific offline signing package over the exact production
+target and live artifact digests. The deployed evidence-only acceptance must
+not be reused or promoted. Do not activate production before the distinct fresh
+owner and independent-reviewer activation signatures verify.
