@@ -291,6 +291,7 @@ def _validate_journal(
     expected = {
         "schemaVersion": "obsidian-b64-hba-journal.v1",
         "containerId": before_container["containerId"],
+        "containerImageId": before_container["imageId"],
         "systemIdentifier": cluster_before["systemIdentifier"],
         "originalSha256": manifest["expectedOriginalSha256"],
         "deployedSha256": manifest["expectedDeployedSha256"],
@@ -935,6 +936,7 @@ def main() -> int:
             "schemaVersion": "obsidian-b64-hba-journal.v1",
             "nonce": nonce, "phase": "BACKUP_VERIFIED",
             "containerId": before_container["containerId"],
+            "containerImageId": before_container["imageId"],
             "containerPid": before_container["containerPid"],
             "systemIdentifier": cluster_before["systemIdentifier"],
             "originalSha256": manifest["expectedOriginalSha256"],

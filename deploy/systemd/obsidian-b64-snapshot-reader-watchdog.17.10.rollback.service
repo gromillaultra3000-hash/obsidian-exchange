@@ -1,0 +1,33 @@
+[Unit]
+Description=Obsidian B64 snapshot-reader 17.10 rollback dormant-authority watchdog
+Requires=obsidian-postgres.service
+BindsTo=obsidian-postgres.service
+After=obsidian-postgres.service
+ConditionPathExists=/opt/obsidian-exchange/deploy/postgres/b64_snapshot_reader_watchdog.py
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+WorkingDirectory=/opt/obsidian-exchange
+ExecStart=/opt/obsidian-exchange/relay-venv/bin/python /opt/obsidian-exchange/deploy/postgres/b64_snapshot_reader_watchdog.py --expected-image-id sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193 --expected-server-version-num 170010 --require-dormant
+TimeoutStartSec=30
+SuccessExitStatus=SIGTERM
+
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/run/lock /var/lib/docker/volumes/obsidian-postgres-data/_data/.obsidian-b64-hba-v1
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictRealtime=true
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX

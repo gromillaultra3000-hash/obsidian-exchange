@@ -1,13 +1,10 @@
 name: obsidian-postgres
 
-# Production template. Provision the referenced root-owned secret and pull the
-# pinned image explicitly before starting this stack. `pull_policy: never`
-# prevents a service restart from reaching a registry or changing the image.
 services:
   postgres:
-    image: postgres@sha256:7456ef82e5f5bc43d997f4781bbd7c0d6389bff397564649a356e206ba473aee
-    platform: linux/amd64
+    image: postgres@sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193
     pull_policy: never
+    platform: linux/amd64
     container_name: obsidian-postgres
     restart: "no"
     environment:

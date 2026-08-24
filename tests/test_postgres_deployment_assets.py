@@ -8,14 +8,16 @@ import re
 ROOT = Path(__file__).resolve().parents[1]
 COMPOSE = ROOT / "deploy/postgres/compose.production.yml"
 UNIT = ROOT / "deploy/systemd/obsidian-postgres.service"
+WATCHDOG_UNIT = ROOT / "deploy/systemd/obsidian-b64-snapshot-reader-watchdog.service"
 EXPECTED_IMAGE = (
     "postgres@sha256:"
-    "742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193"
+    "7456ef82e5f5bc43d997f4781bbd7c0d6389bff397564649a356e206ba473aee"
 )
 
 
 compose = COMPOSE.read_text("utf-8")
 unit = UNIT.read_text("utf-8")
+watchdog_unit = WATCHDOG_UNIT.read_text("utf-8")
 
 image = re.search(r"^\s*image:\s*(\S+)\s*$", compose, re.MULTILINE)
 assert image, "PostgreSQL image is missing"
@@ -23,6 +25,7 @@ assert re.fullmatch(r"postgres@sha256:[0-9a-f]{64}", image.group(1)), image.grou
 assert image.group(1) == EXPECTED_IMAGE, "pinned image changed without contract update"
 assert "postgres:" not in image.group(1), "mutable PostgreSQL tag is forbidden"
 assert 'pull_policy: never' in compose
+assert "platform: linux/amd64" in compose
 
 assert '"127.0.0.1:5432:5432"' in compose
 assert "0.0.0.0:5432" not in compose
@@ -37,7 +40,25 @@ assert "ConditionPathExists=/etc/obsidian-exchange/postgres/postgres-password" i
 assert "compose.production.yml config --quiet" in unit
 assert "--abort-on-container-exit --exit-code-from postgres" in unit
 assert "State.Health.Status" in unit
-assert " compose " in unit and " stop --timeout 120 postgres" in unit
+assert "b64_snapshot_reader_transition_gate.py" in unit
+assert "b64_snapshot_reader_transition_gate.py --expected-image-id" in unit
+assert "--expected-server-version-num 170011 --apply" in unit
+assert "b64_snapshot_reader_watchdog.py" in unit
+assert "--expected-server-version-num 170011 --require-dormant" in unit
+assert "b64_postgres_shutdown.py" in unit
+assert "Wants=obsidian-b64-snapshot-reader-watchdog.timer" in unit
+assert "ReadWritePaths=/run/lock /var/lib/docker/volumes/obsidian-postgres-data/_data/.obsidian-b64-hba-v1" in unit
+assert "--require-dormant" in watchdog_unit
+assert "BindsTo=obsidian-postgres.service" in watchdog_unit
+assert "ReadWritePaths=/run/lock /var/lib/docker/volumes/obsidian-postgres-data/_data/.obsidian-b64-hba-v1" in watchdog_unit
 assert " down" not in unit, "unit must never remove the persistent Compose stack"
+
+consumer_dropins = sorted((ROOT / "deploy/systemd").glob("*-zz-postgres.conf"))
+assert len(consumer_dropins) == 7
+for dropin in consumer_dropins:
+    value = dropin.read_text("utf-8")
+    assert "Requires=obsidian-postgres.service" in value, dropin
+    assert "BindsTo=obsidian-postgres.service" in value, dropin
+    assert "After=obsidian-postgres.service" in value, dropin
 
 print("postgres deployment assets: OK")

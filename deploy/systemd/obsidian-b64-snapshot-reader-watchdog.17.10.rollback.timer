@@ -1,0 +1,16 @@
+[Unit]
+Description=Poll Obsidian B64 snapshot-reader 17.10 rollback dormant state
+Requires=obsidian-postgres.service
+BindsTo=obsidian-postgres.service
+After=obsidian-postgres.service
+
+[Timer]
+OnBootSec=30s
+OnUnitInactiveSec=15s
+AccuracySec=1s
+RandomizedDelaySec=0
+Persistent=true
+Unit=obsidian-b64-snapshot-reader-watchdog.service
+
+[Install]
+WantedBy=timers.target

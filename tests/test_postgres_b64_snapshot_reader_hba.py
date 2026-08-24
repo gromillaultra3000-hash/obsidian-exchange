@@ -209,12 +209,17 @@ def test_reconcile_journal_accepts_crash_phases_and_pid_rebind():
         "expectedOriginalSha256": "1" * 64,
         "expectedDeployedSha256": "2" * 64,
     }
-    container = {"containerId": "3" * 64, "containerPid": 222}
+    container = {
+        "containerId": "3" * 64,
+        "containerPid": 222,
+        "imageId": "sha256:" + "6" * 64,
+    }
     cluster = {"systemIdentifier": "444"}
     base = {
         "schemaVersion": "obsidian-b64-hba-journal.v1",
         "nonce": "5" * 32,
         "containerId": container["containerId"],
+        "containerImageId": container["imageId"],
         "containerPid": 111,
         "systemIdentifier": cluster["systemIdentifier"],
         "originalSha256": manifest["expectedOriginalSha256"],
@@ -261,7 +266,11 @@ def test_original_reconcile_validates_prejournal_partial_backup(tmp_path):
         "expectedOriginalSha256": hashlib.sha256(original).hexdigest(),
         "expectedDeployedSha256": "2" * 64,
     }
-    container = {"containerId": "3" * 64, "containerPid": 222}
+    container = {
+        "containerId": "3" * 64,
+        "containerPid": 222,
+        "imageId": "sha256:" + "6" * 64,
+    }
     cluster = {"systemIdentifier": "444"}
     directory_fd = MODULE._open_pgdata(tmp_path)
     state_fd = MODULE._mkdir_state(directory_fd)
@@ -285,7 +294,11 @@ def test_original_reconcile_requires_bound_journal_and_exact_backup(
         "expectedOriginalSha256": hashlib.sha256(original).hexdigest(),
         "expectedDeployedSha256": "2" * 64,
     }
-    container = {"containerId": "3" * 64, "containerPid": 222}
+    container = {
+        "containerId": "3" * 64,
+        "containerPid": 222,
+        "imageId": "sha256:" + "6" * 64,
+    }
     cluster = {"systemIdentifier": "444"}
     real_bundle = MODULE._validate_recovery_bundle
     real_read_recovery = MODULE._read_recovery_at
@@ -307,6 +320,7 @@ def test_original_reconcile_requires_bound_journal_and_exact_backup(
         "nonce": "5" * 32,
         "phase": "APPLY_ATTEMPTED",
         "containerId": container["containerId"],
+        "containerImageId": container["imageId"],
         "containerPid": 111,
         "systemIdentifier": cluster["systemIdentifier"],
         "originalSha256": manifest["expectedOriginalSha256"],
