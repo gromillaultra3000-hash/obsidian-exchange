@@ -49,25 +49,31 @@ Updated: 2026-08-24 UTC
   and no unit or 064A-related error failed. Evidence:
   `docs/e0-3-bot-b5-3-064a-dump-restore-supervisor-rollout.v1.json` and
   `docs/e0-3-bot-b5-3-064a-authenticated-evidence-signing-rollout.v1.json`.
-  Dedicated 064A owner/reviewer public entries are now accepted with distinct
-  key IDs, identities and trust domains; neither private key nor passphrase was
-  received or read. The explicit empty revocation snapshot and seven-day v2
-  keyring are prepared; keyring digest is
+  Dedicated 064A owner/reviewer public entries and detached signatures now
+  validate with distinct key IDs, identities, trust domains and roles; neither
+  private key nor passphrase was received or read. The signed evidence-only
+  acceptance keeps all eight authority fields false and has raw SHA-256
+  `d592e24c1095ed16019ed306b1e6431909d0d6ef355456d231698cd6bd09134f`;
+  keyring digest is
   `a83cfac0c2a61edb83480ae782e077d3fafc6401b3e2f1694aeebf6fd24b113c`.
-  A two-hour unsigned evidence-only acceptance expires at
-  `2026-08-24T10:08:02Z`; digest is
-  `b482504a2166b1e410e6a4b97829dbfcf818807b872f6ca73530a6d130dd54ba`
-  and every authority field is false. The secret-free public signing-request
-  archive `/root/064A-signing-handoff/obsidian-064a-signing-request-20260824T080802Z.tar`
-  has SHA-256
-  `7616d3de896eb33201a59259c19befd8b2d7a552c605807488ae3a5e425352c1`.
-  Focused verification passes 21 tests with one expected sandbox systemd-bus
-  skip; host timers are active and the watchdog remains `DORMANT_VERIFIED`.
-  Evidence:
-  `docs/e0-3-bot-b5-3-064a-public-key-intake-unsigned-acceptance.v1.json`.
-  Exact next: obtain the two detached signatures before expiry, assemble and
-  verify with the pinned keyring digest, then deploy only the non-activating
-  package. Production LOGIN/credential issuance/refresh remain unauthorized.
+  Its root-owned read-only production one-shot from commit `60bc058` returned
+  `DORMANT_SUPERVISOR_VERIFIED_AUTHENTICATED_EVIDENCE` and inner
+  `AUTHENTICATED_EXACT_EVIDENCE_ACCEPTED`. The reader remains `NOLOGIN`, its
+  credential is absent, and no issuer, dump, restore, customer-row read or
+  production mutation occurred. A pre-deploy review caught that a two-hour
+  acceptance must not be bound to the six-hour recurring timer; candidate
+  commit `1357640` was never deployed, the recurring supervisor remains
+  active/enabled and its post-rollout result is the expected `AUTH_PENDING`.
+  Focused verification passes 21 tests with one sandbox systemd-bus skip;
+  changed-scope scans and systemd verification pass. Evidence:
+  `docs/e0-3-bot-b5-3-064a-public-key-intake-unsigned-acceptance.v1.json` and
+  `docs/e0-3-bot-b5-3-064a-authenticated-evidence-acceptance-rollout.v1.json`.
+  An unrelated duplicate `/swapfile` line in `/etc/fstab` caused
+  systemd-generator errors during daemon-reload; swap remains active and
+  failed units are zero. It was observed, not changed. Exact next: implement
+  and independently review a separate fail-closed activation entrypoint plus
+  disposable rehearsal requiring a new activation-specific owner/reviewer
+  decision. Current evidence grants no LOGIN/credential/refresh/064B/064D.
   Termux exposed a false `--help` error receipt before key generation; commit
   `bfe53faaba17a4e9e0cca83024f602d9d59c965a` fixes `SystemExit` handling and
   is pushed. Current secret-free signing kit `/root/k2.tar` has SHA-256

@@ -1822,3 +1822,46 @@ against the externally pinned keyring digest, then deploy only that completed
 non-activating package and require `AUTHENTICATED_EXACT_EVIDENCE_ACCEPTED` while
 the reader remains `NOLOGIN` and credential-absent. An expired payload must be
 replaced, not reused.
+
+## 2026-08-24 — 064A authenticated evidence acceptance rollout
+
+The two detached Ed25519 signatures validate as the distinct accountable-owner
+and independent-reviewer roles over the exact current acceptance and pinned v2
+keyring. Assembly and independent verifier passes returned
+`AUTHENTICATED_EXACT_EVIDENCE_ACCEPTED`. The signed acceptance raw-file SHA-256
+is `d592e24c1095ed16019ed306b1e6431909d0d6ef355456d231698cd6bd09134f`;
+the keyring digest remains
+`a83cfac0c2a61edb83480ae782e077d3fafc6401b3e2f1694aeebf6fd24b113c`.
+Neither private key nor passphrase entered the server.
+
+The completed public package is deployed under an exact digest-named,
+root-owned read-only evidence directory. A separate no-timer systemd one-shot
+from commit `60bc058` returned
+`DORMANT_SUPERVISOR_VERIFIED_AUTHENTICATED_EVIDENCE` with exit zero. A
+pre-deploy review caught that pinning the two-hour acceptance to the existing
+six-hour timer would create deterministic post-expiry failures; the earlier
+candidate commit `1357640` was never deployed. The recurring dormant supervisor
+was preserved, remains enabled/active and still returns its expected
+`AUTH_PENDING` result without consuming short-lived evidence.
+
+Focused verification passes 21 tests with one test-sandbox systemd-bus skip;
+systemd verification, compilation, diff and changed-scope secret scans pass.
+Production PostgreSQL remains 17.11; watchdog is `DORMANT_VERIFIED`, reader is
+`NOLOGIN` and credential-absent, five required services are active and failed
+units are empty. The supervisor invoked no credential issuer, dump or restore,
+read no customer rows and made no production mutation. Evidence:
+`docs/e0-3-bot-b5-3-064a-authenticated-evidence-acceptance-rollout.v1.json`.
+
+An unrelated exact duplicate `/swapfile` line in `/etc/fstab` emitted two
+systemd-generator error-priority messages during daemon-reload. Swap remains
+active and no unit is failed; this slice did not change `fstab` and has no
+authority to remediate it.
+
+The authenticated evidence-consumption prerequisite is `VERIFIED`; E0.3 remains
+`IN_PROGRESS` because this acceptance explicitly grants no activation or
+refresh authority and the production execution entrypoint intentionally does
+not exist. The one next canonical item is code-first implementation and
+disposable rehearsal of a separate fail-closed activation entrypoint. It must
+require a new activation-specific owner/reviewer decision and may not infer
+`LOGIN`, credential, refresh, mutation, 064B or 064D authority from this
+evidence-only package.

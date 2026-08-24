@@ -55,21 +55,28 @@ server. An observed false error receipt after `--help` was corrected in commit
 passes 165/165 and the current secret-free Termux signing kit SHA-256 is
 `42582645ccc35e9888f46f6edf07b8861a06819eb89c24d45bfd177f4ffa02c6`.
 Two dedicated public entries from distinct owner/reviewer identities and trust
-domains are now validated. An explicit empty revocation snapshot, seven-day
-digest-pinned v2 keyring and two-hour unsigned evidence-only acceptance were
-created at `2026-08-24T08:08:02Z`; every authority field is false. The public
-signing-request archive SHA-256 is
-`7616d3de896eb33201a59259c19befd8b2d7a552c605807488ae3a5e425352c1`,
-the keyring digest is
-`a83cfac0c2a61edb83480ae782e077d3fafc6401b3e2f1694aeebf6fd24b113c`
-and the unsigned acceptance digest is
-`b482504a2166b1e410e6a4b97829dbfcf818807b872f6ca73530a6d130dd54ba`.
-No private key or passphrase was received or read, no signature exists yet,
-and independent agent review remains unavailable under the current system
-mode. Evidence is
+domains, the explicit revocation snapshot and both detached signatures now
+verify against the digest-pinned v2 keyring. The signed acceptance authenticates
+only the exact disposable rehearsal evidence and keeps all eight authority
+fields false. Its non-activating production one-shot returned
+`DORMANT_SUPERVISOR_VERIFIED_AUTHENTICATED_EVIDENCE` with inner status
+`AUTHENTICATED_EXACT_EVIDENCE_ACCEPTED`. The deployed keyring digest is
+`a83cfac0c2a61edb83480ae782e077d3fafc6401b3e2f1694aeebf6fd24b113c`;
+the signed acceptance raw-file SHA-256 is
+`d592e24c1095ed16019ed306b1e6431909d0d6ef355456d231698cd6bd09134f`.
+No private key or passphrase was received or read. A pre-deploy review caught
+and avoided binding the two-hour acceptance to the six-hour recurring timer;
+the deployed unit is a separate no-timer one-shot from commit `60bc058`, while
+the recurring dormant supervisor remains active and returns `AUTH_PENDING`.
+Evidence is
 `docs/e0-3-bot-b5-3-064a-dump-restore-supervisor-rollout.v1.json` and
 `docs/e0-3-bot-b5-3-064a-authenticated-evidence-signing-rollout.v1.json`, plus
-`docs/e0-3-bot-b5-3-064a-public-key-intake-unsigned-acceptance.v1.json`.
+`docs/e0-3-bot-b5-3-064a-public-key-intake-unsigned-acceptance.v1.json` and
+`docs/e0-3-bot-b5-3-064a-authenticated-evidence-acceptance-rollout.v1.json`.
+The reader remains `NOLOGIN` and credential-absent; no dump, restore, customer
+row read or production mutation occurred. An unrelated duplicate `/swapfile`
+entry in `/etc/fstab` caused two daemon-reload generator errors; swap remains
+active and failed units remain zero. This slice did not change `fstab`.
 
 Deployed contract:
 
@@ -107,12 +114,11 @@ Telegram actions; 064B/064D row disposition; unrelated worktree cleanup.
 
 ## Active bounded next slice
 
-Obtain exactly one detached owner signature and one detached reviewer signature
-over the current acceptance before its `2026-08-24T10:08:02Z` expiry, without
-transferring either private key or passphrase. Assemble and verify them against
-the independently pinned keyring digest, deploy the completed package as a
-separate non-activating slice and require the supervisor to return
-`AUTHENTICATED_EXACT_EVIDENCE_ACCEPTED`. Keep the reader `NOLOGIN` and
-credential-absent; this item does not authorize an execution entrypoint,
-credential issuance or refresh. If the acceptance expires first, create a new
-nonce/window and obtain fresh signatures; never reuse the expired payload.
+Implement and independently review a separate fail-closed production activation
+entrypoint plus disposable rehearsal. It must bind explicit one-shot limits,
+credential issue/revoke/reconcile, dump/restore deadlines, complete cleanup and
+post-close dormant verification to a new activation-specific owner/reviewer
+decision. The deployed evidence-only acceptance explicitly does not authorize
+`LOGIN`, credential issuance, refresh, production mutation, 064B or 064D and
+must never be promoted into that authority. Do not activate production in the
+implementation/rehearsal slice.

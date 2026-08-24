@@ -1,0 +1,130 @@
+{
+  "schemaVersion": "obsidian-e0-3-bot-b5-3-064a-authenticated-evidence-acceptance-rollout.v1",
+  "route": "E0/E0.3/B5.3/064A",
+  "status": "VERIFIED",
+  "routeStatus": "IN_PROGRESS",
+  "observedAt": "2026-08-24T08:31:35Z",
+  "boundedSlice": "Two-party evidence-only signature verification and non-activating production acceptance rollout",
+  "sourceCommits": {
+    "unsignedHandoffEvidence": "13c8d7a",
+    "supersededRecurringTimerCandidate": "1357640",
+    "deployedOneShotUnit": "60bc058"
+  },
+  "authenticatedPackage": {
+    "ownerDetachedSignatureRawSha256": "8b27c3e0aeef353857437ba7381bc29b54214c8d60ff26b4395e315c8bca43fe",
+    "reviewerDetachedSignatureRawSha256": "fd83ec44598a859d3a439499cd4f674921ff4b2d44f8c34b9677c1678075fd10",
+    "signedAcceptanceRawSha256": "d592e24c1095ed16019ed306b1e6431909d0d6ef355456d231698cd6bd09134f",
+    "acceptanceSha256": "b482504a2166b1e410e6a4b97829dbfcf818807b872f6ca73530a6d130dd54ba",
+    "keyringSha256": "a83cfac0c2a61edb83480ae782e077d3fafc6401b3e2f1694aeebf6fd24b113c",
+    "keyringRawSha256": "ad513da3eafb2164e94f2f854e26bb3b8b192ac20b9c80ee2d743dbe83a15ff2",
+    "signerRoles": [
+      "ACCOUNTABLE_OWNER",
+      "INDEPENDENT_REVIEWER"
+    ],
+    "revocationSnapshotChecked": true,
+    "verificationStatus": "AUTHENTICATED_EXACT_EVIDENCE_ACCEPTED",
+    "allEightAuthorityFieldsFalse": true,
+    "privateKeysReceivedOrRead": false,
+    "passphrasesReceivedOrRead": false
+  },
+  "exactRehearsal": {
+    "evidenceSha256": "d9e690aa77b0e58887417da718c2f5786c0616c7c9291937a4adb5c34bd87dfc",
+    "planSha256": "14d38a9fc0cc7c78014d16230553359939aad7d7a15abaf7c7cc8672c3c8d0c6",
+    "artifactClosureSha256": "e4d0a3d35702895c434b0ed647ad8a20278d104aaadd18281f28138762216122",
+    "artifactCount": 16,
+    "rehearsalReleaseCommit": "abb22afc99e504cee29881d5e4b19ba15c0f343d"
+  },
+  "deployment": {
+    "authenticationRoot": "/opt/obsidian-exchange/evidence/e0-e0.3-b5.3-064a/b482504a2166b1e410e6a4b97829dbfcf818807b872f6ca73530a6d130dd54ba",
+    "authenticationRootMode": "0555",
+    "keyringMode": "0444",
+    "acceptanceMode": "0444",
+    "filesRootOwned": true,
+    "fileLinkCounts": 1,
+    "unit": "obsidian-b64-authenticated-evidence-acceptance.service",
+    "unitSha256": "8aabc9daa5e1aa0cf0ea03a08a5ad297279648beeb259711a65daa3a81212c6b",
+    "unitResult": "success",
+    "unitExitStatus": 0,
+    "timerInstalled": false,
+    "timerEnabled": false,
+    "recurringDormantSupervisorPreserved": true,
+    "recurringDormantSupervisorTimerActive": true,
+    "recurringDormantSupervisorTimerEnabled": true,
+    "recurringDormantSupervisorPostRolloutStatus": "DORMANT_SUPERVISOR_VERIFIED_AUTH_PENDING"
+  },
+  "preDeployLandmine": {
+    "finding": "Binding a two-hour acceptance to the six-hour recurring supervisor timer would create deterministic failures after expiry.",
+    "productionChangedBeforeFinding": false,
+    "disposition": "Commit 1357640 was not deployed; commit 60bc058 restores the recurring unit and adds a separate no-timer one-shot acceptance unit."
+  },
+  "verification": {
+    "focusedTests": "21 passed, 1 skipped",
+    "skipReason": "systemd bus unavailable inside the test sandbox; host one-shot and recurring units were executed and verified separately",
+    "pythonCompilationPassed": true,
+    "systemdAnalyzeVerifyPassed": true,
+    "systemdAnalyzeUnrelatedWarning": "/etc/systemd/system/xray.service uses special user nobody",
+    "gitDiffCheckPassed": true,
+    "stagedGitleaksPassed": true,
+    "changedTestFileGitleaksPassed": true,
+    "wholeTestsTreeGitleaksBaselineFindings": 4,
+    "wholeTestsTreeFindingsIntroducedByThisSlice": false,
+    "independentAgentReviewAvailable": false
+  },
+  "productionObservation": {
+    "supervisorStatus": "DORMANT_SUPERVISOR_VERIFIED_AUTHENTICATED_EVIDENCE",
+    "authenticatedEvidenceStatus": "AUTHENTICATED_EXACT_EVIDENCE_ACCEPTED",
+    "watchdogStatus": "DORMANT_VERIFIED",
+    "postgresContainerId": "818735cd7df301eeb54b3630a6dbae1551db99a8368a2e4c96596c1a2572a3a4",
+    "postgresImageId": "sha256:7456ef82e5f5bc43d997f4781bbd7c0d6389bff397564649a356e206ba473aee",
+    "serverVersionNum": 170011,
+    "readerLoginState": "DISABLED",
+    "readerCredentialState": "ABSENT",
+    "customerRowsRead": false,
+    "productionMutation": false,
+    "credentialIssuerInvoked": false,
+    "dumpInvoked": false,
+    "restoreInvoked": false,
+    "dumpRestoreExecutionEntrypointPresent": false,
+    "failedUnits": 0,
+    "requiredServicesActive": [
+      "obsidian-postgres.service",
+      "obsidian-payout-worker.service",
+      "obsidian-monitor.service",
+      "kairos.service",
+      "lumi.service"
+    ]
+  },
+  "operationalFinding": {
+    "id": "DUPLICATE_SWAPFILE_FSTAB_ENTRY",
+    "observedDuringDaemonReload": true,
+    "description": "/etc/fstab contains the exact /swapfile entry twice, causing systemd-fstab-generator error-priority messages during daemon-reload.",
+    "currentSwapState": "active",
+    "failedUnits": 0,
+    "changedInThisSlice": false,
+    "remediationAuthorized": false
+  },
+  "surfaceMatrix": {
+    "operator": "OPERATOR_ONLY: root-owned evidence acceptance one-shot",
+    "api": "N/A: no endpoint",
+    "site": "N/A: no customer surface",
+    "telegram": "N/A: no delivery",
+    "admin": "N/A: no mutation",
+    "native": "N/A: no wallet signing"
+  },
+  "authorityBoundary": {
+    "readerLoginAuthorized": false,
+    "credentialIssuanceAuthorized": false,
+    "productionRefreshAuthorized": false,
+    "productionMutationAuthorized": false,
+    "migrationAuthorized": false,
+    "moneyActionAuthorized": false,
+    "automaticRetryAuthorized": false,
+    "actionAllowed": false
+  },
+  "rollback": {
+    "scope": "Disable and remove only the new one-shot unit and exact digest-named public evidence directory, then daemon-reload; the recurring dormant supervisor requires no rollback.",
+    "statefulDatabaseRollbackRequired": false,
+    "credentialRevocationRequired": false
+  },
+  "nextCanonicalItem": "Implement and independently review a separate fail-closed production activation entrypoint plus disposable rehearsal. It must require a new activation-specific owner/reviewer decision and must not infer LOGIN, credential, refresh, 064B or 064D authority from this evidence-only acceptance."
+}
