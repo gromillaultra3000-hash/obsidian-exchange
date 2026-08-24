@@ -1659,3 +1659,27 @@ supervisor and authenticated consumption of the disposable rehearsal evidence
 are still absent. The exact next step is an inactive immutable artifact
 publication followed by a separately bounded PostgreSQL 17.11 upgrade and
 watchdog/reconcile slice; no `LOGIN` or refresh is authorized here.
+
+## 2026-08-24 — 064A dormant runtime artifact publication
+
+The reviewed closure from pushed commit
+`abb22afc99e504cee29881d5e4b19ba15c0f343d` is published under
+`/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/` as a root-owned read-only
+versioned release. Its `candidate` symlink is intentionally inactive: no
+systemd unit, timer or process consumes it, and no runtime command was invoked.
+The 19-file import closure passes all 16 frozen-plan digest bindings.
+
+Before/after production evidence is identical: PostgreSQL remains 17.10; the
+same container remains healthy with restart count zero; the reader remains
+`NOLOGIN`, password `NULL`, validity `NULL`, connection limit two and zero
+sessions/advisory locks; HBA remains `EXACT` at SHA-256
+`08b049674e7593bc87c8e78744ba6b65b557750807c17e860920931aa1b3d3b6`.
+No database/HBA mutation, reload/restart, credential, refresh, customer-row,
+money, migration or E4 action occurred. Evidence:
+`docs/e0-3-bot-b5-3-064a-dormant-runtime-artifact-rollout.v1.json`.
+
+The next bounded route item is a rehearsed PostgreSQL 17.11 upgrade plus
+watchdog, boot and abnormal-exit reconciliation while preserving the dormant
+role and exact HBA policy. Production `LOGIN` remains unauthorized until that
+gate, authenticated rehearsal-evidence consumption and a concrete production
+Dump/Restore supervisor all pass.

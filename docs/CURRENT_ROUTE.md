@@ -21,14 +21,19 @@ post-deploy verification is `match` / HBA `EXACT`; evidence is
 `docs/e0-3-bot-b5-3-064a-snapshot-reader-dormant-rollout.v1.json` and
 `docs/e0-3-bot-b5-3-064a-snapshot-reader-hba-rollout.v1.json`.
 
-The next contract layer is now verified in a disposable PostgreSQL 17.11
-cluster: short-lived SCRAM issuance, two independent sealed credential FDs,
-an exported-snapshot SourceAdapter, a digest-pinned real `pg_dump`, exact
+The next contract layer is verified in a disposable PostgreSQL 17.11 cluster:
+short-lived SCRAM issuance, two independent sealed credential FDs, an
+exported-snapshot SourceAdapter, a digest-pinned real `pg_dump`, exact
 revocation/reconciliation and adversarial supervisor-failure cases all pass.
-Evidence is
-`docs/e0-3-bot-b5-3-064a-scram-source-adapter-rehearsal.v1.json`. This is
-approval for an inert versioned artifact rollout only; it does not authorize
-production `LOGIN` or a refresh.
+The reviewed closure from pushed commit `abb22afc99e504cee29881d5e4b19ba15c0f343d`
+is now published as an immutable root-owned inactive release under
+`/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/`; its `candidate` pointer
+has no service, timer or process consumer. Production remained unchanged:
+PostgreSQL 17.10, reader `NOLOGIN`/credential-absent, HBA `EXACT`, healthy with
+zero restarts. Evidence is
+`docs/e0-3-bot-b5-3-064a-scram-source-adapter-rehearsal.v1.json` and
+`docs/e0-3-bot-b5-3-064a-dormant-runtime-artifact-rollout.v1.json`. This does
+not authorize production `LOGIN` or a refresh.
 
 Deployed contract:
 
@@ -66,10 +71,9 @@ Telegram actions; 064B/064D row disposition; unrelated worktree cleanup.
 
 ## Active bounded next slice
 
-Publish the reviewed closure as a root-owned inactive versioned release, with
-no unit/timer/process, invocation, database/HBA mutation or service restart,
-and reverify production remains `NOLOGIN`/credential-absent/HBA-exact. The
-next activation prerequisite is then a separately rehearsed production
-PostgreSQL 17.11 upgrade plus watchdog, boot and abnormal-exit reconciliation.
-Only after that gate and a concrete bounded Dump/Restore supervisor exist may
-a separate `LOGIN` activation be considered.
+Take a separately bounded production PostgreSQL 17.11 upgrade plus watchdog,
+boot and abnormal-exit reconciliation slice. It must preserve the dormant
+reader and exact HBA policy through upgrade/restart and prove cleanup after
+supervisor death. Only after that gate, authenticated consumption of the
+disposable rehearsal evidence and a concrete bounded Dump/Restore supervisor
+exist may a separate `LOGIN` activation be considered.

@@ -1,0 +1,118 @@
+{
+  "schemaVersion": "obsidian-evidence.e0-3-b5-3-064a-dormant-runtime-artifact-rollout.v1",
+  "observedAt": "2026-08-24T03:54:43Z",
+  "route": ["E0", "E0.3", "B5.3", "064A"],
+  "status": "INACTIVE_VERSIONED_RELEASE_PUBLISHED",
+  "activationStatus": "BLOCKED_NAMED_PREREQUISITES",
+  "repository": {
+    "releaseSourceCommit": "abb22afc99e504cee29881d5e4b19ba15c0f343d",
+    "remote": "origin",
+    "remoteRef": "refs/heads/master",
+    "remoteRefMatchedSourceAtPublication": true,
+    "gitleaksVersion": "8.30.0",
+    "fullStagedTreeScan": "NO_LEAKS"
+  },
+  "release": {
+    "root": "/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a",
+    "version": "abb22afc99e504cee29881d5e4b19ba15c0f343d",
+    "path": "/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/abb22afc99e504cee29881d5e4b19ba15c0f343d",
+    "inactivePointer": "/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/candidate",
+    "inactivePointerTarget": "abb22afc99e504cee29881d5e4b19ba15c0f343d",
+    "serviceConsumesPointer": false,
+    "fileCount": 19,
+    "frozenPlanBindingCount": 16,
+    "frozenPlanBindings": "PASS",
+    "owner": "root:root",
+    "fileMode": "0444",
+    "directoryMode": "0555",
+    "runnerSha256": "eac73bddc94a4ccf3b605dde0a5f1ff31329ceae24560ed0100c629a0ad0022f",
+    "runtimeSha256": "cda2c5351d80eefc2800c83a8016ae79bfe2b93c51584e8b3e2dfede62ffeec0",
+    "frozenPlanSha256": "14d38a9fc0cc7c78014d16230553359939aad7d7a15abaf7c7cc8672c3c8d0c6",
+    "importClosure": {
+      "loadSqliteSnapshotSha256": "dacef8a3f5da3d0abdb8fddebdbe1693ae34939a7f358a685fbfc0cc323410bf",
+      "verifyRuntimePrivilegesSha256": "6e73145b3fd350190d704c9a52fe2f2c2c9e3e7becda0e667ac5a5146b2dd719"
+    }
+  },
+  "publicationSafety": {
+    "firstCommandRejectedBeforeExecution": true,
+    "firstCommandRejectionReason": "COMMAND_GUARD_REJECTED_DESTRUCTIVE_CLEANUP_FORM",
+    "initialStagedImportValidation": "FAILED_CLOSED_MISSING_IMPORT_ONLY_CLOSURE",
+    "publishedBeforeValidationPassed": false,
+    "missingFilesAddedFromSamePushedCommit": [
+      "deploy/postgres/load_sqlite_snapshot.py",
+      "deploy/postgres/verify_runtime_privileges.py"
+    ],
+    "stagedImportValidationAfterClosure": "PASS",
+    "atomicPublication": true,
+    "invoked": false,
+    "unitOrTimerInstalled": false,
+    "processStarted": false,
+    "databaseMutation": false,
+    "hbaMutation": false,
+    "serviceRestartOrReload": false,
+    "credentialIssued": false,
+    "refreshExecuted": false,
+    "customerRowsRead": false,
+    "migrationApplied": false,
+    "moneyOrTelegramAction": false,
+    "e4Touched": false
+  },
+  "productionBefore": {
+    "postgresVersion": "17.10",
+    "containerTuple": "6147a2fbda1384185cfb524a2b0e096742afd0237accb8c163677051cccfe0fc|sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193|2026-08-15T11:49:40.744754093Z|0|healthy",
+    "readerRole": "obsidian_b64_snapshot_reader",
+    "readerCanLogin": false,
+    "readerCredentialAbsent": true,
+    "readerValidUntil": null,
+    "readerConnectionLimit": 2,
+    "readerSessions": 0,
+    "readerAdvisoryLocks": 0,
+    "hbaStatus": "EXACT",
+    "hbaSha256": "08b049674e7593bc87c8e78744ba6b65b557750807c17e860920931aa1b3d3b6"
+  },
+  "productionAfter": {
+    "postgresVersion": "17.10",
+    "containerTuple": "6147a2fbda1384185cfb524a2b0e096742afd0237accb8c163677051cccfe0fc|sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193|2026-08-15T11:49:40.744754093Z|0|healthy",
+    "readerCanLogin": false,
+    "readerCredentialAbsent": true,
+    "readerValidUntil": null,
+    "readerConnectionLimit": 2,
+    "readerSessions": 0,
+    "readerAdvisoryLocks": 0,
+    "hbaStatus": "EXACT",
+    "hbaSha256": "08b049674e7593bc87c8e78744ba6b65b557750807c17e860920931aa1b3d3b6",
+    "b64UnitOrTimer": "ABSENT",
+    "b64RuntimeProcess": "ABSENT",
+    "releasePointerConsumer": "ABSENT",
+    "containerIdentityUnchanged": true
+  },
+  "verification": {
+    "disposablePostgres17_11Integration": "PASS",
+    "selectedStaticSuite": "205 passed",
+    "focusedFinalSuite": "136 passed",
+    "postPublicationFocusedSuite": "144 passed",
+    "pythonCompile": "PASS",
+    "gitDiffCheck": "PASS",
+    "frozenBindings": "PASS",
+    "postPublicationProductionInvariants": "PASS",
+    "independentReviews": {
+      "architecture": "GO_DORMANT_ARTIFACT_NO_GO_ACTIVATION",
+      "security": "GO_DORMANT_ARTIFACT_NO_GO_ACTIVATION",
+      "operations": "GO_INERT_VERSIONED_RELEASE_NO_GO_ACTIVATION"
+    }
+  },
+  "activationBlockers": [
+    "PRODUCTION_POSTGRES_17_10_REQUIRES_REHEARSED_17_11_UPGRADE",
+    "WATCHDOG_BOOT_AND_ABNORMAL_EXIT_RECONCILE_NOT_IMPLEMENTED",
+    "PRODUCTION_DUMP_RESTORE_SUPERVISOR_NOT_IMPLEMENTED",
+    "DISPOSABLE_REHEARSAL_EVIDENCE_NOT_CONSUMED_BY_PRODUCTION_PREFLIGHT",
+    "PRODUCTION_LOGIN_ACTIVATION_NOT_AUTHORIZED"
+  ],
+  "rollback": {
+    "method": "unlink or repoint the inactive candidate symlink and quarantine the versioned directory",
+    "databaseRollbackRequired": false,
+    "hbaRollbackRequired": false,
+    "serviceRollbackRequired": false
+  },
+  "next": "Take a separately bounded PostgreSQL 17.11 upgrade plus watchdog, boot and abnormal-exit reconciliation slice; keep LOGIN disabled until that gate and a concrete production Dump/Restore supervisor pass."
+}

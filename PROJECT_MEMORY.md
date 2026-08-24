@@ -21,14 +21,21 @@ Updated: 2026-08-24 UTC
   exact revoke/reconcile and seven failure cases; its exact container and
   volume are absent. Selected tests pass 205/205, compile/diff/frozen bindings/
   Gitleaks pass, and architecture/security/ops reviews allow only an inert
-  versioned artifact rollout. Evidence:
-  `docs/e0-3-bot-b5-3-064a-scram-source-adapter-rehearsal.v1.json`. Production
-  `LOGIN` remains blocked until a rehearsed PG17.11 upgrade, watchdog/boot/
-  abnormal-exit reconcile, production Dump/Restore supervisor and activation
-  evidence-consumption gate exist. Exact next: publish the committed closure
-  as an inactive immutable release, reverify dormant production state, then
-  take the PG17.11 plus watchdog/reconcile slice. No customer rows, database or
-  HBA mutation, service restart, refresh, money action or E4 path occurred.
+  versioned artifact rollout. Commit
+  `abb22afc99e504cee29881d5e4b19ba15c0f343d` is pushed and published as the
+  root-owned read-only inactive release under
+  `/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/`; `candidate` has no
+  unit/timer/process consumer. Post-publication production state is unchanged:
+  same container identity/start time, healthy/restarts zero, reader
+  `NOLOGIN`/credential-absent with zero sessions/locks and HBA `EXACT`.
+  Evidence: `docs/e0-3-bot-b5-3-064a-scram-source-adapter-rehearsal.v1.json`
+  and `docs/e0-3-bot-b5-3-064a-dormant-runtime-artifact-rollout.v1.json`.
+  Production `LOGIN` remains blocked until a rehearsed PG17.11 upgrade,
+  watchdog/boot/abnormal-exit reconcile, production Dump/Restore supervisor
+  and activation evidence-consumption gate exist. Exact next: take the PG17.11
+  plus watchdog/reconcile slice while preserving the dormant role and HBA. No
+  customer rows, database or HBA mutation, service restart, refresh, money
+  action or E4 path occurred.
 
 - 2026-08-23 E4 retained status is `IN_PROGRESS` with a `NO_GO` gate decision.
   The experimental one-shot and its server entry point are
