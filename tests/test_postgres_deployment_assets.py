@@ -56,7 +56,13 @@ supervisor_timer = (
 assert "30114cbb7ce25d49b3313d04f6564903bc29074a" in supervisor
 assert "b64_dump_restore_supervisor.py" in supervisor
 assert "--rehearsal-root" in supervisor and "--evidence-root" in supervisor
-assert "--require-authenticated-evidence" not in supervisor
+assert "--require-authenticated-evidence" in supervisor
+assert "--authentication-root" in supervisor
+assert "--keyring-relative keyring.json" in supervisor
+assert "--acceptance-relative acceptance-signed.json" in supervisor
+assert "a83cfac0c2a61edb83480ae782e077d3fafc6401b3e2f1694aeebf6fd24b113c" in supervisor
+assert "b482504a2166b1e410e6a4b97829dbfcf818807b872f6ca73530a6d130dd54ba" in supervisor
+assert supervisor.count("ConditionPathExists=/opt/obsidian-exchange/evidence/") == 2
 assert "ConditionPathExists=/run/systemd/timesync/synchronized" in supervisor
 assert "RestrictAddressFamilies=AF_UNIX" in supervisor
 assert "OnUnitActiveSec=6h" in supervisor_timer

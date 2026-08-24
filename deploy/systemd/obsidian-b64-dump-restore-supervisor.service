@@ -4,6 +4,8 @@ Requires=obsidian-postgres.service
 After=obsidian-postgres.service obsidian-b64-snapshot-reader-watchdog.service
 ConditionPathExists=/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/30114cbb7ce25d49b3313d04f6564903bc29074a/deploy/postgres/b64_dump_restore_supervisor.py
 ConditionPathExists=/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/abb22afc99e504cee29881d5e4b19ba15c0f343d/docs/e0-3-bot-b5-3-064a-hardened-refresh-plan.v1.json
+ConditionPathExists=/opt/obsidian-exchange/evidence/e0-e0.3-b5.3-064a/b482504a2166b1e410e6a4b97829dbfcf818807b872f6ca73530a6d130dd54ba/keyring.json
+ConditionPathExists=/opt/obsidian-exchange/evidence/e0-e0.3-b5.3-064a/b482504a2166b1e410e6a4b97829dbfcf818807b872f6ca73530a6d130dd54ba/acceptance-signed.json
 ConditionPathExists=/run/systemd/timesync/synchronized
 
 [Service]
@@ -11,7 +13,7 @@ Type=oneshot
 User=root
 Group=root
 WorkingDirectory=/opt/obsidian-exchange
-ExecStart=/opt/obsidian-exchange/relay-venv/bin/python /opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/30114cbb7ce25d49b3313d04f6564903bc29074a/deploy/postgres/b64_dump_restore_supervisor.py --evidence-root /opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/30114cbb7ce25d49b3313d04f6564903bc29074a --rehearsal-root /opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/abb22afc99e504cee29881d5e4b19ba15c0f343d --runtime-root /opt/obsidian-exchange
+ExecStart=/opt/obsidian-exchange/relay-venv/bin/python /opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/30114cbb7ce25d49b3313d04f6564903bc29074a/deploy/postgres/b64_dump_restore_supervisor.py --evidence-root /opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/30114cbb7ce25d49b3313d04f6564903bc29074a --rehearsal-root /opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/abb22afc99e504cee29881d5e4b19ba15c0f343d --runtime-root /opt/obsidian-exchange --authentication-root /opt/obsidian-exchange/evidence/e0-e0.3-b5.3-064a/b482504a2166b1e410e6a4b97829dbfcf818807b872f6ca73530a6d130dd54ba --keyring-relative keyring.json --acceptance-relative acceptance-signed.json --expected-keyring-sha256 a83cfac0c2a61edb83480ae782e077d3fafc6401b3e2f1694aeebf6fd24b113c --require-authenticated-evidence
 TimeoutStartSec=90
 
 NoNewPrivileges=true
