@@ -115,17 +115,23 @@ disposable resources are absent. Focused regression passes 180/180, the full
 related set passes 237/237, and all three independent latest-byte reviews
 report inert GO with no P0/P1.
 
-Production remains unchanged: PostgreSQL is healthy with restart count zero,
-the HBA SHA-256 is
-`08b049674e7593bc87c8e78744ba6b65b557750807c17e860920931aa1b3d3b6`,
-the reader is dormant and session-free, both existing timers are healthy and
-the deployed watchdog is intentionally unchanged. Production activation is a
-named `NO_GO`: updated dormant-watchdog cold-recovery orchestration, a fixed-
-argument no-retry launcher with a hard wall timeout, and fresh activation
-owner/reviewer signatures are absent. The next canonical item is that dormant
-watchdog recovery slice; do not create a production activation package yet.
-Evidence is
-`docs/e0-3-bot-b5-3-064a-cold-recovery-effective-plan-inert-rollout.v1.json`.
+The cleanup-only production watchdog is now deployed from immutable commit
+`12e0d1c018eacd7d9a1a59c4cd01308bb534ef6d`; all 2153 Git blobs match. Unit
+pin commit `dcb76b5e7599f8a69ecce52900ffcbd24ee5bcf3` is pushed. Only the timer
+oneshot has explicit recovery orchestration; PostgreSQL `ExecStartPost`
+remains dormant-only and PostgreSQL was not restarted. Both the first
+immutable oneshot and recurring tick returned
+`DORMANT_VERIFIED_NO_RECOVERY_REQUEST`. The fixed request/package and
+activation state root remain absent; the same healthy container, PID, start
+time, system identifier, exact HBA and restart count zero are preserved. The
+reader is `NOLOGIN`, password-absent and session-free; timer is
+enabled/active/waiting and failed units are zero. Architecture, security and
+operations latest-byte reviews report GO with no P0/P1. Evidence is
+`docs/e0-3-bot-b5-3-064a-dormant-watchdog-cleanup-recovery-rollout.v1.json`.
+
+Production activation remains a named `NO_GO`: the separate fixed-argument,
+hard-wall-timeout, no-retry launcher and fresh activation owner/reviewer
+signatures are absent. Do not create a production activation package yet.
 
 Deployed contract:
 
@@ -163,11 +169,9 @@ Telegram actions; 064B/064D row disposition; unrelated worktree cleanup.
 
 ## Active bounded next slice
 
-Implement and independently review an inert production executor that can only
-plug the new activation decision/journal boundary into the already rehearsed
-credential issue/revoke/reconcile, dump, restore, equality and cleanup
-components. Rehearse that executor without production contact, then create a
-fresh activation-specific offline signing package over the exact production
-target and live artifact digests. The deployed evidence-only acceptance must
-not be reused or promoted. Do not activate production before the distinct fresh
-owner and independent-reviewer activation signatures verify.
+Implement and independently review a separate production launcher with fixed
+arguments, a hard wall timeout, process-group termination and no retry. It may
+consume only the already defined activation boundary and must not weaken the
+deployed cleanup-only watchdog. Keep production activation `NO_GO`; do not
+create or sign a fresh activation package until the launcher prerequisite is
+complete.

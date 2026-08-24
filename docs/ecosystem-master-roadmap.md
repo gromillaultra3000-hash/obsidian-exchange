@@ -2003,3 +2003,52 @@ only the new cleanup-only recovery orchestration for an existing exact package
 and journal. After that, separately implement and review a fixed-argument,
 hard-wall-timeout, no-retry production launcher. Fresh production activation
 signatures remain forbidden until both prerequisites pass.
+
+## 2026-08-24 — 064A dormant-watchdog cleanup-recovery rollout
+
+The updated production watchdog is deployed from immutable implementation
+commit `12e0d1c018eacd7d9a1a59c4cd01308bb534ef6d`; all 2153 Git blobs match the
+root-owned read-only release. Unit pin commit
+`dcb76b5e7599f8a69ecce52900ffcbd24ee5bcf3` is pushed. The timer oneshot alone
+uses explicit `--cleanup-recovery`; PostgreSQL `ExecStartPost` remains a
+dormant-only pass and was only repinned to the same immutable watchdog bytes.
+PostgreSQL was neither started nor restarted during rollout.
+
+Recovery accepts only the fixed root-owned request/package paths and an exact
+existing production journal. Package-without-request, request-without-journal
+and terminal journals cannot create cleanup authority; terminal/no-journal
+paths do not require trusted time. `CLAIMED` or `RUNNING` is durably moved to
+one no-retry `HOLD` before cleanup. The sealed recovery capability cannot
+execute, issue a lease, dump or restore. Its passwordless local-admin attestor
+requires exact container/image/PID/system identifier/HBA, dormant reader state,
+zero sessions and idle runtime lock. Production runner and recovery both use
+global-interlock-before-nonce-lock ordering, while journal discovery holds the
+idle global interlock. A live activation at any boundary yields defer without
+cleanup. Signed container-ID drift remains fail-closed/manual-only; this slice
+does not claim host-restart/container-recreate recovery.
+
+Focused regression passes 118/118 and the expanded related set passes 193/193
+with one explicit Docker-upgrade opt-in skip. The disposable lifecycle closed
+the normal journal and recovered a separate incomplete journal to
+`ACTIVATION_RECONCILED_HOLD`; architecture, security and operations latest-byte
+reviews report GO with no P0/P1. Compilation, diff, staged secret scan and
+systemd verification pass; systemd reports only the existing unrelated xray
+`nobody` warning.
+
+The first immutable no-package oneshot and the first recurring timer tick both
+returned `DORMANT_VERIFIED_NO_RECOVERY_REQUEST`. Request, package and activation
+state root remain absent. PostgreSQL kept the same MainPID, container ID/PID,
+start time, image, system identifier and restart count zero; reader remains
+`NOLOGIN`, password-absent and session-free with exact HBA. Timer is
+enabled/active/waiting, failed units are zero, and candidate remains
+`abb22afc99e504cee29881d5e4b19ba15c0f343d`. Exact rollback preimages are
+retained under
+`/var/lib/obsidian-exchange/deployment-preimages/e0-e0.3-b5.3-064a-watchdog-20260824T225527Z`.
+Evidence:
+`docs/e0-3-bot-b5-3-064a-dormant-watchdog-cleanup-recovery-rollout.v1.json`.
+
+E0.3 remains `IN_PROGRESS`, and production activation remains a concrete
+`NO_GO`. The next canonical item is a separate fixed-argument,
+hard-wall-timeout, no-retry launcher with independent review. Do not create or
+sign a fresh production activation package until that launcher prerequisite is
+complete.

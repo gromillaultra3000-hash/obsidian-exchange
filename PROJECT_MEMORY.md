@@ -96,11 +96,32 @@ Updated: 2026-08-24 UTC
   healthy existing timers and no failed units. Architecture, security and
   operations report inert GO with no P0/P1. Evidence:
   `docs/e0-3-bot-b5-3-064a-cold-recovery-effective-plan-inert-rollout.v1.json`.
-  Production activation remains a named `NO_GO`: the updated dormant watchdog
-  cold-recovery orchestration, a fixed-argument no-retry hard-wall-timeout
-  launcher and fresh activation signatures are absent. Exact next: implement
-  and rehearse only the dormant-watchdog cleanup-recovery slice; do not create
-  a production activation package yet.
+  The cleanup-only production watchdog is deployed from immutable pushed
+  implementation commit `12e0d1c018eacd7d9a1a59c4cd01308bb534ef6d`; all
+  2153 Git blobs match. Pushed unit-pin commit
+  `dcb76b5e7599f8a69ecce52900ffcbd24ee5bcf3` makes only the timer oneshot use
+  explicit `--cleanup-recovery`; PostgreSQL `ExecStartPost` remains
+  dormant-only. Fixed root-owned request/package paths plus an exact existing
+  journal are required; one automatic attempt persists `HOLD` before cleanup,
+  cannot execute/lease/dump/restore, and never retries. Production lock order
+  is global-before-nonce and exact journal discovery holds the idle global
+  interlock; live activation is deferred. Same signed container ID is required,
+  so container-ID drift is deliberately manual/fail-closed. Focused tests pass
+  118/118 and expanded related tests 193/193 with one explicit Docker-upgrade
+  opt-in skip; architecture/security/operations report GO with no P0/P1. The
+  first immutable oneshot and recurring tick both returned
+  `DORMANT_VERIFIED_NO_RECOVERY_REQUEST`. PostgreSQL was not restarted and kept
+  MainPID/container/PID/start time/restart count zero; exact HBA and dormant
+  session-free reader remain unchanged, request/package/state are absent,
+  timer is enabled/active/waiting and failed units are zero. Exact unit
+  preimages are retained at
+  `/var/lib/obsidian-exchange/deployment-preimages/e0-e0.3-b5.3-064a-watchdog-20260824T225527Z`.
+  Evidence:
+  `docs/e0-3-bot-b5-3-064a-dormant-watchdog-cleanup-recovery-rollout.v1.json`.
+  Production activation remains a named `NO_GO`: the separate fixed-argument
+  no-retry hard-wall-timeout launcher and fresh activation signatures are
+  absent. Exact next: implement and independently review only that launcher;
+  do not create or sign a production activation package yet.
   Termux exposed a false `--help` error receipt before key generation; commit
   `bfe53faaba17a4e9e0cca83024f602d9d59c965a` fixes `SystemExit` handling and
   is pushed. Current secret-free signing kit `/root/k2.tar` has SHA-256
