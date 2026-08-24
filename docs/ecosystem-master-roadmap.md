@@ -1911,3 +1911,44 @@ created. The one next canonical item is an independently reviewed inert
 production executor plus no-contact rehearsal, followed by a fresh exact
 activation signing package. The evidence-only package must not be promoted or
 reused, and production activation remains unauthorized.
+
+## 2026-08-24 — 064A inert production-executor immutable rollout
+
+The next code-first slice is complete without creating a production execution
+surface. The activation-v2 boundary now binds a single executor implementation
+to a process-local one-use capability, exact target and derived plan, fixed
+production roots, global watchdog interlock and two durable no-retry journals.
+The dump container is network-none and reaches only an exact Unix proxy into
+the attested source netns. Source table/catalog fingerprints are taken inside
+the exported MVCC transaction; restore SQL connects through a held,
+PID-rebound socket-directory FD. Normal and recovery workspace deletion is
+inode-checked and fsync-ordered. Resource recovery enters `HOLD` before cleanup,
+is idempotent after `RECONCILED_HOLD`, treats dangling entries as present and
+must return an exact resource receipt before the outer journal can reconcile.
+
+The final exact-contract disposable PostgreSQL 17.11 lifecycle returned
+`CLOSED`, rejected replay with one executor call, kept the concurrent watchdog
+at `ACTIVE_LEASE_ACTIVATION_INTERLOCK_SUPERVISED` and ended at reader
+`NOLOGIN`, credential absent and zero sessions. Receipt SHA-256 is
+`81af9379fc6efdc1a8799d600c27c54e93d75bcb05b34b71a981ac6784ddcccb`.
+Focused regression passes 215/215; compile, diff, targeted secret scans and
+three independent latest-byte reviews pass. Disposable containers, named
+volume, workspace/archive and temporary HBA copy were removed.
+
+Commit `bc34b7ea37df75dc30e18f82a25b5688e013413e` is pushed and its
+2151 blobs are published under the exact root-owned read-only, unreferenced
+release directory
+`/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/bc34b7ea37df75dc30e18f82a25b5688e013413e`.
+No mutable copy, current pointer, unit, timer, state root, signing package,
+daemon reload, start or restart occurred. Production PostgreSQL/container/HBA,
+dormant reader state and existing timers are unchanged. Evidence:
+`docs/e0-3-bot-b5-3-064a-production-executor-inert-rollout.v1.json`.
+
+E0.3 remains `IN_PROGRESS`, and production activation is a concrete `NO_GO`.
+The next canonical item is cleanup-only cold recovery bound to an existing
+signed package and journal but incapable of execute/lease authority. That slice
+must also close the workspace create-to-durable-inode window and define one
+non-contradictory signed effective-plan semantics. Only afterward may the
+updated dormant watchdog and a fixed-argument, hard-timeout, no-retry launcher
+be separately rolled out. Do not create fresh production activation signatures
+until those prerequisites pass independent review.

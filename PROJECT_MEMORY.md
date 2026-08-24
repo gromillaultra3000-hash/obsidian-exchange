@@ -70,27 +70,33 @@ Updated: 2026-08-24 UTC
   `docs/e0-3-bot-b5-3-064a-authenticated-evidence-acceptance-rollout.v1.json`.
   An unrelated duplicate `/swapfile` line in `/etc/fstab` caused
   systemd-generator errors during daemon-reload; swap remains active and
-  failed units are zero. It was observed, not changed. The separate fail-closed
-  activation boundary is now implemented with distinct activation schemas and
-  Ed25519 domain, live artifact closure, trusted production time, a durable
-  one-attempt journal/cross-process lock, abnormal-exit reconciliation, 150s
-  work plus 30s cleanup deadlines, strict restore equality and post-close
-  dormant verification. A real disposable PostgreSQL 17.11 lifecycle passed:
-  SCRAM lease, exported snapshot, pinned pg_dump, read-only-root tmpfs restore,
-  54 table and 13 catalog equality, revoke/cleanup, `CLOSED` journal and replay
-  rejection with one executor call. Receipt SHA-256 is
-  `ebb45b20515124ef7217016b25502a15fcfd78b0e4bb847404c1ad183d2bb09b`;
-  focused tests pass 164 with one sandbox bus skip. Disposable artifacts are
-  absent; production stayed healthy with reader `NOLOGIN`, credential absent,
-  zero sessions and unchanged HBA. Evidence:
-  `docs/e0-3-bot-b5-3-064a-activation-entrypoint-rehearsal.v1.json`;
-  implementation commit `82531d0ccdd290cf286cad0980943cdcda10f47c` is
-  pushed. No
-  production executor, activation package or activation-specific signatures
-  exist. Exact next: implement and independently review an inert production
-  executor, rehearse it without production contact, then create a fresh
-  activation-only offline signing package. Current evidence grants no
-  LOGIN/credential/refresh/064B/064D and cannot be promoted.
+  failed units are zero. It was observed, not changed. The activation-v2
+  boundary and one inert production executor are implemented in pushed commit
+  `bc34b7ea37df75dc30e18f82a25b5688e013413e` and published only as the
+  unreferenced root-owned read-only release
+  `/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/bc34b7ea37df75dc30e18f82a25b5688e013413e`.
+  No mutable deploy copy, pointer, unit/timer, state root, signing package,
+  daemon reload or service restart was created. The executor binds fixed roots,
+  a single-use process capability, outer/resource journals, watchdog interlock,
+  network-none dump through an exact Unix proxy, same-snapshot fingerprints,
+  held restore socket FD and inode/fsync-bound cleanup. Recovery moves uncertain
+  states to `HOLD`, requires an exact resource receipt and is idempotent after
+  `RECONCILED_HOLD`. Focused tests pass 215/215; final real disposable rehearsal
+  returned `CLOSED`, rejected replay, watchdog-supervised the live lease and
+  produced receipt SHA-256
+  `81af9379fc6efdc1a8799d600c27c54e93d75bcb05b34b71a981ac6784ddcccb`.
+  All disposable resources are absent. Production stayed healthy and unchanged
+  with reader `NOLOGIN`, credential absent, zero sessions, HBA SHA
+  `08b049674e7593bc87c8e78744ba6b65b557750807c17e860920931aa1b3d3b6`
+  and the existing watchdog intentionally not replaced. Architecture, security
+  and operations approve the inert release only. Evidence:
+  `docs/e0-3-bot-b5-3-064a-production-executor-inert-rollout.v1.json`.
+  Production activation remains a named `NO_GO`: cleanup-only cold recovery
+  after signed-decision/keyring expiry, a no-retry hard-timeout launcher, the
+  workspace create-to-durable-inode crash window, unambiguous signed effective-
+  plan semantics, updated live watchdog rollout and fresh activation signatures
+  are absent. Exact next: implement the cleanup-only journal-bound recovery
+  capability; do not create a production activation package yet.
   Termux exposed a false `--help` error receipt before key generation; commit
   `bfe53faaba17a4e9e0cca83024f602d9d59c965a` fixes `SystemExit` handling and
   is pushed. Current secret-free signing kit `/root/k2.tar` has SHA-256

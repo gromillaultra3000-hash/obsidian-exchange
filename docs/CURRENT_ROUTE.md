@@ -78,29 +78,42 @@ row read or production mutation occurred. An unrelated duplicate `/swapfile`
 entry in `/etc/fstab` caused two daemon-reload generator errors; swap remains
 active and failed units remain zero. This slice did not change `fstab`.
 
-A separate activation-specific plan/decision/receipt boundary is now
-implemented and verified in a real disposable PostgreSQL 17.11 rehearsal. It
-uses a distinct Ed25519 signature domain, fresh two-role signatures and
-revocation snapshot, exact live artifact closure, a durable one-attempt journal
-plus cross-process execution lock, 150-second work deadline with a reserved
-30-second cleanup window, mandatory restore equality and post-close dormant
-verification. The final rehearsal issued and revoked a real short-lived SCRAM
-credential, used one exported snapshot and digest-pinned `pg_dump`, matched all
-54 table fingerprints and 13 catalog sections in a distinct read-only-root
-tmpfs restore, closed the journal, and rejected replay without a second
-executor call. Final receipt SHA-256 is
-`ebb45b20515124ef7217016b25502a15fcfd78b0e4bb847404c1ad183d2bb09b`.
-The disposable source, volume, dump/restore containers, archive, workspace and
-temporary HBA copy are absent. Production remained healthy with reader
-`NOLOGIN` / credential absent / zero sessions and HBA SHA-256
-`08b049674e7593bc87c8e78744ba6b65b557750807c17e860920931aa1b3d3b6`.
+The activation-specific v2 boundary now includes one inert production executor
+implementation. Commit `bc34b7ea37df75dc30e18f82a25b5688e013413e` is pushed
+and published only as an unreferenced root-owned read-only release at
+`/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/bc34b7ea37df75dc30e18f82a25b5688e013413e`.
+No mutable deploy copy, symlink, unit, timer, state root, signing package,
+daemon reload, service start or restart was created. The CLI remains
+verify-only and the executor CLI remains an internal proxy helper, so these
+bytes are not a production activation surface.
+
+The executor binds one sealed activation capability, fixed production roots,
+an outer journal plus a durable resource journal, a global watchdog interlock,
+network-none `pg_dump` through an exact Unix proxy, source fingerprints from
+the exported MVCC transaction, an inode-bound disposable workspace and a
+PID-rebound held restore-socket directory FD. Normal and recovery cleanup are
+fsync-ordered; incomplete resource states enter `HOLD`, exact recovery is
+idempotent, and outer recovery cannot close without the executor resource
+receipt. The final real disposable PostgreSQL 17.11 rehearsal closed the
+journal, rejected replay without a second executor call, supervised the live
+lease through the watchdog interlock and returned receipt SHA-256
+`81af9379fc6efdc1a8799d600c27c54e93d75bcb05b34b71a981ac6784ddcccb`.
+Reader post-state is `NOLOGIN`, credential absent and zero sessions; all
+disposable containers, named volume, workspace/archive and temporary HBA copy
+are absent. Focused regression passes 215/215 and all three independent
+latest-byte reviews approve only the inert rollout.
+
+Production remained unchanged: PostgreSQL is healthy with restart count zero,
+the HBA SHA-256 is
+`08b049674e7593bc87c8e78744ba6b65b557750807c17e860920931aa1b3d3b6`,
+the reader is dormant, both existing timers remain healthy and the deployed
+watchdog intentionally remains the old digest. Production activation is a
+named `NO_GO`: cleanup-only recovery after decision/keyring expiry, a fixed
+no-retry launcher with a hard wall timeout, the workspace create-to-journal
+crash window, one unambiguous signed effective plan, the updated live watchdog
+rollout and fresh activation owner/reviewer signatures are still absent.
 Evidence is
-`docs/e0-3-bot-b5-3-064a-activation-entrypoint-rehearsal.v1.json`.
-Implementation commit `82531d0ccdd290cf286cad0980943cdcda10f47c` is
-pushed to `master`.
-The CLI intentionally exposes package verification only: no production
-executor or production activation package exists, and the earlier
-evidence-only acceptance cannot authorize this boundary.
+`docs/e0-3-bot-b5-3-064a-production-executor-inert-rollout.v1.json`.
 
 Deployed contract:
 
