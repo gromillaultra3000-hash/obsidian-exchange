@@ -76,6 +76,14 @@ def test_observation_dsn_rejects_inline_secret_and_accepts_sealed_fd():
             "postgresql://observer:inline-secret@127.0.0.1:5432/"
             "obsidian_exchange"
         )
+    with pytest.raises(
+        MODULE.RuntimeContractError,
+        match="OBSERVATION_PASSFILE_REQUIRED",
+    ):
+        MODULE._validate_observation_dsn_secret_boundary(
+            "host=127.0.0.1 port=5432 dbname=obsidian_exchange "
+            "user=observer"
+        )
     fd = MODULE._sealed_pgpass_memfd(
         b"127.0.0.1:5432:obsidian_exchange:observer:synthetic-only\n",
         "runtime-unit-observation",

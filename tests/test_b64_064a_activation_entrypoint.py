@@ -43,7 +43,7 @@ def _package(*, now: int = 1_800_000_000, environment: str =
     ):
         public = private_keys[role].public_key().public_bytes_raw()
         entries.append({
-            "keyId": MODULE.supervisor._key_id(public),
+            "keyId": MODULE.activation_key_id(public),
             "identityId": identity,
             "trustDomain": domain,
             "role": role,
@@ -51,9 +51,9 @@ def _package(*, now: int = 1_800_000_000, environment: str =
             "publicKeyB64": _b64(public),
         })
     keyring_unsigned = {
-        "schemaVersion": MODULE.supervisor.KEYRING_SCHEMA,
+        "schemaVersion": MODULE.ACTIVATION_KEYRING_SCHEMA,
         "route": MODULE.ROUTE,
-        "trustEnvironment": "PRODUCTION_AUTHENTICATED",
+        "trustEnvironment": MODULE.ACTIVATION_TRUST_ENVIRONMENT,
         "registryVersion": 2,
         "issuedAtEpoch": now - 300,
         "expiresAtEpoch": now + 3600,
@@ -197,6 +197,17 @@ class FakeExecutor:
         if self.failure is not None:
             raise MODULE.ActivationError(self.failure)
         return _receipt(authorization, **self.overrides)
+
+    def reconcile_resources(self, *, plan, authorization):
+        assert plan["runNonce"] == authorization.run_nonce
+        return {
+            "status": "EXECUTOR_RESOURCES_RECONCILED_HOLD",
+            "loginState": "DISABLED", "credentialState": "ABSENT",
+            "activeSessions": 0, "workspaceAbsent": True,
+            "proxyAbsent": True, "dumpAbsent": True,
+            "restoreAbsent": True, "automaticRetryAllowed": False,
+            "actionAllowed": False,
+        }
 
 
 def _run(package, journal_root, executor, **overrides):
@@ -360,6 +371,8 @@ def test_abnormal_running_journal_only_reconciles_to_no_retry_hold(tmp_path):
     journal.transition(expected_state={"CLAIMED"}, state="RUNNING")
     result = MODULE.reconcile_incomplete(
         authorization=authorization, journal_root=tmp_path,
+        activation_plan_raw=MODULE._canonical(package["plan"]),
+        executor=FakeExecutor(),
         reconcile=_dormant, verify_dormant=_dormant,
     )
     assert result["status"] == "ACTIVATION_RECONCILED_HOLD"
@@ -375,6 +388,24 @@ def test_claimed_journal_after_pre_execution_crash_reconciles_to_hold(tmp_path):
     journal.claim()
     result = MODULE.reconcile_incomplete(
         authorization=authorization, journal_root=tmp_path,
+        activation_plan_raw=MODULE._canonical(package["plan"]),
+        executor=FakeExecutor(),
+        reconcile=_dormant, verify_dormant=_dormant,
+    )
+    assert result["status"] == "ACTIVATION_RECONCILED_HOLD"
+    assert journal.inspect()["state"] == "RECONCILED_HOLD"
+
+
+def test_recovery_accepts_pretty_signed_plan_with_trailing_newline(tmp_path):
+    tmp_path.chmod(0o700)
+    package = _package()
+    authorization = _verify(package)
+    journal = MODULE.ActivationJournal(tmp_path, authorization)
+    journal.claim()
+    pretty_raw = (json.dumps(package["plan"], indent=2) + "\n").encode()
+    result = MODULE.reconcile_incomplete(
+        authorization=authorization, journal_root=tmp_path,
+        activation_plan_raw=pretty_raw, executor=FakeExecutor(),
         reconcile=_dormant, verify_dormant=_dormant,
     )
     assert result["status"] == "ACTIVATION_RECONCILED_HOLD"
@@ -394,10 +425,39 @@ def test_reconciler_cannot_race_live_execution_lock(tmp_path):
                            match="ACTIVATION_EXECUTION_LOCKED"):
             MODULE.reconcile_incomplete(
                 authorization=authorization, journal_root=tmp_path,
+                activation_plan_raw=MODULE._canonical(package["plan"]),
+                executor=FakeExecutor(),
                 reconcile=_dormant, verify_dormant=_dormant,
             )
     finally:
         MODULE.os.close(execution_lock)
+
+
+def test_resource_reconcile_failure_cannot_close_activation_journal(tmp_path):
+    tmp_path.chmod(0o700)
+    package = _package()
+    authorization = _verify(package)
+    journal = MODULE.ActivationJournal(tmp_path, authorization)
+    journal.claim()
+    journal.transition(expected_state={"CLAIMED"}, state="RUNNING")
+    failing = FakeExecutor()
+    valid_reconcile = failing.reconcile_resources
+    failing.reconcile_resources = lambda **_kwargs: {
+        **valid_reconcile(
+            plan=package["plan"], authorization=authorization,
+        ),
+        "workspaceAbsent": False,
+    }
+    with pytest.raises(
+        MODULE.ActivationError,
+        match="EXECUTOR_RESOURCE_RECONCILIATION_FAILED",
+    ):
+        MODULE.reconcile_incomplete(
+            authorization=authorization, journal_root=tmp_path,
+            activation_plan_raw=MODULE._canonical(package["plan"]),
+            executor=failing, reconcile=_dormant, verify_dormant=_dormant,
+        )
+    assert journal.inspect()["state"] == "HOLD"
 
 
 def test_preflight_dormant_failure_does_not_claim_decision(tmp_path):
@@ -435,6 +495,24 @@ def test_production_consumption_requires_internal_trusted_clock(monkeypatch,
     )
     with pytest.raises(MODULE.ActivationError,
                        match="ACTIVATION_TRUSTED_TIME_MISMATCH"):
+        _run(package, tmp_path, executor)
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_production_consumption_rejects_caller_selected_journal_root(
+    monkeypatch, tmp_path,
+):
+    tmp_path.chmod(0o700)
+    package = _package(environment="PRODUCTION")
+    executor = FakeExecutor()
+    executor.production_contact = True
+    monkeypatch.setattr(
+        MODULE.supervisor, "_trusted_now_epoch",
+        lambda: (package["now"], {"source": "synthetic"}),
+    )
+    with pytest.raises(
+        MODULE.ActivationError, match="PRODUCTION_JOURNAL_ROOT_MISMATCH"
+    ):
         _run(package, tmp_path, executor)
     assert list(tmp_path.iterdir()) == []
 

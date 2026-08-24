@@ -98,28 +98,35 @@ def _inspect_container(name: str, expected_id: str, expected_image: str,
         raise DeploymentError("INVALID_EXPECTED_CONTAINER_ID")
     if not re.fullmatch(r"sha256:[0-9a-f]{64}", expected_image):
         raise DeploymentError("INVALID_EXPECTED_IMAGE_ID")
+    template = (
+        '{"Id":{{json .Id}},"Image":{{json .Image}},'
+        '"Running":{{json .State.Running}},'
+        '"Status":{{json .State.Status}},"Pid":{{json .State.Pid}},'
+        '"Health":{{with (index .State "Health")}}'
+        '{{json .Status}}{{else}}null{{end}},'
+        '"Ports":{{json .NetworkSettings.Ports}}}'
+    )
     result = subprocess.run(
-        ["docker", "inspect", name], capture_output=True, text=True, check=False,
-        timeout=10, env={"PATH": os.environ.get("PATH", "/usr/bin:/bin")},
+        ["/usr/bin/docker", "inspect", f"--format={template}", name],
+        capture_output=True, text=True, check=False, timeout=10,
+        env={"PATH": "/usr/bin:/bin", "LC_ALL": "C"},
     )
     if result.returncode != 0:
         raise DeploymentError("CONTAINER_INSPECT_FAILED")
     try:
-        items = json.loads(result.stdout)
-        value = items[0]
+        value = json.loads(result.stdout)
         container_id = value["Id"].removeprefix("sha256:")
         image_id = value["Image"]
-        state = value["State"]
-        container_pid = state["Pid"]
-    except (IndexError, KeyError, TypeError, json.JSONDecodeError) as exc:
+        container_pid = value["Pid"]
+    except (KeyError, TypeError, json.JSONDecodeError) as exc:
         raise DeploymentError("INVALID_CONTAINER_INSPECTION") from exc
     if container_id != expected_id or image_id != expected_image:
         raise DeploymentError("CONTAINER_IDENTITY_MISMATCH")
-    if state.get("Running") is not True or state.get("Status") != "running":
+    if value.get("Running") is not True or value.get("Status") != "running":
         raise DeploymentError("CONTAINER_NOT_RUNNING")
     if not isinstance(container_pid, int) or container_pid <= 0:
         raise DeploymentError("INVALID_CONTAINER_PID")
-    health = state.get("Health", {}).get("Status")
+    health = value.get("Health")
     if require_healthy and health != "healthy":
         raise DeploymentError("CONTAINER_NOT_HEALTHY")
 
@@ -129,15 +136,14 @@ def _inspect_container(name: str, expected_id: str, expected_image: str,
     if connection.get("hostaddr") not in {None, "127.0.0.1", "::1"}:
         raise DeploymentError("DSN_HOSTADDR_NOT_LOOPBACK_BOUND")
     port = str(connection.get("port", "5432"))
-    bindings = value.get("NetworkSettings", {}).get("Ports", {}).get(
-        "5432/tcp") or []
+    bindings = value.get("Ports", {}).get("5432/tcp") or []
     if not any(item.get("HostIp") in {"127.0.0.1", "::1"}
                and item.get("HostPort") == port for item in bindings):
         raise DeploymentError("DSN_CONTAINER_PORT_BINDING_MISMATCH")
     return {
         "containerId": container_id,
         "imageId": image_id,
-        "status": state["Status"],
+        "status": value["Status"],
         "health": health,
         "hostPort": int(port),
         "containerPid": container_pid,

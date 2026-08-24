@@ -2,6 +2,7 @@ import hashlib
 import importlib.util
 import json
 import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -17,6 +18,24 @@ SPEC = importlib.util.spec_from_file_location(
 )
 MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
+
+
+def test_hba_container_inspection_never_materializes_environment(monkeypatch):
+    observed = {}
+
+    def run(command, **_kwargs):
+        observed["command"] = command
+        return subprocess.CompletedProcess(command, 0, json.dumps({
+            "Id": "a" * 64, "Mounts": [],
+        }), "")
+
+    monkeypatch.setattr(MODULE.subprocess, "run", run)
+    assert MODULE._docker_inspect("obsidian-postgres") == {
+        "Id": "a" * 64, "Mounts": [],
+    }
+    assert observed["command"][:2] == ["/usr/bin/docker", "inspect"]
+    assert observed["command"][2].startswith("--format=")
+    assert "Config.Env" not in observed["command"][2]
 
 
 def test_manifest_and_managed_bytes_are_exactly_bound():

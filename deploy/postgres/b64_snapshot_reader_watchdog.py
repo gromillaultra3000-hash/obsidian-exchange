@@ -9,10 +9,13 @@ expired authority state is reduced to NOLOGIN/PASSWORD NULL and zero sessions.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import datetime as dt
+import fcntl
 import json
 import os
 import re
+import stat
 from typing import Any
 
 from psycopg import sql
@@ -41,8 +44,51 @@ RUNTIME_ADVISORY_LOCK_KEY = 664064017023001
 LOCK_APPLICATION_PREFIX = "obsidian-b64-lease-lock"
 MAX_TTL_SECONDS = 180
 EXPIRY_GRACE_SECONDS = 2
+ACTIVATION_INTERLOCK_PATH = (
+    "/run/lock/obsidian-b64-production-activation.lock"
+)
+
+
 class WatchdogError(RebindError):
     """Closed watchdog reason code safe for journald."""
+
+
+@contextlib.contextmanager
+def _activation_interlock_status(path: str = ACTIVATION_INTERLOCK_PATH):
+    """Hold the idle side of the activation lock, or report a live owner.
+
+    Keeping the descriptor open for the complete watchdog pass closes the
+    check/use race: either this pass owns the lock and a new activation cannot
+    start, or the activation owns it and this pass may supervise only an
+    otherwise-valid short lease.
+    """
+    descriptor = -1
+    activation_live = False
+    try:
+        descriptor = os.open(
+            path,
+            os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
+            | getattr(os, "O_CLOEXEC", 0),
+            0o600,
+        )
+        metadata = os.fstat(descriptor)
+        if (not stat.S_ISREG(metadata.st_mode)
+                or metadata.st_uid != os.geteuid()
+                or stat.S_IMODE(metadata.st_mode) != 0o600
+                or metadata.st_nlink != 1):
+            raise WatchdogError("WATCHDOG_ACTIVATION_INTERLOCK_UNSAFE")
+        try:
+            fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            activation_live = True
+        yield activation_live
+    except OSError as exc:
+        raise WatchdogError(
+            "WATCHDOG_ACTIVATION_INTERLOCK_UNAVAILABLE"
+        ) from exc
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
 
 
 def _role_state(
@@ -329,7 +375,7 @@ def watchdog_once(
     ):
         raise WatchdogError("PRODUCTION_TARGET_MISMATCH")
 
-    with _host_lock(HOST_LOCK_PATH):
+    with _host_lock(HOST_LOCK_PATH), _activation_interlock_status() as activation_live:
         container = inspect_container(
             container_name,
             expected_image_id=expected_image_id,
@@ -393,21 +439,19 @@ def watchdog_once(
                 holders = _runtime_lock_holders(conn)
                 holder_valid = len(holders) == 1 and _valid_holder(holders[0])
                 if state["authority"] == "DORMANT" and holder_valid:
-                    if require_dormant:
+                    if require_dormant and not activation_live:
                         _terminate_holders_and_take_lock(conn, holders)
                         _verify_role(conn, expected_login=False)
                         status = "DORMANT_RUNTIME_LOCK_CLEARED_VERIFIED"
+                    elif require_dormant:
+                        _verify_role(conn, expected_login=False)
+                        status = "DORMANT_ACTIVATION_CLEANUP_DEFERRED"
                     else:
                         _verify_role(conn, expected_login=False)
                         status = "DORMANT_RUNTIME_OPERATION_DEFERRED"
                 elif state["authority"] == "ACTIVE_LEASE" and holder_valid:
                     remaining = (state["validUntil"] - state["serverNow"]).total_seconds()
-                    if require_dormant:
-                        _terminate_holders_and_take_lock(conn, holders)
-                        _force_dormant(conn)
-                        _verify_role(conn, expected_login=False)
-                        status = "REQUIRED_DORMANT_AUTHORITY_REVOKED_VERIFIED"
-                    elif not -EXPIRY_GRACE_SECONDS <= remaining <= MAX_TTL_SECONDS:
+                    if not -EXPIRY_GRACE_SECONDS <= remaining <= MAX_TTL_SECONDS:
                         _terminate_holders_and_take_lock(conn, holders)
                         _force_dormant(conn)
                         _verify_role(conn, expected_login=False)
@@ -417,9 +461,17 @@ def watchdog_once(
                         _force_dormant(conn)
                         _verify_role(conn, expected_login=False)
                         status = "EXPIRED_AUTHORITY_REVOKED_VERIFIED"
+                    elif require_dormant and not activation_live:
+                        _terminate_holders_and_take_lock(conn, holders)
+                        _force_dormant(conn)
+                        _verify_role(conn, expected_login=False)
+                        status = "REQUIRED_DORMANT_AUTHORITY_REVOKED_VERIFIED"
                     else:
                         _verify_role(conn, expected_login=True)
-                        status = "ACTIVE_LEASE_SUPERVISED"
+                        status = (
+                            "ACTIVE_LEASE_ACTIVATION_INTERLOCK_SUPERVISED"
+                            if require_dormant else "ACTIVE_LEASE_SUPERVISED"
+                        )
                 else:
                     _terminate_holders_and_take_lock(conn, holders)
                     _force_dormant(conn)
@@ -448,6 +500,10 @@ def watchdog_once(
         )
         if after != container:
             raise WatchdogError("CONTAINER_CHANGED_DURING_WATCHDOG_RUN")
+        active_statuses = {
+            "ACTIVE_LEASE_SUPERVISED",
+            "ACTIVE_LEASE_ACTIVATION_INTERLOCK_SUPERVISED",
+        }
         return {
             "schemaVersion": "obsidian-b64-snapshot-reader-watchdog.v1",
             "status": status,
@@ -455,9 +511,10 @@ def watchdog_once(
             "container": container,
             "serverVersionNum": expected_server_version_num,
             "systemIdentifier": expected_system_identifier,
-            "roleLoginState": "ENABLED" if status == "ACTIVE_LEASE_SUPERVISED" else "DISABLED",
-            "credentialState": "PRESENT" if status == "ACTIVE_LEASE_SUPERVISED" else "ABSENT",
+            "roleLoginState": "ENABLED" if status in active_statuses else "DISABLED",
+            "credentialState": "PRESENT" if status in active_statuses else "ABSENT",
             "dormantRequired": require_dormant,
+            "activationInterlockHeld": activation_live,
             "customerRowsRead": False,
             "hbaChanged": False,
             "authorityIncreased": False,

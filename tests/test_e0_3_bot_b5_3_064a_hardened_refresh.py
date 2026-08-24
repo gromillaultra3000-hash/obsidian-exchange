@@ -54,6 +54,17 @@ def _plan():
 
 
 def _source_attestation():
+    tables = [
+        [f"table_{index:02d}", index, hashlib.sha256(
+            f"table-{index}".encode()
+        ).hexdigest()]
+        for index in range(54)
+    ]
+    catalog = [
+        ["b64-catalog-security-fingerprint.v2", f"section_{index:02d}",
+         index, hashlib.sha256(f"catalog-{index}".encode()).hexdigest()]
+        for index in range(13)
+    ]
     return {
         "database": MODULE.SOURCE_DATABASE,
         "serverMajor": 17,
@@ -73,6 +84,15 @@ def _source_attestation():
         "credentialExpiryBound": True,
         "credentialNotAfterEpoch": int(time.time()) + 120,
         "credentialRevocationPending": True,
+        "sourceTableFingerprints": tables,
+        "sourceTableFingerprintSha256": hashlib.sha256(
+            MODULE._canonical(tables)
+        ).hexdigest(),
+        "sourceCatalogFingerprints": catalog,
+        "sourceCatalogFingerprintSha256": hashlib.sha256(
+            MODULE._canonical(catalog)
+        ).hexdigest(),
+        "sourceSystemIdentifier": "1234567890123456789",
         "sessionUser": MODULE.RUNNER_ROLE,
         "currentUser": MODULE.RUNNER_ROLE,
         "roleCanLogin": True,
@@ -169,9 +189,11 @@ class FakeRestore:
         self.result = result
         self.cleanup_ok = cleanup
 
-    def verify(self, _plan, archive_fd, _workspace_fd, _deadline):
+    def verify(self, _plan, archive_fd, _workspace_fd,
+               source_fingerprints, _deadline):
         os.lseek(archive_fd, 0, os.SEEK_SET)
         assert os.read(archive_fd, 4096)
+        assert len(source_fingerprints["tables"]) == 54
         return self.result or {
             "tables": 54,
             "catalogSections": 13,
@@ -247,8 +269,16 @@ def test_closed_plan_pins_fresh_registry_chain_patched_client_and_no_authority()
     assert all(value is False for value in plan["authority"].values())
 
 
-def test_frozen_plan_validates_and_binds_every_executable_input_byte_exact():
-    plan = json.loads(FROZEN_PLAN.read_text(encoding="utf-8"))
+def test_derived_plan_validates_and_binds_every_executable_input_byte_exact():
+    historical = json.loads(FROZEN_PLAN.read_text(encoding="utf-8"))
+    plan = MODULE.build_plan(
+        run_nonce="derived_plan_0123456789abcdef",
+        artifact_sha256={
+            key: hashlib.sha256((ROOT / relative).read_bytes()).hexdigest()
+            for key, relative in ARTIFACT_PATHS.items()
+        },
+        registry_observed_at=historical["registryObservation"]["observedAt"],
+    )
     MODULE.validate_plan(plan)
     assert set(plan["artifactsSha256"]) == set(ARTIFACT_PATHS)
     for key, relative in ARTIFACT_PATHS.items():
@@ -427,8 +457,12 @@ def test_success_is_full_lifecycle_with_verified_absence_and_no_authority(tmp_pa
         "absenceScope": "REGISTERED_WORKSPACE_PATHS_AND_ID_BOUND_CONTAINERS_ONLY",
         "registeredArchivePathAbsent": True,
         "registeredManifestPathsAbsent": True,
-        "expectedContainerIdsAbsent": True,
-        "containerTmpfsLifetimesEnded": True,
+            "expectedContainerIdsAbsent": True,
+            "dumpContainerAbsent": True,
+            "restoreContainerAbsent": True,
+            "containerTmpfsLifetimesEnded": True,
+            "dumpTmpfsReleased": True,
+            "restoreTmpfsReleased": True,
         "sourceSessionClosed": True,
         "credentialRevocationAttested": True,
         "workspaceAbsent": True,
@@ -817,6 +851,42 @@ def test_stat_rmdir_swap_cannot_claim_bound_workspace_absent(tmp_path, monkeypat
     assert escaped.is_dir()
 
 
+def test_parent_fsync_failure_cannot_claim_workspace_cleanup(tmp_path, monkeypatch):
+    plan = _plan()
+    source_fd = _credential_fd()
+    dump_fd = _credential_fd()
+    parent = _parent(tmp_path)
+    real_rmdir = MODULE.os.rmdir
+    real_fsync = MODULE.os.fsync
+    removed = False
+
+    def observed_rmdir(path, *args, **kwargs):
+        nonlocal removed
+        result = real_rmdir(path, *args, **kwargs)
+        if path == f"b64-064a-{plan['runNonce']}":
+            removed = True
+        return result
+
+    def fail_parent_fsync(fd):
+        if removed:
+            raise OSError("synthetic parent fsync failure")
+        return real_fsync(fd)
+
+    monkeypatch.setattr(MODULE.os, "rmdir", observed_rmdir)
+    monkeypatch.setattr(MODULE.os, "fsync", fail_parent_fsync)
+    try:
+        receipt = MODULE.execute_hermetic(
+            plan, parent, source=FakeSource(), dump=FakeDump(),
+            restore=FakeRestore(), source_secret_fd=source_fd,
+            dump_secret_fd=dump_fd,
+        )
+    finally:
+        os.close(source_fd)
+        os.close(dump_fd)
+    assert receipt["cleanupStatus"] == "CLEANUP_UNCERTAIN"
+    assert receipt["cleanup"]["workspaceAbsent"] is False
+
+
 def test_cleanup_overrun_is_detected_by_final_deadline_check(tmp_path):
     class Clock:
         value = 0.0
@@ -934,7 +1004,8 @@ def test_production_capable_adapter_is_rejected_before_workspace_or_secret_read(
     os.close(source_write_fd)
     os.close(dump_write_fd)
     try:
-        with pytest.raises(MODULE.HardenedRefreshError, match="PRODUCTION_ADAPTER_DISABLED"):
+        with pytest.raises(MODULE.HardenedRefreshError,
+                           match="ADAPTER_CONTACT_PROFILE_MISMATCH"):
             MODULE.execute_hermetic(_plan(), parent, source=ProductionSource(),
                                     dump=FakeDump(), restore=FakeRestore(),
                                     source_secret_fd=source_read_fd,

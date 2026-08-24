@@ -47,7 +47,6 @@ if not _HELPER_PROCESS:
     from deploy_b64_snapshot_reader_hba import (
         _bind_mount,
         _cluster_identity,
-        _docker_inspect,
         _hba_parser_report,
         _load_manifest,
         _open_pgdata,
@@ -83,6 +82,10 @@ REQUIRED_SEALS = (
     fcntl.F_SEAL_SEAL | fcntl.F_SEAL_SHRINK |
     fcntl.F_SEAL_GROW | fcntl.F_SEAL_WRITE
 )
+MAX_FINGERPRINT_RELATION_BYTES = 16 * 1024 * 1024
+MAX_FINGERPRINT_TOTAL_BYTES = 64 * 1024 * 1024
+MAX_FINGERPRINT_TABLE_ROWS = 250_000
+MAX_FINGERPRINT_TOTAL_ROWS = 500_000
 
 
 class RuntimeContractError(RuntimeError):
@@ -153,11 +156,38 @@ def _validate_observation_dsn_secret_boundary(dsn: str) -> None:
         raise RuntimeContractError("OBSERVATION_DSN_INLINE_SECRET_FORBIDDEN")
     passfile = connection.get("passfile")
     if passfile is None:
-        return
+        raise RuntimeContractError("OBSERVATION_PASSFILE_REQUIRED")
     match = re.fullmatch(r"/proc/self/fd/([0-9]+)", passfile)
     if match is None:
         raise RuntimeContractError("OBSERVATION_PASSFILE_NOT_ANONYMOUS_FD")
     _validate_credential_fd(int(match.group(1)))
+
+
+def _docker_inspect(name: str) -> dict[str, Any]:
+    """Read only the container identity and mounts; never materialize Env."""
+    if re.fullmatch(r"[A-Za-z0-9_.-]{1,128}", name) is None:
+        raise RuntimeContractError("CONTAINER_REFERENCE_INVALID")
+    template = '{"Id":{{json .Id}},"Mounts":{{json .Mounts}}}'
+    try:
+        result = subprocess.run(
+            ["/usr/bin/docker", "inspect", f"--format={template}", name],
+            capture_output=True, text=True, check=False, timeout=8,
+            env={"PATH": "/usr/bin:/bin", "LC_ALL": "C"},
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise RuntimeContractError("CONTAINER_INSPECTION_UNAVAILABLE") from exc
+    if result.returncode != 0 or result.stderr:
+        raise RuntimeContractError("CONTAINER_INSPECTION_UNAVAILABLE")
+    try:
+        value = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        raise RuntimeContractError("CONTAINER_INSPECTION_INVALID") from exc
+    if (not isinstance(value, dict) or set(value) != {"Id", "Mounts"}
+            or type(value["Id"]) is not str
+            or re.fullmatch(r"(?:sha256:)?[0-9a-f]{64}", value["Id"])
+            is None or not isinstance(value["Mounts"], list)):
+        raise RuntimeContractError("CONTAINER_INSPECTION_INVALID")
+    return value
 
 
 def _role_auth_state_on(
@@ -687,9 +717,17 @@ def _exact_runtime_binding(
     expected_container_id: str, expected_image_id: str,
     require_healthy: bool, allow_contract_container: bool,
     expected_login: bool,
+    execution_plan: Mapping[str, Any] | None = None,
 ) -> RuntimeBinding:
     """Bind every mutable execution dependency before/after auth mutation."""
-    _load_and_bind_plan()
+    if execution_plan is None:
+        _load_and_bind_plan()
+    elif (not isinstance(execution_plan, Mapping)
+          or execution_plan.get("schemaVersion")
+          != "b64-064a-hardened-refresh-plan.v1"
+          or execution_plan.get("route") != "E0/E0.3/B5.3/064A"
+          or not isinstance(execution_plan.get("artifactsSha256"), Mapping)):
+        raise RuntimeContractError("RUNTIME_EXECUTION_PLAN_INVALID")
     manifest = _load_manifest()
     before = _inspect_container(
         container, expected_container_id, expected_image_id,
@@ -863,6 +901,7 @@ class CredentialLease:
     _binding: RuntimeBinding
     _mutation_binding: MutationBinding
     _allow_contract_container: bool
+    _execution_plan: Mapping[str, Any] | None
     _source_fd_identity: tuple[int, int]
     _dump_fd_identity: tuple[int, int]
     _admin_passfile_fd_identity: tuple[int, int]
@@ -947,6 +986,7 @@ class CredentialLease:
                     require_healthy=self._require_healthy,
                     allow_contract_container=self._allow_contract_container,
                     expected_login=False,
+                    execution_plan=self._execution_plan,
                 )
             except BaseException:
                 raise RuntimeContractError(
@@ -1005,6 +1045,53 @@ class CredentialLease:
         self.close()
 
 
+def _valid_snapshot_fingerprint_report(
+    report: Mapping[str, Any], expected_system_identifier: str,
+) -> bool:
+    tables = report.get("tableFingerprints")
+    catalog = report.get("catalogFingerprints")
+    if (type(tables) is not list or len(tables) != 54
+            or type(catalog) is not list or len(catalog) != 13
+            or report.get("sourceSystemIdentifier")
+            != expected_system_identifier):
+        return False
+    table_names: list[str] = []
+    for row in tables:
+        if (type(row) is not list or len(row) != 3
+                or type(row[0]) is not str
+                or re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,62}", row[0])
+                is None or type(row[1]) is not int or row[1] < 0
+                or type(row[2]) is not str
+                or re.fullmatch(r"[0-9a-f]{64}", row[2]) is None):
+            return False
+        table_names.append(row[0])
+    if table_names != sorted(set(table_names)):
+        return False
+    catalog_sections: list[str] = []
+    for row in catalog:
+        if (type(row) is not list or len(row) != 4
+                or row[0] != "b64-catalog-security-fingerprint.v2"
+                or type(row[1]) is not str
+                or re.fullmatch(r"[a-z_]{1,64}", row[1]) is None
+                or type(row[2]) is not int or row[2] < 0
+                or type(row[3]) is not str
+                or re.fullmatch(r"[0-9a-f]{64}", row[3]) is None):
+            return False
+        catalog_sections.append(row[1])
+    if len(set(catalog_sections)) != 13:
+        return False
+    table_digest = hashlib.sha256(json.dumps(
+        tables, separators=(",", ":"), ensure_ascii=False,
+    ).encode("utf-8")).hexdigest()
+    catalog_digest = hashlib.sha256(json.dumps(
+        catalog, separators=(",", ":"), ensure_ascii=False,
+    ).encode("utf-8")).hexdigest()
+    return (
+        report.get("tableFingerprintSha256") == table_digest
+        and report.get("catalogFingerprintSha256") == catalog_digest
+    )
+
+
 @dataclass(repr=False)
 class ProductionSourceAdapter:
     """Exact SourceAdapter backed by one issued two-memfd lease.
@@ -1014,6 +1101,9 @@ class ProductionSourceAdapter:
     """
 
     lease: CredentialLease = field(repr=False)
+    frozen_plan: Mapping[str, Any] | None = field(
+        default=None, repr=False
+    )
     _process: subprocess.Popen[bytes] | None = field(
         default=None, init=False, repr=False
     )
@@ -1051,6 +1141,7 @@ class ProductionSourceAdapter:
             raise RuntimeContractError("SOURCE_HELPER_NOT_STARTED")
         fd = process.stdout.fileno()
         payload = b""
+        maximum_report_bytes = 64 * 1024
         while b"\n" not in payload:
             remaining = deadline - time.monotonic()
             if remaining <= 0:
@@ -1058,11 +1149,11 @@ class ProductionSourceAdapter:
             ready, _, _ = select.select([fd], [], [], remaining)
             if not ready:
                 raise RuntimeContractError("SOURCE_HELPER_START_TIMEOUT")
-            chunk = os.read(fd, 8193 - len(payload))
+            chunk = os.read(fd, maximum_report_bytes + 1 - len(payload))
             if not chunk:
                 raise RuntimeContractError("SOURCE_HELPER_EARLY_EXIT")
             payload += chunk
-            if len(payload) > 8192:
+            if len(payload) > maximum_report_bytes:
                 raise RuntimeContractError("SOURCE_HELPER_REPORT_TOO_LARGE")
         line, remainder = payload.split(b"\n", 1)
         if remainder or not line:
@@ -1073,6 +1164,17 @@ class ProductionSourceAdapter:
             raise RuntimeContractError("SOURCE_HELPER_PROTOCOL_INVALID") from exc
         if not isinstance(report, dict):
             raise RuntimeContractError("SOURCE_HELPER_PROTOCOL_INVALID")
+        if (set(report) == {
+                "status", "reason", "credentialExposed",
+                "customerRowsRead"}
+                and report.get("status") == "ERROR"
+                and report.get("credentialExposed") is False
+                and report.get("customerRowsRead") is False
+                and type(report.get("reason")) is str
+                and re.fullmatch(r"[A-Z0-9_]+", report["reason"])):
+            raise RuntimeContractError(
+                "SOURCE_HELPER_" + report["reason"]
+            )
         return report
 
     def open(
@@ -1096,7 +1198,11 @@ class ProductionSourceAdapter:
                 or (secret.st_dev, secret.st_ino)
                 == (dump_secret.st_dev, dump_secret.st_ino)):
             raise RuntimeContractError("SOURCE_CREDENTIAL_BINDING_MISMATCH")
-        frozen = _load_and_bind_plan()
+        frozen = (
+            _load_and_bind_plan()
+            if self.frozen_plan is None
+            else json.loads(json.dumps(self.frozen_plan))
+        )
         try:
             supplied = json.dumps(
                 dict(plan), sort_keys=True, separators=(",", ":"),
@@ -1127,6 +1233,7 @@ class ProductionSourceAdapter:
         script_fd = os.open(
             Path(__file__), os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
         )
+        catalog_fd = -1
         script_metadata = os.fstat(script_fd)
         script_digest = hashlib.sha256()
         try:
@@ -1143,8 +1250,30 @@ class ProductionSourceAdapter:
             if script_digest.hexdigest() != frozen["artifactsSha256"][
                     "snapshotReaderRuntime"]:
                 raise RuntimeContractError("SOURCE_HELPER_SCRIPT_DRIFT")
+            catalog_path = Path(__file__).with_name(
+                "b64_catalog_security_fingerprint.sql"
+            )
+            catalog_fd = os.open(
+                catalog_path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+            )
+            catalog_metadata = os.fstat(catalog_fd)
+            catalog_raw = b""
+            while True:
+                chunk = os.read(catalog_fd, 1024 * 1024)
+                if not chunk:
+                    break
+                catalog_raw += chunk
+            os.lseek(catalog_fd, 0, os.SEEK_SET)
+            if (not stat.S_ISREG(catalog_metadata.st_mode)
+                    or catalog_metadata.st_uid != 0
+                    or stat.S_IMODE(catalog_metadata.st_mode) & 0o022
+                    or hashlib.sha256(catalog_raw).hexdigest()
+                    != frozen["artifactsSha256"]["catalogFingerprintSql"]):
+                raise RuntimeContractError("SOURCE_CATALOG_SQL_DRIFT")
         except BaseException:
             os.close(script_fd)
+            if catalog_fd >= 0:
+                os.close(catalog_fd)
             raise
         command = [
             "/usr/bin/nsenter", "--target",
@@ -1155,6 +1284,7 @@ class ProductionSourceAdapter:
             "--lease-nonce", self.lease.lease_nonce,
             "--expected-netns-inode", str(self.lease.source_netns_inode),
             "--expected-system-identifier", self.lease.system_identifier,
+            "--catalog-sql-fd", str(catalog_fd),
         ]
         environment = {
             "PATH": "/usr/bin:/bin",
@@ -1165,11 +1295,13 @@ class ProductionSourceAdapter:
             try:
                 self._process = subprocess.Popen(
                     command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE, pass_fds=(secret_fd, script_fd),
+                    stderr=subprocess.PIPE,
+                    pass_fds=(secret_fd, script_fd, catalog_fd),
                     close_fds=True, env=environment,
                 )
             finally:
                 os.close(script_fd)
+                os.close(catalog_fd)
             report = self._read_export_report(helper_deadline)
             role = inspect_role(self.lease._admin_dsn, expected_login=True)
             rebound = _exact_runtime_binding(
@@ -1182,8 +1314,14 @@ class ProductionSourceAdapter:
                 require_healthy=self.lease._require_healthy,
                 allow_contract_container=self.lease._allow_contract_container,
                 expected_login=True,
+                execution_plan=self.lease._execution_plan,
             )
-        except BaseException:
+        except BaseException as exc:
+            safe_open_reason = (
+                str(exc) if isinstance(exc, RuntimeContractError)
+                and re.fullmatch(r"[A-Z0-9_]+", str(exc))
+                else "SOURCE_ADAPTER_OPEN_FAILED"
+            )
             helper_clean = self._kill_helper()
             try:
                 revoked = self.lease.close()
@@ -1199,16 +1337,25 @@ class ProductionSourceAdapter:
                 "credentialState": revoked.get("credentialState"),
                 "activeSessions": revoked.get("activeSessions"),
             }
-            raise RuntimeContractError("SOURCE_ADAPTER_OPEN_FAILED") from None
+            raise RuntimeContractError(safe_open_reason) from None
         expected_report = {
             "clientAddress": "127.0.0.1/32",
-            "customerRowsRead": False,
+            "customerRowsRead": True,
+            "catalogFingerprintSha256":
+                report.get("catalogFingerprintSha256"),
+            "catalogFingerprints": report.get("catalogFingerprints"),
             "database": DATABASE,
             "isolation": "repeatable read",
             "readOnly": True,
             "sessionAttestation": report.get("sessionAttestation"),
             "snapshot": report.get("snapshot"),
+            "sourceSystemIdentifier": report.get(
+                "sourceSystemIdentifier"
+            ),
             "status": "SNAPSHOT_EXPORTED_HELD",
+            "tableFingerprintSha256":
+                report.get("tableFingerprintSha256"),
+            "tableFingerprints": report.get("tableFingerprints"),
             "user": ROLE,
         }
         inventory = role.get("inventory", {})
@@ -1234,11 +1381,36 @@ class ProductionSourceAdapter:
             "otherSchemaPrivileges": 0,
         }
         attestation_failure = None
-        if json.dumps(report, sort_keys=True, separators=(",", ":")) != \
-                json.dumps(
-                    expected_report, sort_keys=True, separators=(",", ":")
-                ):
-            attestation_failure = "SOURCE_ADAPTER_REPORT_MISMATCH"
+        if set(report) != set(expected_report):
+            missing = sorted(set(expected_report) - set(report))
+            extra = sorted(set(report) - set(expected_report))
+            if len(missing) == 1 and not extra:
+                shape = "MISSING_" + missing[0]
+            elif len(extra) == 1 and not missing:
+                shape = "EXTRA_" + extra[0]
+            else:
+                shape = "SHAPE"
+            safe_shape = re.sub(
+                r"[^A-Z0-9]+", "_", shape.upper()
+            ).strip("_")
+            attestation_failure = (
+                f"SOURCE_ADAPTER_REPORT_{safe_shape}_MISMATCH"
+            )
+        elif report != expected_report:
+            mismatch = next(
+                key for key, expected_value in expected_report.items()
+                if (type(report[key]) is not type(expected_value)
+                    or report[key] != expected_value)
+            )
+            safe_field = re.sub(
+                r"[^A-Z0-9]+", "_", mismatch.upper()
+            ).strip("_")
+            attestation_failure = (
+                f"SOURCE_ADAPTER_REPORT_{safe_field}_MISMATCH"
+            )
+        elif not _valid_snapshot_fingerprint_report(
+                report, self.lease.system_identifier):
+            attestation_failure = "SOURCE_FINGERPRINT_REPORT_MISMATCH"
         elif report.get("sessionAttestation") != expected_session:
             observed_session = report.get("sessionAttestation")
             if (not isinstance(observed_session, dict)
@@ -1310,6 +1482,13 @@ class ProductionSourceAdapter:
                 self.lease.expires_at.timestamp()
             ),
             "credentialRevocationPending": True,
+            "sourceTableFingerprints": report["tableFingerprints"],
+            "sourceTableFingerprintSha256":
+                report["tableFingerprintSha256"],
+            "sourceCatalogFingerprints": report["catalogFingerprints"],
+            "sourceCatalogFingerprintSha256":
+                report["catalogFingerprintSha256"],
+            "sourceSystemIdentifier": report["sourceSystemIdentifier"],
             "sessionUser": ROLE,
             "currentUser": ROLE,
             **session,
@@ -1374,18 +1553,58 @@ def issue_credential_lease(
     expected_container_id: str, expected_image_id: str,
     ttl_seconds: int = 90, require_healthy: bool = True,
     allow_contract_container: bool = False,
+    production_authorization: Any | None = None,
+    execution_plan: Mapping[str, Any] | None = None,
 ) -> CredentialLease:
     """Issue one short lease after exact dormant/HBA/container preflight."""
     if (type(ttl_seconds) is not int
             or not MIN_TTL_SECONDS <= ttl_seconds <= MAX_TTL_SECONDS):
         raise RuntimeContractError("INVALID_CREDENTIAL_TTL")
-    if allow_contract_container and not re.fullmatch(
-            r"b64-hba-contract-[0-9]+", container):
-        raise RuntimeContractError("CONTRACT_CONTAINER_NAME_INVALID")
-    if not allow_contract_container:
-        raise RuntimeContractError(
-            "PRODUCTION_LOGIN_ACTIVATION_NOT_AUTHORIZED"
-        )
+    if allow_contract_container:
+        if (production_authorization is not None
+                or not re.fullmatch(
+                    r"b64-hba-contract-[0-9]+", container
+                )):
+            raise RuntimeContractError("CONTRACT_CONTAINER_NAME_INVALID")
+    else:
+        try:
+            import b64_064a_activation_entrypoint as activation
+            verified = activation.require_verified_execution_authorization(
+                production_authorization,
+                expected_environment="PRODUCTION",
+            )
+        except BaseException as exc:
+            raise RuntimeContractError(
+                "PRODUCTION_LOGIN_ACTIVATION_NOT_AUTHORIZED"
+            ) from exc
+        target = verified.target
+        if (container != activation.PRODUCTION_CONTAINER
+                or target.get("containerName") != container
+                or target.get("containerId") != expected_container_id
+                or target.get("imageId") != expected_image_id
+                or target.get("systemIdentifier")
+                != PRODUCTION_SYSTEM_IDENTIFIER
+                or verified.limits.get("credentialTtlSeconds")
+                != ttl_seconds
+                or verified.expires_at_epoch <= int(time.time())):
+            raise RuntimeContractError(
+                "PRODUCTION_ACTIVATION_TARGET_MISMATCH"
+            )
+        if (not isinstance(execution_plan, Mapping)
+                or hashlib.sha256(json.dumps(
+                    dict(execution_plan), sort_keys=True,
+                    separators=(",", ":"), ensure_ascii=False,
+                ).encode("utf-8")).hexdigest()
+                != verified.derived_execution_plan_sha256):
+            raise RuntimeContractError(
+                "PRODUCTION_EXECUTION_PLAN_MISMATCH"
+            )
+        try:
+            activation.claim_verified_production_lease(verified)
+        except BaseException as exc:
+            raise RuntimeContractError(
+                "PRODUCTION_ACTIVATION_LEASE_ALREADY_CLAIMED"
+            ) from exc
     _validate_observation_dsn_secret_boundary(observation_dsn)
     initial_container = _inspect_container(
         container, expected_container_id, expected_image_id,
@@ -1437,20 +1656,25 @@ def issue_credential_lease(
             require_healthy=require_healthy,
             allow_contract_container=allow_contract_container,
             expected_login=False,
+            execution_plan=execution_plan,
         )
         _assert_runtime_lock(lock_conn)
         password = base64.urlsafe_b64encode(
             secrets.token_bytes(32)
         ).rstrip(b"=")
-        passline = (
+        source_passline = (
             f"{HOST}:{PORT}:{DATABASE}:{ROLE}:".encode("ascii")
             + password + b"\n"
         )
+        dump_passline = (
+            f"/run/b64/proxy:{PORT}:{DATABASE}:{ROLE}:".encode("ascii")
+            + password + b"\n"
+        )
         source_fd = _sealed_pgpass_memfd(
-            passline, "obsidian-b64-source-pgpass"
+            source_passline, "obsidian-b64-source-pgpass"
         )
         dump_fd = _sealed_pgpass_memfd(
-            passline, "obsidian-b64-dump-pgpass"
+            dump_passline, "obsidian-b64-dump-pgpass"
         )
         first = _validate_credential_fd(source_fd)
         second = _validate_credential_fd(dump_fd)
@@ -1472,6 +1696,7 @@ def issue_credential_lease(
             require_healthy=require_healthy,
             allow_contract_container=allow_contract_container,
             expected_login=True,
+            execution_plan=execution_plan,
         )
         if (post["login"] is not True or post["passwordAbsent"] is not False
                 or post_expiry != expires_at or post["sessions"] != 0
@@ -1504,6 +1729,9 @@ def issue_credential_lease(
             _binding=binding,
             _mutation_binding=mutation_binding,
             _allow_contract_container=allow_contract_container,
+            _execution_plan=(
+                dict(execution_plan) if execution_plan is not None else None
+            ),
             _source_fd_identity=(first.st_dev, first.st_ino),
             _dump_fd_identity=(second.st_dev, second.st_ino),
             _admin_passfile_fd_identity=(
@@ -1549,6 +1777,7 @@ def issue_credential_lease(
                         expected_image_id=expected_image_id,
                         require_healthy=require_healthy,
                         allow_contract_container=allow_contract_container,
+                        execution_plan=execution_plan,
                     )
                 except BaseException:
                     raise RuntimeContractError(
@@ -1564,6 +1793,7 @@ def issue_credential_lease(
                     require_healthy=require_healthy,
                     allow_contract_container=allow_contract_container,
                     expected_login=False,
+                    execution_plan=execution_plan,
                 )
                 if compensated != binding:
                     raise RuntimeContractError(
@@ -1595,6 +1825,7 @@ def reconcile_credential(
     expected_container_id: str, expected_image_id: str,
     require_healthy: bool = True,
     allow_contract_container: bool = False,
+    execution_plan: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Revoke an abandoned/expired lease using a fresh exact binding."""
     if allow_contract_container and not re.fullmatch(
@@ -1637,6 +1868,7 @@ def reconcile_credential(
                     require_healthy=require_healthy,
                     allow_contract_container=allow_contract_container,
                     expected_login=False,
+                    execution_plan=execution_plan,
                 )
                 return {
                     "status": "FOREIGN_LOCK_RETAINED_DORMANT_VERIFIED",
@@ -1675,6 +1907,7 @@ def reconcile_credential(
                 require_healthy=require_healthy,
                 allow_contract_container=allow_contract_container,
                 expected_login=False,
+                execution_plan=execution_plan,
             )
             return {
                 "status": "ALREADY_DORMANT_VERIFIED",
@@ -1701,6 +1934,7 @@ def reconcile_credential(
                 require_healthy=require_healthy,
                 allow_contract_container=allow_contract_container,
                 expected_login=False,
+                execution_plan=execution_plan,
             )
         except BaseException:
             raise RuntimeContractError(
@@ -2025,9 +2259,96 @@ def _source_session_attestation(conn: Any) -> dict[str, Any]:
     }
 
 
+def _source_table_fingerprint(conn: Any) -> tuple[list[list[Any]], str]:
+    conn.execute("SET LOCAL work_mem='4MB'")
+    table_inventory = conn.execute(
+        "SELECT c.relname,pg_relation_size(c.oid) FROM pg_class c "
+        "JOIN pg_namespace n ON n.oid=c.relnamespace "
+        "WHERE n.nspname='public' AND c.relkind IN('r','p') "
+        "ORDER BY c.relname"
+    ).fetchall()
+    if (len(table_inventory) != 54
+            or any(type(size) is not int or size < 0
+                   or size > MAX_FINGERPRINT_RELATION_BYTES
+                   for _name, size in table_inventory)
+            or sum(size for _name, size in table_inventory)
+            > MAX_FINGERPRINT_TOTAL_BYTES):
+        raise RuntimeContractError("SOURCE_FINGERPRINT_SIZE_LIMIT")
+    entries: list[list[Any]] = []
+    total_rows = 0
+    for table, _size in table_inventory:
+        count = conn.execute(sql.SQL(
+            "SELECT count(*) FROM public.{}"
+        ).format(sql.Identifier(table))).fetchone()[0]
+        if (type(count) is not int or count < 0
+                or count > MAX_FINGERPRINT_TABLE_ROWS
+                or total_rows + count > MAX_FINGERPRINT_TOTAL_ROWS):
+            raise RuntimeContractError("SOURCE_FINGERPRINT_ROW_LIMIT")
+        total_rows += count
+        digest = conn.execute(sql.SQL(
+            "SELECT encode(sha256(convert_to(COALESCE("
+            "string_agg(to_jsonb(t)::text,chr(10) ORDER BY "
+            "to_jsonb(t)::text),''),'UTF8')),'hex') FROM public.{} t"
+        ).format(sql.Identifier(table))).fetchone()[0]
+        entries.append([table, count, digest])
+    encoded = json.dumps(entries, separators=(",", ":")).encode("utf-8")
+    return entries, hashlib.sha256(encoded).hexdigest()
+
+
+def _source_catalog_fingerprint(
+    conn: Any, catalog_sql_fd: int,
+) -> tuple[list[list[Any]], str]:
+    try:
+        metadata = os.fstat(catalog_sql_fd)
+        if (not stat.S_ISREG(metadata.st_mode)
+                or metadata.st_uid != 0
+                or stat.S_IMODE(metadata.st_mode) & 0o022
+                or not 1 <= metadata.st_size <= 1024 * 1024):
+            raise RuntimeContractError("SOURCE_CATALOG_SQL_UNSAFE")
+        raw = b""
+        while len(raw) < metadata.st_size:
+            chunk = os.read(catalog_sql_fd, metadata.st_size - len(raw))
+            if not chunk:
+                raise RuntimeContractError("SOURCE_CATALOG_SQL_SHORT_READ")
+            raw += chunk
+        source = raw.decode("utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        raise RuntimeContractError("SOURCE_CATALOG_SQL_UNSAFE") from exc
+    cursor = conn.execute(source)
+    rows = None
+    while True:
+        if cursor.description:
+            rows = cursor.fetchall()
+        if not cursor.nextset():
+            break
+    if rows is None:
+        raise RuntimeContractError("SOURCE_CATALOG_FINGERPRINT_MISSING")
+    expected = {
+        "column_acl", "default_acl", "membership", "db_role_setting",
+        "relation_security", "constraint_security", "index_security",
+        "trigger_security", "function_security", "policy_security",
+        "sequence_definition", "type_security", "extension_security",
+    }
+    entries = [
+        [version, section, int(count), digest]
+        for version, section, count, digest in rows
+    ]
+    if (len(entries) != len(expected)
+            or {row[1] for row in entries} != expected
+            or any(row[0] != "b64-catalog-security-fingerprint.v2"
+                   for row in entries)
+            or any(type(row[3]) is not str
+                   or re.fullmatch(r"[0-9a-f]{64}", row[3]) is None
+                   for row in entries)):
+        raise RuntimeContractError("SOURCE_CATALOG_FINGERPRINT_INVALID")
+    encoded = json.dumps(entries, separators=(",", ":")).encode("utf-8")
+    return entries, hashlib.sha256(encoded).hexdigest()
+
+
 def _export_helper(
     secret_fd: int, expires_at: str, lease_nonce: str,
     expected_netns_inode: int, expected_system_identifier: str,
+    catalog_sql_fd: int,
 ) -> int:
     import psycopg
 
@@ -2064,13 +2385,32 @@ def _export_helper(
                 or row[9] != expected_system_identifier):
             raise RuntimeContractError("EXPORT_SESSION_ATTESTATION_FAILED")
         session_attestation = _source_session_attestation(conn)
+        try:
+            table_entries, table_sha = _source_table_fingerprint(conn)
+        except BaseException as exc:
+            raise RuntimeContractError(
+                "EXPORT_TABLE_FINGERPRINT_FAILED"
+            ) from exc
+        try:
+            catalog_entries, catalog_sha = _source_catalog_fingerprint(
+                conn, catalog_sql_fd
+            )
+        except BaseException as exc:
+            raise RuntimeContractError(
+                "EXPORT_CATALOG_FINGERPRINT_FAILED"
+            ) from exc
         report = {
             "status": "SNAPSHOT_EXPORTED_HELD",
             "user": row[0], "database": row[2],
             "clientAddress": row[3], "readOnly": True,
             "isolation": row[5], "snapshot": _snapshot(row[6]),
             "sessionAttestation": session_attestation,
-            "customerRowsRead": False,
+            "tableFingerprints": table_entries,
+            "tableFingerprintSha256": table_sha,
+            "catalogFingerprints": catalog_entries,
+            "catalogFingerprintSha256": catalog_sha,
+            "sourceSystemIdentifier": row[9],
+            "customerRowsRead": True,
         }
         print(json.dumps(report, sort_keys=True), flush=True)
         _wait_for_export_close(conn, deadline)
@@ -2134,17 +2474,19 @@ def main() -> int:
     parser.add_argument("--lease-nonce", required=True)
     parser.add_argument("--expected-netns-inode", type=int, required=True)
     parser.add_argument("--expected-system-identifier", required=True)
+    parser.add_argument("--catalog-sql-fd", type=int)
     parser.add_argument("--snapshot")
     args = parser.parse_args()
     try:
         if args.export_helper:
-            if args.snapshot is not None:
+            if args.snapshot is not None or args.catalog_sql_fd is None:
                 raise RuntimeContractError("UNEXPECTED_SNAPSHOT_ARGUMENT")
             return _export_helper(
                 args.credential_fd, args.expires_at, args.lease_nonce,
                 args.expected_netns_inode, args.expected_system_identifier,
+                args.catalog_sql_fd,
             )
-        if args.snapshot is None:
+        if args.snapshot is None or args.catalog_sql_fd is not None:
             raise RuntimeContractError("SNAPSHOT_ARGUMENT_REQUIRED")
         return _import_helper(
             args.credential_fd, args.snapshot, args.expires_at,

@@ -105,7 +105,8 @@ class RestoreAdapter(Protocol):
     production_contact: bool
 
     def verify(self, plan: Mapping[str, Any], archive_fd: int,
-               workspace_fd: int, deadline: float) -> Mapping[str, Any]: ...
+               workspace_fd: int, source_fingerprints: Mapping[str, Any],
+               deadline: float) -> Mapping[str, Any]: ...
     def cleanup(self, expected_container_id: str | None) \
             -> Mapping[str, Any]: ...
 
@@ -513,6 +514,9 @@ def validate_source_attestation(value: Mapping[str, Any]) -> dict[str, Any]:
         "hbaFirstMatchAttested", "roleCredentialAuthenticated",
         "credentialExpiryBound", "credentialNotAfterEpoch",
         "credentialRevocationPending",
+        "sourceTableFingerprints", "sourceTableFingerprintSha256",
+        "sourceCatalogFingerprints", "sourceCatalogFingerprintSha256",
+        "sourceSystemIdentifier",
         "sourceContainerId", "sourceContainerImageSha256",
         "sessionUser", "currentUser", "roleCanLogin", "roleSuperuser",
         "roleCreateDb", "roleCreateRole", "roleInherit", "roleReplication",
@@ -573,6 +577,36 @@ def validate_source_attestation(value: Mapping[str, Any]) -> dict[str, Any]:
                 "sequenceUsageOrUpdatePrivileges", "userFunctionExecutePrivileges",
                 "otherSchemaPrivileges"))):
         raise HardenedRefreshError("LEAST_PRIVILEGE_ATTESTATION_FAILED")
+    tables = value["sourceTableFingerprints"]
+    catalog = value["sourceCatalogFingerprints"]
+    if (type(tables) is not list or len(tables) != 54
+            or type(catalog) is not list or len(catalog) != 13
+            or type(value["sourceSystemIdentifier"]) is not str
+            or re.fullmatch(r"[0-9]{8,32}", value["sourceSystemIdentifier"])
+            is None):
+        raise HardenedRefreshError("SOURCE_FINGERPRINT_ATTESTATION_FAILED")
+    for row in tables:
+        if (type(row) is not list or len(row) != 3
+                or type(row[0]) is not str or type(row[1]) is not int
+                or row[1] < 0 or type(row[2]) is not str
+                or re.fullmatch(r"[0-9a-f]{64}", row[2]) is None):
+            raise HardenedRefreshError(
+                "SOURCE_FINGERPRINT_ATTESTATION_FAILED"
+            )
+    for row in catalog:
+        if (type(row) is not list or len(row) != 4
+                or row[0] != "b64-catalog-security-fingerprint.v2"
+                or type(row[1]) is not str or type(row[2]) is not int
+                or row[2] < 0 or type(row[3]) is not str
+                or re.fullmatch(r"[0-9a-f]{64}", row[3]) is None):
+            raise HardenedRefreshError(
+                "SOURCE_FINGERPRINT_ATTESTATION_FAILED"
+            )
+    if (_sha_bytes(_canonical(tables))
+            != value["sourceTableFingerprintSha256"]
+            or _sha_bytes(_canonical(catalog))
+            != value["sourceCatalogFingerprintSha256"]):
+        raise HardenedRefreshError("SOURCE_FINGERPRINT_ATTESTATION_FAILED")
     return json.loads(_canonical(dict(value)))
 
 
@@ -591,25 +625,39 @@ def _file_digest(fd: int) -> tuple[int, str]:
 
 
 def _safe_error(exc: BaseException) -> str:
-    if isinstance(exc, HardenedRefreshError) and re.fullmatch(r"[A-Z0-9_]+", str(exc)):
+    trusted_error_module = exc.__class__.__module__ in {
+        __name__, "b64_064a_activation_executor",
+        "b64_snapshot_reader_runtime",
+    }
+    if (trusted_error_module
+            and isinstance(exc, RuntimeError)
+            and re.fullmatch(r"[A-Z0-9_]+", str(exc))):
         return str(exc)
     if isinstance(exc, (KeyboardInterrupt, SystemExit)):
         return "CANCELLED"
     return "UNEXPECTED_FAILURE"
 
 
-def execute_hermetic(plan: Mapping[str, Any], workspace_parent: Path, *,
-                     source: SourceAdapter, dump: DumpAdapter, restore: RestoreAdapter,
-                     source_secret_fd: int, dump_secret_fd: int,
-                     monotonic: Callable[[], float] = time.monotonic,
-                     fault_hook: Callable[[str], None] | None = None) -> dict[str, Any]:
-    """Run the complete lifecycle only with declared-hermetic fake adapters."""
+def _execute_bound(plan: Mapping[str, Any], workspace_parent: Path, *,
+                   source: SourceAdapter, dump: DumpAdapter,
+                   restore: RestoreAdapter, source_secret_fd: int,
+                   dump_secret_fd: int,
+                   expected_contact: tuple[bool, bool, bool],
+                   absolute_deadline: float | None = None,
+                   monotonic: Callable[[], float] = time.monotonic,
+                   fault_hook: Callable[[str], None] | None = None,
+                   workspace_registered:
+                   Callable[[int, int], None] | None = None) \
+        -> dict[str, Any]:
     plan_bytes = _canonical(validate_plan(plan))
     checked = json.loads(plan_bytes)
     plan_sha256 = _sha_bytes(plan_bytes)
-    if any(getattr(adapter, "production_contact", None) is not False
-           for adapter in (source, dump, restore)):
-        raise HardenedRefreshError("PRODUCTION_ADAPTER_DISABLED")
+    observed_contact = tuple(
+        getattr(adapter, "production_contact", None)
+        for adapter in (source, dump, restore)
+    )
+    if observed_contact != expected_contact:
+        raise HardenedRefreshError("ADAPTER_CONTACT_PROFILE_MISMATCH")
     source_secret_owner_fd = -1
     dump_secret_owner_fd = -1
     try:
@@ -664,7 +712,15 @@ def execute_hermetic(plan: Mapping[str, Any], workspace_parent: Path, *,
                        "tmpfsReleased": False}
     cleanup_uncertain = False
     workspace_absent = False
-    deadline = monotonic() + checked["command"]["overallDeadlineSeconds"]
+    started = monotonic()
+    local_deadline = started + checked["command"]["overallDeadlineSeconds"]
+    if absolute_deadline is not None:
+        if (type(absolute_deadline) is not float
+                or not started < absolute_deadline <= local_deadline + 1):
+            raise HardenedRefreshError("INVALID_ABSOLUTE_DEADLINE")
+        deadline = min(local_deadline, absolute_deadline)
+    else:
+        deadline = local_deadline
 
     def trip(stage: str) -> None:
         if monotonic() > deadline:
@@ -735,6 +791,8 @@ def execute_hermetic(plan: Mapping[str, Any], workspace_parent: Path, *,
             raise HardenedRefreshError("UNSAFE_WORKSPACE")
         workspace_inode = (directory_stat.st_dev, directory_stat.st_ino)
         workspace_binding_fd = os.dup(directory_fd)
+        if workspace_registered is not None:
+            workspace_registered(*workspace_inode)
         trip("WORKSPACE_CREATED")
         flags = os.O_RDWR | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
         for name in TRANSIENT_NAMES:
@@ -818,7 +876,24 @@ def execute_hermetic(plan: Mapping[str, Any], workspace_parent: Path, *,
             restore_workspace_fd = os.dup(directory_fd)
             restore_invoked = True
             equality = restore.verify(
-                restore_plan, restore_archive_fd, restore_workspace_fd, deadline)
+                restore_plan, restore_archive_fd, restore_workspace_fd,
+                {
+                    "tables": source_evidence["sourceTableFingerprints"],
+                    "tableSha256": source_evidence[
+                        "sourceTableFingerprintSha256"
+                    ],
+                    "catalog": source_evidence[
+                        "sourceCatalogFingerprints"
+                    ],
+                    "catalogSha256": source_evidence[
+                        "sourceCatalogFingerprintSha256"
+                    ],
+                    "systemIdentifier": source_evidence[
+                        "sourceSystemIdentifier"
+                    ],
+                },
+                deadline,
+            )
         finally:
             if restore_archive_fd >= 0:
                 close_guarded(restore_archive_fd)
@@ -913,6 +988,7 @@ def execute_hermetic(plan: Mapping[str, Any], workspace_parent: Path, *,
                 current_directory = os.fstat(directory_fd)
                 if workspace_inode != (current_directory.st_dev, current_directory.st_ino):
                     cleanup_uncertain = True
+                os.fsync(directory_fd)
             except BaseException:
                 cleanup_uncertain = True
         if workspace_created:
@@ -928,6 +1004,12 @@ def execute_hermetic(plan: Mapping[str, Any], workspace_parent: Path, *,
                 else:
                     directory_fd = -1
                     os.rmdir(workspace_name, dir_fd=parent_fd)
+                    workspace_removal_durable = False
+                    try:
+                        os.fsync(parent_fd)
+                        workspace_removal_durable = True
+                    except BaseException:
+                        cleanup_uncertain = True
                     bound_directory = os.fstat(workspace_binding_fd)
                     bound_directory_absent = (
                         workspace_inode == (bound_directory.st_dev, bound_directory.st_ino)
@@ -936,7 +1018,8 @@ def execute_hermetic(plan: Mapping[str, Any], workspace_parent: Path, *,
                         os.stat(workspace_name, dir_fd=parent_fd, follow_symlinks=False)
                         cleanup_uncertain = True
                     except FileNotFoundError:
-                        if bound_directory_absent:
+                        if (bound_directory_absent
+                                and workspace_removal_durable):
                             workspace_absent = True
                         else:
                             cleanup_uncertain = True
@@ -992,8 +1075,12 @@ def execute_hermetic(plan: Mapping[str, Any], workspace_parent: Path, *,
             "registeredManifestPathsAbsent": workspace_absent,
             "expectedContainerIdsAbsent": (dump_cleanup["containerAbsent"]
                                            and restore_cleanup["containerAbsent"]),
+            "dumpContainerAbsent": dump_cleanup["containerAbsent"],
+            "restoreContainerAbsent": restore_cleanup["containerAbsent"],
             "containerTmpfsLifetimesEnded": (dump_cleanup["tmpfsReleased"]
                                              and restore_cleanup["tmpfsReleased"]),
+            "dumpTmpfsReleased": dump_cleanup["tmpfsReleased"],
+            "restoreTmpfsReleased": restore_cleanup["tmpfsReleased"],
             "sourceSessionClosed": source_closed,
             "credentialRevocationAttested":
                 credential_revocation_attested,
@@ -1001,13 +1088,71 @@ def execute_hermetic(plan: Mapping[str, Any], workspace_parent: Path, *,
             "externalCopiesAbsentProven": False,
             "physicalErasureProven": False,
         },
-        "adapterProductionContactDeclaration": "ALL_DECLARED_FALSE",
+        "adapterProductionContactDeclaration": (
+            "SOURCE_AND_DUMP_TRUE_RESTORE_FALSE"
+            if expected_contact == (True, True, False)
+            else "ALL_DECLARED_FALSE"
+        ),
         "productionContactIndependentlyObserved": None,
         "productionContactObservationScope": "NOT_OBSERVABLE_BY_HERMETIC_CORE",
-        "productionAdapterEnabled": False,
-        "authorizationConsumed": False,
+        "productionAdapterEnabled": expected_contact == (True, True, False),
+        "authorizationConsumed": expected_contact == (True, True, False),
         "automaticRetryAllowed": False,
         "actionAllowed": False,
     }
     _canonical(receipt)
     return receipt
+
+
+def execute_hermetic(
+    plan: Mapping[str, Any], workspace_parent: Path, *,
+    source: SourceAdapter, dump: DumpAdapter, restore: RestoreAdapter,
+    source_secret_fd: int, dump_secret_fd: int,
+    absolute_deadline: float | None = None,
+    monotonic: Callable[[], float] = time.monotonic,
+    fault_hook: Callable[[str], None] | None = None,
+    workspace_registered: Callable[[int, int], None] | None = None,
+) -> dict[str, Any]:
+    """Run the complete lifecycle with production-disconnected adapters."""
+    return _execute_bound(
+        plan, workspace_parent, source=source, dump=dump,
+        restore=restore, source_secret_fd=source_secret_fd,
+        dump_secret_fd=dump_secret_fd,
+        expected_contact=(False, False, False),
+        absolute_deadline=absolute_deadline, monotonic=monotonic,
+        fault_hook=fault_hook, workspace_registered=workspace_registered,
+    )
+
+
+def execute_authorized(
+    plan: Mapping[str, Any], workspace_parent: Path, *,
+    source: SourceAdapter, dump: DumpAdapter, restore: RestoreAdapter,
+    source_secret_fd: int, dump_secret_fd: int,
+    authorization: Any, absolute_deadline: float,
+    monotonic: Callable[[], float] = time.monotonic,
+    fault_hook: Callable[[str], None] | None = None,
+    workspace_registered: Callable[[int, int], None] | None = None,
+) -> dict[str, Any]:
+    """Run only after the signed activation boundary starts one attempt."""
+    try:
+        import b64_064a_activation_entrypoint as activation
+        verified = activation.require_verified_execution_authorization(
+            authorization, expected_environment="PRODUCTION"
+        )
+    except BaseException as exc:
+        raise HardenedRefreshError(
+            "PRODUCTION_EXECUTION_NOT_AUTHORIZED"
+        ) from exc
+    checked = validate_plan(plan)
+    if (checked["runNonce"] != verified.run_nonce
+            or _sha_bytes(_canonical(checked))
+            != verified.derived_execution_plan_sha256):
+        raise HardenedRefreshError("PRODUCTION_EXECUTION_NONCE_MISMATCH")
+    return _execute_bound(
+        checked, workspace_parent, source=source, dump=dump,
+        restore=restore, source_secret_fd=source_secret_fd,
+        dump_secret_fd=dump_secret_fd,
+        expected_contact=(True, True, False),
+        absolute_deadline=absolute_deadline, monotonic=monotonic,
+        fault_hook=fault_hook, workspace_registered=workspace_registered,
+    )

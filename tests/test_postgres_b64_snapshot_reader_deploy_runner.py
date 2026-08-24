@@ -1,4 +1,5 @@
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -26,6 +27,31 @@ CONTAINER = {
     "hostPort": 5432,
     "containerPid": 12345,
 }
+
+
+def test_container_inspection_requests_only_exact_nonsecret_fields(monkeypatch):
+    observed = {}
+
+    def run(command, **_kwargs):
+        observed["command"] = command
+        return subprocess.CompletedProcess(command, 0, json.dumps({
+            "Id": "b" * 64, "Image": "sha256:" + "c" * 64,
+            "Running": True, "Status": "running", "Pid": 12345,
+            "Health": "healthy",
+            "Ports": {"5432/tcp": [
+                {"HostIp": "127.0.0.1", "HostPort": "5432"},
+            ]},
+        }), "")
+
+    monkeypatch.setattr(module.subprocess, "run", run)
+    result = module._inspect_container(
+        "obsidian-postgres", "b" * 64, "sha256:" + "c" * 64,
+        True, "host=127.0.0.1 port=5432 dbname=obsidian_exchange",
+    )
+    assert result == CONTAINER
+    assert observed["command"][:2] == ["/usr/bin/docker", "inspect"]
+    assert observed["command"][2].startswith("--format=")
+    assert "Config.Env" not in observed["command"][2]
 
 
 def _prepare(monkeypatch):

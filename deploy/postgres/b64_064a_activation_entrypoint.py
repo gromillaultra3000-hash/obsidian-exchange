@@ -19,6 +19,7 @@ import re
 import secrets
 import stat
 import sys
+import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -28,30 +29,49 @@ import b64_dump_restore_supervisor as supervisor
 
 
 ROUTE = supervisor.ROUTE
-PLAN_SCHEMA = "b64-064a-production-activation-plan.v1"
-DECISION_SCHEMA = "b64-064a-production-activation-decision.v1"
-EXECUTION_RECEIPT_SCHEMA = "b64-064a-production-activation-receipt.v1"
-JOURNAL_SCHEMA = "b64-064a-production-activation-journal.v1"
-SIGNATURE_DOMAIN = b"OBSIDIAN\0B64_064A_PRODUCTION_ACTIVATION\0V1\0"
+PLAN_SCHEMA = "b64-064a-production-activation-plan.v2"
+DECISION_SCHEMA = "b64-064a-production-activation-decision.v2"
+EXECUTION_RECEIPT_SCHEMA = "b64-064a-production-activation-receipt.v2"
+JOURNAL_SCHEMA = "b64-064a-production-activation-journal.v2"
+SIGNATURE_DOMAIN = b"OBSIDIAN\0B64_064A_PRODUCTION_ACTIVATION\0V2\0"
+ACTIVATION_KEYRING_SCHEMA = "b64-064a-activation-keyring.v1"
+ACTIVATION_TRUST_ENVIRONMENT = "PRODUCTION_ACTIVATION_AUTHENTICATED"
+ACTIVATION_KEY_ID_DOMAIN = b"OBSIDIAN-B64-064A-ACTIVATION-KEY\0V1\0"
 MAX_DECISION_LIFETIME_SECONDS = 15 * 60
 MAX_PLAN_AGE_SECONDS = 15 * 60
 MAX_FUTURE_SKEW_SECONDS = 60
-HARDENED_PLAN_SHA256 = \
+LEGACY_ACCEPTED_REHEARSAL_PLAN_SHA256 = \
     "14d38a9fc0cc7c78014d16230553359939aad7d7a15abaf7c7cc8672c3c8d0c6"
+HARDENED_PLAN_RAW_SHA256 = \
+    "a4accf84126c85aa7e30a2543f870f323a4c24910c0a7e918bf668801c77756f"
 EVIDENCE_ACCEPTANCE_SHA256 = \
     "b482504a2166b1e410e6a4b97829dbfcf818807b872f6ca73530a6d130dd54ba"
 PRODUCTION_CONTAINER = "obsidian-postgres"
 CONTRACT_CONTAINER_PATTERN = r"b64-hba-contract-[0-9]+"
 PRODUCTION_IMAGE_ID = supervisor.PRODUCTION_IMAGE_ID
 PRODUCTION_SYSTEM_IDENTIFIER = "7672203973020184609"
+PRODUCTION_INTERLOCK_PATH = Path(
+    "/run/lock/obsidian-b64-production-activation.lock"
+)
+PRODUCTION_ACTIVATION_ROOT = Path(
+    "/var/lib/obsidian-exchange/b64-064a-activation"
+)
+PRODUCTION_JOURNAL_ROOT = PRODUCTION_ACTIVATION_ROOT / "journal"
+PRODUCTION_RESOURCE_JOURNAL_ROOT = PRODUCTION_ACTIVATION_ROOT / "resources"
+PRODUCTION_WORKSPACE_ROOT = PRODUCTION_ACTIVATION_ROOT / "workspace"
+PRODUCTION_PROXY_ROOT = PRODUCTION_ACTIVATION_ROOT / "proxy"
 SIGNER_ROLES = supervisor.SIGNER_ROLES
 ARTIFACT_KEYS = {
-    "activationEntrypoint", "hardenedRefresh", "snapshotReaderRuntime",
+    "activationEntrypoint", "activationExecutor", "hardenedRefresh",
+    "snapshotReaderRuntime",
     "dumpRestoreSupervisor", "hardenedPlanRaw",
 }
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 ARTIFACT_PATHS = {
     "activationEntrypoint": Path(__file__).resolve(),
+    "activationExecutor": Path(__file__).with_name(
+        "b64_064a_activation_executor.py"
+    ),
     "hardenedRefresh": Path(__file__).with_name(
         "b64_064a_hardened_refresh.py"
     ),
@@ -64,6 +84,36 @@ ARTIFACT_PATHS = {
     "hardenedPlanRaw": PROJECT_ROOT
     / "docs/e0-3-bot-b5-3-064a-hardened-refresh-plan.v1.json",
 }
+
+_VERIFIED_ACTIVATION_SEAL = object()
+
+
+class _ExecutionCapabilityState:
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._execution_started = False
+        self._lease_claimed = False
+
+    def begin_execution(self) -> None:
+        with self._lock:
+            if self._execution_started:
+                raise ActivationError(
+                    "ACTIVATION_EXECUTION_CAPABILITY_REUSED"
+                )
+            self._execution_started = True
+
+    def claim_lease(self) -> None:
+        with self._lock:
+            if not self._execution_started or self._lease_claimed:
+                raise ActivationError(
+                    "ACTIVATION_LEASE_CAPABILITY_INVALID"
+                )
+            self._lease_claimed = True
+
+    @property
+    def execution_started(self) -> bool:
+        with self._lock:
+            return self._execution_started
 
 LIMITS = {
     "maximumRuns": 1,
@@ -90,6 +140,18 @@ CLOSE_REQUIREMENTS = {
     "restoreContainerAbsent": True,
     "containerTmpfsLifetimesEnded": True,
     "ambiguousOutcomeRequiresHold": True,
+}
+
+EXECUTION_PROFILE = {
+    "sourceFingerprintPrincipal": "obsidian_b64_snapshot_reader",
+    "sourceFingerprintInsideExportedSnapshot": True,
+    "dumpNetwork": "NONE_WITH_EXACT_UNIX_PROXY",
+    "proxyTarget": "127.0.0.1:5432_IN_ATTESTED_SOURCE_NETNS",
+    "dumpEgressIsolated": True,
+    "ambientDockerConfigurationAllowed": False,
+    "freshActivationNonceOnEveryRuntimeResource": True,
+    "outerWorkDeadlinePropagated": True,
+    "durableExecutorResourceJournalRequired": True,
 }
 
 PRODUCTION_AUTHORITY = {
@@ -139,6 +201,12 @@ def _canonical(value: Any) -> bytes:
 
 def _sha(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
+
+
+def activation_key_id(public_key: bytes) -> str:
+    if type(public_key) is not bytes or len(public_key) != 32:
+        raise ActivationError("INVALID_ACTIVATION_PUBLIC_KEY")
+    return "b64a_" + _sha(ACTIVATION_KEY_ID_DOMAIN + public_key)
 
 
 def _exact(value: Any, expected: Any) -> bool:
@@ -231,6 +299,30 @@ def verify_artifact_closure(plan: Mapping[str, Any]) -> None:
         raise ActivationError("HARDENED_PLAN_BINDING_MISMATCH")
 
 
+def derive_execution_plan(
+    *, run_nonce: str, artifacts_sha256: Mapping[str, str],
+) -> dict[str, Any]:
+    _token(run_nonce, "INVALID_RUN_NONCE", minimum=16, maximum=64)
+    if set(artifacts_sha256) != ARTIFACT_KEYS:
+        raise ActivationError("INVALID_ACTIVATION_ARTIFACT_SET")
+    raw, digest = _artifact_bytes_and_sha256(ARTIFACT_PATHS["hardenedPlanRaw"])
+    if digest != HARDENED_PLAN_RAW_SHA256:
+        raise ActivationError("HARDENED_PLAN_BINDING_MISMATCH")
+    plan = _decode_json(raw)
+    plan["runNonce"] = run_nonce
+    plan_artifacts = plan.get("artifactsSha256")
+    if not isinstance(plan_artifacts, dict):
+        raise ActivationError("HARDENED_PLAN_BINDING_MISMATCH")
+    plan_artifacts["runner"] = _digest(
+        artifacts_sha256["hardenedRefresh"], "INVALID_ARTIFACT_DIGEST"
+    )
+    plan_artifacts["snapshotReaderRuntime"] = _digest(
+        artifacts_sha256["snapshotReaderRuntime"],
+        "INVALID_ARTIFACT_DIGEST",
+    )
+    return json.loads(_canonical(plan))
+
+
 def _load_keyring(
     keyring_raw: bytes, *, expected_sha256: str, now_epoch: int,
 ) -> tuple[dict[str, Any], dict[str, dict[str, Any]], str]:
@@ -245,9 +337,10 @@ def _load_keyring(
         "schemaVersion", "route", "trustEnvironment", "registryVersion",
         "issuedAtEpoch", "expiresAtEpoch", "revokedKeys", "keys",
         "keyringSha256",
-    } or keyring.get("schemaVersion") != supervisor.KEYRING_SCHEMA \
+    } or keyring.get("schemaVersion") != ACTIVATION_KEYRING_SCHEMA \
             or keyring.get("route") != ROUTE \
-            or keyring.get("trustEnvironment") != "PRODUCTION_AUTHENTICATED":
+            or keyring.get("trustEnvironment") \
+            != ACTIVATION_TRUST_ENVIRONMENT:
         raise ActivationError("INVALID_ACTIVATION_KEYRING")
     unsigned = {key: keyring[key] for key in (
         "schemaVersion", "route", "trustEnvironment", "registryVersion",
@@ -306,7 +399,7 @@ def _load_keyring(
             )
         except supervisor.SupervisorError as exc:
             raise ActivationError(str(exc)) from exc
-        if (key_id != supervisor._key_id(public_key)
+        if (key_id != activation_key_id(public_key)
                 or key_id in registry or key_id in revoked_ids
                 or identity in identities or domain in domains
                 or public_key in public_keys
@@ -370,7 +463,14 @@ def build_plan(
         "environment": environment,
         "runNonce": run_nonce,
         "createdAtEpoch": created_at_epoch,
-        "hardenedPlanSha256": HARDENED_PLAN_SHA256,
+        "legacyAcceptedRehearsalPlanSha256":
+            LEGACY_ACCEPTED_REHEARSAL_PLAN_SHA256,
+        "hardenedPlanRawSha256": HARDENED_PLAN_RAW_SHA256,
+        "derivedExecutionPlanSha256": _sha(_canonical(
+            derive_execution_plan(
+                run_nonce=run_nonce, artifacts_sha256=artifacts,
+            )
+        )),
         "prerequisiteEvidenceAcceptanceSha256":
             EVIDENCE_ACCEPTANCE_SHA256,
         "target": {
@@ -383,6 +483,7 @@ def build_plan(
         },
         "limits": dict(LIMITS),
         "closeRequirements": dict(CLOSE_REQUIREMENTS),
+        "executionProfile": dict(EXECUTION_PROFILE),
         "artifactsSha256": artifacts,
         "authority": dict(authority),
     }
@@ -394,9 +495,12 @@ def validate_plan(
 ) -> dict[str, Any]:
     if not isinstance(value, Mapping) or set(value) != {
         "schemaVersion", "route", "operation", "environment", "runNonce",
-        "createdAtEpoch", "hardenedPlanSha256",
+        "createdAtEpoch", "legacyAcceptedRehearsalPlanSha256",
+        "hardenedPlanRawSha256",
+        "derivedExecutionPlanSha256",
         "prerequisiteEvidenceAcceptanceSha256", "target", "limits",
-        "closeRequirements", "artifactsSha256", "authority",
+        "closeRequirements", "executionProfile", "artifactsSha256",
+        "authority",
     }:
         raise ActivationError("INVALID_ACTIVATION_PLAN_SHAPE")
     if (value.get("schemaVersion") != PLAN_SCHEMA
@@ -410,7 +514,10 @@ def validate_plan(
     if type(value.get("createdAtEpoch")) is not int \
             or value["createdAtEpoch"] <= 0:
         raise ActivationError("INVALID_PLAN_TIME")
-    if (value.get("hardenedPlanSha256") != HARDENED_PLAN_SHA256
+    if (value.get("legacyAcceptedRehearsalPlanSha256")
+            != LEGACY_ACCEPTED_REHEARSAL_PLAN_SHA256
+            or value.get("hardenedPlanRawSha256")
+            != HARDENED_PLAN_RAW_SHA256
             or value.get("prerequisiteEvidenceAcceptanceSha256")
             != EVIDENCE_ACCEPTANCE_SHA256):
         raise ActivationError("ACTIVATION_PREREQUISITE_BINDING_MISMATCH")
@@ -452,11 +559,18 @@ def validate_plan(
         raise ActivationError("INVALID_ACTIVATION_LIMITS")
     if not _exact(value.get("closeRequirements"), CLOSE_REQUIREMENTS):
         raise ActivationError("INVALID_ACTIVATION_CLOSE_REQUIREMENTS")
+    if not _exact(value.get("executionProfile"), EXECUTION_PROFILE):
+        raise ActivationError("INVALID_ACTIVATION_EXECUTION_PROFILE")
     artifacts = value.get("artifactsSha256")
     if not isinstance(artifacts, Mapping) or set(artifacts) != ARTIFACT_KEYS:
         raise ActivationError("INVALID_ACTIVATION_ARTIFACT_SET")
     for digest in artifacts.values():
         _digest(digest, "INVALID_ARTIFACT_DIGEST")
+    derived_sha = _sha(_canonical(derive_execution_plan(
+        run_nonce=value["runNonce"], artifacts_sha256=artifacts,
+    )))
+    if value.get("derivedExecutionPlanSha256") != derived_sha:
+        raise ActivationError("DERIVED_EXECUTION_PLAN_BINDING_MISMATCH")
     if not _exact(value.get("authority"), authority):
         raise ActivationError("INVALID_ACTIVATION_AUTHORITY")
     return json.loads(_canonical(dict(value)))
@@ -469,9 +583,39 @@ class VerifiedActivation:
     plan_sha256: str
     decision_sha256: str
     keyring_sha256: str
+    derived_execution_plan_sha256: str
     expires_at_epoch: int
     target: Mapping[str, Any]
     limits: Mapping[str, Any]
+    _verification_seal: object
+    _capability_state: _ExecutionCapabilityState
+
+
+def require_verified_execution_authorization(
+    authorization: Any, *, expected_environment: str,
+    require_started: bool = True,
+) -> VerifiedActivation:
+    """Accept only an object emitted by exact package verification.
+
+    This is a process-local capability boundary, not a substitute for the
+    signed decision or the durable journal.  It prevents legacy/direct helper
+    calls from silently opting into the production mutation path.
+    """
+    if (not isinstance(authorization, VerifiedActivation)
+            or authorization._verification_seal
+            is not _VERIFIED_ACTIVATION_SEAL
+            or authorization.environment != expected_environment
+            or (require_started
+                and not authorization._capability_state.execution_started)):
+        raise ActivationError("ACTIVATION_EXECUTION_AUTHORIZATION_INVALID")
+    return authorization
+
+
+def claim_verified_production_lease(authorization: Any) -> None:
+    verified = require_verified_execution_authorization(
+        authorization, expected_environment="PRODUCTION"
+    )
+    verified._capability_state.claim_lease()
 
 
 def verify_activation_decision(
@@ -580,9 +724,14 @@ def verify_activation_decision(
         plan_sha256=plan_sha,
         decision_sha256=decision_sha,
         keyring_sha256=keyring_sha,
+        derived_execution_plan_sha256=plan[
+            "derivedExecutionPlanSha256"
+        ],
         expires_at_epoch=expires,
         target=dict(plan["target"]),
         limits=dict(plan["limits"]),
+        _verification_seal=_VERIFIED_ACTIVATION_SEAL,
+        _capability_state=_ExecutionCapabilityState(),
     )
 
 
@@ -592,6 +741,11 @@ class ActivationExecutor(Protocol):
     def execute(
         self, plan: Mapping[str, Any], authorization: VerifiedActivation,
         deadline: float,
+    ) -> Mapping[str, Any]: ...
+
+    def reconcile_resources(
+        self, *, plan: Mapping[str, Any],
+        authorization: VerifiedActivation,
     ) -> Mapping[str, Any]: ...
 
 
@@ -622,12 +776,51 @@ def _safe_open_root(path: Path) -> int:
     return fd
 
 
+def _acquire_production_interlock(
+    authorization: VerifiedActivation,
+) -> int:
+    try:
+        descriptor = os.open(
+            PRODUCTION_INTERLOCK_PATH,
+            os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
+            | getattr(os, "O_CLOEXEC", 0),
+            0o600,
+        )
+        metadata = os.fstat(descriptor)
+        if (not stat.S_ISREG(metadata.st_mode)
+                or metadata.st_uid != os.geteuid()
+                or stat.S_IMODE(metadata.st_mode) != 0o600
+                or metadata.st_nlink != 1):
+            raise ActivationError("ACTIVATION_INTERLOCK_UNSAFE")
+        fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        evidence = _canonical({
+            "schemaVersion": "b64-064a-production-activation-interlock.v1",
+            "runNonce": authorization.run_nonce,
+            "planSha256": authorization.plan_sha256,
+            "decisionSha256": authorization.decision_sha256,
+        }) + b"\n"
+        os.ftruncate(descriptor, 0)
+        os.lseek(descriptor, 0, os.SEEK_SET)
+        _write_all(descriptor, evidence)
+        os.fsync(descriptor)
+        return descriptor
+    except BlockingIOError as exc:
+        if "descriptor" in locals():
+            os.close(descriptor)
+        raise ActivationError("ACTIVATION_INTERLOCK_HELD") from exc
+    except BaseException:
+        if "descriptor" in locals():
+            os.close(descriptor)
+        raise
+
+
 class ActivationJournal:
     def __init__(self, root: Path, authorization: VerifiedActivation):
         self.root = root
         self.authorization = authorization
         self.name = f"{authorization.run_nonce}.json"
         self.lock_name = f".{authorization.run_nonce}.lock"
+        self.receipt_name = f"{authorization.run_nonce}.receipt.json"
 
     def acquire_execution_lock(self) -> int:
         directory_fd = _safe_open_root(self.root)
@@ -820,6 +1013,33 @@ class ActivationJournal:
         finally:
             os.close(directory_fd)
 
+    def write_receipt(self, receipt: Mapping[str, Any]) -> str:
+        raw = _canonical(dict(receipt)) + b"\n"
+        receipt_sha = _sha(raw[:-1])
+        directory_fd = _safe_open_root(self.root)
+        try:
+            try:
+                descriptor = os.open(
+                    self.receipt_name,
+                    os.O_WRONLY | os.O_CREAT | os.O_EXCL
+                    | getattr(os, "O_NOFOLLOW", 0)
+                    | getattr(os, "O_CLOEXEC", 0),
+                    0o600, dir_fd=directory_fd,
+                )
+            except FileExistsError as exc:
+                raise ActivationError(
+                    "ACTIVATION_RECEIPT_ALREADY_EXISTS"
+                ) from exc
+            try:
+                _write_all(descriptor, raw)
+                os.fsync(descriptor)
+            finally:
+                os.close(descriptor)
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+        return receipt_sha
+
 
 def _validate_dormant_receipt(value: Mapping[str, Any]) -> dict[str, Any]:
     expected = {
@@ -879,6 +1099,34 @@ def _validate_execution_receipt(
     return json.loads(_canonical(dict(value)))
 
 
+def _validate_resource_reconcile_receipt(
+    value: Mapping[str, Any],
+) -> dict[str, Any]:
+    expected = {
+        "status", "loginState", "credentialState", "activeSessions",
+        "workspaceAbsent", "proxyAbsent", "dumpAbsent", "restoreAbsent",
+        "automaticRetryAllowed", "actionAllowed",
+    }
+    if (not isinstance(value, Mapping) or set(value) != expected
+            or value.get("status") not in {
+                "EXECUTOR_RESOURCES_RECONCILED_HOLD",
+                "EXECUTOR_RESOURCES_ALREADY_CLOSED",
+                "EXECUTOR_RESOURCES_ABSENT_NO_JOURNAL",
+            }
+            or value.get("loginState") != "DISABLED"
+            or value.get("credentialState") != "ABSENT"
+            or type(value.get("activeSessions")) is not int
+            or value.get("activeSessions") != 0
+            or any(value.get(name) is not True for name in (
+                "workspaceAbsent", "proxyAbsent", "dumpAbsent",
+                "restoreAbsent",
+            ))
+            or value.get("automaticRetryAllowed") is not False
+            or value.get("actionAllowed") is not False):
+        raise ActivationError("EXECUTOR_RESOURCE_RECONCILIATION_FAILED")
+    return dict(value)
+
+
 def run_once(
     *, keyring_raw: bytes, decision_raw: bytes, activation_plan_raw: bytes,
     expected_keyring_sha256: str, expected_environment: str, now_epoch: int,
@@ -908,6 +1156,9 @@ def run_once(
             or (expected_environment == "DISPOSABLE_CONTRACT"
                 and production_contact is not False)):
         raise ActivationError("EXECUTOR_ENVIRONMENT_MISMATCH")
+    if (expected_environment == "PRODUCTION"
+            and journal_root != PRODUCTION_JOURNAL_ROOT):
+        raise ActivationError("PRODUCTION_JOURNAL_ROOT_MISMATCH")
     if now_epoch >= authorization.expires_at_epoch:
         raise ActivationError("ACTIVATION_DECISION_TIME_INVALID")
     _validate_dormant_receipt(reconcile())
@@ -918,9 +1169,13 @@ def run_once(
     )
     journal = ActivationJournal(journal_root, authorization)
     execution_lock = journal.acquire_execution_lock()
+    interlock_fd = -1
     try:
+        if expected_environment == "PRODUCTION":
+            interlock_fd = _acquire_production_interlock(authorization)
         journal.claim()
         journal.transition(expected_state={"CLAIMED"}, state="RUNNING")
+        authorization._capability_state.begin_execution()
         started = monotonic()
         work_deadline = (
             started + authorization.limits["workDeadlineSeconds"]
@@ -944,6 +1199,11 @@ def run_once(
         except BaseException as exc:
             reason = _reason(exc)
             try:
+                _validate_resource_reconcile_receipt(
+                    executor.reconcile_resources(
+                        plan=plan, authorization=authorization,
+                    )
+                )
                 _validate_dormant_receipt(reconcile())
                 _validate_dormant_receipt(verify_dormant())
                 if monotonic() > overall_deadline:
@@ -955,13 +1215,32 @@ def run_once(
                 reason_code=reason,
             )
             raise ActivationError(reason) from None
-        receipt_raw = _canonical(receipt)
-        receipt_sha = _sha(receipt_raw)
+        try:
+            receipt_sha = journal.write_receipt(receipt)
+        except BaseException:
+            try:
+                _validate_resource_reconcile_receipt(
+                    executor.reconcile_resources(
+                        plan=plan, authorization=authorization,
+                    )
+                )
+                _validate_dormant_receipt(reconcile())
+                _validate_dormant_receipt(verify_dormant())
+                reason = "ACTIVATION_RECEIPT_DURABILITY_FAILED"
+            except BaseException:
+                reason = "ACTIVATION_CLOSE_UNCERTAIN"
+            journal.transition(
+                expected_state={"RUNNING"}, state="HOLD",
+                reason_code=reason,
+            )
+            raise ActivationError(reason) from None
         journal.transition(
             expected_state={"RUNNING"}, state="CLOSED",
             receipt_sha256=receipt_sha,
         )
     finally:
+        if interlock_fd >= 0:
+            os.close(interlock_fd)
         os.close(execution_lock)
     return {
         "schemaVersion": "b64-064a-production-activation-result.v1",
@@ -980,23 +1259,60 @@ def run_once(
 
 def reconcile_incomplete(
     *, authorization: VerifiedActivation, journal_root: Path,
+    activation_plan_raw: bytes, executor: ActivationExecutor,
     reconcile: Callable[[], Mapping[str, Any]],
     verify_dormant: Callable[[], Mapping[str, Any]],
 ) -> dict[str, Any]:
+    plan = validate_plan(
+        _decode_json(activation_plan_raw),
+        expected_environment=authorization.environment,
+    )
+    if _sha(_canonical(plan)) != authorization.plan_sha256:
+        raise ActivationError("ACTIVATION_RECONCILE_PLAN_MISMATCH")
+    production_contact = getattr(executor, "production_contact", None)
+    if ((authorization.environment == "PRODUCTION"
+         and production_contact is not True)
+            or (authorization.environment == "DISPOSABLE_CONTRACT"
+                and production_contact is not False)):
+        raise ActivationError("EXECUTOR_ENVIRONMENT_MISMATCH")
+    if (authorization.environment == "PRODUCTION"
+            and journal_root != PRODUCTION_JOURNAL_ROOT):
+        raise ActivationError("PRODUCTION_JOURNAL_ROOT_MISMATCH")
     journal = ActivationJournal(journal_root, authorization)
     execution_lock = journal.acquire_execution_lock()
+    interlock_fd = -1
     try:
+        if authorization.environment == "PRODUCTION":
+            interlock_fd = _acquire_production_interlock(authorization)
         current = journal.inspect()
         if current["state"] not in {"CLAIMED", "RUNNING", "HOLD"}:
             raise ActivationError("ACTIVATION_RECONCILE_STATE_INVALID")
-        _validate_dormant_receipt(reconcile())
-        _validate_dormant_receipt(verify_dormant())
+        try:
+            _validate_resource_reconcile_receipt(
+                executor.reconcile_resources(
+                    plan=plan, authorization=authorization,
+                )
+            )
+            _validate_dormant_receipt(reconcile())
+            _validate_dormant_receipt(verify_dormant())
+        except BaseException as exc:
+            reason = _reason(exc)
+            try:
+                journal.transition(
+                    expected_state={"CLAIMED", "RUNNING", "HOLD"},
+                    state="HOLD", reason_code=reason,
+                )
+            except BaseException:
+                reason = "ACTIVATION_RECONCILE_HOLD_UNCERTAIN"
+            raise ActivationError(reason) from None
         journal.transition(
             expected_state={"CLAIMED", "RUNNING", "HOLD"},
             state="RECONCILED_HOLD",
             reason_code="ABNORMAL_EXIT_RECONCILED_NO_RETRY",
         )
     finally:
+        if interlock_fd >= 0:
+            os.close(interlock_fd)
         os.close(execution_lock)
     return {
         "status": "ACTIVATION_RECONCILED_HOLD",

@@ -79,6 +79,10 @@ def _watchdog_harness(monkeypatch, *, state: dict, acquired: bool, holders: list
         lambda *_a, **_k: contextlib.nullcontext(connection),
     )
     monkeypatch.setattr(watchdog, "_host_lock", lambda *_a, **_k: contextlib.nullcontext())
+    monkeypatch.setattr(
+        watchdog, "_activation_interlock_status",
+        lambda *_a, **_k: contextlib.nullcontext(False),
+    )
     monkeypatch.setattr(watchdog, "_role_state", lambda *_a, **_k: dict(state))
     monkeypatch.setattr(watchdog, "_acquire_runtime_lock", lambda *_a, **_k: acquired)
     monkeypatch.setattr(watchdog, "_runtime_lock_holders", lambda *_a, **_k: list(holders))
@@ -202,6 +206,64 @@ def test_shutdown_mode_revokes_otherwise_valid_lease(monkeypatch):
     assert revoked == [True]
 
 
+def test_shutdown_mode_supervises_valid_lease_only_with_live_activation_interlock(
+    monkeypatch,
+):
+    holder = {
+        "pid": 88,
+        "user": "postgres",
+        "applicationName": "obsidian-b64-lease-lock-" + "d" * 32,
+        "unixSocket": True,
+        "state": "idle",
+    }
+    _watchdog_harness(
+        monkeypatch,
+        state=_state("ACTIVE_LEASE", remaining=90),
+        acquired=False,
+        holders=[holder],
+    )
+    monkeypatch.setattr(
+        watchdog, "_activation_interlock_status",
+        lambda *_a, **_k: contextlib.nullcontext(True),
+    )
+    monkeypatch.setattr(
+        watchdog, "_terminate_holders_and_take_lock",
+        lambda *_a: pytest.fail("live activation lease must not be terminated"),
+    )
+    monkeypatch.setattr(
+        watchdog, "_force_dormant",
+        lambda *_a: pytest.fail("live activation lease must not be revoked"),
+    )
+    result = _run_watchdog(require_dormant=True)
+    assert result["status"] == (
+        "ACTIVE_LEASE_ACTIVATION_INTERLOCK_SUPERVISED"
+    )
+    assert result["activationInterlockHeld"] is True
+    assert result["roleLoginState"] == "ENABLED"
+    assert result["credentialState"] == "PRESENT"
+
+
+def test_activation_interlock_holds_idle_side_and_detects_live_owner(tmp_path):
+    path = tmp_path / "activation.lock"
+    with watchdog._activation_interlock_status(str(path)) as activation_live:
+        assert activation_live is False
+        competing = os.open(path, os.O_RDWR)
+        try:
+            with pytest.raises(BlockingIOError):
+                watchdog.fcntl.flock(
+                    competing, watchdog.fcntl.LOCK_EX | watchdog.fcntl.LOCK_NB
+                )
+        finally:
+            os.close(competing)
+    owner = os.open(path, os.O_RDWR)
+    try:
+        watchdog.fcntl.flock(owner, watchdog.fcntl.LOCK_EX)
+        with watchdog._activation_interlock_status(str(path)) as activation_live:
+            assert activation_live is True
+    finally:
+        os.close(owner)
+
+
 def test_invalid_lock_holder_with_authority_is_revoked(monkeypatch):
     holder = {
         "pid": 99,
@@ -235,6 +297,10 @@ def test_container_change_during_watchdog_is_failure(monkeypatch):
         watchdog, "admin_connection", lambda *_a, **_k: contextlib.nullcontext(connection)
     )
     monkeypatch.setattr(watchdog, "_host_lock", lambda *_a, **_k: contextlib.nullcontext())
+    monkeypatch.setattr(
+        watchdog, "_activation_interlock_status",
+        lambda *_a, **_k: contextlib.nullcontext(False),
+    )
     monkeypatch.setattr(watchdog, "_role_state", lambda *_a, **_k: _state("DORMANT"))
     monkeypatch.setattr(watchdog, "_acquire_runtime_lock", lambda *_a: True)
     monkeypatch.setattr(watchdog, "_verify_role", lambda *_a, **_k: {})
@@ -261,6 +327,10 @@ def test_invalid_bundle_forces_dormant_before_failure(monkeypatch):
         lambda *_a, **_k: contextlib.nullcontext(connection),
     )
     monkeypatch.setattr(watchdog, "_host_lock", lambda *_a, **_k: contextlib.nullcontext())
+    monkeypatch.setattr(
+        watchdog, "_activation_interlock_status",
+        lambda *_a, **_k: contextlib.nullcontext(False),
+    )
     monkeypatch.setattr(watchdog, "_role_state", lambda *_a, **_k: states.pop(0))
     monkeypatch.setattr(watchdog, "_acquire_runtime_lock", lambda *_a: False)
     monkeypatch.setattr(watchdog, "_runtime_lock_holders", lambda *_a: [{"pid": 55}])

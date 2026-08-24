@@ -80,17 +80,27 @@ def _safe_reason(exc: BaseException) -> str:
 
 
 def _docker_inspect(name: str) -> dict[str, Any]:
+    if re.fullmatch(r"[A-Za-z0-9_.-]{1,128}", name) is None:
+        raise HbaDeploymentError("CONTAINER_REFERENCE_INVALID")
+    template = '{"Id":{{json .Id}},"Mounts":{{json .Mounts}}}'
     result = subprocess.run(
-        ["docker", "inspect", name], capture_output=True, text=True,
+        ["/usr/bin/docker", "inspect", f"--format={template}", name],
+        capture_output=True, text=True,
         check=False, timeout=10,
-        env={"PATH": os.environ.get("PATH", "/usr/bin:/bin")},
+        env={"PATH": "/usr/bin:/bin", "LC_ALL": "C"},
     )
     if result.returncode != 0:
         raise HbaDeploymentError("CONTAINER_INSPECT_FAILED")
     try:
-        return json.loads(result.stdout)[0]
-    except (IndexError, TypeError, json.JSONDecodeError) as exc:
+        value = json.loads(result.stdout)
+    except (TypeError, json.JSONDecodeError) as exc:
         raise HbaDeploymentError("INVALID_CONTAINER_INSPECTION") from exc
+    if (not isinstance(value, dict) or set(value) != {"Id", "Mounts"}
+            or type(value["Id"]) is not str
+            or re.fullmatch(r"(?:sha256:)?[0-9a-f]{64}", value["Id"])
+            is None or not isinstance(value["Mounts"], list)):
+        raise HbaDeploymentError("INVALID_CONTAINER_INSPECTION")
+    return value
 
 
 def _load_manifest() -> dict[str, Any]:
@@ -142,7 +152,12 @@ def _bind_mount(raw: dict[str, Any], manifest: dict[str, Any], *,
         item.get("Name") == manifest["dataVolumeName"]
         or (allow_contract_container
             and isinstance(item.get("Name"), str)
-            and bool(re.fullmatch(r"[0-9a-f]{64}", item["Name"])))
+            and bool(re.fullmatch(
+                r"(?:[0-9a-f]{64}|"
+                r"b64-(?:watchdog|upgrade)-volume-[0-9a-f]{16,64}|"
+                r"b64[0-9a-f]{61})",
+                item["Name"],
+            )))
     )
     if (item.get("Type") != "volume" or item.get("RW") is not True
             or not volume_name_matches):

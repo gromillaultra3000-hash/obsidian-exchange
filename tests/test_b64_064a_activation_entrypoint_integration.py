@@ -4,9 +4,11 @@ The caller owns creation and removal of TEST_POSTGRES_CONTAINER.  This script
 deploys the production HBA contract into that disposable container, consumes
 one synthetic activation decision through the durable journal, performs a real
 exported-snapshot pg_dump and a real tmpfs restore/equality check, and rolls the
-HBA back byte-for-byte.  It never contains a production executor.
+HBA back byte-for-byte.  It runs the production executor implementation only
+with its production-contact profile hard-disabled.
 """
 import base64
+import fcntl
 import hashlib
 import json
 import os
@@ -15,6 +17,7 @@ import secrets
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from pathlib import Path
 
@@ -29,10 +32,12 @@ POSTGRES = ROOT / "deploy/postgres"
 sys.path.insert(0, str(POSTGRES))
 
 import b64_064a_activation_entrypoint as activation
+import b64_064a_activation_executor as production_executor
 import b64_064a_hardened_refresh as refresh
 import b64_dump_restore_supervisor as supervisor
 import b64_snapshot_dump as fingerprint
 import b64_snapshot_reader_runtime as runtime
+import b64_snapshot_reader_watchdog as watchdog
 from migration_profile import selected_paths
 from verify_b64_snapshot_reader import inspect
 
@@ -296,7 +301,13 @@ class ContractRestore:
             time.sleep(0.1)
         raise refresh.HardenedRefreshError("RESTORE_CONTAINER_NOT_READY")
 
-    def verify(self, plan, archive_fd, workspace_fd, deadline):
+    def verify(self, plan, archive_fd, workspace_fd,
+               source_fingerprints, deadline):
+        self.source_tables = source_fingerprints["tables"]
+        self.source_catalog = source_fingerprints["catalog"]
+        self.source_system_identifier = source_fingerprints[
+            "systemIdentifier"
+        ]
         stage = "START"
         try:
             self._start()
@@ -572,14 +583,15 @@ def _signed_package(*, now_epoch: int, container_id: str, image_id: str,
     ):
         public = private_keys[role].public_key().public_bytes_raw()
         entries.append({
-            "keyId": supervisor._key_id(public), "identityId": identity,
+            "keyId": activation.activation_key_id(public),
+            "identityId": identity,
             "trustDomain": domain, "role": role, "status": "ACTIVE",
             "publicKeyB64": _b64(public),
         })
     keyring_unsigned = {
-        "schemaVersion": supervisor.KEYRING_SCHEMA,
+        "schemaVersion": activation.ACTIVATION_KEYRING_SCHEMA,
         "route": activation.ROUTE,
-        "trustEnvironment": "PRODUCTION_AUTHENTICATED",
+        "trustEnvironment": activation.ACTIVATION_TRUST_ENVIRONMENT,
         "registryVersion": 2, "issuedAtEpoch": now_epoch - 120,
         "expiresAtEpoch": now_epoch + 1800,
         "revokedKeys": [], "keys": entries,
@@ -587,21 +599,8 @@ def _signed_package(*, now_epoch: int, container_id: str, image_id: str,
     keyring_sha = hashlib.sha256(_canonical(keyring_unsigned)).hexdigest()
     keyring = {**keyring_unsigned, "keyringSha256": keyring_sha}
     artifacts = {
-        "activationEntrypoint": _sha_file(
-            POSTGRES / "b64_064a_activation_entrypoint.py"
-        ),
-        "hardenedRefresh": _sha_file(
-            POSTGRES / "b64_064a_hardened_refresh.py"
-        ),
-        "snapshotReaderRuntime": _sha_file(
-            POSTGRES / "b64_snapshot_reader_runtime.py"
-        ),
-        "dumpRestoreSupervisor": _sha_file(
-            POSTGRES / "b64_dump_restore_supervisor.py"
-        ),
-        "hardenedPlanRaw": _sha_file(
-            ROOT / "docs/e0-3-bot-b5-3-064a-hardened-refresh-plan.v1.json"
-        ),
+        key: _sha_file(path)
+        for key, path in activation.ARTIFACT_PATHS.items()
     }
     plan = activation.build_plan(
         environment="DISPOSABLE_CONTRACT",
@@ -650,6 +649,18 @@ def main():
     container_id = container["Id"].removeprefix("sha256:")
     container_pid = container["State"]["Pid"]
     image_id = container["Image"]
+    pgdata_mounts = [
+        item for item in container.get("Mounts", [])
+        if item.get("Destination") == "/var/lib/postgresql/data"
+    ]
+    if (len(pgdata_mounts) != 1
+            or re.fullmatch(
+                r"(?:[0-9a-f]{64}|"
+                r"b64-(?:watchdog|upgrade)-volume-[0-9a-f]{16,64}|"
+                r"b64[0-9a-f]{61})",
+                            str(pgdata_mounts[0].get("Name", ""))) is None):
+        raise RuntimeError("CONTRACT_VOLUME_BINDING_INVALID")
+    volume_name = pgdata_mounts[0]["Name"]
     admin_dsn = make_conninfo(
         host=f"/proc/{container_pid}/root/var/run/postgresql",
         dbname="obsidian_exchange", user="postgres", port=5432,
@@ -768,8 +779,12 @@ def main():
             temporary_path.chmod(0o700)
             journal_root = temporary_path / "journal"
             workspace_parent = temporary_path / "workspace"
+            proxy_parent = temporary_path / "proxy"
+            resource_journal_root = temporary_path / "resources"
             journal_root.mkdir(mode=0o700)
             workspace_parent.mkdir(mode=0o700)
+            proxy_parent.mkdir(mode=0o700)
+            resource_journal_root.mkdir(mode=0o700)
 
             def reconcile():
                 observed = runtime.reconcile_credential(
@@ -798,10 +813,15 @@ def main():
                     "customerRowsRead": False,
                 }
 
-            executor = ContractActivationExecutor(
+            executor = production_executor.BoundActivationExecutor(
+                production_contact=False,
                 observation_dsn=observation_dsn, admin_dsn=admin_dsn,
+                container=CONTAINER,
                 container_id=container_id, image_id=image_id,
+                system_identifier=system_identifier,
                 workspace_parent=workspace_parent,
+                proxy_parent=proxy_parent,
+                resource_journal_root=resource_journal_root,
             )
             arguments = {
                 "keyring_raw": _canonical(keyring),
@@ -813,7 +833,52 @@ def main():
                 "executor": executor, "reconcile": reconcile,
                 "verify_dormant": dormant,
             }
-            result = activation.run_once(**arguments)
+            watchdog_result = {}
+            watchdog_failure = []
+
+            def supervise_live_lease():
+                try:
+                    wait_deadline = time.monotonic() + 120
+                    while time.monotonic() < wait_deadline:
+                        if runtime._role_auth_state(admin_dsn)["login"] is True:
+                            watchdog_result.update(watchdog.watchdog_once(
+                                container_name=CONTAINER,
+                                expected_image_id=image_id,
+                                expected_volume_name=volume_name,
+                                expected_server_version_num=170011,
+                                expected_system_identifier=system_identifier,
+                                allow_contract_container=True,
+                                require_dormant=True,
+                            ))
+                            return
+                        time.sleep(0.02)
+                    raise RuntimeError("WATCHDOG_LIVE_LEASE_NOT_OBSERVED")
+                except BaseException as exc:
+                    watchdog_failure.append(exc)
+
+            interlock_fd = os.open(
+                watchdog.ACTIVATION_INTERLOCK_PATH,
+                os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0),
+                0o600,
+            )
+            fcntl.flock(interlock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            watcher = threading.Thread(
+                target=supervise_live_lease, name="b64-watchdog-contract",
+            )
+            watcher.start()
+            try:
+                result = activation.run_once(**arguments)
+            finally:
+                watcher.join(timeout=30)
+                os.close(interlock_fd)
+            if watcher.is_alive():
+                raise RuntimeError("WATCHDOG_CONCURRENT_REHEARSAL_TIMEOUT")
+            if watchdog_failure:
+                raise RuntimeError("WATCHDOG_CONCURRENT_REHEARSAL_FAILED") \
+                    from watchdog_failure[0]
+            if watchdog_result.get("status") != (
+                    "ACTIVE_LEASE_ACTIVATION_INTERLOCK_SUPERVISED"):
+                raise RuntimeError("WATCHDOG_ACTIVE_LEASE_NOT_SUPERVISED")
             try:
                 activation.run_once(**arguments)
             except activation.ActivationError as exc:
@@ -836,12 +901,17 @@ def main():
             if journal["state"] != "CLOSED":
                 raise RuntimeError("ACTIVATION_JOURNAL_NOT_CLOSED")
     finally:
+        primary_error = sys.exception()
+        reconcile_error = None
         try:
-            runtime.reconcile_credential(
-                observation_dsn=observation_dsn, admin_dsn=admin_dsn,
-                container=CONTAINER, expected_container_id=container_id,
-                expected_image_id=image_id, allow_contract_container=True,
-            )
+            try:
+                runtime.reconcile_credential(
+                    observation_dsn=observation_dsn, admin_dsn=admin_dsn,
+                    container=CONTAINER, expected_container_id=container_id,
+                    expected_image_id=image_id, allow_contract_container=True,
+                )
+            except BaseException as exc:
+                reconcile_error = exc
         finally:
             rolled_back = subprocess.run(
                 hba_command + ["--rollback"], env=environment, check=False,
@@ -851,6 +921,8 @@ def main():
         if (rolled_back.returncode != 0
                 or json.loads(rolled_back.stdout)["status"] != "ROLLED_BACK"):
             raise RuntimeError("CONTRACT_HBA_ROLLBACK_FAILED")
+        if reconcile_error is not None and primary_error is None:
+            raise reconcile_error
     if result is None:
         raise RuntimeError("ACTIVATION_RESULT_MISSING")
     print(json.dumps({
@@ -860,6 +932,7 @@ def main():
         "receiptSha256": result["receiptSha256"],
         "replayReason": replay_reason,
         "executorCalls": 1,
+        "watchdogStatus": watchdog_result["status"],
         "readerLoginState": "DISABLED",
         "readerCredentialState": "ABSENT",
         "readerActiveSessions": 0,
