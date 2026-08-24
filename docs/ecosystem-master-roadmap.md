@@ -1728,3 +1728,31 @@ prerequisites, not by a standing project state. The next canonical item is a
 concrete bounded production Dump/Restore supervisor plus authenticated exact
 consumption of the disposable rehearsal evidence while the reader remains
 dormant. Only a later separately reviewed activation slice may change LOGIN.
+
+## 2026-08-24 — 064A dormant Dump/Restore supervisor preflight rollout
+
+A root-owned production supervisor preflight is deployed from immutable commit
+`2d662b2481347f7a4c88b0d1847c82635c2717b5`. The enabled six-hour systemd timer
+validates the exact historical disposable-rehearsal evidence, its original
+16-artifact closure, the digest-pinned PostgreSQL 17.11 client, synchronized UTC
+time and the current dormant watchdog result. Both rollout executions returned
+`DORMANT_SUPERVISOR_VERIFIED_AUTH_PENDING` with exit zero. The supervisor has no
+activation CLI: it did not call the credential issuer, dump or restore, and it
+did not read customer rows or mutate PostgreSQL/HBA.
+
+The evidence-only verifier accepts only a pinned production keyring and two
+independent Ed25519 signatures over the exact evidence, plan and closure
+digests, with all LOGIN/credential/refresh/migration/money/action authority
+false. The implementation and adversarial 064A regression pass 158/158;
+Python compilation, systemd verification, diff and targeted Gitleaks pass.
+Production remains PostgreSQL 17.11 healthy with the same container/system
+identifier, reader `NOLOGIN`, credential absent, seven consumers active, no
+failed units and no rollout-window error-priority entries. Evidence:
+`docs/e0-3-bot-b5-3-064a-dump-restore-supervisor-rollout.v1.json`.
+
+The gate remains `IN_PROGRESS`: a production 064A keyring, fresh authenticated
+owner/reviewer evidence-only acceptance and independent review are absent. The
+next canonical item is to obtain and independently verify those exact inputs,
+then deploy them as a separate non-activating slice and require
+`AUTHENTICATED_EXACT_EVIDENCE_ACCEPTED`. This does not authorize LOGIN,
+credential issuance, a dump/restore execution entrypoint or refresh.

@@ -37,6 +37,18 @@ logical restore rehearsals. Evidence is
 architecture, security and operations reviews found no current P0. This still
 does not authorize production `LOGIN`, credential issuance or a refresh.
 
+A dormant production supervisor preflight is now deployed from immutable
+commit `2d662b2481347f7a4c88b0d1847c82635c2717b5`. Its enabled six-hour timer
+verifies the exact 16-artifact disposable-rehearsal closure, pinned PostgreSQL
+17.11 client, synchronized UTC clock and current watchdog result. Both rollout
+runs returned `DORMANT_SUPERVISOR_VERIFIED_AUTH_PENDING`; the role stayed
+`NOLOGIN` and credential-absent, and no dump, restore, customer-row read or
+production mutation occurred. The verifier implements a closed two-independent-
+Ed25519 evidence-only package, but no production 064A keyring or owner/reviewer
+acceptance package exists, and independent agent review was unavailable under
+the current system mode. Evidence is
+`docs/e0-3-bot-b5-3-064a-dump-restore-supervisor-rollout.v1.json`.
+
 Deployed contract:
 
 - exact non-elevated, no-membership NOLOGIN role, two-connection bound and
@@ -73,8 +85,11 @@ Telegram actions; 064B/064D row disposition; unrelated worktree cleanup.
 
 ## Active bounded next slice
 
-Implement and independently review one concrete production Dump/Restore
-supervisor plus authenticated consumption of the exact disposable-rehearsal
-evidence. Keep the reader `NOLOGIN` and credential-absent throughout this
-slice. A separate activation gate may be considered only after those two
-named prerequisites pass; it is not implied by the PostgreSQL rollout.
+Obtain and independently verify one fresh production-authenticated 064A
+owner/reviewer evidence-only acceptance package and its exact pinned,
+revocation-aware keyring over the deployed rehearsal evidence/plan/closure
+digests. Deploy it as a separate non-activating slice and require the supervisor
+to return `AUTHENTICATED_EXACT_EVIDENCE_ACCEPTED`. Keep the reader `NOLOGIN`
+and credential-absent; this item does not authorize an execution entrypoint,
+credential issuance or refresh. A later separately reviewed activation slice
+may be considered only after this gate passes.

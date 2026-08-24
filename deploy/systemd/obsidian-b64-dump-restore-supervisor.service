@@ -2,7 +2,7 @@
 Description=Obsidian B64 dormant dump/restore supervisor preflight
 Requires=obsidian-postgres.service
 After=obsidian-postgres.service obsidian-b64-snapshot-reader-watchdog.service
-ConditionPathExists=/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/@SUPERVISOR_RELEASE_COMMIT@/deploy/postgres/b64_dump_restore_supervisor.py
+ConditionPathExists=/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/2d662b2481347f7a4c88b0d1847c82635c2717b5/deploy/postgres/b64_dump_restore_supervisor.py
 ConditionPathExists=/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/abb22afc99e504cee29881d5e4b19ba15c0f343d/docs/e0-3-bot-b5-3-064a-hardened-refresh-plan.v1.json
 ConditionPathExists=/run/systemd/timesync/synchronized
 
@@ -11,7 +11,7 @@ Type=oneshot
 User=root
 Group=root
 WorkingDirectory=/opt/obsidian-exchange
-ExecStart=/opt/obsidian-exchange/relay-venv/bin/python /opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/@SUPERVISOR_RELEASE_COMMIT@/deploy/postgres/b64_dump_restore_supervisor.py --evidence-root /opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/@SUPERVISOR_RELEASE_COMMIT@ --rehearsal-root /opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/abb22afc99e504cee29881d5e4b19ba15c0f343d --runtime-root /opt/obsidian-exchange
+ExecStart=/opt/obsidian-exchange/relay-venv/bin/python /opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/2d662b2481347f7a4c88b0d1847c82635c2717b5/deploy/postgres/b64_dump_restore_supervisor.py --evidence-root /opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/2d662b2481347f7a4c88b0d1847c82635c2717b5 --rehearsal-root /opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/abb22afc99e504cee29881d5e4b19ba15c0f343d --runtime-root /opt/obsidian-exchange
 TimeoutStartSec=90
 
 NoNewPrivileges=true

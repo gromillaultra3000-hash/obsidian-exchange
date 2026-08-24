@@ -33,11 +33,21 @@ Updated: 2026-08-24 UTC
   An initial test-label collision interrupted PostgreSQL and the first staging
   start retained 17.10; both recovered without enabling reader authority and
   are closed by isolated contract labels, exact production-tuple assertions,
-  full import-closure conditions and `--force-recreate`. Exact next: implement
-  and independently review a production Dump/Restore supervisor plus
-  authenticated consumption of the disposable-rehearsal evidence while the
-  role remains dormant. Production LOGIN/credential issuance/refresh are not
-  authorized.
+  full import-closure conditions and `--force-recreate`. The dormant
+  Dump/Restore supervisor preflight is now deployed from
+  immutable implementation commit
+  `2d662b2481347f7a4c88b0d1847c82635c2717b5`; its enabled six-hour timer
+  returns `DORMANT_SUPERVISOR_VERIFIED_AUTH_PENDING`, validates the exact
+  16-artifact rehearsal closure, pinned 17.11 client and NTP-synchronized UTC,
+  and invokes neither credential issuer, dump nor restore. Focused regression
+  passes 158/158; post-rollout PostgreSQL/watchdog/consumers are healthy with
+  no failed units or error-priority entries. Evidence:
+  `docs/e0-3-bot-b5-3-064a-dump-restore-supervisor-rollout.v1.json`. No
+  production 064A keyring or authenticated owner/reviewer package exists, and
+  independent agent review was unavailable in the current system mode. Exact
+  next: obtain and independently verify that fresh evidence-only package and
+  revocation-aware pinned keyring, then deploy them in a non-activating slice.
+  Production LOGIN/credential issuance/refresh remain unauthorized.
 
 - 2026-08-23 E4 retained status is `IN_PROGRESS` with a `NO_GO` gate decision.
   The experimental one-shot and its server entry point are

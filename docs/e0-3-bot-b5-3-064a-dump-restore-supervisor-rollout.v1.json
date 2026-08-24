@@ -1,0 +1,130 @@
+{
+  "schemaVersion": "obsidian-e0-3-bot-b5-3-064a-dump-restore-supervisor-rollout.v1",
+  "observedAt": "2026-08-24T07:00:59Z",
+  "route": ["E0", "E0.3", "B5.3", "064A"],
+  "status": "DEPLOYED_DORMANT_AUTHENTICATED_EVIDENCE_PENDING",
+  "gateStatus": "IN_PROGRESS",
+  "scope": {
+    "implemented": [
+      "root-owned exact immutable disposable-rehearsal closure validation",
+      "two-independent-Ed25519-signature evidence-only acceptance verifier",
+      "pinned production keyring digest input and closed non-authority policy",
+      "systemd-timesyncd synchronized UTC time check",
+      "production dormant watchdog and PostgreSQL 17.11 preflight",
+      "periodic root-owned systemd oneshot supervisor"
+    ],
+    "excluded": [
+      "production LOGIN activation",
+      "production credential issuance",
+      "production dump or restore execution",
+      "customer-row inspection",
+      "migrations 024+",
+      "money or Telegram actions",
+      "E4"
+    ]
+  },
+  "implementation": {
+    "commit": "2d662b2481347f7a4c88b0d1847c82635c2717b5",
+    "supervisor": {
+      "path": "deploy/postgres/b64_dump_restore_supervisor.py",
+      "sha256": "b9f1f23e336f070945c99414f09ee5f09155b7d5351c579bec38a752fedcbde2"
+    },
+    "release": {
+      "path": "/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/2d662b2481347f7a4c88b0d1847c82635c2717b5",
+      "archiveSha256": "4c96394f54cb2f1a2aa66e41af17797b6858fcee69622731a828e276eb8407d4",
+      "owner": "root:root",
+      "groupOrOtherWritableEntries": 0
+    },
+    "systemd": {
+      "service": "obsidian-b64-dump-restore-supervisor.service",
+      "serviceSha256": "aad110f3fe7017c7da54a7abfd33964328f4459d38538de0842d3dee66380705",
+      "timer": "obsidian-b64-dump-restore-supervisor.timer",
+      "timerSha256": "5b1e85aaa7b2f9e6d277a621304279af917a567d9a5e85bf2a2c64b06e09c553",
+      "serviceResult": "success",
+      "serviceExitStatus": 0,
+      "timerEnabled": true,
+      "timerActive": true,
+      "interval": "6h"
+    }
+  },
+  "exactRehearsalConsumption": {
+    "evidenceSha256": "d9e690aa77b0e58887417da718c2f5786c0616c7c9291937a4adb5c34bd87dfc",
+    "planSha256": "14d38a9fc0cc7c78014d16230553359939aad7d7a15abaf7c7cc8672c3c8d0c6",
+    "artifactClosureSha256": "e4d0a3d35702895c434b0ed647ad8a20278d104aaadd18281f28138762216122",
+    "artifactCount": 16,
+    "rehearsalReleaseCommit": "abb22afc99e504cee29881d5e4b19ba15c0f343d",
+    "integrityConsumed": true,
+    "authenticatedOwnerReviewerAcceptancePresent": false,
+    "productionKeyringPresent": false,
+    "authenticatedEvidenceStatus": "PENDING",
+    "activationAuthorityDerived": false
+  },
+  "trustedTime": {
+    "source": "SYSTEMD_TIMESYNCD_SYNCHRONIZED_UTC",
+    "ntpSynchronized": true,
+    "timezone": "Etc/UTC",
+    "syncMarker": "/run/systemd/timesync/synchronized"
+  },
+  "verification": {
+    "focusedRegression": "158 passed",
+    "pythonCompile": "PASS",
+    "systemdAnalyzeVerify": "PASS_WITH_UNRELATED_EXISTING_XRAY_NOBODY_WARNING",
+    "gitDiffCheck": "PASS",
+    "gitleaksVersion": "8.30.0",
+    "implementationChangedFiles": 5,
+    "rolloutEvidenceChangedFiles": 6,
+    "targetedGitleaks": "NO_LEAKS",
+    "independentAgentReview": "UNAVAILABLE_SYSTEM_MODE_DID_NOT_AUTHORIZE_DELEGATION",
+    "acceptanceDisposition": "IN_PROGRESS_UNTIL_AUTHENTICATED_OWNER_REVIEWER_PACKAGE_AND_INDEPENDENT_REVIEW"
+  },
+  "productionAfter": {
+    "supervisorReceiptStatus": "DORMANT_SUPERVISOR_VERIFIED_AUTH_PENDING",
+    "postgresContainerId": "818735cd7df301eeb54b3630a6dbae1551db99a8368a2e4c96596c1a2572a3a4",
+    "postgresImageId": "sha256:7456ef82e5f5bc43d997f4781bbd7c0d6389bff397564649a356e206ba473aee",
+    "postgresServerVersionNum": 170011,
+    "postgresHealth": "healthy",
+    "postgresRestartCount": 0,
+    "clusterSystemIdentifier": "7672203973020184609",
+    "watchdogStatus": "DORMANT_VERIFIED",
+    "readerLoginState": "DISABLED",
+    "readerCredentialState": "ABSENT",
+    "readerAuthorityIncreased": false,
+    "customerRowsRead": false,
+    "credentialIssuerInvoked": false,
+    "dumpInvoked": false,
+    "restoreInvoked": false,
+    "transient064AContainers": 0,
+    "allSevenConsumersActive": true,
+    "failedUnits": 0,
+    "errorPriorityEntriesInRolloutWindow": 0
+  },
+  "authority": {
+    "authenticatedEvidenceAccepted": false,
+    "readerLoginAuthorized": false,
+    "credentialIssuanceAuthorized": false,
+    "productionRefreshAuthorized": false,
+    "productionMutationAuthorized": false,
+    "migrationAuthorized": false,
+    "moneyActionAuthorized": false,
+    "automaticRetryAuthorized": false,
+    "actionAllowed": false
+  },
+  "rollback": {
+    "steps": [
+      "systemctl disable --now obsidian-b64-dump-restore-supervisor.timer",
+      "remove only the two exact new supervisor unit files",
+      "systemctl daemon-reload",
+      "remove only the exact 2d662b2481347f7a4c88b0d1847c82635c2717b5 release after verifying no unit references it"
+    ],
+    "databaseRollbackRequired": false,
+    "hbaRollbackRequired": false,
+    "credentialRevocationRequired": false
+  },
+  "blockers": [
+    "AUTHENTICATED_REHEARSAL_EVIDENCE_ABSENT",
+    "PRODUCTION_KEYRING_REVOCATION_AND_OWNER_REVIEWER_PACKAGE_ABSENT",
+    "INDEPENDENT_REVIEW_NOT_AVAILABLE_IN_CURRENT_SYSTEM_MODE",
+    "PRODUCTION_READER_ACTIVATION_SEPARATELY_AUTHORIZED_FALSE"
+  ],
+  "next": "Obtain and independently verify a fresh production-authenticated 064A owner/reviewer evidence-only acceptance package and pinned revocation-aware keyring for the exact rehearsal, then deploy it as a separate non-activating slice and require AUTHENTICATED_EXACT_EVIDENCE_ACCEPTED; do not enable LOGIN, issue a credential or run a refresh."
+}

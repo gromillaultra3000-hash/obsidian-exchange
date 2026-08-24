@@ -53,7 +53,7 @@ supervisor = (
 supervisor_timer = (
     ROOT / "deploy/systemd/obsidian-b64-dump-restore-supervisor.timer"
 ).read_text()
-assert "@SUPERVISOR_RELEASE_COMMIT@" in supervisor
+assert "2d662b2481347f7a4c88b0d1847c82635c2717b5" in supervisor
 assert "b64_dump_restore_supervisor.py" in supervisor
 assert "--rehearsal-root" in supervisor and "--evidence-root" in supervisor
 assert "--require-authenticated-evidence" not in supervisor
