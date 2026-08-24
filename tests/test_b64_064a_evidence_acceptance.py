@@ -2,6 +2,8 @@ import base64
 import importlib.util
 import json
 import os
+import subprocess
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -164,3 +166,14 @@ def test_ceremony_has_no_activation_or_credential_cli():
     assert 'add_parser("execute")' not in source
     assert 'add_parser("issue-credential")' not in source
     assert all(value is False for value in MODULE.supervisor.NON_AUTHORITY.values())
+
+
+def test_cli_help_exits_zero_without_false_error_receipt():
+    completed = subprocess.run(
+        [sys.executable, str(MODULE_PATH), "--help"],
+        capture_output=True, text=True, check=False,
+    )
+    assert completed.returncode == 0
+    assert "generate-key" in completed.stdout
+    assert '"receiptStatus":"ERROR"' not in completed.stdout
+    assert completed.stderr == ""

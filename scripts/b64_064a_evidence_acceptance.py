@@ -680,7 +680,7 @@ def main() -> int:
             "receiptStatus": "OK", "route": supervisor.ROUTE, **result,
         }, sort_keys=True, separators=(",", ":")))
         return 0
-    except BaseException as exc:
+    except Exception as exc:
         print(json.dumps({
             "receiptStatus": "ERROR", "route": supervisor.ROUTE,
             "errorCode": _reason(exc), "productionAuthority": False,
