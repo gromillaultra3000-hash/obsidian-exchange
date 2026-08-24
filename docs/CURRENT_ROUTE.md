@@ -38,16 +38,23 @@ architecture, security and operations reviews found no current P0. This still
 does not authorize production `LOGIN`, credential issuance or a refresh.
 
 A dormant production supervisor preflight is now deployed from immutable
-commit `2d662b2481347f7a4c88b0d1847c82635c2717b5`. Its enabled six-hour timer
+commit `30114cbb7ce25d49b3313d04f6564903bc29074a`. Its enabled six-hour timer
 verifies the exact 16-artifact disposable-rehearsal closure, pinned PostgreSQL
 17.11 client, synchronized UTC clock and current watchdog result. Both rollout
-runs returned `DORMANT_SUPERVISOR_VERIFIED_AUTH_PENDING`; the role stayed
+runs and the signing-workflow rollout returned
+`DORMANT_SUPERVISOR_VERIFIED_AUTH_PENDING`; the role stayed
 `NOLOGIN` and credential-absent, and no dump, restore, customer-row read or
 production mutation occurred. The verifier implements a closed two-independent-
-Ed25519 evidence-only package, but no production 064A keyring or owner/reviewer
-acceptance package exists, and independent agent review was unavailable under
-the current system mode. Evidence is
-`docs/e0-3-bot-b5-3-064a-dump-restore-supervisor-rollout.v1.json`.
+Ed25519 evidence-only package. Its v2 keyring now binds deterministic key IDs,
+a seven-day maximum validity interval, an explicit revocation snapshot and an
+externally supplied expected keyring digest. A tested offline ceremony creates
+encrypted dedicated keys, an exact unsigned acceptance, two detached
+signatures and a verified final package without moving private keys to the
+server. No dedicated production 064A public keys or signatures exist yet, and
+independent agent review remains unavailable under the current system mode.
+Evidence is
+`docs/e0-3-bot-b5-3-064a-dump-restore-supervisor-rollout.v1.json` and
+`docs/e0-3-bot-b5-3-064a-authenticated-evidence-signing-rollout.v1.json`.
 
 Deployed contract:
 
@@ -85,11 +92,14 @@ Telegram actions; 064B/064D row disposition; unrelated worktree cleanup.
 
 ## Active bounded next slice
 
-Obtain and independently verify one fresh production-authenticated 064A
-owner/reviewer evidence-only acceptance package and its exact pinned,
-revocation-aware keyring over the deployed rehearsal evidence/plan/closure
-digests. Deploy it as a separate non-activating slice and require the supervisor
-to return `AUTHENTICATED_EXACT_EVIDENCE_ACCEPTED`. Keep the reader `NOLOGIN`
-and credential-absent; this item does not authorize an execution entrypoint,
-credential issuance or refresh. A later separately reviewed activation slice
-may be considered only after this gate passes.
+Receive only one dedicated 064A owner public entry and one independent-reviewer
+public entry from separate offline devices; do not implicitly reuse the E4
+keys. Independently compare their SHA-256 values, then create a fresh explicit
+revocation snapshot, digest-pinned v2 keyring and short-lived exact unsigned
+acceptance over the deployed rehearsal evidence/plan/closure digests. Obtain
+the two detached signatures without transferring either private key, deploy
+the completed package as a separate non-activating slice and require the
+supervisor to return `AUTHENTICATED_EXACT_EVIDENCE_ACCEPTED`. Keep the reader
+`NOLOGIN` and credential-absent; this item does not authorize an execution
+entrypoint, credential issuance or refresh. A later separately reviewed
+activation slice may be considered only after this gate passes.

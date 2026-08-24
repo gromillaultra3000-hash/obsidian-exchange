@@ -1756,3 +1756,34 @@ next canonical item is to obtain and independently verify those exact inputs,
 then deploy them as a separate non-activating slice and require
 `AUTHENTICATED_EXACT_EVIDENCE_ACCEPTED`. This does not authorize LOGIN,
 credential issuance, a dump/restore execution entrypoint or refresh.
+
+## 2026-08-24 — 064A authenticated evidence signing readiness rollout
+
+The dormant supervisor now runs from immutable implementation commit
+`30114cbb7ce25d49b3313d04f6564903bc29074a`; systemd points to it through
+commit `6a06086dde3575439cd0b30e1fae82467b154bc2`. Its evidence keyring contract
+is upgraded to v2 with deterministic public-key-derived key IDs, a seven-day
+maximum validity interval, an explicit revocation snapshot, rejection of an
+active revoked signer and an independently supplied expected keyring digest.
+The offline ceremony generates encrypted Ed25519 private keys only on their
+originating devices, publishes public entries, builds the exact keyring and
+unsigned acceptance, emits one detached signature per independent role and
+assembles only after the production verifier accepts the complete package.
+E4 keys are not silently reused.
+
+The focused 064A/snapshot regression passes 164/164; Python compilation,
+systemd verification, diff and Gitleaks pass. The deployed oneshot returned
+`DORMANT_SUPERVISOR_VERIFIED_AUTH_PENDING` with exit zero. PostgreSQL remains
+healthy on the same image, container and cluster identifier; the reader is
+`NOLOGIN` and credential-absent, all seven consumers are active, no units are
+failed and no 064A-related error-priority entry occurred. Evidence:
+`docs/e0-3-bot-b5-3-064a-authenticated-evidence-signing-rollout.v1.json`.
+
+The gate remains `IN_PROGRESS` because the two dedicated 064A public entries,
+fresh pinned keyring and detached owner/reviewer signatures do not exist yet.
+The next canonical item is to receive only those public entries from separate
+offline devices, compare their hashes through a second channel, create the
+short-lived exact payload and obtain both detached signatures. The completed
+package may then be deployed only as a non-activating slice while the reader
+stays dormant. This step grants no LOGIN, credential, refresh, mutation,
+migration or money authority.

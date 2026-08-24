@@ -34,19 +34,26 @@ Updated: 2026-08-24 UTC
   start retained 17.10; both recovered without enabling reader authority and
   are closed by isolated contract labels, exact production-tuple assertions,
   full import-closure conditions and `--force-recreate`. The dormant
-  Dump/Restore supervisor preflight is now deployed from
-  immutable implementation commit
-  `2d662b2481347f7a4c88b0d1847c82635c2717b5`; its enabled six-hour timer
+  Dump/Restore supervisor now runs from immutable implementation commit
+  `30114cbb7ce25d49b3313d04f6564903bc29074a`, with systemd pointer commit
+  `6a06086dde3575439cd0b30e1fae82467b154bc2`; its enabled six-hour timer
   returns `DORMANT_SUPERVISOR_VERIFIED_AUTH_PENDING`, validates the exact
   16-artifact rehearsal closure, pinned 17.11 client and NTP-synchronized UTC,
-  and invokes neither credential issuer, dump nor restore. Focused regression
-  passes 158/158; post-rollout PostgreSQL/watchdog/consumers are healthy with
-  no failed units or error-priority entries. Evidence:
-  `docs/e0-3-bot-b5-3-064a-dump-restore-supervisor-rollout.v1.json`. No
-  production 064A keyring or authenticated owner/reviewer package exists, and
-  independent agent review was unavailable in the current system mode. Exact
-  next: obtain and independently verify that fresh evidence-only package and
-  revocation-aware pinned keyring, then deploy them in a non-activating slice.
+  and invokes neither credential issuer, dump nor restore. The tested offline
+  ceremony and v2 verifier require dedicated independent Ed25519 identities,
+  public-key-derived key IDs, an explicit seven-day revocation snapshot,
+  external keyring-digest pin and two detached signatures; private keys never
+  enter the server, and E4 keys are not implicitly reused. Focused regression
+  passes 164/164; post-rollout PostgreSQL/watchdog/seven consumers are healthy,
+  the cluster ID is unchanged, the reader remains `NOLOGIN`/credential-absent,
+  and no unit or 064A-related error failed. Evidence:
+  `docs/e0-3-bot-b5-3-064a-dump-restore-supervisor-rollout.v1.json` and
+  `docs/e0-3-bot-b5-3-064a-authenticated-evidence-signing-rollout.v1.json`.
+  No dedicated 064A public keys, keyring or authenticated owner/reviewer
+  package exists, and independent agent review was unavailable in the current
+  system mode. Exact next: receive only the two public entries from separate
+  offline devices, compare their hashes, create the short-lived exact payload,
+  collect both detached signatures and deploy only the non-activating package.
   Production LOGIN/credential issuance/refresh remain unauthorized.
 
 - 2026-08-23 E4 retained status is `IN_PROGRESS` with a `NO_GO` gate decision.

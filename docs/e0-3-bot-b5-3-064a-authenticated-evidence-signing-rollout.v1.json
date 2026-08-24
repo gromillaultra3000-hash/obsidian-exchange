@@ -1,0 +1,120 @@
+{
+  "schemaVersion": "obsidian-e0-3-bot-b5-3-064a-authenticated-evidence-signing-rollout.v1",
+  "route": "E0/E0.3/B5.3/064A",
+  "observedAt": "2026-08-24T07:22:04Z",
+  "status": "DEPLOYED_AUTHENTICATED_EVIDENCE_SIGNING_READY_AUTH_PENDING",
+  "scope": {
+    "codeFirst": true,
+    "productionSlice": "DORMANT_SUPERVISOR_VERIFIER_AND_OFFLINE_SIGNING_WORKFLOW",
+    "authenticationPackageDeployed": false,
+    "readerActivationInScope": false,
+    "credentialIssuanceInScope": false,
+    "dumpRestoreExecutionInScope": false,
+    "customerRowReadInScope": false,
+    "productionMutationInScope": false
+  },
+  "implementation": {
+    "implementationCommit": "30114cbb7ce25d49b3313d04f6564903bc29074a",
+    "systemdPointerCommit": "6a06086dde3575439cd0b30e1fae82467b154bc2",
+    "immutableRelease": "/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/30114cbb7ce25d49b3313d04f6564903bc29074a",
+    "sourceArchiveSha256": "2ee9c225e55a63bf1d8966eb6da65347dc25c442d9ac21f61df8e272b8143e74",
+    "supervisorSha256": "83c4d2d424944c6cea96bd8835f115676cd6c2a400fdfb2f422efd61bf3393eb",
+    "offlineCeremonySha256": "8036a9cc797fdd74e4de6830c90e3be0360d8c67b240b06829dd34d0c4ffacf5",
+    "deployedUnitSha256": "6575fe3cd046dd26c2ac92e4f1ec9b1d4fdc96a3420fe19e32454e6c35a3c84a",
+    "priorUnitRollbackSha256": "aad110f3fe7017c7da54a7abfd33964328f4459d38538de0842d3dee66380705",
+    "timerSha256": "5b1e85aaa7b2f9e6d277a621304279af917a567d9a5e85bf2a2c64b06e09c553"
+  },
+  "authenticationContract": {
+    "keyringSchema": "b64-064a-evidence-keyring.v2",
+    "acceptanceSchema": "b64-064a-rehearsal-evidence-acceptance.v1",
+    "detachedSignatureSchema": "b64-064a-evidence-detached-signature.v1",
+    "signatureAlgorithm": "Ed25519",
+    "requiredRoles": [
+      "ACCOUNTABLE_OWNER",
+      "INDEPENDENT_REVIEWER"
+    ],
+    "independentIdentityRequired": true,
+    "independentTrustDomainRequired": true,
+    "distinctPublicKeysRequired": true,
+    "deterministicKeyIdBoundToPublicKey": true,
+    "externalExpectedKeyringDigestRequiredAtAssembly": true,
+    "keyringMaximumLifetimeSeconds": 604800,
+    "acceptanceMaximumLifetimeSeconds": 86400,
+    "explicitRevocationSnapshotRequired": true,
+    "activeRevokedSignerRejected": true,
+    "privateKeysEnterServer": false,
+    "e4KeysImplicitlyReused": false
+  },
+  "exactRehearsalBinding": {
+    "evidenceSha256": "d9e690aa77b0e58887417da718c2f5786c0616c7c9291937a4adb5c34bd87dfc",
+    "planSha256": "14d38a9fc0cc7c78014d16230553359939aad7d7a15abaf7c7cc8672c3c8d0c6",
+    "artifactClosureSha256": "e4d0a3d35702895c434b0ed647ad8a20278d104aaadd18281f28138762216122",
+    "artifactCount": 16,
+    "rehearsalReleaseCommit": "abb22afc99e504cee29881d5e4b19ba15c0f343d"
+  },
+  "verification": {
+    "focusedRegression": "164 passed",
+    "pythonCompile": "PASS",
+    "gitDiffCheck": "PASS",
+    "systemdAnalyzeVerify": "PASS_WITH_UNRELATED_EXISTING_XRAY_NOBODY_WARNING",
+    "gitleaks": "NO_LEAKS",
+    "productionOneshotResult": "success",
+    "productionOneshotExitStatus": 0,
+    "productionReceiptStatus": "DORMANT_SUPERVISOR_VERIFIED_AUTH_PENDING",
+    "timerEnabled": true,
+    "timerActive": true
+  },
+  "productionAfter": {
+    "postgresContainerId": "818735cd7df301eeb54b3630a6dbae1551db99a8368a2e4c96596c1a2572a3a4",
+    "postgresImageId": "sha256:7456ef82e5f5bc43d997f4781bbd7c0d6389bff397564649a356e206ba473aee",
+    "postgresServerVersionNum": 170011,
+    "postgresHealth": "healthy",
+    "postgresRestartCount": 0,
+    "clusterSystemIdentifier": "7672203973020184609",
+    "readerLoginState": "DISABLED",
+    "readerCredentialState": "ABSENT",
+    "watchdogStatus": "DORMANT_VERIFIED",
+    "customerRowsRead": false,
+    "productionMutation": false,
+    "credentialIssuerInvoked": false,
+    "dumpInvoked": false,
+    "restoreInvoked": false,
+    "allSevenConsumersActive": true,
+    "failedUnits": 0,
+    "rolloutErrorPriorityEntries": {
+      "related064A": 0,
+      "unrelatedExistingFstabDuplicateSwapfile": 1
+    }
+  },
+  "authority": {
+    "readerLoginAuthorized": false,
+    "credentialIssuanceAuthorized": false,
+    "productionRefreshAuthorized": false,
+    "productionMutationAuthorized": false,
+    "migrationAuthorized": false,
+    "moneyActionAuthorized": false,
+    "automaticRetryAuthorized": false,
+    "actionAllowed": false
+  },
+  "blockers": [
+    "DEDICATED_064A_OWNER_PUBLIC_KEY_ABSENT",
+    "DEDICATED_064A_REVIEWER_PUBLIC_KEY_ABSENT",
+    "FRESH_PINNED_KEYRING_ABSENT",
+    "TWO_DETACHED_SIGNATURES_ABSENT",
+    "AUTHENTICATED_REHEARSAL_EVIDENCE_ABSENT",
+    "PRODUCTION_READER_ACTIVATION_SEPARATELY_AUTHORIZED_FALSE"
+  ],
+  "rollback": {
+    "unitBackup": "/etc/systemd/system/obsidian-b64-dump-restore-supervisor.service.rollback-aad110f3",
+    "steps": [
+      "install the exact rollback unit backup over obsidian-b64-dump-restore-supervisor.service",
+      "systemctl daemon-reload",
+      "systemctl start obsidian-b64-dump-restore-supervisor.service",
+      "remove the 30114cbb7ce25d49b3313d04f6564903bc29074a release only after verifying no unit references it"
+    ],
+    "databaseRollbackRequired": false,
+    "hbaRollbackRequired": false,
+    "credentialRevocationRequired": false
+  },
+  "next": "Receive only the dedicated owner and independent-reviewer public entries, compare their SHA-256 values through a second trusted channel, then create one fresh explicit revocation snapshot, pinned v2 keyring and short-lived exact unsigned acceptance. Return only two detached signatures; never transfer private keys or passphrases."
+}
