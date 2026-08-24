@@ -13,6 +13,11 @@ EXPECTED_IMAGE = (
     "postgres@sha256:"
     "7456ef82e5f5bc43d997f4781bbd7c0d6389bff397564649a356e206ba473aee"
 )
+EXPECTED_WATCHDOG_RELEASE = (
+    "/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/"
+    "12e0d1c018eacd7d9a1a59c4cd01308bb534ef6d/"
+    "deploy/postgres/"
+)
 
 
 compose = COMPOSE.read_text("utf-8")
@@ -46,6 +51,7 @@ assert "b64_snapshot_reader_transition_gate.py" in unit
 assert "b64_snapshot_reader_transition_gate.py --expected-image-id" in unit
 assert "--expected-server-version-num 170011 --apply" in unit
 assert "b64_snapshot_reader_watchdog.py" in unit
+assert f"ExecStartPost=/opt/obsidian-exchange/relay-venv/bin/python {EXPECTED_WATCHDOG_RELEASE}b64_snapshot_reader_watchdog.py" in unit
 
 supervisor = (
     ROOT / "deploy/systemd/obsidian-b64-dump-restore-supervisor.service"
@@ -80,6 +86,8 @@ assert "ReadWritePaths=/run/lock /var/lib/docker/volumes/obsidian-postgres-data/
 assert "--require-dormant" in watchdog_unit
 assert "--cleanup-recovery" in watchdog_unit
 assert "--cleanup-recovery" not in unit
+assert f"ExecStart=/opt/obsidian-exchange/relay-venv/bin/python {EXPECTED_WATCHDOG_RELEASE}b64_snapshot_reader_watchdog.py" in watchdog_unit
+assert watchdog_unit.count(f"ConditionPathExists={EXPECTED_WATCHDOG_RELEASE}") == 4
 assert "BindsTo=obsidian-postgres.service" in watchdog_unit
 assert "ReadWritePaths=/run/lock /var/lib/docker/volumes/obsidian-postgres-data/_data/.obsidian-b64-hba-v1 -/var/lib/obsidian-exchange/b64-064a-activation/journal -/var/lib/obsidian-exchange/b64-064a-activation/resources -/var/lib/obsidian-exchange/b64-064a-activation/workspace -/var/lib/obsidian-exchange/b64-064a-activation/proxy" in watchdog_unit
 assert "TimeoutStartSec=180" in watchdog_unit
