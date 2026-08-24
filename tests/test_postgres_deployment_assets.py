@@ -50,22 +50,29 @@ assert "b64_snapshot_reader_watchdog.py" in unit
 supervisor = (
     ROOT / "deploy/systemd/obsidian-b64-dump-restore-supervisor.service"
 ).read_text()
+authenticated_acceptance = (
+    ROOT / "deploy/systemd/obsidian-b64-authenticated-evidence-acceptance.service"
+).read_text()
 supervisor_timer = (
     ROOT / "deploy/systemd/obsidian-b64-dump-restore-supervisor.timer"
 ).read_text()
 assert "30114cbb7ce25d49b3313d04f6564903bc29074a" in supervisor
 assert "b64_dump_restore_supervisor.py" in supervisor
 assert "--rehearsal-root" in supervisor and "--evidence-root" in supervisor
-assert "--require-authenticated-evidence" in supervisor
-assert "--authentication-root" in supervisor
-assert "--keyring-relative keyring.json" in supervisor
-assert "--acceptance-relative acceptance-signed.json" in supervisor
-assert "a83cfac0c2a61edb83480ae782e077d3fafc6401b3e2f1694aeebf6fd24b113c" in supervisor
-assert "b482504a2166b1e410e6a4b97829dbfcf818807b872f6ca73530a6d130dd54ba" in supervisor
-assert supervisor.count("ConditionPathExists=/opt/obsidian-exchange/evidence/") == 2
+assert "--require-authenticated-evidence" not in supervisor
 assert "ConditionPathExists=/run/systemd/timesync/synchronized" in supervisor
 assert "RestrictAddressFamilies=AF_UNIX" in supervisor
 assert "OnUnitActiveSec=6h" in supervisor_timer
+assert "--require-authenticated-evidence" in authenticated_acceptance
+assert "--authentication-root" in authenticated_acceptance
+assert "--keyring-relative keyring.json" in authenticated_acceptance
+assert "--acceptance-relative acceptance-signed.json" in authenticated_acceptance
+assert "a83cfac0c2a61edb83480ae782e077d3fafc6401b3e2f1694aeebf6fd24b113c" in authenticated_acceptance
+assert "b482504a2166b1e410e6a4b97829dbfcf818807b872f6ca73530a6d130dd54ba" in authenticated_acceptance
+assert authenticated_acceptance.count(
+    "ConditionPathExists=/opt/obsidian-exchange/evidence/"
+) == 2
+assert "OnUnitActiveSec" not in authenticated_acceptance
 assert "--expected-server-version-num 170011 --require-dormant" in unit
 assert "b64_postgres_shutdown.py" in unit
 assert "Wants=obsidian-b64-snapshot-reader-watchdog.timer" in unit
