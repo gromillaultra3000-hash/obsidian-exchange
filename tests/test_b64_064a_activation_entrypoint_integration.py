@@ -760,6 +760,7 @@ def main():
         raise RuntimeError(f"CONTRACT_HBA_APPLY_FAILED_{safe_reason}")
     result = None
     replay_reason = None
+    cold_recovery_result = None
     try:
         system_identifier = runtime._exact_runtime_binding(
             observation_dsn=observation_dsn, admin_dsn=admin_dsn,
@@ -900,6 +901,73 @@ def main():
             ).inspect()
             if journal["state"] != "CLOSED":
                 raise RuntimeError("ACTIVATION_JOURNAL_NOT_CLOSED")
+
+            recovery_keyring, recovery_keyring_sha, recovery_plan, \
+                recovery_decision = _signed_package(
+                    now_epoch=now_epoch, container_id=container_id,
+                    image_id=image_id,
+                    system_identifier=system_identifier,
+                )
+            recovery_authorization = activation.verify_activation_decision(
+                keyring_raw=_canonical(recovery_keyring),
+                decision_raw=_canonical(recovery_decision),
+                activation_plan_raw=_canonical(recovery_plan),
+                expected_keyring_sha256=recovery_keyring_sha,
+                expected_environment="DISPOSABLE_CONTRACT",
+                now_epoch=now_epoch,
+            )
+            recovery_journal = activation.ActivationJournal(
+                journal_root, recovery_authorization,
+            )
+            recovery_journal.claim()
+            recovery_journal.transition(
+                expected_state={"CLAIMED"}, state="RUNNING",
+            )
+            recovery_resources = \
+                production_executor.ExecutorResourceJournal(
+                    root=resource_journal_root,
+                    workspace_parent=workspace_parent,
+                    run_nonce=recovery_authorization.run_nonce,
+                    environment=recovery_authorization.environment,
+                    target=recovery_authorization.target,
+                    plan_sha256=recovery_authorization.plan_sha256,
+                    decision_sha256=recovery_authorization.decision_sha256,
+                    derived_plan_sha256=(
+                        recovery_authorization
+                        .derived_execution_plan_sha256
+                    ),
+                )
+            recovery_resources.create()
+            unbound_workspace = workspace_parent / \
+                recovery_resources.initial["workspaceName"]
+            unbound_workspace.mkdir(mode=0o700)
+            unbound_archive = unbound_workspace / "snapshot.dump"
+            unbound_archive.write_bytes(b"synthetic-unbound-partial")
+            unbound_archive.chmod(0o600)
+            expired_now = max(
+                recovery_keyring["expiresAtEpoch"],
+                recovery_decision["expiresAtEpoch"],
+            ) + 1
+            cold_recovery_result = \
+                activation.recover_incomplete_from_package(
+                    keyring_raw=_canonical(recovery_keyring),
+                    decision_raw=_canonical(recovery_decision),
+                    activation_plan_raw=_canonical(recovery_plan),
+                    expected_keyring_sha256=recovery_keyring_sha,
+                    expected_environment="DISPOSABLE_CONTRACT",
+                    now_epoch=expired_now, journal_root=journal_root,
+                    executor=executor, reconcile=reconcile,
+                    verify_dormant=dormant,
+                )
+            if (cold_recovery_result.get("status")
+                    != "ACTIVATION_RECONCILED_HOLD"
+                    or recovery_journal.inspect()["state"]
+                    != "RECONCILED_HOLD"
+                    or recovery_resources.inspect()["state"]
+                    != "RECONCILED_HOLD"
+                    or unbound_workspace.exists()
+                    or executor.calls != 1):
+                raise RuntimeError("COLD_EXPIRY_RECOVERY_NOT_CLOSED")
     finally:
         primary_error = sys.exception()
         reconcile_error = None
@@ -933,6 +1001,9 @@ def main():
         "replayReason": replay_reason,
         "executorCalls": 1,
         "watchdogStatus": watchdog_result["status"],
+        "coldRecoveryStatus": cold_recovery_result["status"],
+        "coldRecoveryAfterKeyringAndDecisionExpiry": True,
+        "preInodeWorkspaceRecovered": True,
         "readerLoginState": "DISABLED",
         "readerCredentialState": "ABSENT",
         "readerActiveSessions": 0,

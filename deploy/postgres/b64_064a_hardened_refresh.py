@@ -785,6 +785,7 @@ def _execute_bound(plan: Mapping[str, Any], workspace_parent: Path, *,
             raise HardenedRefreshError("UNSAFE_WORKSPACE_PARENT")
         os.mkdir(workspace_name, 0o700, dir_fd=parent_fd)
         workspace_created = True
+        trip("WORKSPACE_CREATED_UNBOUND")
         directory_fd = os.open(workspace_name, parent_flags, dir_fd=parent_fd)
         directory_stat = os.fstat(directory_fd)
         if directory_stat.st_uid != os.geteuid() or stat.S_IMODE(directory_stat.st_mode) != 0o700:
@@ -1126,6 +1127,7 @@ def execute_hermetic(
 
 def execute_authorized(
     plan: Mapping[str, Any], workspace_parent: Path, *,
+    effective_plan: Mapping[str, Any],
     source: SourceAdapter, dump: DumpAdapter, restore: RestoreAdapter,
     source_secret_fd: int, dump_secret_fd: int,
     authorization: Any, absolute_deadline: float,
@@ -1144,8 +1146,20 @@ def execute_authorized(
             "PRODUCTION_EXECUTION_NOT_AUTHORIZED"
         ) from exc
     checked = validate_plan(plan)
+    try:
+        checked_effective = activation.validate_effective_execution_plan(
+            effective_plan
+        )
+        compatibility = activation.compatibility_hardened_plan(
+            checked_effective
+        )
+    except BaseException as exc:
+        raise HardenedRefreshError(
+            "PRODUCTION_EFFECTIVE_PLAN_INVALID"
+        ) from exc
     if (checked["runNonce"] != verified.run_nonce
-            or _sha_bytes(_canonical(checked))
+            or _canonical(checked) != _canonical(compatibility)
+            or _sha_bytes(_canonical(checked_effective))
             != verified.derived_execution_plan_sha256):
         raise HardenedRefreshError("PRODUCTION_EXECUTION_NONCE_MISMATCH")
     return _execute_bound(

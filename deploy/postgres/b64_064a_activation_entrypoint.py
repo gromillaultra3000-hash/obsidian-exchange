@@ -33,6 +33,7 @@ PLAN_SCHEMA = "b64-064a-production-activation-plan.v2"
 DECISION_SCHEMA = "b64-064a-production-activation-decision.v2"
 EXECUTION_RECEIPT_SCHEMA = "b64-064a-production-activation-receipt.v2"
 JOURNAL_SCHEMA = "b64-064a-production-activation-journal.v2"
+EFFECTIVE_PLAN_SCHEMA = "b64-064a-production-effective-plan.v1"
 SIGNATURE_DOMAIN = b"OBSIDIAN\0B64_064A_PRODUCTION_ACTIVATION\0V2\0"
 ACTIVATION_KEYRING_SCHEMA = "b64-064a-activation-keyring.v1"
 ACTIVATION_TRUST_ENVIRONMENT = "PRODUCTION_ACTIVATION_AUTHENTICATED"
@@ -43,7 +44,7 @@ MAX_FUTURE_SKEW_SECONDS = 60
 LEGACY_ACCEPTED_REHEARSAL_PLAN_SHA256 = \
     "14d38a9fc0cc7c78014d16230553359939aad7d7a15abaf7c7cc8672c3c8d0c6"
 HARDENED_PLAN_RAW_SHA256 = \
-    "a4accf84126c85aa7e30a2543f870f323a4c24910c0a7e918bf668801c77756f"
+    "6740ef78c396e86c7f4e66cb33cd225e7d3eac0b31c01bebd5ca4b35794c8d02"
 EVIDENCE_ACCEPTANCE_SHA256 = \
     "b482504a2166b1e410e6a4b97829dbfcf818807b872f6ca73530a6d130dd54ba"
 PRODUCTION_CONTAINER = "obsidian-postgres"
@@ -86,6 +87,7 @@ ARTIFACT_PATHS = {
 }
 
 _VERIFIED_ACTIVATION_SEAL = object()
+_VERIFIED_RECOVERY_SEAL = object()
 
 
 class _ExecutionCapabilityState:
@@ -152,6 +154,16 @@ EXECUTION_PROFILE = {
     "freshActivationNonceOnEveryRuntimeResource": True,
     "outerWorkDeadlinePropagated": True,
     "durableExecutorResourceJournalRequired": True,
+}
+
+EFFECTIVE_EXECUTION = {
+    "dumpNetwork": "NONE_WITH_EXACT_UNIX_PROXY",
+    "dumpDatabaseEndpoint": "/run/b64/proxy/.s.PGSQL.5432",
+    "proxyTarget": "127.0.0.1:5432_IN_ATTESTED_SOURCE_NETNS",
+    "dumpContainerSharesSourceNetworkNamespace": False,
+    "dumpEgressIsolated": True,
+    "abnormalExitRecovery": "CLEANUP_ONLY_NO_EXECUTE_OR_LEASE",
+    "automaticRetryAllowed": False,
 }
 
 PRODUCTION_AUTHORITY = {
@@ -308,9 +320,9 @@ def derive_execution_plan(
     raw, digest = _artifact_bytes_and_sha256(ARTIFACT_PATHS["hardenedPlanRaw"])
     if digest != HARDENED_PLAN_RAW_SHA256:
         raise ActivationError("HARDENED_PLAN_BINDING_MISMATCH")
-    plan = _decode_json(raw)
-    plan["runNonce"] = run_nonce
-    plan_artifacts = plan.get("artifactsSha256")
+    compatibility_plan = _decode_json(raw)
+    compatibility_plan["runNonce"] = run_nonce
+    plan_artifacts = compatibility_plan.get("artifactsSha256")
     if not isinstance(plan_artifacts, dict):
         raise ActivationError("HARDENED_PLAN_BINDING_MISMATCH")
     plan_artifacts["runner"] = _digest(
@@ -320,7 +332,95 @@ def derive_execution_plan(
         artifacts_sha256["snapshotReaderRuntime"],
         "INVALID_ARTIFACT_DIGEST",
     )
-    return json.loads(_canonical(plan))
+    effective_plan = json.loads(_canonical(compatibility_plan))
+    effective_plan["schemaVersion"] = \
+        "b64-064a-effective-hardened-refresh-plan.v1"
+    effective_plan["client"]["networkForDump"] = "none"
+    effective_plan["client"]["sourceNetworkNamespaceShared"] = False
+    effective_plan["client"]["egressIsolationProven"] = True
+    effective_plan["credentials"][
+        "reconcileOnAbnormalSupervisorExit"
+    ] = True
+    effective_plan["effectiveExecution"] = dict(EFFECTIVE_EXECUTION)
+    value = {
+        "schemaVersion": EFFECTIVE_PLAN_SCHEMA,
+        "route": ROUTE,
+        "runNonce": run_nonce,
+        "compatibilityHardenedPlanSha256": _sha(
+            _canonical(compatibility_plan)
+        ),
+        "effectivePlan": effective_plan,
+    }
+    return validate_effective_execution_plan(value)
+
+
+def validate_effective_execution_plan(
+    value: Mapping[str, Any],
+) -> dict[str, Any]:
+    if not isinstance(value, Mapping) or set(value) != {
+            "schemaVersion", "route", "runNonce",
+            "compatibilityHardenedPlanSha256",
+            "effectivePlan"}:
+        raise ActivationError("INVALID_EFFECTIVE_EXECUTION_PLAN")
+    run_nonce = _token(
+        value.get("runNonce"), "INVALID_RUN_NONCE", minimum=16,
+        maximum=64,
+    )
+    effective = value.get("effectivePlan")
+    if (value.get("schemaVersion") != EFFECTIVE_PLAN_SCHEMA
+            or value.get("route") != ROUTE
+            or not isinstance(effective, Mapping)
+            or effective.get("schemaVersion")
+            != "b64-064a-effective-hardened-refresh-plan.v1"
+            or effective.get("route") != ROUTE
+            or effective.get("runNonce") != run_nonce
+            or not isinstance(
+                effective.get("artifactsSha256"), Mapping
+            )):
+        raise ActivationError("INVALID_EFFECTIVE_EXECUTION_PLAN")
+    client = effective.get("client")
+    credentials = effective.get("credentials")
+    if (not isinstance(client, Mapping)
+            or client.get("networkForDump") != "none"
+            or client.get("sourceNetworkNamespaceShared") is not False
+            or client.get("egressIsolationProven") is not True
+            or not isinstance(credentials, Mapping)
+            or credentials.get("reconcileOnAbnormalSupervisorExit")
+            is not True
+            or not _exact(effective.get("effectiveExecution"),
+                          EFFECTIVE_EXECUTION)):
+        raise ActivationError("INVALID_EFFECTIVE_EXECUTION_PLAN")
+    compatibility = _project_compatibility_hardened_plan(effective)
+    if _digest(
+            value.get("compatibilityHardenedPlanSha256"),
+            "INVALID_COMPATIBILITY_PLAN_DIGEST",
+            ) != _sha(_canonical(compatibility)):
+        raise ActivationError("INVALID_EFFECTIVE_EXECUTION_PLAN")
+    return json.loads(_canonical(dict(value)))
+
+
+def _project_compatibility_hardened_plan(
+    effective_plan: Mapping[str, Any],
+) -> dict[str, Any]:
+    compatibility = json.loads(_canonical(dict(effective_plan)))
+    compatibility.pop("effectiveExecution", None)
+    compatibility["schemaVersion"] = \
+        "b64-064a-hardened-refresh-plan.v1"
+    compatibility["client"]["networkForDump"] = \
+        "container:ATTESTED_SOURCE_CONTAINER_ID"
+    compatibility["client"]["sourceNetworkNamespaceShared"] = True
+    compatibility["client"]["egressIsolationProven"] = False
+    compatibility["credentials"][
+        "reconcileOnAbnormalSupervisorExit"
+    ] = False
+    return compatibility
+
+
+def compatibility_hardened_plan(
+    effective_plan: Mapping[str, Any],
+) -> dict[str, Any]:
+    checked = validate_effective_execution_plan(effective_plan)
+    return _project_compatibility_hardened_plan(checked["effectivePlan"])
 
 
 def _load_keyring(
@@ -591,6 +691,22 @@ class VerifiedActivation:
     _capability_state: _ExecutionCapabilityState
 
 
+@dataclass(frozen=True)
+class VerifiedRecovery:
+    """Package-bound cleanup capability with no execute or lease authority."""
+
+    environment: str
+    run_nonce: str
+    plan_sha256: str
+    decision_sha256: str
+    keyring_sha256: str
+    derived_execution_plan_sha256: str
+    decision_expires_at_epoch: int
+    target: Mapping[str, Any]
+    limits: Mapping[str, Any]
+    _recovery_seal: object
+
+
 def require_verified_execution_authorization(
     authorization: Any, *, expected_environment: str,
     require_started: bool = True,
@@ -616,6 +732,21 @@ def claim_verified_production_lease(authorization: Any) -> None:
         authorization, expected_environment="PRODUCTION"
     )
     verified._capability_state.claim_lease()
+
+
+def require_verified_recovery_authorization(
+    authorization: Any, *, expected_environment: str,
+) -> VerifiedActivation | VerifiedRecovery:
+    if (isinstance(authorization, VerifiedActivation)
+            and authorization._verification_seal
+            is _VERIFIED_ACTIVATION_SEAL
+            and authorization.environment == expected_environment):
+        return authorization
+    if (isinstance(authorization, VerifiedRecovery)
+            and authorization._recovery_seal is _VERIFIED_RECOVERY_SEAL
+            and authorization.environment == expected_environment):
+        return authorization
+    raise ActivationError("ACTIVATION_RECOVERY_AUTHORIZATION_INVALID")
 
 
 def verify_activation_decision(
@@ -735,6 +866,43 @@ def verify_activation_decision(
     )
 
 
+def verify_cleanup_recovery(
+    *, keyring_raw: bytes, decision_raw: bytes, activation_plan_raw: bytes,
+    expected_keyring_sha256: str, expected_environment: str, now_epoch: int,
+) -> VerifiedRecovery:
+    """Verify an exact historical package for cleanup after expiry.
+
+    Signature and time relationships are rechecked at the signed decision's
+    issuance instant. The current time may be after both expiries, but cannot
+    precede the signed issuance beyond the normal clock skew. The returned
+    object is rejected by every execute and lease boundary.
+    """
+    decision = _decode_json(decision_raw)
+    issued = decision.get("issuedAtEpoch")
+    if (type(now_epoch) is not int or type(issued) is not int
+            or now_epoch + MAX_FUTURE_SKEW_SECONDS < issued):
+        raise ActivationError("ACTIVATION_RECOVERY_TIME_INVALID")
+    verified = verify_activation_decision(
+        keyring_raw=keyring_raw, decision_raw=decision_raw,
+        activation_plan_raw=activation_plan_raw,
+        expected_keyring_sha256=expected_keyring_sha256,
+        expected_environment=expected_environment, now_epoch=issued,
+    )
+    return VerifiedRecovery(
+        environment=verified.environment,
+        run_nonce=verified.run_nonce,
+        plan_sha256=verified.plan_sha256,
+        decision_sha256=verified.decision_sha256,
+        keyring_sha256=verified.keyring_sha256,
+        derived_execution_plan_sha256=(
+            verified.derived_execution_plan_sha256
+        ),
+        decision_expires_at_epoch=verified.expires_at_epoch,
+        target=dict(verified.target), limits=dict(verified.limits),
+        _recovery_seal=_VERIFIED_RECOVERY_SEAL,
+    )
+
+
 class ActivationExecutor(Protocol):
     production_contact: bool
 
@@ -745,7 +913,7 @@ class ActivationExecutor(Protocol):
 
     def reconcile_resources(
         self, *, plan: Mapping[str, Any],
-        authorization: VerifiedActivation,
+        authorization: VerifiedActivation | VerifiedRecovery,
     ) -> Mapping[str, Any]: ...
 
 
@@ -777,7 +945,7 @@ def _safe_open_root(path: Path) -> int:
 
 
 def _acquire_production_interlock(
-    authorization: VerifiedActivation,
+    authorization: VerifiedActivation | VerifiedRecovery,
 ) -> int:
     try:
         descriptor = os.open(
@@ -815,7 +983,10 @@ def _acquire_production_interlock(
 
 
 class ActivationJournal:
-    def __init__(self, root: Path, authorization: VerifiedActivation):
+    def __init__(
+        self, root: Path,
+        authorization: VerifiedActivation | VerifiedRecovery,
+    ):
         self.root = root
         self.authorization = authorization
         self.name = f"{authorization.run_nonce}.json"
@@ -1258,11 +1429,15 @@ def run_once(
 
 
 def reconcile_incomplete(
-    *, authorization: VerifiedActivation, journal_root: Path,
+    *, authorization: VerifiedActivation | VerifiedRecovery,
+    journal_root: Path,
     activation_plan_raw: bytes, executor: ActivationExecutor,
     reconcile: Callable[[], Mapping[str, Any]],
     verify_dormant: Callable[[], Mapping[str, Any]],
 ) -> dict[str, Any]:
+    authorization = require_verified_recovery_authorization(
+        authorization, expected_environment=authorization.environment,
+    )
     plan = validate_plan(
         _decode_json(activation_plan_raw),
         expected_environment=authorization.environment,
@@ -1323,6 +1498,34 @@ def reconcile_incomplete(
         "automaticRetryAllowed": False,
         "actionAllowed": False,
     }
+
+
+def recover_incomplete_from_package(
+    *, keyring_raw: bytes, decision_raw: bytes, activation_plan_raw: bytes,
+    expected_keyring_sha256: str, expected_environment: str, now_epoch: int,
+    journal_root: Path, executor: ActivationExecutor,
+    reconcile: Callable[[], Mapping[str, Any]],
+    verify_dormant: Callable[[], Mapping[str, Any]],
+) -> dict[str, Any]:
+    if expected_environment == "PRODUCTION":
+        try:
+            trusted_now, _clock_evidence = supervisor._trusted_now_epoch()
+        except supervisor.SupervisorError as exc:
+            raise ActivationError(str(exc)) from exc
+        if type(now_epoch) is not int or abs(trusted_now - now_epoch) > 1:
+            raise ActivationError("ACTIVATION_TRUSTED_TIME_MISMATCH")
+        now_epoch = trusted_now
+    recovery = verify_cleanup_recovery(
+        keyring_raw=keyring_raw, decision_raw=decision_raw,
+        activation_plan_raw=activation_plan_raw,
+        expected_keyring_sha256=expected_keyring_sha256,
+        expected_environment=expected_environment, now_epoch=now_epoch,
+    )
+    return reconcile_incomplete(
+        authorization=recovery, journal_root=journal_root,
+        activation_plan_raw=activation_plan_raw, executor=executor,
+        reconcile=reconcile, verify_dormant=verify_dormant,
+    )
 
 
 def _safe_read(path: str) -> bytes:

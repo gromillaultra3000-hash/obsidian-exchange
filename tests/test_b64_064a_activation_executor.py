@@ -27,20 +27,82 @@ def _target() -> dict[str, str]:
     }
 
 
-def _journal(tmp_path: Path) -> executor.ExecutorResourceJournal:
+def _journal(
+    tmp_path: Path, workspace_parent: Path | None = None,
+) -> executor.ExecutorResourceJournal:
     tmp_path.chmod(0o700)
     return executor.ExecutorResourceJournal(
-        root=tmp_path, run_nonce="YWN0aXZhdGlvbi1ydW4tMDE",
+        root=tmp_path, workspace_parent=workspace_parent or tmp_path,
+        run_nonce="YWN0aXZhdGlvbi1ydW4tMDE",
         environment="DISPOSABLE_CONTRACT", target=_target(),
         plan_sha256="3" * 64, decision_sha256="4" * 64,
         derived_plan_sha256="5" * 64,
     )
 
 
+def test_container_absence_wait_closes_docker_auto_remove_race(monkeypatch):
+    calls = []
+    timeouts = []
+
+    def inspect(reference, *, timeout):
+        calls.append(reference)
+        timeouts.append(timeout)
+        if len(calls) == 1:
+            return {"State": {"Running": False}}
+        return None
+
+    monotonic_values = iter((10.0, 10.1, 10.2, 10.3, 10.4))
+    monkeypatch.setattr(executor, "_inspect_container", inspect)
+    monkeypatch.setattr(executor.time, "monotonic", lambda: next(
+        monotonic_values
+    ))
+    monkeypatch.setattr(executor.time, "sleep", lambda _seconds: None)
+
+    assert executor._wait_containers_absent("1" * 64, "bound-name") is True
+    assert calls == ["1" * 64, "1" * 64, "bound-name"]
+    assert all(0 < value <= executor.CONTAINER_REMOVAL_WAIT_SECONDS
+               for value in timeouts)
+
+
+def test_container_absence_wait_is_bounded(monkeypatch):
+    monotonic_values = iter((10.0, 10.1, 12.1))
+    monkeypatch.setattr(
+        executor, "_inspect_container",
+        lambda _reference, *, timeout: {"Id": "1" * 64},
+    )
+    monkeypatch.setattr(executor.time, "monotonic", lambda: next(
+        monotonic_values
+    ))
+    monkeypatch.setattr(executor.time, "sleep", lambda _seconds: None)
+
+    assert executor._wait_containers_absent("1" * 64) is False
+
+
+def test_container_absence_wait_caps_a_blocking_inspect(monkeypatch):
+    observed_timeouts = []
+
+    def inspect(_reference, *, timeout):
+        observed_timeouts.append(timeout)
+        raise executor.ExecutorError("CONTAINER_INSPECTION_TIMEOUT")
+
+    monkeypatch.setattr(executor, "_inspect_container", inspect)
+    monotonic_values = iter((10.0, 10.25))
+    monkeypatch.setattr(executor.time, "monotonic", lambda: next(
+        monotonic_values
+    ))
+
+    with pytest.raises(
+        executor.ExecutorError, match="CONTAINER_INSPECTION_TIMEOUT",
+    ):
+        executor._wait_containers_absent("1" * 64)
+    assert observed_timeouts == [1.75]
+
+
 def test_resource_journal_is_digest_bound_monotonic_and_replay_closed(tmp_path):
     journal = _journal(tmp_path)
     journal.create()
     assert journal.inspect()["derivedExecutionPlanSha256"] == "5" * 64
+    assert journal.inspect()["workspaceCreateIntent"] is True
     with pytest.raises(
         executor.ExecutorError, match="EXECUTOR_RESOURCE_JOURNAL_REPLAY"
     ):
@@ -71,7 +133,7 @@ def test_resource_journal_symlink_is_never_followed(tmp_path):
 def test_workspace_reconcile_preserves_replaced_inode_and_canary(tmp_path):
     workspace_parent = tmp_path / "workspaces"
     workspace_parent.mkdir(mode=0o700)
-    journal = _journal(tmp_path)
+    journal = _journal(tmp_path, workspace_parent)
     journal.create()
     workspace = workspace_parent / journal.initial["workspaceName"]
     workspace.mkdir(mode=0o700)
@@ -102,7 +164,7 @@ def test_workspace_reconcile_preserves_replaced_inode_and_canary(tmp_path):
 def test_workspace_reconcile_durably_removes_exact_bound_inode(tmp_path):
     workspace_parent = tmp_path / "workspaces"
     workspace_parent.mkdir(mode=0o700)
-    journal = _journal(tmp_path)
+    journal = _journal(tmp_path, workspace_parent)
     journal.create()
     journal.update(state="RUNNING")
     workspace = workspace_parent / journal.initial["workspaceName"]
@@ -118,6 +180,123 @@ def test_workspace_reconcile_durably_removes_exact_bound_inode(tmp_path):
     bound.workspace_parent = workspace_parent
     assert bound._reconcile_workspace(journal.inspect()) is True
     assert not workspace.exists()
+
+
+def test_workspace_create_intent_closes_pre_inode_crash_window(tmp_path):
+    workspace_parent = tmp_path / "workspaces"
+    workspace_parent.mkdir(mode=0o700)
+    journal = _journal(tmp_path, workspace_parent)
+    journal.create()
+    workspace = workspace_parent / journal.initial["workspaceName"]
+    workspace.mkdir(mode=0o700)
+    transient = workspace / "snapshot.dump"
+    transient.write_bytes(b"synthetic")
+    transient.chmod(0o600)
+    current = journal.inspect()
+    assert current["workspaceCreateIntent"] is True
+    assert current["workspaceDev"] is None
+    assert current["workspaceIno"] is None
+    bound = object.__new__(executor.BoundActivationExecutor)
+    bound.workspace_parent = workspace_parent
+    assert bound._reconcile_workspace(current) is True
+    assert not workspace.exists()
+
+
+def test_unbound_workspace_intent_never_removes_foreign_entry(tmp_path):
+    workspace_parent = tmp_path / "workspaces"
+    workspace_parent.mkdir(mode=0o700)
+    journal = _journal(tmp_path, workspace_parent)
+    journal.create()
+    workspace = workspace_parent / journal.initial["workspaceName"]
+    workspace.mkdir(mode=0o700)
+    foreign = workspace / "foreign-canary"
+    foreign.write_bytes(b"preserve-me")
+    foreign.chmod(0o600)
+    bound = object.__new__(executor.BoundActivationExecutor)
+    bound.workspace_parent = workspace_parent
+    with pytest.raises(
+        executor.ExecutorError, match="RECONCILE_WORKSPACE_FOREIGN_ENTRY"
+    ):
+        bound._reconcile_workspace(journal.inspect())
+    assert foreign.read_bytes() == b"preserve-me"
+
+
+def test_workspace_preflight_preserves_preexisting_exact_name(tmp_path):
+    workspace_parent = tmp_path / "workspaces"
+    workspace_parent.mkdir(mode=0o700)
+    journal = _journal(tmp_path, workspace_parent)
+    workspace = workspace_parent / journal.initial["workspaceName"]
+    workspace.mkdir(mode=0o700)
+    canary = workspace / "snapshot.dump"
+    canary.write_bytes(b"pre-existing-preserve-me")
+    canary.chmod(0o600)
+    with pytest.raises(
+        executor.ExecutorError, match="EXECUTOR_WORKSPACE_PREEXISTING"
+    ):
+        journal.create()
+    assert canary.read_bytes() == b"pre-existing-preserve-me"
+    assert not journal.path.exists()
+
+
+def test_proxy_reconcile_uses_distinct_proxy_parent_not_workspace_binding(
+    tmp_path,
+):
+    workspace_parent = tmp_path / "workspaces"
+    proxy_parent = tmp_path / "proxies"
+    workspace_parent.mkdir(mode=0o700)
+    proxy_parent.mkdir(mode=0o700)
+    journal = _journal(tmp_path, workspace_parent)
+    journal.create()
+    bound = object.__new__(executor.BoundActivationExecutor)
+    bound.workspace_parent = workspace_parent
+    bound.proxy_parent = proxy_parent
+    assert bound._reconcile_proxy(journal.inspect()) is True
+
+
+def test_workspace_name_swap_before_rmdir_preserves_replacement(
+    monkeypatch, tmp_path,
+):
+    workspace_parent = tmp_path / "workspaces"
+    workspace_parent.mkdir(mode=0o700)
+    journal = _journal(tmp_path, workspace_parent)
+    journal.create()
+    workspace = workspace_parent / journal.initial["workspaceName"]
+    workspace.mkdir(mode=0o700)
+    original = workspace.stat()
+    transient = workspace / "snapshot.dump"
+    transient.write_bytes(b"synthetic")
+    transient.chmod(0o600)
+    journal.update(
+        state="RUNNING", workspaceDev=original.st_dev,
+        workspaceIno=original.st_ino,
+    )
+    moved = workspace_parent / "moved-original"
+    replacement_canary = workspace_parent / "replacement-canary-source"
+    replacement_canary.write_bytes(b"preserve-me")
+    real_fsync = executor.os.fsync
+    swapped = False
+
+    def swap_after_directory_fsync(descriptor):
+        nonlocal swapped
+        real_fsync(descriptor)
+        metadata = os.fstat(descriptor)
+        if not swapped and metadata.st_ino == original.st_ino:
+            workspace.rename(moved)
+            workspace.mkdir(mode=0o700)
+            replacement = workspace / "snapshot.dump"
+            replacement.write_bytes(replacement_canary.read_bytes())
+            replacement.chmod(0o600)
+            swapped = True
+
+    monkeypatch.setattr(executor.os, "fsync", swap_after_directory_fsync)
+    bound = object.__new__(executor.BoundActivationExecutor)
+    bound.workspace_parent = workspace_parent
+    with pytest.raises(
+        executor.ExecutorError, match="RECONCILE_WORKSPACE_BINDING_MISMATCH"
+    ):
+        bound._reconcile_workspace(journal.inspect())
+    assert (workspace / "snapshot.dump").read_bytes() == b"preserve-me"
+    assert moved.is_dir()
 
 
 def test_dangling_resource_symlink_is_not_absent(tmp_path):
@@ -151,7 +330,8 @@ def test_resource_reconcile_closes_each_crash_state(
         _capability_state=activation._ExecutionCapabilityState(),
     )
     journal = executor.ExecutorResourceJournal(
-        root=resources_root, run_nonce=run_nonce,
+        root=resources_root, workspace_parent=workspace,
+        run_nonce=run_nonce,
         environment=verified.environment, target=target,
         plan_sha256=verified.plan_sha256,
         decision_sha256=verified.decision_sha256,
@@ -195,6 +375,85 @@ def test_resource_reconcile_closes_each_crash_state(
     assert journal.inspect()["state"] == "RECONCILED_HOLD"
 
 
+def test_resource_reconcile_accepts_cleanup_only_recovery_capability(
+    monkeypatch, tmp_path,
+):
+    workspace = tmp_path / "workspace"
+    proxy = tmp_path / "proxy"
+    resources_root = tmp_path / "resources"
+    for path in (workspace, proxy, resources_root):
+        path.mkdir(mode=0o700)
+    run_nonce = "YWN0aXZhdGlvbi1ydW4tMDE"
+    target = _target()
+    derived = {"bound": "derived-plan"}
+    recovery = activation.VerifiedRecovery(
+        environment="DISPOSABLE_CONTRACT", run_nonce=run_nonce,
+        plan_sha256="3" * 64, decision_sha256="4" * 64,
+        keyring_sha256="5" * 64,
+        derived_execution_plan_sha256=hashlib.sha256(
+            activation._canonical(derived)
+        ).hexdigest(),
+        decision_expires_at_epoch=1_700_000_000, target=target,
+        limits=dict(activation.LIMITS),
+        _recovery_seal=activation._VERIFIED_RECOVERY_SEAL,
+    )
+    journal = executor.ExecutorResourceJournal(
+        root=resources_root, workspace_parent=workspace,
+        run_nonce=run_nonce,
+        environment=recovery.environment, target=target,
+        plan_sha256=recovery.plan_sha256,
+        decision_sha256=recovery.decision_sha256,
+        derived_plan_sha256=recovery.derived_execution_plan_sha256,
+    )
+    journal.create()
+    bound = executor.BoundActivationExecutor(
+        production_contact=False, observation_dsn="unused",
+        admin_dsn="unused", container=target["containerName"],
+        container_id=target["containerId"], image_id=target["imageId"],
+        system_identifier=target["systemIdentifier"],
+        workspace_parent=workspace, proxy_parent=proxy,
+        resource_journal_root=resources_root,
+    )
+    monkeypatch.setattr(
+        activation, "derive_execution_plan", lambda **_kwargs: derived,
+    )
+    monkeypatch.setattr(
+        executor.runtime, "reconcile_credential", lambda **_kwargs: {
+            "loginState": "DISABLED", "credentialState": "ABSENT",
+            "activeSessions": 0,
+        },
+    )
+    monkeypatch.setattr(bound, "_reconcile_proxy", lambda _value: True)
+    monkeypatch.setattr(bound, "_reconcile_container", lambda **_kwargs: True)
+    monkeypatch.setattr(bound, "_reconcile_workspace", lambda _value: True)
+    result = bound.reconcile_resources(
+        plan={"artifactsSha256": {}}, authorization=recovery,
+    )
+    assert result["status"] == "EXECUTOR_RESOURCES_RECONCILED_HOLD"
+    assert journal.inspect()["state"] == "RECONCILED_HOLD"
+
+
+def test_bound_executor_rejects_recovery_capability_before_contact():
+    recovery = activation.VerifiedRecovery(
+        environment="DISPOSABLE_CONTRACT",
+        run_nonce="YWN0aXZhdGlvbi1ydW4tMDE",
+        plan_sha256="3" * 64, decision_sha256="4" * 64,
+        keyring_sha256="5" * 64,
+        derived_execution_plan_sha256="6" * 64,
+        decision_expires_at_epoch=1_700_000_000, target=_target(),
+        limits=dict(activation.LIMITS),
+        _recovery_seal=activation._VERIFIED_RECOVERY_SEAL,
+    )
+    bound = object.__new__(executor.BoundActivationExecutor)
+    bound.production_contact = False
+    bound.calls = 0
+    with pytest.raises(
+        activation.ActivationError,
+        match="ACTIVATION_EXECUTION_AUTHORIZATION_INVALID",
+    ):
+        bound.execute({}, recovery, executor.time.monotonic() + 10.0)
+
+
 def test_inspection_distinguishes_exact_absence_from_daemon_failure(monkeypatch):
     reference = "b64-064a-dump-" + "a" * 20
     monkeypatch.setattr(
@@ -214,6 +473,16 @@ def test_inspection_distinguishes_exact_absence_from_daemon_failure(monkeypatch)
         executor.ExecutorError, match="CONTAINER_INSPECTION_UNAVAILABLE"
     ):
         executor._inspect_container(reference)
+    monkeypatch.setattr(
+        executor, "_run",
+        lambda *_a, **_k: (_ for _ in ()).throw(
+            subprocess.TimeoutExpired([executor.DOCKER, "inspect"], 0.5)
+        ),
+    )
+    with pytest.raises(
+        executor.ExecutorError, match="CONTAINER_INSPECTION_TIMEOUT"
+    ):
+        executor._inspect_container(reference, timeout=0.5)
 
 
 def test_production_executor_rejects_caller_selected_state_roots(tmp_path):
@@ -356,7 +625,7 @@ def test_final_postverify_failure_puts_resource_journal_on_hold(
     ):
         bound.execute(plan, verified, executor.time.monotonic() + 100.0)
     journal = executor.ExecutorResourceJournal(
-        root=roots[2], run_nonce=run_nonce,
+        root=roots[2], workspace_parent=roots[0], run_nonce=run_nonce,
         environment=verified.environment, target=verified.target,
         plan_sha256=verified.plan_sha256,
         decision_sha256=verified.decision_sha256,

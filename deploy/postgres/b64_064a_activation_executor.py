@@ -51,6 +51,7 @@ MINIMAL_ENV = {"PATH": "/usr/bin:/bin", "LC_ALL": "C"}
 PROXY_SOCKET_NAME = ".s.PGSQL.5432"
 MAX_STDERR_BYTES = 64 * 1024
 DOCKER_ROUTE_LABEL = "e0-e0.3-b5.3-064a"
+CONTAINER_REMOVAL_WAIT_SECONDS = 2.0
 
 
 class ExecutorError(
@@ -68,18 +69,26 @@ def _run(command: list[str], **kwargs: Any) -> subprocess.CompletedProcess[Any]:
     )
 
 
-def _inspect_container(reference: str) -> dict[str, Any] | None:
+def _inspect_container(
+    reference: str, *, timeout: float = 8.0,
+) -> dict[str, Any] | None:
     if re.fullmatch(r"[A-Za-z0-9_.-]{1,128}", reference) is None:
         raise ExecutorError("CONTAINER_REFERENCE_INVALID")
+    if (type(timeout) not in {int, float} or not 0 < timeout <= 8.0):
+        raise ExecutorError("CONTAINER_INSPECTION_TIMEOUT_INVALID")
     template = (
         '{"Id":{{json .Id}},"Name":{{json .Name}},'
         '"Image":{{json .Image}},"State":{"Pid":{{json .State.Pid}},'
         '"Running":{{json .State.Running}}},'
         '"Labels":{{json .Config.Labels}}}'
     )
-    observed = _run(
-        [DOCKER, "inspect", f"--format={template}", reference], text=True,
-    )
+    try:
+        observed = _run(
+            [DOCKER, "inspect", f"--format={template}", reference],
+            text=True, timeout=timeout,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise ExecutorError("CONTAINER_INSPECTION_TIMEOUT") from exc
     if observed.returncode != 0:
         missing = (
             f"Error: No such object: {reference}\n",
@@ -96,6 +105,25 @@ def _inspect_container(reference: str) -> dict[str, Any] | None:
     if not isinstance(values, dict):
         raise ExecutorError("CONTAINER_INSPECTION_AMBIGUOUS")
     return values
+
+
+def _wait_containers_absent(*references: str) -> bool:
+    deadline = time.monotonic() + CONTAINER_REMOVAL_WAIT_SECONDS
+    while True:
+        retained = False
+        for reference in references:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return False
+            if _inspect_container(reference, timeout=remaining) is not None:
+                retained = True
+                break
+        if not retained:
+            return True
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return False
+        time.sleep(min(0.02, remaining))
 
 
 def _container_id(value: Any) -> str:
@@ -228,17 +256,21 @@ def _dump_name(run_nonce: str) -> str:
 
 
 class ExecutorResourceJournal:
-    SCHEMA = "b64-064a-executor-resource-journal.v1"
+    SCHEMA = "b64-064a-executor-resource-journal.v2"
 
     def __init__(
         self, *, root: Path, run_nonce: str, environment: str,
         target: Mapping[str, Any], plan_sha256: str,
         decision_sha256: str, derived_plan_sha256: str,
+        workspace_parent: Path,
     ) -> None:
         _safe_parent(root, "EXECUTOR_JOURNAL_ROOT_UNSAFE")
+        _safe_parent(workspace_parent, "WORKSPACE_PARENT_UNSAFE")
         self.root = root
+        self.workspace_parent = workspace_parent
         self.run_nonce = run_nonce
         self.path = root / f"{run_nonce}.resources.json"
+        workspace_parent_stat = workspace_parent.stat()
         self.initial = {
             "schemaVersion": self.SCHEMA,
             "route": activation.ROUTE,
@@ -250,6 +282,10 @@ class ExecutorResourceJournal:
             "derivedExecutionPlanSha256": derived_plan_sha256,
             "state": "PREPARED",
             "workspaceName": f"b64-064a-{run_nonce}",
+            "workspaceCreateIntent": True,
+            "workspacePreflightAbsent": True,
+            "workspaceParentDev": workspace_parent_stat.st_dev,
+            "workspaceParentIno": workspace_parent_stat.st_ino,
             "workspaceDev": None,
             "workspaceIno": None,
             "proxyName": _proxy_name(run_nonce),
@@ -328,6 +364,12 @@ class ExecutorResourceJournal:
                 or value.get("derivedExecutionPlanSha256")
                 != self.initial["derivedExecutionPlanSha256"]
                 or value.get("workspaceName") != self.initial["workspaceName"]
+                or value.get("workspaceCreateIntent") is not True
+                or value.get("workspacePreflightAbsent") is not True
+                or value.get("workspaceParentDev")
+                != self.initial["workspaceParentDev"]
+                or value.get("workspaceParentIno")
+                != self.initial["workspaceParentIno"]
                 or value.get("proxyName") != self.initial["proxyName"]
                 or value.get("dumpName") != self.initial["dumpName"]
                 or value.get("restoreName") != self.initial["restoreName"]
@@ -351,6 +393,11 @@ class ExecutorResourceJournal:
         }
         if value["state"] not in allowed[current["state"]]:
             raise ExecutorError("EXECUTOR_RESOURCE_STATE_CONFLICT")
+        if (current["workspaceCreateIntent"] is not True
+                or value["workspaceCreateIntent"] is not True
+                or current["workspacePreflightAbsent"] is not True
+                or value["workspacePreflightAbsent"] is not True):
+            raise ExecutorError("EXECUTOR_WORKSPACE_INTENT_INVALID")
         for name in (
             "credentialIssued", "credentialReconciled", "workspaceAbsent",
             "proxyAbsent", "dumpAbsent", "restoreAbsent",
@@ -378,6 +425,29 @@ class ExecutorResourceJournal:
 
     def create(self) -> None:
         raw = activation._canonical(self.initial) + b"\n"
+        workspace_parent_fd = os.open(
+            self.workspace_parent,
+            os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_NOFOLLOW", 0)
+            | getattr(os, "O_CLOEXEC", 0),
+        )
+        workspace_parent_stat = os.fstat(workspace_parent_fd)
+        try:
+            if ((workspace_parent_stat.st_dev, workspace_parent_stat.st_ino)
+                    != (self.initial["workspaceParentDev"],
+                        self.initial["workspaceParentIno"])):
+                raise ExecutorError("WORKSPACE_PARENT_BINDING_MISMATCH")
+            try:
+                os.stat(
+                    self.initial["workspaceName"],
+                    dir_fd=workspace_parent_fd, follow_symlinks=False,
+                )
+            except FileNotFoundError:
+                pass
+            else:
+                raise ExecutorError("EXECUTOR_WORKSPACE_PREEXISTING")
+            os.fsync(workspace_parent_fd)
+        finally:
+            os.close(workspace_parent_fd)
         directory_fd = self._open_root()
         try:
             descriptor = os.open(
@@ -707,6 +777,7 @@ class BoundDumpAdapter:
         production_contact: bool, source_netns_inode: int,
         source_image_id: str, executor_sha256: str,
         resource_journal: ExecutorResourceJournal,
+        effective_plan: Mapping[str, Any],
     ) -> None:
         self.run_nonce = run_nonce
         self.proxy_parent = proxy_parent
@@ -715,6 +786,9 @@ class BoundDumpAdapter:
         self.source_image_id = source_image_id
         self.executor_sha256 = executor_sha256
         self.resource_journal = resource_journal
+        self.effective_plan = activation.validate_effective_execution_plan(
+            effective_plan
+        )
         self.container_id: str | None = None
         self.container_name = _dump_name(run_nonce)
 
@@ -744,6 +818,11 @@ class BoundDumpAdapter:
         source_container_id: str, credential_not_after_epoch: int,
         archive_fd: int, secret_fd: int, deadline: float,
     ) -> Mapping[str, Any]:
+        if activation._canonical(plan) != activation._canonical(
+                activation.compatibility_hardened_plan(
+                    self.effective_plan
+                )):
+            raise ExecutorError("DUMP_EFFECTIVE_PLAN_MISMATCH")
         source = _inspect_container(source_container_id)
         if (source is None
                 or _container_id(source.get("Id")) != source_container_id
@@ -868,7 +947,8 @@ class BoundDumpAdapter:
                 raise ExecutorError(reason)
             if stderr_size != 0 or stderr_raw:
                 raise ExecutorError("DUMP_STDERR_PRESENT")
-            if _inspect_container(self.container_id) is not None:
+            if not _wait_containers_absent(
+                    self.container_id, self.container_name):
                 raise ExecutorError("DUMP_CONTAINER_RETAINED")
             return {
                 "clientVersion": refresh.PG_DUMP_VERSION,
@@ -889,9 +969,8 @@ class BoundDumpAdapter:
         if expected_container_id != self.container_id:
             raise ExecutorError("DUMP_CLEANUP_BINDING_MISMATCH")
         self._force_cleanup()
-        absent = (
-            _inspect_container(expected_container_id) is None
-            and _inspect_container(self.container_name) is None
+        absent = _wait_containers_absent(
+            expected_container_id, self.container_name,
         )
         if absent:
             self.resource_journal.update(dumpAbsent=True)
@@ -1179,9 +1258,8 @@ class BoundRestoreAdapter:
         if expected_container_id != self.container_id:
             raise ExecutorError("RESTORE_CLEANUP_BINDING_MISMATCH")
         self._force_cleanup()
-        absent = (
-            _inspect_container(expected_container_id) is None
-            and _inspect_container(self.container_name) is None
+        absent = _wait_containers_absent(
+            expected_container_id, self.container_name,
         )
         if absent:
             self.resource_journal.update(restoreAbsent=True)
@@ -1309,17 +1387,19 @@ class BoundActivationExecutor:
                 <= time.monotonic()
                 + activation.LIMITS["workDeadlineSeconds"] + 1):
             raise ExecutorError("EXECUTOR_ACTIVATION_BINDING_FAILED")
-        derived_plan = activation.derive_execution_plan(
+        effective_plan = activation.derive_execution_plan(
             run_nonce=verified.run_nonce,
             artifacts_sha256=plan["artifactsSha256"],
         )
         derived_sha = hashlib.sha256(
-            activation._canonical(derived_plan)
+            activation._canonical(effective_plan)
         ).hexdigest()
         if derived_sha != verified.derived_execution_plan_sha256:
             raise ExecutorError("EXECUTOR_DERIVED_PLAN_MISMATCH")
+        runner_plan = activation.compatibility_hardened_plan(effective_plan)
         resources = ExecutorResourceJournal(
             root=self.resource_journal_root,
+            workspace_parent=self.workspace_parent,
             run_nonce=verified.run_nonce,
             environment=verified.environment, target=verified.target,
             plan_sha256=verified.plan_sha256,
@@ -1339,11 +1419,11 @@ class BoundActivationExecutor:
                 production_authorization=(
                     verified if self.production_contact else None
                 ),
-                execution_plan=derived_plan,
+                execution_plan=effective_plan,
             )
             resources.update(state="RUNNING", credentialIssued=True)
             source = runtime.ProductionSourceAdapter(
-                lease, frozen_plan=derived_plan,
+                lease, frozen_plan=runner_plan,
             )
             dump = BoundDumpAdapter(
                 run_nonce=verified.run_nonce,
@@ -1355,6 +1435,7 @@ class BoundActivationExecutor:
                     "activationExecutor"
                 ],
                 resource_journal=resources,
+                effective_plan=effective_plan,
             )
             restore = BoundRestoreAdapter(
                 run_nonce=verified.run_nonce,
@@ -1362,7 +1443,8 @@ class BoundActivationExecutor:
             )
             if self.production_contact:
                 receipt = refresh.execute_authorized(
-                    derived_plan, self.workspace_parent,
+                    runner_plan, self.workspace_parent,
+                    effective_plan=effective_plan,
                     source=source, dump=dump, restore=restore,
                     source_secret_fd=lease.source_fd,
                     dump_secret_fd=lease.dump_fd,
@@ -1373,7 +1455,7 @@ class BoundActivationExecutor:
                 )
             else:
                 receipt = refresh.execute_hermetic(
-                    derived_plan, self.workspace_parent,
+                    runner_plan, self.workspace_parent,
                     source=source, dump=dump, restore=restore,
                     source_secret_fd=lease.source_fd,
                     dump_secret_fd=lease.dump_fd,
@@ -1434,10 +1516,7 @@ class BoundActivationExecutor:
         )
         if stopped.returncode != 0:
             raise ExecutorError("RECONCILE_CONTAINER_STOP_FAILED")
-        return (
-            _inspect_container(observed_id) is None
-            and _inspect_container(name) is None
-        )
+        return _wait_containers_absent(observed_id, name)
 
     def _reconcile_proxy(self, value: Mapping[str, Any]) -> bool:
         directory = self.proxy_parent / value["proxyName"]
@@ -1525,6 +1604,7 @@ class BoundActivationExecutor:
     def _reconcile_workspace(self, value: Mapping[str, Any]) -> bool:
         name = value["workspaceName"]
         expected_inode = (value.get("workspaceDev"), value.get("workspaceIno"))
+        create_intent = value.get("workspaceCreateIntent") is True
         parent_fd = os.open(
             self.workspace_parent,
             os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_NOFOLLOW", 0)
@@ -1532,15 +1612,23 @@ class BoundActivationExecutor:
         )
         directory_fd = -1
         try:
+            parent_metadata = os.fstat(parent_fd)
+            if ((parent_metadata.st_dev, parent_metadata.st_ino)
+                    != (value.get("workspaceParentDev"),
+                        value.get("workspaceParentIno"))
+                    or value.get("workspacePreflightAbsent") is not True):
+                raise ExecutorError("RECONCILE_WORKSPACE_PARENT_MISMATCH")
             try:
                 named = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
             except FileNotFoundError:
                 return True
-            if (None in expected_inode
+            if (not create_intent
                     or not stat.S_ISDIR(named.st_mode)
-                    or (named.st_dev, named.st_ino) != expected_inode
                     or named.st_uid != os.geteuid()
                     or stat.S_IMODE(named.st_mode) != 0o700):
+                raise ExecutorError("RECONCILE_WORKSPACE_BINDING_MISMATCH")
+            if (None not in expected_inode
+                    and (named.st_dev, named.st_ino) != expected_inode):
                 raise ExecutorError("RECONCILE_WORKSPACE_BINDING_MISMATCH")
             directory_fd = os.open(
                 name, os.O_RDONLY | os.O_DIRECTORY
@@ -1548,7 +1636,10 @@ class BoundActivationExecutor:
                 | getattr(os, "O_CLOEXEC", 0), dir_fd=parent_fd,
             )
             bound = os.fstat(directory_fd)
-            if (bound.st_dev, bound.st_ino) != expected_inode:
+            observed_inode = (bound.st_dev, bound.st_ino)
+            if ((named.st_dev, named.st_ino) != observed_inode
+                    or (None not in expected_inode
+                        and observed_inode != expected_inode)):
                 raise ExecutorError("RECONCILE_WORKSPACE_BINDING_MISMATCH")
             entries = os.listdir(directory_fd)
             if any(item not in refresh.TRANSIENT_NAMES for item in entries):
@@ -1566,10 +1657,16 @@ class BoundActivationExecutor:
                     )
                 os.unlink(item, dir_fd=directory_fd)
             os.fsync(directory_fd)
+            before_rmdir = os.stat(
+                name, dir_fd=parent_fd, follow_symlinks=False,
+            )
+            if ((before_rmdir.st_dev, before_rmdir.st_ino)
+                    != observed_inode):
+                raise ExecutorError("RECONCILE_WORKSPACE_BINDING_MISMATCH")
             os.rmdir(name, dir_fd=parent_fd)
             os.fsync(parent_fd)
             rebound = os.fstat(directory_fd)
-            if ((rebound.st_dev, rebound.st_ino) != expected_inode
+            if ((rebound.st_dev, rebound.st_ino) != observed_inode
                     or rebound.st_nlink != 0
                     or not _path_entry_absent(
                         self.workspace_parent / name
@@ -1583,25 +1680,27 @@ class BoundActivationExecutor:
 
     def reconcile_resources(
         self, *, plan: Mapping[str, Any],
-        authorization: activation.VerifiedActivation,
+        authorization: (
+            activation.VerifiedActivation | activation.VerifiedRecovery
+        ),
     ) -> Mapping[str, Any]:
         expected_environment = (
             "PRODUCTION" if self.production_contact
             else "DISPOSABLE_CONTRACT"
         )
-        verified = activation.require_verified_execution_authorization(
+        verified = activation.require_verified_recovery_authorization(
             authorization, expected_environment=expected_environment,
-            require_started=False,
         )
-        derived_plan = activation.derive_execution_plan(
+        effective_plan = activation.derive_execution_plan(
             run_nonce=verified.run_nonce,
             artifacts_sha256=plan["artifactsSha256"],
         )
-        if hashlib.sha256(activation._canonical(derived_plan)).hexdigest() \
+        if hashlib.sha256(activation._canonical(effective_plan)).hexdigest() \
                 != verified.derived_execution_plan_sha256:
             raise ExecutorError("RECONCILE_EXECUTION_PLAN_MISMATCH")
         resources = ExecutorResourceJournal(
             root=self.resource_journal_root,
+            workspace_parent=self.workspace_parent,
             run_nonce=verified.run_nonce,
             environment=verified.environment, target=verified.target,
             plan_sha256=verified.plan_sha256,
@@ -1622,7 +1721,7 @@ class BoundActivationExecutor:
             expected_container_id=self.container_id,
             expected_image_id=self.image_id,
             allow_contract_container=not self.production_contact,
-            execution_plan=derived_plan,
+            execution_plan=effective_plan,
         )
         if current is None:
             names = {

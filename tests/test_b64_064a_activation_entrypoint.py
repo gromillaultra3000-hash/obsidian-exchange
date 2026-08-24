@@ -189,6 +189,7 @@ class FakeExecutor:
         self.failure = failure
         self.overrides = overrides or {}
         self.calls = 0
+        self.reconcile_calls = 0
 
     def execute(self, plan, authorization, deadline):
         self.calls += 1
@@ -199,6 +200,7 @@ class FakeExecutor:
         return _receipt(authorization, **self.overrides)
 
     def reconcile_resources(self, *, plan, authorization):
+        self.reconcile_calls += 1
         assert plan["runNonce"] == authorization.run_nonce
         return {
             "status": "EXECUTOR_RESOURCES_RECONCILED_HOLD",
@@ -235,6 +237,43 @@ def test_two_signatures_authorize_only_exact_fresh_activation_plan():
     assert verified.limits == MODULE.LIMITS
     assert verified.target["containerName"] == \
         "b64-hba-contract-1700000000"
+
+
+def test_effective_plan_has_one_explicit_network_and_recovery_semantics():
+    package = _package()
+    effective = MODULE.derive_execution_plan(
+        run_nonce=package["plan"]["runNonce"],
+        artifacts_sha256=package["plan"]["artifactsSha256"],
+    )
+    assert effective["schemaVersion"] == MODULE.EFFECTIVE_PLAN_SCHEMA
+    execution = effective["effectivePlan"]["effectiveExecution"]
+    assert execution == MODULE.EFFECTIVE_EXECUTION
+    assert execution["dumpNetwork"] == \
+        "NONE_WITH_EXACT_UNIX_PROXY"
+    assert execution["dumpContainerSharesSourceNetworkNamespace"] is False
+    assert execution["abnormalExitRecovery"] == \
+        "CLEANUP_ONLY_NO_EXECUTE_OR_LEASE"
+    assert effective["effectivePlan"]["client"]["networkForDump"] == "none"
+    assert effective["effectivePlan"]["credentials"][
+        "reconcileOnAbnormalSupervisorExit"
+    ] is True
+    compatibility = MODULE.compatibility_hardened_plan(effective)
+    assert compatibility["runNonce"] == package["plan"]["runNonce"]
+    assert "effectiveExecution" not in compatibility
+
+    drifted = copy.deepcopy(effective)
+    drifted["effectivePlan"]["effectiveExecution"]["dumpNetwork"] = \
+        "container:ATTESTED_SOURCE_CONTAINER_ID"
+    with pytest.raises(
+        MODULE.ActivationError, match="INVALID_EFFECTIVE_EXECUTION_PLAN"
+    ):
+        MODULE.validate_effective_execution_plan(drifted)
+
+    drifted = copy.deepcopy(effective)
+    drifted["effectivePlan"]["runNonce"] = \
+        _b64(b"different-nonce-01")
+    with pytest.raises(MODULE.ActivationError):
+        MODULE.validate_effective_execution_plan(drifted)
 
 
 @pytest.mark.parametrize("drift", [
@@ -378,6 +417,130 @@ def test_abnormal_running_journal_only_reconciles_to_no_retry_hold(tmp_path):
     assert result["status"] == "ACTIVATION_RECONCILED_HOLD"
     assert journal.inspect()["state"] == "RECONCILED_HOLD"
     assert result["automaticRetryAllowed"] is False
+
+
+def test_expired_package_recovers_existing_journal_cleanup_only(tmp_path):
+    tmp_path.chmod(0o700)
+    package = _package()
+    activation_authorization = _verify(package)
+    journal = MODULE.ActivationJournal(tmp_path, activation_authorization)
+    journal.claim()
+    journal.transition(expected_state={"CLAIMED"}, state="RUNNING")
+    expired_now = max(
+        package["keyring"]["expiresAtEpoch"],
+        package["decision"]["expiresAtEpoch"],
+    ) + 100
+    with pytest.raises(MODULE.ActivationError):
+        MODULE.verify_activation_decision(
+            keyring_raw=MODULE._canonical(package["keyring"]),
+            decision_raw=MODULE._canonical(package["decision"]),
+            activation_plan_raw=MODULE._canonical(package["plan"]),
+            expected_keyring_sha256=package["keyring_sha"],
+            expected_environment="DISPOSABLE_CONTRACT",
+            now_epoch=expired_now,
+        )
+    executor = FakeExecutor()
+    result = MODULE.recover_incomplete_from_package(
+        keyring_raw=MODULE._canonical(package["keyring"]),
+        decision_raw=MODULE._canonical(package["decision"]),
+        activation_plan_raw=MODULE._canonical(package["plan"]),
+        expected_keyring_sha256=package["keyring_sha"],
+        expected_environment="DISPOSABLE_CONTRACT",
+        now_epoch=expired_now, journal_root=tmp_path, executor=executor,
+        reconcile=_dormant, verify_dormant=_dormant,
+    )
+    assert result["status"] == "ACTIVATION_RECONCILED_HOLD"
+    assert journal.inspect()["state"] == "RECONCILED_HOLD"
+    assert executor.calls == 0
+    assert executor.reconcile_calls == 1
+
+
+def test_cleanup_recovery_capability_cannot_execute_or_claim_lease():
+    package = _package()
+    recovery = MODULE.verify_cleanup_recovery(
+        keyring_raw=MODULE._canonical(package["keyring"]),
+        decision_raw=MODULE._canonical(package["decision"]),
+        activation_plan_raw=MODULE._canonical(package["plan"]),
+        expected_keyring_sha256=package["keyring_sha"],
+        expected_environment="DISPOSABLE_CONTRACT",
+        now_epoch=package["decision"]["expiresAtEpoch"] + 1,
+    )
+    with pytest.raises(
+        MODULE.ActivationError,
+        match="ACTIVATION_EXECUTION_AUTHORIZATION_INVALID",
+    ):
+        MODULE.require_verified_execution_authorization(
+            recovery, expected_environment="DISPOSABLE_CONTRACT",
+            require_started=False,
+        )
+    with pytest.raises(
+        MODULE.ActivationError,
+        match="ACTIVATION_EXECUTION_AUTHORIZATION_INVALID",
+    ):
+        MODULE.claim_verified_production_lease(recovery)
+
+
+def test_cleanup_recovery_requires_exact_signed_package_and_journal(tmp_path):
+    tmp_path.chmod(0o700)
+    package = _package()
+    expired_now = package["keyring"]["expiresAtEpoch"] + 1
+    tampered = copy.deepcopy(package["decision"])
+    tampered["signatures"][0]["signatureB64"] = _b64(b"x" * 64)
+    with pytest.raises(MODULE.ActivationError):
+        MODULE.verify_cleanup_recovery(
+            keyring_raw=MODULE._canonical(package["keyring"]),
+            decision_raw=MODULE._canonical(tampered),
+            activation_plan_raw=MODULE._canonical(package["plan"]),
+            expected_keyring_sha256=package["keyring_sha"],
+            expected_environment="DISPOSABLE_CONTRACT",
+            now_epoch=expired_now,
+        )
+    with pytest.raises(MODULE.ActivationError,
+                       match="ACTIVATION_JOURNAL_MISSING"):
+        MODULE.recover_incomplete_from_package(
+            keyring_raw=MODULE._canonical(package["keyring"]),
+            decision_raw=MODULE._canonical(package["decision"]),
+            activation_plan_raw=MODULE._canonical(package["plan"]),
+            expected_keyring_sha256=package["keyring_sha"],
+            expected_environment="DISPOSABLE_CONTRACT",
+            now_epoch=expired_now, journal_root=tmp_path,
+            executor=FakeExecutor(), reconcile=_dormant,
+            verify_dormant=_dormant,
+        )
+
+
+def test_historical_recovery_release_drift_fails_before_cleanup(
+    monkeypatch, tmp_path,
+):
+    tmp_path.chmod(0o700)
+    package = _package()
+    authorization = _verify(package)
+    journal = MODULE.ActivationJournal(tmp_path, authorization)
+    journal.claim()
+    journal.transition(expected_state={"CLAIMED"}, state="RUNNING")
+    drifted = tmp_path / "drifted-entrypoint.py"
+    drifted.write_bytes(b"drifted\n")
+    drifted.chmod(0o600)
+    monkeypatch.setitem(
+        MODULE.ARTIFACT_PATHS, "activationEntrypoint", drifted,
+    )
+    executor = FakeExecutor()
+    with pytest.raises(
+        MODULE.ActivationError, match="ACTIVATION_ARTIFACT_DRIFT"
+    ):
+        MODULE.recover_incomplete_from_package(
+            keyring_raw=MODULE._canonical(package["keyring"]),
+            decision_raw=MODULE._canonical(package["decision"]),
+            activation_plan_raw=MODULE._canonical(package["plan"]),
+            expected_keyring_sha256=package["keyring_sha"],
+            expected_environment="DISPOSABLE_CONTRACT",
+            now_epoch=package["keyring"]["expiresAtEpoch"] + 1,
+            journal_root=tmp_path, executor=executor,
+            reconcile=_dormant, verify_dormant=_dormant,
+        )
+    assert journal.inspect()["state"] == "RUNNING"
+    assert executor.calls == 0
+    assert executor.reconcile_calls == 0
 
 
 def test_claimed_journal_after_pre_execution_crash_reconciles_to_hold(tmp_path):

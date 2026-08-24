@@ -5,6 +5,7 @@ import importlib.util
 import json
 import os
 import stat
+import sys
 import time
 from pathlib import Path
 
@@ -16,6 +17,8 @@ MODULE_PATH = ROOT / "deploy/postgres/b64_064a_hardened_refresh.py"
 SPEC = importlib.util.spec_from_file_location("b64_064a_hardened_refresh", MODULE_PATH)
 MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
+sys.path.insert(0, str(MODULE_PATH.parent))
+import b64_064a_activation_entrypoint as ACTIVATION
 FROZEN_PLAN = ROOT / "docs/e0-3-bot-b5-3-064a-hardened-refresh-plan.v1.json"
 ARTIFACT_PATHS = {
     "runner": "deploy/postgres/b64_064a_hardened_refresh.py",
@@ -269,6 +272,66 @@ def test_closed_plan_pins_fresh_registry_chain_patched_client_and_no_authority()
     assert all(value is False for value in plan["authority"].values())
 
 
+def test_production_boundary_binds_effective_wrapper_and_compatibility_plan(
+    monkeypatch, tmp_path,
+):
+    artifacts = {
+        key: hashlib.sha256(path.read_bytes()).hexdigest()
+        for key, path in ACTIVATION.ARTIFACT_PATHS.items()
+    }
+    run_nonce = "testnonce_0123456789abcdef"
+    effective = ACTIVATION.derive_execution_plan(
+        run_nonce=run_nonce, artifacts_sha256=artifacts,
+    )
+    compatibility = ACTIVATION.compatibility_hardened_plan(effective)
+    capability = ACTIVATION._ExecutionCapabilityState()
+    capability.begin_execution()
+    verified = ACTIVATION.VerifiedActivation(
+        environment="PRODUCTION", run_nonce=run_nonce,
+        plan_sha256="1" * 64, decision_sha256="2" * 64,
+        keyring_sha256="3" * 64,
+        derived_execution_plan_sha256=hashlib.sha256(
+            ACTIVATION._canonical(effective)
+        ).hexdigest(),
+        expires_at_epoch=2_000_000_000,
+        target={}, limits=dict(ACTIVATION.LIMITS),
+        _verification_seal=ACTIVATION._VERIFIED_ACTIVATION_SEAL,
+        _capability_state=capability,
+    )
+    observed = {}
+
+    def capture(plan, workspace_parent, **kwargs):
+        observed["plan"] = plan
+        observed["workspaceParent"] = workspace_parent
+        observed["expectedContact"] = kwargs["expected_contact"]
+        return {"status": "synthetic-boundary-pass"}
+
+    monkeypatch.setattr(MODULE, "_execute_bound", capture)
+    result = MODULE.execute_authorized(
+        compatibility, tmp_path, effective_plan=effective,
+        source=object(), dump=object(), restore=object(),
+        source_secret_fd=3, dump_secret_fd=4,
+        authorization=verified, absolute_deadline=100.0,
+    )
+    assert result["status"] == "synthetic-boundary-pass"
+    assert observed["plan"] == compatibility
+    assert observed["expectedContact"] == (True, True, False)
+
+    drifted = copy.deepcopy(effective)
+    drifted["effectivePlan"]["effectiveExecution"]["dumpNetwork"] = \
+        "container:ATTESTED_SOURCE_CONTAINER_ID"
+    with pytest.raises(
+        MODULE.HardenedRefreshError,
+        match="PRODUCTION_EFFECTIVE_PLAN_INVALID",
+    ):
+        MODULE.execute_authorized(
+            compatibility, tmp_path, effective_plan=drifted,
+            source=object(), dump=object(), restore=object(),
+            source_secret_fd=3, dump_secret_fd=4,
+            authorization=verified, absolute_deadline=100.0,
+        )
+
+
 def test_derived_plan_validates_and_binds_every_executable_input_byte_exact():
     historical = json.loads(FROZEN_PLAN.read_text(encoding="utf-8"))
     plan = MODULE.build_plan(
@@ -497,6 +560,20 @@ def test_cancellation_after_every_stage_still_cleans_and_forbids_retry(tmp_path,
     assert receipt["cleanupStatus"] == "CLEANUP_VERIFIED"
     assert receipt["automaticRetryAllowed"] is False
     assert list((tmp_path / "parent").iterdir()) == []
+
+
+def test_unbound_workspace_interrupt_defers_to_outer_create_intent_recovery(
+    tmp_path,
+):
+    def cancel(observed):
+        if observed == "WORKSPACE_CREATED_UNBOUND":
+            raise KeyboardInterrupt()
+
+    receipt = _execute(tmp_path, hook=cancel)
+    assert receipt["status"] == "FAILED"
+    assert receipt["errorCode"] == "CANCELLED"
+    assert receipt["cleanupStatus"] == "CLEANUP_UNCERTAIN"
+    assert receipt["automaticRetryAllowed"] is False
 
 
 def test_nonzero_or_warning_dump_fails_closed_and_removes_partial_archive(tmp_path):

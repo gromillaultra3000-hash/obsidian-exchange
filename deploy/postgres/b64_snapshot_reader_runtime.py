@@ -722,11 +722,25 @@ def _exact_runtime_binding(
     """Bind every mutable execution dependency before/after auth mutation."""
     if execution_plan is None:
         _load_and_bind_plan()
-    elif (not isinstance(execution_plan, Mapping)
-          or execution_plan.get("schemaVersion")
-          != "b64-064a-hardened-refresh-plan.v1"
-          or execution_plan.get("route") != "E0/E0.3/B5.3/064A"
-          or not isinstance(execution_plan.get("artifactsSha256"), Mapping)):
+    elif not isinstance(execution_plan, Mapping):
+        raise RuntimeContractError("RUNTIME_EXECUTION_PLAN_INVALID")
+    elif execution_plan.get("schemaVersion") \
+            == "b64-064a-hardened-refresh-plan.v1":
+        if (execution_plan.get("route") != "E0/E0.3/B5.3/064A"
+                or not isinstance(
+                    execution_plan.get("artifactsSha256"), Mapping
+                )):
+            raise RuntimeContractError("RUNTIME_EXECUTION_PLAN_INVALID")
+    elif execution_plan.get("schemaVersion") \
+            == "b64-064a-production-effective-plan.v1":
+        try:
+            import b64_064a_activation_entrypoint as activation
+            activation.validate_effective_execution_plan(execution_plan)
+        except BaseException as exc:
+            raise RuntimeContractError(
+                "RUNTIME_EXECUTION_PLAN_INVALID"
+            ) from exc
+    else:
         raise RuntimeContractError("RUNTIME_EXECUTION_PLAN_INVALID")
     manifest = _load_manifest()
     before = _inspect_container(
