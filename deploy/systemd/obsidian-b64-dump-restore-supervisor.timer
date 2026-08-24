@@ -1,0 +1,13 @@
+[Unit]
+Description=Periodic Obsidian B64 dormant dump/restore supervisor preflight
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=6h
+RandomizedDelaySec=5min
+AccuracySec=1min
+Persistent=true
+Unit=obsidian-b64-dump-restore-supervisor.service
+
+[Install]
+WantedBy=timers.target

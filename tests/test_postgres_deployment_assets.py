@@ -46,6 +46,20 @@ assert "b64_snapshot_reader_transition_gate.py" in unit
 assert "b64_snapshot_reader_transition_gate.py --expected-image-id" in unit
 assert "--expected-server-version-num 170011 --apply" in unit
 assert "b64_snapshot_reader_watchdog.py" in unit
+
+supervisor = (
+    ROOT / "deploy/systemd/obsidian-b64-dump-restore-supervisor.service"
+).read_text()
+supervisor_timer = (
+    ROOT / "deploy/systemd/obsidian-b64-dump-restore-supervisor.timer"
+).read_text()
+assert "@SUPERVISOR_RELEASE_COMMIT@" in supervisor
+assert "b64_dump_restore_supervisor.py" in supervisor
+assert "--rehearsal-root" in supervisor and "--evidence-root" in supervisor
+assert "--require-authenticated-evidence" not in supervisor
+assert "ConditionPathExists=/run/systemd/timesync/synchronized" in supervisor
+assert "RestrictAddressFamilies=AF_UNIX" in supervisor
+assert "OnUnitActiveSec=6h" in supervisor_timer
 assert "--expected-server-version-num 170011 --require-dormant" in unit
 assert "b64_postgres_shutdown.py" in unit
 assert "Wants=obsidian-b64-snapshot-reader-watchdog.timer" in unit
