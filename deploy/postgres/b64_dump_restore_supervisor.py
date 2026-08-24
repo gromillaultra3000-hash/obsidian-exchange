@@ -83,10 +83,12 @@ ARTIFACT_PATHS = {
         "deploy/postgres/b64_snapshot_reader_runtime.py",
 }
 
-KEYRING_SCHEMA = "b64-064a-evidence-keyring.v1"
+KEYRING_SCHEMA = "b64-064a-evidence-keyring.v2"
 ACCEPTANCE_SCHEMA = "b64-064a-rehearsal-evidence-acceptance.v1"
 SIGNATURE_DOMAIN = b"OBSIDIAN\0B64_064A_REHEARSAL_EVIDENCE\0V1\0"
+KEY_ID_DOMAIN = b"OBSIDIAN-B64-064A-EVIDENCE-KEY\0V1\0"
 SIGNER_ROLES = {"ACCOUNTABLE_OWNER", "INDEPENDENT_REVIEWER"}
+MAX_KEYRING_LIFETIME_SECONDS = 7 * 24 * 60 * 60
 NON_AUTHORITY = {
     "readerLoginAuthorized": False,
     "credentialIssuanceAuthorized": False,
@@ -368,6 +370,10 @@ def _decode_signature(value: Any) -> bytes:
     return raw
 
 
+def _key_id(public_key: bytes) -> str:
+    return "b64e_" + _sha256(KEY_ID_DOMAIN + public_key)
+
+
 def verify_authenticated_acceptance(
     *, keyring_raw: bytes, acceptance_raw: bytes,
     expected_keyring_sha256: str, exact: Mapping[str, Any], now_epoch: int,
@@ -381,13 +387,16 @@ def verify_authenticated_acceptance(
         raise SupervisorError("ED25519_VERIFIER_UNAVAILABLE") from exc
     keyring = _decode_json(keyring_raw)
     if set(keyring) != {
-        "schemaVersion", "route", "trustEnvironment", "keys", "keyringSha256",
+        "schemaVersion", "route", "trustEnvironment", "registryVersion",
+        "issuedAtEpoch", "expiresAtEpoch", "revokedKeys", "keys",
+        "keyringSha256",
     } or keyring.get("schemaVersion") != KEYRING_SCHEMA \
             or keyring.get("route") != ROUTE \
             or keyring.get("trustEnvironment") != "PRODUCTION_AUTHENTICATED":
         raise SupervisorError("INVALID_EVIDENCE_KEYRING")
     unsigned_keyring = {key: keyring[key] for key in (
-        "schemaVersion", "route", "trustEnvironment", "keys",
+        "schemaVersion", "route", "trustEnvironment", "registryVersion",
+        "issuedAtEpoch", "expiresAtEpoch", "revokedKeys", "keys",
     )}
     keyring_sha = _sha256(_canonical(unsigned_keyring))
     if (_digest(keyring.get("keyringSha256"), "INVALID_KEYRING_DIGEST")
@@ -395,6 +404,36 @@ def verify_authenticated_acceptance(
             or _digest(expected_keyring_sha256, "INVALID_EXPECTED_KEYRING_DIGEST")
             != keyring_sha):
         raise SupervisorError("EVIDENCE_KEYRING_DIGEST_MISMATCH")
+    registry_version = keyring.get("registryVersion")
+    keyring_issued = keyring.get("issuedAtEpoch")
+    keyring_expires = keyring.get("expiresAtEpoch")
+    if (type(registry_version) is not int or registry_version <= 0
+            or type(keyring_issued) is not int
+            or type(keyring_expires) is not int or keyring_issued <= 0
+            or not keyring_issued < keyring_expires
+            <= keyring_issued + MAX_KEYRING_LIFETIME_SECONDS
+            or keyring_issued > now_epoch + MAX_FUTURE_SKEW_SECONDS
+            or not keyring_issued <= now_epoch < keyring_expires):
+        raise SupervisorError("EVIDENCE_KEYRING_TIME_INVALID")
+    revoked_keys = keyring.get("revokedKeys")
+    if type(revoked_keys) is not list or len(revoked_keys) > 64:
+        raise SupervisorError("INVALID_EVIDENCE_REVOCATIONS")
+    revoked_ids: set[str] = set()
+    for revocation in revoked_keys:
+        if (not isinstance(revocation, Mapping) or set(revocation) != {
+                "keyId", "revokedAtEpoch", "reasonCode",
+        }):
+            raise SupervisorError("INVALID_EVIDENCE_REVOCATION")
+        revoked_id = _token(
+            revocation.get("keyId"), "INVALID_REVOKED_KEY_ID",
+        )
+        revoked_at = revocation.get("revokedAtEpoch")
+        _token(revocation.get("reasonCode"), "INVALID_REVOCATION_REASON")
+        if (revoked_id in revoked_ids or type(revoked_at) is not int
+                or revoked_at <= 0
+                or revoked_at > now_epoch + MAX_FUTURE_SKEW_SECONDS):
+            raise SupervisorError("INVALID_EVIDENCE_REVOCATION")
+        revoked_ids.add(revoked_id)
     keys = keyring.get("keys")
     if type(keys) is not list or len(keys) != 2:
         raise SupervisorError("INVALID_EVIDENCE_KEYRING")
@@ -412,7 +451,9 @@ def verify_authenticated_acceptance(
         identity = _token(entry.get("identityId"), "INVALID_IDENTITY_ID")
         domain = _token(entry.get("trustDomain"), "INVALID_TRUST_DOMAIN")
         public_key = _decode_public_key(entry.get("publicKeyB64"))
-        if (key_id in registry or identity in identities or domain in domains
+        if (key_id != _key_id(public_key)
+                or key_id in registry or key_id in revoked_ids
+                or identity in identities or domain in domains
                 or public_key in public_keys
                 or entry.get("role") not in SIGNER_ROLES
                 or entry.get("status") != "ACTIVE"):
@@ -497,6 +538,8 @@ def verify_authenticated_acceptance(
         "status": "AUTHENTICATED_EXACT_EVIDENCE_ACCEPTED",
         "acceptanceSha256": acceptance_sha,
         "keyringSha256": keyring_sha,
+        "keyringRegistryVersion": registry_version,
+        "revocationSnapshotChecked": True,
         "signerRoles": sorted(seen_roles),
         "readerActivationAuthorized": False,
         "productionRefreshAuthorized": False,

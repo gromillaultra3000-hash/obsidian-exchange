@@ -34,23 +34,29 @@ def _exact() -> dict:
 def _signed_acceptance(*, now: int = 1_800_000_000):
     owner = Ed25519PrivateKey.generate()
     reviewer = Ed25519PrivateKey.generate()
+    owner_public = owner.public_key().public_bytes_raw()
+    reviewer_public = reviewer.public_key().public_bytes_raw()
     entries = [
         {
-            "keyId": "owner_key_2026", "identityId": "owner_identity_2026",
+            "keyId": MODULE._key_id(owner_public),
+            "identityId": "owner_identity_2026",
             "trustDomain": "owner_offline_domain", "role": "ACCOUNTABLE_OWNER",
             "status": "ACTIVE",
-            "publicKeyB64": _b64(owner.public_key().public_bytes_raw()),
+            "publicKeyB64": _b64(owner_public),
         },
         {
-            "keyId": "review_key_2026", "identityId": "review_identity_2026",
+            "keyId": MODULE._key_id(reviewer_public),
+            "identityId": "review_identity_2026",
             "trustDomain": "review_offline_domain",
             "role": "INDEPENDENT_REVIEWER", "status": "ACTIVE",
-            "publicKeyB64": _b64(reviewer.public_key().public_bytes_raw()),
+            "publicKeyB64": _b64(reviewer_public),
         },
     ]
     keyring_unsigned = {
         "schemaVersion": MODULE.KEYRING_SCHEMA, "route": MODULE.ROUTE,
-        "trustEnvironment": "PRODUCTION_AUTHENTICATED", "keys": entries,
+        "trustEnvironment": "PRODUCTION_AUTHENTICATED",
+        "registryVersion": 1, "issuedAtEpoch": now - 120,
+        "expiresAtEpoch": now + 3600, "revokedKeys": [], "keys": entries,
     }
     keyring_sha = hashlib.sha256(MODULE._canonical(keyring_unsigned)).hexdigest()
     keyring = {**keyring_unsigned, "keyringSha256": keyring_sha}
@@ -73,12 +79,14 @@ def _signed_acceptance(*, now: int = 1_800_000_000):
         ).hexdigest(),
         "signatures": [
             {
-                "role": "INDEPENDENT_REVIEWER", "keyId": "review_key_2026",
+                "role": "INDEPENDENT_REVIEWER",
+                "keyId": MODULE._key_id(reviewer_public),
                 "identityId": "review_identity_2026",
                 "signatureB64": _b64(reviewer.sign(payload)),
             },
             {
-                "role": "ACCOUNTABLE_OWNER", "keyId": "owner_key_2026",
+                "role": "ACCOUNTABLE_OWNER",
+                "keyId": MODULE._key_id(owner_public),
                 "identityId": "owner_identity_2026",
                 "signatureB64": _b64(owner.sign(payload)),
             },
@@ -124,6 +132,8 @@ def test_two_independent_signatures_authenticate_only_exact_evidence():
         "status": "AUTHENTICATED_EXACT_EVIDENCE_ACCEPTED",
         "acceptanceSha256": acceptance["acceptanceSha256"],
         "keyringSha256": keyring_sha,
+        "keyringRegistryVersion": 1,
+        "revocationSnapshotChecked": True,
         "signerRoles": ["ACCOUNTABLE_OWNER", "INDEPENDENT_REVIEWER"],
         "readerActivationAuthorized": False,
         "productionRefreshAuthorized": False,
@@ -134,6 +144,7 @@ def test_two_independent_signatures_authenticate_only_exact_evidence():
 @pytest.mark.parametrize("drift", [
     "evidence", "plan", "closure", "authority", "signature", "expired",
     "authority_type_alias", "same_identity", "untrusted_keyring",
+    "revoked_signer", "expired_keyring", "future_revocation",
 ])
 def test_acceptance_tamper_and_non_independence_fail_closed(drift):
     keyring, acceptance, keyring_sha, exact, now = _signed_acceptance()
@@ -155,6 +166,34 @@ def test_acceptance_tamper_and_non_independence_fail_closed(drift):
         keyring["keys"][1]["identityId"] = keyring["keys"][0]["identityId"]
     elif drift == "untrusted_keyring":
         keyring_sha = "f" * 64
+    elif drift == "revoked_signer":
+        keyring["revokedKeys"] = [{
+            "keyId": keyring["keys"][0]["keyId"], "revokedAtEpoch": now - 1,
+            "reasonCode": "COMPROMISED",
+        }]
+        unsigned_keyring = {key: keyring[key] for key in (
+            "schemaVersion", "route", "trustEnvironment", "registryVersion",
+            "issuedAtEpoch", "expiresAtEpoch", "revokedKeys", "keys",
+        )}
+        keyring_sha = hashlib.sha256(
+            MODULE._canonical(unsigned_keyring)
+        ).hexdigest()
+        keyring["keyringSha256"] = keyring_sha
+    elif drift == "expired_keyring":
+        now = keyring["expiresAtEpoch"]
+    elif drift == "future_revocation":
+        keyring["revokedKeys"] = [{
+            "keyId": "old_key_2025", "revokedAtEpoch": now + 61,
+            "reasonCode": "SUPERSEDED",
+        }]
+        unsigned_keyring = {key: keyring[key] for key in (
+            "schemaVersion", "route", "trustEnvironment", "registryVersion",
+            "issuedAtEpoch", "expiresAtEpoch", "revokedKeys", "keys",
+        )}
+        keyring_sha = hashlib.sha256(
+            MODULE._canonical(unsigned_keyring)
+        ).hexdigest()
+        keyring["keyringSha256"] = keyring_sha
     with pytest.raises(MODULE.SupervisorError):
         MODULE.verify_authenticated_acceptance(
             keyring_raw=MODULE._canonical(keyring),
