@@ -727,7 +727,7 @@ def main():
         completed = _run(command, text=True)
         if completed.returncode != 0:
             raise RuntimeError("ORIGINAL_HBA_MODE_FAILED")
-    with psycopg.connect(BOOTSTRAP_DSN, autocommit=True) as conn:
+    with psycopg.connect(observation_dsn, autocommit=True) as conn:
         if conn.execute("SELECT pg_reload_conf()").fetchone()[0] is not True:
             raise RuntimeError("ORIGINAL_HBA_RELOAD_FAILED")
     environment = dict(os.environ)

@@ -1339,11 +1339,12 @@ def run_once(
         expected_environment=expected_environment,
     )
     journal = ActivationJournal(journal_root, authorization)
-    execution_lock = journal.acquire_execution_lock()
+    execution_lock = -1
     interlock_fd = -1
     try:
         if expected_environment == "PRODUCTION":
             interlock_fd = _acquire_production_interlock(authorization)
+        execution_lock = journal.acquire_execution_lock()
         journal.claim()
         journal.transition(expected_state={"CLAIMED"}, state="RUNNING")
         authorization._capability_state.begin_execution()
@@ -1412,7 +1413,8 @@ def run_once(
     finally:
         if interlock_fd >= 0:
             os.close(interlock_fd)
-        os.close(execution_lock)
+        if execution_lock >= 0:
+            os.close(execution_lock)
     return {
         "schemaVersion": "b64-064a-production-activation-result.v1",
         "route": ROUTE,
@@ -1434,7 +1436,10 @@ def reconcile_incomplete(
     activation_plan_raw: bytes, executor: ActivationExecutor,
     reconcile: Callable[[], Mapping[str, Any]],
     verify_dormant: Callable[[], Mapping[str, Any]],
+    automatic_no_retry: bool = False,
 ) -> dict[str, Any]:
+    if type(automatic_no_retry) is not bool:
+        raise ActivationError("AUTOMATIC_RECOVERY_MODE_INVALID")
     authorization = require_verified_recovery_authorization(
         authorization, expected_environment=authorization.environment,
     )
@@ -1454,14 +1459,29 @@ def reconcile_incomplete(
             and journal_root != PRODUCTION_JOURNAL_ROOT):
         raise ActivationError("PRODUCTION_JOURNAL_ROOT_MISMATCH")
     journal = ActivationJournal(journal_root, authorization)
-    execution_lock = journal.acquire_execution_lock()
+    execution_lock = -1
     interlock_fd = -1
     try:
         if authorization.environment == "PRODUCTION":
             interlock_fd = _acquire_production_interlock(authorization)
+        execution_lock = journal.acquire_execution_lock()
         current = journal.inspect()
-        if current["state"] not in {"CLAIMED", "RUNNING", "HOLD"}:
+        allowed_states = (
+            {"CLAIMED", "RUNNING"}
+            if automatic_no_retry else {"CLAIMED", "RUNNING", "HOLD"}
+        )
+        if current["state"] not in allowed_states:
             raise ActivationError("ACTIVATION_RECONCILE_STATE_INVALID")
+        cleanup_states = {current["state"]}
+        if automatic_no_retry:
+            # The timer must never repeat cleanup after a crash or hard kill.
+            # Persist the one automatic attempt while both serialization
+            # locks are held and before the first resource mutation.
+            journal.transition(
+                expected_state=cleanup_states, state="HOLD",
+                reason_code="AUTOMATIC_RECOVERY_CLAIMED_NO_RETRY",
+            )
+            cleanup_states = {"HOLD"}
         try:
             _validate_resource_reconcile_receipt(
                 executor.reconcile_resources(
@@ -1474,21 +1494,22 @@ def reconcile_incomplete(
             reason = _reason(exc)
             try:
                 journal.transition(
-                    expected_state={"CLAIMED", "RUNNING", "HOLD"},
+                    expected_state=cleanup_states,
                     state="HOLD", reason_code=reason,
                 )
             except BaseException:
                 reason = "ACTIVATION_RECONCILE_HOLD_UNCERTAIN"
             raise ActivationError(reason) from None
         journal.transition(
-            expected_state={"CLAIMED", "RUNNING", "HOLD"},
+            expected_state=cleanup_states,
             state="RECONCILED_HOLD",
             reason_code="ABNORMAL_EXIT_RECONCILED_NO_RETRY",
         )
     finally:
         if interlock_fd >= 0:
             os.close(interlock_fd)
-        os.close(execution_lock)
+        if execution_lock >= 0:
+            os.close(execution_lock)
     return {
         "status": "ACTIVATION_RECONCILED_HOLD",
         "runNonce": authorization.run_nonce,

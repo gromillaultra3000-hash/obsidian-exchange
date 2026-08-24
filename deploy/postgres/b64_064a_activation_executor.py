@@ -39,6 +39,7 @@ from psycopg.conninfo import make_conninfo
 import b64_064a_activation_entrypoint as activation
 import b64_064a_hardened_refresh as refresh
 import b64_snapshot_reader_runtime as runtime
+from b64_snapshot_reader_runtime_rebind import EXPECTED_DEPLOYED_HBA_SHA256
 from verify_b64_snapshot_reader import inspect
 
 
@@ -1678,6 +1679,18 @@ class BoundActivationExecutor:
                 os.close(directory_fd)
             os.close(parent_fd)
 
+    def _reconcile_credential(
+        self, effective_plan: Mapping[str, Any],
+    ) -> Mapping[str, Any]:
+        return runtime.reconcile_credential(
+            observation_dsn=self.observation_dsn,
+            admin_dsn=self.admin_dsn, container=self.container,
+            expected_container_id=self.container_id,
+            expected_image_id=self.image_id,
+            allow_contract_container=not self.production_contact,
+            execution_plan=effective_plan,
+        )
+
     def reconcile_resources(
         self, *, plan: Mapping[str, Any],
         authorization: (
@@ -1691,6 +1704,15 @@ class BoundActivationExecutor:
         verified = activation.require_verified_recovery_authorization(
             authorization, expected_environment=expected_environment,
         )
+        target = plan.get("target")
+        if (not isinstance(target, Mapping)
+                or target != verified.target
+                or target.get("containerName") != self.container
+                or target.get("containerId") != self.container_id
+                or target.get("imageId") != self.image_id
+                or target.get("systemIdentifier")
+                != self.system_identifier):
+            raise ExecutorError("RECONCILE_TARGET_BINDING_FAILED")
         effective_plan = activation.derive_execution_plan(
             run_nonce=verified.run_nonce,
             artifacts_sha256=plan["artifactsSha256"],
@@ -1715,14 +1737,7 @@ class BoundActivationExecutor:
         if current is not None and current["state"] in {
                 "PREPARED", "RUNNING"}:
             current = resources.update(state="HOLD")
-        credential = runtime.reconcile_credential(
-            observation_dsn=self.observation_dsn,
-            admin_dsn=self.admin_dsn, container=self.container,
-            expected_container_id=self.container_id,
-            expected_image_id=self.image_id,
-            allow_contract_container=not self.production_contact,
-            execution_plan=effective_plan,
-        )
+        credential = self._reconcile_credential(effective_plan)
         if current is None:
             names = {
                 "workspace": self.workspace_parent
@@ -1815,6 +1830,168 @@ class BoundActivationExecutor:
             "activeSessions": 0, "workspaceAbsent": True,
             "proxyAbsent": True, "dumpAbsent": True,
             "restoreAbsent": True, "automaticRetryAllowed": False,
+            "actionAllowed": False,
+        }
+
+
+class BoundRecoveryExecutor(BoundActivationExecutor):
+    """Passwordless cleanup-only production adapter.
+
+    The recurring watchdog performs the revocation pre-pass.  While the
+    activation interlock is held here, this adapter independently attests the
+    exact container-local PostgreSQL socket and refuses every execute path.
+    """
+
+    def __init__(
+        self, *, container: str, container_id: str, image_id: str,
+        system_identifier: str, workspace_parent: Path, proxy_parent: Path,
+        resource_journal_root: Path,
+    ) -> None:
+        super().__init__(
+            production_contact=True,
+            observation_dsn="RECOVERY_EXECUTOR_HAS_NO_OBSERVATION_DSN",
+            admin_dsn="RECOVERY_EXECUTOR_BINDS_ADMIN_SOCKET_PER_ATTESTATION",
+            container=container, container_id=container_id,
+            image_id=image_id, system_identifier=system_identifier,
+            workspace_parent=workspace_parent, proxy_parent=proxy_parent,
+            resource_journal_root=resource_journal_root,
+        )
+
+    def execute(self, *_args: Any, **_kwargs: Any) -> Mapping[str, Any]:
+        raise ExecutorError("RECOVERY_EXECUTOR_EXECUTE_FORBIDDEN")
+
+    def reconcile_resources(
+        self, *, plan: Mapping[str, Any],
+        authorization: (
+            activation.VerifiedActivation | activation.VerifiedRecovery
+        ),
+    ) -> Mapping[str, Any]:
+        verified = activation.require_verified_recovery_authorization(
+            authorization, expected_environment="PRODUCTION",
+        )
+        if type(verified) is not activation.VerifiedRecovery:
+            raise ExecutorError("RECOVERY_EXECUTOR_CAPABILITY_INVALID")
+        return super().reconcile_resources(
+            plan=plan, authorization=verified,
+        )
+
+    def _reconcile_credential(
+        self, effective_plan: Mapping[str, Any],
+    ) -> Mapping[str, Any]:
+        if effective_plan.get("schemaVersion") \
+                != activation.EFFECTIVE_PLAN_SCHEMA:
+            raise ExecutorError("RECOVERY_EFFECTIVE_PLAN_INVALID")
+        return self.attest_dormant()
+
+    def attest_dormant(self) -> Mapping[str, Any]:
+        if any(name.startswith("PG") and value
+               for name, value in os.environ.items()):
+            raise ExecutorError("RECOVERY_AMBIENT_LIBPQ_ENVIRONMENT_FORBIDDEN")
+        before = _inspect_container(self.container)
+        if before is None:
+            raise ExecutorError("RECOVERY_PRODUCTION_CONTAINER_MISSING")
+        try:
+            container_id = before["Id"].removeprefix("sha256:")
+            container_name = before["Name"].removeprefix("/")
+            image_id = before["Image"]
+            running = before["State"]["Running"]
+            container_pid = before["State"]["Pid"]
+        except (KeyError, TypeError, AttributeError) as exc:
+            raise ExecutorError(
+                "RECOVERY_PRODUCTION_CONTAINER_INSPECTION_INVALID"
+            ) from exc
+        if (container_id != self.container_id
+                or container_name != self.container
+                or image_id != self.image_id or running is not True
+                or type(container_pid) is not int or container_pid <= 0):
+            raise ExecutorError("RECOVERY_PRODUCTION_TARGET_CHANGED")
+        admin_input_dsn = make_conninfo(
+            host=f"/proc/{container_pid}/root/var/run/postgresql",
+            dbname=runtime.DATABASE, user="postgres", port=5432,
+            connect_timeout=5, sslmode="disable",
+            target_session_attrs="read-write",
+            application_name="obsidian-b64-064a-recovery-attestor",
+        )
+        runtime._validate_container_admin_dsn(
+            admin_input_dsn, runtime.DATABASE, container_pid,
+        )
+        passfile_fd, admin_dsn = runtime._bind_empty_memfd_passfile(
+            admin_input_dsn
+        )
+        try:
+            with psycopg.connect(admin_dsn, autocommit=True) as conn:
+                conn.execute("SET statement_timeout='10s'")
+                conn.execute("SET lock_timeout='3s'")
+                conn.execute("SET idle_session_timeout='15s'")
+                conn.execute("SET log_statement='none'")
+                conn.execute("SET log_min_duration_statement=-1")
+                conn.execute("SET log_min_error_statement='panic'")
+                row = conn.execute(
+                    "SELECT current_user,current_database(),r.rolsuper,"
+                    "r.rolcreaterole,current_setting('transaction_read_only'),"
+                    "inet_client_addr() IS NULL,"
+                    "current_setting('server_version_num')::int,"
+                    "current_setting('data_directory'),"
+                    "current_setting('hba_file'),system_identifier::text,"
+                    "target.oid,target.rolcanlogin,"
+                    "(auth.rolpassword IS NULL),"
+                    "COALESCE(auth.rolvaliduntil::text,''),"
+                    "target.rolconnlimit,(SELECT count(*) "
+                    "FROM pg_stat_activity WHERE usename=%s) "
+                    "FROM pg_roles r CROSS JOIN pg_control_system() "
+                    "JOIN pg_roles target ON target.rolname=%s "
+                    "JOIN pg_authid auth ON auth.oid=target.oid "
+                    "WHERE r.rolname=current_user",
+                    (runtime.ROLE, runtime.ROLE),
+                ).fetchone()
+                if (row is None or row[:6] != (
+                        "postgres", runtime.DATABASE, True, True, "off", True)
+                        or row[6] != 170011
+                        or row[7] != runtime.DATA_DIRECTORY
+                        or row[8] != runtime.HBA_FILE
+                        or row[9] != self.system_identifier
+                        or type(row[10]) is not int or row[10] <= 0
+                        or row[11] is not False or row[12] is not True
+                        or row[13] not in {"", "infinity"}
+                        or row[14] != 2 or row[15] != 0):
+                    raise ExecutorError(
+                        "RECOVERY_LOCAL_DORMANT_ATTESTATION_FAILED"
+                    )
+                if conn.execute(
+                    "SELECT pg_try_advisory_lock(%s)",
+                    (runtime.RUNTIME_ADVISORY_LOCK_KEY,),
+                ).fetchone()[0] is not True:
+                    raise ExecutorError("RECOVERY_RUNTIME_LOCK_NOT_IDLE")
+                report = inspect(admin_dsn, expected_login=False)
+                if (report.get("status") != "match"
+                        or report.get("hbaIsolationStatus") != "EXACT"
+                        or report.get("hbaFileSha256")
+                        != EXPECTED_DEPLOYED_HBA_SHA256
+                        or report.get("loginState") != "DISABLED"
+                        or report.get("credentialState") != "ABSENT"):
+                    raise ExecutorError(
+                        "RECOVERY_ROLE_OR_HBA_ATTESTATION_FAILED"
+                    )
+        except ExecutorError:
+            raise
+        except BaseException as exc:
+            raise ExecutorError(
+                "RECOVERY_LOCAL_DORMANT_ATTESTATION_UNAVAILABLE"
+            ) from exc
+        finally:
+            os.close(passfile_fd)
+        after = _inspect_container(self.container)
+        if (after is None
+                or after.get("Id", "").removeprefix("sha256:")
+                != self.container_id
+                or after.get("Image") != self.image_id
+                or after.get("State", {}).get("Running") is not True
+                or after.get("State", {}).get("Pid") != container_pid):
+            raise ExecutorError("RECOVERY_PRODUCTION_TARGET_CHANGED")
+        return {
+            "loginState": "DISABLED", "credentialState": "ABSENT",
+            "activeSessions": 0, "customerRowsRead": False,
+            "automaticRetryAllowed": False,
             "actionAllowed": False,
         }
 

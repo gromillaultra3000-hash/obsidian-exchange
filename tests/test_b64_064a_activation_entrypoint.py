@@ -1,7 +1,7 @@
 import base64
 import copy
 import hashlib
-import importlib.util
+import importlib
 import json
 import subprocess
 import sys
@@ -14,12 +14,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 ROOT = Path(__file__).resolve().parents[1]
 MODULE_PATH = ROOT / "deploy/postgres/b64_064a_activation_entrypoint.py"
 sys.path.insert(0, str(MODULE_PATH.parent))
-SPEC = importlib.util.spec_from_file_location(
-    "b64_064a_activation_entrypoint", MODULE_PATH,
-)
-MODULE = importlib.util.module_from_spec(SPEC)
-sys.modules[SPEC.name] = MODULE
-SPEC.loader.exec_module(MODULE)
+MODULE = importlib.import_module("b64_064a_activation_entrypoint")
 
 
 def _b64(value: bytes) -> str:
@@ -419,6 +414,70 @@ def test_abnormal_running_journal_only_reconciles_to_no_retry_hold(tmp_path):
     assert result["automaticRetryAllowed"] is False
 
 
+def test_automatic_recovery_claims_durable_hold_before_cleanup_and_never_retries(
+    tmp_path,
+):
+    tmp_path.chmod(0o700)
+    package = _package()
+    authorization = _verify(package)
+    journal = MODULE.ActivationJournal(tmp_path, authorization)
+    journal.claim()
+    journal.transition(expected_state={"CLAIMED"}, state="RUNNING")
+    observed_states = []
+
+    class FailingCleanup(FakeExecutor):
+        def reconcile_resources(self, **_kwargs):
+            observed_states.append(journal.inspect()["state"])
+            raise MODULE.ActivationError("SYNTHETIC_AUTOMATIC_CLEANUP_FAILURE")
+
+    with pytest.raises(
+        MODULE.ActivationError,
+        match="SYNTHETIC_AUTOMATIC_CLEANUP_FAILURE",
+    ):
+        MODULE.reconcile_incomplete(
+            authorization=authorization, journal_root=tmp_path,
+            activation_plan_raw=MODULE._canonical(package["plan"]),
+            executor=FailingCleanup(), reconcile=_dormant,
+            verify_dormant=_dormant, automatic_no_retry=True,
+        )
+    assert observed_states == ["HOLD"]
+    held = journal.inspect()
+    assert held["state"] == "HOLD"
+    calls = []
+
+    class ForbiddenRetry(FakeExecutor):
+        def reconcile_resources(self, **_kwargs):
+            calls.append(True)
+            return super().reconcile_resources(**_kwargs)
+
+    with pytest.raises(
+        MODULE.ActivationError, match="ACTIVATION_RECONCILE_STATE_INVALID"
+    ):
+        MODULE.reconcile_incomplete(
+            authorization=authorization, journal_root=tmp_path,
+            activation_plan_raw=MODULE._canonical(package["plan"]),
+            executor=ForbiddenRetry(), reconcile=_dormant,
+            verify_dormant=_dormant, automatic_no_retry=True,
+        )
+    assert calls == []
+
+
+def test_automatic_recovery_success_is_reconciled_hold(tmp_path):
+    tmp_path.chmod(0o700)
+    package = _package()
+    authorization = _verify(package)
+    journal = MODULE.ActivationJournal(tmp_path, authorization)
+    journal.claim()
+    result = MODULE.reconcile_incomplete(
+        authorization=authorization, journal_root=tmp_path,
+        activation_plan_raw=MODULE._canonical(package["plan"]),
+        executor=FakeExecutor(), reconcile=_dormant,
+        verify_dormant=_dormant, automatic_no_retry=True,
+    )
+    assert result["status"] == "ACTIVATION_RECONCILED_HOLD"
+    assert journal.inspect()["state"] == "RECONCILED_HOLD"
+
+
 def test_expired_package_recovers_existing_journal_cleanup_only(tmp_path):
     tmp_path.chmod(0o700)
     package = _package()
@@ -594,6 +653,47 @@ def test_reconciler_cannot_race_live_execution_lock(tmp_path):
             )
     finally:
         MODULE.os.close(execution_lock)
+
+
+def test_production_recovery_takes_global_interlock_before_nonce_lock(
+    monkeypatch, tmp_path,
+):
+    tmp_path.chmod(0o700)
+    package = _package(environment="PRODUCTION")
+    authorization = _verify(package)
+    journal = MODULE.ActivationJournal(tmp_path, authorization)
+    journal.claim()
+    journal.transition(expected_state={"CLAIMED"}, state="RUNNING")
+    monkeypatch.setattr(MODULE, "PRODUCTION_JOURNAL_ROOT", tmp_path)
+    events = []
+    original_acquire = MODULE.ActivationJournal.acquire_execution_lock
+
+    def acquire_interlock(_authorization):
+        events.append("global")
+        return MODULE.os.open("/dev/null", MODULE.os.O_RDONLY)
+
+    def acquire_nonce(self):
+        events.append("nonce")
+        return original_acquire(self)
+
+    monkeypatch.setattr(
+        MODULE, "_acquire_production_interlock", acquire_interlock,
+    )
+    monkeypatch.setattr(
+        MODULE.ActivationJournal, "acquire_execution_lock", acquire_nonce,
+    )
+
+    class ProductionExecutor(FakeExecutor):
+        production_contact = True
+
+    result = MODULE.reconcile_incomplete(
+        authorization=authorization, journal_root=tmp_path,
+        activation_plan_raw=MODULE._canonical(package["plan"]),
+        executor=ProductionExecutor(), reconcile=_dormant,
+        verify_dormant=_dormant, automatic_no_retry=True,
+    )
+    assert result["status"] == "ACTIVATION_RECONCILED_HOLD"
+    assert events == ["global", "nonce"]
 
 
 def test_resource_reconcile_failure_cannot_close_activation_journal(tmp_path):

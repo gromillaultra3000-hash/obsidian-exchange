@@ -364,12 +364,14 @@ def test_resource_reconcile_closes_each_crash_state(
     monkeypatch.setattr(bound, "_reconcile_workspace", lambda _value: True)
     monkeypatch.setattr(executor, "_inspect_container", lambda _name: None)
     result = bound.reconcile_resources(
-        plan={"artifactsSha256": {}}, authorization=verified,
+        plan={"target": target, "artifactsSha256": {}},
+        authorization=verified,
     )
     assert result["status"] == "EXECUTOR_RESOURCES_RECONCILED_HOLD"
     assert journal.inspect()["state"] == "RECONCILED_HOLD"
     repeated = bound.reconcile_resources(
-        plan={"artifactsSha256": {}}, authorization=verified,
+        plan={"target": target, "artifactsSha256": {}},
+        authorization=verified,
     )
     assert repeated["status"] == "EXECUTOR_RESOURCES_RECONCILED_HOLD"
     assert journal.inspect()["state"] == "RECONCILED_HOLD"
@@ -427,7 +429,8 @@ def test_resource_reconcile_accepts_cleanup_only_recovery_capability(
     monkeypatch.setattr(bound, "_reconcile_container", lambda **_kwargs: True)
     monkeypatch.setattr(bound, "_reconcile_workspace", lambda _value: True)
     result = bound.reconcile_resources(
-        plan={"artifactsSha256": {}}, authorization=recovery,
+        plan={"target": target, "artifactsSha256": {}},
+        authorization=recovery,
     )
     assert result["status"] == "EXECUTOR_RESOURCES_RECONCILED_HOLD"
     assert journal.inspect()["state"] == "RECONCILED_HOLD"
@@ -452,6 +455,131 @@ def test_bound_executor_rejects_recovery_capability_before_contact():
         match="ACTIVATION_EXECUTION_AUTHORIZATION_INVALID",
     ):
         bound.execute({}, recovery, executor.time.monotonic() + 10.0)
+
+
+def test_reconcile_target_mismatch_fails_before_credential_or_cleanup(
+    monkeypatch, tmp_path,
+):
+    roots = []
+    for name in ("workspace", "proxy", "resources"):
+        path = tmp_path / name
+        path.mkdir(mode=0o700)
+        roots.append(path)
+    target = _target()
+    recovery = activation.VerifiedRecovery(
+        environment="DISPOSABLE_CONTRACT",
+        run_nonce="YWN0aXZhdGlvbi1ydW4tMDE",
+        plan_sha256="3" * 64, decision_sha256="4" * 64,
+        keyring_sha256="5" * 64,
+        derived_execution_plan_sha256="6" * 64,
+        decision_expires_at_epoch=1_700_000_000, target=target,
+        limits=dict(activation.LIMITS),
+        _recovery_seal=activation._VERIFIED_RECOVERY_SEAL,
+    )
+    bound = executor.BoundActivationExecutor(
+        production_contact=False, observation_dsn="unused",
+        admin_dsn="unused", container=target["containerName"],
+        container_id=target["containerId"], image_id=target["imageId"],
+        system_identifier=target["systemIdentifier"],
+        workspace_parent=roots[0], proxy_parent=roots[1],
+        resource_journal_root=roots[2],
+    )
+    monkeypatch.setattr(
+        bound, "_reconcile_credential",
+        lambda *_a: pytest.fail("credential path must remain untouched"),
+    )
+    with pytest.raises(executor.ExecutorError, match="TARGET_BINDING_FAILED"):
+        bound.reconcile_resources(
+            plan={
+                "target": {**target, "containerId": "9" * 64},
+                "artifactsSha256": {},
+            },
+            authorization=recovery,
+        )
+
+
+def test_recovery_executor_has_no_execute_authority():
+    recovery = object.__new__(executor.BoundRecoveryExecutor)
+    with pytest.raises(
+        executor.ExecutorError, match="RECOVERY_EXECUTOR_EXECUTE_FORBIDDEN"
+    ):
+        recovery.execute({}, object(), executor.time.monotonic() + 1.0)
+
+
+def test_recovery_executor_local_attestation_is_outer_receipt_compatible(
+    monkeypatch,
+):
+    bound = object.__new__(executor.BoundRecoveryExecutor)
+    bound.container = activation.PRODUCTION_CONTAINER
+    bound.container_id = "1" * 64
+    bound.image_id = activation.PRODUCTION_IMAGE_ID
+    bound.system_identifier = activation.PRODUCTION_SYSTEM_IDENTIFIER
+    container = {
+        "Id": bound.container_id, "Name": "/" + bound.container,
+        "Image": bound.image_id,
+        "State": {"Running": True, "Pid": 12345},
+    }
+    monkeypatch.setattr(
+        executor, "_inspect_container", lambda *_a, **_k: dict(container),
+    )
+    monkeypatch.setattr(
+        executor.runtime, "_validate_container_admin_dsn", lambda *_a: None,
+    )
+    monkeypatch.setattr(
+        executor.runtime, "_bind_empty_memfd_passfile",
+        lambda *_a: (
+            os.open("/dev/null", os.O_RDONLY),
+            "synthetic-local-admin-dsn",
+        ),
+    )
+
+    class Result:
+        def __init__(self, row):
+            self.row = row
+
+        def fetchone(self):
+            return self.row
+
+    class Connection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def execute(self, query, *_args):
+            if "pg_try_advisory_lock" in query:
+                return Result((True,))
+            if "FROM pg_roles r CROSS JOIN" in query:
+                return Result((
+                    "postgres", executor.runtime.DATABASE, True, True,
+                    "off", True, 170011, executor.runtime.DATA_DIRECTORY,
+                    executor.runtime.HBA_FILE, bound.system_identifier,
+                    123, False, True, "", 2, 0,
+                ))
+            return self
+
+    monkeypatch.setattr(
+        executor.psycopg, "connect", lambda *_a, **_k: Connection(),
+    )
+    report = {
+        "status": "match", "hbaIsolationStatus": "EXACT",
+        "hbaFileSha256": executor.EXPECTED_DEPLOYED_HBA_SHA256,
+        "loginState": "DISABLED", "credentialState": "ABSENT",
+    }
+    monkeypatch.setattr(
+        executor, "inspect", lambda *_a, **_k: dict(report),
+    )
+    receipt = bound.attest_dormant()
+    assert receipt["customerRowsRead"] is False
+    assert activation._validate_dormant_receipt(receipt)[
+        "activeSessions"
+    ] == 0
+    report["hbaFileSha256"] = "0" * 64
+    with pytest.raises(
+        executor.ExecutorError, match="RECOVERY_ROLE_OR_HBA_ATTESTATION_FAILED"
+    ):
+        bound.attest_dormant()
 
 
 def test_inspection_distinguishes_exact_absence_from_daemon_failure(monkeypatch):

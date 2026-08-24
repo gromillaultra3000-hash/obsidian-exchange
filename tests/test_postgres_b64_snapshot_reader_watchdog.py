@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import contextlib
 import datetime as dt
+import fcntl
+import hashlib
 import importlib
 import json
 import os
@@ -105,6 +107,58 @@ def _run_watchdog(**kwargs):
     )
 
 
+def _write_recovery_package(parent: Path) -> dict:
+    parent.chmod(0o700)
+    package = parent / watchdog.RECOVERY_PACKAGE_NAME
+    package.mkdir(mode=0o700)
+    artifacts = {
+        "keyring.json": b'{"keyring":true}\n',
+        "decision.json": b'{"decision":true}\n',
+        "activation-plan.json": b'{"plan":true}\n',
+    }
+    binding = {
+        "route": watchdog.ACTIVATION_ROUTE,
+        "environment": "PRODUCTION",
+        "runNonce": "recovery_nonce_1234",
+        "action": watchdog.RECOVERY_ACTION,
+        "automaticRetryAllowed": False,
+        "expectedKeyringSha256": "1" * 64,
+        "planSha256": "2" * 64,
+        "decisionSha256": "3" * 64,
+    }
+    manifest = {
+        "schemaVersion": watchdog.RECOVERY_PACKAGE_SCHEMA,
+        **binding,
+        "files": {
+            name: {
+                "sha256": hashlib.sha256(raw).hexdigest(),
+                "size": len(raw),
+            }
+            for name, raw in artifacts.items()
+        },
+    }
+    manifest_raw = json.dumps(
+        manifest, sort_keys=True, separators=(",", ":")
+    ).encode() + b"\n"
+    for name, raw in {**artifacts, "manifest.json": manifest_raw}.items():
+        path = package / name
+        path.write_bytes(raw)
+        path.chmod(0o400)
+    package.chmod(0o500)
+    request = {
+        "schemaVersion": watchdog.RECOVERY_REQUEST_SCHEMA,
+        **binding,
+        "manifestSha256": hashlib.sha256(manifest_raw).hexdigest(),
+    }
+    request_path = parent / watchdog.RECOVERY_REQUEST_NAME
+    request_path.write_text(
+        json.dumps(request, sort_keys=True, separators=(",", ":")) + "\n",
+        encoding="utf-8",
+    )
+    request_path.chmod(0o400)
+    return {"package": package, "request": request_path, **artifacts}
+
+
 def test_dormant_watchdog_run_is_ready_and_non_mutating(monkeypatch):
     _connection, inspections = _watchdog_harness(
         monkeypatch, state=_state("DORMANT"), acquired=True, holders=[]
@@ -119,6 +173,694 @@ def test_dormant_watchdog_run_is_ready_and_non_mutating(monkeypatch):
     assert result["credentialState"] == "ABSENT"
     assert result["authorityIncreased"] is False
     assert len(inspections) == 2
+
+
+def test_fixed_recovery_package_is_exactly_bound(monkeypatch, tmp_path):
+    written = _write_recovery_package(tmp_path)
+    monkeypatch.setattr(watchdog, "RECOVERY_PARENT", tmp_path)
+    loaded = watchdog._load_recovery_package()
+    assert loaded is not None
+    assert loaded["stagedWithoutRequest"] is False
+    assert loaded["request"]["runNonce"] == "recovery_nonce_1234"
+    assert loaded["keyring.json"] == written["keyring.json"]
+
+
+@pytest.mark.parametrize("fault", ["extra", "mode", "hardlink", "symlink"])
+def test_fixed_recovery_package_rejects_unsafe_entries(
+    monkeypatch, tmp_path, fault,
+):
+    written = _write_recovery_package(tmp_path)
+    package = written["package"]
+    package.chmod(0o700)
+    if fault == "extra":
+        extra = package / "foreign"
+        extra.write_text("x", encoding="utf-8")
+        extra.chmod(0o400)
+    elif fault == "mode":
+        (package / "decision.json").chmod(0o600)
+    elif fault == "hardlink":
+        target = package / "decision.json"
+        os.link(target, tmp_path / "decision-hardlink")
+    else:
+        target = package / "decision.json"
+        target.unlink()
+        target.symlink_to(package / "keyring.json")
+    package.chmod(0o500)
+    monkeypatch.setattr(watchdog, "RECOVERY_PARENT", tmp_path)
+    with pytest.raises(watchdog.WatchdogError):
+        watchdog._load_recovery_package()
+
+
+def test_package_without_request_is_staged_and_not_interpreted(
+    monkeypatch, tmp_path,
+):
+    written = _write_recovery_package(tmp_path)
+    written["request"].unlink()
+    monkeypatch.setattr(watchdog, "RECOVERY_PARENT", tmp_path)
+    assert watchdog._load_recovery_package() == {
+        "stagedWithoutRequest": True
+    }
+
+
+def _orchestrator_dormant_result() -> dict:
+    return {
+        "schemaVersion": "obsidian-b64-snapshot-reader-watchdog.v1",
+        "status": "DORMANT_VERIFIED", "watchdogReady": True,
+        "container": dict(CONTAINER), "roleLoginState": "DISABLED",
+        "credentialState": "ABSENT", "activeSessions": 0,
+        "dormantRequired": True, "activationInterlockHeld": False,
+        "customerRowsRead": False,
+        "authorityIncreased": False,
+    }
+
+
+@pytest.fixture
+def idle_recovery_discovery(monkeypatch):
+    monkeypatch.setattr(
+        watchdog, "_activation_interlock_status",
+        lambda *_args, **_kwargs: contextlib.nullcontext(False),
+    )
+
+
+def _write_outer_journal(
+    root: Path, nonce: str, state: str,
+) -> None:
+    journal_root = root / "journal"
+    if not journal_root.exists():
+        journal_root.mkdir(mode=0o700)
+    lock = journal_root / f".{nonce}.lock"
+    lock.write_bytes(b"")
+    lock.chmod(0o600)
+    receipt_sha = None
+    if state == "CLOSED":
+        receipt = journal_root / f"{nonce}.receipt.json"
+        receipt.write_bytes(b"{}\n")
+        receipt.chmod(0o600)
+        receipt_sha = hashlib.sha256(b"{}").hexdigest()
+    value = {
+        "schemaVersion": watchdog.ACTIVATION_JOURNAL_SCHEMA,
+        "route": watchdog.ACTIVATION_ROUTE, "runNonce": nonce,
+        "planSha256": "2" * 64, "decisionSha256": "3" * 64,
+        "state": state, "attempt": 1, "retryAllowed": False,
+        "receiptSha256": receipt_sha, "reasonCode": None,
+    }
+    journal = journal_root / f"{nonce}.json"
+    journal.write_text(json.dumps(value) + "\n", encoding="utf-8")
+    journal.chmod(0o600)
+
+
+def test_journal_scan_is_exact_and_rejects_multiple_incomplete(
+    monkeypatch, tmp_path,
+):
+    activation_root = tmp_path / "activation"
+    activation_root.mkdir(mode=0o700)
+    _write_outer_journal(activation_root, "recovery_nonce_1234", "RUNNING")
+    monkeypatch.setattr(
+        watchdog, "PRODUCTION_ACTIVATION_ROOT", activation_root
+    )
+    scanned = watchdog._scan_activation_journals()
+    assert scanned["recovery_nonce_1234"]["state"] == "RUNNING"
+    _write_outer_journal(activation_root, "recovery_nonce_5678", "CLAIMED")
+    with pytest.raises(
+        watchdog.WatchdogError, match="MULTIPLE_INCOMPLETE_ACTIVATIONS"
+    ):
+        watchdog._scan_activation_journals()
+
+
+def test_journal_scan_rejects_orphan_lock_and_foreign_entry(
+    monkeypatch, tmp_path,
+):
+    activation_root = tmp_path / "activation"
+    activation_root.mkdir(mode=0o700)
+    journal_root = activation_root / "journal"
+    journal_root.mkdir(mode=0o700)
+    lock = journal_root / ".recovery_nonce_1234.lock"
+    lock.write_bytes(b"")
+    lock.chmod(0o600)
+    monkeypatch.setattr(
+        watchdog, "PRODUCTION_ACTIVATION_ROOT", activation_root
+    )
+    with pytest.raises(watchdog.WatchdogError, match="LOCK_BINDING_MISMATCH"):
+        watchdog._scan_activation_journals()
+    lock.unlink()
+    foreign = journal_root / "latest"
+    foreign.write_text("x", encoding="utf-8")
+    with pytest.raises(watchdog.WatchdogError, match="FOREIGN_ENTRY"):
+        watchdog._scan_activation_journals()
+
+
+def test_journal_scan_defers_a_live_execution_lock(monkeypatch, tmp_path):
+    activation_root = tmp_path / "activation"
+    activation_root.mkdir(mode=0o700)
+    journal_root = activation_root / "journal"
+    journal_root.mkdir(mode=0o700)
+    lock = journal_root / ".recovery_nonce_1234.lock"
+    lock.write_bytes(b"")
+    lock.chmod(0o600)
+    descriptor = os.open(lock, os.O_RDWR)
+    fcntl.flock(descriptor, fcntl.LOCK_EX)
+    monkeypatch.setattr(
+        watchdog, "PRODUCTION_ACTIVATION_ROOT", activation_root
+    )
+    try:
+        with pytest.raises(
+            watchdog.WatchdogError,
+            match="WATCHDOG_ACTIVATION_DISCOVERY_DEFERRED",
+        ):
+            watchdog._scan_activation_journals()
+    finally:
+        os.close(descriptor)
+
+
+def test_journal_scan_reobserves_a_concurrent_atomic_transition(monkeypatch):
+    observations = iter([
+        watchdog.WatchdogError("WATCHDOG_ACTIVATION_JOURNAL_CHANGED"),
+        {"recovery_nonce_1234": {"state": "CLOSED"}},
+    ])
+
+    def observe():
+        value = next(observations)
+        if isinstance(value, BaseException):
+            raise value
+        return value
+
+    monkeypatch.setattr(watchdog, "_scan_activation_journals_snapshot", observe)
+    assert watchdog._scan_activation_journals()[
+        "recovery_nonce_1234"
+    ]["state"] == "CLOSED"
+
+    observations = iter([
+        watchdog.WatchdogError("WATCHDOG_ACTIVATION_JOURNAL_CHANGED"),
+        watchdog.WatchdogError("WATCHDOG_ACTIVATION_DISCOVERY_DEFERRED"),
+    ])
+    with pytest.raises(
+        watchdog.WatchdogError,
+        match="WATCHDOG_ACTIVATION_DISCOVERY_DEFERRED",
+    ):
+        watchdog._scan_activation_journals()
+
+
+@pytest.mark.parametrize("state", ["RUNNING", "HOLD", "RECONCILED_HOLD"])
+def test_journal_scan_accepts_bound_residual_receipt_after_crash(
+    monkeypatch, tmp_path, state,
+):
+    activation_root = tmp_path / "activation"
+    activation_root.mkdir(mode=0o700)
+    nonce = "recovery_nonce_1234"
+    _write_outer_journal(activation_root, nonce, state)
+    receipt = {
+        "schemaVersion": watchdog.ACTIVATION_RECEIPT_SCHEMA,
+        "route": watchdog.ACTIVATION_ROUTE,
+        "environment": "PRODUCTION", "runNonce": nonce,
+        "planSha256": "2" * 64, "decisionSha256": "3" * 64,
+        "status": "COMPLETED_DORMANT_VERIFIED",
+    }
+    receipt_path = activation_root / "journal" / f"{nonce}.receipt.json"
+    receipt_path.write_text(json.dumps(receipt) + "\n", encoding="utf-8")
+    receipt_path.chmod(0o600)
+    monkeypatch.setattr(
+        watchdog, "PRODUCTION_ACTIVATION_ROOT", activation_root
+    )
+    assert watchdog._scan_activation_journals()[nonce]["state"] == state
+
+
+def test_no_request_or_state_is_ready_without_creating_or_using_clock(
+    monkeypatch, idle_recovery_discovery,
+):
+    calls = []
+    monkeypatch.setattr(
+        watchdog, "watchdog_once",
+        lambda **kwargs: calls.append(kwargs) or _orchestrator_dormant_result(),
+    )
+    monkeypatch.setattr(watchdog, "_scan_activation_journals", lambda: {})
+    monkeypatch.setattr(watchdog, "_load_recovery_package", lambda: None)
+    result = watchdog.watchdog_with_cleanup_recovery(
+        container_name=rebind.PRODUCTION_CONTAINER,
+        expected_image_id=rebind.POSTGRES_17_11_IMAGE_ID,
+        expected_volume_name=rebind.PRODUCTION_VOLUME,
+        expected_server_version_num=170011,
+        expected_system_identifier=rebind.PRODUCTION_SYSTEM_IDENTIFIER,
+    )
+    assert result["status"] == "DORMANT_VERIFIED_NO_RECOVERY_REQUEST"
+    assert result["recoveryStatus"] == "NO_ACTION"
+    assert len(calls) == 1
+
+
+def test_orchestrator_holds_idle_interlock_during_exact_scan(monkeypatch):
+    held = []
+
+    @contextlib.contextmanager
+    def idle_interlock(*_args, **_kwargs):
+        held.append(True)
+        try:
+            yield False
+        finally:
+            held.pop()
+
+    def scan():
+        assert held == [True]
+        return {}
+
+    monkeypatch.setattr(
+        watchdog, "watchdog_once",
+        lambda **_kwargs: _orchestrator_dormant_result(),
+    )
+    monkeypatch.setattr(
+        watchdog, "_activation_interlock_status", idle_interlock,
+    )
+    monkeypatch.setattr(watchdog, "_scan_activation_journals", scan)
+    monkeypatch.setattr(watchdog, "_load_recovery_package", lambda: None)
+    result = watchdog.watchdog_with_cleanup_recovery(
+        container_name=rebind.PRODUCTION_CONTAINER,
+        expected_image_id=rebind.POSTGRES_17_11_IMAGE_ID,
+        expected_volume_name=rebind.PRODUCTION_VOLUME,
+        expected_server_version_num=170011,
+        expected_system_identifier=rebind.PRODUCTION_SYSTEM_IDENTIFIER,
+    )
+    assert held == []
+    assert result["status"] == "DORMANT_VERIFIED_NO_RECOVERY_REQUEST"
+
+
+def test_live_activation_and_busy_discovery_defer_without_package_scan(
+    monkeypatch, idle_recovery_discovery,
+):
+    live = {
+        **_orchestrator_dormant_result(),
+        "status": "ACTIVE_LEASE_ACTIVATION_INTERLOCK_SUPERVISED",
+        "activationInterlockHeld": True,
+        "roleLoginState": "ENABLED", "credentialState": "PRESENT",
+    }
+    monkeypatch.setattr(watchdog, "watchdog_once", lambda **_kwargs: live)
+    monkeypatch.setattr(
+        watchdog, "_scan_activation_journals",
+        lambda: pytest.fail("live activation must defer before discovery"),
+    )
+    monkeypatch.setattr(
+        watchdog, "_load_recovery_package",
+        lambda: pytest.fail("live activation must defer before package scan"),
+    )
+    result = watchdog.watchdog_with_cleanup_recovery(
+        container_name=rebind.PRODUCTION_CONTAINER,
+        expected_image_id=rebind.POSTGRES_17_11_IMAGE_ID,
+        expected_volume_name=rebind.PRODUCTION_VOLUME,
+        expected_server_version_num=170011,
+        expected_system_identifier=rebind.PRODUCTION_SYSTEM_IDENTIFIER,
+    )
+    assert result["status"] == "WATCHDOG_RECOVERY_DEFERRED_LIVE_ACTIVATION"
+
+    monkeypatch.setattr(
+        watchdog, "watchdog_once",
+        lambda **_kwargs: _orchestrator_dormant_result(),
+    )
+    monkeypatch.setattr(
+        watchdog, "_scan_activation_journals",
+        lambda: (_ for _ in ()).throw(
+            watchdog.WatchdogError(
+                "WATCHDOG_ACTIVATION_DISCOVERY_DEFERRED"
+            )
+        ),
+    )
+    result = watchdog.watchdog_with_cleanup_recovery(
+        container_name=rebind.PRODUCTION_CONTAINER,
+        expected_image_id=rebind.POSTGRES_17_11_IMAGE_ID,
+        expected_volume_name=rebind.PRODUCTION_VOLUME,
+        expected_server_version_num=170011,
+        expected_system_identifier=rebind.PRODUCTION_SYSTEM_IDENTIFIER,
+    )
+    assert result["recoveryStatus"] == "DEFERRED_LIVE_ACTIVATION"
+
+
+@pytest.mark.parametrize("journal_state", [None, "RECONCILED_HOLD"])
+def test_no_action_recovery_skips_trusted_time_and_full_verification(
+    monkeypatch, idle_recovery_discovery, journal_state,
+):
+    activation = importlib.import_module("b64_064a_activation_entrypoint")
+    nonce = "recovery_nonce_1234"
+    package = {
+        "stagedWithoutRequest": False,
+        "request": {
+            "runNonce": nonce, "expectedKeyringSha256": "1" * 64,
+            "planSha256": "2" * 64, "decisionSha256": "3" * 64,
+        },
+        "keyring.json": b"unneeded", "decision.json": b"unneeded",
+        "activation-plan.json": b"unneeded",
+    }
+    journal = {} if journal_state is None else {nonce: {
+        "state": journal_state, "planSha256": "2" * 64,
+        "decisionSha256": "3" * 64,
+    }}
+    monkeypatch.setattr(
+        watchdog, "watchdog_once",
+        lambda **_kwargs: _orchestrator_dormant_result(),
+    )
+    monkeypatch.setattr(watchdog, "_scan_activation_journals", lambda: journal)
+    monkeypatch.setattr(watchdog, "_load_recovery_package", lambda: package)
+    monkeypatch.setattr(
+        activation.supervisor, "_trusted_now_epoch",
+        lambda: pytest.fail("no-action branch must not require trusted time"),
+    )
+    monkeypatch.setattr(
+        activation, "verify_cleanup_recovery",
+        lambda **_kwargs: pytest.fail("no-action branch must not verify package"),
+    )
+    result = watchdog.watchdog_with_cleanup_recovery(
+        container_name=rebind.PRODUCTION_CONTAINER,
+        expected_image_id=rebind.POSTGRES_17_11_IMAGE_ID,
+        expected_volume_name=rebind.PRODUCTION_VOLUME,
+        expected_server_version_num=170011,
+        expected_system_identifier=rebind.PRODUCTION_SYSTEM_IDENTIFIER,
+    )
+    assert result["actionAllowed"] is False
+    assert result["recoveryStatus"] == (
+        "EXACT_JOURNAL_ABSENT_NO_ACTION"
+        if journal_state is None else journal_state
+    )
+
+
+def test_post_pass_defers_a_new_live_activation(
+    monkeypatch, idle_recovery_discovery,
+):
+    live = {
+        **_orchestrator_dormant_result(),
+        "status": "ACTIVE_LEASE_ACTIVATION_INTERLOCK_SUPERVISED",
+        "activationInterlockHeld": True,
+        "roleLoginState": "ENABLED", "credentialState": "PRESENT",
+    }
+    passes = iter([_orchestrator_dormant_result(), live])
+    monkeypatch.setattr(watchdog, "watchdog_once", lambda **_kwargs: next(passes))
+    monkeypatch.setattr(watchdog, "_scan_activation_journals", lambda: {})
+    monkeypatch.setattr(watchdog, "_load_recovery_package", lambda: {
+        "stagedWithoutRequest": False,
+        "request": {
+            "runNonce": "recovery_nonce_1234",
+            "expectedKeyringSha256": "1" * 64,
+            "planSha256": "2" * 64, "decisionSha256": "3" * 64,
+        },
+        "keyring.json": b"unneeded", "decision.json": b"unneeded",
+        "activation-plan.json": b"unneeded",
+    })
+    result = watchdog.watchdog_with_cleanup_recovery(
+        container_name=rebind.PRODUCTION_CONTAINER,
+        expected_image_id=rebind.POSTGRES_17_11_IMAGE_ID,
+        expected_volume_name=rebind.PRODUCTION_VOLUME,
+        expected_server_version_num=170011,
+        expected_system_identifier=rebind.PRODUCTION_SYSTEM_IDENTIFIER,
+    )
+    assert result["status"] == \
+        "WATCHDOG_RECOVERY_POST_DEFERRED_LIVE_ACTIVATION"
+    assert result["actionAllowed"] is False
+
+
+def test_recovery_failure_runs_post_pass_and_preserves_exact_reason(
+    monkeypatch, idle_recovery_discovery,
+):
+    activation = importlib.import_module("b64_064a_activation_entrypoint")
+    activation_executor = importlib.import_module(
+        "b64_064a_activation_executor"
+    )
+    nonce = "recovery_nonce_1234"
+    recovery = activation.VerifiedRecovery(
+        environment="PRODUCTION", run_nonce=nonce,
+        plan_sha256="2" * 64, decision_sha256="3" * 64,
+        keyring_sha256="1" * 64,
+        derived_execution_plan_sha256="4" * 64,
+        decision_expires_at_epoch=1_900_000_000,
+        target={
+            "containerName": rebind.PRODUCTION_CONTAINER,
+            "containerId": CONTAINER["containerId"],
+            "imageId": rebind.POSTGRES_17_11_IMAGE_ID,
+            "systemIdentifier": rebind.PRODUCTION_SYSTEM_IDENTIFIER,
+        },
+        limits=dict(activation.LIMITS),
+        _recovery_seal=activation._VERIFIED_RECOVERY_SEAL,
+    )
+    package = {
+        "stagedWithoutRequest": False,
+        "request": {
+            "runNonce": nonce, "expectedKeyringSha256": "1" * 64,
+            "planSha256": "2" * 64, "decisionSha256": "3" * 64,
+        },
+        "keyring.json": b"keyring", "decision.json": b"decision",
+        "activation-plan.json": b"plan",
+    }
+    passes = []
+    monkeypatch.setattr(
+        watchdog, "watchdog_once",
+        lambda **_kwargs: passes.append(True) or _orchestrator_dormant_result(),
+    )
+    monkeypatch.setattr(watchdog, "_scan_activation_journals", lambda: {
+        nonce: {
+            "state": "RUNNING", "planSha256": "2" * 64,
+            "decisionSha256": "3" * 64,
+        }
+    })
+    monkeypatch.setattr(watchdog, "_load_recovery_package", lambda: package)
+    monkeypatch.setattr(
+        activation.supervisor, "_trusted_now_epoch", lambda: (1_800_000_000, {})
+    )
+    monkeypatch.setattr(
+        activation, "verify_cleanup_recovery", lambda **_kwargs: recovery,
+    )
+
+    class RecoveryExecutor:
+        def attest_dormant(self):
+            return {
+                "loginState": "DISABLED", "credentialState": "ABSENT",
+                "activeSessions": 0, "customerRowsRead": False,
+            }
+
+    monkeypatch.setattr(
+        activation_executor, "BoundRecoveryExecutor",
+        lambda **_kwargs: RecoveryExecutor(),
+    )
+    monkeypatch.setattr(
+        activation, "reconcile_incomplete",
+        lambda **_kwargs: (_ for _ in ()).throw(
+            activation.ActivationError("SYNTHETIC_RECOVERY_FAILURE")
+        ),
+    )
+    with pytest.raises(
+        watchdog.WatchdogError,
+        match="WATCHDOG_RECOVERY_SYNTHETIC_RECOVERY_FAILURE",
+    ):
+        watchdog.watchdog_with_cleanup_recovery(
+            container_name=rebind.PRODUCTION_CONTAINER,
+            expected_image_id=rebind.POSTGRES_17_11_IMAGE_ID,
+            expected_volume_name=rebind.PRODUCTION_VOLUME,
+            expected_server_version_num=170011,
+            expected_system_identifier=rebind.PRODUCTION_SYSTEM_IDENTIFIER,
+        )
+    assert len(passes) == 2
+
+
+def test_recovery_interlock_race_defers_only_after_live_post_attestation(
+    monkeypatch, idle_recovery_discovery,
+):
+    activation = importlib.import_module("b64_064a_activation_entrypoint")
+    activation_executor = importlib.import_module(
+        "b64_064a_activation_executor"
+    )
+    nonce = "recovery_nonce_1234"
+    recovery = activation.VerifiedRecovery(
+        environment="PRODUCTION", run_nonce=nonce,
+        plan_sha256="2" * 64, decision_sha256="3" * 64,
+        keyring_sha256="1" * 64,
+        derived_execution_plan_sha256="4" * 64,
+        decision_expires_at_epoch=1_900_000_000,
+        target={
+            "containerName": rebind.PRODUCTION_CONTAINER,
+            "containerId": CONTAINER["containerId"],
+            "imageId": rebind.POSTGRES_17_11_IMAGE_ID,
+            "systemIdentifier": rebind.PRODUCTION_SYSTEM_IDENTIFIER,
+        },
+        limits=dict(activation.LIMITS),
+        _recovery_seal=activation._VERIFIED_RECOVERY_SEAL,
+    )
+    live = {
+        **_orchestrator_dormant_result(),
+        "status": "DORMANT_ACTIVATION_CLEANUP_DEFERRED",
+        "activationInterlockHeld": True,
+    }
+    passes = iter([_orchestrator_dormant_result(), live])
+    monkeypatch.setattr(watchdog, "watchdog_once", lambda **_kwargs: next(passes))
+    monkeypatch.setattr(watchdog, "_scan_activation_journals", lambda: {
+        nonce: {
+            "state": "RUNNING", "planSha256": "2" * 64,
+            "decisionSha256": "3" * 64,
+        }
+    })
+    monkeypatch.setattr(watchdog, "_load_recovery_package", lambda: {
+        "stagedWithoutRequest": False,
+        "request": {
+            "runNonce": nonce, "expectedKeyringSha256": "1" * 64,
+            "planSha256": "2" * 64, "decisionSha256": "3" * 64,
+        },
+        "keyring.json": b"keyring", "decision.json": b"decision",
+        "activation-plan.json": b"plan",
+    })
+    monkeypatch.setattr(
+        activation.supervisor, "_trusted_now_epoch", lambda: (1_800_000_000, {})
+    )
+    monkeypatch.setattr(
+        activation, "verify_cleanup_recovery", lambda **_kwargs: recovery,
+    )
+
+    class RecoveryExecutor:
+        def attest_dormant(self):
+            return {
+                "loginState": "DISABLED", "credentialState": "ABSENT",
+                "activeSessions": 0, "customerRowsRead": False,
+            }
+
+    monkeypatch.setattr(
+        activation_executor, "BoundRecoveryExecutor",
+        lambda **_kwargs: RecoveryExecutor(),
+    )
+    monkeypatch.setattr(
+        activation, "reconcile_incomplete",
+        lambda **_kwargs: (_ for _ in ()).throw(
+            activation.ActivationError("ACTIVATION_INTERLOCK_HELD")
+        ),
+    )
+    result = watchdog.watchdog_with_cleanup_recovery(
+        container_name=rebind.PRODUCTION_CONTAINER,
+        expected_image_id=rebind.POSTGRES_17_11_IMAGE_ID,
+        expected_volume_name=rebind.PRODUCTION_VOLUME,
+        expected_server_version_num=170011,
+        expected_system_identifier=rebind.PRODUCTION_SYSTEM_IDENTIFIER,
+    )
+    assert result["status"] == "WATCHDOG_RECOVERY_DEFERRED_LIVE_ACTIVATION"
+    assert result["recoveryStatus"] == "DEFERRED_LIVE_ACTIVATION"
+
+
+def test_exact_dormant_requires_customer_rows_read_false():
+    result = _orchestrator_dormant_result()
+    result["customerRowsRead"] = True
+    with pytest.raises(watchdog.WatchdogError, match="DORMANT_REQUIRED"):
+        watchdog._require_exact_dormant(result, phase="SYNTHETIC")
+
+
+def test_incomplete_journal_without_request_fails_before_cleanup(
+    monkeypatch, idle_recovery_discovery,
+):
+    monkeypatch.setattr(
+        watchdog, "watchdog_once", lambda **_kwargs: _orchestrator_dormant_result()
+    )
+    monkeypatch.setattr(
+        watchdog, "_scan_activation_journals",
+        lambda: {"recovery_nonce_1234": {"state": "RUNNING"}},
+    )
+    monkeypatch.setattr(watchdog, "_load_recovery_package", lambda: None)
+    with pytest.raises(
+        watchdog.WatchdogError,
+        match="INCOMPLETE_ACTIVATION_RECOVERY_REQUEST_ABSENT",
+    ):
+        watchdog.watchdog_with_cleanup_recovery(
+            container_name=rebind.PRODUCTION_CONTAINER,
+            expected_image_id=rebind.POSTGRES_17_11_IMAGE_ID,
+            expected_volume_name=rebind.PRODUCTION_VOLUME,
+            expected_server_version_num=170011,
+            expected_system_identifier=rebind.PRODUCTION_SYSTEM_IDENTIFIER,
+        )
+
+
+def test_orchestrator_uses_recovery_only_between_released_dormant_passes(
+    monkeypatch, idle_recovery_discovery,
+):
+    activation = importlib.import_module("b64_064a_activation_entrypoint")
+    activation_executor = importlib.import_module(
+        "b64_064a_activation_executor"
+    )
+    nonce = "recovery_nonce_1234"
+    target = {
+        "containerName": rebind.PRODUCTION_CONTAINER,
+        "containerId": CONTAINER["containerId"],
+        "imageId": rebind.POSTGRES_17_11_IMAGE_ID,
+        "systemIdentifier": rebind.PRODUCTION_SYSTEM_IDENTIFIER,
+    }
+    recovery = activation.VerifiedRecovery(
+        environment="PRODUCTION", run_nonce=nonce,
+        plan_sha256="2" * 64, decision_sha256="3" * 64,
+        keyring_sha256="1" * 64,
+        derived_execution_plan_sha256="4" * 64,
+        decision_expires_at_epoch=1_700_000_000, target=target,
+        limits=dict(activation.LIMITS),
+        _recovery_seal=activation._VERIFIED_RECOVERY_SEAL,
+    )
+    package = {
+        "stagedWithoutRequest": False,
+        "request": {
+            "runNonce": nonce, "expectedKeyringSha256": "1" * 64,
+            "planSha256": "2" * 64, "decisionSha256": "3" * 64,
+        },
+        "keyring.json": b"keyring", "decision.json": b"decision",
+        "activation-plan.json": b"plan",
+    }
+    sequence = []
+
+    def dormant(**_kwargs):
+        sequence.append("watchdog")
+        return _orchestrator_dormant_result()
+
+    class RecoveryExecutor:
+        def attest_dormant(self):
+            sequence.append("attest")
+            return {
+                "loginState": "DISABLED", "credentialState": "ABSENT",
+                "activeSessions": 0, "customerRowsRead": False,
+            }
+
+    monkeypatch.setattr(watchdog, "watchdog_once", dormant)
+    monkeypatch.setattr(
+        watchdog, "_scan_activation_journals",
+        lambda: {nonce: {
+            "state": "RUNNING", "planSha256": "2" * 64,
+            "decisionSha256": "3" * 64,
+        }},
+    )
+    monkeypatch.setattr(watchdog, "_load_recovery_package", lambda: package)
+    monkeypatch.setattr(
+        activation.supervisor, "_trusted_now_epoch", lambda: (1_800_000_000, {})
+    )
+    monkeypatch.setattr(
+        activation, "verify_cleanup_recovery",
+        lambda **_kwargs: sequence.append("verify") or recovery,
+    )
+    monkeypatch.setattr(
+        activation_executor, "BoundRecoveryExecutor",
+        lambda **_kwargs: RecoveryExecutor(),
+    )
+
+    def reconcile(**kwargs):
+        sequence.append("reconcile")
+        assert kwargs["authorization"] is recovery
+        assert kwargs["automatic_no_retry"] is True
+        assert kwargs["executor"].attest_dormant()["activeSessions"] == 0
+        return {
+            "status": "ACTIVATION_RECONCILED_HOLD", "runNonce": nonce,
+            "automaticRetryAllowed": False, "actionAllowed": False,
+        }
+
+    monkeypatch.setattr(activation, "reconcile_incomplete", reconcile)
+    monkeypatch.setattr(
+        activation, "run_once",
+        lambda **_kwargs: pytest.fail("activation execute path is forbidden"),
+    )
+    monkeypatch.setattr(
+        activation_executor.runtime, "issue_credential_lease",
+        lambda **_kwargs: pytest.fail("lease path is forbidden"),
+    )
+    result = watchdog.watchdog_with_cleanup_recovery(
+        container_name=rebind.PRODUCTION_CONTAINER,
+        expected_image_id=rebind.POSTGRES_17_11_IMAGE_ID,
+        expected_volume_name=rebind.PRODUCTION_VOLUME,
+        expected_server_version_num=170011,
+        expected_system_identifier=rebind.PRODUCTION_SYSTEM_IDENTIFIER,
+    )
+    assert result["status"] == "DORMANT_VERIFIED_RECOVERY_RECONCILED_HOLD"
+    assert sequence == [
+        "watchdog", "verify", "reconcile", "attest", "watchdog"
+    ]
 
 
 def test_valid_live_lease_is_deferred(monkeypatch):
@@ -756,8 +1498,11 @@ def test_runtime_surfaces_contain_no_secret_input_channel():
         assert "pg_authid" in source
     assert "ExecStartPost=" in unit and "--require-dormant" in unit
     assert "ReadWritePaths=/run/lock " in unit
-    assert "--require-dormant" in timer_service
+    assert "-/var/lib/obsidian-exchange/b64-064a-activation" not in unit
+    assert "--require-dormant --cleanup-recovery" in timer_service
     assert "ReadWritePaths=/run/lock " in timer_service
+    assert "-/var/lib/obsidian-exchange/b64-064a-activation" in timer_service
+    assert "SuccessExitStatus=" not in timer_service
     assert "EnvironmentFile=" not in timer_service
     assert "LoadCredential=" not in timer_service
     assert "RestrictAddressFamilies=AF_UNIX" in timer_service

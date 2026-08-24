@@ -78,8 +78,13 @@ assert "b64_postgres_shutdown.py" in unit
 assert "Wants=obsidian-b64-snapshot-reader-watchdog.timer" in unit
 assert "ReadWritePaths=/run/lock /var/lib/docker/volumes/obsidian-postgres-data/_data/.obsidian-b64-hba-v1" in unit
 assert "--require-dormant" in watchdog_unit
+assert "--cleanup-recovery" in watchdog_unit
+assert "--cleanup-recovery" not in unit
 assert "BindsTo=obsidian-postgres.service" in watchdog_unit
-assert "ReadWritePaths=/run/lock /var/lib/docker/volumes/obsidian-postgres-data/_data/.obsidian-b64-hba-v1" in watchdog_unit
+assert "ReadWritePaths=/run/lock /var/lib/docker/volumes/obsidian-postgres-data/_data/.obsidian-b64-hba-v1 -/var/lib/obsidian-exchange/b64-064a-activation/journal -/var/lib/obsidian-exchange/b64-064a-activation/resources -/var/lib/obsidian-exchange/b64-064a-activation/workspace -/var/lib/obsidian-exchange/b64-064a-activation/proxy" in watchdog_unit
+assert "TimeoutStartSec=180" in watchdog_unit
+assert "SuccessExitStatus=" not in watchdog_unit
+assert "KillMode=control-group" in watchdog_unit
 assert " down" not in unit, "unit must never remove the persistent Compose stack"
 
 consumer_dropins = sorted((ROOT / "deploy/systemd").glob("*-zz-postgres.conf"))
