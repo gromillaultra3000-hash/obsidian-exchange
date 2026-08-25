@@ -68,6 +68,7 @@ PRODUCTION_PROXY_ROOT = PRODUCTION_ACTIVATION_ROOT / "proxy"
 SIGNER_ROLES = supervisor.SIGNER_ROLES
 ARTIFACT_KEYS = {
     "activationEntrypoint", "activationExecutor", "activationLauncher",
+    "runtimePackageCommitter",
     "activationTrustRegistry",
     "hardenedRefresh", "snapshotReaderRuntime", "snapshotReaderWatchdog",
     "dumpRestoreSupervisor", "hardenedPlanRaw",
@@ -80,6 +81,9 @@ ARTIFACT_PATHS = {
     ),
     "activationLauncher": Path(__file__).with_name(
         "b64_064a_activation_launcher.py"
+    ),
+    "runtimePackageCommitter": Path(__file__).with_name(
+        "b64_064a_runtime_package_committer.py"
     ),
     "activationTrustRegistry": PROJECT_ROOT
     / "docs/e0-3-bot-b5-3-064a-activation-trust-registry.v1.json",
