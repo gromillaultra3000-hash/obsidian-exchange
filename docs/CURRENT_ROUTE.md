@@ -172,10 +172,44 @@ hard-kill recovery; receipt SHA-256 is
 Evidence is
 `docs/e0-3-bot-b5-3-064a-production-activation-signing-readiness-rollout.v1.json`.
 
-E0.3 remains `IN_PROGRESS`; production activation is `BLOCKED_OWNER` because
-the two external signer devices have not yet produced fresh owner/reviewer v3
-signatures. No 15-minute request was created prematurely. The old evidence-only
-or v2 package must not be promoted or reused.
+The two external signer devices then independently verified the static kit.
+Real ceremony preflight exposed two fail-closed integration defects before any
+plan was signed: the online wrapper expected the absent watchdog field
+`actionAllowed` instead of its actual `authorityIncreased:false` contract, and
+Android/Termux denied the hard-link publication used for an offline detached
+signature. Pushed commits
+`aafcd312ac41406f384317b23387e3f46efd687a` and
+`b36c3ebc4ec80526ed3a7abf4b9fb6b125e0d822` correct those exact boundaries.
+The latter uses exclusive final-name creation, fsync and metadata validation
+only for offline output; server-side hard-link atomicity is unchanged. Focused
+ceremony/launcher/deployment regression passes 39/39, staged gitleaks and diff
+checks pass, and both root-owned read-only fix releases match all 2163 Git
+blobs. Both devices independently verified the replacement secret-free kit,
+SHA-256
+`e77eb3adad4965ed78567b1eb3f3683a6ad3822c874ade9680277d0a1b06fac9`.
+
+One fresh exact v3 decision was then signed by the accountable owner and
+independent reviewer and assembled through the immutable verifier with status
+`SIGNED_V3_DECISION_VERIFIED_NOT_DEPLOYED`. Decision SHA-256 is
+`de644329e9f428007e06d138a962d8980a133058376daa2732d4c88bb001a0be`;
+the completed raw-file SHA-256 is
+`050a88bee310e0de0dfe72619e7f26d4ce17e75884f0f4aeecb5141060725ac1`.
+All runtime-authority fields remained false: no runtime request/package/state,
+credential, dump, restore, customer-row read or launcher start occurred.
+The decision expired unused; post-expiry verification returns
+`INSUFFICIENT_DECISION_WINDOW_REMAINING`, so neither it nor either detached
+signature can be reused.
+
+E0.3 remains `IN_PROGRESS`. `BLOCKED_OWNER` is cleared, but production
+activation cannot proceed safely because deployed code has no reviewed CLI
+that atomically commits the verified decision into the exact recovery package,
+recovery request, launch request and empty activation-state roots consumed by
+the launcher. Manual JSON/filesystem assembly is prohibited. Post-expiry
+runtime verification found the recovery package/request, launch request and
+activation root absent; the launcher is inactive, both safety timers and
+PostgreSQL are active, failed units are zero, and the reader remains `NOLOGIN`,
+credential-absent and session-free under `DORMANT_VERIFIED`. Evidence is
+`docs/e0-3-bot-b5-3-064a-termux-signing-inert-decision.v1.json`.
 
 Deployed contract:
 
@@ -213,8 +247,12 @@ Telegram actions; 064B/064D row disposition; unrelated worktree cleanup.
 
 ## Active bounded next slice
 
-Transfer and independently verify the secret-free offline kit on both signer
-devices. Once both devices are ready, open one fresh exact 15-minute v3 request,
-obtain the accountable-owner and independent-reviewer detached signatures, and
-keep the launcher inactive until the exact empty-state and final production
-ceremony preflight pass.
+Implement and independently verify one fixed-scope runtime-package committer.
+It must accept only the exact verified v3 coordination artifacts, re-run the
+immutable/trusted-time/dormant/target/empty-state preflight, atomically publish
+the recovery package and both non-authorizing commit markers with a tested
+exact rollback for every partial publication point, create only the four empty
+activation roots required by the launcher, and never start the launcher itself.
+After disposable fault/recovery rehearsal and an inert production rollout,
+obtain a new owner/reviewer decision; the current signed decision cannot be
+reused.

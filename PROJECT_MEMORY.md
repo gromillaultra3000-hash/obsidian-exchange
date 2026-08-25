@@ -161,6 +161,36 @@ Updated: 2026-08-25 UTC
   starting the launcher. No fresh request exists yet; old evidence-only/v2
   packages remain prohibited.
 
+- 2026-08-25 the two external 064A signer devices independently verified the
+  static kit and later the Termux-compatible replacement kit. Real preflight
+  caught two fail-closed integration defects before production contact:
+  ceremony expected absent watchdog `actionAllowed` instead of
+  `authorityIncreased:false`, and Android denied offline hard-link output.
+  Pushed commits `aafcd312ac41406f384317b23387e3f46efd687a` and
+  `b36c3ebc4ec80526ed3a7abf4b9fb6b125e0d822` fix only those boundaries;
+  server hard-link atomicity is retained. Focused tests pass 39/39, staged
+  secret/diff/compile checks pass and both immutable releases match all 2163
+  Git blobs. Replacement kit SHA-256 is
+  `e77eb3adad4965ed78567b1eb3f3683a6ad3822c874ade9680277d0a1b06fac9`.
+  A fresh exact owner/reviewer v3 decision SHA-256
+  `de644329e9f428007e06d138a962d8980a133058376daa2732d4c88bb001a0be`
+  assembled and reverified inert with raw SHA-256
+  `050a88bee310e0de0dfe72619e7f26d4ce17e75884f0f4aeecb5141060725ac1`;
+  no runtime request/package/state, credential, dump, restore, customer-row
+  read or launcher start occurred. The decision expired unused; verification
+  now returns `INSUFFICIENT_DECISION_WINDOW_REMAINING`. Runtime package/request,
+  launch request and activation root remain absent; launcher is inactive,
+  both safety timers and PostgreSQL are active, failed units are zero and the
+  reader is `DORMANT_VERIFIED`/`NOLOGIN`/credential-absent/session-free.
+  `BLOCKED_OWNER` is cleared, but E0.3 remains `IN_PROGRESS`: deployed code
+  lacks a reviewed atomic committer for the exact
+  recovery package/request, launch request and empty activation roots. Manual
+  assembly and reuse after expiry are prohibited. Exact next: implement that
+  fixed-scope committer with partial-publication rollback, fault injection,
+  disposable rehearsal and inert production rollout, then obtain a new signed
+  decision. Evidence:
+  `docs/e0-3-bot-b5-3-064a-termux-signing-inert-decision.v1.json`.
+
 - 2026-08-23 E4 retained status is `IN_PROGRESS` with a `NO_GO` gate decision.
   The experimental one-shot and its server entry point are
   hard-disabled; legacy `e4_memfd_handoff.py` is superseded and fails closed

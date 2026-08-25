@@ -2131,3 +2131,51 @@ external signer devices must first receive and independently verify the static
 secret-free kit. Only when both are ready may one fresh 15-minute v3 request be
 created and signed. No request, production credential, dump, restore,
 customer-row read, launcher start, 064B/064D action or E4 action occurred.
+
+## 2026-08-25 — 064A Termux signing closure and inert authenticated decision
+
+Both independent signer devices verified the original secret-free kit. The
+first real online preflight failed closed because the ceremony expected an
+`actionAllowed` watchdog field that the deployed watchdog does not emit; its
+actual non-escalation field is `authorityIncreased:false`. Commit
+`aafcd312ac41406f384317b23387e3f46efd687a` aligns the exact contract and adds
+accept/missing/true regression coverage. No plan or short decision existed at
+that failure point.
+
+The first offline signing attempt then proved that Android/Termux denies the
+hard-link publication used by the signer. OpenSSL verified the encrypted key
+and passphrase, the derived reviewer public-key DER SHA-256 matched the pinned
+profile, and a direct filesystem probe returned `Permission denied` for the
+hard link. Commit `b36c3ebc4ec80526ed3a7abf4b9fb6b125e0d822` changes only
+offline result publication to exclusive final-name creation, full write/fsync,
+mode/owner/link/size verification and cleanup on failure; online/server output
+keeps the existing hard-link atomicity. Focused ceremony/launcher/deployment
+tests pass 39/39, compile/diff/staged secret checks pass, and both immutable
+fix releases match all 2163 Git blobs. Both devices independently verified the
+replacement kit SHA-256
+`e77eb3adad4965ed78567b1eb3f3683a6ad3822c874ade9680277d0a1b06fac9`.
+
+The exact fresh decision SHA-256
+`de644329e9f428007e06d138a962d8980a133058376daa2732d4c88bb001a0be`
+then received valid detached signatures from the accountable owner and the
+independent reviewer. Both imports, assembly and immutable re-verification
+passed with `SIGNED_V3_DECISION_VERIFIED_NOT_DEPLOYED`; completed raw-file
+SHA-256 is
+`050a88bee310e0de0dfe72619e7f26d4ce17e75884f0f4aeecb5141060725ac1`.
+No runtime request/package/state, credential, dump, restore, customer-row read
+or launcher start occurred.
+The decision then expired unused. Post-expiry verification returns
+`INSUFFICIENT_DECISION_WINDOW_REMAINING`; the recovery package/request, launch
+request and activation root remain absent, launcher is inactive, both safety
+timers and PostgreSQL are active, failed units are zero, and the dormant reader
+remains `NOLOGIN`, credential-absent and session-free.
+
+`BLOCKED_OWNER` is cleared, but E0.3 remains `IN_PROGRESS`: no reviewed
+production CLI currently commits the verified coordination artifacts into the
+exact watchdog recovery package/request, launcher commit request and four
+empty activation-state roots. Manual assembly is forbidden and the inert
+signed decision is non-reusable after expiry. The next canonical slice is that
+fixed-scope committer with partial-publication rollback, fault injection,
+disposable rehearsal and inert production rollout before any new signatures.
+Evidence:
+`docs/e0-3-bot-b5-3-064a-termux-signing-inert-decision.v1.json`.

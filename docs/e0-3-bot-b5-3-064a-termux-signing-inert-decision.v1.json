@@ -1,0 +1,96 @@
+{
+  "schemaVersion": "e0-3-bot-b5-3-064a-termux-signing-inert-decision.v1",
+  "route": "E0/E0.3/B5.3/064A",
+  "observedAtUtc": "2026-08-25T04:44:54Z",
+  "status": "IN_PROGRESS",
+  "outcome": "AUTHENTICATED_SIGNED_DECISION_VERIFIED_NOT_DEPLOYED",
+  "implementationFixes": [
+    {
+      "commit": "aafcd312ac41406f384317b23387e3f46efd687a",
+      "reason": "CEREMONY_EXPECTED_ABSENT_WATCHDOG_ACTION_ALLOWED_FIELD",
+      "acceptedContract": "authorityIncreased=false",
+      "immutableReleaseGitBlobsMatched": 2163
+    },
+    {
+      "commit": "b36c3ebc4ec80526ed3a7abf4b9fb6b125e0d822",
+      "reason": "ANDROID_APP_PRIVATE_FILESYSTEM_DENIED_HARD_LINK_OUTPUT",
+      "offlineOutputContract": "O_EXCL_FINAL_NAME_WRITE_FSYNC_METADATA_VERIFY_CLEANUP_ON_FAILURE",
+      "serverHardLinkAtomicityChanged": false,
+      "immutableReleaseGitBlobsMatched": 2163
+    }
+  ],
+  "verification": {
+    "focusedCeremonyLauncherDeploymentTests": "39 passed",
+    "pythonCompilation": "PASS",
+    "gitDiffCheck": "PASS",
+    "stagedGitleaks": "NO_LEAKS",
+    "independentAgentReview": "UNAVAILABLE_CURRENT_ORCHESTRATION_PROHIBITS_PROACTIVE_SUBAGENTS"
+  },
+  "externalSignerReadiness": {
+    "distinctPhysicalDevicesOwnerAttestation": true,
+    "ownerKitVerified": true,
+    "reviewerKitVerified": true,
+    "replacementOfflineKitSha256": "e77eb3adad4965ed78567b1eb3f3683a6ad3822c874ade9680277d0a1b06fac9",
+    "privateKeysReceivedByServer": false,
+    "passphrasesReceivedByServer": false
+  },
+  "signedDecision": {
+    "decisionSha256": "de644329e9f428007e06d138a962d8980a133058376daa2732d4c88bb001a0be",
+    "runNonce": "MKh6zfQva5u5JKX9dS8YXEGmTBAfDde9",
+    "issuedAtEpoch": 1787632165,
+    "expiresAtEpoch": 1787633065,
+    "keyringRawSha256": "715fb9b0fa448fecf3d904667a3c1752e51ff7a07733e8b564eed49e31743f8f",
+    "activationPlanRawSha256": "6c868065fb9f0b379de82efed25d9445ffdfc4ca65796285993afb5e92d8df6b",
+    "unsignedDecisionRawSha256": "bda2f59b0b5f188086f6411be4ba1b32f78fe9c256b0ddf962240de321c8bc97",
+    "reviewerSignatureRawSha256": "fcf5934bcaa2bc523a3d45fa5839e11d60eed3251fa4c18dc7a412573ae33ac0",
+    "ownerSignatureRawSha256": "f2d087d90ad120ec725dbbae49b45ea06c0c3b405512e338a45a20749a77083e",
+    "completedDecisionRawSha256": "050a88bee310e0de0dfe72619e7f26d4ce17e75884f0f4aeecb5141060725ac1",
+    "assemblyStatus": "SIGNED_V3_DECISION_VERIFIED_NOT_DEPLOYED",
+    "immutableReverificationStatus": "SIGNED_V3_DECISION_VERIFIED_NOT_DEPLOYED",
+    "productionAuthorityComplete": true,
+    "runtimeRequestsCreated": false,
+    "runtimePathsWritten": false,
+    "launcherStarted": false,
+    "actionAllowed": false,
+    "expiredUnusedAtUtc": "2026-08-25T04:44:54Z",
+    "postExpiryVerificationError": "INSUFFICIENT_DECISION_WINDOW_REMAINING",
+    "reusable": false
+  },
+  "productionEffects": {
+    "runtimeRecoveryPackageCreated": false,
+    "runtimeRecoveryRequestCreated": false,
+    "runtimeLaunchRequestCreated": false,
+    "activationStateRootCreated": false,
+    "credentialIssued": false,
+    "dumpStarted": false,
+    "restoreStarted": false,
+    "customerRowsRead": false,
+    "postgresRestarted": false,
+    "postExpiry": {
+      "runtimeRecoveryPackageAbsent": true,
+      "runtimeRecoveryRequestAbsent": true,
+      "runtimeLaunchRequestAbsent": true,
+      "activationStateRootAbsent": true,
+      "launcherServiceState": "inactive",
+      "snapshotReaderWatchdogTimerState": "active",
+      "dumpRestoreSupervisorTimerState": "active",
+      "postgresServiceState": "active",
+      "failedUnits": 0,
+      "watchdogStatus": "DORMANT_VERIFIED",
+      "readerLoginState": "DISABLED",
+      "readerCredentialState": "ABSENT",
+      "readerActiveSessions": 0,
+      "containerId": "818735cd7df301eeb54b3630a6dbae1551db99a8368a2e4c96596c1a2572a3a4",
+      "containerRestartCount": 0,
+      "customerRowsRead": false,
+      "authorityIncreased": false
+    }
+  },
+  "observedBlocker": {
+    "code": "RUNTIME_PACKAGE_COMMITTER_ABSENT",
+    "disposition": "DO_NOT_ASSEMBLE_FIXED_RUNTIME_PATHS_MANUALLY",
+    "effect": "SIGNED_DECISION_REMAINS_INERT_AND_NON_REUSABLE_AFTER_EXPIRY"
+  },
+  "gateStatus": "IN_PROGRESS",
+  "nextCanonicalItem": "Implement and verify a fixed-scope atomic runtime-package committer with exact partial-publication rollback, disposable fault rehearsal and inert production rollout before obtaining a new signed decision."
+}
