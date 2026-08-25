@@ -29,12 +29,12 @@ import b64_dump_restore_supervisor as supervisor
 
 
 ROUTE = supervisor.ROUTE
-PLAN_SCHEMA = "b64-064a-production-activation-plan.v2"
-DECISION_SCHEMA = "b64-064a-production-activation-decision.v2"
+PLAN_SCHEMA = "b64-064a-production-activation-plan.v3"
+DECISION_SCHEMA = "b64-064a-production-activation-decision.v3"
 EXECUTION_RECEIPT_SCHEMA = "b64-064a-production-activation-receipt.v2"
 JOURNAL_SCHEMA = "b64-064a-production-activation-journal.v2"
 EFFECTIVE_PLAN_SCHEMA = "b64-064a-production-effective-plan.v1"
-SIGNATURE_DOMAIN = b"OBSIDIAN\0B64_064A_PRODUCTION_ACTIVATION\0V2\0"
+SIGNATURE_DOMAIN = b"OBSIDIAN\0B64_064A_PRODUCTION_ACTIVATION\0V3\0"
 ACTIVATION_KEYRING_SCHEMA = "b64-064a-activation-keyring.v1"
 ACTIVATION_TRUST_ENVIRONMENT = "PRODUCTION_ACTIVATION_AUTHENTICATED"
 ACTIVATION_KEY_ID_DOMAIN = b"OBSIDIAN-B64-064A-ACTIVATION-KEY\0V1\0"
@@ -63,8 +63,8 @@ PRODUCTION_WORKSPACE_ROOT = PRODUCTION_ACTIVATION_ROOT / "workspace"
 PRODUCTION_PROXY_ROOT = PRODUCTION_ACTIVATION_ROOT / "proxy"
 SIGNER_ROLES = supervisor.SIGNER_ROLES
 ARTIFACT_KEYS = {
-    "activationEntrypoint", "activationExecutor", "hardenedRefresh",
-    "snapshotReaderRuntime",
+    "activationEntrypoint", "activationExecutor", "activationLauncher",
+    "hardenedRefresh", "snapshotReaderRuntime", "snapshotReaderWatchdog",
     "dumpRestoreSupervisor", "hardenedPlanRaw",
 }
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -73,11 +73,17 @@ ARTIFACT_PATHS = {
     "activationExecutor": Path(__file__).with_name(
         "b64_064a_activation_executor.py"
     ),
+    "activationLauncher": Path(__file__).with_name(
+        "b64_064a_activation_launcher.py"
+    ),
     "hardenedRefresh": Path(__file__).with_name(
         "b64_064a_hardened_refresh.py"
     ),
     "snapshotReaderRuntime": Path(__file__).with_name(
         "b64_snapshot_reader_runtime.py"
+    ),
+    "snapshotReaderWatchdog": Path(__file__).with_name(
+        "b64_snapshot_reader_watchdog.py"
     ),
     "dumpRestoreSupervisor": Path(__file__).with_name(
         "b64_dump_restore_supervisor.py"
@@ -944,6 +950,41 @@ def _safe_open_root(path: Path) -> int:
     return fd
 
 
+def _require_empty_production_activation_state() -> None:
+    expected = {
+        "journal": PRODUCTION_JOURNAL_ROOT,
+        "resources": PRODUCTION_RESOURCE_JOURNAL_ROOT,
+        "workspace": PRODUCTION_WORKSPACE_ROOT,
+        "proxy": PRODUCTION_PROXY_ROOT,
+    }
+    root_fd = _safe_open_root(PRODUCTION_ACTIVATION_ROOT)
+    try:
+        entries_before = set(os.listdir(root_fd))
+        if entries_before != set(expected):
+            raise ActivationError("PRODUCTION_ACTIVATION_STATE_NOT_EMPTY")
+        for name, path in expected.items():
+            descriptor = _safe_open_root(path)
+            try:
+                if os.listdir(descriptor):
+                    raise ActivationError(
+                        "PRODUCTION_ACTIVATION_STATE_NOT_EMPTY"
+                    )
+                metadata = os.fstat(descriptor)
+                root_metadata = os.stat(name, dir_fd=root_fd,
+                                        follow_symlinks=False)
+                if ((metadata.st_dev, metadata.st_ino)
+                        != (root_metadata.st_dev, root_metadata.st_ino)):
+                    raise ActivationError(
+                        "PRODUCTION_ACTIVATION_STATE_CHANGED"
+                    )
+            finally:
+                os.close(descriptor)
+        if set(os.listdir(root_fd)) != entries_before:
+            raise ActivationError("PRODUCTION_ACTIVATION_STATE_CHANGED")
+    finally:
+        os.close(root_fd)
+
+
 def _acquire_production_interlock(
     authorization: VerifiedActivation | VerifiedRecovery,
 ) -> int:
@@ -1344,6 +1385,7 @@ def run_once(
     try:
         if expected_environment == "PRODUCTION":
             interlock_fd = _acquire_production_interlock(authorization)
+            _require_empty_production_activation_state()
         execution_lock = journal.acquire_execution_lock()
         journal.claim()
         journal.transition(expected_state={"CLAIMED"}, state="RUNNING")

@@ -33,6 +33,7 @@ sys.path.insert(0, str(POSTGRES))
 
 import b64_064a_activation_entrypoint as activation
 import b64_064a_activation_executor as production_executor
+import b64_064a_activation_launcher as activation_launcher
 import b64_064a_hardened_refresh as refresh
 import b64_dump_restore_supervisor as supervisor
 import b64_snapshot_dump as fingerprint
@@ -706,8 +707,11 @@ def main():
         "b64-activation-contract-observation-pgpass",
     )
     observation_password = ""
+    observation_connection = conninfo_to_dict(BOOTSTRAP_DSN)
+    observation_connection.pop("password", None)
     observation_dsn = make_conninfo(
-        BOOTSTRAP_DSN, passfile=f"/proc/self/fd/{passfile_fd}"
+        **observation_connection,
+        passfile=f"/proc/self/fd/{passfile_fd}",
     )
     if _sha_file(ORIGINAL_HBA) != \
             "45b68cd420caab6d19725857c309871880a66a4c195bcd7e1604e7c334b6be82":
@@ -761,6 +765,7 @@ def main():
     result = None
     replay_reason = None
     cold_recovery_result = None
+    hard_kill_recovery_result = None
     try:
         system_identifier = runtime._exact_runtime_binding(
             observation_dsn=observation_dsn, admin_dsn=admin_dsn,
@@ -968,6 +973,93 @@ def main():
                     or unbound_workspace.exists()
                     or executor.calls != 1):
                 raise RuntimeError("COLD_EXPIRY_RECOVERY_NOT_CLOSED")
+
+            kill_keyring, kill_keyring_sha, kill_plan, kill_decision = \
+                _signed_package(
+                    now_epoch=now_epoch, container_id=container_id,
+                    image_id=image_id,
+                    system_identifier=system_identifier,
+                )
+            kill_authorization = activation.verify_activation_decision(
+                keyring_raw=_canonical(kill_keyring),
+                decision_raw=_canonical(kill_decision),
+                activation_plan_raw=_canonical(kill_plan),
+                expected_keyring_sha256=kill_keyring_sha,
+                expected_environment="DISPOSABLE_CONTRACT",
+                now_epoch=now_epoch,
+            )
+            kill_journal = activation.ActivationJournal(
+                journal_root, kill_authorization,
+            )
+            kill_resources = production_executor.ExecutorResourceJournal(
+                root=resource_journal_root,
+                workspace_parent=workspace_parent,
+                run_nonce=kill_authorization.run_nonce,
+                environment=kill_authorization.environment,
+                target=kill_authorization.target,
+                plan_sha256=kill_authorization.plan_sha256,
+                decision_sha256=kill_authorization.decision_sha256,
+                derived_plan_sha256=(
+                    kill_authorization.derived_execution_plan_sha256
+                ),
+            )
+            kill_workspace = workspace_parent / \
+                kill_resources.initial["workspaceName"]
+
+            def killed_after_durable_running():
+                execution_lock = kill_journal.acquire_execution_lock()
+                try:
+                    kill_journal.claim()
+                    kill_journal.transition(
+                        expected_state={"CLAIMED"}, state="RUNNING",
+                    )
+                    kill_resources.create()
+                    kill_workspace.mkdir(mode=0o700)
+                    archive = kill_workspace / "snapshot.dump"
+                    archive.write_bytes(b"synthetic-hard-kill-partial")
+                    archive.chmod(0o600)
+                    while True:
+                        time.sleep(1)
+                finally:
+                    os.close(execution_lock)
+
+            kill_code, kill_receipt = activation_launcher.supervise_once(
+                killed_after_durable_running, wall_seconds=0.4,
+            )
+            if (kill_code != 3
+                    or kill_receipt.get("reason") != (
+                        "LAUNCHER_HARD_WALL_TIMEOUT_"
+                        "PROCESS_GROUP_TERMINATED"
+                    )
+                    or kill_journal.inspect()["state"] != "RUNNING"
+                    or kill_resources.inspect()["state"] != "PREPARED"):
+                raise RuntimeError("LAUNCHER_HARD_KILL_NOT_DURABLE")
+            kill_recovery = activation.verify_cleanup_recovery(
+                keyring_raw=_canonical(kill_keyring),
+                decision_raw=_canonical(kill_decision),
+                activation_plan_raw=_canonical(kill_plan),
+                expected_keyring_sha256=kill_keyring_sha,
+                expected_environment="DISPOSABLE_CONTRACT",
+                now_epoch=max(
+                    kill_keyring["expiresAtEpoch"],
+                    kill_decision["expiresAtEpoch"],
+                ) + 1,
+            )
+            hard_kill_recovery_result = activation.reconcile_incomplete(
+                authorization=kill_recovery, journal_root=journal_root,
+                activation_plan_raw=_canonical(kill_plan),
+                executor=executor, reconcile=reconcile,
+                verify_dormant=dormant, automatic_no_retry=True,
+            )
+            if (hard_kill_recovery_result.get("status")
+                    != "ACTIVATION_RECONCILED_HOLD"
+                    or kill_journal.inspect()["state"]
+                    != "RECONCILED_HOLD"
+                    or kill_resources.inspect()["state"]
+                    != "RECONCILED_HOLD"
+                    or kill_workspace.exists()
+                    or executor.calls != 1):
+                raise RuntimeError("LAUNCHER_HARD_KILL_RECOVERY_NOT_CLOSED")
     finally:
         primary_error = sys.exception()
         reconcile_error = None
@@ -1002,6 +1094,10 @@ def main():
         "executorCalls": 1,
         "watchdogStatus": watchdog_result["status"],
         "coldRecoveryStatus": cold_recovery_result["status"],
+        "hardKillRecoveryStatus": hard_kill_recovery_result["status"],
+        "hardKillProcessGroupTerminated": True,
+        "hardKillAutomaticRecoveryAttempts": 1,
+        "hardKillSecondExecutorCall": False,
         "coldRecoveryAfterKeyringAndDecisionExpiry": True,
         "preInodeWorkspaceRecovered": True,
         "readerLoginState": "DISABLED",

@@ -3,6 +3,7 @@ import copy
 import hashlib
 import importlib
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -232,6 +233,27 @@ def test_two_signatures_authorize_only_exact_fresh_activation_plan():
     assert verified.limits == MODULE.LIMITS
     assert verified.target["containerName"] == \
         "b64-hba-contract-1700000000"
+
+
+def test_v3_activation_package_is_also_exact_cleanup_recovery_authority():
+    package = _package(environment="PRODUCTION")
+    verified = _verify(package)
+    recovery = MODULE.verify_cleanup_recovery(
+        keyring_raw=MODULE._canonical(package["keyring"]),
+        decision_raw=MODULE._canonical(package["decision"]),
+        activation_plan_raw=MODULE._canonical(package["plan"]),
+        expected_keyring_sha256=package["keyring_sha"],
+        expected_environment="PRODUCTION",
+        now_epoch=package["decision"]["expiresAtEpoch"] + 1,
+    )
+    assert package["plan"]["schemaVersion"] == \
+        "b64-064a-production-activation-plan.v3"
+    assert package["decision"]["schemaVersion"] == \
+        "b64-064a-production-activation-decision.v3"
+    assert recovery.run_nonce == verified.run_nonce
+    assert recovery.plan_sha256 == verified.plan_sha256
+    assert recovery.decision_sha256 == verified.decision_sha256
+    assert type(recovery) is MODULE.VerifiedRecovery
 
 
 def test_effective_plan_has_one_explicit_network_and_recovery_semantics():
@@ -778,6 +800,49 @@ def test_production_consumption_rejects_caller_selected_journal_root(
     ):
         _run(package, tmp_path, executor)
     assert list(tmp_path.iterdir()) == []
+
+
+def test_production_new_nonce_rejects_any_existing_activation_state(
+    monkeypatch, tmp_path,
+):
+    root = tmp_path / "activation"
+    roots = {
+        "journal": root / "journal",
+        "resources": root / "resources",
+        "workspace": root / "workspace",
+        "proxy": root / "proxy",
+    }
+    root.mkdir(mode=0o700)
+    for path in roots.values():
+        path.mkdir(mode=0o700)
+    residual = roots["journal"] / "older_nonce_12345.json"
+    residual.write_text("{}\n", encoding="utf-8")
+    residual.chmod(0o600)
+    monkeypatch.setattr(MODULE, "PRODUCTION_ACTIVATION_ROOT", root)
+    monkeypatch.setattr(MODULE, "PRODUCTION_JOURNAL_ROOT", roots["journal"])
+    monkeypatch.setattr(
+        MODULE, "PRODUCTION_RESOURCE_JOURNAL_ROOT", roots["resources"]
+    )
+    monkeypatch.setattr(MODULE, "PRODUCTION_WORKSPACE_ROOT", roots["workspace"])
+    monkeypatch.setattr(MODULE, "PRODUCTION_PROXY_ROOT", roots["proxy"])
+    monkeypatch.setattr(
+        MODULE.supervisor, "_trusted_now_epoch",
+        lambda: (1_800_000_000, {"source": "synthetic"}),
+    )
+    monkeypatch.setattr(
+        MODULE, "_acquire_production_interlock",
+        lambda _authorization: os.open("/dev/null", os.O_RDONLY),
+    )
+    package = _package(environment="PRODUCTION")
+    executor = FakeExecutor()
+    executor.production_contact = True
+    with pytest.raises(
+        MODULE.ActivationError,
+        match="PRODUCTION_ACTIVATION_STATE_NOT_EMPTY",
+    ):
+        _run(package, roots["journal"], executor)
+    assert executor.calls == 0
+    assert residual.read_text("utf-8") == "{}\n"
 
 
 def test_work_deadline_preserves_cleanup_reserve_and_is_hold(tmp_path):
