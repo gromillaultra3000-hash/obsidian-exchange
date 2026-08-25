@@ -139,6 +139,38 @@ def test_activation_parent_contract_requires_sticky_root_payout_group(
         )
 
 
+def test_stage_state_explicitly_rebinds_private_root_to_root_group(
+    tmp_path, monkeypatch,
+):
+    parent = tmp_path / "shared-parent"
+    parent.mkdir(mode=0o700)
+    parent.chmod(0o3770)
+    observed = []
+    real_fchown = os.fchown
+
+    def record_fchown(descriptor, uid, gid):
+        observed.append((uid, gid))
+        real_fchown(descriptor, uid, gid)
+
+    monkeypatch.setattr(committer.os, "fchown", record_fchown)
+    parent_fd = os.open(parent, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        committer._stage_state(parent_fd, "private-state")
+    finally:
+        os.close(parent_fd)
+
+    state = parent / "private-state"
+    assert observed == [(0, 0)]
+    assert state.stat().st_uid == 0
+    assert state.stat().st_gid == 0
+    assert stat.S_IMODE(state.stat().st_mode) == 0o700
+    assert all(
+        child.stat().st_uid == 0 and child.stat().st_gid == 0
+        and stat.S_IMODE(child.stat().st_mode) == 0o700
+        for child in state.iterdir()
+    )
+
+
 def test_load_and_verify_binds_exact_inputs_freshness_and_dormant_target(
     monkeypatch, tmp_path,
 ):
