@@ -449,3 +449,8 @@ def test_unpinned_implementation_cannot_run(monkeypatch):
         CEREMONY.CeremonyError, match="IMPLEMENTATION_COMMIT_NOT_PINNED",
     ):
         CEREMONY._verify_release_and_pins()
+
+
+def test_ceremony_pins_exact_immutable_implementation():
+    assert CEREMONY.IMPLEMENTATION_COMMIT == \
+        "8231d1ec61345118b184163e912abb63712fea0a"
