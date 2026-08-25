@@ -1,0 +1,121 @@
+{
+  "schemaVersion": "e0-3-bot-b5-3-064a-reviewer-trust-rotation-rollout.v1",
+  "route": "E0/E0.3/B5.3/064A",
+  "observedAtUtc": "2026-08-25T14:02:29Z",
+  "status": "BLOCKED_OWNER",
+  "outcome": "REVIEWER_TRUST_ROTATED_AND_DEPLOYED_INERT_NEW_KIT_VERIFICATION_PENDING",
+  "publicProfileIntake": {
+    "receivedPath": "/root/reviewer-r2-public.json",
+    "trackedPath": "docs/e0-3-bot-b5-3-064a-reviewer-r2-public.v1.json",
+    "rawBytes": 399,
+    "rawSha256": "3e9a8dc12bd7f11bbc0ddc8048095710bc9670090daaf5c66b11c9417f45ea61",
+    "role": "INDEPENDENT_REVIEWER",
+    "identityId": "reviewer_independent_2026_r2",
+    "trustDomain": "reviewer_device_02",
+    "algorithm": "Ed25519",
+    "publicKeyEncoding": "base64url-unpadded-raw32",
+    "privateKeyReceived": false,
+    "passphraseReceived": false,
+    "custodyAttestation": "OWNER_REPORTED_SEPARATE_CONTROLLED_DEVICE",
+    "cryptographicProofOfPossessionRequiredAtFreshSigning": true
+  },
+  "trustRotation": {
+    "registryVersion": 2,
+    "previousRegistrySha256": "5f190f5f59078e02c505c4de01faf42f483508f9fbc6e4982d8a672ab69c14b3",
+    "registrySha256": "3afcbee9ce42d29b11b2c3b341e3492a528c4aac315c0881362ddb98be4cdf61",
+    "registryRawSha256": "5ab116baa1a51da95bee10ca1510798cb206397f463f2576cce8d3544a313a24",
+    "ownerActivationKeyIdUnchanged": "b64a_1f5deb281ebb27a2bb767d862c10cba4563286b1748b44ae085853d39f13cd55",
+    "oldReviewerActivationKeyIdRevoked": "b64a_75414a6b14130da8cc9a993fa588f04a0bbbcdaa08c37c32cfbcaa0dcb2d2dd1",
+    "oldReviewerEvidenceKeyIdRevokedForFutureActivationTrust": "b64e_a617c7896122b17b706ad8a40d3c26ca794b36b0a1c01730ffbe4ba4e64a4dbb",
+    "revokedAtEpoch": 1787665810,
+    "revocationReason": "CO_RESIDENT_PRIVATE_KEY_CUSTODY_INVALID",
+    "newReviewerActivationKeyId": "b64a_4c315ccbcb3f1397214085cab9fdde6da97d43b1bfee23ccab2ea61dc3b15651",
+    "newReviewerEvidenceKeyId": "b64e_cd9ed2e99ad1da9ef672211099cc2cc7fbd93e97a6dccec53c320761db7ae566",
+    "activeRolesExact": [
+      "ACCOUNTABLE_OWNER",
+      "INDEPENDENT_REVIEWER"
+    ]
+  },
+  "implementation": {
+    "commit": "dd1934f865381ae139b4cb6037d157ff34d825b2",
+    "pinCommit": "8670bbdf058c5263c21b6f7290cc35c9fabc3a96",
+    "pushedToOriginMaster": true,
+    "immutableImplementationGitBlobsVerified": 2173,
+    "immutablePinGitBlobsVerified": 2173,
+    "implementationRelease": "/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/dd1934f865381ae139b4cb6037d157ff34d825b2",
+    "pinRelease": "/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/8670bbdf058c5263c21b6f7290cc35c9fabc3a96"
+  },
+  "verification": {
+    "registryAndCeremonyTests": "67 passed",
+    "expandedNonDocker064aTests": "298 passed",
+    "pinFocusedTests": "108 passed",
+    "pythonCompilation": "PASS",
+    "jsonParsing": "PASS",
+    "gitDiffCheck": "PASS",
+    "stagedGitleaks": "NO_LEAKS",
+    "systemdAnalyzeVerify": "PASS_WITH_UNRELATED_EXISTING_XRAY_NOBODY_WARNING",
+    "dockerLifecycle": "NOT_RERUN_EXECUTION_PATH_UNCHANGED_AND_DISPOSABLE_CONTAINER_NOT_PROVISIONED",
+    "pytestWarning": "Old /tmp/pytest-of-root cleanup directories could not be fully removed; every selected test passed."
+  },
+  "inertProductionRollout": {
+    "preimageRoot": "/var/lib/obsidian-exchange/deployment-preimages/e0-e0.3-b5.3-064a-reviewer-rotation-20260825T135958Z",
+    "preimageDirectoryMode": "2700",
+    "activationUnitSha256": "4958ccb196f0607cc207818790ee9fc3465c6bbe53cabd3500d4f027697413cc",
+    "watchdogUnitSha256": "1c2e9dbaa4fae73979fe93c12ec42aa16aae85c4bb5a6e798d3eb28029b56341",
+    "postgresUnitSha256": "32991e200608c4bb2b125111957c9ac3f8a674d647725f30422ef926de1c1d39",
+    "installedImplementationPin": "dd1934f865381ae139b4cb6037d157ff34d825b2",
+    "daemonReloaded": true,
+    "serviceRestarted": false,
+    "launcherStarted": false,
+    "watchdogStatus": "DORMANT_VERIFIED_NO_RECOVERY_REQUEST"
+  },
+  "runtimePostState": {
+    "activationParentMode": "3770",
+    "activationParentUid": 0,
+    "activationParentGid": 986,
+    "postgresMainPid": 3136948,
+    "postgresActiveEnterTimestampMonotonic": 753627984365,
+    "postgresRestartCount": 0,
+    "launcherServiceState": "inactive",
+    "launcherExecMainStartTimestampMonotonic": 0,
+    "readerLoginState": "DISABLED",
+    "readerCredentialState": "ABSENT",
+    "readerActiveSessions": 0,
+    "readerAuthorityIncreased": false,
+    "sevenConsumersActive": true,
+    "safetyTimersActive": true,
+    "failedUnits": 0,
+    "activeCoordinationAbsent": true,
+    "runtimeRecoveryPackageAbsent": true,
+    "runtimeRecoveryRequestAbsent": true,
+    "runtimeLaunchRequestAbsent": true,
+    "activationStateRootAbsent": true,
+    "customerRowsRead": false,
+    "moneyAction": false
+  },
+  "offlineActivationKit": {
+    "path": "/root/064A-activation-handoff/obsidian-064a-activation-v3-offline-kit-8670bbd.tar",
+    "shortTransferPath": "/root/a8670.tar",
+    "archiveBytes": 276480,
+    "archiveSha256": "fe12dd66722ca8b4b9a8a6c0bf805f341ef618a12c6fb20e58933cbab42c3002",
+    "fileCount": 12,
+    "manifestSha256": "344e4065a92c0de4e70f19cfdaf478c433bb3352e69672758ca0192b5ed9f350",
+    "ownerPublicProfileSha256": "e5439e6bcefee72d02db35192acf4dd679452cf0b952f5e9b4c436b13652553b",
+    "reviewerPublicProfileSha256": "3e9a8dc12bd7f11bbc0ddc8048095710bc9670090daaf5c66b11c9417f45ea61",
+    "internalSha256Sums": "PASS",
+    "containsPrivateKey": false,
+    "containsPassphrase": false,
+    "containsCredential": false,
+    "containsRuntimeRequest": false,
+    "productionAuthorityComplete": false
+  },
+  "rollback": {
+    "allowedOnlyWhileRuntimePathsAndActiveCoordinationRemainAbsent": true,
+    "steps": [
+      "Restore the three exact unit files from preimageRoot.",
+      "Run systemctl daemon-reload without starting or restarting services.",
+      "Reverify PostgreSQL, launcher, watchdog, reader and absent runtime paths."
+    ]
+  },
+  "nextCanonicalItem": "Both external signer devices must independently verify /root/a8670.tar and its internal SHA256SUMS. The reviewer device must confirm reviewer-public.json SHA-256 3e9a8dc12bd7f11bbc0ddc8048095710bc9670090daaf5c66b11c9417f45ea61 and retain the matching private key only there. Do not create a request until both exact PASS reports are received; no prior request, nonce or signature may be reused."
+}

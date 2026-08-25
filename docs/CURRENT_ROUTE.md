@@ -321,11 +321,30 @@ It contains no key, passphrase, credential or runtime request and grants no
 production authority. Evidence is
 `docs/e0-3-bot-b5-3-064a-reviewer-key-rotation-kit.v1.json`.
 
-Active route remains `E0/E0.3/B5.3/064A`, still `BLOCKED_OWNER`: use this kit
-only on a genuinely separate controlled reviewer device containing neither an
-owner key nor the prior reviewer key, and return only the new public profile
-and its SHA-256. Then revoke the co-resident key, update the pinned public trust
-registry and rebuild/reverify the activation kit before any new request. The
+The public-only rotation roundtrip is now closed. The received 399-byte profile
+SHA-256 is `3e9a8dc12bd7f11bbc0ddc8048095710bc9670090daaf5c66b11c9417f45ea61`;
+no private key or passphrase was received. Pushed implementation commit
+`dd1934f865381ae139b4cb6037d157ff34d825b2` advances the pinned registry to
+version 2, chains the previous semantic registry, explicitly revokes both old
+reviewer IDs for future activation trust and makes only
+`reviewer_independent_2026_r2`/`reviewer_device_02` active. Pin commit
+`8670bbdf058c5263c21b6f7290cc35c9fabc3a96` is pushed; both immutable releases
+match all 2173 Git blobs.
+
+The three inert systemd units now pin `dd1934f`; no service was restarted and
+the launcher was not started. PostgreSQL retained PID/start/restart-zero, the
+watchdog returns `DORMANT_VERIFIED_NO_RECOVERY_REQUEST`, seven consumers and
+both safety timers are active, failed units are zero and all runtime paths are
+absent. The new 276480-byte secret-free activation kit is `/root/a8670.tar`,
+SHA-256 `fe12dd66722ca8b4b9a8a6c0bf805f341ef618a12c6fb20e58933cbab42c3002`;
+its internal checksums and manifest self-hash pass. Evidence is
+`docs/e0-3-bot-b5-3-064a-reviewer-trust-rotation-rollout.v1.json`.
+
+Active route remains `E0/E0.3/B5.3/064A`, still `BLOCKED_OWNER`: both external
+signer devices must independently verify this exact new activation kit. The
+reviewer device must also confirm that its embedded `reviewer-public.json` SHA
+is the received `3e9a8dc1...`. Only after both exact PASS reports may one fresh
+request be created; no prior request, nonce or signature may be reused. The
 immutable committer may publish runtime paths only while a future fresh
 decision retains at least five minutes, and must still leave the launcher
 inactive for the final exact pre-start verification.

@@ -2297,3 +2297,44 @@ its public profile plus SHA-256. Server-side validation, explicit old-key
 revocation, pinned trust-registry update and a rebuilt/two-device-verified
 activation kit must precede any new request. Evidence:
 `docs/e0-3-bot-b5-3-064a-reviewer-key-rotation-kit.v1.json`.
+
+## 2026-08-25 — 064A reviewer trust rotation inert rollout
+
+The separate reviewer workflow returned only a 399-byte canonical Ed25519
+public profile, SHA-256
+`3e9a8dc12bd7f11bbc0ddc8048095710bc9670090daaf5c66b11c9417f45ea61`.
+Project parsing validated its role `INDEPENDENT_REVIEWER`, identity
+`reviewer_independent_2026_r2`, trust domain `reviewer_device_02`, evidence key
+ID `b64e_cd9e...` and derived activation key ID `b64a_4c31...`. No private key
+or passphrase was received.
+
+Pushed implementation commit `dd1934f865381ae139b4cb6037d157ff34d825b2`
+advances the exact pinned registry to version 2 and chains the prior semantic
+registry hash. Both old reviewer activation/evidence IDs are explicitly
+revoked with reason `CO_RESIDENT_PRIVATE_KEY_CUSTODY_INVALID`; the unchanged
+owner and new reviewer are the only active roles. The loader derives both
+public-profile digests from active entries and rejects provenance, digest,
+revocation, identity, trust-domain or source-evidence drift. Pushed pin commit
+`8670bbdf058c5263c21b6f7290cc35c9fabc3a96` points the three inert production
+units at that implementation. Both immutable releases match all 2173 Git
+blobs. Registry/ceremony tests pass 67/67, expanded non-Docker 064A tests
+298/298 and pin-focused tests 108/108; compile, JSON, diff, staged gitleaks and
+systemd checks pass, with only the unrelated existing xray/nobody warning.
+
+The rollout saved exact preimages, atomically replaced only the three unit
+files and daemon-reloaded systemd. No service was restarted and the launcher
+was not started. PostgreSQL retained MainPID `3136948`, active timestamp and
+restart count zero; the watchdog returns
+`DORMANT_VERIFIED_NO_RECOVERY_REQUEST`, seven consumers and both safety timers
+are active, failed units are zero, and coordination/runtime paths remain
+absent. The replacement 276480-byte activation kit is `/root/a8670.tar`,
+SHA-256 `fe12dd66722ca8b4b9a8a6c0bf805f341ef618a12c6fb20e58933cbab42c3002`;
+all internal checksums and manifest self-hash pass, owner profile is unchanged
+and the new reviewer profile is exact.
+
+E0.3 remains `IN_PROGRESS`/`BLOCKED_OWNER`. Both external signer devices must
+independently verify this exact kit, and the reviewer must confirm its embedded
+profile SHA matches `3e9a8dc1...`. Only after both PASS reports may one fresh
+15-minute request be created; all prior requests, nonces and signatures remain
+forbidden from reuse. Evidence:
+`docs/e0-3-bot-b5-3-064a-reviewer-trust-rotation-rollout.v1.json`.

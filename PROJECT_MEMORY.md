@@ -272,6 +272,31 @@ Updated: 2026-08-25 UTC
   rebuild/reverify the activation kit before any request. Evidence:
   `docs/e0-3-bot-b5-3-064a-reviewer-key-rotation-kit.v1.json`.
 
+- 2026-08-25 the separate reviewer workflow returned only the canonical
+  399-byte public profile SHA-256
+  `3e9a8dc12bd7f11bbc0ddc8048095710bc9670090daaf5c66b11c9417f45ea61`;
+  project validation derived evidence key `b64e_cd9e...` and activation key
+  `b64a_4c31...` for `reviewer_independent_2026_r2` on
+  `reviewer_device_02`. No private key/passphrase was received. Pushed commit
+  `dd1934f865381ae139b4cb6037d157ff34d825b2` advances the pinned activation
+  registry to v2, chains prior semantic SHA `5f190f5f...`, explicitly revokes
+  both old reviewer IDs for future activation trust and binds active profile
+  digests; pushed pin commit `8670bbdf058c5263c21b6f7290cc35c9fabc3a96`
+  points three inert units to it. Both immutable releases match 2173 Git blobs.
+  Registry/ceremony tests pass 67/67, expanded non-Docker 064A tests 298/298
+  and pin-focused tests 108/108. Exact unit preimages are under
+  `/var/lib/obsidian-exchange/deployment-preimages/e0-e0.3-b5.3-064a-reviewer-rotation-20260825T135958Z`.
+  No service restarted; launcher start remains zero, PostgreSQL PID/start/
+  restart-zero is unchanged, watchdog is dormant, seven consumers/two safety
+  timers are active, failed units and runtime paths are zero/absent. New
+  276480-byte secret-free kit `/root/a8670.tar` SHA-256 is
+  `fe12dd66722ca8b4b9a8a6c0bf805f341ef618a12c6fb20e58933cbab42c3002`;
+  internal checksums pass. E0.3 remains `IN_PROGRESS`/`BLOCKED_OWNER` until
+  both external devices independently verify this exact kit and the reviewer
+  confirms embedded profile SHA `3e9a8dc1...`; only then create one fresh
+  request. Evidence:
+  `docs/e0-3-bot-b5-3-064a-reviewer-trust-rotation-rollout.v1.json`.
+
 - 2026-08-23 E4 retained status is `IN_PROGRESS` with a `NO_GO` gate decision.
   The experimental one-shot and its server entry point are
   hard-disabled; legacy `e4_memfd_handoff.py` is superseded and fails closed
