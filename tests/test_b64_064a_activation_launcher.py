@@ -436,6 +436,14 @@ def test_supervisor_signal_terminates_group_with_short_grace(
 
 def test_systemd_unit_is_manual_fixed_and_watchdog_preserving():
     unit = UNIT.read_text("utf-8")
+    release = (
+        "/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/"
+        "34bc167ebf192103f588524b521713ab588245e3"
+    )
+    assert "IMPLEMENTATION_COMMIT" not in unit
+    assert f"WorkingDirectory={release}" in unit
+    assert f"ConditionPathExists={release}/deploy/postgres/" in unit
+    assert f"ExecStart=/opt/obsidian-exchange/relay-venv/bin/python -E {release}/deploy/postgres/" in unit
     assert "Type=oneshot" in unit
     assert "Restart=no" in unit
     assert "TimeoutStartSec=190" in unit
