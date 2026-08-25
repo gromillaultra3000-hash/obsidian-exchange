@@ -297,6 +297,49 @@ def test_fresh_request_archive_and_imported_signatures_are_exact(
     assert result["productionAuthorityComplete"] is False
 
 
+def test_offline_signature_output_does_not_require_hardlinks(
+        ceremony_state, monkeypatch):
+    ceremony_state["prepare_unsigned"]()
+
+    def hardlinks_forbidden(*_args, **_kwargs):
+        raise PermissionError("android app-private filesystem")
+
+    monkeypatch.setattr(CEREMONY.os, "link", hardlinks_forbidden)
+
+    result = ceremony_state["sign"]("INDEPENDENT_REVIEWER")
+
+    output = ceremony_state["signer"] / "reviewer-signature.json"
+    assert result["productionAuthoritySignature"] is True
+    assert output.is_file()
+    assert output.stat().st_mode & 0o777 == 0o600
+    assert output.stat().st_nlink == 1
+
+
+def test_offline_output_failure_is_removed_and_existing_file_is_preserved(
+        tmp_path, monkeypatch):
+    private = tmp_path / "private"
+    private.mkdir(mode=0o700)
+    failed = private / "failed.json"
+
+    monkeypatch.setattr(
+        CEREMONY.os, "fsync",
+        lambda _descriptor: (_ for _ in ()).throw(OSError("fsync failed")),
+    )
+    with pytest.raises(CEREMONY.CeremonyError, match="OUTPUT_WRITE_FAILED"):
+        CEREMONY._write_offline_path(str(failed), b"result\n")
+    assert not failed.exists()
+
+    monkeypatch.undo()
+    existing = private / "existing.json"
+    _write(existing, b"original\n")
+    with pytest.raises(
+        CEREMONY.CeremonyError,
+        match="OUTPUT_ALREADY_EXISTS_OR_UNSAFE",
+    ):
+        CEREMONY._write_offline_path(str(existing), b"replacement\n")
+    assert existing.read_bytes() == b"original\n"
+
+
 def test_import_rejects_cryptographically_invalid_signature(ceremony_state):
     ceremony_state["prepare_unsigned"]()
     ceremony_state["sign"]("ACCOUNTABLE_OWNER")

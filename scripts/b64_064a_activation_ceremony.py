@@ -279,6 +279,72 @@ def _atomic_write_path(path_text: str, raw: bytes) -> str:
         os.close(parent_fd)
 
 
+def _write_offline_path(path_text: str, raw: bytes) -> str:
+    """Write one signer result without requiring filesystem hard links.
+
+    Android app-private filesystems may reject hard links even for files owned
+    by the calling app.  Offline output is therefore created exclusively at
+    its final name inside the already verified private directory.  A caller
+    must observe the successful receipt before transferring the result; a
+    failed write is removed and an existing name is never replaced.
+    """
+    path = Path(path_text)
+    parent_fd = _open_private_parent(path)
+    descriptor = -1
+    created = False
+    try:
+        if re.fullmatch(r"[A-Za-z0-9_.-]+", path.name) is None:
+            raise CeremonyError("UNSAFE_OUTPUT_NAME")
+        if not 1 <= len(raw) <= MAX_FILE_BYTES:
+            raise CeremonyError("OUTPUT_SIZE_INVALID")
+        try:
+            os.stat(path.name, dir_fd=parent_fd, follow_symlinks=False)
+        except FileNotFoundError:
+            pass
+        else:
+            raise CeremonyError("OUTPUT_ALREADY_EXISTS_OR_UNSAFE")
+        try:
+            descriptor = os.open(
+                path.name,
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL
+                | getattr(os, "O_NOFOLLOW", 0)
+                | getattr(os, "O_CLOEXEC", 0),
+                0o600, dir_fd=parent_fd,
+            )
+            created = True
+            view = memoryview(raw)
+            while view:
+                written = os.write(descriptor, view)
+                if written <= 0:
+                    raise CeremonyError("OUTPUT_WRITE_FAILED")
+                view = view[written:]
+            os.fsync(descriptor)
+            info = os.fstat(descriptor)
+        except OSError as exc:
+            raise CeremonyError("OUTPUT_WRITE_FAILED") from exc
+        if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid()
+                or info.st_nlink != 1
+                or stat.S_IMODE(info.st_mode) != 0o600
+                or info.st_size != len(raw)):
+            raise CeremonyError("OUTPUT_METADATA_INVALID")
+        os.close(descriptor)
+        descriptor = -1
+        os.fsync(parent_fd)
+        return _sha(raw)
+    except BaseException:
+        if descriptor >= 0:
+            os.close(descriptor)
+        if created:
+            try:
+                os.unlink(path.name, dir_fd=parent_fd)
+                os.fsync(parent_fd)
+            except OSError:
+                pass
+        raise
+    finally:
+        os.close(parent_fd)
+
+
 def _sha256sums(files: Mapping[str, bytes]) -> bytes:
     return "".join(
         f"{_sha(files[name])}  {name}\n" for name in sorted(files)
@@ -899,7 +965,7 @@ def command_sign(args: argparse.Namespace) -> dict[str, Any]:
         "decisionSha256": decision["decisionSha256"],
         "runNonce": plan["runNonce"],
         "role": role,
-        "signatureFileSha256": _atomic_write_path(
+        "signatureFileSha256": _write_offline_path(
             args.out, _canonical(detached) + b"\n",
         ),
         "productionAuthoritySignature": True,
