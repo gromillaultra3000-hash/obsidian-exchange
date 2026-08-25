@@ -22,7 +22,7 @@ ExecStartPre=/usr/bin/docker compose --project-name obsidian-postgres --file /op
 ExecStart=/usr/bin/docker compose --project-name obsidian-postgres --file /opt/obsidian-exchange/deploy/postgres/compose.production.yml up --force-recreate --no-color --no-log-prefix --abort-on-container-exit --exit-code-from postgres
 ExecStartPost=/bin/sh -ec 'i=0; while [ "$$i" -lt 60 ]; do status=$$(/usr/bin/docker inspect --format={{.State.Health.Status}} obsidian-postgres 2>/dev/null || true); [ "$$status" = healthy ] && exit 0; i=$$((i + 1)); sleep 1; done; exit 1'
 ExecStartPost=/opt/obsidian-exchange/relay-venv/bin/python /opt/obsidian-exchange/deploy/postgres/b64_snapshot_reader_transition_gate.py --expected-image-id sha256:7456ef82e5f5bc43d997f4781bbd7c0d6389bff397564649a356e206ba473aee --expected-server-version-num 170011 --apply
-ExecStartPost=/opt/obsidian-exchange/relay-venv/bin/python -B /opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/c6c3eaba1b78b06235741ce88e003162c35d4bcb/deploy/postgres/b64_snapshot_reader_watchdog.py --expected-image-id sha256:7456ef82e5f5bc43d997f4781bbd7c0d6389bff397564649a356e206ba473aee --expected-server-version-num 170011 --require-dormant
+ExecStartPost=/opt/obsidian-exchange/relay-venv/bin/python -B /opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/dee25d1b8b1aba6fc0e574a7bdb3ea0a220522e6/deploy/postgres/b64_snapshot_reader_watchdog.py --expected-image-id sha256:7456ef82e5f5bc43d997f4781bbd7c0d6389bff397564649a356e206ba473aee --expected-server-version-num 170011 --require-dormant
 ExecStop=/opt/obsidian-exchange/relay-venv/bin/python /opt/obsidian-exchange/deploy/postgres/b64_postgres_shutdown.py
 TimeoutStartSec=120
 TimeoutStopSec=210
