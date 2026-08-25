@@ -1,0 +1,115 @@
+{
+  "schemaVersion": "e0-3-bot-b5-3-064a-runtime-package-committer-inert-rollout.v1",
+  "route": "E0/E0.3/B5.3/064A",
+  "observedAtUtc": "2026-08-25T05:13:33Z",
+  "status": "IN_PROGRESS",
+  "outcome": "ATOMIC_RUNTIME_PACKAGE_COMMITTER_DEPLOYED_INERT",
+  "implementation": {
+    "commit": "e466268d9c518c7025f3b6c5b2f3d23407e5a4e9",
+    "pinCommit": "8c31c55af2e0994991fe73e00c333b749dd5f611",
+    "artifactClosureIncludesRuntimePackageCommitter": true,
+    "implementationReleaseGitBlobsMatched": 2166,
+    "pinReleaseGitBlobsMatched": 2166,
+    "noArgumentFixedPaths": true,
+    "launcherInvocationPresent": false
+  },
+  "commitContract": {
+    "publicationOrder": [
+      "RECOVERY_PACKAGE",
+      "FOUR_EMPTY_ACTIVATION_ROOTS",
+      "RECOVERY_REQUEST_COMMIT_MARKER",
+      "LAUNCH_REQUEST_COMMIT_MARKER"
+    ],
+    "minimumDecisionWindowSeconds": 300,
+    "reverifiesSignedDecision": true,
+    "reverifiesArtifactClosure": true,
+    "reverifiesTrustedTime": true,
+    "reverifiesDormantExactProductionTarget": true,
+    "requiresAllRuntimeTargetsAbsent": true,
+    "directoryPublication": "renameat2(RENAME_NOREPLACE)",
+    "markerPublication": "hard-link-no-replace-then-unlink-temp",
+    "packageFileMode": "0400",
+    "packageDirectoryMode": "0500",
+    "activationRootModes": "0700",
+    "automaticRetryAllowed": false,
+    "startsLauncher": false
+  },
+  "faultRecovery": {
+    "injectedBoundaries": [
+      "AFTER_STAGING",
+      "AFTER_PACKAGE_PUBLICATION",
+      "AFTER_STATE_PUBLICATION",
+      "AFTER_RECOVERY_REQUEST_PUBLICATION",
+      "AFTER_LAUNCH_REQUEST_PUBLICATION",
+      "AFTER_POSTVERIFY"
+    ],
+    "postPublicationFsyncFaultsCovered": [
+      "PACKAGE",
+      "STATE",
+      "RECOVERY_REQUEST",
+      "LAUNCH_REQUEST"
+    ],
+    "markerTempUnlinkFailureCovered": true,
+    "existingRuntimeTargetPreserved": true,
+    "partialPublicationRollback": "PASS"
+  },
+  "verification": {
+    "immutableCommitterFaultRecoveryTests": "20 passed",
+    "nonDocker064aRegression": "291 passed",
+    "fullWatchdogRegression": "52 passed",
+    "focusedPinRegression": "59 passed",
+    "pythonCompilation": "PASS",
+    "gitDiffCheck": "PASS",
+    "stagedGitleaks": "NO_LEAKS",
+    "systemdAnalyzeVerify": "PASS_WITH_UNRELATED_EXISTING_XRAY_WARNING",
+    "independentAgentReview": "UNAVAILABLE_CURRENT_ORCHESTRATION_PROHIBITS_PROACTIVE_SUBAGENTS"
+  },
+  "inertProductionRollout": {
+    "installedUnitPin": "e466268d9c518c7025f3b6c5b2f3d23407e5a4e9",
+    "activationUnitSha256": "a290fbcbb847255106b8312095bc6c5316e4d5f8885036d6d60a8bb2354abcb2",
+    "watchdogUnitSha256": "ffca0585948b67aa1dd8c9b90a2a8890945950d3962cfe1cdecd42d80ecffd7f",
+    "postgresUnitSha256": "cee2e64a48c14de312682c3f5f41fe1011699b4b8c85f2b5e0b555a59a1c4295",
+    "rollbackCopy": "/tmp/obsidian-064a-unit-rollback-20260825-e466",
+    "serviceStarted": false,
+    "serviceRestarted": false,
+    "launcherServiceState": "inactive",
+    "snapshotReaderWatchdogTimerState": "active",
+    "dumpRestoreSupervisorTimerState": "active",
+    "postgresServiceState": "active",
+    "failedUnits": 0,
+    "runtimeRecoveryPackageAbsent": true,
+    "runtimeRecoveryRequestAbsent": true,
+    "runtimeLaunchRequestAbsent": true,
+    "activationStateRootAbsent": true,
+    "watchdogStatus": "DORMANT_VERIFIED",
+    "readerLoginState": "DISABLED",
+    "readerCredentialState": "ABSENT",
+    "readerActiveSessions": 0,
+    "customerRowsRead": false,
+    "authorityIncreased": false,
+    "containerId": "818735cd7df301eeb54b3630a6dbae1551db99a8368a2e4c96596c1a2572a3a4",
+    "containerRestartCount": 0
+  },
+  "oldDecisionSmoke": {
+    "expectedRejection": "INVALID_ACTIVATION_ARTIFACT_SET",
+    "runtimePathsState": "ABSENT_OR_UNCHANGED",
+    "launcherStarted": false,
+    "actionAllowed": false,
+    "reusable": false
+  },
+  "nextOfflineKit": {
+    "path": "/root/064A-activation-handoff/obsidian-064a-activation-v3-offline-kit-8c31c55.tar",
+    "bytes": 266240,
+    "fileCount": 12,
+    "sha256": "0b11ef3a6f1cd071a7ed78053c9a6470aad104e88d4fbc63723aacdf541f66c0",
+    "internalSha256sums": "PASS",
+    "containsPrivateKey": false,
+    "containsPassphrase": false,
+    "containsRuntimeRequest": false,
+    "ownerDeviceVerified": false,
+    "reviewerDeviceVerified": false
+  },
+  "gateStatus": "BLOCKED_OWNER",
+  "observedBlocker": "NEW_KIT_NOT_YET_VERIFIED_ON_BOTH_EXTERNAL_SIGNER_DEVICES",
+  "nextCanonicalItem": "Independently verify the new secret-free kit on both external signer devices, then create one fresh exact 15-minute v3 request."
+}

@@ -191,6 +191,30 @@ Updated: 2026-08-25 UTC
   decision. Evidence:
   `docs/e0-3-bot-b5-3-064a-termux-signing-inert-decision.v1.json`.
 
+- 2026-08-25 the missing 064A runtime-package boundary was implemented and
+  rolled out inertly. Implementation commit
+  `e466268d9c518c7025f3b6c5b2f3d23407e5a4e9` adds a no-argument immutable
+  committer to the signed artifact closure; pin commit
+  `8c31c55af2e0994991fe73e00c333b749dd5f611` is pushed. It re-verifies trusted
+  time, both signatures, artifact closure, dormant exact target and absent
+  runtime paths, then publishes package, four empty roots, recovery marker and
+  launch marker in that order without starting the launcher. Six boundary
+  faults plus post-publication rename/link/fsync failures roll back exactly.
+  Immutable committer rehearsal passes 20/20, the non-Docker 064A cluster
+  291/291, full watchdog regression 52/52, focused pin tests 59/59, and staged
+  gitleaks/diff/compile/systemd checks pass. Both new immutable releases match
+  all 2166 Git blobs. Three systemd unit pins now target `e466268`; no service
+  was started or restarted. Post-rollout launcher is inactive, safety timers
+  and PostgreSQL are active, failed units are zero, runtime package/request/
+  state remain absent, and the reader is still `DORMANT_VERIFIED`/`NOLOGIN`/
+  credential-absent/session-free. The old decision fails closed with
+  `INVALID_ACTIVATION_ARTIFACT_SET`. New 266240-byte secret-free kit SHA-256 is
+  `0b11ef3a6f1cd071a7ed78053c9a6470aad104e88d4fbc63723aacdf541f66c0`.
+  E0.3 remains `IN_PROGRESS`/`BLOCKED_OWNER` only until both external devices
+  independently verify this new kit; then create exactly one fresh 15-minute
+  v3 request. Evidence:
+  `docs/e0-3-bot-b5-3-064a-runtime-package-committer-inert-rollout.v1.json`.
+
 - 2026-08-23 E4 retained status is `IN_PROGRESS` with a `NO_GO` gate decision.
   The experimental one-shot and its server entry point are
   hard-disabled; legacy `e4_memfd_handoff.py` is superseded and fails closed

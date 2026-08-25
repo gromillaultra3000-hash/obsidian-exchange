@@ -2179,3 +2179,38 @@ fixed-scope committer with partial-publication rollback, fault injection,
 disposable rehearsal and inert production rollout before any new signatures.
 Evidence:
 `docs/e0-3-bot-b5-3-064a-termux-signing-inert-decision.v1.json`.
+
+## 2026-08-25 — 064A atomic runtime-package committer inert rollout
+
+Implementation commit `e466268d9c518c7025f3b6c5b2f3d23407e5a4e9`
+adds the missing no-argument runtime-package committer to the signed activation
+artifact closure. It accepts only the fixed root-only coordination directory,
+re-verifies the two-party v3 decision, trusted time, live artifact closure,
+exact dormant production tuple and absent runtime paths, then stages and
+publishes the recovery package, four empty activation roots, recovery request
+and launch request in that order. Directory publication uses
+`renameat2(RENAME_NOREPLACE)` and marker publication uses no-replace hard links.
+It never invokes the launcher and exposes no caller-controlled target, time,
+release, nonce or hook.
+
+Six explicit boundary faults, four post-publication fsync faults and a marker
+unlink fault prove exact rollback. An existing target is preserved. Immutable
+release tests pass 20/20; the non-Docker 064A cluster passes 291/291, full
+watchdog regression 52/52 and focused pin tests 59/59. Compile, diff, staged
+gitleaks and systemd verification pass. Implementation and pin release
+`8c31c55af2e0994991fe73e00c333b749dd5f611` each match all 2166 Git blobs.
+
+The three installed systemd units now pin the immutable implementation. No
+service was started or restarted. Launcher remains inactive, both safety
+timers and PostgreSQL remain active, failed units are zero, all runtime commit
+paths remain absent, and the reader remains `DORMANT_VERIFIED`, `NOLOGIN`,
+credential-absent and session-free. The old signed decision is rejected with
+`INVALID_ACTIVATION_ARTIFACT_SET` because it did not bind the committer and is
+non-reusable.
+
+E0.3 remains `IN_PROGRESS`/`BLOCKED_OWNER`. The new 266240-byte secret-free
+kit SHA-256 is
+`0b11ef3a6f1cd071a7ed78053c9a6470aad104e88d4fbc63723aacdf541f66c0`.
+Both external devices must independently verify it before one new 15-minute v3
+request is created. Evidence:
+`docs/e0-3-bot-b5-3-064a-runtime-package-committer-inert-rollout.v1.json`.

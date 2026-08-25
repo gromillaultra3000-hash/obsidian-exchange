@@ -200,16 +200,33 @@ The decision expired unused; post-expiry verification returns
 `INSUFFICIENT_DECISION_WINDOW_REMAINING`, so neither it nor either detached
 signature can be reused.
 
-E0.3 remains `IN_PROGRESS`. `BLOCKED_OWNER` is cleared, but production
-activation cannot proceed safely because deployed code has no reviewed CLI
-that atomically commits the verified decision into the exact recovery package,
-recovery request, launch request and empty activation-state roots consumed by
-the launcher. Manual JSON/filesystem assembly is prohibited. Post-expiry
-runtime verification found the recovery package/request, launch request and
-activation root absent; the launcher is inactive, both safety timers and
-PostgreSQL are active, failed units are zero, and the reader remains `NOLOGIN`,
-credential-absent and session-free under `DORMANT_VERIFIED`. Evidence is
-`docs/e0-3-bot-b5-3-064a-termux-signing-inert-decision.v1.json`.
+The missing boundary is now implemented. Commit
+`e466268d9c518c7025f3b6c5b2f3d23407e5a4e9` adds a fixed no-argument atomic
+runtime-package committer to the signed artifact closure; pin commit
+`8c31c55af2e0994991fe73e00c333b749dd5f611` targets that immutable
+implementation. The committer re-verifies the fresh decision, trusted time,
+artifact closure, exact dormant production tuple and absent runtime targets.
+It publishes only the recovery package, four empty state roots, recovery
+marker and launch marker, in that order, and never invokes the launcher.
+Rollback covers each publication point and internal rename/link/fsync failure.
+Immutable disposable fault/recovery tests pass 20/20, the non-Docker 064A
+cluster 291/291, full watchdog regression 52/52 and focused pin tests 59/59;
+compile/diff/staged gitleaks/systemd checks pass. Both root-owned read-only
+releases match all 2166 Git blobs.
+
+The three installed unit files now pin `e466268` and match the repository
+bytes. No service was started or restarted. Post-rollout recovery package/
+request, launch request and activation root remain absent; launcher is
+inactive, both safety timers and PostgreSQL are active, failed units are zero,
+and the reader remains `NOLOGIN`, credential-absent and session-free under
+`DORMANT_VERIFIED`. The old signed decision is rejected with
+`INVALID_ACTIVATION_ARTIFACT_SET`, proving it cannot authorize the expanded
+closure. New secret-free kit SHA-256 is
+`0b11ef3a6f1cd071a7ed78053c9a6470aad104e88d4fbc63723aacdf541f66c0`.
+Evidence is
+`docs/e0-3-bot-b5-3-064a-runtime-package-committer-inert-rollout.v1.json`.
+E0.3 remains `IN_PROGRESS` and is now `BLOCKED_OWNER` only for independent
+verification of this new kit on both external signer devices.
 
 Deployed contract:
 
@@ -247,12 +264,10 @@ Telegram actions; 064B/064D row disposition; unrelated worktree cleanup.
 
 ## Active bounded next slice
 
-Implement and independently verify one fixed-scope runtime-package committer.
-It must accept only the exact verified v3 coordination artifacts, re-run the
-immutable/trusted-time/dormant/target/empty-state preflight, atomically publish
-the recovery package and both non-authorizing commit markers with a tested
-exact rollback for every partial publication point, create only the four empty
-activation roots required by the launcher, and never start the launcher itself.
-After disposable fault/recovery rehearsal and an inert production rollout,
-obtain a new owner/reviewer decision; the current signed decision cannot be
-reused.
+Transfer and independently verify the new secret-free kit on both external
+signer devices. Only after both devices report ready, archive the old expired
+coordination set and create one fresh exact 15-minute v3 request. Obtain new
+owner and reviewer signatures; do not reuse the old decision or signatures.
+The immutable committer may publish runtime paths only while that fresh
+decision retains at least five minutes, and it must still leave the launcher
+inactive for the final exact pre-start verification.
