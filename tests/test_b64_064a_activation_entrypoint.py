@@ -317,9 +317,23 @@ def test_production_keyring_is_exact_trust_registry_projection():
         now_epoch=1_800_000_000,
         expected_environment="PRODUCTION",
     )
-    assert checked["registryVersion"] == 1
+    assert checked["registryVersion"] == 2
     assert set(registry) == {item["keyId"] for item in keyring["keys"]}
     assert digest == keyring["keyringSha256"]
+    assert {item["keyId"] for item in checked["revokedKeys"]} == {
+        MODULE.RETIRED_REVIEWER_ACTIVATION_KEY_ID,
+        MODULE.RETIRED_REVIEWER_EVIDENCE_KEY_ID,
+    }
+    reviewer = next(
+        item for item in checked["keys"]
+        if item["role"] == "INDEPENDENT_REVIEWER"
+    )
+    assert reviewer["keyId"] == (
+        "b64a_4c315ccbcb3f1397214085cab9fdde6d"
+        "a97d43b1bfee23ccab2ea61dc3b15651"
+    )
+    assert reviewer["identityId"] == "reviewer_independent_2026_r2"
+    assert reviewer["trustDomain"] == "reviewer_device_02"
 
     counterfeit = copy.deepcopy(keyring)
     counterfeit["keys"][0]["identityId"] = "counterfeit_owner"
@@ -382,6 +396,64 @@ def test_activation_trust_registry_proves_source_evidence_key_id(
     with pytest.raises(
         MODULE.ActivationError,
         match="ACTIVATION_TRUST_KEYS_NOT_INDEPENDENT",
+    ):
+        MODULE._load_activation_trust_registry()
+
+
+def test_rotated_reviewer_profile_is_exact_tracked_public_input():
+    trust = MODULE._load_activation_trust_registry()
+    profile_path = ROOT / MODULE.REVIEWER_ROTATION_PROFILE_PATH
+    raw = profile_path.read_bytes()
+    assert hashlib.sha256(raw).hexdigest() == trust["source"][
+        "reviewerPublicProfileSha256"
+    ]
+    profile = MODULE._decode_json(raw)
+    reviewer = next(
+        item for item in trust["keys"]
+        if item["role"] == "INDEPENDENT_REVIEWER"
+    )
+    assert profile == {
+        "schemaVersion": "b64-064a-evidence-public-key.v1",
+        "route": MODULE.ROUTE,
+        "keyId": reviewer["sourceEvidenceKeyId"],
+        "identityId": reviewer["identityId"],
+        "trustDomain": reviewer["trustDomain"],
+        "role": reviewer["role"],
+        "algorithm": "Ed25519",
+        "publicKeyEncoding": "base64url-unpadded-raw32",
+        "publicKeyB64": reviewer["publicKeyB64"],
+    }
+
+
+def test_rotated_reviewer_profile_digest_drift_fails_closed(
+        monkeypatch, tmp_path):
+    drifted = tmp_path / "registry.json"
+    value = MODULE._load_activation_trust_registry()
+    value["source"]["reviewerPublicProfileSha256"] = "0" * 64
+    value["source"]["reviewerRotation"][
+        "publicProfileRawSha256"
+    ] = "0" * 64
+    unsigned_keys = (
+        "schemaVersion", "route", "trustEnvironment", "registryVersion",
+        "previousRegistrySha256", "source", "revokedKeys", "keys",
+    )
+    unsigned = {key: value[key] for key in unsigned_keys}
+    value["registrySha256"] = hashlib.sha256(
+        MODULE._canonical(unsigned)
+    ).hexdigest()
+    raw = MODULE._canonical(value) + b"\n"
+    drifted.write_bytes(raw)
+    drifted.chmod(0o600)
+    monkeypatch.setitem(
+        MODULE.ARTIFACT_PATHS, "activationTrustRegistry", drifted,
+    )
+    monkeypatch.setattr(
+        MODULE, "ACTIVATION_TRUST_REGISTRY_RAW_SHA256",
+        hashlib.sha256(raw).hexdigest(),
+    )
+    with pytest.raises(
+        MODULE.ActivationError,
+        match="ACTIVATION_TRUST_PROFILE_DIGEST_MISMATCH",
     ):
         MODULE._load_activation_trust_registry()
 

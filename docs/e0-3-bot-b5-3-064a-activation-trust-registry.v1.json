@@ -2,17 +2,42 @@
   "schemaVersion": "b64-064a-activation-trust-registry.v1",
   "route": "E0/E0.3/B5.3/064A",
   "trustEnvironment": "PRODUCTION_ACTIVATION_AUTHENTICATED",
-  "registryVersion": 1,
-  "previousRegistrySha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "registryVersion": 2,
+  "previousRegistrySha256": "5f190f5f59078e02c505c4de01faf42f483508f9fbc6e4982d8a672ab69c14b3",
   "source": {
     "authenticationRoot": "/opt/obsidian-exchange/evidence/e0-e0.3-b5.3-064a/b482504a2166b1e410e6a4b97829dbfcf818807b872f6ca73530a6d130dd54ba",
     "evidenceKeyringSha256": "a83cfac0c2a61edb83480ae782e077d3fafc6401b3e2f1694aeebf6fd24b113c",
     "evidenceKeyringRawSha256": "ad513da3eafb2164e94f2f854e26bb3b8b192ac20b9c80ee2d743dbe83a15ff2",
     "ownerPublicProfileSha256": "e5439e6bcefee72d02db35192acf4dd679452cf0b952f5e9b4c436b13652553b",
-    "reviewerPublicProfileSha256": "f495166a8c4eebaa22c223e87a64d73683de63d98010785c83822c9966203c4d",
+    "previousReviewerPublicProfileSha256": "f495166a8c4eebaa22c223e87a64d73683de63d98010785c83822c9966203c4d",
+    "reviewerPublicProfileSha256": "3e9a8dc12bd7f11bbc0ddc8048095710bc9670090daaf5c66b11c9417f45ea61",
+    "reviewerRotation": {
+      "schemaVersion": "b64-064a-reviewer-key-rotation-intake.v1",
+      "reasonCode": "CO_RESIDENT_PRIVATE_KEY_CUSTODY_INVALID",
+      "receivedAtEpoch": 1787665810,
+      "intakeMethod": "OWNER_DIRECTED_SCP_PUBLIC_ONLY",
+      "custodyAttestation": "OWNER_REPORTED_SEPARATE_CONTROLLED_DEVICE",
+      "publicProfilePath": "docs/e0-3-bot-b5-3-064a-reviewer-r2-public.v1.json",
+      "publicProfileRawSha256": "3e9a8dc12bd7f11bbc0ddc8048095710bc9670090daaf5c66b11c9417f45ea61",
+      "previousReviewerActivationKeyId": "b64a_75414a6b14130da8cc9a993fa588f04a0bbbcdaa08c37c32cfbcaa0dcb2d2dd1",
+      "previousReviewerEvidenceKeyId": "b64e_a617c7896122b17b706ad8a40d3c26ca794b36b0a1c01730ffbe4ba4e64a4dbb",
+      "privateMaterialReceived": false,
+      "proofOfPossessionRequiredAtSigning": true
+    },
     "scopeEscalationRequiresFreshV3Signatures": true
   },
-  "revokedKeys": [],
+  "revokedKeys": [
+    {
+      "keyId": "b64a_75414a6b14130da8cc9a993fa588f04a0bbbcdaa08c37c32cfbcaa0dcb2d2dd1",
+      "revokedAtEpoch": 1787665810,
+      "reasonCode": "CO_RESIDENT_PRIVATE_KEY_CUSTODY_INVALID"
+    },
+    {
+      "keyId": "b64e_a617c7896122b17b706ad8a40d3c26ca794b36b0a1c01730ffbe4ba4e64a4dbb",
+      "revokedAtEpoch": 1787665810,
+      "reasonCode": "CO_RESIDENT_PRIVATE_KEY_CUSTODY_INVALID"
+    }
+  ],
   "keys": [
     {
       "keyId": "b64a_1f5deb281ebb27a2bb767d862c10cba4563286b1748b44ae085853d39f13cd55",
@@ -24,14 +49,14 @@
       "publicKeyB64": "fLWNvunUI6IDw5oljcAbeUSisUxfH9OFatVt9baLEuk"
     },
     {
-      "keyId": "b64a_75414a6b14130da8cc9a993fa588f04a0bbbcdaa08c37c32cfbcaa0dcb2d2dd1",
-      "sourceEvidenceKeyId": "b64e_a617c7896122b17b706ad8a40d3c26ca794b36b0a1c01730ffbe4ba4e64a4dbb",
-      "identityId": "reviewer_independent_2026",
-      "trustDomain": "reviewer_device_01",
+      "keyId": "b64a_4c315ccbcb3f1397214085cab9fdde6da97d43b1bfee23ccab2ea61dc3b15651",
+      "sourceEvidenceKeyId": "b64e_cd9ed2e99ad1da9ef672211099cc2cc7fbd93e97a6dccec53c320761db7ae566",
+      "identityId": "reviewer_independent_2026_r2",
+      "trustDomain": "reviewer_device_02",
       "role": "INDEPENDENT_REVIEWER",
       "status": "ACTIVE",
-      "publicKeyB64": "oCGisU42BmWxq2J4NlT9m3EDjLtglk-xShZbnTAjcYg"
+      "publicKeyB64": "a0ZcM8H5jV3lGHgdRqKlODxgv9gS2sMoqbJ2NJ3PhnE"
     }
   ],
-  "registrySha256": "5f190f5f59078e02c505c4de01faf42f483508f9fbc6e4982d8a672ab69c14b3"
+  "registrySha256": "3afcbee9ce42d29b11b2c3b341e3492a528c4aac315c0881362ddb98be4cdf61"
 }

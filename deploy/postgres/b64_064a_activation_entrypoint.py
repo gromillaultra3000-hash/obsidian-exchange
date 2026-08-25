@@ -41,7 +41,21 @@ ACTIVATION_KEY_ID_DOMAIN = b"OBSIDIAN-B64-064A-ACTIVATION-KEY\0V1\0"
 ACTIVATION_TRUST_REGISTRY_SCHEMA = \
     "b64-064a-activation-trust-registry.v1"
 ACTIVATION_TRUST_REGISTRY_RAW_SHA256 = \
-    "6632d656100fe2c7697d774b615466ff1850d2060088ea2c3a1fa25b373d7adc"
+    "5ab116baa1a51da95bee10ca1510798cb206397f463f2576cce8d3544a313a24"
+ACTIVATION_TRUST_REGISTRY_VERSION = 2
+PREVIOUS_ACTIVATION_TRUST_REGISTRY_SHA256 = \
+    "5f190f5f59078e02c505c4de01faf42f483508f9fbc6e4982d8a672ab69c14b3"
+PREVIOUS_REVIEWER_PUBLIC_PROFILE_SHA256 = \
+    "f495166a8c4eebaa22c223e87a64d73683de63d98010785c83822c9966203c4d"
+RETIRED_REVIEWER_ACTIVATION_KEY_ID = \
+    "b64a_75414a6b14130da8cc9a993fa588f04a0bbbcdaa08c37c32cfbcaa0dcb2d2dd1"
+RETIRED_REVIEWER_EVIDENCE_KEY_ID = \
+    "b64e_a617c7896122b17b706ad8a40d3c26ca794b36b0a1c01730ffbe4ba4e64a4dbb"
+REVIEWER_ROTATION_SCHEMA = "b64-064a-reviewer-key-rotation-intake.v1"
+REVIEWER_ROTATION_REASON = "CO_RESIDENT_PRIVATE_KEY_CUSTODY_INVALID"
+REVIEWER_ROTATION_RECEIVED_AT_EPOCH = 1787665810
+REVIEWER_ROTATION_PROFILE_PATH = \
+    "docs/e0-3-bot-b5-3-064a-reviewer-r2-public.v1.json"
 MAX_DECISION_LIFETIME_SECONDS = 15 * 60
 MAX_PLAN_AGE_SECONDS = 15 * 60
 MAX_FUTURE_SKEW_SECONDS = 60
@@ -238,6 +252,21 @@ def activation_key_id(public_key: bytes) -> str:
     return "b64a_" + _sha(ACTIVATION_KEY_ID_DOMAIN + public_key)
 
 
+def _evidence_public_profile_sha256(entry: Mapping[str, Any]) -> str:
+    profile = {
+        "schemaVersion": "b64-064a-evidence-public-key.v1",
+        "route": ROUTE,
+        "keyId": entry["sourceEvidenceKeyId"],
+        "identityId": entry["identityId"],
+        "trustDomain": entry["trustDomain"],
+        "role": entry["role"],
+        "algorithm": "Ed25519",
+        "publicKeyEncoding": "base64url-unpadded-raw32",
+        "publicKeyB64": entry["publicKeyB64"],
+    }
+    return _sha(_canonical(profile) + b"\n")
+
+
 def _exact(value: Any, expected: Any) -> bool:
     try:
         return supervisor._exact(value, expected)
@@ -328,8 +357,10 @@ def _load_activation_trust_registry() -> dict[str, Any]:
             or registry.get("route") != ROUTE
             or registry.get("trustEnvironment")
             != ACTIVATION_TRUST_ENVIRONMENT
-            or type(registry.get("registryVersion")) is not int
-            or registry["registryVersion"] <= 0):
+            or registry.get("registryVersion")
+            != ACTIVATION_TRUST_REGISTRY_VERSION
+            or registry.get("previousRegistrySha256")
+            != PREVIOUS_ACTIVATION_TRUST_REGISTRY_SHA256):
         raise ActivationError("INVALID_ACTIVATION_TRUST_REGISTRY")
     _digest(
         registry.get("previousRegistrySha256"),
@@ -342,7 +373,8 @@ def _load_activation_trust_registry() -> dict[str, Any]:
     if (not isinstance(source, Mapping) or set(source) != {
             "authenticationRoot", "evidenceKeyringSha256",
             "evidenceKeyringRawSha256", "ownerPublicProfileSha256",
-            "reviewerPublicProfileSha256",
+            "previousReviewerPublicProfileSha256",
+            "reviewerPublicProfileSha256", "reviewerRotation",
             "scopeEscalationRequiresFreshV3Signatures",
     } or source.get("authenticationRoot")
             != "/opt/obsidian-exchange/evidence/e0-e0.3-b5.3-064a/"
@@ -352,9 +384,38 @@ def _load_activation_trust_registry() -> dict[str, Any]:
         raise ActivationError("INVALID_ACTIVATION_TRUST_PROVENANCE")
     for name in (
         "evidenceKeyringSha256", "evidenceKeyringRawSha256",
-        "ownerPublicProfileSha256", "reviewerPublicProfileSha256",
+        "ownerPublicProfileSha256", "previousReviewerPublicProfileSha256",
+        "reviewerPublicProfileSha256",
     ):
         _digest(source.get(name), "INVALID_ACTIVATION_TRUST_PROVENANCE")
+    rotation = source.get("reviewerRotation")
+    if (not isinstance(rotation, Mapping) or set(rotation) != {
+            "schemaVersion", "reasonCode", "receivedAtEpoch",
+            "intakeMethod", "custodyAttestation", "publicProfilePath",
+            "publicProfileRawSha256", "previousReviewerActivationKeyId",
+            "previousReviewerEvidenceKeyId", "privateMaterialReceived",
+            "proofOfPossessionRequiredAtSigning",
+    } or rotation.get("schemaVersion") != REVIEWER_ROTATION_SCHEMA
+            or rotation.get("reasonCode") != REVIEWER_ROTATION_REASON
+            or rotation.get("receivedAtEpoch")
+            != REVIEWER_ROTATION_RECEIVED_AT_EPOCH
+            or rotation.get("intakeMethod")
+            != "OWNER_DIRECTED_SCP_PUBLIC_ONLY"
+            or rotation.get("custodyAttestation")
+            != "OWNER_REPORTED_SEPARATE_CONTROLLED_DEVICE"
+            or rotation.get("publicProfilePath")
+            != REVIEWER_ROTATION_PROFILE_PATH
+            or rotation.get("previousReviewerActivationKeyId")
+            != RETIRED_REVIEWER_ACTIVATION_KEY_ID
+            or rotation.get("previousReviewerEvidenceKeyId")
+            != RETIRED_REVIEWER_EVIDENCE_KEY_ID
+            or rotation.get("privateMaterialReceived") is not False
+            or rotation.get("proofOfPossessionRequiredAtSigning") is not True
+            or source.get("previousReviewerPublicProfileSha256")
+            != PREVIOUS_REVIEWER_PUBLIC_PROFILE_SHA256
+            or rotation.get("publicProfileRawSha256")
+            != source.get("reviewerPublicProfileSha256")):
+        raise ActivationError("INVALID_REVIEWER_ROTATION_PROVENANCE")
     revoked = registry.get("revokedKeys")
     if type(revoked) is not list or len(revoked) > 64:
         raise ActivationError("INVALID_ACTIVATION_REVOCATIONS")
@@ -370,6 +431,15 @@ def _load_activation_trust_registry() -> dict[str, Any]:
                 or item["revokedAtEpoch"] <= 0):
             raise ActivationError("INVALID_ACTIVATION_REVOCATION")
         revoked_ids.add(key_id)
+    if revoked_ids != {
+            RETIRED_REVIEWER_ACTIVATION_KEY_ID,
+            RETIRED_REVIEWER_EVIDENCE_KEY_ID,
+    } or any(
+        item["revokedAtEpoch"] != REVIEWER_ROTATION_RECEIVED_AT_EPOCH
+        or item["reasonCode"] != REVIEWER_ROTATION_REASON
+        for item in revoked
+    ):
+        raise ActivationError("INVALID_ACTIVATION_REVOCATIONS")
     keys = registry.get("keys")
     if type(keys) is not list or len(keys) != 2:
         raise ActivationError("INVALID_ACTIVATION_TRUST_REGISTRY")
@@ -378,6 +448,7 @@ def _load_activation_trust_registry() -> dict[str, Any]:
     public_keys: set[bytes] = set()
     source_evidence_key_ids: set[str] = set()
     roles: set[str] = set()
+    profile_sha256_by_role: dict[str, str] = {}
     for entry in keys:
         if not isinstance(entry, Mapping) or set(entry) != {
                 "keyId", "sourceEvidenceKeyId", "identityId",
@@ -403,7 +474,9 @@ def _load_activation_trust_registry() -> dict[str, Any]:
         if (key_id != activation_key_id(public_key)
                 or source_evidence_key_id != supervisor._key_id(public_key)
                 or source_evidence_key_id in source_evidence_key_ids
-                or key_id in revoked_ids or identity in identities
+                or key_id in revoked_ids
+                or source_evidence_key_id in revoked_ids
+                or identity in identities
                 or domain in domains or public_key in public_keys
                 or entry.get("role") not in SIGNER_ROLES
                 or entry.get("status") != "ACTIVE"):
@@ -413,8 +486,15 @@ def _load_activation_trust_registry() -> dict[str, Any]:
         public_keys.add(public_key)
         source_evidence_key_ids.add(source_evidence_key_id)
         roles.add(entry["role"])
+        profile_sha256_by_role[entry["role"]] = \
+            _evidence_public_profile_sha256(entry)
     if roles != SIGNER_ROLES:
         raise ActivationError("ACTIVATION_TRUST_ROLES_MISMATCH")
+    if (source.get("ownerPublicProfileSha256")
+            != profile_sha256_by_role.get("ACCOUNTABLE_OWNER")
+            or source.get("reviewerPublicProfileSha256")
+            != profile_sha256_by_role.get("INDEPENDENT_REVIEWER")):
+        raise ActivationError("ACTIVATION_TRUST_PROFILE_DIGEST_MISMATCH")
     return json.loads(_canonical(registry))
 
 
