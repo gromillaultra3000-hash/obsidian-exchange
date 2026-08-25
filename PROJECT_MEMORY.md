@@ -288,10 +288,13 @@ Updated: 2026-08-25 UTC
   active timestamp and restart count zero; the timer returns
   `DORMANT_VERIFIED_NO_RECOVERY_REQUEST`, and coordination/runtime roots remain
   absent. Owner-only kit
-  `/root/obsidian-064a-single-owner-v4-offline-kit-006744f.tar` is 276480 bytes,
-  SHA-256 `6fdcc3db35facd324acd1c479b44ba1cfc93113416c0512187968c89cabe23cb`,
+  `/root/obsidian-064a-single-owner-v4-offline-kit-006744f-preflight.tar` is
+  286720 bytes, SHA-256
+  `012c53c82a6f53e360ed60947ea968504cada26b1e606fc42d63b25ddd0d59d6`,
   and contains no reviewer profile, request, decision, signature or private
-  key. E0.3 is `IN_PROGRESS`/`BLOCKED_OWNER_PATHS_READY`; exact next is one
+  key. Commit `5ef401a` adds a tested offline `preflight-owner-paths` command
+  that decrypts and matches the local owner key but creates no signature.
+  E0.3 is `IN_PROGRESS`/`BLOCKED_OWNER_PATHS_READY`; exact next is one
   owner-device absolute-path preflight and `OWNER_PATHS_READY`, then exactly
   one fresh request and one `ACCOUNTABLE_OWNER` signature. Evidence:
   `docs/e0-3-bot-b5-3-064a-single-owner-v4-inert-rollout.v1.json`.

@@ -2379,10 +2379,13 @@ Only the three unit files were replaced and systemd daemon-reloaded. No service
 was restarted and the launcher was not started. PostgreSQL retained MainPID,
 container PID, active timestamp and restart count zero; the timer returns
 `DORMANT_VERIFIED_NO_RECOVERY_REQUEST`, and coordination/runtime roots are
-absent. The 276480-byte owner-only offline kit is
-`/root/obsidian-064a-single-owner-v4-offline-kit-006744f.tar`, SHA-256
-`6fdcc3db35facd324acd1c479b44ba1cfc93113416c0512187968c89cabe23cb`.
+absent. The final 286720-byte owner-only offline kit is
+`/root/obsidian-064a-single-owner-v4-offline-kit-006744f-preflight.tar`,
+SHA-256 `012c53c82a6f53e360ed60947ea968504cada26b1e606fc42d63b25ddd0d59d6`.
 It contains no reviewer profile, request, decision, signature or private key.
+Pushed commit `5ef401a` adds an offline `preflight-owner-paths` command that
+decrypts and matches the local owner key before request creation without
+creating a signature.
 
 E0.3 remains `IN_PROGRESS`/`BLOCKED_OWNER_PATHS_READY`. Exact next: verify one
 absolute owner-device script/profile/private-key path and report

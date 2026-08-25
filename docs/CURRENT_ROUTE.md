@@ -343,11 +343,13 @@ The core regression passes 300 non-Docker 064A tests. A real disposable
 PostgreSQL rehearsal returned `DISPOSABLE_ACTIVATION_REHEARSAL_VERIFIED`, one
 executor call and journal `CLOSED`; watchdog/cold/hard-kill recovery passed,
 the HBA rolled back byte-exact and all disposable resources were removed. The
-new 276480-byte secret-free kit is
-`/root/obsidian-064a-single-owner-v4-offline-kit-006744f.tar`, SHA-256
-`6fdcc3db35facd324acd1c479b44ba1cfc93113416c0512187968c89cabe23cb`.
+new 286720-byte secret-free kit is
+`/root/obsidian-064a-single-owner-v4-offline-kit-006744f-preflight.tar`, SHA-256
+`012c53c82a6f53e360ed60947ea968504cada26b1e606fc42d63b25ddd0d59d6`.
 It contains only the owner public profile: no reviewer profile, private key,
-request, decision or signature.
+request, decision or signature. Commit `5ef401a` adds an offline
+`preflight-owner-paths` command that decrypts and matches the local owner key
+before a request exists while creating no signature.
 
 Active route remains `E0/E0.3/B5.3/064A`, `BLOCKED_OWNER_PATHS_READY`. Exact
 next: the owner extracts and verifies this kit at one known absolute Termux
