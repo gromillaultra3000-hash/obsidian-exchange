@@ -297,6 +297,19 @@ Updated: 2026-08-25 UTC
   request. Evidence:
   `docs/e0-3-bot-b5-3-064a-reviewer-trust-rotation-rollout.v1.json`.
 
+- 2026-08-25 both external workflows reported matching rotated-kit/profile
+  checks. Fresh registry-v2 decision `1232c5d8...` was not signed because the
+  pasted digest split its final character into a separate command and the
+  assumed `$HOME/a8670` ceremony path did not exist on either device. No owner
+  or reviewer signature was created/received. With 467 seconds left above the
+  commit floor, coordination and request were archived under exact
+  `...aborted-no-signatures-1232c5d8` paths; short path `/root/n8670.tar` was
+  removed. Runtime paths remain absent and the request/nonce/decision are
+  non-reusable. E0.3 remains `IN_PROGRESS`/`BLOCKED_OWNER`. Exact next: verify
+  one absolute ceremony/profile/private-key path on each device and obtain two
+  `PATHS_READY` reports before creating another request. Evidence:
+  `docs/e0-3-bot-b5-3-064a-registry-v2-request-path-abort.v1.json`.
+
 - 2026-08-23 E4 retained status is `IN_PROGRESS` with a `NO_GO` gate decision.
   The experimental one-shot and its server entry point are
   hard-disabled; legacy `e4_memfd_handoff.py` is superseded and fails closed

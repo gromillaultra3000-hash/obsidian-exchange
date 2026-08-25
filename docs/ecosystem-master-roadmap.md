@@ -2338,3 +2338,21 @@ profile SHA matches `3e9a8dc1...`. Only after both PASS reports may one fresh
 15-minute request be created; all prior requests, nonces and signatures remain
 forbidden from reuse. Evidence:
 `docs/e0-3-bot-b5-3-064a-reviewer-trust-rotation-rollout.v1.json`.
+
+## 2026-08-25 — 064A registry-v2 request path-preflight abort
+
+Both external workflows reported exact replacement-kit/profile checks. One
+fresh registry-v2 request was created with decision digest `1232c5d8...`, but
+no signature was created: the pasted digest lost its final character into a
+separate shell command, and the assumed `$HOME/a8670` ceremony path was absent
+on both devices. With 467 seconds remaining above the mandatory commit floor,
+server coordination was archived and the short request path removed rather
+than rushing path repair and two signatures. The request, nonce and decision
+are non-reusable; runtime paths remain absent and launcher was not started.
+
+E0.3 remains `IN_PROGRESS`/`BLOCKED_OWNER`. Exact next: before creating another
+request, locate or freshly extract the verified kit into a known absolute path
+on each signer device and prove the ceremony script plus role-specific public/
+private files exist. Both devices must report `PATHS_READY`; only then create
+one new request. Evidence:
+`docs/e0-3-bot-b5-3-064a-registry-v2-request-path-abort.v1.json`.

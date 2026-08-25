@@ -344,8 +344,20 @@ Active route remains `E0/E0.3/B5.3/064A`, still `BLOCKED_OWNER`: both external
 signer devices must independently verify this exact new activation kit. The
 reviewer device must also confirm that its embedded `reviewer-public.json` SHA
 is the received `3e9a8dc1...`. Only after both exact PASS reports may one fresh
-request be created; no prior request, nonce or signature may be reused. The
-immutable committer may publish runtime paths only while a future fresh
+request be created; no prior request, nonce or signature may be reused.
+
+Both workflows then reported matching checks. Registry-v2 request decision
+`1232c5d8...` was created, but a split digest assignment and absent assumed
+`$HOME/a8670` path prevented signing on reviewer and owner devices. No signature
+was created or received. With only 467 seconds remaining above the commit
+floor, coordination was archived and the short request path removed. This
+request, nonce and decision are non-reusable. Before another request, both
+devices must establish and test exact absolute paths to the ceremony script,
+role-specific public profile and private key, then report `PATHS_READY`.
+Evidence is
+`docs/e0-3-bot-b5-3-064a-registry-v2-request-path-abort.v1.json`.
+
+The immutable committer may publish runtime paths only while a future fresh
 decision retains at least five minutes, and must still leave the launcher
 inactive for the final exact pre-start verification.
 

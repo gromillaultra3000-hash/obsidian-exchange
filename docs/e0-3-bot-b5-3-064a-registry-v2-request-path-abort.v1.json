@@ -1,0 +1,57 @@
+{
+  "schemaVersion": "e0-3-bot-b5-3-064a-registry-v2-request-path-abort.v1",
+  "route": "E0/E0.3/B5.3/064A",
+  "observedAtUtc": "2026-08-25T14:11:24Z",
+  "status": "BLOCKED_OWNER",
+  "outcome": "REGISTRY_V2_REQUEST_ABORTED_NO_SIGNATURES_AFTER_OFFLINE_PATH_PREFLIGHT_FAILURE",
+  "kitVerificationReported": {
+    "ownerWorkflowPass": true,
+    "reviewerWorkflowPass": true,
+    "reviewerProfileShaMatched": true,
+    "kitSha256": "fe12dd66722ca8b4b9a8a6c0bf805f341ef618a12c6fb20e58933cbab42c3002"
+  },
+  "request": {
+    "archiveSha256": "eb28b29b0cc821890d935c2494872ef88858989fa133e2281e49d7a94db27317",
+    "decisionSha256": "1232c5d8f772baed8c2723660a7ab679930ad136cac0237910430c142d304ace",
+    "planSha256": "bea41a463f773cc75a07a782629755536ddd5bdc30508e2ae33cd89b01c90029",
+    "keyringSha256": "58ac097accdc539709123aba9776f4dfd3a6d2552c86cd5ac13bc9fa5f20b556",
+    "registryVersion": 2,
+    "runNonce": "T_3Se6Ayguu2UuhfQ9cenL9cxcavidx4",
+    "issuedAtEpoch": 1787666904,
+    "expiresAtEpoch": 1787667804,
+    "reusable": false
+  },
+  "signatureState": {
+    "ownerSignatureCreated": false,
+    "reviewerSignatureCreated": false,
+    "ownerSignatureReceived": false,
+    "reviewerSignatureReceived": false,
+    "signedDecisionAssembled": false
+  },
+  "abortReason": {
+    "secondsRemainingAboveCommitFloor": 467,
+    "reviewerObservedErrors": [
+      "The final decision-digest character was pasted as a separate shell command.",
+      "The assumed $HOME/a8670 ceremony path did not exist."
+    ],
+    "ownerReportedSamePathFailure": true,
+    "reason": "Both signer paths required correction and neither signature existed; continuing inside the shrinking production-authority window would be unsafe."
+  },
+  "serverDisposition": {
+    "activeCoordinationAbsent": true,
+    "archivedCoordination": "/root/064A-activation-signing-aborted-no-signatures-1232c5d8",
+    "archivedRequest": "/root/064A-activation-request-aborted-no-signatures-1232c5d8.tar",
+    "shortRequestPathRemoved": true
+  },
+  "runtimePostState": {
+    "runtimeRecoveryPackageAbsent": true,
+    "runtimeRecoveryRequestAbsent": true,
+    "runtimeLaunchRequestAbsent": true,
+    "activationStateRootAbsent": true,
+    "launcherStarted": false,
+    "readerAuthorityIncreased": false,
+    "customerRowsRead": false,
+    "moneyAction": false
+  },
+  "nextCanonicalItem": "Before creating another request, establish and test one absolute extracted-kit path on each signer device, verify the ceremony script and correct role-specific public/private files exist there, and keep the full decision digest in one shell assignment. Create no request until both devices report PATHS_READY."
+}
