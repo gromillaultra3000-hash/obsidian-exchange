@@ -612,6 +612,12 @@ def _stage_state(activation_parent_fd: int, name: str) -> None:
         dir_fd=activation_parent_fd,
     )
     try:
+        # ACTIVATION_ROOT.parent is deliberately setgid (03770), so Linux
+        # propagates S_ISGID to a newly created directory even when mkdir(2)
+        # requests 0700.  Clear that inherited bit before creating the four
+        # private roots; the verifier requires the published tree to be
+        # exactly 0700 and its children must not inherit the payout group.
+        os.fchmod(state_fd, 0o700)
         for entry in STATE_NAMES:
             os.mkdir(entry, 0o700, dir_fd=state_fd)
         os.fsync(state_fd)

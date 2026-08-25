@@ -26,6 +26,7 @@ def commit_state(tmp_path, monkeypatch):
     recovery.mkdir(mode=0o755)
     activation_parent = tmp_path / "var"
     activation_parent.mkdir(mode=0o755)
+    activation_parent.chmod(0o3770)
     activation_root = activation_parent / "b64-064a-activation"
     lock = tmp_path / "commit.lock"
     release = tmp_path / ("a" * 40)
@@ -33,7 +34,7 @@ def commit_state(tmp_path, monkeypatch):
 
     monkeypatch.setattr(committer, "RECOVERY_PARENT", recovery)
     monkeypatch.setattr(committer, "ACTIVATION_ROOT", activation_root)
-    monkeypatch.setattr(committer, "ACTIVATION_PARENT_MODE", 0o755)
+    monkeypatch.setattr(committer, "ACTIVATION_PARENT_MODE", 0o3770)
     monkeypatch.setattr(committer, "ACTIVATION_PARENT_GID", os.getgid())
     monkeypatch.setattr(committer, "LOCK_PATH", lock)
     monkeypatch.setattr(watchdog, "RECOVERY_PARENT", recovery)
