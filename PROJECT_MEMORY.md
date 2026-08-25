@@ -1,6 +1,6 @@
 # Project memory
 
-Updated: 2026-08-24 UTC
+Updated: 2026-08-25 UTC
 
 ## Current goal and status
 
@@ -118,10 +118,27 @@ Updated: 2026-08-24 UTC
   `/var/lib/obsidian-exchange/deployment-preimages/e0-e0.3-b5.3-064a-watchdog-20260824T225527Z`.
   Evidence:
   `docs/e0-3-bot-b5-3-064a-dormant-watchdog-cleanup-recovery-rollout.v1.json`.
-  Production activation remains a named `NO_GO`: the separate fixed-argument
-  no-retry hard-wall-timeout launcher and fresh activation signatures are
-  absent. Exact next: implement and independently review only that launcher;
-  do not create or sign a production activation package yet.
+  The separate production launcher prerequisite is now complete. Pushed
+  implementation commit `34bc167ebf192103f588524b521713ab588245e3`
+  upgrades the boundary to v3, signs launcher+watchdog bytes, repeats an exact
+  empty-state preflight under the global interlock, and supervises one
+  process-group attempt with readiness/PDEATHSIG, an exact 180-second wall and
+  no retry. All 2157 Git blobs match its root-owned read-only immutable release.
+  Pushed pin commit `2117e14a8bda531719f671b611f6c7f9edc1ffbc`
+  binds the static launcher, recurring watchdog and PostgreSQL dormant
+  `ExecStartPost` to that release. Focused tests pass 164/164; disposable normal,
+  replay, cold-expiry and hard-kill recovery pass; three independent reviews
+  report GO with no P0/P1. The launcher is loaded/inactive/static and was not
+  started. Manual and recurring v3 watchdog ticks returned
+  `DORMANT_VERIFIED_NO_RECOVERY_REQUEST`; PostgreSQL was not restarted and all
+  production dormant/HBA/container/timer invariants remain exact. Request,
+  package and state are absent. Rollback preimages are at
+  `/var/lib/obsidian-exchange/deployment-preimages/e0-e0.3-b5.3-064a-launcher-20260825T002905Z`.
+  Evidence:
+  `docs/e0-3-bot-b5-3-064a-production-launcher-inert-rollout.v1.json`.
+  Production activation remains `NO_GO` only until a fresh exact v3 package and
+  two independent external owner/reviewer signatures exist. Exact next: prepare
+  a secret-free v3 signing handoff; never reuse the old evidence-only/v2 package.
   Termux exposed a false `--help` error receipt before key generation; commit
   `bfe53faaba17a4e9e0cca83024f602d9d59c965a` fixes `SystemExit` handling and
   is pushed. Current secret-free signing kit `/root/k2.tar` has SHA-256

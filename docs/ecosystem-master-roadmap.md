@@ -2052,3 +2052,39 @@ E0.3 remains `IN_PROGRESS`, and production activation remains a concrete
 hard-wall-timeout, no-retry launcher with independent review. Do not create or
 sign a fresh production activation package until that launcher prerequisite is
 complete.
+
+## 2026-08-25 — 064A production-launcher inert rollout
+
+The separate launcher prerequisite is complete. Activation plan and decision
+schemas are v3, and their exact artifact closure now includes both launcher and
+watchdog bytes. Before touching the observation credential the fixed launcher
+requires an exact-empty production activation root; the same preflight repeats
+under the global interlock before a nonce can be claimed. A parent supervisor
+permits one child attempt, blocks inherited termination signals across fork,
+uses PDEATHSIG plus a post-setsid readiness handshake, terminates the entire
+process group and enforces an exact 180-second outer wall with no retry.
+
+The real disposable PostgreSQL 17.11 rehearsal closed the normal lifecycle,
+rejected replay without a second executor call, supervised the live lease and
+recovered both cold-expired and hard-killed incomplete state to
+`ACTIVATION_RECONCILED_HOLD`. Hard-kill process-group termination was observed;
+automatic recovery attempted once and did not re-execute. Focused regression
+passes 164/164; diff, staged secret scan and systemd verification pass. Three
+independent latest-byte reviews report GO with no P0/P1.
+
+Implementation commit `34bc167ebf192103f588524b521713ab588245e3` and pin commit
+`2117e14a8bda531719f671b611f6c7f9edc1ffbc` are pushed. All 2157 Git blobs match
+the root-owned read-only immutable release. The static launcher, recurring
+watchdog and PostgreSQL dormant `ExecStartPost` all resolve to that exact
+release. The launcher is loaded/inactive/static and was not started;
+PostgreSQL was not restarted. A manual v3 watchdog tick and a subsequent timer
+tick both returned `DORMANT_VERIFIED_NO_RECOVERY_REQUEST`. Timer, PostgreSQL,
+container, exact HBA and dormant reader invariants are healthy; request,
+package and activation state remain absent. Evidence:
+`docs/e0-3-bot-b5-3-064a-production-launcher-inert-rollout.v1.json`.
+
+E0.3 remains `IN_PROGRESS`, and production activation remains a concrete
+`NO_GO` only because a fresh exact v3 package and two independent external
+owner/reviewer signatures are absent. The next canonical item is that fresh
+secret-free signing handoff and ceremony. Old evidence-only and v2 packages
+must not be promoted or reused.

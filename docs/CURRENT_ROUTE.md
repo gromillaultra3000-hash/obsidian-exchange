@@ -1,6 +1,6 @@
 # Current canonical route
 
-Updated: 2026-08-24 UTC
+Updated: 2026-08-25 UTC
 
 ## Product objective
 
@@ -129,9 +129,31 @@ enabled/active/waiting and failed units are zero. Architecture, security and
 operations latest-byte reviews report GO with no P0/P1. Evidence is
 `docs/e0-3-bot-b5-3-064a-dormant-watchdog-cleanup-recovery-rollout.v1.json`.
 
-Production activation remains a named `NO_GO`: the separate fixed-argument,
-hard-wall-timeout, no-retry launcher and fresh activation owner/reviewer
-signatures are absent. Do not create a production activation package yet.
+The separate production launcher prerequisite is now complete and deployed
+inert. Pushed implementation commit
+`34bc167ebf192103f588524b521713ab588245e3` upgrades the activation boundary
+to v3, includes launcher and watchdog bytes in the signed closure, enforces an
+exact-empty production state both before credential access and again under the
+global interlock, and supervises one child attempt with readiness/PDEATHSIG,
+process-group termination, an exact 180-second wall and no retry. All 2157 Git
+blobs match the root-owned read-only immutable release. Pushed pin commit
+`2117e14a8bda531719f671b611f6c7f9edc1ffbc` binds the static launcher, recurring
+watchdog and PostgreSQL dormant `ExecStartPost` to that same release.
+
+The launcher is loaded/inactive/static, was never started and has no enablement
+symlink. The first v3 watchdog one-shot and a subsequent recurring tick both
+returned `DORMANT_VERIFIED_NO_RECOVERY_REQUEST`; the timer is
+enabled/active/waiting. PostgreSQL was not restarted and retained its exact
+MainPID, container ID/PID/start time, image, system identifier, HBA and restart
+count zero. Reader state is still `NOLOGIN`, password absent and zero sessions;
+request/package/state remain absent and failed units are zero. Focused tests
+pass 164/164, the real disposable lifecycle plus hard-kill recovery passed, and
+architecture/security/operations report GO with no P0/P1. Evidence is
+`docs/e0-3-bot-b5-3-064a-production-launcher-inert-rollout.v1.json`.
+
+Production activation remains a named `NO_GO` only because a fresh exact v3
+activation package and its two independent external owner/reviewer signatures
+do not yet exist. The old evidence-only or v2 package must not be reused.
 
 Deployed contract:
 
@@ -169,9 +191,8 @@ Telegram actions; 064B/064D row disposition; unrelated worktree cleanup.
 
 ## Active bounded next slice
 
-Implement and independently review a separate production launcher with fixed
-arguments, a hard wall timeout, process-group termination and no retry. It may
-consume only the already defined activation boundary and must not weaken the
-deployed cleanup-only watchdog. Keep production activation `NO_GO`; do not
-create or sign a fresh activation package until the launcher prerequisite is
-complete.
+Prepare a fresh exact v3 production activation package and secret-free signing
+handoff bound to the deployed immutable launcher/watchdog closure. Obtain two
+independent external owner/reviewer signatures, verify revocation and trusted
+time, and keep the launcher inactive until the exact empty-state and final
+production ceremony preflight pass.
