@@ -97,6 +97,7 @@ def terminal_sources(tmp_path, monkeypatch):
         "decisionSha256": DECISION,
         "implementationCommit": "a" * 40,
         "archiverSha256": "b" * 64,
+        "signedArtifactReleaseCommit": archiver.SIGNED_ARTIFACT_RELEASE.name,
         "terminalState": "RECONCILED_HOLD",
         "resourceState": "RECONCILED_HOLD",
         "credentialIssued": False,
@@ -131,6 +132,22 @@ def terminal_sources(tmp_path, monkeypatch):
 def test_archiver_does_not_invalidate_existing_signed_artifact_closure():
     assert "terminalEvidenceArchiver" not in activation.ARTIFACT_KEYS
     assert "terminalEvidenceArchiver" not in activation.ARTIFACT_PATHS
+
+
+def test_historical_signed_closure_is_exact_and_restored(tmp_path, monkeypatch):
+    historical = tmp_path / ("c" * 40)
+    historical.mkdir(mode=0o555)
+    monkeypatch.setattr(archiver, "SIGNED_ARTIFACT_RELEASE", historical)
+    original = activation.ARTIFACT_PATHS
+
+    with archiver._signed_artifact_closure(ROOT):
+        assert activation.ARTIFACT_PATHS is not original
+        assert set(activation.ARTIFACT_PATHS) == activation.ARTIFACT_KEYS
+        for key, current in original.items():
+            assert activation.ARTIFACT_PATHS[key] == \
+                historical / current.relative_to(ROOT)
+
+    assert activation.ARTIFACT_PATHS is original
 
 
 def test_parser_requires_both_exact_confirmations():

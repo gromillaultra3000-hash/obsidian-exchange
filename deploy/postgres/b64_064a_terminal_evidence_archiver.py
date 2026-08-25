@@ -11,6 +11,7 @@ makes every crash prefix resumable without re-enabling or retrying activation.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import ctypes
 import errno
 import fcntl
@@ -31,6 +32,9 @@ import b64_snapshot_reader_watchdog as watchdog
 
 ROUTE = activation.ROUTE
 RELEASE_BASE = Path("/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a")
+SIGNED_ARTIFACT_RELEASE = (
+    RELEASE_BASE / "c6c3eaba1b78b06235741ce88e003162c35d4bcb"
+)
 BACKUP_BASE = Path("/var/backups/obsidian-exchange")
 ARCHIVE_PARENT = BACKUP_BASE / "b64-064a-terminal-evidence-v1"
 RECOVERY_PARENT = watchdog.RECOVERY_PARENT
@@ -172,6 +176,42 @@ def _open_directory(
     return descriptor
 
 
+def _historical_artifact_paths(release: Path) -> dict[str, Path]:
+    """Resolve the signed plan's files from its exact immutable release.
+
+    The terminal run predates a post-failure fix to the runtime package
+    committer.  Recovery must therefore verify the historical signature
+    against the bytes it actually bound, while this archiver and all active
+    runtime modules remain pinned to the current operational release.
+    """
+    descriptor = _open_directory(SIGNED_ARTIFACT_RELEASE, mode=0o555)
+    os.close(descriptor)
+    paths: dict[str, Path] = {}
+    for key, current in activation.ARTIFACT_PATHS.items():
+        try:
+            relative = current.relative_to(release)
+        except ValueError as exc:
+            raise ArchiveError(
+                "TERMINAL_ARCHIVE_ARTIFACT_PATH_UNBOUND"
+            ) from exc
+        if relative.is_absolute() or ".." in relative.parts:
+            raise ArchiveError("TERMINAL_ARCHIVE_ARTIFACT_PATH_UNBOUND")
+        paths[key] = SIGNED_ARTIFACT_RELEASE / relative
+    if set(paths) != activation.ARTIFACT_KEYS:
+        raise ArchiveError("TERMINAL_ARCHIVE_ARTIFACT_SET_INVALID")
+    return paths
+
+
+@contextlib.contextmanager
+def _signed_artifact_closure(release: Path):
+    original = activation.ARTIFACT_PATHS
+    activation.ARTIFACT_PATHS = _historical_artifact_paths(release)
+    try:
+        yield
+    finally:
+        activation.ARTIFACT_PATHS = original
+
+
 def _acquire_lock() -> int:
     descriptor = -1
     try:
@@ -305,7 +345,8 @@ def _dormant() -> dict[str, Any]:
 
 
 def _verified_recovery(
-    package: Mapping[str, Any], *, nonce: str, decision_sha256: str,
+    package: Mapping[str, Any], *, release: Path, nonce: str,
+    decision_sha256: str,
 ) -> Any:
     request = package.get("request")
     if (package.get("stagedWithoutRequest") is not False
@@ -314,13 +355,14 @@ def _verified_recovery(
             or request.get("decisionSha256") != decision_sha256):
         raise ArchiveError("TERMINAL_ARCHIVE_RECOVERY_BINDING_MISMATCH")
     now, _evidence = activation.supervisor._trusted_now_epoch()
-    recovery = activation.verify_cleanup_recovery(
-        keyring_raw=package["keyring.json"],
-        decision_raw=package["decision.json"],
-        activation_plan_raw=package["activation-plan.json"],
-        expected_keyring_sha256=request["expectedKeyringSha256"],
-        expected_environment="PRODUCTION", now_epoch=now,
-    )
+    with _signed_artifact_closure(release):
+        recovery = activation.verify_cleanup_recovery(
+            keyring_raw=package["keyring.json"],
+            decision_raw=package["decision.json"],
+            activation_plan_raw=package["activation-plan.json"],
+            expected_keyring_sha256=request["expectedKeyringSha256"],
+            expected_environment="PRODUCTION", now_epoch=now,
+        )
     if (type(recovery) is not activation.VerifiedRecovery
             or recovery.run_nonce != nonce
             or recovery.decision_sha256 != decision_sha256
@@ -467,6 +509,7 @@ def _manifest(
         "keyringSha256": recovery.keyring_sha256,
         "implementationCommit": release.name,
         "archiverSha256": archiver_sha256,
+        "signedArtifactReleaseCommit": SIGNED_ARTIFACT_RELEASE.name,
         "terminalState": journal["state"],
         "terminalReason": journal["reasonCode"],
         "resourceState": resources["state"],
@@ -512,6 +555,8 @@ def _decode_manifest(raw: bytes, *, nonce: str, decision_sha256: str) -> dict[st
             ) is None
             or type(value.get("archiverSha256")) is not str
             or re.fullmatch(r"[0-9a-f]{64}", value["archiverSha256"]) is None
+            or value.get("signedArtifactReleaseCommit")
+            != SIGNED_ARTIFACT_RELEASE.name
             or digest != _sha(_canonical(unsigned))
             or value.get("terminalState") != "RECONCILED_HOLD"
             or value.get("resourceState") != "RECONCILED_HOLD"
@@ -768,7 +813,8 @@ def archive_terminal_evidence(
                 if package is None:
                     raise ArchiveError("TERMINAL_ARCHIVE_RECOVERY_PACKAGE_MISSING")
                 recovery = _verified_recovery(
-                    package, nonce=nonce, decision_sha256=decision_sha256,
+                    package, release=release, nonce=nonce,
+                    decision_sha256=decision_sha256,
                 )
                 journal_object = activation.ActivationJournal(
                     activation.PRODUCTION_JOURNAL_ROOT, recovery,
