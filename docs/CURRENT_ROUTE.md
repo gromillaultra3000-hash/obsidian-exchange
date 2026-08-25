@@ -321,41 +321,40 @@ It contains no key, passphrase, credential or runtime request and grants no
 production authority. Evidence is
 `docs/e0-3-bot-b5-3-064a-reviewer-key-rotation-kit.v1.json`.
 
-The public-only rotation roundtrip is now closed. The received 399-byte profile
-SHA-256 is `3e9a8dc12bd7f11bbc0ddc8048095710bc9670090daaf5c66b11c9417f45ea61`;
-no private key or passphrase was received. Pushed implementation commit
-`dd1934f865381ae139b4cb6037d157ff34d825b2` advances the pinned registry to
-version 2, chains the previous semantic registry, explicitly revokes both old
-reviewer IDs for future activation trust and makes only
-`reviewer_independent_2026_r2`/`reviewer_device_02` active. Pin commit
-`8670bbdf058c5263c21b6f7290cc35c9fabc3a96` is pushed; both immutable releases
-match all 2173 Git blobs.
+The owner selected an explicit weaker-but-honest single-owner activation model
+after the alleged reviewer device proved to share the owner boot identity and
+both private-key paths. The v3/two-party path is retired. Implementation commit
+`006744f9ebdd9c80e93b9896f2dabc2f6f1d7e31` introduces decision/signature
+domain v4, trust registry v3 and the digest-pinned
+`ACCOUNTABLE_OWNER_ONLY` policy. Both reviewer generations are revoked; the
+owner is the sole active activation role. Old v3 decisions and detached
+signatures fail closed and are non-reusable.
 
-The three inert systemd units now pin `dd1934f`; no service was restarted and
-the launcher was not started. PostgreSQL retained PID/start/restart-zero, the
-watchdog returns `DORMANT_VERIFIED_NO_RECOVERY_REQUEST`, seven consumers and
-both safety timers are active, failed units are zero and all runtime paths are
-absent. The new 276480-byte secret-free activation kit is `/root/a8670.tar`,
-SHA-256 `fe12dd66722ca8b4b9a8a6c0bf805f341ef618a12c6fb20e58933cbab42c3002`;
-its internal checksums and manifest self-hash pass. Evidence is
-`docs/e0-3-bot-b5-3-064a-reviewer-trust-rotation-rollout.v1.json`.
+The exact 2176-file implementation release is root-owned, read-only and
+immutable. Pin/hardening commits `1711f49` and `c94ad6a` are pushed, and all
+three inert units now point at `006744f` with bytecode writes disabled. No
+service was restarted and the launcher was not started. PostgreSQL retained
+MainPID `3136948`, container PID `3137013`, active timestamp and restart count
+zero. The live timer returns `DORMANT_VERIFIED_NO_RECOVERY_REQUEST`; reader
+authority remains disabled/credential-absent/session-free, and coordination
+and runtime roots remain absent.
 
-Active route remains `E0/E0.3/B5.3/064A`, still `BLOCKED_OWNER`: both external
-signer devices must independently verify this exact new activation kit. The
-reviewer device must also confirm that its embedded `reviewer-public.json` SHA
-is the received `3e9a8dc1...`. Only after both exact PASS reports may one fresh
-request be created; no prior request, nonce or signature may be reused.
+The core regression passes 300 non-Docker 064A tests. A real disposable
+PostgreSQL rehearsal returned `DISPOSABLE_ACTIVATION_REHEARSAL_VERIFIED`, one
+executor call and journal `CLOSED`; watchdog/cold/hard-kill recovery passed,
+the HBA rolled back byte-exact and all disposable resources were removed. The
+new 276480-byte secret-free kit is
+`/root/obsidian-064a-single-owner-v4-offline-kit-006744f.tar`, SHA-256
+`6fdcc3db35facd324acd1c479b44ba1cfc93113416c0512187968c89cabe23cb`.
+It contains only the owner public profile: no reviewer profile, private key,
+request, decision or signature.
 
-Both workflows then reported matching checks. Registry-v2 request decision
-`1232c5d8...` was created, but a split digest assignment and absent assumed
-`$HOME/a8670` path prevented signing on reviewer and owner devices. No signature
-was created or received. With only 467 seconds remaining above the commit
-floor, coordination was archived and the short request path removed. This
-request, nonce and decision are non-reusable. Before another request, both
-devices must establish and test exact absolute paths to the ceremony script,
-role-specific public profile and private key, then report `PATHS_READY`.
-Evidence is
-`docs/e0-3-bot-b5-3-064a-registry-v2-request-path-abort.v1.json`.
+Active route remains `E0/E0.3/B5.3/064A`, `BLOCKED_OWNER_PATHS_READY`. Exact
+next: the owner extracts and verifies this kit at one known absolute Termux
+path and proves the ceremony script, embedded owner profile and existing owner
+private key are readable. Only after `OWNER_PATHS_READY` may the server create
+one final fresh request and accept one `ACCOUNTABLE_OWNER` signature. Evidence:
+`docs/e0-3-bot-b5-3-064a-single-owner-v4-inert-rollout.v1.json`.
 
 The immutable committer may publish runtime paths only while a future fresh
 decision retains at least five minutes, and must still leave the launcher

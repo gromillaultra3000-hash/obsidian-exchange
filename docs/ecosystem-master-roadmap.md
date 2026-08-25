@@ -2356,3 +2356,36 @@ on each signer device and prove the ceremony script plus role-specific public/
 private files exist. Both devices must report `PATHS_READY`; only then create
 one new request. Evidence:
 `docs/e0-3-bot-b5-3-064a-registry-v2-request-path-abort.v1.json`.
+
+## 2026-08-25 — 064A explicit single-owner v4 inert rollout
+
+The owner chose an explicit `ACCOUNTABLE_OWNER_ONLY` activation model after
+the reported reviewer device proved to share the owner boot identity and both
+private-key paths. This deliberately reduces separation of duties but removes
+the false independent-custody claim. Decision/signature domain v4, trust
+registry v3 and a digest-pinned single-owner policy retire both reviewer
+generations and reject all v3/two-party packages.
+
+Pushed implementation commit
+`006744f9ebdd9c80e93b9896f2dabc2f6f1d7e31`, pin commit `1711f49` and
+bytecode-hardening commit `c94ad6a` are deployed inertly. The immutable release
+matches all 2176 Git files. The non-Docker 064A regression passes 300 tests; a
+real disposable PostgreSQL rehearsal returned
+`DISPOSABLE_ACTIVATION_REHEARSAL_VERIFIED`, one executor call, journal
+`CLOSED`, supervised live lease and successful cold/hard-kill recovery. Its
+HBA rolled back byte-exact and all created disposable resources were removed.
+
+Only the three unit files were replaced and systemd daemon-reloaded. No service
+was restarted and the launcher was not started. PostgreSQL retained MainPID,
+container PID, active timestamp and restart count zero; the timer returns
+`DORMANT_VERIFIED_NO_RECOVERY_REQUEST`, and coordination/runtime roots are
+absent. The 276480-byte owner-only offline kit is
+`/root/obsidian-064a-single-owner-v4-offline-kit-006744f.tar`, SHA-256
+`6fdcc3db35facd324acd1c479b44ba1cfc93113416c0512187968c89cabe23cb`.
+It contains no reviewer profile, request, decision, signature or private key.
+
+E0.3 remains `IN_PROGRESS`/`BLOCKED_OWNER_PATHS_READY`. Exact next: verify one
+absolute owner-device script/profile/private-key path and report
+`OWNER_PATHS_READY`. Only then create one final fresh request and accept one
+`ACCOUNTABLE_OWNER` signature. Evidence:
+`docs/e0-3-bot-b5-3-064a-single-owner-v4-inert-rollout.v1.json`.

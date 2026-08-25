@@ -272,43 +272,29 @@ Updated: 2026-08-25 UTC
   rebuild/reverify the activation kit before any request. Evidence:
   `docs/e0-3-bot-b5-3-064a-reviewer-key-rotation-kit.v1.json`.
 
-- 2026-08-25 the separate reviewer workflow returned only the canonical
-  399-byte public profile SHA-256
-  `3e9a8dc12bd7f11bbc0ddc8048095710bc9670090daaf5c66b11c9417f45ea61`;
-  project validation derived evidence key `b64e_cd9e...` and activation key
-  `b64a_4c31...` for `reviewer_independent_2026_r2` on
-  `reviewer_device_02`. No private key/passphrase was received. Pushed commit
-  `dd1934f865381ae139b4cb6037d157ff34d825b2` advances the pinned activation
-  registry to v2, chains prior semantic SHA `5f190f5f...`, explicitly revokes
-  both old reviewer IDs for future activation trust and binds active profile
-  digests; pushed pin commit `8670bbdf058c5263c21b6f7290cc35c9fabc3a96`
-  points three inert units to it. Both immutable releases match 2173 Git blobs.
-  Registry/ceremony tests pass 67/67, expanded non-Docker 064A tests 298/298
-  and pin-focused tests 108/108. Exact unit preimages are under
-  `/var/lib/obsidian-exchange/deployment-preimages/e0-e0.3-b5.3-064a-reviewer-rotation-20260825T135958Z`.
-  No service restarted; launcher start remains zero, PostgreSQL PID/start/
-  restart-zero is unchanged, watchdog is dormant, seven consumers/two safety
-  timers are active, failed units and runtime paths are zero/absent. New
-  276480-byte secret-free kit `/root/a8670.tar` SHA-256 is
-  `fe12dd66722ca8b4b9a8a6c0bf805f341ef618a12c6fb20e58933cbab42c3002`;
-  internal checksums pass. E0.3 remains `IN_PROGRESS`/`BLOCKED_OWNER` until
-  both external devices independently verify this exact kit and the reviewer
-  confirms embedded profile SHA `3e9a8dc1...`; only then create one fresh
-  request. Evidence:
-  `docs/e0-3-bot-b5-3-064a-reviewer-trust-rotation-rollout.v1.json`.
-
-- 2026-08-25 both external workflows reported matching rotated-kit/profile
-  checks. Fresh registry-v2 decision `1232c5d8...` was not signed because the
-  pasted digest split its final character into a separate command and the
-  assumed `$HOME/a8670` ceremony path did not exist on either device. No owner
-  or reviewer signature was created/received. With 467 seconds left above the
-  commit floor, coordination and request were archived under exact
-  `...aborted-no-signatures-1232c5d8` paths; short path `/root/n8670.tar` was
-  removed. Runtime paths remain absent and the request/nonce/decision are
-  non-reusable. E0.3 remains `IN_PROGRESS`/`BLOCKED_OWNER`. Exact next: verify
-  one absolute ceremony/profile/private-key path on each device and obtain two
-  `PATHS_READY` reports before creating another request. Evidence:
-  `docs/e0-3-bot-b5-3-064a-registry-v2-request-path-abort.v1.json`.
+- 2026-08-25 the owner selected an explicit weaker-but-honest single-owner
+  activation model after both alleged signer devices reported the same boot
+  identity and both private-key paths. Pushed implementation commit
+  `006744f9ebdd9c80e93b9896f2dabc2f6f1d7e31` introduces decision/signature
+  domain v4, trust registry v3 and a digest-pinned
+  `ACCOUNTABLE_OWNER_ONLY` policy; both reviewer generations are revoked and
+  v3/two-party packages fail closed. Pin/hardening commits `1711f49` and
+  `c94ad6a` are pushed. The exact 2176-file immutable release is deployed to
+  all three inert unit pins without service restart or launcher start. Core
+  tests pass 300/300 and the disposable PostgreSQL rehearsal returned one
+  executor call, journal `CLOSED`, supervised live lease, cold/hard-kill
+  recovery and byte-exact HBA rollback; all created disposable resources were
+  removed. PostgreSQL retained MainPID `3136948`, container PID `3137013`,
+  active timestamp and restart count zero; the timer returns
+  `DORMANT_VERIFIED_NO_RECOVERY_REQUEST`, and coordination/runtime roots remain
+  absent. Owner-only kit
+  `/root/obsidian-064a-single-owner-v4-offline-kit-006744f.tar` is 276480 bytes,
+  SHA-256 `6fdcc3db35facd324acd1c479b44ba1cfc93113416c0512187968c89cabe23cb`,
+  and contains no reviewer profile, request, decision, signature or private
+  key. E0.3 is `IN_PROGRESS`/`BLOCKED_OWNER_PATHS_READY`; exact next is one
+  owner-device absolute-path preflight and `OWNER_PATHS_READY`, then exactly
+  one fresh request and one `ACCOUNTABLE_OWNER` signature. Evidence:
+  `docs/e0-3-bot-b5-3-064a-single-owner-v4-inert-rollout.v1.json`.
 
 - 2026-08-23 E4 retained status is `IN_PROGRESS` with a `NO_GO` gate decision.
   The experimental one-shot and its server entry point are
