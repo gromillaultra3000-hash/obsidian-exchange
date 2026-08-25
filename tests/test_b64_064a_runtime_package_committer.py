@@ -109,11 +109,11 @@ def test_committer_is_in_signed_artifact_closure():
     assert "runtimePackageCommitter" in activation.ARTIFACT_KEYS
 
 
-def test_activation_parent_contract_requires_sticky_root_nogroup(
+def test_activation_parent_contract_requires_sticky_root_payout_group(
     tmp_path,
 ):
     assert committer.ACTIVATION_PARENT_MODE == 0o3770
-    assert committer.ACTIVATION_PARENT_GID == 65534
+    assert committer.ACTIVATION_PARENT_GID == 986
     parent = tmp_path / "shared-parent"
     parent.mkdir(mode=0o700)
     parent.chmod(0o3770)

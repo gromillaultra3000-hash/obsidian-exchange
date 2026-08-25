@@ -35,11 +35,12 @@ RELEASE_BASE = Path(
 COORDINATION_ROOT = Path("/root/064A-activation-signing-active")
 RECOVERY_PARENT = watchdog.RECOVERY_PARENT
 ACTIVATION_ROOT = activation.PRODUCTION_ACTIVATION_ROOT
-# The legacy Exchange parent is intentionally shared with nogroup.  Sticky+
-# setgid prevents that group from removing the root-owned activation tree after
-# publication while preserving the existing group inheritance contract.
+# The legacy Exchange parent is intentionally shared with the production
+# obsidian-payout group.  Sticky+setgid prevents that group from removing the
+# root-owned activation tree after publication while preserving the existing
+# group inheritance contract.
 ACTIVATION_PARENT_MODE = 0o3770
-ACTIVATION_PARENT_GID = 65534
+ACTIVATION_PARENT_GID = 986
 PYTHON = Path("/opt/obsidian-exchange/relay-venv/bin/python")
 LOCK_PATH = Path("/run/lock/obsidian-b64-064a-package-commit.lock")
 MINIMUM_COMMIT_WINDOW_SECONDS = 300
