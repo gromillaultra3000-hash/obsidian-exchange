@@ -4,15 +4,15 @@ Requires=obsidian-postgres.service
 Requires=obsidian-b64-snapshot-reader-watchdog.timer
 BindsTo=obsidian-postgres.service
 After=obsidian-postgres.service obsidian-b64-snapshot-reader-watchdog.timer obsidian-b64-snapshot-reader-watchdog.service
-ConditionPathExists=/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/387fab2a90f7c89c837c8ca92bac381bdf55c96b/deploy/postgres/b64_064a_activation_launcher.py
+ConditionPathExists=/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/f10098625854aefcdfbaadf8f9d75e003f298497/deploy/postgres/b64_064a_activation_launcher.py
 ConditionPathExists=/etc/obsidian-exchange/postgres/admin.active.env
 
 [Service]
 Type=oneshot
 User=root
 Group=root
-WorkingDirectory=/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/387fab2a90f7c89c837c8ca92bac381bdf55c96b
-ExecStart=/opt/obsidian-exchange/relay-venv/bin/python -E /opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/387fab2a90f7c89c837c8ca92bac381bdf55c96b/deploy/postgres/b64_064a_activation_launcher.py
+WorkingDirectory=/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/f10098625854aefcdfbaadf8f9d75e003f298497
+ExecStart=/opt/obsidian-exchange/relay-venv/bin/python -E /opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/f10098625854aefcdfbaadf8f9d75e003f298497/deploy/postgres/b64_064a_activation_launcher.py
 LoadCredential=observation-env:/etc/obsidian-exchange/postgres/admin.active.env
 Environment=PATH=/usr/bin:/bin
 Environment=LC_ALL=C
