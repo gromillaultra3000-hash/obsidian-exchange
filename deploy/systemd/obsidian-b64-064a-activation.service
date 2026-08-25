@@ -12,7 +12,7 @@ Type=oneshot
 User=root
 Group=root
 WorkingDirectory=/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/006744f9ebdd9c80e93b9896f2dabc2f6f1d7e31
-ExecStart=/opt/obsidian-exchange/relay-venv/bin/python -E /opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/006744f9ebdd9c80e93b9896f2dabc2f6f1d7e31/deploy/postgres/b64_064a_activation_launcher.py
+ExecStart=/opt/obsidian-exchange/relay-venv/bin/python -B -E /opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/006744f9ebdd9c80e93b9896f2dabc2f6f1d7e31/deploy/postgres/b64_064a_activation_launcher.py
 LoadCredential=observation-env:/etc/obsidian-exchange/postgres/admin.active.env
 Environment=PATH=/usr/bin:/bin
 Environment=LC_ALL=C

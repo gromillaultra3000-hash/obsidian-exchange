@@ -443,7 +443,7 @@ def test_systemd_unit_is_manual_fixed_and_watchdog_preserving():
     assert "IMPLEMENTATION_COMMIT" not in unit
     assert f"WorkingDirectory={release}" in unit
     assert f"ConditionPathExists={release}/deploy/postgres/" in unit
-    assert f"ExecStart=/opt/obsidian-exchange/relay-venv/bin/python -E {release}/deploy/postgres/" in unit
+    assert f"ExecStart=/opt/obsidian-exchange/relay-venv/bin/python -B -E {release}/deploy/postgres/" in unit
     assert "Type=oneshot" in unit
     assert "Restart=no" in unit
     assert "TimeoutStartSec=190" in unit
@@ -453,7 +453,7 @@ def test_systemd_unit_is_manual_fixed_and_watchdog_preserving():
     assert "SendSIGKILL=yes" in unit
     assert "LoadCredential=observation-env:" in unit
     assert "EnvironmentFile=" not in unit
-    assert "ExecStart=/opt/obsidian-exchange/relay-venv/bin/python -E " in unit
+    assert "ExecStart=/opt/obsidian-exchange/relay-venv/bin/python -B -E " in unit
     assert "b64_064a_activation_launcher.py" in unit
     assert "--" not in next(
         line for line in unit.splitlines() if line.startswith("ExecStart=")

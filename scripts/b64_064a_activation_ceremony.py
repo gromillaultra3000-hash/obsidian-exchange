@@ -509,7 +509,7 @@ def _production_tuple() -> dict[str, Any]:
         "deploy/postgres/b64_snapshot_reader_watchdog.py"
     )
     report = _fixed_subprocess([
-        str(PYTHON), "-E", str(watchdog),
+        str(PYTHON), "-B", "-E", str(watchdog),
         "--expected-image-id", activation.PRODUCTION_IMAGE_ID,
         "--expected-server-version-num", "170011", "--require-dormant",
     ], timeout=60)
@@ -1063,7 +1063,7 @@ def _verify_with_immutable_entrypoint(
     plan: Mapping[str, Any], decision: Mapping[str, Any],
 ) -> dict[str, Any]:
     receipt = _fixed_subprocess([
-        str(PYTHON), "-E",
+        str(PYTHON), "-B", "-E",
         str(_release_file("deploy/postgres/b64_064a_activation_entrypoint.py")),
         "--verify-package",
         "--keyring", str(COORDINATION_ROOT / "keyring.json"),

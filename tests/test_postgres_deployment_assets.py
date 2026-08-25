@@ -53,7 +53,7 @@ assert "b64_snapshot_reader_transition_gate.py" in unit
 assert "b64_snapshot_reader_transition_gate.py --expected-image-id" in unit
 assert "--expected-server-version-num 170011 --apply" in unit
 assert "b64_snapshot_reader_watchdog.py" in unit
-assert f"ExecStartPost=/opt/obsidian-exchange/relay-venv/bin/python {EXPECTED_IMPLEMENTATION_RELEASE}b64_snapshot_reader_watchdog.py" in unit
+assert f"ExecStartPost=/opt/obsidian-exchange/relay-venv/bin/python -B {EXPECTED_IMPLEMENTATION_RELEASE}b64_snapshot_reader_watchdog.py" in unit
 
 supervisor = (
     ROOT / "deploy/systemd/obsidian-b64-dump-restore-supervisor.service"
@@ -88,11 +88,11 @@ assert "ReadWritePaths=/run/lock /var/lib/docker/volumes/obsidian-postgres-data/
 assert "--require-dormant" in watchdog_unit
 assert "--cleanup-recovery" in watchdog_unit
 assert "--cleanup-recovery" not in unit
-assert f"ExecStart=/opt/obsidian-exchange/relay-venv/bin/python {EXPECTED_IMPLEMENTATION_RELEASE}b64_snapshot_reader_watchdog.py" in watchdog_unit
+assert f"ExecStart=/opt/obsidian-exchange/relay-venv/bin/python -B {EXPECTED_IMPLEMENTATION_RELEASE}b64_snapshot_reader_watchdog.py" in watchdog_unit
 assert watchdog_unit.count(f"ConditionPathExists={EXPECTED_IMPLEMENTATION_RELEASE}") == 4
 assert "IMPLEMENTATION_COMMIT" not in activation_unit
 assert f"WorkingDirectory={EXPECTED_IMPLEMENTATION_RELEASE.removesuffix('deploy/postgres/').removesuffix('/')}" in activation_unit
-assert f"ExecStart=/opt/obsidian-exchange/relay-venv/bin/python -E {EXPECTED_IMPLEMENTATION_RELEASE}b64_064a_activation_launcher.py" in activation_unit
+assert f"ExecStart=/opt/obsidian-exchange/relay-venv/bin/python -B -E {EXPECTED_IMPLEMENTATION_RELEASE}b64_064a_activation_launcher.py" in activation_unit
 assert "BindsTo=obsidian-postgres.service" in watchdog_unit
 assert "ReadWritePaths=/run/lock /var/lib/docker/volumes/obsidian-postgres-data/_data/.obsidian-b64-hba-v1 -/var/lib/obsidian-exchange/b64-064a-activation/journal -/var/lib/obsidian-exchange/b64-064a-activation/resources -/var/lib/obsidian-exchange/b64-064a-activation/workspace -/var/lib/obsidian-exchange/b64-064a-activation/proxy" in watchdog_unit
 assert "TimeoutStartSec=180" in watchdog_unit
