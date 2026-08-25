@@ -136,15 +136,30 @@ Updated: 2026-08-25 UTC
   `/var/lib/obsidian-exchange/deployment-preimages/e0-e0.3-b5.3-064a-launcher-20260825T002905Z`.
   Evidence:
   `docs/e0-3-bot-b5-3-064a-production-launcher-inert-rollout.v1.json`.
-  Production activation remains `NO_GO` only until a fresh exact v3 package and
-  two independent external owner/reviewer signatures exist. Exact next: prepare
-  a secret-free v3 signing handoff; never reuse the old evidence-only/v2 package.
-  Termux exposed a false `--help` error receipt before key generation; commit
-  `bfe53faaba17a4e9e0cca83024f602d9d59c965a` fixes `SystemExit` handling and
-  is pushed. Current secret-free signing kit `/root/k2.tar` has SHA-256
-  `42582645ccc35e9888f46f6edf07b8861a06819eb89c24d45bfd177f4ffa02c6`;
-  current signer SHA-256 is
-  `ca1fedebe4fba5498a72260aa2957c697170b8ef5b327c75bcf2565a88694879`.
+  Activation signing readiness is now deployed inert from pushed implementation
+  commit `8231d1ec61345118b184163e912abb63712fea0a` and pin commit
+  `176893d808d348b8a8bbda0c017c28a2e7806065`. The exact pinned trust registry
+  prevents self-declared production keyrings and proves the activation/evidence
+  key IDs derive from the same two independent public keys. The v3 ceremony
+  deterministically builds secret-free offline/request archives, accepts no
+  caller-controlled target/time/nonce/hook/release, verifies detached
+  signatures before import, and assembles no runtime request. Both immutable
+  releases match all 2162 Git blobs. PostgreSQL was not restarted; launcher is
+  inactive/static; the post-pin watchdog returned
+  `DORMANT_VERIFIED_NO_RECOVERY_REQUEST` with the same healthy container/HBA and
+  `NOLOGIN`/credential-absent/session-free reader. The real disposable normal,
+  replay, cold-expiry and hard-kill lifecycle passed with receipt SHA-256
+  `cd78ac9fd910f6cb2458e1eff664a2bb1b59f2ea0b6e419266927e7e62840a13`;
+  all disposable resources are absent. The current offline kit is
+  `/root/064A-activation-handoff/obsidian-064a-activation-v3-offline-kit-8231d1ec.tar`,
+  SHA-256 `1476cf4d0136ed9c0f57f9fb16c8e391b8d7d492e0c7c1e650199fa8c8b39774`.
+  Evidence:
+  `docs/e0-3-bot-b5-3-064a-production-activation-signing-readiness-rollout.v1.json`.
+  E0.3 remains `IN_PROGRESS`; activation is `BLOCKED_OWNER`. Exact next:
+  transfer/verify this static kit on both external signer devices, then create
+  one fresh 15-minute v3 request and obtain both detached signatures without
+  starting the launcher. No fresh request exists yet; old evidence-only/v2
+  packages remain prohibited.
 
 - 2026-08-23 E4 retained status is `IN_PROGRESS` with a `NO_GO` gate decision.
   The experimental one-shot and its server entry point are

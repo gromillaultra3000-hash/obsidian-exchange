@@ -151,9 +151,31 @@ pass 164/164, the real disposable lifecycle plus hard-kill recovery passed, and
 architecture/security/operations report GO with no P0/P1. Evidence is
 `docs/e0-3-bot-b5-3-064a-production-launcher-inert-rollout.v1.json`.
 
-Production activation remains a named `NO_GO` only because a fresh exact v3
-activation package and its two independent external owner/reviewer signatures
-do not yet exist. The old evidence-only or v2 package must not be reused.
+The activation signing-readiness slice is now deployed inert. Implementation
+commit `8231d1ec61345118b184163e912abb63712fea0a` pins a production activation
+trust registry, proves each activation/evidence key-ID pair derives from the
+same public key, and rejects self-declared keyrings. Its exact v3 ceremony
+builds deterministic secret-free offline/request archives, checks target/time/
+revocation and immutable closure, verifies detached Ed25519 signatures before
+root-only import, and assembles no runtime request. Pin commit
+`176893d808d348b8a8bbda0c017c28a2e7806065` is pushed. Both immutable releases
+have all 2162 Git blobs verified; the three installed units resolve to the
+implementation release. PostgreSQL was not restarted, the launcher remains
+inactive/static, and the post-pin watchdog returned
+`DORMANT_VERIFIED_NO_RECOVERY_REQUEST` with the same healthy dormant production
+tuple. The secret-free offline kit is
+`/root/064A-activation-handoff/obsidian-064a-activation-v3-offline-kit-8231d1ec.tar`,
+SHA-256 `1476cf4d0136ed9c0f57f9fb16c8e391b8d7d492e0c7c1e650199fa8c8b39774`.
+A real disposable PostgreSQL 17.11 lifecycle passed normal/replay/cold-expiry/
+hard-kill recovery; receipt SHA-256 is
+`cd78ac9fd910f6cb2458e1eff664a2bb1b59f2ea0b6e419266927e7e62840a13`.
+Evidence is
+`docs/e0-3-bot-b5-3-064a-production-activation-signing-readiness-rollout.v1.json`.
+
+E0.3 remains `IN_PROGRESS`; production activation is `BLOCKED_OWNER` because
+the two external signer devices have not yet produced fresh owner/reviewer v3
+signatures. No 15-minute request was created prematurely. The old evidence-only
+or v2 package must not be promoted or reused.
 
 Deployed contract:
 
@@ -191,8 +213,8 @@ Telegram actions; 064B/064D row disposition; unrelated worktree cleanup.
 
 ## Active bounded next slice
 
-Prepare a fresh exact v3 production activation package and secret-free signing
-handoff bound to the deployed immutable launcher/watchdog closure. Obtain two
-independent external owner/reviewer signatures, verify revocation and trusted
-time, and keep the launcher inactive until the exact empty-state and final
-production ceremony preflight pass.
+Transfer and independently verify the secret-free offline kit on both signer
+devices. Once both devices are ready, open one fresh exact 15-minute v3 request,
+obtain the accountable-owner and independent-reviewer detached signatures, and
+keep the launcher inactive until the exact empty-state and final production
+ceremony preflight pass.

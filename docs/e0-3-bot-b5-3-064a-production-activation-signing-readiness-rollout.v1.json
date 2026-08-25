@@ -1,0 +1,216 @@
+{
+  "schemaVersion": "obsidian-e0-3-bot-b5-3-064a-production-activation-signing-readiness-rollout.v1",
+  "route": [
+    "E0",
+    "E0.3",
+    "B5.3",
+    "064A"
+  ],
+  "observedAtUtc": "2026-08-25T03:16:04Z",
+  "status": "VERIFIED_SECRET_FREE_SIGNING_READINESS_DEPLOYED",
+  "gateStatus": "IN_PROGRESS",
+  "productionActivationStatus": "BLOCKED_OWNER",
+  "namedBlocker": "Two fresh independent external v3 activation signatures over one exact unexpired decision do not yet exist",
+  "boundedSlice": "Deploy an immutable activation trust registry and exact v3 signing toolchain, publish a secret-free offline kit, and preserve an inactive launcher until the short external ceremony can begin",
+  "dependencies": {
+    "productionLauncherInertRollout": "docs/e0-3-bot-b5-3-064a-production-launcher-inert-rollout.v1.json",
+    "authenticatedEvidenceAcceptance": "docs/e0-3-bot-b5-3-064a-authenticated-evidence-acceptance-rollout.v1.json",
+    "trustRegistrySourceEvidenceKeyringSha256": "a83cfac0c2a61edb83480ae782e077d3fafc6401b3e2f1694aeebf6fd24b113c",
+    "trustRegistrySourceEvidenceKeyringRawSha256": "ad513da3eafb2164e94f2f854e26bb3b8b192ac20b9c80ee2d743dbe83a15ff2",
+    "trustedTime": {
+      "timezone": "Etc/UTC",
+      "ntpSynchronized": true,
+      "observedAtUtc": "2026-08-25T03:16:04Z"
+    }
+  },
+  "implementation": {
+    "implementationCommit": "8231d1ec61345118b184163e912abb63712fea0a",
+    "pinCommit": "176893d808d348b8a8bbda0c017c28a2e7806065",
+    "pushedBranch": "origin/master",
+    "implementationRelease": "/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/8231d1ec61345118b184163e912abb63712fea0a",
+    "operatorRelease": "/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/176893d808d348b8a8bbda0c017c28a2e7806065",
+    "implementationReleaseGitBlobsVerified": 2162,
+    "operatorReleaseGitBlobsVerified": 2162,
+    "releaseOwner": "root:root",
+    "releaseMode": "0555 directory tree with no group/other/owner write bits",
+    "candidateSymlinkUnchanged": "abb22afc99e504cee29881d5e4b19ba15c0f343d",
+    "entrypointSha256": "e8ce33befcc46f4befa239e6ed18f167a456f482bf340744b0347da1bcdeaf38",
+    "ceremonyToolSha256": "be5053ce3902656f175623c6a772a1b131a057b693648315fe02024d29b86ca9",
+    "trustRegistryRawSha256": "6632d656100fe2c7697d774b615466ff1850d2060088ea2c3a1fa25b373d7adc",
+    "trustRegistrySemanticSha256": "5f190f5f59078e02c505c4de01faf42f483508f9fbc6e4982d8a672ab69c14b3"
+  },
+  "contract": {
+    "activationPlanSchema": "b64-064a-production-activation-plan.v3",
+    "activationDecisionSchema": "b64-064a-production-activation-decision.v3",
+    "activationTrustRegistrySchema": "b64-064a-activation-trust-registry.v1",
+    "signatureDomain": "OBSIDIAN\\0B64_064A_PRODUCTION_ACTIVATION\\0V3\\0",
+    "decisionLifetimeSeconds": 900,
+    "minimumAssemblyWindowSeconds": 300,
+    "signerRoles": [
+      "ACCOUNTABLE_OWNER",
+      "INDEPENDENT_REVIEWER"
+    ],
+    "distinctIdentityRequired": true,
+    "distinctTrustDomainRequired": true,
+    "activationKeyIdDomainSeparatedFromEvidenceKeyId": true,
+    "sourceEvidenceKeyIdDerivedFromSamePublicKey": true,
+    "registryRevocationSnapshot": [],
+    "oldEvidenceOnlySignaturesAccepted": false,
+    "oldV2ActivationPackageAccepted": false,
+    "callerControlledTimeTargetNonceHookOrReleaseAccepted": false,
+    "signatureCryptographicallyVerifiedBeforeImport": true,
+    "immutableVerifierRequiredBeforeAssembly": true,
+    "assemblyCreatesRuntimeRequest": false,
+    "assemblyStartsLauncher": false
+  },
+  "secretFreeHandoff": {
+    "path": "/root/064A-activation-handoff/obsidian-064a-activation-v3-offline-kit-8231d1ec.tar",
+    "sha256": "1476cf4d0136ed9c0f57f9fb16c8e391b8d7d492e0c7c1e650199fa8c8b39774",
+    "bytes": 235520,
+    "fileCount": 11,
+    "internalSha256SumsVerified": true,
+    "manifestImplementationCommit": "8231d1ec61345118b184163e912abb63712fea0a",
+    "containsPrivateKey": false,
+    "containsPassphrase": false,
+    "containsCredential": false,
+    "containsRuntimeRequest": false,
+    "productionAuthorityComplete": false,
+    "freshSigningRequestCreated": false,
+    "reasonRequestNotCreated": "Both external signer devices were not confirmed ready; creating the exact 15-minute decision now would manufacture an avoidable expiry"
+  },
+  "verification": {
+    "focusedActivationAndCeremony": "59 passed",
+    "pinAndDeploymentAssetRegression": "80 passed",
+    "expandedRelatedUnitScope": {
+      "passed": 363,
+      "environmentalFailures": 7,
+      "failure": "The sandbox filesystem rejects chown to uid/gid 70 with EINVAL",
+      "affectedScope": "Pre-existing watchdog ownership/crash tests only",
+      "changedCodeFailures": 0
+    },
+    "realDisposablePostgreSQL17_11": {
+      "status": "DISPOSABLE_ACTIVATION_REHEARSAL_VERIFIED",
+      "journalState": "CLOSED",
+      "replayReason": "ACTIVATION_REPLAY_OR_INCOMPLETE",
+      "executorCalls": 1,
+      "watchdogStatus": "ACTIVE_LEASE_ACTIVATION_INTERLOCK_SUPERVISED",
+      "coldRecoveryStatus": "ACTIVATION_RECONCILED_HOLD",
+      "hardKillRecoveryStatus": "ACTIVATION_RECONCILED_HOLD",
+      "hardKillProcessGroupTerminated": true,
+      "hardKillAutomaticRecoveryAttempts": 1,
+      "hardKillSecondExecutorCall": false,
+      "readerLoginStateAfter": "DISABLED",
+      "readerCredentialStateAfter": "ABSENT",
+      "readerActiveSessionsAfter": 0,
+      "productionContact": false,
+      "receiptSha256": "cd78ac9fd910f6cb2458e1eff664a2bb1b59f2ea0b6e419266927e7e62840a13",
+      "sourceContainerAbsentAfter": true,
+      "sourceVolumeAbsentAfter": true,
+      "dumpAndRestoreResourcesAbsentAfter": true
+    },
+    "compileAndCliHelp": "PASS",
+    "gitDiffCheck": "PASS",
+    "stagedGitleaks": "NO_LEAKS",
+    "systemdAnalyzeVerify": "PASS_WITH_UNRELATED_EXISTING_XRAY_NOBODY_WARNING",
+    "independentAgentReviews": "UNAVAILABLE_CURRENT_ORCHESTRATION_PROHIBITS_PROACTIVE_SUBAGENTS",
+    "toolBasedCompensatingChecks": [
+      "Exact artifact and Git blob comparison",
+      "Focused and expanded regression",
+      "Real disposable lifecycle with fault and replay coverage",
+      "Systemd parser verification",
+      "Staged secret scan",
+      "Production inert post-state verification"
+    ]
+  },
+  "resolvedRehearsalHarnessStops": [
+    {
+      "reason": "CONTRACT_VOLUME_BINDING_INVALID",
+      "cause": "Initial disposable source used tmpfs instead of the required exact named volume",
+      "disposition": "Container was removed and recreated with a unique labeled named volume"
+    },
+    {
+      "reason": "ORIGINAL_HBA_DIGEST_MISMATCH",
+      "cause": "The deployed HBA was supplied where the deploy-to-rollback test requires the retained original HBA",
+      "disposition": "Input was replaced with retained original bytes matching 45b68c..."
+    },
+    {
+      "reason": "CONTAINER_BINDING_MISMATCH",
+      "cause": "The disposable source lacked the exact compose project and service labels required by watchdog inspection",
+      "disposition": "Container and volume were removed and recreated with both exact contract labels; final rehearsal passed"
+    }
+  ],
+  "productionPostRollout": {
+    "postgresServiceMainPidBeforeAfter": 3136948,
+    "postgresServiceActiveEnterTimestampMonotonicBeforeAfter": 753627984365,
+    "postgresServiceRestartCount": 0,
+    "containerIdBeforeAfter": "818735cd7df301eeb54b3630a6dbae1551db99a8368a2e4c96596c1a2572a3a4",
+    "containerPidBeforeAfter": 3137013,
+    "containerStartedAtBeforeAfter": "2026-08-24T05:08:51.918926692Z",
+    "containerRestartCount": 0,
+    "containerHealth": "healthy",
+    "imageId": "sha256:7456ef82e5f5bc43d997f4781bbd7c0d6389bff397564649a356e206ba473aee",
+    "systemIdentifier": "7672203973020184609",
+    "hbaSha256": "08b049674e7593bc87c8e78744ba6b65b557750807c17e860920931aa1b3d3b6",
+    "readerLoginState": "DISABLED",
+    "readerCredentialState": "ABSENT",
+    "readerActiveSessions": 0,
+    "watchdogResult": "DORMANT_VERIFIED_NO_RECOVERY_REQUEST",
+    "watchdogTimerActive": true,
+    "watchdogTimerEnabled": true,
+    "launcherActive": false,
+    "launcherEnabledState": "static",
+    "launcherStarted": false,
+    "coordinationRootAbsent": true,
+    "activationStateRootAbsent": true,
+    "runtimeRequestAbsent": true,
+    "failedSystemdUnits": 0,
+    "postgresRestarted": false,
+    "customerRowsRead": false,
+    "credentialIssued": false,
+    "dumpOrRestoreInvoked": false,
+    "productionMutationBeyondInertUnitPinning": false
+  },
+  "installedUnitSha256": {
+    "obsidian-b64-064a-activation.service": "4bfe90eb3189aa737d818a4c8f6fc571cf52d5603521ccdfd16214a97a2dfcc7",
+    "obsidian-b64-snapshot-reader-watchdog.service": "6b3156689565d2346276c613f65119b33f9a8e0d9ee68880051ed83872fa572b",
+    "obsidian-postgres.service": "6d79c8161e0cec66fc16b5f0aa4bf1570a3723971c2e6b7326ceef2a72785aa9"
+  },
+  "rollback": {
+    "preimageRoot": "/var/lib/obsidian-exchange/deployment-preimages/e0-e0.3-b5.3-064a-activation-signing-20260825T030752Z",
+    "activationUnitPreimageSha256": "df829d5cc268af8ee7f4f478c150b52a36b05faa67b5f9075872dc7830f834b3",
+    "watchdogUnitPreimageSha256": "930ad7b755720a3bc4381a89619c4716a074324c8ab7cd0b7f69fab778a7d14c",
+    "postgresUnitPreimageSha256": "9090f6a9e194f1424fe0f22ac3fdcfa7455acec73a42ab4cf0e9e82009848022",
+    "procedure": [
+      "Keep launcher inactive and require activation state/request roots absent",
+      "Restore the three exact preimage unit files",
+      "Run systemctl daemon-reload without restarting PostgreSQL",
+      "Run the restored cleanup-only watchdog and require dormant exact post-state"
+    ]
+  },
+  "surfaceMatrix": {
+    "API": "N/A - no public route or execution endpoint changed",
+    "TelegramBot": "N/A - no bot action or delivery changed",
+    "Site": "N/A - no customer surface changed",
+    "MiniApp": "N/A - no customer surface changed",
+    "Admin": "OPERATOR_ONLY - root-only immutable signing preparation and systemd pinning",
+    "Native": "N/A - no wallet key or signing surface changed"
+  },
+  "trustCustodyMoneyImpact": {
+    "trust": "Production activation keyring must be the exact projection of the pinned registry and requires two fresh domain-separated signatures",
+    "custody": "No wallet, CEX, payout or customer private key was accessed or moved",
+    "secrets": "No external private key or passphrase entered the server; no observation credential was issued in production",
+    "moneyWriters": "No money writer, payout, order, delivery or retry authority changed"
+  },
+  "excluded": [
+    "Fresh 15-minute production decision creation before both signers are ready",
+    "External owner or reviewer private-key access",
+    "launch.request or recovery.request creation",
+    "Launcher start",
+    "Production reader LOGIN or credential issuance",
+    "Production dump, restore or customer-row read",
+    "064B or 064D disposition",
+    "Migrations 024+",
+    "E4"
+  ],
+  "nextCanonicalItem": "Transfer and independently verify the secret-free offline kit on both signer devices; once both are ready, open one fresh 15-minute v3 request and obtain the accountable-owner and independent-reviewer detached signatures without starting the launcher"
+}

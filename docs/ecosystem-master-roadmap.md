@@ -2088,3 +2088,46 @@ E0.3 remains `IN_PROGRESS`, and production activation remains a concrete
 owner/reviewer signatures are absent. The next canonical item is that fresh
 secret-free signing handoff and ceremony. Old evidence-only and v2 packages
 must not be promoted or reused.
+
+## 2026-08-25 — 064A production activation signing-readiness rollout
+
+The external-signature boundary is now anchored before any short activation
+decision exists. Implementation commit
+`8231d1ec61345118b184163e912abb63712fea0a` adds an exact production activation
+trust registry, domain-separated activation key IDs, proof that each retained
+evidence key ID derives from the same public key, and an exact production
+keyring projection. A self-declared identity, key, revocation list or registry
+version cannot become production authority. The v3 ceremony builds
+deterministic secret-free offline and request archives, accepts no caller-
+controlled target/time/nonce/hook/release, verifies each detached signature
+before root-only import, and invokes the immutable verifier before assembly.
+Assembly creates no runtime request and starts no launcher.
+
+Pin commit `176893d808d348b8a8bbda0c017c28a2e7806065` and the implementation
+commit are pushed. Both root-owned read-only releases have all 2162 Git blobs
+verified. The three installed systemd units point at the exact implementation
+release; PostgreSQL was not restarted and the launcher remains inactive/static.
+The post-pin watchdog returned `DORMANT_VERIFIED_NO_RECOVERY_REQUEST` with the
+same container, PID, start time, system identifier, exact HBA, restart count
+zero and dormant credential-absent reader. The deterministic 235520-byte
+offline kit SHA-256 is
+`1476cf4d0136ed9c0f57f9fb16c8e391b8d7d492e0c7c1e650199fa8c8b39774`.
+
+Focused activation/ceremony tests pass 59/59 and the pin/deployment subset
+passes 80/80. The expanded unit scope passes 363 tests; seven pre-existing
+watchdog ownership tests cannot run on this sandbox filesystem because chown to
+uid/gid 70 returns `EINVAL`. A real disposable PostgreSQL 17.11 lifecycle
+closed normally, rejected replay without a second executor call, supervised
+the live lease, and reconciled cold-expired and hard-killed states to HOLD;
+receipt SHA-256 is
+`cd78ac9fd910f6cb2458e1eff664a2bb1b59f2ea0b6e419266927e7e62840a13`.
+All disposable resources are absent. Gitleaks, diff check, compilation and
+systemd verification pass; independent agent review was unavailable under the
+current orchestration restriction and was not fabricated. Evidence:
+`docs/e0-3-bot-b5-3-064a-production-activation-signing-readiness-rollout.v1.json`.
+
+E0.3 remains `IN_PROGRESS`, and activation is now `BLOCKED_OWNER`: both
+external signer devices must first receive and independently verify the static
+secret-free kit. Only when both are ready may one fresh 15-minute v3 request be
+created and signed. No request, production credential, dump, restore,
+customer-row read, launcher start, 064B/064D action or E4 action occurred.

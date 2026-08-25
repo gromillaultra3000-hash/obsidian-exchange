@@ -28,7 +28,7 @@ the output must not already exist:
 
 ```bash
 /opt/obsidian-exchange/relay-venv/bin/python -E \
-  /root/scripts/b64_064a_activation_ceremony.py build-offline-kit \
+  /opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/176893d808d348b8a8bbda0c017c28a2e7806065/scripts/b64_064a_activation_ceremony.py build-offline-kit \
   --out /root/064A-activation-handoff/obsidian-064a-activation-v3-offline-kit.tar
 sha256sum \
   /root/064A-activation-handoff/obsidian-064a-activation-v3-offline-kit.tar
@@ -48,13 +48,13 @@ time, target, nonce, hook or release arguments:
 
 ```bash
 /opt/obsidian-exchange/relay-venv/bin/python -E \
-  /root/scripts/b64_064a_activation_ceremony.py build-keyring
+  /opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/176893d808d348b8a8bbda0c017c28a2e7806065/scripts/b64_064a_activation_ceremony.py build-keyring
 /opt/obsidian-exchange/relay-venv/bin/python -E \
-  /root/scripts/b64_064a_activation_ceremony.py create-plan
+  /opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/176893d808d348b8a8bbda0c017c28a2e7806065/scripts/b64_064a_activation_ceremony.py create-plan
 /opt/obsidian-exchange/relay-venv/bin/python -E \
-  /root/scripts/b64_064a_activation_ceremony.py create-unsigned-decision
+  /opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/176893d808d348b8a8bbda0c017c28a2e7806065/scripts/b64_064a_activation_ceremony.py create-unsigned-decision
 /opt/obsidian-exchange/relay-venv/bin/python -E \
-  /root/scripts/b64_064a_activation_ceremony.py export-signing-request \
+  /opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/176893d808d348b8a8bbda0c017c28a2e7806065/scripts/b64_064a_activation_ceremony.py export-signing-request \
   --out /root/064A-activation-handoff/obsidian-064a-activation-v3-request.tar
 sha256sum \
   /root/064A-activation-handoff/obsidian-064a-activation-v3-request.tar
@@ -107,17 +107,17 @@ release. It still does not create a runtime request or start the launcher:
 
 ```bash
 /opt/obsidian-exchange/relay-venv/bin/python -E \
-  /root/scripts/b64_064a_activation_ceremony.py import-signature \
+  /opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/176893d808d348b8a8bbda0c017c28a2e7806065/scripts/b64_064a_activation_ceremony.py import-signature \
   --role ACCOUNTABLE_OWNER \
   --signature /absolute/inbox/owner-signature.json
 /opt/obsidian-exchange/relay-venv/bin/python -E \
-  /root/scripts/b64_064a_activation_ceremony.py import-signature \
+  /opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/176893d808d348b8a8bbda0c017c28a2e7806065/scripts/b64_064a_activation_ceremony.py import-signature \
   --role INDEPENDENT_REVIEWER \
   --signature /absolute/inbox/reviewer-signature.json
 /opt/obsidian-exchange/relay-venv/bin/python -E \
-  /root/scripts/b64_064a_activation_ceremony.py assemble-decision
+  /opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/176893d808d348b8a8bbda0c017c28a2e7806065/scripts/b64_064a_activation_ceremony.py assemble-decision
 /opt/obsidian-exchange/relay-venv/bin/python -E \
-  /root/scripts/b64_064a_activation_ceremony.py verify-decision
+  /opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/176893d808d348b8a8bbda0c017c28a2e7806065/scripts/b64_064a_activation_ceremony.py verify-decision
 ```
 
 Expected status is `SIGNED_V3_DECISION_VERIFIED_NOT_DEPLOYED` with
