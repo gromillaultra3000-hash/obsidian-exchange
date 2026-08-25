@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "e0-3-bot-b5-3-064a-fresh-request-owner-only-abort.v1",
+  "route": "E0/E0.3/B5.3/064A",
+  "observedAtUtc": "2026-08-25T13:11:36Z",
+  "status": "BLOCKED_OWNER",
+  "outcome": "FRESH_REQUEST_ABORTED_AFTER_LOCAL_OWNER_SIGNATURE_NO_RUNTIME_AUTHORITY",
+  "kitVerification": {
+    "kitSha256": "1e24f747e5bca8fb9ae7f0cb3b1b020958be5d25dec4ce8925308853d7de9b35",
+    "ownerDeviceReportedArchiveAndInternalChecksPass": true,
+    "reviewerDeviceReportedArchiveAndInternalChecksPass": true,
+    "deviceIndependenceAccepted": false
+  },
+  "request": {
+    "archiveSha256": "70fbe773555be59d3d9be01a24a90b159a72c3e0b3419171b9af41e0c6173084",
+    "decisionSha256": "1d8681505e3028df06e7142f916f2d9fc8fae5d9a37daefda17adeb81ca20cf4",
+    "planSha256": "a721226deb3691fe7983a847a4c9a0d5aedbc6e8c2fb71f00b5798a71cc27aee",
+    "keyringSha256": "4ed14d9f310f7d71bea63ad241b1a619bfbb0f23d8bc117ce0b67fea305a1e76",
+    "runNonce": "BK2ZYr1VuIKC-xCv0ZJrt4ISn4md9ZOD",
+    "issuedAtEpoch": 1787662988,
+    "expiresAtEpoch": 1787663888,
+    "serverCoordinationActive": false,
+    "reusable": false
+  },
+  "signatureState": {
+    "ownerSignatureCreatedLocally": true,
+    "ownerSignatureReceivedByServer": false,
+    "ownerSignatureImported": false,
+    "reviewerSignatureCreated": false,
+    "reviewerSignatureReceivedByServer": false,
+    "reviewerSignatureImported": false,
+    "signedDecisionAssembled": false
+  },
+  "abortReason": {
+    "minimumCommitWindowSeconds": 300,
+    "secondsRemainingAboveHardFloorAtAbort": 92,
+    "reason": "Insufficient bounded time to transfer, independently inspect, sign, import, assemble, commit and reverify without rushing a production authority path.",
+    "serverCoordinationArchived": true,
+    "shortTransferLinkRemoved": true
+  },
+  "custodyFinding": {
+    "severity": "BLOCKING",
+    "finding": "The terminal identified as the owner device enumerated both the owner and reviewer private-key files.",
+    "privateKeyBytesRead": false,
+    "passphraseReceived": false,
+    "reviewerKeyUsedForThisRequest": false,
+    "impact": "Two-party signature verification would remain cryptographically valid but would not prove independent device or trust-domain custody.",
+    "requiredDisposition": "Generate a new reviewer key only on a separate controlled reviewer device, revoke the co-resident reviewer key, update the pinned trust registry from the new public profile, rebuild the secret-free kit and independently verify it before any new request."
+  },
+  "runtimePostState": {
+    "runtimeRecoveryPackageAbsent": true,
+    "runtimeRecoveryRequestAbsent": true,
+    "runtimeLaunchRequestAbsent": true,
+    "activationStateRootAbsent": true,
+    "launcherStarted": false,
+    "launcherServiceState": "inactive",
+    "launcherExecMainStartTimestampMonotonic": 0,
+    "postgresMainPid": 3136948,
+    "postgresRestartCount": 0,
+    "readerAuthorityIncreased": false,
+    "customerRowsRead": false,
+    "moneyAction": false,
+    "failedUnits": 0
+  },
+  "nextCanonicalItem": "Rotate the reviewer signing key on a genuinely separate reviewer device and import only its public profile plus explicit revocation of the co-resident reviewer key. Do not reuse this request, decision, nonce or local owner signature."
+}

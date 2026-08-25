@@ -2250,3 +2250,24 @@ Both external devices must independently verify this exact kit before exactly
 one new 15-minute request is created; no prior decision or signature may be
 reused. Evidence:
 `docs/e0-3-bot-b5-3-064a-activation-parent-contract-rollout.v1.json`.
+
+## 2026-08-25 — 064A fresh request owner-only abort and custody blocker
+
+Both signer workflows reported exact archive and internal-checksum `PASS` for
+the parent-contract kit. One fresh 15-minute v3 request was then created with
+decision digest `1d868150...`. The owner created a local detached signature,
+but it never reached the server; no reviewer signature was produced or
+imported. Only 92 seconds remained above the mandatory five-minute commit
+floor, so coordination was archived and the short transfer link removed. No
+runtime package/request/state, credential, dump, restore, customer-row read or
+launcher start occurred. The request, nonce and local signature are forbidden
+from reuse.
+
+The owner-terminal file inventory also exposed both owner and reviewer private-
+key files. The reviewer key was not read or used, but co-residency means two
+valid signatures would not prove independent device/trust-domain custody.
+E0.3 therefore remains `IN_PROGRESS`/`BLOCKED_OWNER`. The next canonical item
+is reviewer-key rotation on a genuinely separate controlled device, explicit
+revocation of the co-resident key, pinned trust-registry update, new secret-
+free kit and two-device verification before another short request. Evidence:
+`docs/e0-3-bot-b5-3-064a-fresh-request-owner-only-abort.v1.json`.

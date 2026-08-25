@@ -238,6 +238,22 @@ Updated: 2026-08-25 UTC
   and obtain two new signatures. Evidence:
   `docs/e0-3-bot-b5-3-064a-activation-parent-contract-rollout.v1.json`.
 
+- 2026-08-25 both device workflows reported exact kit/checksum `PASS`, and one
+  fresh v3 request with decision digest `1d868150...` was created. The owner
+  made a local signature, but it was never transferred/imported and no reviewer
+  signature was produced. With only 92 seconds remaining above the mandatory
+  five-minute committer floor, server coordination was archived and the short
+  link removed; request/nonce/local signature reuse is prohibited. Runtime
+  package/request/state remain absent, launcher start timestamp is zero and
+  PostgreSQL retained PID/restart-zero. The same owner-terminal inventory
+  exposed both owner and reviewer private-key files. No key bytes/passphrase
+  were received and reviewer key was not used, but co-residency invalidates
+  independent-device custody. E0.3 is `IN_PROGRESS`/`BLOCKED_OWNER`; exact next
+  is to generate a replacement reviewer key only on a genuinely separate
+  reviewer device, revoke the co-resident key, update the pinned public trust
+  registry and rebuild/reverify the kit before another request. Evidence:
+  `docs/e0-3-bot-b5-3-064a-fresh-request-owner-only-abort.v1.json`.
+
 - 2026-08-23 E4 retained status is `IN_PROGRESS` with a `NO_GO` gate decision.
   The experimental one-shot and its server entry point are
   hard-disabled; legacy `e4_memfd_handoff.py` is superseded and fails closed

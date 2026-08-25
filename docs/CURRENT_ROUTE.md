@@ -255,10 +255,10 @@ and the reader remains `NOLOGIN`, credential-absent and session-free. Evidence
 is
 `docs/e0-3-bot-b5-3-064a-activation-parent-contract-rollout.v1.json`.
 
-The current 266240-byte secret-free kit SHA-256 is
+The 266240-byte secret-free kit SHA-256 was
 `1e24f747e5bca8fb9ae7f0cb3b1b020958be5d25dec4ce8925308853d7de9b35`.
-E0.3 remains `IN_PROGRESS`/`BLOCKED_OWNER` only for independent verification
-of this exact kit on both external signer devices.
+Both device workflows later reported exact verification `PASS`, but the key-
+custody finding below prevents that kit from authorizing another request.
 
 Deployed contract:
 
@@ -296,14 +296,24 @@ Telegram actions; 064B/064D row disposition; unrelated worktree cleanup.
 
 ## Active bounded next slice
 
-Transfer and independently verify the new secret-free kit on both external
-signer devices. Its exact path is
-`/root/064A-activation-handoff/obsidian-064a-activation-v3-offline-kit-d67171c.tar`
-and SHA-256 is
-`1e24f747e5bca8fb9ae7f0cb3b1b020958be5d25dec4ce8925308853d7de9b35`.
-Only after both devices report ready, archive the old expired coordination set
-and create one fresh exact 15-minute v3 request. Obtain new owner and reviewer
-signatures; do not reuse any old decision or signature.
-The immutable committer may publish runtime paths only while that fresh
-decision retains at least five minutes, and it must still leave the launcher
+The exact kit was subsequently reported as archive/internal-checksum `PASS` by
+both device workflows, and one fresh request was created. Its decision digest
+was `1d868150...`. The owner produced a local detached signature, but it was
+never transferred or imported; no reviewer signature was produced. With only
+92 seconds remaining above the committer's mandatory five-minute floor, the
+server coordination was archived and the transfer link removed instead of
+rushing the authority path. The request, nonce and local owner signature are
+non-reusable.
+
+That owner-terminal session also enumerated both owner and reviewer private-key
+files. No private-key bytes or passphrase were received and the reviewer key
+was not used, but co-residency invalidates the required independent-device
+custody claim. Active route remains `E0/E0.3/B5.3/064A`, now `BLOCKED_OWNER` on
+reviewer-key rotation: generate the replacement only on a separate controlled
+reviewer device, revoke the co-resident key, update the pinned public trust
+registry and rebuild/reverify the secret-free kit before any new request. The
+immutable committer may publish runtime paths only while a future fresh
+decision retains at least five minutes, and must still leave the launcher
 inactive for the final exact pre-start verification.
+Evidence is
+`docs/e0-3-bot-b5-3-064a-fresh-request-owner-only-abort.v1.json`.
