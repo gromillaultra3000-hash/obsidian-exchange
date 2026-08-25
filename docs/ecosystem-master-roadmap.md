@@ -2412,3 +2412,39 @@ and the exact production-parent metadata preflight pass. E0.3 remains
 Next canonical slice is terminal-evidence archive/cleanup code and verification,
 not another request. Evidence:
 `docs/e0-3-bot-b5-3-064a-single-owner-v4-reconciled-hold.v1.json`.
+
+## 2026-08-25 — 064A terminal evidence archive rollout
+
+The reconciled owner-only run is now closed at the runtime-path boundary. A
+new root-only archiver in pushed commit
+`16fdc05168e20151f646cf4cb97746fbde809e69` verifies the exact historical
+11-artifact signed closure from immutable release
+`c6c3eaba1b78b06235741ce88e003162c35d4bcb`, while separately binding its own
+operational immutable commit and SHA. This preserves verification of the
+consumed signature without placing the later runtime-package-committer fix
+inside that old signature domain and without requesting another signature.
+
+All 2180 release blobs match, 12 archive and crash-prefix tests pass, and pin
+commit `51c2f614df2e5eed3f1225d4831dc01e4e0857f9` is deployed. The three units
+were daemon-reloaded without a service restart; PostgreSQL MainPID/container
+PID/restart count stayed `3136948`/`3137013`/`0`. An earlier unreferenced
+`0e9c3b4...` release was rejected before unit mutation when preflight exposed
+the one historical committer digest difference.
+
+After exact `RECONCILED_HOLD`, absent-resource and dormant checks, the four
+runtime components were atomically renamed on the same filesystem into
+`/var/backups/obsidian-exchange/b64-064a-terminal-evidence-v1/b64-064a-terminal-ZektkcmxVfBGwtHX5lnM03p9Y3OfJ2gm`.
+Manifest SHA-256 is
+`66cd11835f658845a15787230a4b58fdff665dba7800e3bdd82072064eb1576c`.
+The root-only archive verifies idempotently, staging and all source paths are
+absent, and evidence was moved rather than deleted.
+
+The recurring watchdog now returns `DORMANT_VERIFIED_NO_RECOVERY_REQUEST`;
+the reader is `NOLOGIN`, credential absent and session-free. No activation,
+credential issuance, customer-row read, HBA change, authority increase or
+PostgreSQL restart occurred. E0.3 remains
+`IN_PROGRESS_TERMINAL_EVIDENCE_ARCHIVED_NO_RETRY`: the consumed signature and
+nonce cannot be reused, and this rollout grants no new request authority. A
+later production attempt requires an explicit owner decision and fresh nonce.
+Evidence:
+`docs/e0-3-bot-b5-3-064a-terminal-evidence-archive-rollout.v1.json`.

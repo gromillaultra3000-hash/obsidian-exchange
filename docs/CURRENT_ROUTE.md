@@ -397,3 +397,44 @@ next code-first slice: implement and verify a fixed-scope archive/cleanup path
 for terminal runtime evidence; only a later explicit owner authorization may
 permit a new production attempt. Evidence:
 `docs/e0-3-bot-b5-3-064a-single-owner-v4-reconciled-hold.v1.json`.
+
+## 2026-08-25 — 064A terminal evidence archived, runtime paths absent
+
+The fixed-scope post-terminal slice is complete without another signature or
+activation attempt. Pushed commit
+`16fdc05168e20151f646cf4cb97746fbde809e69` adds a root-only terminal
+archiver with exact nonce/decision confirmation, historical signed-closure
+verification, dormant-authority checks, global and nonce interlocks, complete
+entry/hash/mode bindings and crash-resumable same-filesystem renames. The
+historical artifact release `c6c3eaba1b78b06235741ce88e003162c35d4bcb`
+matches all 11 artifacts bound by the consumed decision; the operational
+archiver is separately bound by immutable commit and SHA-256
+`dd5478af8acd813f1b46e9608339347fdcbf9324fe2b73e598eef61273f0e4d9`.
+
+The corrected 2180-blob release has zero mismatches and its 12 archive/fault
+tests pass. Pin commit `51c2f614df2e5eed3f1225d4831dc01e4e0857f9`
+repoints the activation, watchdog and PostgreSQL units without stopping or
+restarting any service. The earlier `0e9c3b4...` release remained unreferenced
+after preflight detected the post-signature runtime-committer drift.
+
+The exact four runtime components were atomically moved, never copied and
+deleted, into root-only archive
+`/var/backups/obsidian-exchange/b64-064a-terminal-evidence-v1/b64-064a-terminal-ZektkcmxVfBGwtHX5lnM03p9Y3OfJ2gm`.
+Its manifest SHA-256 is
+`66cd11835f658845a15787230a4b58fdff665dba7800e3bdd82072064eb1576c`;
+the archive is `root:root/0500`, staging and all four source runtime paths are
+absent, and a second invocation returned
+`TERMINAL_EVIDENCE_ALREADY_ARCHIVED_RUNTIME_ABSENT`.
+
+The following watchdog tick returned `DORMANT_VERIFIED_NO_RECOVERY_REQUEST`.
+PostgreSQL retained MainPID `3136948`, container PID `3137013` and restart
+count zero; the reader remains `NOLOGIN`, credential absent and zero sessions.
+No customer rows were read, HBA and authority were unchanged, failed units are
+zero, and no signature was created or reused.
+
+Active route remains `E0/E0.3/B5.3/064A`, status
+`IN_PROGRESS_TERMINAL_EVIDENCE_ARCHIVED_NO_RETRY`. The old signature and nonce
+are consumed. This rollout authorizes no new request: any later production
+attempt requires an explicit owner decision and a fresh nonce; until then only
+non-production code/rehearsal work may proceed. Evidence:
+`docs/e0-3-bot-b5-3-064a-terminal-evidence-archive-rollout.v1.json`.

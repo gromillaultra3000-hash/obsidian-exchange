@@ -1,0 +1,83 @@
+{
+  "schemaVersion": "e0-3-bot-b5-3-064a-terminal-evidence-archive-rollout.v1",
+  "route": "E0/E0.3/B5.3/064A",
+  "observedAtUtc": "2026-08-25T16:07:10Z",
+  "status": "TERMINAL_EVIDENCE_ARCHIVED_RUNTIME_ABSENT",
+  "authorizationBinding": {
+    "runNonce": "ZektkcmxVfBGwtHX5lnM03p9Y3OfJ2gm",
+    "decisionSha256": "14f6b0bff6eb72ad266de0a477bbf94cc2f07865df08c991f50a65c405cc2a05",
+    "planSha256": "49836a429ef130fabce3858669588c33aad6f936a92bf5943ea4ca38a1aa5d84",
+    "keyringSha256": "1d6464c86104eca99880d25f8fa7dd676c776b954a228cc4a7d4b25a0d7e2e19",
+    "signatureConsumed": true,
+    "nonceConsumed": true,
+    "activationRetryAllowed": false,
+    "automaticRetryAllowed": false
+  },
+  "terminalState": {
+    "activationJournal": "RECONCILED_HOLD",
+    "resourceJournal": "RECONCILED_HOLD",
+    "reason": "ABNORMAL_EXIT_RECONCILED_NO_RETRY",
+    "credentialIssued": false,
+    "credentialReconciled": true,
+    "workspaceAbsent": true,
+    "proxyAbsent": true,
+    "dumpAbsent": true,
+    "restoreAbsent": true
+  },
+  "implementation": {
+    "archiverCommit": "16fdc05168e20151f646cf4cb97746fbde809e69",
+    "archiverSha256": "dd5478af8acd813f1b46e9608339347fdcbf9324fe2b73e598eef61273f0e4d9",
+    "signedArtifactReleaseCommit": "c6c3eaba1b78b06235741ce88e003162c35d4bcb",
+    "unitPinCommit": "51c2f614df2e5eed3f1225d4831dc01e4e0857f9",
+    "immutableRelease": "/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/16fdc05168e20151f646cf4cb97746fbde809e69",
+    "immutableReleaseGitBlobs": 2180,
+    "immutableReleaseBlobMismatches": 0,
+    "immutableReleaseTarSha256": "3e86d0639e4949ac081ffce2984c04cee071e0aea9991141182541232d197ac4",
+    "initialUnreferencedPreflightRelease": "0e9c3b42f91009dd0c9b3f7c44a5117b65b8c6c7",
+    "initialReleaseRejectedBeforePin": "RUNTIME_PACKAGE_COMMITTER_HISTORICAL_ARTIFACT_DRIFT"
+  },
+  "archive": {
+    "path": "/var/backups/obsidian-exchange/b64-064a-terminal-evidence-v1/b64-064a-terminal-ZektkcmxVfBGwtHX5lnM03p9Y3OfJ2gm",
+    "parentMode": "0700",
+    "archiveMode": "0500",
+    "owner": "root:root",
+    "manifestSha256": "66cd11835f658845a15787230a4b58fdff665dba7800e3bdd82072064eb1576c",
+    "manifestFileSha256": "0b333edf436a3aa16b366cbbd211270f00c6c9edd8da18bf2fcc777a8790cd33",
+    "stagingAbsent": true,
+    "idempotentSecondStatus": "TERMINAL_EVIDENCE_ALREADY_ARCHIVED_RUNTIME_ABSENT",
+    "sourceRuntimePathsAbsent": [
+      "/etc/obsidian-exchange/b64-064a-recovery-package.v1",
+      "/etc/obsidian-exchange/b64-064a-recovery-request.v1.json",
+      "/etc/obsidian-exchange/b64-064a-launch-request.v1.json",
+      "/var/lib/obsidian-exchange/b64-064a-activation"
+    ]
+  },
+  "verification": {
+    "archiveFaultAndIdempotencyTests": "12/12 PASS",
+    "unitPinRegression": "86/86 PASS; 7 sandbox-chown cases deselected",
+    "broader064aRegression": "218 PASS, 1 systemd-bus skip; 7 sandbox chown cases unavailable",
+    "gitleaks": "PASS",
+    "systemdAnalyzeVerify": "PASS_WITH_UNRELATED_EXISTING_XRAY_NOBODY_WARNING",
+    "watchdogAfterArchive": "DORMANT_VERIFIED_NO_RECOVERY_REQUEST",
+    "failedUnits": 0,
+    "postgresMainPidBeforeAfter": 3136948,
+    "containerPidBeforeAfter": 3137013,
+    "containerRestartCountBeforeAfter": 0,
+    "readerRoleLogin": false,
+    "readerCredentialState": "ABSENT",
+    "readerActiveSessions": 0,
+    "systemIdentifier": "7672203973020184609"
+  },
+  "effects": {
+    "activationStarted": false,
+    "signatureCreated": false,
+    "signatureReused": false,
+    "customerRowsRead": false,
+    "hbaChanged": false,
+    "authorityIncreased": false,
+    "postgresRestarted": false,
+    "runtimeEvidenceDeleted": false,
+    "runtimeEvidenceAtomicallyMoved": true
+  },
+  "next": "Keep the terminal run archived and non-retryable. No new request or signature is authorized by this rollout; any later production attempt requires an explicit owner decision and a fresh nonce."
+}

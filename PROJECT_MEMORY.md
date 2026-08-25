@@ -11,20 +11,23 @@ Updated: 2026-08-25 UTC
   long charters and history are not repeatedly reread within one logical task.
 
 - 2026-08-25 active route `E0 → E0.3 → B5.3 → 064A` is
-  `IN_PROGRESS_RECONCILED_HOLD_NO_RETRY`. Fresh owner-only decision
-  `14f6b0bf...` reached the launcher but stopped before credential issuance:
-  the `3770` parent propagated gid `986`, while watchdog requires the private
-  root to be `root:root/0700`. Cleanup-only manual reconciliation moved both
-  journals to terminal `RECONCILED_HOLD`; credential is absent/reconciled,
-  zero sessions, all temporary resources absent, no customer rows read, no HBA
-  change and no PostgreSQL restart. Corrected pushed implementation/release
-  `dee25d1b8b1aba6fc0e574a7bdb3ea0a220522e6` performs `fchown(0,0)` plus
-  `fchmod(0700)`; unit pin `6c7fdc4` is deployed. Tests pass 148/148 and 63/63,
-  and exact production-parent metadata preflight passes. The consumed
-  signature/nonce must not be reused. Do not request another signature yet;
-  next code-first slice is fixed-scope terminal-evidence archive/cleanup.
-  Evidence:
-  `docs/e0-3-bot-b5-3-064a-single-owner-v4-reconciled-hold.v1.json`.
+  `IN_PROGRESS_TERMINAL_EVIDENCE_ARCHIVED_NO_RETRY`. The failed owner-only run
+  remains terminal `RECONCILED_HOLD`: it issued no credential, read no customer
+  rows, changed no HBA and created no surviving resource. Pushed operational
+  release `16fdc05168e20151f646cf4cb97746fbde809e69` adds a root-only,
+  crash-resumable terminal archiver; historical release `c6c3eab...` verifies
+  the exact signed artifact closure without requiring a new signature. Pin
+  commit `51c2f61` is deployed without restart. The four exact runtime paths
+  were atomically moved, not deleted, to
+  `/var/backups/obsidian-exchange/b64-064a-terminal-evidence-v1/b64-064a-terminal-ZektkcmxVfBGwtHX5lnM03p9Y3OfJ2gm`;
+  manifest SHA is `66cd1183...`, source paths and staging are absent, and an
+  idempotent second pass verifies the archive. The next watchdog tick is
+  `DORMANT_VERIFIED_NO_RECOVERY_REQUEST`; PostgreSQL PIDs/restart count are
+  unchanged, reader is `NOLOGIN`/credential-absent/session-free. The consumed
+  signature/nonce remain forbidden from reuse. No new request is authorized;
+  a later production attempt requires an explicit owner decision and fresh
+  nonce. Evidence:
+  `docs/e0-3-bot-b5-3-064a-terminal-evidence-archive-rollout.v1.json`.
 
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
