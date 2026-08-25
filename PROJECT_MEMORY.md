@@ -215,6 +215,29 @@ Updated: 2026-08-25 UTC
   v3 request. Evidence:
   `docs/e0-3-bot-b5-3-064a-runtime-package-committer-inert-rollout.v1.json`.
 
+- 2026-08-25 a fresh exact signed decision exposed the deployed committer's
+  parent mismatch and failed closed with `RUNTIME_COMMIT_PARENT_UNSAFE` before
+  any runtime publication. The decision digest `9eee5a12...` expired and it or
+  either signature cannot be reused. Host production uses
+  `root:obsidian-payout` (`gid 986`) mode `2770`; a restricted tool namespace
+  misleadingly remapped it to `nogroup/65534`, but the mandatory host preflight
+  rejected candidate commits `387fab2`/`c1bef8a` before any mutation. Final
+  implementation commit `f10098625854aefcdfbaadf8f9d75e003f298497` requires
+  the exact host group and sticky+setgid `3770`; pin commit
+  `d67171c7f5b1930b75cb3198a8764be7c3dc6073` is pushed. Both final immutable
+  releases match 2167 Git blobs. Focused/expanded/watchdog tests pass
+  60/60, 135/135 and 52/52. Production parent is now `3770`, three unit pins
+  target `f100986`, PostgreSQL retained PID/start/restart-zero, launcher start
+  timestamp remains zero, the watchdog returned
+  `DORMANT_VERIFIED_NO_RECOVERY_REQUEST`, seven consumers/two safety timers are
+  active, failed units are zero and all runtime paths remain absent. New
+  secret-free kit SHA-256 is
+  `1e24f747e5bca8fb9ae7f0cb3b1b020958be5d25dec4ce8925308853d7de9b35`.
+  E0.3 remains `IN_PROGRESS`/`BLOCKED_OWNER` until both external signer devices
+  independently verify this exact kit; then create one new 15-minute request
+  and obtain two new signatures. Evidence:
+  `docs/e0-3-bot-b5-3-064a-activation-parent-contract-rollout.v1.json`.
+
 - 2026-08-23 E4 retained status is `IN_PROGRESS` with a `NO_GO` gate decision.
   The experimental one-shot and its server entry point are
   hard-disabled; legacy `e4_memfd_handoff.py` is superseded and fails closed

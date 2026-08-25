@@ -1,0 +1,131 @@
+{
+  "schemaVersion": "e0-3-bot-b5-3-064a-activation-parent-contract-rollout.v1",
+  "route": "E0/E0.3/B5.3/064A",
+  "observedAtUtc": "2026-08-25T12:50:21Z",
+  "status": "IN_PROGRESS",
+  "outcome": "ACTIVATION_PARENT_CONTRACT_HARDENED_DEPLOYED_INERT",
+  "boundedSlice": {
+    "criterion": "A fresh signed package must be committable only into the exact production parent without exposing a group-member deletion race.",
+    "productionMutation": "Changed only /var/lib/obsidian-exchange mode from 2770 to 3770, installed three pinned unit files and performed daemon-reload.",
+    "launcherStarted": false,
+    "postgresRestarted": false,
+    "credentialIssued": false,
+    "dumpInvoked": false,
+    "restoreInvoked": false,
+    "customerRowsRead": false,
+    "moneyAction": false
+  },
+  "surfaceMatrix": {
+    "telegramBot": "N/A: no Telegram route or delivery action",
+    "site": "N/A: no site change",
+    "miniApp": "N/A: no Mini App change",
+    "admin": "OPERATOR_ONLY: root-only deployment and rollback",
+    "api": "N/A: no API change",
+    "native": "N/A: external signer devices verify only secret-free archives"
+  },
+  "observedFailure": {
+    "deployedImplementationCommit": "e466268d9c518c7025f3b6c5b2f3d23407e5a4e9",
+    "reason": "RUNTIME_COMMIT_PARENT_UNSAFE",
+    "cause": "The committer required root:root and no group-write, while the host production parent was root:obsidian-payout mode 2770.",
+    "signedDecisionSha256": "9eee5a122e99189cd62964792f8d57fa24229fd61f4699a4ac679db438b3aa81",
+    "signedDecisionRawFileSha256": "4ca77bb54fac86f863dc898422d15f6d61e587849920a5fcfb9f9054a4b6d04b",
+    "decisionExpiredAtUtc": "2026-08-25T05:34:44Z",
+    "runtimePathsPublished": false,
+    "launcherStarted": false,
+    "reusable": false
+  },
+  "namespaceLandmine": {
+    "description": "The restricted tool namespace remapped host GID 986 to nogroup/65534. A host-level exact preflight rejected that candidate before preimage creation or mutation.",
+    "unreferencedImplementationCommit": "387fab2a90f7c89c837c8ca92bac381bdf55c96b",
+    "unreferencedPinCommit": "c1bef8a216a4131068819379a644c22ea2cb3e6c",
+    "installedUnitBytesChanged": false,
+    "parentModeChanged": false,
+    "postgresRestarted": false,
+    "launcherStarted": false,
+    "disposition": "SUPERSEDED_BEFORE_RUNTIME_REFERENCE"
+  },
+  "implementation": {
+    "commit": "f10098625854aefcdfbaadf8f9d75e003f298497",
+    "pinCommit": "d67171c7f5b1930b75cb3198a8764be7c3dc6073",
+    "productionParentUid": 0,
+    "productionParentGid": 986,
+    "productionParentGroup": "obsidian-payout",
+    "productionParentMode": "3770",
+    "stickyBitRequired": true,
+    "setgidBitRequired": true,
+    "implementationReleaseGitBlobsMatched": 2167,
+    "pinReleaseGitBlobsMatched": 2167,
+    "candidateReleasesRemainUnreferenced": true
+  },
+  "securityContract": {
+    "rootOwnedActivationTreeCannotBeRemovedByPayoutGroupMember": true,
+    "payoutGroupInheritancePreserved": true,
+    "wrongOwnerRejected": true,
+    "wrongGroupRejected": true,
+    "nonSticky2770Rejected": true,
+    "existingTargetStillFailsClosed": true,
+    "stickySemanticsDisposableProbe": "PASS",
+    "hostExactParentOpen": "RUNTIME_COMMIT_PARENT_CONTRACT_PASS"
+  },
+  "verification": {
+    "focusedParentCeremonyLauncherDeploymentTests": "60 passed",
+    "expandedFinal064aTests": "135 passed",
+    "watchdogRegressionHostNamespace": "52 passed",
+    "watchdogSandboxAttempt": "45 passed, 7 environment failures from chown(70)=EINVAL; all seven passed in the required host namespace rerun",
+    "pythonCompilation": "PASS",
+    "gitDiffCheck": "PASS",
+    "stagedGitleaks": "NO_LEAKS",
+    "systemdAnalyzeVerify": "PASS_WITH_UNRELATED_EXISTING_XRAY_WARNING",
+    "independentAgentReview": "UNAVAILABLE_CURRENT_ORCHESTRATION_PROHIBITS_PROACTIVE_SUBAGENTS"
+  },
+  "inertProductionRollout": {
+    "preimageRoot": "/var/lib/obsidian-exchange/deployment-preimages/e0-e0.3-b5.3-064a-parent-contract-20260825T124714Z",
+    "activationUnitSha256": "d8c530ba54750abe0726bbd089830f8a51db3943cb0c84ea33c1c6cc08f5e3ad",
+    "watchdogUnitSha256": "7dfa51ce6f7a4520cc493d2cd0fee068fbd10e6edcf3ad057fd9501ee39de6fe",
+    "postgresUnitSha256": "f51dfc724e01a47a86f1a9e42eb8fce775c5691c3bd526cdc5402ecae3524e7b",
+    "installedImplementationPin": "f10098625854aefcdfbaadf8f9d75e003f298497",
+    "postgresMainPid": 3136948,
+    "postgresActiveEnterTimestampMonotonic": 753627984365,
+    "postgresRestartCount": 0,
+    "launcherServiceState": "inactive",
+    "launcherExecMainStartTimestampMonotonic": 0,
+    "watchdogStatus": "DORMANT_VERIFIED_NO_RECOVERY_REQUEST",
+    "readerLoginState": "DISABLED",
+    "readerCredentialState": "ABSENT",
+    "readerActiveSessions": 0,
+    "customerRowsRead": false,
+    "authorityIncreased": false,
+    "sevenConsumersActive": true,
+    "safetyTimersActive": true,
+    "failedUnits": 0,
+    "runtimeRecoveryPackageAbsent": true,
+    "runtimeRecoveryRequestAbsent": true,
+    "runtimeLaunchRequestAbsent": true,
+    "activationStateRootAbsent": true,
+    "knownUnrelatedError": "daemon-reload repeated the pre-existing duplicate /swapfile fstab generator error; swap state and failed-unit count were not changed by this slice"
+  },
+  "rollback": {
+    "allowedOnlyWhileRuntimePathsRemainAbsentAndLauncherInactive": true,
+    "steps": [
+      "Restore the three unit preimages.",
+      "Restore /var/lib/obsidian-exchange mode 2770 while retaining owner root and group obsidian-payout.",
+      "Run systemctl daemon-reload and reverify the dormant tuple."
+    ]
+  },
+  "nextOfflineKit": {
+    "path": "/root/064A-activation-handoff/obsidian-064a-activation-v3-offline-kit-d67171c.tar",
+    "bytes": 266240,
+    "fileCount": 12,
+    "sha256": "1e24f747e5bca8fb9ae7f0cb3b1b020958be5d25dec4ce8925308853d7de9b35",
+    "internalSha256sums": "PASS",
+    "implementationCommit": "f10098625854aefcdfbaadf8f9d75e003f298497",
+    "containsPrivateKey": false,
+    "containsPassphrase": false,
+    "containsRuntimeRequest": false,
+    "ownerDeviceVerified": false,
+    "reviewerDeviceVerified": false
+  },
+  "gateStatus": "BLOCKED_OWNER",
+  "observedBlocker": "NEW_PARENT_CONTRACT_KIT_NOT_YET_VERIFIED_ON_BOTH_EXTERNAL_SIGNER_DEVICES",
+  "nextCanonicalItem": "Independently verify the new secret-free kit on both external signer devices, then create exactly one fresh 15-minute v3 request and obtain new owner and reviewer signatures. Do not reuse any prior decision or signature."
+}

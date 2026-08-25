@@ -2214,3 +2214,39 @@ kit SHA-256 is
 Both external devices must independently verify it before one new 15-minute v3
 request is created. Evidence:
 `docs/e0-3-bot-b5-3-064a-runtime-package-committer-inert-rollout.v1.json`.
+
+## 2026-08-25 — 064A activation-parent contract inert rollout
+
+The next exact two-party decision failed closed before runtime publication.
+The deployed committer required a root:root non-group-writable parent, while
+the host production activation parent was the legacy shared
+`root:obsidian-payout 2770` directory. Decision SHA-256 `9eee5a12...` expired
+after `RUNTIME_COMMIT_PARENT_UNSAFE`; it and both signatures are non-reusable.
+No runtime package/request/state, credential, dump, restore, customer-row read
+or launcher start occurred.
+
+Implementation commit `f10098625854aefcdfbaadf8f9d75e003f298497` now binds
+the exact host owner/group and requires sticky+setgid mode `3770`. Sticky
+semantics preserve group inheritance but prevent a payout-group member from
+removing the root-owned activation tree after publication. Pin commit
+`d67171c7f5b1930b75cb3198a8764be7c3dc6073` targets that implementation. A
+restricted-namespace GID remap initially suggested `65534`; the exact host
+preflight rejected those candidate releases before mutation, and they remain
+unreferenced/superseded.
+
+Both final immutable releases match 2167 Git blobs. Focused tests pass 60/60,
+expanded final 064A tests 135/135 and host-namespace watchdog regression 52/52.
+Production mode changed reversibly from `2770` to `3770`; the three units pin
+the final implementation. PostgreSQL kept the same PID/start tuple and restart
+count zero, the launcher start timestamp remains zero, and the post-rollout
+watchdog returned `DORMANT_VERIFIED_NO_RECOVERY_REQUEST`. Seven consumers and
+both safety timers are active, failed units are zero, all runtime commit paths
+are absent and the reader remains dormant/credential-absent/session-free.
+
+E0.3 remains `IN_PROGRESS`/`BLOCKED_OWNER`. The new 266240-byte secret-free kit
+SHA-256 is
+`1e24f747e5bca8fb9ae7f0cb3b1b020958be5d25dec4ce8925308853d7de9b35`.
+Both external devices must independently verify this exact kit before exactly
+one new 15-minute request is created; no prior decision or signature may be
+reused. Evidence:
+`docs/e0-3-bot-b5-3-064a-activation-parent-contract-rollout.v1.json`.

@@ -225,8 +225,40 @@ closure. New secret-free kit SHA-256 is
 `0b11ef3a6f1cd071a7ed78053c9a6470aad104e88d4fbc63723aacdf541f66c0`.
 Evidence is
 `docs/e0-3-bot-b5-3-064a-runtime-package-committer-inert-rollout.v1.json`.
-E0.3 remains `IN_PROGRESS` and is now `BLOCKED_OWNER` only for independent
-verification of this new kit on both external signer devices.
+The next freshly signed decision then exposed a fail-closed production
+integration defect: deployed committer bytes required a root:root non-group-
+writable activation parent, while the host parent was the legacy shared
+`root:obsidian-payout 2770` directory. Decision `9eee5a12...` expired after
+`RUNTIME_COMMIT_PARENT_UNSAFE`; no runtime path, credential, dump, restore,
+customer-row read or launcher start occurred, and its signatures are
+non-reusable.
+
+The parent boundary is now corrected and deployed inertly. Implementation
+commit `f10098625854aefcdfbaadf8f9d75e003f298497` requires the exact host
+identity `root:obsidian-payout` (`uid 0`, `gid 986`) and sticky+setgid mode
+`3770`; pin commit `d67171c7f5b1930b75cb3198a8764be7c3dc6073` is pushed.
+The sticky bit prevents a payout-group member from removing the root-owned
+activation tree while preserving existing group inheritance. A restricted-
+namespace GID remap first produced candidate commits `387fab2`/`c1bef8a`, but
+the host-level preflight rejected them before any mutation; those releases
+remain unreferenced and superseded.
+
+Both final immutable releases match all 2167 Git blobs. Focused tests pass
+60/60, expanded final 064A tests 135/135 and host-namespace watchdog tests
+52/52. Production parent mode changed reversibly from `2770` to `3770`; three
+installed units now pin `f100986`. PostgreSQL retained MainPID `3136948`, its
+start timestamp and restart count zero; launcher start timestamp remains zero.
+The post-rollout watchdog returned
+`DORMANT_VERIFIED_NO_RECOVERY_REQUEST`; seven consumers and both safety timers
+are active, failed units are zero, runtime coordination/state paths are absent,
+and the reader remains `NOLOGIN`, credential-absent and session-free. Evidence
+is
+`docs/e0-3-bot-b5-3-064a-activation-parent-contract-rollout.v1.json`.
+
+The current 266240-byte secret-free kit SHA-256 is
+`1e24f747e5bca8fb9ae7f0cb3b1b020958be5d25dec4ce8925308853d7de9b35`.
+E0.3 remains `IN_PROGRESS`/`BLOCKED_OWNER` only for independent verification
+of this exact kit on both external signer devices.
 
 Deployed contract:
 
@@ -265,9 +297,13 @@ Telegram actions; 064B/064D row disposition; unrelated worktree cleanup.
 ## Active bounded next slice
 
 Transfer and independently verify the new secret-free kit on both external
-signer devices. Only after both devices report ready, archive the old expired
-coordination set and create one fresh exact 15-minute v3 request. Obtain new
-owner and reviewer signatures; do not reuse the old decision or signatures.
+signer devices. Its exact path is
+`/root/064A-activation-handoff/obsidian-064a-activation-v3-offline-kit-d67171c.tar`
+and SHA-256 is
+`1e24f747e5bca8fb9ae7f0cb3b1b020958be5d25dec4ce8925308853d7de9b35`.
+Only after both devices report ready, archive the old expired coordination set
+and create one fresh exact 15-minute v3 request. Obtain new owner and reviewer
+signatures; do not reuse any old decision or signature.
 The immutable committer may publish runtime paths only while that fresh
 decision retains at least five minutes, and it must still leave the launcher
 inactive for the final exact pre-start verification.
