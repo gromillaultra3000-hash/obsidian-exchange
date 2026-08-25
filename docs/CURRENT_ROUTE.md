@@ -364,3 +364,36 @@ inactive for the final exact pre-start verification.
 
 The abort evidence remains
 `docs/e0-3-bot-b5-3-064a-fresh-request-owner-only-abort.v1.json`.
+
+## 2026-08-25 — signed v4 attempt reconciled without authority exposure
+
+A fresh single-owner v4 decision (`14f6b0bf...`) was signed, verified and
+committed. The launcher stopped fail-closed at `ACTIVATION_CLOSE_UNCERTAIN`
+before issuing a reader credential. The production parent had propagated both
+`S_ISGID` and gid `986`; the committer cleared the bit but not the group, while
+the recurring watchdog requires the private activation root to be exactly
+`root:root/0700`.
+
+The exact root group was corrected, and the explicit cleanup-only manual HOLD
+path reconciled both durable journals to `RECONCILED_HOLD`. The resource
+journal proves `credentialIssued=false`, credential absent/reconciled, and
+workspace, proxy, dump and restore absent. Final watchdog status is
+`DORMANT_VERIFIED_RECOVERY_TERMINAL_NO_ACTION`; customer rows were not read,
+HBA did not change and PostgreSQL retained MainPID `3136948`, container PID
+`3137013`, active timestamp and restart count zero.
+
+Pushed commit `dee25d1b8b1aba6fc0e574a7bdb3ea0a220522e6` now performs both
+`fchown(0,0)` and `fchmod(0700)` before creating private children. Its
+root-owned read-only immutable release is deployed, and pin commit `6c7fdc4`
+points all three units and the online ceremony at it. Reconciliation tests pass
+148/148, pin/ceremony tests 63/63, and a real production-parent preflight
+returned one `root:root/0700` root plus four `root:root/0700` children before
+exact removal.
+
+Active route remains `E0/E0.3/B5.3/064A`, status
+`IN_PROGRESS_RECONCILED_HOLD_NO_RETRY`. This signature and nonce are consumed
+and forbidden from reuse. Do not create another signing request yet. Exact
+next code-first slice: implement and verify a fixed-scope archive/cleanup path
+for terminal runtime evidence; only a later explicit owner authorization may
+permit a new production attempt. Evidence:
+`docs/e0-3-bot-b5-3-064a-single-owner-v4-reconciled-hold.v1.json`.

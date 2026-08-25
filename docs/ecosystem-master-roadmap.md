@@ -2392,3 +2392,23 @@ absolute owner-device script/profile/private-key path and report
 `OWNER_PATHS_READY`. Only then create one final fresh request and accept one
 `ACCOUNTABLE_OWNER` signature. Evidence:
 `docs/e0-3-bot-b5-3-064a-single-owner-v4-inert-rollout.v1.json`.
+
+## 2026-08-25 — 064A signed v4 attempt reconciled HOLD
+
+The fresh owner-only decision `14f6b0bf...` was imported, assembled and
+committed, but the launcher stopped fail-closed before credential issuance.
+The `3770` production parent propagated gid `986` to the private activation
+root; the watchdog contract requires exact `root:root/0700`. Manual
+cleanup-only reconciliation moved both journals to terminal
+`RECONCILED_HOLD`; credential issuance is false, all temporary resources are
+absent, customer rows were not read, HBA was unchanged and PostgreSQL did not
+restart.
+
+Corrected implementation commit `dee25d1b8b1aba6fc0e574a7bdb3ea0a220522e6`
+rebinds the root with `fchown(0,0)` before `fchmod(0700)`. Immutable release and
+unit pin commit `6c7fdc4` are deployed; 148 reconciliation tests, 63 pin tests
+and the exact production-parent metadata preflight pass. E0.3 remains
+`IN_PROGRESS_RECONCILED_HOLD_NO_RETRY`; the signature/nonce are consumed.
+Next canonical slice is terminal-evidence archive/cleanup code and verification,
+not another request. Evidence:
+`docs/e0-3-bot-b5-3-064a-single-owner-v4-reconciled-hold.v1.json`.

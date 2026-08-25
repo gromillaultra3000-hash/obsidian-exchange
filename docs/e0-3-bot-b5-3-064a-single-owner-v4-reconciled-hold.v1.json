@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "b64-064a-production-activation-reconciled-hold-rollout.v1",
+  "route": "E0/E0.3/B5.3/064A",
+  "recordedAtUtc": "2026-08-25T15:35:00Z",
+  "authorization": {
+    "model": "ACCOUNTABLE_OWNER_ONLY",
+    "decisionSha256": "14f6b0bff6eb72ad266de0a477bbf94cc2f07865df08c991f50a65c405cc2a05",
+    "planSha256": "49836a429ef130fabce3858669588c33aad6f936a92bf5943ea4ca38a1aa5d84",
+    "keyringSha256": "1d6464c86104eca99880d25f8fa7dd676c776b954a228cc4a7d4b25a0d7e2e19",
+    "runNonce": "ZektkcmxVfBGwtHX5lnM03p9Y3OfJ2gm",
+    "detachedSignatureSha256": "9d271c7a9b8835abbd8fa61a43e30ee7c24b3ea28b89fed70295702b603fc261",
+    "productionAuthorityCompleteBeforeLaunch": true,
+    "automaticRetryAllowed": false
+  },
+  "attempt": {
+    "runtimePackageCommitStatus": "RUNTIME_PACKAGE_COMMITTED_LAUNCHER_NOT_STARTED",
+    "runtimePackageManifestSha256": "fbfe192ba4211fb6fe2f8e96648bcebfdd147f0bbc3563f93c30a3dc29595c33",
+    "launcherStatus": "NO_GO",
+    "launcherReason": "ACTIVATION_CLOSE_UNCERTAIN",
+    "activationJournalState": "RECONCILED_HOLD",
+    "activationJournalReason": "ABNORMAL_EXIT_RECONCILED_NO_RETRY",
+    "resourceJournalState": "RECONCILED_HOLD",
+    "credentialIssued": false,
+    "credentialReconciled": true,
+    "workspaceAbsent": true,
+    "proxyAbsent": true,
+    "dumpAbsent": true,
+    "restoreAbsent": true,
+    "customerRowsRead": false,
+    "hbaChanged": false,
+    "refreshCompleted": false
+  },
+  "rootCauseAndCorrection": {
+    "observedRootCause": "The sticky+setgid production parent propagated gid 986 as well as S_ISGID to the activation root. The committer cleared only S_ISGID, while the watchdog requires root:root/0700.",
+    "manualReconcileOperatorSha256": "ed28a82e89618ff9e8af19bbe1c45aaeaa7b4ae12798ea106f8f4a4134899fea",
+    "manualReconcileStatus": "MANUAL_HOLD_RECONCILED_DORMANT_VERIFIED",
+    "correctedImplementationCommit": "dee25d1b8b1aba6fc0e574a7bdb3ea0a220522e6",
+    "unitPinCommit": "6c7fdc4",
+    "immutableRelease": "/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/dee25d1b8b1aba6fc0e574a7bdb3ea0a220522e6",
+    "committerSha256": "6641baa72814b8f36acb96b400c5df6f0a8d4ad9e34bd453cc3b3f19b8c24155",
+    "productionParentPreflight": "root:root/0700 root and four root:root/0700 children; temporary tree removed"
+  },
+  "verification": {
+    "reconcileRegressionTests": "148 passed",
+    "pinAndCeremonyTests": "63 passed",
+    "watchdogFinalStatus": "DORMANT_VERIFIED_RECOVERY_TERMINAL_NO_ACTION",
+    "readerRoleLoginState": "DISABLED",
+    "credentialState": "ABSENT",
+    "activeSessions": 0,
+    "postgresMainPid": 3136948,
+    "postgresContainerPid": 3137013,
+    "postgresRestartCount": 0,
+    "postgresRestarted": false
+  },
+  "durableState": {
+    "coordinationArchive": "/root/064A-activation-signing-reconciled-hold-14f6b0bf",
+    "requestArchive": "/root/064A-owner-v4-reconciled-hold-14f6b0bf-request.tar",
+    "requestArchiveSha256": "3946c531ed217f9a1f571bc5549a2ca5f91df286454d0f2289869e75899f9ee2",
+    "runtimeRecoveryEvidenceRetained": true,
+    "signatureReusable": false,
+    "activationRetryAllowed": false
+  },
+  "routeStatus": "IN_PROGRESS_RECONCILED_HOLD_NO_RETRY",
+  "next": "Do not create another signing request yet. First implement and verify a fixed-scope terminal-evidence archival/cleanup path and retain the corrected root-group regression. Any later production attempt requires a new explicit owner authorization."
+}

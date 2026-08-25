@@ -10,6 +10,22 @@ Updated: 2026-08-25 UTC
   not a permanent suffix. New sessions use `docs/CURRENT_ROUTE.md`; unchanged
   long charters and history are not repeatedly reread within one logical task.
 
+- 2026-08-25 active route `E0 → E0.3 → B5.3 → 064A` is
+  `IN_PROGRESS_RECONCILED_HOLD_NO_RETRY`. Fresh owner-only decision
+  `14f6b0bf...` reached the launcher but stopped before credential issuance:
+  the `3770` parent propagated gid `986`, while watchdog requires the private
+  root to be `root:root/0700`. Cleanup-only manual reconciliation moved both
+  journals to terminal `RECONCILED_HOLD`; credential is absent/reconciled,
+  zero sessions, all temporary resources absent, no customer rows read, no HBA
+  change and no PostgreSQL restart. Corrected pushed implementation/release
+  `dee25d1b8b1aba6fc0e574a7bdb3ea0a220522e6` performs `fchown(0,0)` plus
+  `fchmod(0700)`; unit pin `6c7fdc4` is deployed. Tests pass 148/148 and 63/63,
+  and exact production-parent metadata preflight passes. The consumed
+  signature/nonce must not be reused. Do not request another signature yet;
+  next code-first slice is fixed-scope terminal-evidence archive/cleanup.
+  Evidence:
+  `docs/e0-3-bot-b5-3-064a-single-owner-v4-reconciled-hold.v1.json`.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;
