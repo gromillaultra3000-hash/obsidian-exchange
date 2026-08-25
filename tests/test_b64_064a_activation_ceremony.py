@@ -382,6 +382,69 @@ def test_production_tuple_change_before_assembly_is_rejected(
         CEREMONY.command_assemble_decision(argparse.Namespace())
 
 
+def test_production_tuple_accepts_exact_deployed_watchdog_contract(
+        monkeypatch):
+    report = {
+        "status": "DORMANT_VERIFIED",
+        "watchdogReady": True,
+        "roleLoginState": "DISABLED",
+        "credentialState": "ABSENT",
+        "activeSessions": 0,
+        "customerRowsRead": False,
+        "authorityIncreased": False,
+        "systemIdentifier": ACTIVATION.PRODUCTION_SYSTEM_IDENTIFIER,
+        "container": {
+            "containerId": "a" * 64,
+            "containerPid": 4242,
+            "health": "healthy",
+            "imageId": ACTIVATION.PRODUCTION_IMAGE_ID,
+            "restartCount": 0,
+            "startedAt": "2026-08-25T00:00:00Z",
+        },
+    }
+    monkeypatch.setattr(
+        CEREMONY, "_fixed_subprocess", lambda *args, **kwargs: report,
+    )
+
+    observed = CEREMONY._production_tuple()
+
+    assert observed["containerId"] == "a" * 64
+    assert observed["systemIdentifier"] == \
+        ACTIVATION.PRODUCTION_SYSTEM_IDENTIFIER
+
+
+@pytest.mark.parametrize("authority", [None, True])
+def test_production_tuple_rejects_missing_or_increased_authority(
+        monkeypatch, authority):
+    report = {
+        "status": "DORMANT_VERIFIED",
+        "watchdogReady": True,
+        "roleLoginState": "DISABLED",
+        "credentialState": "ABSENT",
+        "activeSessions": 0,
+        "customerRowsRead": False,
+        "systemIdentifier": ACTIVATION.PRODUCTION_SYSTEM_IDENTIFIER,
+        "container": {
+            "containerId": "a" * 64,
+            "containerPid": 4242,
+            "health": "healthy",
+            "imageId": ACTIVATION.PRODUCTION_IMAGE_ID,
+            "restartCount": 0,
+            "startedAt": "2026-08-25T00:00:00Z",
+        },
+    }
+    if authority is not None:
+        report["authorityIncreased"] = authority
+    monkeypatch.setattr(
+        CEREMONY, "_fixed_subprocess", lambda *args, **kwargs: report,
+    )
+
+    with pytest.raises(
+        CEREMONY.CeremonyError, match="PRODUCTION_DORMANT_TUPLE_INVALID",
+    ):
+        CEREMONY._production_tuple()
+
+
 def test_private_key_and_passphrase_never_enter_output(ceremony_state):
     ceremony_state["prepare_unsigned"]()
     result = ceremony_state["sign"]("ACCOUNTABLE_OWNER")

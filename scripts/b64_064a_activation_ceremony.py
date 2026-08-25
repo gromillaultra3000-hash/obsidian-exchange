@@ -452,7 +452,7 @@ def _production_tuple() -> dict[str, Any]:
             or report.get("credentialState") != "ABSENT"
             or report.get("activeSessions") != 0
             or report.get("customerRowsRead") is not False
-            or report.get("actionAllowed") is not False
+            or report.get("authorityIncreased") is not False
             or report.get("systemIdentifier")
             != activation.PRODUCTION_SYSTEM_IDENTIFIER
             or not isinstance(container, Mapping)
