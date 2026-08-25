@@ -738,6 +738,9 @@ def command_build_offline_kit(args: argparse.Namespace) -> dict[str, Any]:
         "and confirm its decisionSha256 before signing.\n"
         "Run scripts/b64_064a_activation_ceremony.py sign only on the "
         "owner device with the owner's encrypted Ed25519 key.\n"
+        "Before any request exists, run preflight-owner-paths with the exact "
+        "owner profile and encrypted owner key; it verifies the local paths "
+        "and key match without creating a signature.\n"
         "Never copy the encrypted private key or passphrase to the server.\n"
     ).encode("utf-8")
     manifest_unsigned = {
@@ -900,6 +903,54 @@ def command_export_signing_request(args: argparse.Namespace) -> dict[str, Any]:
         "archiveSha256": _atomic_write_path(args.out, archive),
         "archiveBytes": len(archive),
         "fileCount": len(files),
+        "productionAuthorityComplete": False,
+        "runtimeRequestsCreated": False,
+        "launcherStarted": False,
+        "actionAllowed": False,
+    }
+
+
+def command_preflight_owner_paths(args: argparse.Namespace) -> dict[str, Any]:
+    trust = activation._load_activation_trust_registry()
+    entries = [
+        entry for entry in trust["keys"]
+        if entry["role"] == "ACCOUNTABLE_OWNER"
+    ]
+    if len(entries) != 1:
+        raise CeremonyError("OWNER_TRUST_PROFILE_MISSING")
+    entry = entries[0]
+    expected_profile = _profile_from_trust_entry(entry)
+    public_profile_raw = _read_path(args.public_profile)
+    public_profile, public_raw = _public_profile(
+        _decode_json(public_profile_raw)
+    )
+    if (public_profile != expected_profile
+            or public_profile_raw != _canonical(expected_profile) + b"\n"
+            or activation.activation_key_id(public_raw) != entry["keyId"]):
+        raise CeremonyError("OWNER_PUBLIC_PROFILE_TRUST_MISMATCH")
+    try:
+        private_key = serialization.load_pem_private_key(
+            _read_path(args.private_key, private=True),
+            password=_passphrase(args.passphrase_fd),
+        )
+    except (TypeError, ValueError) as exc:
+        raise CeremonyError("PRIVATE_KEY_DECRYPTION_FAILED") from exc
+    if (not isinstance(private_key, Ed25519PrivateKey)
+            or private_key.public_key().public_bytes_raw() != public_raw):
+        raise CeremonyError("PRIVATE_KEY_PROFILE_MISMATCH")
+    return {
+        "status": "OWNER_PATHS_READY",
+        "role": "ACCOUNTABLE_OWNER",
+        "keyId": entry["keyId"],
+        "sourceEvidenceKeyId": entry["sourceEvidenceKeyId"],
+        "ceremonyPath": str(Path(__file__).resolve()),
+        "publicProfilePath": args.public_profile,
+        "privateKeyPath": args.private_key,
+        "publicProfileSha256": _sha(public_profile_raw),
+        "privateKeyParsed": True,
+        "privateKeyMatchesProfile": True,
+        "signatureCreated": False,
+        "productionAuthoritySignature": False,
         "productionAuthorityComplete": False,
         "runtimeRequestsCreated": False,
         "launcherStarted": False,
@@ -1225,6 +1276,10 @@ def parser() -> argparse.ArgumentParser:
     commands.add_parser("create-unsigned-decision")
     command = commands.add_parser("export-signing-request")
     command.add_argument("--out", required=True)
+    command = commands.add_parser("preflight-owner-paths")
+    command.add_argument("--public-profile", required=True)
+    command.add_argument("--private-key", required=True)
+    command.add_argument("--passphrase-fd", type=int)
     command = commands.add_parser("sign")
     command.add_argument("--role", required=True)
     command.add_argument("--public-profile", required=True)
@@ -1257,6 +1312,8 @@ def main() -> int:
             result = command_create_decision(args)
         elif args.command == "export-signing-request":
             result = command_export_signing_request(args)
+        elif args.command == "preflight-owner-paths":
+            result = command_preflight_owner_paths(args)
         elif args.command == "sign":
             result = command_sign(args)
         elif args.command == "import-signature":

@@ -499,6 +499,43 @@ def test_private_key_and_passphrase_never_enter_output(ceremony_state):
     assert ceremony_state["passphrase"].decode() not in json.dumps(result)
 
 
+def test_owner_paths_preflight_decrypts_and_matches_without_signing(
+        ceremony_state):
+    def preflight(passphrase: bytes):
+        read_fd, write_fd = os.pipe()
+        try:
+            os.write(write_fd, passphrase + b"\n")
+        finally:
+            os.close(write_fd)
+        try:
+            return CEREMONY.command_preflight_owner_paths(
+                argparse.Namespace(
+                    public_profile=str(
+                        ceremony_state["signer"] / "owner-public.json"
+                    ),
+                    private_key=str(
+                        ceremony_state["signer"] / "owner-private.pem"
+                    ),
+                    passphrase_fd=read_fd,
+                )
+            )
+        finally:
+            os.close(read_fd)
+
+    result = preflight(ceremony_state["passphrase"])
+    assert result["status"] == "OWNER_PATHS_READY"
+    assert result["privateKeyParsed"] is True
+    assert result["privateKeyMatchesProfile"] is True
+    assert result["signatureCreated"] is False
+    assert result["productionAuthorityComplete"] is False
+    assert not list(ceremony_state["signer"].glob("*signature*.json"))
+
+    with pytest.raises(
+        CEREMONY.CeremonyError, match="PRIVATE_KEY_DECRYPTION_FAILED",
+    ):
+        preflight(b"wrong passphrase")
+
+
 def test_path_guards_reject_unsafe_parent_symlink_hardlink_and_overwrite(
         tmp_path):
     safe = tmp_path / "safe"
