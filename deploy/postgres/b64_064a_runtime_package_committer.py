@@ -35,6 +35,11 @@ RELEASE_BASE = Path(
 COORDINATION_ROOT = Path("/root/064A-activation-signing-active")
 RECOVERY_PARENT = watchdog.RECOVERY_PARENT
 ACTIVATION_ROOT = activation.PRODUCTION_ACTIVATION_ROOT
+# The legacy Exchange parent is intentionally shared with nogroup.  Sticky+
+# setgid prevents that group from removing the root-owned activation tree after
+# publication while preserving the existing group inheritance contract.
+ACTIVATION_PARENT_MODE = 0o3770
+ACTIVATION_PARENT_GID = 65534
 PYTHON = Path("/opt/obsidian-exchange/relay-venv/bin/python")
 LOCK_PATH = Path("/run/lock/obsidian-b64-064a-package-commit.lock")
 MINIMUM_COMMIT_WINDOW_SECONDS = 300
@@ -141,7 +146,9 @@ def _verify_runtime_identity() -> Path:
     return release
 
 
-def _open_root_directory(path: Path, *, exact_mode: int | None = None) -> int:
+def _open_root_directory(
+    path: Path, *, exact_mode: int | None = None, exact_gid: int = 0,
+) -> int:
     if not path.is_absolute():
         raise CommitError("RUNTIME_COMMIT_PARENT_UNSAFE")
     try:
@@ -154,8 +161,8 @@ def _open_root_directory(path: Path, *, exact_mode: int | None = None) -> int:
         raise CommitError("RUNTIME_COMMIT_PARENT_UNSAFE") from exc
     mode = stat.S_IMODE(info.st_mode)
     if (not stat.S_ISDIR(info.st_mode)
-            or info.st_uid != 0 or info.st_gid != 0
-            or mode & 0o022
+            or info.st_uid != 0 or info.st_gid != exact_gid
+            or (exact_mode is None and mode & 0o022)
             or (exact_mode is not None and mode != exact_mode)):
         os.close(descriptor)
         raise CommitError("RUNTIME_COMMIT_PARENT_UNSAFE")
@@ -657,7 +664,10 @@ def commit_runtime_package(
     try:
         inputs, verified = _load_and_verify(release)
         recovery_fd = _open_root_directory(RECOVERY_PARENT)
-        activation_parent_fd = _open_root_directory(ACTIVATION_ROOT.parent)
+        activation_parent_fd = _open_root_directory(
+            ACTIVATION_ROOT.parent, exact_mode=ACTIVATION_PARENT_MODE,
+            exact_gid=ACTIVATION_PARENT_GID,
+        )
         for name in (
             watchdog.RECOVERY_PACKAGE_NAME,
             watchdog.RECOVERY_REQUEST_NAME,

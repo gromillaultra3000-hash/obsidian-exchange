@@ -33,6 +33,8 @@ def commit_state(tmp_path, monkeypatch):
 
     monkeypatch.setattr(committer, "RECOVERY_PARENT", recovery)
     monkeypatch.setattr(committer, "ACTIVATION_ROOT", activation_root)
+    monkeypatch.setattr(committer, "ACTIVATION_PARENT_MODE", 0o755)
+    monkeypatch.setattr(committer, "ACTIVATION_PARENT_GID", os.getgid())
     monkeypatch.setattr(committer, "LOCK_PATH", lock)
     monkeypatch.setattr(watchdog, "RECOVERY_PARENT", recovery)
     monkeypatch.setattr(
@@ -105,6 +107,35 @@ def test_committer_is_in_signed_artifact_closure():
     assert activation.ARTIFACT_PATHS["runtimePackageCommitter"] == \
         POSTGRES / "b64_064a_runtime_package_committer.py"
     assert "runtimePackageCommitter" in activation.ARTIFACT_KEYS
+
+
+def test_activation_parent_contract_requires_sticky_root_nogroup(
+    tmp_path,
+):
+    assert committer.ACTIVATION_PARENT_MODE == 0o3770
+    assert committer.ACTIVATION_PARENT_GID == 65534
+    parent = tmp_path / "shared-parent"
+    parent.mkdir(mode=0o700)
+    parent.chmod(0o3770)
+    descriptor = committer._open_root_directory(
+        parent, exact_mode=0o3770, exact_gid=os.getgid(),
+    )
+    os.close(descriptor)
+
+    with pytest.raises(
+        committer.CommitError, match="RUNTIME_COMMIT_PARENT_UNSAFE",
+    ):
+        committer._open_root_directory(
+            parent, exact_mode=0o3770, exact_gid=os.getgid() + 1,
+        )
+
+    parent.chmod(0o2770)
+    with pytest.raises(
+        committer.CommitError, match="RUNTIME_COMMIT_PARENT_UNSAFE",
+    ):
+        committer._open_root_directory(
+            parent, exact_mode=0o3770, exact_gid=os.getgid(),
+        )
 
 
 def test_load_and_verify_binds_exact_inputs_freshness_and_dormant_target(
