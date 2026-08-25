@@ -593,4 +593,4 @@ def test_unpinned_implementation_cannot_run(monkeypatch):
 
 def test_ceremony_pins_exact_immutable_implementation():
     assert CEREMONY.IMPLEMENTATION_COMMIT == \
-        "dee25d1b8b1aba6fc0e574a7bdb3ea0a220522e6"
+        "16fdc05168e20151f646cf4cb97746fbde809e69"
