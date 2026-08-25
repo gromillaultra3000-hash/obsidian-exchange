@@ -254,6 +254,24 @@ Updated: 2026-08-25 UTC
   registry and rebuild/reverify the kit before another request. Evidence:
   `docs/e0-3-bot-b5-3-064a-fresh-request-owner-only-abort.v1.json`.
 
+- 2026-08-25 pushed commit
+  `e9f4109dd4661b449bbae7a56c6b9bac397725b4` adds the deterministic
+  fail-closed, secret-free reviewer-key rotation kit builder and tests. Its
+  unreferenced root-owned read-only release matches all 2171 Git blobs; eight
+  focused tests, compilation, diff, staged gitleaks, internal checksums and
+  manifest self-hash pass. The 122880-byte handoff `/root/rot2.tar` has SHA-256
+  `358da6857c1c5e61ebbe16acf782950bd368a46eb59626467d25cef5ef3f3a75`.
+  It contains no private key/passphrase/credential/runtime request and grants
+  no production authority. Units were not repinned; PostgreSQL PID/start/
+  restart-zero, inactive-never-started launcher, absent runtime paths, mode
+  `3770` production parent and zero failed units are unchanged. E0.3 remains
+  `IN_PROGRESS`/`BLOCKED_OWNER`. Exact next: use this kit only on a genuinely
+  separate reviewer device with neither owner nor prior reviewer key; return
+  only `reviewer-public.json` and its SHA-256. Then validate the profile,
+  explicitly revoke the co-resident key, update the pinned registry and
+  rebuild/reverify the activation kit before any request. Evidence:
+  `docs/e0-3-bot-b5-3-064a-reviewer-key-rotation-kit.v1.json`.
+
 - 2026-08-23 E4 retained status is `IN_PROGRESS` with a `NO_GO` gate decision.
   The experimental one-shot and its server entry point are
   hard-disabled; legacy `e4_memfd_handoff.py` is superseded and fails closed

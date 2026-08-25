@@ -308,12 +308,27 @@ non-reusable.
 That owner-terminal session also enumerated both owner and reviewer private-key
 files. No private-key bytes or passphrase were received and the reviewer key
 was not used, but co-residency invalidates the required independent-device
-custody claim. Active route remains `E0/E0.3/B5.3/064A`, now `BLOCKED_OWNER` on
-reviewer-key rotation: generate the replacement only on a separate controlled
-reviewer device, revoke the co-resident key, update the pinned public trust
-registry and rebuild/reverify the secret-free kit before any new request. The
+custody claim.
+
+The first bounded rotation-preparation slice is complete. Pushed commit
+`e9f4109dd4661b449bbae7a56c6b9bac397725b4` adds a deterministic fail-closed
+builder and tests for a secret-free reviewer rotation kit. Its unreferenced
+root-owned read-only release matches all 2171 Git blobs. Eight focused tests,
+compile/diff/staged-gitleaks checks, internal archive checksums and manifest
+self-hash pass. The 122880-byte archive is available through `/root/rot2.tar`,
+SHA-256 `358da6857c1c5e61ebbe16acf782950bd368a46eb59626467d25cef5ef3f3a75`.
+It contains no key, passphrase, credential or runtime request and grants no
+production authority. Evidence is
+`docs/e0-3-bot-b5-3-064a-reviewer-key-rotation-kit.v1.json`.
+
+Active route remains `E0/E0.3/B5.3/064A`, still `BLOCKED_OWNER`: use this kit
+only on a genuinely separate controlled reviewer device containing neither an
+owner key nor the prior reviewer key, and return only the new public profile
+and its SHA-256. Then revoke the co-resident key, update the pinned public trust
+registry and rebuild/reverify the activation kit before any new request. The
 immutable committer may publish runtime paths only while a future fresh
 decision retains at least five minutes, and must still leave the launcher
 inactive for the final exact pre-start verification.
-Evidence is
+
+The abort evidence remains
 `docs/e0-3-bot-b5-3-064a-fresh-request-owner-only-abort.v1.json`.

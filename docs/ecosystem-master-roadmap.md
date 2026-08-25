@@ -2271,3 +2271,29 @@ is reviewer-key rotation on a genuinely separate controlled device, explicit
 revocation of the co-resident key, pinned trust-registry update, new secret-
 free kit and two-device verification before another short request. Evidence:
 `docs/e0-3-bot-b5-3-064a-fresh-request-owner-only-abort.v1.json`.
+
+## 2026-08-25 — 064A secret-free reviewer-key rotation kit
+
+Pushed commit `e9f4109dd4661b449bbae7a56c6b9bac397725b4` implements a
+deterministic fail-closed builder for the narrow custody-remediation handoff.
+It runs only from an exact root-owned read-only immutable release, includes
+only the public generation dependencies, README, manifest and checksums, and
+creates a new mode-0600 archive without overwrite. It pins the old reviewer
+key IDs and the replacement identity/trust-domain labels, but contains no
+private key, passphrase, credential or runtime request and grants no authority.
+
+Eight focused tests pass; compilation, diff, staged gitleaks, archive checksums
+and manifest self-hash pass. The immutable release matches all 2171 Git blobs.
+The 122880-byte handoff is `/root/rot2.tar`, SHA-256
+`358da6857c1c5e61ebbe16acf782950bd368a46eb59626467d25cef5ef3f3a75`.
+Production units and pins were not changed. PostgreSQL retained MainPID
+`3136948`, active timestamp and restart count zero; launcher start timestamp is
+zero, runtime/coordination paths are absent and failed units remain zero.
+
+E0.3 remains `IN_PROGRESS`/`BLOCKED_OWNER`. Exact next: on a genuinely separate
+controlled reviewer device containing no owner key and no prior reviewer key,
+verify this kit, generate the encrypted replacement locally and return only
+its public profile plus SHA-256. Server-side validation, explicit old-key
+revocation, pinned trust-registry update and a rebuilt/two-device-verified
+activation kit must precede any new request. Evidence:
+`docs/e0-3-bot-b5-3-064a-reviewer-key-rotation-kit.v1.json`.
