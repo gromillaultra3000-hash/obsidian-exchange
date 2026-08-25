@@ -27,17 +27,13 @@ def _b64(value: bytes) -> str:
 def _package(*, now: int = 1_800_000_000, environment: str =
              "DISPOSABLE_CONTRACT", plan_age: int = 100):
     owner = Ed25519PrivateKey.generate()
-    reviewer = Ed25519PrivateKey.generate()
     private_keys = {
         "ACCOUNTABLE_OWNER": owner,
-        "INDEPENDENT_REVIEWER": reviewer,
     }
     entries = []
     for role, identity, domain in (
         ("ACCOUNTABLE_OWNER", "owner_identity_2026",
          "owner_offline_device"),
-        ("INDEPENDENT_REVIEWER", "reviewer_identity_2026",
-         "reviewer_offline_device"),
     ):
         public = private_keys[role].public_key().public_bytes_raw()
         entries.append({
@@ -52,7 +48,7 @@ def _package(*, now: int = 1_800_000_000, environment: str =
         "schemaVersion": MODULE.ACTIVATION_KEYRING_SCHEMA,
         "route": MODULE.ROUTE,
         "trustEnvironment": MODULE.ACTIVATION_TRUST_ENVIRONMENT,
-        "registryVersion": 2,
+        "registryVersion": 3,
         "issuedAtEpoch": now - 300,
         "expiresAtEpoch": now + 3600,
         "revokedKeys": [],
@@ -249,7 +245,7 @@ def _run(package, journal_root, executor, **overrides):
         return MODULE.run_once(**arguments)
 
 
-def test_two_signatures_authorize_only_exact_fresh_activation_plan():
+def test_one_owner_signature_authorizes_only_exact_fresh_activation_plan():
     package = _package()
     verified = _verify(package)
     assert verified.environment == "DISPOSABLE_CONTRACT"
@@ -259,7 +255,31 @@ def test_two_signatures_authorize_only_exact_fresh_activation_plan():
         "b64-hba-contract-1700000000"
 
 
-def test_v3_activation_package_is_also_exact_cleanup_recovery_authority():
+def test_v3_and_two_party_activation_authority_are_incompatible():
+    package = _package()
+    legacy = copy.deepcopy(package)
+    legacy["decision"]["schemaVersion"] = \
+        "b64-064a-production-activation-decision.v3"
+    with pytest.raises(
+        MODULE.ActivationError,
+        match="ACTIVATION_DECISION_BINDING_MISMATCH",
+    ):
+        _verify(legacy)
+
+    two_party = copy.deepcopy(package)
+    two_party["decision"]["signatures"].append({
+        "role": "INDEPENDENT_REVIEWER",
+        "keyId": "b64a_" + "0" * 64,
+        "identityId": "retired_reviewer",
+        "signatureB64": _b64(b"x" * 64),
+    })
+    with pytest.raises(
+        MODULE.ActivationError, match="INVALID_ACTIVATION_SIGNATURE_SET",
+    ):
+        _verify(two_party)
+
+
+def test_v4_activation_package_is_also_exact_cleanup_recovery_authority():
     package = _package(environment="PRODUCTION")
     verified = _verify(package)
     with _registry_patch(package):
@@ -274,7 +294,7 @@ def test_v3_activation_package_is_also_exact_cleanup_recovery_authority():
     assert package["plan"]["schemaVersion"] == \
         "b64-064a-production-activation-plan.v3"
     assert package["decision"]["schemaVersion"] == \
-        "b64-064a-production-activation-decision.v3"
+        "b64-064a-production-activation-decision.v4"
     assert recovery.run_nonce == verified.run_nonce
     assert recovery.plan_sha256 == verified.plan_sha256
     assert recovery.decision_sha256 == verified.decision_sha256
@@ -317,23 +337,18 @@ def test_production_keyring_is_exact_trust_registry_projection():
         now_epoch=1_800_000_000,
         expected_environment="PRODUCTION",
     )
-    assert checked["registryVersion"] == 2
+    assert checked["registryVersion"] == 3
     assert set(registry) == {item["keyId"] for item in keyring["keys"]}
     assert digest == keyring["keyringSha256"]
     assert {item["keyId"] for item in checked["revokedKeys"]} == {
         MODULE.RETIRED_REVIEWER_ACTIVATION_KEY_ID,
         MODULE.RETIRED_REVIEWER_EVIDENCE_KEY_ID,
+        MODULE.RETIRED_REVIEWER_R2_ACTIVATION_KEY_ID,
+        MODULE.RETIRED_REVIEWER_R2_EVIDENCE_KEY_ID,
     }
-    reviewer = next(
-        item for item in checked["keys"]
-        if item["role"] == "INDEPENDENT_REVIEWER"
-    )
-    assert reviewer["keyId"] == (
-        "b64a_4c315ccbcb3f1397214085cab9fdde6d"
-        "a97d43b1bfee23ccab2ea61dc3b15651"
-    )
-    assert reviewer["identityId"] == "reviewer_independent_2026_r2"
-    assert reviewer["trustDomain"] == "reviewer_device_02"
+    assert {item["role"] for item in checked["keys"]} == {
+        "ACCOUNTABLE_OWNER"
+    }
 
     counterfeit = copy.deepcopy(keyring)
     counterfeit["keys"][0]["identityId"] = "counterfeit_owner"
@@ -377,7 +392,8 @@ def test_activation_trust_registry_proves_source_evidence_key_id(
     value["keys"][0]["sourceEvidenceKeyId"] = "b64e_" + "0" * 64
     unsigned_keys = (
         "schemaVersion", "route", "trustEnvironment", "registryVersion",
-        "previousRegistrySha256", "source", "revokedKeys", "keys",
+        "previousRegistrySha256", "authorizationModel", "source",
+        "revokedKeys", "keys",
     )
     unsigned = {key: value[key] for key in unsigned_keys}
     value["registrySha256"] = hashlib.sha256(
@@ -400,7 +416,7 @@ def test_activation_trust_registry_proves_source_evidence_key_id(
         MODULE._load_activation_trust_registry()
 
 
-def test_rotated_reviewer_profile_is_exact_tracked_public_input():
+def test_retired_reviewer_profile_remains_exact_historical_public_input():
     trust = MODULE._load_activation_trust_registry()
     profile_path = ROOT / MODULE.REVIEWER_ROTATION_PROFILE_PATH
     raw = profile_path.read_bytes()
@@ -408,21 +424,13 @@ def test_rotated_reviewer_profile_is_exact_tracked_public_input():
         "reviewerPublicProfileSha256"
     ]
     profile = MODULE._decode_json(raw)
-    reviewer = next(
-        item for item in trust["keys"]
-        if item["role"] == "INDEPENDENT_REVIEWER"
-    )
-    assert profile == {
-        "schemaVersion": "b64-064a-evidence-public-key.v1",
-        "route": MODULE.ROUTE,
-        "keyId": reviewer["sourceEvidenceKeyId"],
-        "identityId": reviewer["identityId"],
-        "trustDomain": reviewer["trustDomain"],
-        "role": reviewer["role"],
-        "algorithm": "Ed25519",
-        "publicKeyEncoding": "base64url-unpadded-raw32",
-        "publicKeyB64": reviewer["publicKeyB64"],
-    }
+    public = MODULE.supervisor._decode_public_key(profile["publicKeyB64"])
+    assert profile["keyId"] == MODULE.RETIRED_REVIEWER_R2_EVIDENCE_KEY_ID
+    assert MODULE.activation_key_id(public) == \
+        MODULE.RETIRED_REVIEWER_R2_ACTIVATION_KEY_ID
+    assert profile["role"] == "INDEPENDENT_REVIEWER"
+    assert all(item["role"] != "INDEPENDENT_REVIEWER"
+               for item in trust["keys"])
 
 
 def test_rotated_reviewer_profile_digest_drift_fails_closed(
@@ -435,7 +443,8 @@ def test_rotated_reviewer_profile_digest_drift_fails_closed(
     ] = "0" * 64
     unsigned_keys = (
         "schemaVersion", "route", "trustEnvironment", "registryVersion",
-        "previousRegistrySha256", "source", "revokedKeys", "keys",
+        "previousRegistrySha256", "authorizationModel", "source",
+        "revokedKeys", "keys",
     )
     unsigned = {key: value[key] for key in unsigned_keys}
     value["registrySha256"] = hashlib.sha256(
@@ -453,7 +462,7 @@ def test_rotated_reviewer_profile_digest_drift_fails_closed(
     )
     with pytest.raises(
         MODULE.ActivationError,
-        match="ACTIVATION_TRUST_PROFILE_DIGEST_MISMATCH",
+        match="INVALID_REVIEWER_ROTATION_PROVENANCE",
     ):
         MODULE._load_activation_trust_registry()
 
@@ -517,7 +526,7 @@ def test_tamper_replay_alias_and_stale_plan_fail_closed(drift):
     elif drift == "wrong_nonce":
         package["decision"]["nonce"] = _b64(b"different-nonce-01")
     elif drift == "keyring":
-        package["keyring"]["registryVersion"] = 3
+        package["keyring"]["registryVersion"] = 4
     with pytest.raises(MODULE.ActivationError):
         if drift == "duplicate_json_key":
             raw = MODULE._canonical(package["decision"])

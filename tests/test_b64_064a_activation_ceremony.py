@@ -61,16 +61,11 @@ def ceremony_state(tmp_path, monkeypatch):
     }
     keys = {
         "ACCOUNTABLE_OWNER": Ed25519PrivateKey.generate(),
-        "INDEPENDENT_REVIEWER": Ed25519PrivateKey.generate(),
     }
     profiles = {
         "ACCOUNTABLE_OWNER": _profile(
             keys["ACCOUNTABLE_OWNER"], role="ACCOUNTABLE_OWNER",
             identity="owner_test", domain="owner_device_test",
-        ),
-        "INDEPENDENT_REVIEWER": _profile(
-            keys["INDEPENDENT_REVIEWER"], role="INDEPENDENT_REVIEWER",
-            identity="reviewer_test", domain="reviewer_device_test",
         ),
     }
     trust_keys = []
@@ -86,7 +81,7 @@ def ceremony_state(tmp_path, monkeypatch):
             "publicKeyB64": profile["publicKeyB64"],
         })
     trust = {
-        "registryVersion": 1,
+        "registryVersion": 3,
         "revokedKeys": [],
         "keys": sorted(trust_keys, key=lambda item: item["keyId"]),
         "source": {"evidenceKeyringSha256": "e" * 64},
@@ -216,25 +211,30 @@ def ceremony_state(tmp_path, monkeypatch):
     return state
 
 
-def test_full_v3_ceremony_verifies_but_creates_no_runtime_request(
+def test_full_v4_owner_ceremony_verifies_but_creates_no_runtime_request(
         ceremony_state, tmp_path):
     decision_receipt = ceremony_state["prepare_unsigned"]()
     owner = ceremony_state["sign"]("ACCOUNTABLE_OWNER")
-    reviewer = ceremony_state["sign"]("INDEPENDENT_REVIEWER")
     result = CEREMONY.command_assemble_decision(argparse.Namespace())
     verified = CEREMONY.command_verify_decision(argparse.Namespace())
 
     assert decision_receipt["signatureDomain"] == \
-        "OBSIDIAN_B64_064A_PRODUCTION_ACTIVATION_V3"
+        "OBSIDIAN_B64_064A_PRODUCTION_ACTIVATION_V4"
     assert owner["productionAuthoritySignature"] is True
-    assert reviewer["productionAuthoritySignature"] is True
-    assert result["status"] == "SIGNED_V3_DECISION_VERIFIED_NOT_DEPLOYED"
+    assert result["status"] == \
+        "SIGNED_V4_OWNER_DECISION_VERIFIED_NOT_DEPLOYED"
     assert result["productionAuthorityComplete"] is True
     assert result["runtimeRequestsCreated"] is False
     assert result["launcherStarted"] is False
     assert verified["decisionSha256"] == result["decisionSha256"]
     assert not (tmp_path / "launch.request").exists()
     assert not (tmp_path / "recovery.request").exists()
+
+
+def test_reviewer_role_is_not_an_activation_signer(ceremony_state):
+    ceremony_state["prepare_unsigned"]()
+    with pytest.raises(CEREMONY.CeremonyError, match="INVALID_ROLE_PROFILE"):
+        ceremony_state["sign"]("INDEPENDENT_REVIEWER")
 
 
 def test_secret_free_offline_kit_is_deterministic_and_content_bound(
@@ -250,7 +250,7 @@ def test_secret_free_offline_kit_is_deterministic_and_content_bound(
         assert names == {
             *CEREMONY.OFFLINE_KIT_FILES,
             "KIT-MANIFEST.json", "README.txt", "SHA256SUMS",
-            "owner-public.json", "reviewer-public.json",
+            "owner-public.json",
         }
         assert all(member.isfile() and member.mode == 0o600
                    for member in archive.getmembers())
@@ -306,9 +306,9 @@ def test_offline_signature_output_does_not_require_hardlinks(
 
     monkeypatch.setattr(CEREMONY.os, "link", hardlinks_forbidden)
 
-    result = ceremony_state["sign"]("INDEPENDENT_REVIEWER")
+    result = ceremony_state["sign"]("ACCOUNTABLE_OWNER")
 
-    output = ceremony_state["signer"] / "reviewer-signature.json"
+    output = ceremony_state["signer"] / "owner-signature.json"
     assert result["productionAuthoritySignature"] is True
     assert output.is_file()
     assert output.stat().st_mode & 0o777 == 0o600
@@ -381,7 +381,6 @@ def test_keyring_cannot_self_declare_counterfeit_identity(ceremony_state):
 def test_old_or_relabelled_detached_signature_is_rejected(ceremony_state):
     ceremony_state["prepare_unsigned"]()
     ceremony_state["sign"]("ACCOUNTABLE_OWNER")
-    ceremony_state["sign"]("INDEPENDENT_REVIEWER")
     path = ceremony_state["coordination"] / "owner-signature.json"
     signature = json.loads(path.read_bytes())
     signature["schemaVersion"] = "b64-064a-evidence-signature.v2"
@@ -397,7 +396,6 @@ def test_minimum_remaining_decision_window_is_exact(
         ceremony_state, elapsed, allowed):
     ceremony_state["prepare_unsigned"]()
     ceremony_state["sign"]("ACCOUNTABLE_OWNER")
-    ceremony_state["sign"]("INDEPENDENT_REVIEWER")
     ceremony_state["clock"]["now"] += elapsed
     if allowed:
         result = CEREMONY.command_assemble_decision(argparse.Namespace())
@@ -414,7 +412,6 @@ def test_production_tuple_change_before_assembly_is_rejected(
         ceremony_state, monkeypatch):
     ceremony_state["prepare_unsigned"]()
     ceremony_state["sign"]("ACCOUNTABLE_OWNER")
-    ceremony_state["sign"]("INDEPENDENT_REVIEWER")
     changed = dict(ceremony_state["production"])
     changed["containerId"] = "d" * 64
     monkeypatch.setattr(CEREMONY, "_production_tuple", lambda: changed)

@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "b64-064a-single-owner-policy.v1",
+  "route": "E0/E0.3/B5.3/064A",
+  "decidedAtUtc": "2026-08-25T14:23:57Z",
+  "decision": "ADOPT_EXPLICIT_SINGLE_OWNER_ACTIVATION",
+  "reason": "The owner selected progress under one honest custody domain instead of repeatedly representing a co-resident reviewer key as independent.",
+  "authorizationModel": "ACCOUNTABLE_OWNER_ONLY",
+  "requiredRoles": [
+    "ACCOUNTABLE_OWNER"
+  ],
+  "independentReviewerRequired": false,
+  "reducedSeparationOfDutiesAcknowledged": true,
+  "freshIncompatibleSignatureDomainRequired": true,
+  "oldV3DecisionsReusable": false,
+  "maximumRuns": 1,
+  "automaticRetryAllowed": false,
+  "moneyActionAuthorized": false,
+  "productionDatabaseDataMutationAuthorized": false,
+  "migrationAuthorized": false,
+  "telegramDeliveryAuthorized": false,
+  "singleFinalSignatureOnlyAfterFullPreflight": true
+}

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fresh two-party v3 signing ceremony for one production 064A activation.
+"""Fresh single-owner v4 ceremony for one production 064A activation.
 
 Online commands are fixed to one root-only coordination directory, the exact
 deployed immutable release and the fixed production container.  They create no
@@ -46,7 +46,7 @@ PYTHON = Path("/opt/obsidian-exchange/relay-venv/bin/python")
 COORDINATION_ROOT = Path("/root/064A-activation-signing-active")
 PUBLIC_KEY_SCHEMA = "b64-064a-evidence-public-key.v1"
 DETACHED_SIGNATURE_SCHEMA = \
-    "b64-064a-production-activation-detached-signature.v1"
+    "b64-064a-production-activation-detached-signature.v2"
 DECISION_LIFETIME_SECONDS = activation.MAX_DECISION_LIFETIME_SECONDS
 MINIMUM_ASSEMBLY_WINDOW_SECONDS = 300
 MAX_FILE_BYTES = 1024 * 1024
@@ -54,7 +54,7 @@ MAX_SUBPROCESS_BYTES = 64 * 1024
 MAX_ARCHIVE_BYTES = 2 * 1024 * 1024
 SERVER_FILES = {
     "activation-plan.json", "decision-unsigned.json", "decision.json",
-    "keyring.json", "owner-signature.json", "reviewer-signature.json",
+    "keyring.json", "owner-signature.json",
 }
 UNIT_FILES = (
     "obsidian-b64-064a-activation.service",
@@ -67,12 +67,13 @@ OFFLINE_KIT_FILES = (
     "deploy/postgres/b64_064a_runtime_package_committer.py",
     "deploy/postgres/b64_dump_restore_supervisor.py",
     "docs/e0-3-bot-b5-3-064a-activation-trust-registry.v1.json",
+    "docs/e0-3-bot-b5-3-064a-single-owner-policy.v1.json",
     "docs/e0-3-bot-b5-3-064a-hardened-refresh-plan.v1.json",
     "scripts/b64_064a_activation_ceremony.py",
 )
-OFFLINE_KIT_SCHEMA = "b64-064a-production-activation-offline-kit.v1"
+OFFLINE_KIT_SCHEMA = "b64-064a-production-activation-offline-kit.v2"
 SIGNING_REQUEST_SCHEMA = \
-    "b64-064a-production-activation-signing-request.v1"
+    "b64-064a-production-activation-signing-request.v2"
 
 
 class CeremonyError(RuntimeError):
@@ -723,21 +724,20 @@ def command_build_offline_kit(args: argparse.Namespace) -> dict[str, Any]:
         name: _artifact_raw(ROOT / name) for name in OFFLINE_KIT_FILES
     }
     for entry in trust["keys"]:
-        name = (
-            "owner-public.json" if entry["role"] == "ACCOUNTABLE_OWNER"
-            else "reviewer-public.json"
-        )
-        files[name] = _canonical(_profile_from_trust_entry(entry)) + b"\n"
+        files["owner-public.json"] = \
+            _canonical(_profile_from_trust_entry(entry)) + b"\n"
     files["README.txt"] = (
-        "OBSIDIAN 064A PRODUCTION ACTIVATION V3 - OFFLINE SIGNING KIT\n"
+        "OBSIDIAN 064A PRODUCTION ACTIVATION V4 - SINGLE OWNER KIT\n"
+        "This route explicitly uses ACCOUNTABLE_OWNER_ONLY authority and "
+        "does not claim independent reviewer custody.\n"
         "This archive contains no private key, passphrase, credential, "
         "runtime request, or completed authority.\n"
         "Verify the archive SHA-256 received out-of-band and SHA256SUMS "
         "after extraction into a private 0700 directory.\n"
-        "For each fresh request, independently inspect decision-unsigned.json "
+        "For the single final request, inspect decision-unsigned.json "
         "and confirm its decisionSha256 before signing.\n"
         "Run scripts/b64_064a_activation_ceremony.py sign only on the "
-        "offline signer device with that signer's encrypted Ed25519 key.\n"
+        "owner device with the owner's encrypted Ed25519 key.\n"
         "Never copy the encrypted private key or passphrase to the server.\n"
     ).encode("utf-8")
     manifest_unsigned = {
@@ -839,7 +839,7 @@ def command_create_decision(_args: argparse.Namespace) -> dict[str, Any]:
         "decisionSha256": decision["decisionSha256"],
         "runNonce": plan["runNonce"],
         "expiresAtEpoch": decision["expiresAtEpoch"],
-        "signatureDomain": "OBSIDIAN_B64_064A_PRODUCTION_ACTIVATION_V3",
+        "signatureDomain": "OBSIDIAN_B64_064A_PRODUCTION_ACTIVATION_V4",
         "outputSha256": _write_server(
             "decision-unsigned.json", _canonical(decision) + b"\n",
         ),
@@ -1042,10 +1042,7 @@ def command_import_signature(args: argparse.Namespace) -> dict[str, Any]:
     _verify_detached_signature(
         detached, unsigned=unsigned, registry=registry,
     )
-    name = (
-        "owner-signature.json" if role == "ACCOUNTABLE_OWNER"
-        else "reviewer-signature.json"
-    )
+    name = "owner-signature.json"
     raw = _canonical(value) + b"\n"
     return {
         "status": "FRESH_DETACHED_SIGNATURE_IMPORTED",
@@ -1107,10 +1104,6 @@ def command_assemble_decision(_args: argparse.Namespace) -> dict[str, Any]:
         raise CeremonyError("INSUFFICIENT_DECISION_WINDOW_REMAINING")
     _assert_tuple_matches_plan(_production_tuple(), plan)
     signatures = [
-        _detached(
-            _server_json("reviewer-signature.json"), decision=decision,
-            keyring=keyring, plan=plan, role="INDEPENDENT_REVIEWER",
-        ),
         _detached(
             _server_json("owner-signature.json"), decision=decision,
             keyring=keyring, plan=plan, role="ACCOUNTABLE_OWNER",
@@ -1176,7 +1169,7 @@ def command_assemble_decision(_args: argparse.Namespace) -> dict[str, Any]:
     finally:
         os.close(root_fd)
     return {
-        "status": "SIGNED_V3_DECISION_VERIFIED_NOT_DEPLOYED",
+        "status": "SIGNED_V4_OWNER_DECISION_VERIFIED_NOT_DEPLOYED",
         "decisionSha256": decision["decisionSha256"],
         "runNonce": plan["runNonce"],
         "expiresAtEpoch": decision["expiresAtEpoch"],
@@ -1210,7 +1203,7 @@ def command_verify_decision(_args: argparse.Namespace) -> dict[str, Any]:
         plan=plan, decision=decision,
     )
     return {
-        "status": "SIGNED_V3_DECISION_VERIFIED_NOT_DEPLOYED",
+        "status": "SIGNED_V4_OWNER_DECISION_VERIFIED_NOT_DEPLOYED",
         "decisionSha256": decision["decisionSha256"],
         "runNonce": plan["runNonce"],
         "expiresAtEpoch": decision["expiresAtEpoch"],

@@ -3,9 +3,9 @@
 
 This command has no arguments and no configurable paths.  It must execute from
 the immutable release bound into the signed activation plan.  It re-verifies
-the fresh two-party decision, exact production target and dormant state before
-publishing the recovery package, four empty activation roots, recovery marker
-and launch marker.  The launcher is intentionally never started here.
+the fresh single-owner decision, exact production target and dormant state
+before publishing the recovery package, four empty activation roots, recovery
+marker and launch marker.  The launcher is intentionally never started here.
 """
 from __future__ import annotations
 
@@ -49,7 +49,7 @@ MAX_SUBPROCESS_BYTES = 64 * 1024
 STATE_NAMES = ("journal", "resources", "workspace", "proxy")
 COORDINATION_FILES = {
     "activation-plan.json", "decision-unsigned.json", "decision.json",
-    "keyring.json", "owner-signature.json", "reviewer-signature.json",
+    "keyring.json", "owner-signature.json",
 }
 UNIT_FILES = (
     "obsidian-b64-064a-activation.service",

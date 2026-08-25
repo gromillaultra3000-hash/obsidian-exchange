@@ -573,14 +573,11 @@ def _signed_package(*, now_epoch: int, container_id: str, image_id: str,
                     system_identifier: str):
     private_keys = {
         "ACCOUNTABLE_OWNER": Ed25519PrivateKey.generate(),
-        "INDEPENDENT_REVIEWER": Ed25519PrivateKey.generate(),
     }
     entries = []
     for role, identity, domain in (
         ("ACCOUNTABLE_OWNER", "synthetic_contract_owner",
          "synthetic_owner_disposable_domain"),
-        ("INDEPENDENT_REVIEWER", "synthetic_contract_reviewer",
-         "synthetic_reviewer_disposable_domain"),
     ):
         public = private_keys[role].public_key().public_bytes_raw()
         entries.append({
@@ -593,7 +590,7 @@ def _signed_package(*, now_epoch: int, container_id: str, image_id: str,
         "schemaVersion": activation.ACTIVATION_KEYRING_SCHEMA,
         "route": activation.ROUTE,
         "trustEnvironment": activation.ACTIVATION_TRUST_ENVIRONMENT,
-        "registryVersion": 2, "issuedAtEpoch": now_epoch - 120,
+        "registryVersion": 3, "issuedAtEpoch": now_epoch - 120,
         "expiresAtEpoch": now_epoch + 1800,
         "revokedKeys": [], "keys": entries,
     }

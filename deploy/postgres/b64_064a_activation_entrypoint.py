@@ -30,30 +30,42 @@ import b64_dump_restore_supervisor as supervisor
 
 ROUTE = supervisor.ROUTE
 PLAN_SCHEMA = "b64-064a-production-activation-plan.v3"
-DECISION_SCHEMA = "b64-064a-production-activation-decision.v3"
+DECISION_SCHEMA = "b64-064a-production-activation-decision.v4"
 EXECUTION_RECEIPT_SCHEMA = "b64-064a-production-activation-receipt.v2"
 JOURNAL_SCHEMA = "b64-064a-production-activation-journal.v2"
 EFFECTIVE_PLAN_SCHEMA = "b64-064a-production-effective-plan.v1"
-SIGNATURE_DOMAIN = b"OBSIDIAN\0B64_064A_PRODUCTION_ACTIVATION\0V3\0"
+SIGNATURE_DOMAIN = b"OBSIDIAN\0B64_064A_PRODUCTION_ACTIVATION\0V4\0"
 ACTIVATION_KEYRING_SCHEMA = "b64-064a-activation-keyring.v1"
 ACTIVATION_TRUST_ENVIRONMENT = "PRODUCTION_ACTIVATION_AUTHENTICATED"
 ACTIVATION_KEY_ID_DOMAIN = b"OBSIDIAN-B64-064A-ACTIVATION-KEY\0V1\0"
 ACTIVATION_TRUST_REGISTRY_SCHEMA = \
     "b64-064a-activation-trust-registry.v1"
 ACTIVATION_TRUST_REGISTRY_RAW_SHA256 = \
-    "5ab116baa1a51da95bee10ca1510798cb206397f463f2576cce8d3544a313a24"
-ACTIVATION_TRUST_REGISTRY_VERSION = 2
+    "c921b3792f8867ea8e120e506bd32beba23767090146f3813668aff71451559c"
+ACTIVATION_TRUST_REGISTRY_VERSION = 3
 PREVIOUS_ACTIVATION_TRUST_REGISTRY_SHA256 = \
-    "5f190f5f59078e02c505c4de01faf42f483508f9fbc6e4982d8a672ab69c14b3"
+    "3afcbee9ce42d29b11b2c3b341e3492a528c4aac315c0881362ddb98be4cdf61"
+ACTIVATION_AUTHORIZATION_MODEL = "ACCOUNTABLE_OWNER_ONLY"
+SINGLE_OWNER_POLICY_SCHEMA = "b64-064a-single-owner-policy.v1"
+SINGLE_OWNER_POLICY_SHA256 = \
+    "70ce3707aac50d3e92fdf7e81890271d5e5573a1f6b110063c92fe3bddbd220a"
 PREVIOUS_REVIEWER_PUBLIC_PROFILE_SHA256 = \
     "f495166a8c4eebaa22c223e87a64d73683de63d98010785c83822c9966203c4d"
+REVIEWER_R2_PUBLIC_PROFILE_SHA256 = \
+    "3e9a8dc12bd7f11bbc0ddc8048095710bc9670090daaf5c66b11c9417f45ea61"
 RETIRED_REVIEWER_ACTIVATION_KEY_ID = \
     "b64a_75414a6b14130da8cc9a993fa588f04a0bbbcdaa08c37c32cfbcaa0dcb2d2dd1"
 RETIRED_REVIEWER_EVIDENCE_KEY_ID = \
     "b64e_a617c7896122b17b706ad8a40d3c26ca794b36b0a1c01730ffbe4ba4e64a4dbb"
+RETIRED_REVIEWER_R2_ACTIVATION_KEY_ID = \
+    "b64a_4c315ccbcb3f1397214085cab9fdde6da97d43b1bfee23ccab2ea61dc3b15651"
+RETIRED_REVIEWER_R2_EVIDENCE_KEY_ID = \
+    "b64e_cd9ed2e99ad1da9ef672211099cc2cc7fbd93e97a6dccec53c320761db7ae566"
 REVIEWER_ROTATION_SCHEMA = "b64-064a-reviewer-key-rotation-intake.v1"
 REVIEWER_ROTATION_REASON = "CO_RESIDENT_PRIVATE_KEY_CUSTODY_INVALID"
 REVIEWER_ROTATION_RECEIVED_AT_EPOCH = 1787665810
+REVIEWER_R2_RETIRED_AT_EPOCH = 1787667837
+REVIEWER_R2_RETIRE_REASON = "SINGLE_OWNER_POLICY_RETIRES_REVIEWER"
 REVIEWER_ROTATION_PROFILE_PATH = \
     "docs/e0-3-bot-b5-3-064a-reviewer-r2-public.v1.json"
 MAX_DECISION_LIFETIME_SECONDS = 15 * 60
@@ -79,11 +91,11 @@ PRODUCTION_JOURNAL_ROOT = PRODUCTION_ACTIVATION_ROOT / "journal"
 PRODUCTION_RESOURCE_JOURNAL_ROOT = PRODUCTION_ACTIVATION_ROOT / "resources"
 PRODUCTION_WORKSPACE_ROOT = PRODUCTION_ACTIVATION_ROOT / "workspace"
 PRODUCTION_PROXY_ROOT = PRODUCTION_ACTIVATION_ROOT / "proxy"
-SIGNER_ROLES = supervisor.SIGNER_ROLES
+SIGNER_ROLES = {"ACCOUNTABLE_OWNER"}
 ARTIFACT_KEYS = {
     "activationEntrypoint", "activationExecutor", "activationLauncher",
     "runtimePackageCommitter",
-    "activationTrustRegistry",
+    "activationTrustRegistry", "singleOwnerPolicy",
     "hardenedRefresh", "snapshotReaderRuntime", "snapshotReaderWatchdog",
     "dumpRestoreSupervisor", "hardenedPlanRaw",
 }
@@ -101,6 +113,8 @@ ARTIFACT_PATHS = {
     ),
     "activationTrustRegistry": PROJECT_ROOT
     / "docs/e0-3-bot-b5-3-064a-activation-trust-registry.v1.json",
+    "singleOwnerPolicy": PROJECT_ROOT
+    / "docs/e0-3-bot-b5-3-064a-single-owner-policy.v1.json",
     "hardenedRefresh": Path(__file__).with_name(
         "b64_064a_hardened_refresh.py"
     ),
@@ -349,7 +363,8 @@ def _load_activation_trust_registry() -> dict[str, Any]:
     registry = _decode_json(raw)
     unsigned_keys = (
         "schemaVersion", "route", "trustEnvironment", "registryVersion",
-        "previousRegistrySha256", "source", "revokedKeys", "keys",
+        "previousRegistrySha256", "authorizationModel", "source",
+        "revokedKeys", "keys",
     )
     if (set(registry) != {*unsigned_keys, "registrySha256"}
             or registry.get("schemaVersion")
@@ -360,7 +375,9 @@ def _load_activation_trust_registry() -> dict[str, Any]:
             or registry.get("registryVersion")
             != ACTIVATION_TRUST_REGISTRY_VERSION
             or registry.get("previousRegistrySha256")
-            != PREVIOUS_ACTIVATION_TRUST_REGISTRY_SHA256):
+            != PREVIOUS_ACTIVATION_TRUST_REGISTRY_SHA256
+            or registry.get("authorizationModel")
+            != ACTIVATION_AUTHORIZATION_MODEL):
         raise ActivationError("INVALID_ACTIVATION_TRUST_REGISTRY")
     _digest(
         registry.get("previousRegistrySha256"),
@@ -375,19 +392,22 @@ def _load_activation_trust_registry() -> dict[str, Any]:
             "evidenceKeyringRawSha256", "ownerPublicProfileSha256",
             "previousReviewerPublicProfileSha256",
             "reviewerPublicProfileSha256", "reviewerRotation",
-            "scopeEscalationRequiresFreshV3Signatures",
+            "singleOwnerPolicySha256",
+            "scopeEscalationRequiresFreshV4Signature",
     } or source.get("authenticationRoot")
             != "/opt/obsidian-exchange/evidence/e0-e0.3-b5.3-064a/"
             "b482504a2166b1e410e6a4b97829dbfcf818807b872f6ca73530a6d130dd54ba"
-            or source.get("scopeEscalationRequiresFreshV3Signatures")
+            or source.get("scopeEscalationRequiresFreshV4Signature")
             is not True):
         raise ActivationError("INVALID_ACTIVATION_TRUST_PROVENANCE")
     for name in (
         "evidenceKeyringSha256", "evidenceKeyringRawSha256",
         "ownerPublicProfileSha256", "previousReviewerPublicProfileSha256",
-        "reviewerPublicProfileSha256",
+        "reviewerPublicProfileSha256", "singleOwnerPolicySha256",
     ):
         _digest(source.get(name), "INVALID_ACTIVATION_TRUST_PROVENANCE")
+    if source.get("singleOwnerPolicySha256") != SINGLE_OWNER_POLICY_SHA256:
+        raise ActivationError("SINGLE_OWNER_POLICY_DIGEST_MISMATCH")
     rotation = source.get("reviewerRotation")
     if (not isinstance(rotation, Mapping) or set(rotation) != {
             "schemaVersion", "reasonCode", "receivedAtEpoch",
@@ -413,6 +433,8 @@ def _load_activation_trust_registry() -> dict[str, Any]:
             or rotation.get("proofOfPossessionRequiredAtSigning") is not True
             or source.get("previousReviewerPublicProfileSha256")
             != PREVIOUS_REVIEWER_PUBLIC_PROFILE_SHA256
+            or source.get("reviewerPublicProfileSha256")
+            != REVIEWER_R2_PUBLIC_PROFILE_SHA256
             or rotation.get("publicProfileRawSha256")
             != source.get("reviewerPublicProfileSha256")):
         raise ActivationError("INVALID_REVIEWER_ROTATION_PROVENANCE")
@@ -431,17 +453,28 @@ def _load_activation_trust_registry() -> dict[str, Any]:
                 or item["revokedAtEpoch"] <= 0):
             raise ActivationError("INVALID_ACTIVATION_REVOCATION")
         revoked_ids.add(key_id)
-    if revoked_ids != {
-            RETIRED_REVIEWER_ACTIVATION_KEY_ID,
-            RETIRED_REVIEWER_EVIDENCE_KEY_ID,
-    } or any(
-        item["revokedAtEpoch"] != REVIEWER_ROTATION_RECEIVED_AT_EPOCH
-        or item["reasonCode"] != REVIEWER_ROTATION_REASON
+    expected_revocations = {
+        RETIRED_REVIEWER_ACTIVATION_KEY_ID: (
+            REVIEWER_ROTATION_RECEIVED_AT_EPOCH, REVIEWER_ROTATION_REASON,
+        ),
+        RETIRED_REVIEWER_EVIDENCE_KEY_ID: (
+            REVIEWER_ROTATION_RECEIVED_AT_EPOCH, REVIEWER_ROTATION_REASON,
+        ),
+        RETIRED_REVIEWER_R2_ACTIVATION_KEY_ID: (
+            REVIEWER_R2_RETIRED_AT_EPOCH, REVIEWER_R2_RETIRE_REASON,
+        ),
+        RETIRED_REVIEWER_R2_EVIDENCE_KEY_ID: (
+            REVIEWER_R2_RETIRED_AT_EPOCH, REVIEWER_R2_RETIRE_REASON,
+        ),
+    }
+    if revoked_ids != set(expected_revocations) or any(
+        (item["revokedAtEpoch"], item["reasonCode"])
+        != expected_revocations[item["keyId"]]
         for item in revoked
     ):
         raise ActivationError("INVALID_ACTIVATION_REVOCATIONS")
     keys = registry.get("keys")
-    if type(keys) is not list or len(keys) != 2:
+    if type(keys) is not list or len(keys) != len(SIGNER_ROLES):
         raise ActivationError("INVALID_ACTIVATION_TRUST_REGISTRY")
     identities: set[str] = set()
     domains: set[str] = set()
@@ -491,9 +524,7 @@ def _load_activation_trust_registry() -> dict[str, Any]:
     if roles != SIGNER_ROLES:
         raise ActivationError("ACTIVATION_TRUST_ROLES_MISMATCH")
     if (source.get("ownerPublicProfileSha256")
-            != profile_sha256_by_role.get("ACCOUNTABLE_OWNER")
-            or source.get("reviewerPublicProfileSha256")
-            != profile_sha256_by_role.get("INDEPENDENT_REVIEWER")):
+            != profile_sha256_by_role.get("ACCOUNTABLE_OWNER")):
         raise ActivationError("ACTIVATION_TRUST_PROFILE_DIGEST_MISMATCH")
     return json.loads(_canonical(registry))
 
@@ -508,6 +539,43 @@ def verify_artifact_closure(plan: Mapping[str, Any]) -> None:
         if digest != artifacts[key]:
             raise ActivationError("ACTIVATION_ARTIFACT_DRIFT")
         observed[key] = raw
+    policy_raw = observed["singleOwnerPolicy"]
+    policy = _decode_json(policy_raw)
+    if (_sha(policy_raw) != SINGLE_OWNER_POLICY_SHA256
+            or set(policy) != {
+                "schemaVersion", "route", "decidedAtUtc", "decision",
+                "reason", "authorizationModel", "requiredRoles",
+                "independentReviewerRequired",
+                "reducedSeparationOfDutiesAcknowledged",
+                "freshIncompatibleSignatureDomainRequired",
+                "oldV3DecisionsReusable", "maximumRuns",
+                "automaticRetryAllowed", "moneyActionAuthorized",
+                "productionDatabaseDataMutationAuthorized",
+                "migrationAuthorized", "telegramDeliveryAuthorized",
+                "singleFinalSignatureOnlyAfterFullPreflight",
+            }
+            or policy.get("schemaVersion") != SINGLE_OWNER_POLICY_SCHEMA
+            or policy.get("route") != ROUTE
+            or policy.get("decision")
+            != "ADOPT_EXPLICIT_SINGLE_OWNER_ACTIVATION"
+            or policy.get("authorizationModel")
+            != ACTIVATION_AUTHORIZATION_MODEL
+            or not _exact(policy.get("requiredRoles"), ["ACCOUNTABLE_OWNER"])
+            or policy.get("independentReviewerRequired") is not False
+            or policy.get("reducedSeparationOfDutiesAcknowledged") is not True
+            or policy.get("freshIncompatibleSignatureDomainRequired")
+            is not True
+            or policy.get("oldV3DecisionsReusable") is not False
+            or policy.get("maximumRuns") != 1
+            or policy.get("automaticRetryAllowed") is not False
+            or policy.get("moneyActionAuthorized") is not False
+            or policy.get("productionDatabaseDataMutationAuthorized")
+            is not False
+            or policy.get("migrationAuthorized") is not False
+            or policy.get("telegramDeliveryAuthorized") is not False
+            or policy.get("singleFinalSignatureOnlyAfterFullPreflight")
+            is not True):
+        raise ActivationError("SINGLE_OWNER_POLICY_BINDING_MISMATCH")
     hardened_plan = _decode_json(observed["hardenedPlanRaw"])
     if (hardened_plan.get("schemaVersion")
             != "b64-064a-hardened-refresh-plan.v1"
@@ -684,7 +752,7 @@ def _load_keyring(
             raise ActivationError("INVALID_ACTIVATION_REVOCATION")
         revoked_ids.add(key_id)
     keys = keyring.get("keys")
-    if type(keys) is not list or len(keys) != 2:
+    if type(keys) is not list or len(keys) != len(SIGNER_ROLES):
         raise ActivationError("INVALID_ACTIVATION_KEYRING")
     registry: dict[str, dict[str, Any]] = {}
     identities: set[str] = set()
@@ -1041,7 +1109,7 @@ def verify_activation_decision(
     if decision.get("decisionSha256") != decision_sha:
         raise ActivationError("ACTIVATION_DECISION_DIGEST_MISMATCH")
     signatures = decision.get("signatures")
-    if type(signatures) is not list or len(signatures) != 2:
+    if type(signatures) is not list or len(signatures) != len(SIGNER_ROLES):
         raise ActivationError("INVALID_ACTIVATION_SIGNATURE_SET")
     seen_roles: set[str] = set()
     seen_keys: set[str] = set()

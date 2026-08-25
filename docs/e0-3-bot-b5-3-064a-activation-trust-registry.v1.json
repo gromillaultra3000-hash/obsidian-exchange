@@ -2,8 +2,9 @@
   "schemaVersion": "b64-064a-activation-trust-registry.v1",
   "route": "E0/E0.3/B5.3/064A",
   "trustEnvironment": "PRODUCTION_ACTIVATION_AUTHENTICATED",
-  "registryVersion": 2,
-  "previousRegistrySha256": "5f190f5f59078e02c505c4de01faf42f483508f9fbc6e4982d8a672ab69c14b3",
+  "registryVersion": 3,
+  "previousRegistrySha256": "3afcbee9ce42d29b11b2c3b341e3492a528c4aac315c0881362ddb98be4cdf61",
+  "authorizationModel": "ACCOUNTABLE_OWNER_ONLY",
   "source": {
     "authenticationRoot": "/opt/obsidian-exchange/evidence/e0-e0.3-b5.3-064a/b482504a2166b1e410e6a4b97829dbfcf818807b872f6ca73530a6d130dd54ba",
     "evidenceKeyringSha256": "a83cfac0c2a61edb83480ae782e077d3fafc6401b3e2f1694aeebf6fd24b113c",
@@ -24,7 +25,8 @@
       "privateMaterialReceived": false,
       "proofOfPossessionRequiredAtSigning": true
     },
-    "scopeEscalationRequiresFreshV3Signatures": true
+    "singleOwnerPolicySha256": "70ce3707aac50d3e92fdf7e81890271d5e5573a1f6b110063c92fe3bddbd220a",
+    "scopeEscalationRequiresFreshV4Signature": true
   },
   "revokedKeys": [
     {
@@ -36,6 +38,16 @@
       "keyId": "b64e_a617c7896122b17b706ad8a40d3c26ca794b36b0a1c01730ffbe4ba4e64a4dbb",
       "revokedAtEpoch": 1787665810,
       "reasonCode": "CO_RESIDENT_PRIVATE_KEY_CUSTODY_INVALID"
+    },
+    {
+      "keyId": "b64a_4c315ccbcb3f1397214085cab9fdde6da97d43b1bfee23ccab2ea61dc3b15651",
+      "revokedAtEpoch": 1787667837,
+      "reasonCode": "SINGLE_OWNER_POLICY_RETIRES_REVIEWER"
+    },
+    {
+      "keyId": "b64e_cd9ed2e99ad1da9ef672211099cc2cc7fbd93e97a6dccec53c320761db7ae566",
+      "revokedAtEpoch": 1787667837,
+      "reasonCode": "SINGLE_OWNER_POLICY_RETIRES_REVIEWER"
     }
   ],
   "keys": [
@@ -47,16 +59,7 @@
       "role": "ACCOUNTABLE_OWNER",
       "status": "ACTIVE",
       "publicKeyB64": "fLWNvunUI6IDw5oljcAbeUSisUxfH9OFatVt9baLEuk"
-    },
-    {
-      "keyId": "b64a_4c315ccbcb3f1397214085cab9fdde6da97d43b1bfee23ccab2ea61dc3b15651",
-      "sourceEvidenceKeyId": "b64e_cd9ed2e99ad1da9ef672211099cc2cc7fbd93e97a6dccec53c320761db7ae566",
-      "identityId": "reviewer_independent_2026_r2",
-      "trustDomain": "reviewer_device_02",
-      "role": "INDEPENDENT_REVIEWER",
-      "status": "ACTIVE",
-      "publicKeyB64": "a0ZcM8H5jV3lGHgdRqKlODxgv9gS2sMoqbJ2NJ3PhnE"
     }
   ],
-  "registrySha256": "3afcbee9ce42d29b11b2c3b341e3492a528c4aac315c0881362ddb98be4cdf61"
+  "registrySha256": "d42dbdc2533574b813686289c3421b6d1468259caaaa4b193210901ee0b9e22f"
 }
