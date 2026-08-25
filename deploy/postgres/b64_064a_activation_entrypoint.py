@@ -38,6 +38,10 @@ SIGNATURE_DOMAIN = b"OBSIDIAN\0B64_064A_PRODUCTION_ACTIVATION\0V3\0"
 ACTIVATION_KEYRING_SCHEMA = "b64-064a-activation-keyring.v1"
 ACTIVATION_TRUST_ENVIRONMENT = "PRODUCTION_ACTIVATION_AUTHENTICATED"
 ACTIVATION_KEY_ID_DOMAIN = b"OBSIDIAN-B64-064A-ACTIVATION-KEY\0V1\0"
+ACTIVATION_TRUST_REGISTRY_SCHEMA = \
+    "b64-064a-activation-trust-registry.v1"
+ACTIVATION_TRUST_REGISTRY_RAW_SHA256 = \
+    "6632d656100fe2c7697d774b615466ff1850d2060088ea2c3a1fa25b373d7adc"
 MAX_DECISION_LIFETIME_SECONDS = 15 * 60
 MAX_PLAN_AGE_SECONDS = 15 * 60
 MAX_FUTURE_SKEW_SECONDS = 60
@@ -64,6 +68,7 @@ PRODUCTION_PROXY_ROOT = PRODUCTION_ACTIVATION_ROOT / "proxy"
 SIGNER_ROLES = supervisor.SIGNER_ROLES
 ARTIFACT_KEYS = {
     "activationEntrypoint", "activationExecutor", "activationLauncher",
+    "activationTrustRegistry",
     "hardenedRefresh", "snapshotReaderRuntime", "snapshotReaderWatchdog",
     "dumpRestoreSupervisor", "hardenedPlanRaw",
 }
@@ -76,6 +81,8 @@ ARTIFACT_PATHS = {
     "activationLauncher": Path(__file__).with_name(
         "b64_064a_activation_launcher.py"
     ),
+    "activationTrustRegistry": PROJECT_ROOT
+    / "docs/e0-3-bot-b5-3-064a-activation-trust-registry.v1.json",
     "hardenedRefresh": Path(__file__).with_name(
         "b64_064a_hardened_refresh.py"
     ),
@@ -300,6 +307,113 @@ def _artifact_bytes_and_sha256(path: Path) -> tuple[bytes, str]:
     return b"".join(chunks), digest.hexdigest()
 
 
+def _load_activation_trust_registry() -> dict[str, Any]:
+    raw, raw_sha256 = _artifact_bytes_and_sha256(
+        ARTIFACT_PATHS["activationTrustRegistry"]
+    )
+    if raw_sha256 != ACTIVATION_TRUST_REGISTRY_RAW_SHA256:
+        raise ActivationError("ACTIVATION_TRUST_REGISTRY_DRIFT")
+    registry = _decode_json(raw)
+    unsigned_keys = (
+        "schemaVersion", "route", "trustEnvironment", "registryVersion",
+        "previousRegistrySha256", "source", "revokedKeys", "keys",
+    )
+    if (set(registry) != {*unsigned_keys, "registrySha256"}
+            or registry.get("schemaVersion")
+            != ACTIVATION_TRUST_REGISTRY_SCHEMA
+            or registry.get("route") != ROUTE
+            or registry.get("trustEnvironment")
+            != ACTIVATION_TRUST_ENVIRONMENT
+            or type(registry.get("registryVersion")) is not int
+            or registry["registryVersion"] <= 0):
+        raise ActivationError("INVALID_ACTIVATION_TRUST_REGISTRY")
+    _digest(
+        registry.get("previousRegistrySha256"),
+        "INVALID_PREVIOUS_ACTIVATION_REGISTRY_DIGEST",
+    )
+    unsigned = {key: registry[key] for key in unsigned_keys}
+    if registry.get("registrySha256") != _sha(_canonical(unsigned)):
+        raise ActivationError("ACTIVATION_TRUST_REGISTRY_DIGEST_MISMATCH")
+    source = registry.get("source")
+    if (not isinstance(source, Mapping) or set(source) != {
+            "authenticationRoot", "evidenceKeyringSha256",
+            "evidenceKeyringRawSha256", "ownerPublicProfileSha256",
+            "reviewerPublicProfileSha256",
+            "scopeEscalationRequiresFreshV3Signatures",
+    } or source.get("authenticationRoot")
+            != "/opt/obsidian-exchange/evidence/e0-e0.3-b5.3-064a/"
+            "b482504a2166b1e410e6a4b97829dbfcf818807b872f6ca73530a6d130dd54ba"
+            or source.get("scopeEscalationRequiresFreshV3Signatures")
+            is not True):
+        raise ActivationError("INVALID_ACTIVATION_TRUST_PROVENANCE")
+    for name in (
+        "evidenceKeyringSha256", "evidenceKeyringRawSha256",
+        "ownerPublicProfileSha256", "reviewerPublicProfileSha256",
+    ):
+        _digest(source.get(name), "INVALID_ACTIVATION_TRUST_PROVENANCE")
+    revoked = registry.get("revokedKeys")
+    if type(revoked) is not list or len(revoked) > 64:
+        raise ActivationError("INVALID_ACTIVATION_REVOCATIONS")
+    revoked_ids: set[str] = set()
+    for item in revoked:
+        if not isinstance(item, Mapping) or set(item) != {
+                "keyId", "revokedAtEpoch", "reasonCode"}:
+            raise ActivationError("INVALID_ACTIVATION_REVOCATION")
+        key_id = _token(item.get("keyId"), "INVALID_REVOKED_KEY_ID")
+        _token(item.get("reasonCode"), "INVALID_REVOCATION_REASON")
+        if (key_id in revoked_ids
+                or type(item.get("revokedAtEpoch")) is not int
+                or item["revokedAtEpoch"] <= 0):
+            raise ActivationError("INVALID_ACTIVATION_REVOCATION")
+        revoked_ids.add(key_id)
+    keys = registry.get("keys")
+    if type(keys) is not list or len(keys) != 2:
+        raise ActivationError("INVALID_ACTIVATION_TRUST_REGISTRY")
+    identities: set[str] = set()
+    domains: set[str] = set()
+    public_keys: set[bytes] = set()
+    source_evidence_key_ids: set[str] = set()
+    roles: set[str] = set()
+    for entry in keys:
+        if not isinstance(entry, Mapping) or set(entry) != {
+                "keyId", "sourceEvidenceKeyId", "identityId",
+                "trustDomain", "role", "status", "publicKeyB64"}:
+            raise ActivationError("INVALID_ACTIVATION_TRUST_KEY")
+        key_id = _token(entry.get("keyId"), "INVALID_KEY_ID")
+        source_evidence_key_id = _token(
+            entry.get("sourceEvidenceKeyId"),
+            "INVALID_SOURCE_EVIDENCE_KEY_ID",
+        )
+        identity = _token(
+            entry.get("identityId"), "INVALID_IDENTITY_ID"
+        )
+        domain = _token(
+            entry.get("trustDomain"), "INVALID_TRUST_DOMAIN"
+        )
+        try:
+            public_key = supervisor._decode_public_key(
+                entry.get("publicKeyB64")
+            )
+        except supervisor.SupervisorError as exc:
+            raise ActivationError(str(exc)) from exc
+        if (key_id != activation_key_id(public_key)
+                or source_evidence_key_id != supervisor._key_id(public_key)
+                or source_evidence_key_id in source_evidence_key_ids
+                or key_id in revoked_ids or identity in identities
+                or domain in domains or public_key in public_keys
+                or entry.get("role") not in SIGNER_ROLES
+                or entry.get("status") != "ACTIVE"):
+            raise ActivationError("ACTIVATION_TRUST_KEYS_NOT_INDEPENDENT")
+        identities.add(identity)
+        domains.add(domain)
+        public_keys.add(public_key)
+        source_evidence_key_ids.add(source_evidence_key_id)
+        roles.add(entry["role"])
+    if roles != SIGNER_ROLES:
+        raise ActivationError("ACTIVATION_TRUST_ROLES_MISMATCH")
+    return json.loads(_canonical(registry))
+
+
 def verify_artifact_closure(plan: Mapping[str, Any]) -> None:
     artifacts = plan.get("artifactsSha256")
     if not isinstance(artifacts, Mapping) or set(artifacts) != ARTIFACT_KEYS:
@@ -431,6 +545,7 @@ def compatibility_hardened_plan(
 
 def _load_keyring(
     keyring_raw: bytes, *, expected_sha256: str, now_epoch: int,
+    expected_environment: str,
 ) -> tuple[dict[str, Any], dict[str, dict[str, Any]], str]:
     try:
         from cryptography.hazmat.primitives.asymmetric.ed25519 import (
@@ -518,6 +633,25 @@ def _load_keyring(
         public_keys.add(public_key)
     if {entry["role"] for entry in keys} != SIGNER_ROLES:
         raise ActivationError("ACTIVATION_SIGNER_ROLES_MISMATCH")
+    if expected_environment == "PRODUCTION":
+        trust_registry = _load_activation_trust_registry()
+        trusted_keys = sorted(({
+            "keyId": entry["keyId"],
+            "identityId": entry["identityId"],
+            "trustDomain": entry["trustDomain"],
+            "role": entry["role"],
+            "status": entry["status"],
+            "publicKeyB64": entry["publicKeyB64"],
+        } for entry in trust_registry["keys"]), key=lambda item: item["keyId"])
+        if (version != trust_registry["registryVersion"]
+                or not _exact(revoked, trust_registry["revokedKeys"])
+                or not _exact(
+                    sorted(keys, key=lambda item: item["keyId"]),
+                    trusted_keys,
+                )):
+            raise ActivationError("ACTIVATION_TRUST_REGISTRY_MISMATCH")
+    elif expected_environment != "DISPOSABLE_CONTRACT":
+        raise ActivationError("INVALID_ACTIVATION_ENVIRONMENT")
     return keyring, registry, keyring_sha
 
 
@@ -767,7 +901,7 @@ def verify_activation_decision(
         raise ActivationError("ED25519_VERIFIER_UNAVAILABLE") from exc
     keyring, registry, keyring_sha = _load_keyring(
         keyring_raw, expected_sha256=expected_keyring_sha256,
-        now_epoch=now_epoch,
+        now_epoch=now_epoch, expected_environment=expected_environment,
     )
     plan = validate_plan(
         _decode_json(activation_plan_raw),

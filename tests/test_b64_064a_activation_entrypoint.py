@@ -6,7 +6,9 @@ import json
 import os
 import subprocess
 import sys
+from contextlib import nullcontext
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -127,15 +129,36 @@ def _package(*, now: int = 1_800_000_000, environment: str =
     }
 
 
-def _verify(package):
-    return MODULE.verify_activation_decision(
-        keyring_raw=MODULE._canonical(package["keyring"]),
-        decision_raw=MODULE._canonical(package["decision"]),
-        activation_plan_raw=MODULE._canonical(package["plan"]),
-        expected_keyring_sha256=package["keyring_sha"],
-        expected_environment=package["plan"]["environment"],
-        now_epoch=package["now"],
+def _synthetic_trust_registry(package):
+    return {
+        "registryVersion": package["keyring"]["registryVersion"],
+        "revokedKeys": package["keyring"]["revokedKeys"],
+        "keys": [
+            {**entry, "sourceEvidenceKeyId": f"source_{index}"}
+            for index, entry in enumerate(package["keyring"]["keys"])
+        ],
+    }
+
+
+def _registry_patch(package):
+    if package["plan"]["environment"] != "PRODUCTION":
+        return nullcontext()
+    return patch.object(
+        MODULE, "_load_activation_trust_registry",
+        return_value=_synthetic_trust_registry(package),
     )
+
+
+def _verify(package):
+    with _registry_patch(package):
+        return MODULE.verify_activation_decision(
+            keyring_raw=MODULE._canonical(package["keyring"]),
+            decision_raw=MODULE._canonical(package["decision"]),
+            activation_plan_raw=MODULE._canonical(package["plan"]),
+            expected_keyring_sha256=package["keyring_sha"],
+            expected_environment=package["plan"]["environment"],
+            now_epoch=package["now"],
+        )
 
 
 def _dormant():
@@ -222,7 +245,8 @@ def _run(package, journal_root, executor, **overrides):
         "verify_dormant": _dormant,
     }
     arguments.update(overrides)
-    return MODULE.run_once(**arguments)
+    with _registry_patch(package):
+        return MODULE.run_once(**arguments)
 
 
 def test_two_signatures_authorize_only_exact_fresh_activation_plan():
@@ -238,14 +262,15 @@ def test_two_signatures_authorize_only_exact_fresh_activation_plan():
 def test_v3_activation_package_is_also_exact_cleanup_recovery_authority():
     package = _package(environment="PRODUCTION")
     verified = _verify(package)
-    recovery = MODULE.verify_cleanup_recovery(
-        keyring_raw=MODULE._canonical(package["keyring"]),
-        decision_raw=MODULE._canonical(package["decision"]),
-        activation_plan_raw=MODULE._canonical(package["plan"]),
-        expected_keyring_sha256=package["keyring_sha"],
-        expected_environment="PRODUCTION",
-        now_epoch=package["decision"]["expiresAtEpoch"] + 1,
-    )
+    with _registry_patch(package):
+        recovery = MODULE.verify_cleanup_recovery(
+            keyring_raw=MODULE._canonical(package["keyring"]),
+            decision_raw=MODULE._canonical(package["decision"]),
+            activation_plan_raw=MODULE._canonical(package["plan"]),
+            expected_keyring_sha256=package["keyring_sha"],
+            expected_environment="PRODUCTION",
+            now_epoch=package["decision"]["expiresAtEpoch"] + 1,
+        )
     assert package["plan"]["schemaVersion"] == \
         "b64-064a-production-activation-plan.v3"
     assert package["decision"]["schemaVersion"] == \
@@ -254,6 +279,111 @@ def test_v3_activation_package_is_also_exact_cleanup_recovery_authority():
     assert recovery.plan_sha256 == verified.plan_sha256
     assert recovery.decision_sha256 == verified.decision_sha256
     assert type(recovery) is MODULE.VerifiedRecovery
+
+
+def _production_keyring_from_trust_registry(*, now=1_800_000_000):
+    trust = MODULE._load_activation_trust_registry()
+    keys = sorted(({
+        "keyId": entry["keyId"],
+        "identityId": entry["identityId"],
+        "trustDomain": entry["trustDomain"],
+        "role": entry["role"],
+        "status": entry["status"],
+        "publicKeyB64": entry["publicKeyB64"],
+    } for entry in trust["keys"]), key=lambda item: item["keyId"])
+    unsigned = {
+        "schemaVersion": MODULE.ACTIVATION_KEYRING_SCHEMA,
+        "route": MODULE.ROUTE,
+        "trustEnvironment": MODULE.ACTIVATION_TRUST_ENVIRONMENT,
+        "registryVersion": trust["registryVersion"],
+        "issuedAtEpoch": now - 10,
+        "expiresAtEpoch": now + 3600,
+        "revokedKeys": trust["revokedKeys"],
+        "keys": keys,
+    }
+    return {
+        **unsigned,
+        "keyringSha256": hashlib.sha256(
+            MODULE._canonical(unsigned)
+        ).hexdigest(),
+    }
+
+
+def test_production_keyring_is_exact_trust_registry_projection():
+    keyring = _production_keyring_from_trust_registry()
+    checked, registry, digest = MODULE._load_keyring(
+        MODULE._canonical(keyring),
+        expected_sha256=keyring["keyringSha256"],
+        now_epoch=1_800_000_000,
+        expected_environment="PRODUCTION",
+    )
+    assert checked["registryVersion"] == 1
+    assert set(registry) == {item["keyId"] for item in keyring["keys"]}
+    assert digest == keyring["keyringSha256"]
+
+    counterfeit = copy.deepcopy(keyring)
+    counterfeit["keys"][0]["identityId"] = "counterfeit_owner"
+    unsigned = {key: counterfeit[key] for key in (
+        "schemaVersion", "route", "trustEnvironment", "registryVersion",
+        "issuedAtEpoch", "expiresAtEpoch", "revokedKeys", "keys",
+    )}
+    counterfeit["keyringSha256"] = hashlib.sha256(
+        MODULE._canonical(unsigned)
+    ).hexdigest()
+    with pytest.raises(
+        MODULE.ActivationError, match="ACTIVATION_TRUST_REGISTRY_MISMATCH",
+    ):
+        MODULE._load_keyring(
+            MODULE._canonical(counterfeit),
+            expected_sha256=counterfeit["keyringSha256"],
+            now_epoch=1_800_000_000,
+            expected_environment="PRODUCTION",
+        )
+
+
+def test_activation_trust_registry_raw_bytes_are_pinned(monkeypatch, tmp_path):
+    drifted = tmp_path / "registry.json"
+    value = MODULE._load_activation_trust_registry()
+    value["registryVersion"] = 2
+    drifted.write_bytes(MODULE._canonical(value) + b"\n")
+    drifted.chmod(0o600)
+    monkeypatch.setitem(
+        MODULE.ARTIFACT_PATHS, "activationTrustRegistry", drifted,
+    )
+    with pytest.raises(
+        MODULE.ActivationError, match="ACTIVATION_TRUST_REGISTRY_DRIFT",
+    ):
+        MODULE._load_activation_trust_registry()
+
+
+def test_activation_trust_registry_proves_source_evidence_key_id(
+        monkeypatch, tmp_path):
+    drifted = tmp_path / "registry.json"
+    value = MODULE._load_activation_trust_registry()
+    value["keys"][0]["sourceEvidenceKeyId"] = "b64e_" + "0" * 64
+    unsigned_keys = (
+        "schemaVersion", "route", "trustEnvironment", "registryVersion",
+        "previousRegistrySha256", "source", "revokedKeys", "keys",
+    )
+    unsigned = {key: value[key] for key in unsigned_keys}
+    value["registrySha256"] = hashlib.sha256(
+        MODULE._canonical(unsigned)
+    ).hexdigest()
+    raw = MODULE._canonical(value) + b"\n"
+    drifted.write_bytes(raw)
+    drifted.chmod(0o600)
+    monkeypatch.setitem(
+        MODULE.ARTIFACT_PATHS, "activationTrustRegistry", drifted,
+    )
+    monkeypatch.setattr(
+        MODULE, "ACTIVATION_TRUST_REGISTRY_RAW_SHA256",
+        hashlib.sha256(raw).hexdigest(),
+    )
+    with pytest.raises(
+        MODULE.ActivationError,
+        match="ACTIVATION_TRUST_KEYS_NOT_INDEPENDENT",
+    ):
+        MODULE._load_activation_trust_registry()
 
 
 def test_effective_plan_has_one_explicit_network_and_recovery_semantics():
