@@ -40,6 +40,9 @@
         .rate-box { background: var(--input); border: 1px solid var(--border); border-radius: 16px; padding: 12px 8px; text-align: center; transition: box-shadow .25s, transform .25s; position:relative; overflow:hidden; }
         .rate-box::before { content:''; position:absolute; inset:0; background:linear-gradient(135deg,rgba(159,103,255,.06),transparent); pointer-events:none; }
         .rate-box:active { transform: scale(.97); }
+        .rate-box.chart-selectable { cursor:pointer; }
+        .rate-box.chart-selectable:focus-visible { outline:2px solid var(--purple-2); outline-offset:2px; }
+        .rate-box.is-chart-selected { border-color:rgba(196,140,255,.66) !important; box-shadow:inset 0 1px 0 rgba(255,255,255,.08), 0 0 22px rgba(159,103,255,.22) !important; }
         .rate-coin { font-weight: 700; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
         .rate-value { color: var(--green); font-weight: 800; font-size: 15px; }
         .rate-value.loading { color: var(--muted); font-weight: 600; font-size: 12px; animation: pulse 1.4s ease-in-out infinite; }
@@ -62,6 +65,11 @@
         .chart-refresh:active { transform:scale(.96); }
         .chart-refresh:disabled { opacity:.58; cursor:wait; }
         .chart-refresh:focus-visible { outline:2px solid var(--purple-2); outline-offset:2px; }
+        .chart-assets { position:relative; z-index:1; display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin:-2px 0 12px; }
+        .chart-asset { min-height:34px; border:1px solid var(--border); border-radius:10px; background:rgba(5,3,10,.34); color:var(--muted); font:700 11px/1 Manrope, sans-serif; cursor:pointer; }
+        .chart-asset[aria-pressed="true"] { border-color:rgba(196,140,255,.62); background:rgba(159,103,255,.19); color:var(--text); box-shadow:0 0 14px rgba(159,103,255,.14); }
+        .chart-asset:disabled { opacity:.55; cursor:wait; }
+        .chart-asset:focus-visible { outline:2px solid var(--purple-2); outline-offset:2px; }
         .chart-stage { position:relative; height:158px; }
         .chart-loading { position:absolute; inset:0; z-index:2; display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:12px; animation:pulse 1.4s ease-in-out infinite; }
         .chart-footer { position:relative; z-index:1; display:flex; justify-content:space-between; gap:12px; margin-top:6px; color:var(--muted); font-size:10px; }
@@ -252,13 +260,13 @@
         </div>
 
         <!-- Курсы с % изменением -->
-        <div class="rates-row">
-            <div class="rate-box">
+        <div class="rates-row" aria-label="Котировки: нажмите BTC или LTC, чтобы открыть график">
+            <div class="rate-box chart-selectable is-chart-selected" data-chart-asset="BTC" role="button" tabindex="0" aria-controls="marketChart" aria-label="Показать график BTC">
                 <div class="rate-coin">₿ BTC</div>
                 <div class="rate-value loading" id="btc-rate">…</div>
                 <div class="rate-change neutral" id="btc-ch">…</div>
             </div>
-            <div class="rate-box">
+            <div class="rate-box chart-selectable" data-chart-asset="LTC" role="button" tabindex="0" aria-controls="marketChart" aria-label="Показать график LTC">
                 <div class="rate-coin">Ł LTC</div>
                 <div class="rate-value loading" id="ltc-rate">…</div>
                 <div class="rate-change neutral" id="ltc-ch">…</div>
@@ -282,9 +290,14 @@
                     <div class="chart-change" id="chart-change" role="status">Загрузка…</div>
                 </div>
             </div>
+            <div class="chart-assets" role="group" aria-label="Актив для исторического графика">
+                <button type="button" class="chart-asset" data-chart-asset="BTC" aria-pressed="true">₿ BTC</button>
+                <button type="button" class="chart-asset" data-chart-asset="ETH" aria-pressed="false">◆ ETH</button>
+                <button type="button" class="chart-asset" data-chart-asset="LTC" aria-pressed="false">Ł LTC</button>
+            </div>
             <div class="chart-stage">
                 <div class="chart-loading" id="chart-loading" role="status">Загружаем историю рынка…</div>
-                <canvas id="btcChart" aria-label="График исторической цены BTC к рублю за 24 часа"></canvas>
+                <canvas id="marketChart" aria-label="График исторической цены выбранного актива к USDT за 24 часа"></canvas>
             </div>
             <div class="chart-footer"><span>24 часа</span><span id="chart-updated">Время точки загружается…</span></div>
         </section>
@@ -980,20 +993,51 @@
         }
         fetchRates();
 
-        // График BTC за 24 часа — отдельное read-only наблюдение рынка.
-        let btcChart = null;
+        // История рынка — отдельное read-only наблюдение, не котировка заявки.
+        const marketAssets = {
+            BTC: { icon: '₿', color: '#b482ff', fill: 'rgba(159,103,255,0.16)' },
+            ETH: { icon: '◆', color: '#78b8ff', fill: 'rgba(120,184,255,0.15)' },
+            LTC: { icon: 'Ł', color: '#8ee6d4', fill: 'rgba(110,231,183,0.15)' },
+        };
+        let marketChart = null;
         let chartLoading = false;
+        let selectedChartAsset = 'BTC';
+        let renderedChartAsset = null;
+
+        function updateChartAssetControls() {
+            document.querySelectorAll('[data-chart-asset]').forEach(control => {
+                const active = control.dataset.chartAsset === selectedChartAsset;
+                if (control.classList.contains('chart-asset')) {
+                    control.setAttribute('aria-pressed', String(active));
+                    control.disabled = chartLoading;
+                }
+                if (control.classList.contains('chart-selectable')) {
+                    control.classList.toggle('is-chart-selected', active);
+                    control.setAttribute('aria-current', active ? 'true' : 'false');
+                }
+            });
+        }
+
+        function selectChartAsset(asset) {
+            if (chartLoading || !marketAssets[asset] || asset === selectedChartAsset) return;
+            selectedChartAsset = asset;
+            updateChartAssetControls();
+            loadChart(false);
+        }
+
         async function loadChart(manual = false) {
             if (chartLoading) return;
+            const requestedAsset = selectedChartAsset;
             chartLoading = true;
             const refreshButton = document.getElementById('chart-refresh');
             const loading = document.getElementById('chart-loading');
             refreshButton.disabled = true;
             refreshButton.setAttribute('aria-busy', 'true');
+            updateChartAssetControls();
             loading.textContent = manual ? 'Обновляем историю рынка…' : 'Загружаем историю рынка…';
             loading.style.display = 'flex';
             try {
-                const res = await fetch('/api/market/history', { cache: 'no-store' });
+                const res = await fetch(`/api/market/history?asset=${encodeURIComponent(requestedAsset)}`, { cache: 'no-store' });
                 if (!res.ok) throw new Error('history unavailable');
                 const snapshot = await res.json();
                 if (snapshot.status !== 'ok' || !Array.isArray(snapshot.points)) throw new Error('history unavailable');
@@ -1012,21 +1056,21 @@
                 const changeEl = document.getElementById('chart-change');
                 changeEl.textContent = `${change >= 0 ? '+' : ''}${change.toFixed(1)}%`;
                 changeEl.className = 'chart-change ' + (change >= 0 ? 'up' : 'down');
-                document.getElementById('chart-title').textContent = `₿ ${snapshot.symbol} · 24 часа`;
+                document.getElementById('chart-title').textContent = `${marketAssets[requestedAsset].icon} ${snapshot.symbol} · 24 часа`;
                 document.querySelector('.chart-subtitle').textContent = `${snapshot.exchange} · историческая динамика, не курс заявки`;
                 document.querySelector('.chart-footer span').textContent = `${snapshot.exchange} · 24 часа`;
                 document.getElementById('chart-updated').textContent = `Точка: ${labels[labels.length - 1]}`;
 
-                if (btcChart) btcChart.destroy();
-                btcChart = new Chart(document.getElementById('btcChart'), {
+                if (marketChart) marketChart.destroy();
+                marketChart = new Chart(document.getElementById('marketChart'), {
                     type: 'line',
                     data: {
                         labels: labels,
                         datasets: [{
-                            label: 'BTC/RUB',
+                            label: snapshot.symbol,
                             data: prices,
-                            borderColor: '#b482ff',
-                            backgroundColor: 'rgba(159,103,255,0.16)',
+                            borderColor: marketAssets[requestedAsset].color,
+                            backgroundColor: marketAssets[requestedAsset].fill,
                             borderWidth: 2.5,
                             tension: 0.38,
                             pointRadius: 0,
@@ -1061,20 +1105,37 @@
                         }
                     }
                 });
+                renderedChartAsset = requestedAsset;
             } catch(e) {
-                loading.textContent = btcChart ? 'Не удалось обновить историю рынка' : 'История рынка временно недоступна';
+                if (marketChart && requestedAsset !== renderedChartAsset) {
+                    selectedChartAsset = renderedChartAsset;
+                }
+                loading.textContent = marketChart ? 'Не удалось обновить историю рынка' : 'История рынка временно недоступна';
                 document.getElementById('chart-change').textContent = 'недоступно';
-                document.getElementById('chart-updated').textContent = btcChart ? 'Показан последний доступный снимок' : 'Повторите обновление позже';
+                document.getElementById('chart-updated').textContent = marketChart ? 'Показан последний доступный снимок' : 'Повторите обновление позже';
                 return;
             } finally {
                 chartLoading = false;
                 refreshButton.disabled = false;
                 refreshButton.removeAttribute('aria-busy');
-                if (btcChart) loading.style.display = 'none';
+                updateChartAssetControls();
+                if (marketChart) loading.style.display = 'none';
             }
         }
         loadChart();
         document.getElementById('chart-refresh').addEventListener('click', () => loadChart(true));
+        document.querySelectorAll('[data-chart-asset]').forEach(control => {
+            const select = () => selectChartAsset(control.dataset.chartAsset);
+            control.addEventListener('click', select);
+            if (control.classList.contains('chart-selectable')) {
+                control.addEventListener('keydown', event => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        select();
+                    }
+                });
+            }
+        });
 
         // Комиссия приходит с сервера (/api/rates → commission_tiers, единый
         // источник core/pricing.py — тот же, по которому считается заявка).

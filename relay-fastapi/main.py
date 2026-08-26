@@ -2148,7 +2148,7 @@ async def api_widget_rates():
 
 
 _rates_cache: dict = {"data": {}, "ts": 0.0}
-_market_history_cache: dict = {"data": None, "ts": 0.0}
+_market_history_cache: dict[str, dict] = {}
 
 @app.get("/api/rates")
 async def api_rates():
@@ -2223,12 +2223,17 @@ async def api_rates():
 
 
 @app.get("/api/market/history")
-async def api_market_history():
-    """Public, read-only BTC/USDT market history for the Mini App chart."""
+async def api_market_history(asset: str = "BTC"):
+    """Public, read-only allow-listed market history for Mini App charts."""
+    from market_history import okx_instrument_for_asset
+    try:
+        asset, instrument = okx_instrument_for_asset(asset)
+    except ValueError:
+        return JSONResponse(status_code=422, content={"status": "unavailable", "points": []})
     now = time.time()
-    cached = _market_history_cache["data"]
-    if cached and now - _market_history_cache["ts"] < 60:
-        return cached
+    cached = _market_history_cache.get(asset)
+    if cached and now - cached["ts"] < 60:
+        return cached["data"]
     try:
         import httpx
         from market_history import normalize_okx_candles
@@ -2236,15 +2241,14 @@ async def api_market_history():
         async with httpx.AsyncClient(timeout=5.0) as client:
             response = await client.get(
                 "https://www.okx.com/api/v5/market/candles",
-                params={"instId": "BTC-USDT", "bar": "30m", "limit": "48"})
+                params={"instId": instrument, "bar": "30m", "limit": "48"})
             response.raise_for_status()
         payload = {
-            "status": "ok", "symbol": "BTC/USDT", "exchange": "OKX",
+            "status": "ok", "symbol": instrument.replace("-", "/"), "exchange": "OKX",
             "bar": "30m", "observedAt": int(now * 1000),
             "points": normalize_okx_candles(response.json(), limit=48),
         }
-        _market_history_cache["data"] = payload
-        _market_history_cache["ts"] = now
+        _market_history_cache[asset] = {"data": payload, "ts": now}
         return payload
     except Exception as exc:
         logger.warning("Public market history unavailable: %s", type(exc).__name__)

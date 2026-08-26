@@ -1,9 +1,30 @@
-"""Strict normalization for the public, read-only BTC/USDT history card."""
+"""Strict normalization for public, read-only market-history cards."""
 
 from __future__ import annotations
 
 from math import isfinite
 from typing import Any
+
+
+# Deliberately small allow-list: this endpoint never proxies an arbitrary
+# instrument requested by a browser.  The pairs are observations only and do
+# not imply that an exchange route is available for the asset.
+MARKET_HISTORY_INSTRUMENTS = {
+    "BTC": "BTC-USDT",
+    "ETH": "ETH-USDT",
+    "LTC": "LTC-USDT",
+}
+
+
+def okx_instrument_for_asset(asset: Any) -> tuple[str, str]:
+    """Return an explicitly supported asset and its public OKX instrument."""
+    if not isinstance(asset, str):
+        raise ValueError("unsupported market asset")
+    code = asset.upper()
+    instrument = MARKET_HISTORY_INSTRUMENTS.get(code)
+    if not instrument:
+        raise ValueError("unsupported market asset")
+    return code, instrument
 
 
 def normalize_okx_candles(payload: Any, *, limit: int = 48) -> list[dict[str, int | float]]:

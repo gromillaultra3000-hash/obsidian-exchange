@@ -29,3 +29,10 @@ def test_normalize_okx_candles_rejects_unknown_or_insufficient_payloads():
         market_history.normalize_okx_candles({"code": "1", "data": []})
     with pytest.raises(ValueError):
         market_history.normalize_okx_candles({"code": "0", "data": [["1", "0", "0", "0", "0"]]})
+
+
+def test_market_history_instrument_is_an_explicit_read_only_allow_list():
+    assert market_history.okx_instrument_for_asset("eth") == ("ETH", "ETH-USDT")
+    assert market_history.okx_instrument_for_asset("BTC") == ("BTC", "BTC-USDT")
+    with pytest.raises(ValueError):
+        market_history.okx_instrument_for_asset("BTC-USDT;unbounded")
