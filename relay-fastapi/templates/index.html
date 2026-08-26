@@ -18,7 +18,7 @@
             <span class="tag">Ваучеры</span>
         </div>
         <div class="action-row">
-            <a class="btn" href="{% if web_user %}/dashboard/exchange{% else %}https://t.me/{{ bot_username }}{% endif %}"><i data-lucide="arrow-right-left" width="16"></i>Создать заявку</a>
+            <a class="btn" href="{% if web_user %}/dashboard/exchange{% else %}https://t.me/{{ bot_username }}?start=app{% endif %}"><i data-lucide="arrow-right-left" width="16"></i>Создать заявку</a>
             <a class="btn ghost" href="/rates">Комиссии и калькулятор</a>
             <a class="btn ghost" href="/preview/">Экосистема · preview</a>
             <a class="btn ghost" href="https://t.me/{{ bot_username }}?start=app" target="_blank" rel="noopener"><i data-lucide="send" width="16"></i>Открыть Mini App в Telegram</a>
@@ -43,9 +43,11 @@
         </div>
 
         <div class="mini-coins" style="margin:14px 0">
-            <button type="button" class="mini-coin currency-btn active" data-currency="BTC"><img src="/static/img/v5/btc.png" alt="">BTC</button>
-            <button type="button" class="mini-coin currency-btn" data-currency="LTC"><img src="/static/img/v5/ltc.png" alt="">LTC</button>
-            <button type="button" class="mini-coin currency-btn" data-currency="USDT"><img src="/static/img/v5/usdt.png" alt="">USDT</button>
+            {% if 'BTC' in offered_currencies %}<button type="button" class="mini-coin currency-btn active" data-currency="BTC"><img src="/static/img/v5/btc.png" alt="">BTC</button>{% endif %}
+            {% if 'LTC' in offered_currencies %}<button type="button" class="mini-coin currency-btn" data-currency="LTC"><img src="/static/img/v5/ltc.png" alt="">LTC</button>{% endif %}
+            {% if 'USDT' in offered_currencies %}<button type="button" class="mini-coin currency-btn" data-currency="USDT"><img src="/static/img/v5/usdt.png" alt="">USDT</button>{% endif %}
+            {% if 'XRP' in offered_currencies %}<button type="button" class="mini-coin currency-btn" data-currency="XRP"><span aria-hidden="true">✕</span>XRP</button>{% endif %}
+            {% if 'TON' in offered_currencies %}<button type="button" class="mini-coin currency-btn" data-currency="TON"><span aria-hidden="true">🔷</span>TON</button>{% endif %}
             {% if 'ETH' in offered_currencies %}
             <button type="button" class="mini-coin currency-btn" data-currency="ETH"><img src="/static/img/v5/eth.png" alt="">ETH</button>
             {% endif %}
@@ -66,7 +68,7 @@
         {% if web_user %}
         <a href="/dashboard/exchange" class="btn" style="width:100%">Обменять →</a>
         {% else %}
-        <a href="https://t.me/{{ bot_username }}" class="btn" style="width:100%" target="_blank" rel="noopener">Обменять через Telegram →</a>
+        <a href="https://t.me/{{ bot_username }}?start=app" class="btn" style="width:100%" target="_blank" rel="noopener">Открыть Mini App для обмена →</a>
         <a href="/register" class="btn ghost" style="width:100%;margin-top:8px">Зарегистрироваться</a>
         {% endif %}
     </div>
@@ -90,6 +92,20 @@
             <strong>Tether</strong>
             <span class="value" data-rate="tether">курс…</span>
         </div>
+        {% if 'XRP' in offered_currencies %}
+        <div class="coin-card" data-coin-card="XRP">
+            <span aria-hidden="true" style="font-size:28px">✕</span>
+            <strong>XRP</strong>
+            <span class="value" data-rate="XRP">курс…</span>
+        </div>
+        {% endif %}
+        {% if 'TON' in offered_currencies %}
+        <div class="coin-card" data-coin-card="TON">
+            <span aria-hidden="true" style="font-size:28px">🔷</span>
+            <strong>Toncoin</strong>
+            <span class="value" data-rate="TON">курс…</span>
+        </div>
+        {% endif %}
         {% if 'ETH' in offered_currencies %}
         <div class="coin-card" data-coin-card="ETH">
             <img src="/static/img/v5/eth.png" alt="Ethereum">

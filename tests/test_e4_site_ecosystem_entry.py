@@ -13,6 +13,16 @@ def test_public_site_links_to_preview_and_a_concrete_mini_app_entry_without_repl
     assert 'Открыть Mini App в Telegram</a>' in INDEX
     assert 'Создать заявку' in INDEX
     assert 'href="/rates"' in INDEX
+    assert 'else %}https://t.me/{{ bot_username }}?start=app{% endif %}' in INDEX
+    assert 'Открыть Mini App для обмена →' in INDEX
+    assert 'href="https://t.me/{{ bot_username }}" class="btn" style="width:100%"' not in INDEX
+
+
+def test_public_site_widget_uses_the_same_open_offerings_as_rates_and_mini_app():
+    for currency in ("BTC", "LTC", "USDT", "XRP", "TON"):
+        assert f"'{currency}' in offered_currencies" in INDEX
+        assert f'data-currency="{currency}"' in INDEX
+        assert f'data-coin-card="{currency}"' in INDEX
 
 
 def test_mini_app_uses_the_configured_bot_username_for_telegram_handoffs():
