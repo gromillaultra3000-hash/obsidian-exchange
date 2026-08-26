@@ -220,6 +220,15 @@ Updated: 2026-08-26 UTC
   preimage:
   `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-narrow-layout-20260826T0831Z.yixnRU`.
 
+- 2026-08-26 commit `aa7579a` completes a support usability gap in the E4
+  Activity centre: every displayed owner-scoped order can copy its existing
+  order number locally for a support conversation. The button uses clipboard
+  with an in-page fallback, sends nothing automatically and creates no API or
+  writer path. JavaScript syntax and focused E4 tests pass 21/21; live
+  `/webapp` returned `200` with the feature and Relay/bot are active. Rollback
+  preimage:
+  `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-order-id-copy-20260826T0834Z.BSjt0a`.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;

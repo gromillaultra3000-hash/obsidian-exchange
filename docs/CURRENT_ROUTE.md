@@ -127,6 +127,13 @@ No data, route or exchange-request contract changed. JavaScript syntax and
 focused E4 tests pass 20/20; live `/webapp` returned `200` with the responsive
 classes and Relay/bot are active. Rollback preimage:
 `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-narrow-layout-20260826T0831Z.yixnRU`.
+Commit `aa7579a` closes a support usability gap in the Activity centre: each
+displayed owner-scoped order can copy its existing order number locally for a
+support conversation. Clipboard fallback is in-page, no data is sent
+automatically, and no API/writer path is added. JavaScript syntax and focused
+E4 tests pass 21/21; live `/webapp` returned `200` with the feature and
+Relay/bot are active. Rollback preimage:
+`/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-order-id-copy-20260826T0834Z.BSjt0a`.
 
 Completed bounded slices:
 `obsidian_b64_snapshot_reader` is deployed in production against the frozen
