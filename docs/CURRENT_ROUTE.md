@@ -75,6 +75,9 @@ isolated overview; existing exchange and fee paths remain unchanged (commit
 The default Mini App overview also surfaces the existing read-only aggregate
 ObsidianExchange availability state, with a conservative unavailable fallback
 and a link into the preserved Exchange tab (commit `5b36fcf`, deployed).
+The Market view renders external-CEX observation values only from a valid,
+non-future KAIROS snapshot no older than five minutes, offers a manual
+no-store refresh and hides stale/invalid values (commit `676f18f`, deployed).
 
 Completed bounded slices:
 `obsidian_b64_snapshot_reader` is deployed in production against the frozen

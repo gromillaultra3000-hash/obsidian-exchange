@@ -142,6 +142,15 @@ Updated: 2026-08-26 UTC
   preimage:
   `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-exchange-status-20260826T0808Z.UhvhLO`.
 
+- 2026-08-26 commit `676f18f` hardens the Mini App external-CEX market view:
+  KAIROS values render only from a valid `ok` snapshot whose timestamp is not
+  future and at most five minutes old. The view provides manual no-store
+  refresh and replaces stale/invalid data with an explicit unavailable message;
+  it remains observation-only. JavaScript syntax and focused E4 tests pass
+  16/16; production webapp bytes match and Relay/bot are active. Rollback
+  preimage:
+  `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-market-freshness-20260826T0810Z.g8Atp2`.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;
