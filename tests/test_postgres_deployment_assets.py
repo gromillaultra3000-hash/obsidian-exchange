@@ -16,7 +16,7 @@ EXPECTED_IMAGE = (
 )
 EXPECTED_IMPLEMENTATION_RELEASE = (
     "/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/"
-    "fbcf49928f82d22d277521ab1e388f3aec63046d/"
+    "37bd98a313fde587980bbd9a37161e2b8eeb7582/"
     "deploy/postgres/"
 )
 

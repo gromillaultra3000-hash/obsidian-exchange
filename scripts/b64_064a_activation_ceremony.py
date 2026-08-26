@@ -40,7 +40,7 @@ sys.path.insert(0, str(ROOT / "deploy/postgres"))
 import b64_064a_activation_entrypoint as activation  # noqa: E402
 
 
-IMPLEMENTATION_COMMIT = "fbcf49928f82d22d277521ab1e388f3aec63046d"
+IMPLEMENTATION_COMMIT = "37bd98a313fde587980bbd9a37161e2b8eeb7582"
 RELEASE_ROOT = Path(
     "/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a"
 ) / IMPLEMENTATION_COMMIT

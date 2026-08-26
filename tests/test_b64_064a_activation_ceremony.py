@@ -645,4 +645,4 @@ def test_immutable_release_tree_rejects_tracked_blob_drift(
 
 def test_ceremony_pins_exact_immutable_implementation():
     assert CEREMONY.IMPLEMENTATION_COMMIT == \
-        "fbcf49928f82d22d277521ab1e388f3aec63046d"
+        "37bd98a313fde587980bbd9a37161e2b8eeb7582"
