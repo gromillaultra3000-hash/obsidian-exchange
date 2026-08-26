@@ -1,0 +1,163 @@
+{
+  "schemaVersion": "e0-3-bot-b5-3-064a-terminal-archive-v2-rollout.v1",
+  "observedAt": "2026-08-26T01:57:46Z",
+  "route": ["E0", "E0.3", "B5.3", "064A"],
+  "status": "INERT_TERMINAL_ARCHIVE_V2_DEPLOYED_OWNER_AUTHORIZATION_REQUIRED",
+  "objective": "Make successful and failed 064A terminal evidence archivable without reopening a consumed decision, and reject any non-exact immutable release before a future signing request.",
+  "implementation": {
+    "commit": "e725d49932107d128b1621b7bdb37e2d499872cb",
+    "commitPatchSha256": "99ca21c17aa8dccb109beee21bbca3e57aec865584f3307062c58f40c6934d65",
+    "pushed": true,
+    "pinCommit": "af64ee6492c3af17321ba05566297bb584f7ede6",
+    "pinCommitPatchSha256": "3a69a0e013e7405c675a4dd33aecc05562edcc13d655bc9c1d4915d366fbea10",
+    "pinPushed": true,
+    "immutableRelease": "/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/e725d49932107d128b1621b7bdb37e2d499872cb",
+    "gitBlobCount": 2181,
+    "directoryCount": 227,
+    "releaseTreeExactBeforeAndAfterRuntime": true,
+    "releaseUntrackedEntries": 0,
+    "oldPinnedReleaseRejectedAsNonExact": true,
+    "oldPinnedReleaseFinding": "16fdc05168e20151f646cf4cb97746fbde809e69 contains untracked .pytest_cache/__pycache__ entries and is no longer referenced by the three active 064A unit files."
+  },
+  "terminalArchiveV2": {
+    "acceptedTerminalStates": ["CLOSED", "RECONCILED_HOLD"],
+    "closedReceiptCanonicalAndDigestBound": true,
+    "closedReceiptIncludedInArchive": true,
+    "decisionExpiryRequiredForAllTerminalStates": true,
+    "archiveAuthorizedAtOrAfterDecisionExpiry": true,
+    "resumeTrustedTimeRechecked": true,
+    "legacyStagingResumeAllowed": false,
+    "legacyFinalArchiveIdempotentlyReadable": true,
+    "customerRowReadStates": {
+      "CLOSED": "CONFIRMED",
+      "RECONCILED_HOLD_WITH_CREDENTIAL": "POSSIBLE",
+      "RECONCILED_HOLD_WITHOUT_CREDENTIAL": "NOT_READ"
+    },
+    "archiverCustomerRowsRead": false,
+    "automaticRetryAllowed": false,
+    "activationRetryAllowed": false,
+    "actionAllowed": false
+  },
+  "verification": {
+    "focusedArchiverCeremony": "68 passed",
+    "expandedAffectedNonDocker": "192 passed",
+    "pinFocused": "88 passed",
+    "pythonCompile": "PASS",
+    "gitDiffCheck": "PASS",
+    "stagedGitleaksImplementation": "NO_LEAKS",
+    "stagedGitleaksPin": "NO_LEAKS",
+    "systemdAnalyzeVerify": "PASS_WITH_EXISTING_UNRELATED_XRAY_NOBODY_WARNING",
+    "legacyArchive": {
+      "path": "/var/backups/obsidian-exchange/b64-064a-terminal-evidence-v1/b64-064a-terminal-ZektkcmxVfBGwtHX5lnM03p9Y3OfJ2gm",
+      "schemaVersion": "b64-064a-terminal-evidence-archive.v1",
+      "terminalState": "RECONCILED_HOLD",
+      "manifestSha256": "66cd11835f658845a15787230a4b58fdff665dba7800e3bdd82072064eb1576c",
+      "verification": "PASS"
+    },
+    "disposableLifecycle": {
+      "status": "DISPOSABLE_ACTIVATION_REHEARSAL_VERIFIED",
+      "container": "b64-hba-contract-202608260152",
+      "namedVolume": "b64-watchdog-volume-2026082601520001",
+      "journalState": "CLOSED",
+      "receiptSha256": "916a18307f8d093316ecb1b571cb6908aa62444b305ca4887fb5f01df363c713",
+      "executorCalls": 1,
+      "replayReason": "ACTIVATION_REPLAY_OR_INCOMPLETE",
+      "watchdogStatus": "ACTIVE_LEASE_ACTIVATION_INTERLOCK_SUPERVISED",
+      "coldRecoveryStatus": "ACTIVATION_RECONCILED_HOLD",
+      "hardKillRecoveryStatus": "ACTIVATION_RECONCILED_HOLD",
+      "hardKillProcessGroupTerminated": true,
+      "productionContact": false,
+      "productionConfigurationMutation": false,
+      "readerLoginStateAfter": "DISABLED",
+      "readerCredentialStateAfter": "ABSENT",
+      "readerActiveSessionsAfter": 0,
+      "containerAbsentAfter": true,
+      "volumeAbsentAfter": true,
+      "dumpAndRestoreContainersAbsentAfter": true
+    },
+    "failedDisposableFixtureAttempts": [
+      {
+        "reason": "CONTAINER_BINDING_MISMATCH",
+        "disposition": "Fail-closed before completion; fixture recreated with exact contract compose labels."
+      },
+      {
+        "reason": "BOOTSTRAP_PASSWORD_REQUIRED_ON_REUSED_DISPOSABLE_VOLUME",
+        "disposition": "No lifecycle execution; exact disposable container and volume were deleted and recreated clean."
+      }
+    ]
+  },
+  "independentReviews": [
+    {
+      "reviewer": "architecture_review",
+      "scope": "e725d49932107d128b1621b7bdb37e2d499872cb plus staging-resume landmine delta",
+      "verdict": "GO",
+      "p0": 0,
+      "p1": 0,
+      "p2": 0,
+      "tests": "68 passed",
+      "recordCoreSha256": "18d20023449eda3db37bb6de5002b9dd5c02928ff5ab3bf44cb644571e8b3b2f"
+    },
+    {
+      "reviewer": "security_review",
+      "scope": "e725d49932107d128b1621b7bdb37e2d499872cb latest committed diff",
+      "verdict": "GO",
+      "p0": 0,
+      "p1": 0,
+      "p2": 0,
+      "tests": "68 passed",
+      "reviewedDiffSha256": "63941673ce63ac5cb418877ed599a2d92871c53370aca78fff0e8637d15fc775",
+      "recordCoreSha256": "fb0d9565759842b982c45a731669871a10c6ac3cb13f08e78cf05c2a4a55047a"
+    },
+    {
+      "reviewer": "ops_review",
+      "scope": "e725d49932107d128b1621b7bdb37e2d499872cb plus pin/release/runtime plan",
+      "verdict": "GO_FOR_COMMIT_REHEARSAL_AND_CLEAN_PIN_ROLLOUT",
+      "p0": 0,
+      "p1": 0,
+      "p2": 3,
+      "tests": "192 passed",
+      "recordCoreSha256": "70cf3a4a303ea650cfc69b58f9ce6b49c1dd05ba05b6933c35b60eec7bb8f20b"
+    }
+  ],
+  "productionRollout": {
+    "installedUnitFilesMatchRepository": true,
+    "activationUnitSha256": "bf57968bb60db4e4038693ff6d67b328ad439ac6e7e57e22dc11bbb32014a666",
+    "watchdogUnitSha256": "8bca9d199cb85875d1e1e35f3d14a58bec67a57d3bf25863126ff42bf8bc6f66",
+    "postgresUnitSha256": "ebe86fd54d96f1c16d40aaeddbf0945f1c574365df2b6a93577b030a209367b3",
+    "rollbackPreimages": "/var/lib/obsidian-exchange/deployment-preimages/e0-e0.3-b5.3-064a-terminal-archive-v2-20260826T015131Z",
+    "daemonReloaded": true,
+    "servicesRestarted": false,
+    "launcherStarted": false,
+    "watchdogOneShotResult": "DORMANT_VERIFIED_NO_RECOVERY_REQUEST",
+    "postgresMainPid": 3136948,
+    "postgresActiveEnterTimestampMonotonic": 753627984365,
+    "postgresContainerId": "818735cd7df301eeb54b3630a6dbae1551db99a8368a2e4c96596c1a2572a3a4",
+    "postgresContainerPid": 3137013,
+    "postgresContainerStartedAt": "2026-08-24T05:08:51.918926692Z",
+    "postgresRestartCount": 0,
+    "postgresHealth": "healthy",
+    "systemIdentifier": "7672203973020184609",
+    "readerLoginState": "DISABLED",
+    "readerCredentialState": "ABSENT",
+    "readerActiveSessions": 0,
+    "activationRootAbsent": true,
+    "recoveryPackageAbsent": true,
+    "recoveryRequestAbsent": true,
+    "launchRequestAbsent": true,
+    "coordinationRootAbsent": true,
+    "watchdogTimer": "active/waiting",
+    "activationLauncher": "inactive/static",
+    "failedUnits": 0,
+    "customerRowsReadByRollout": false,
+    "hbaChangedByRollout": false,
+    "authorityIncreased": false
+  },
+  "gate": {
+    "stageStatus": "IN_PROGRESS",
+    "activationStatus": "BLOCKED_OWNER",
+    "newRequestAuthorized": false,
+    "oldNonceOrSignatureReusable": false,
+    "remainingBlocker": "A later production refresh requires an explicit accountable-owner authorization and a fresh nonce; this rollout grants neither.",
+    "nextCanonicalItem": "Obtain an explicit owner decision to authorize or decline one fresh single-owner v4 production 064A attempt. Do not create a request, issue a credential, or start the launcher before that decision."
+  }
+}

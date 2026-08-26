@@ -2448,3 +2448,41 @@ nonce cannot be reused, and this rollout grants no new request authority. A
 later production attempt requires an explicit owner decision and fresh nonce.
 Evidence:
 `docs/e0-3-bot-b5-3-064a-terminal-evidence-archive-rollout.v1.json`.
+
+## 2026-08-26 — 064A terminal archive v2 and exact release tree
+
+Pushed commit `e725d49932107d128b1621b7bdb37e2d499872cb` closes the
+post-terminal replay boundary for both `CLOSED` and `RECONCILED_HOLD`. Archive
+publication is forbidden until trusted time reaches the signed decision
+expiry. V2 staging binds expiry and archive authorization time, rechecks
+trusted time before resume and rejects legacy staging; the completed v1 final
+archive remains idempotently readable. `CLOSED` additionally requires and
+archives its canonical digest-bound execution receipt. Row-read evidence is
+tri-state: `CONFIRMED` for `CLOSED`, `POSSIBLE` for HOLD after credential
+issuance and `NOT_READ` only for HOLD without credential issuance.
+
+The ceremony now compares the complete sealed release directory against the
+exact Git tree, including entry set, modes, owners, link counts, executable
+bits and every blob. This check found untracked pytest/bytecode caches in the
+previous `16fdc05...` directory, so it is no longer referenced. The clean
+2181-blob release is deployed through pushed pin commit
+`af64ee6492c3af17321ba05566297bb584f7ede6`. The three units alone were
+replaced and daemon-reloaded; no service or PostgreSQL restart and no launcher
+start occurred.
+
+Expanded tests pass 192/192 and pin tests 88/88. A clean disposable PostgreSQL
+17.11 lifecycle passed `CLOSED`, one-call/replay, live-watchdog, cold-expiry and
+hard-kill recovery; receipt SHA-256 is
+`916a18307f8d093316ecb1b571cb6908aa62444b305ca4887fb5f01df363c713`,
+and all disposable resources were removed. The loaded production watchdog
+returns `DORMANT_VERIFIED_NO_RECOVERY_REQUEST`; MainPID/container PID/restart
+count remain `3136948`/`3137013`/`0`, reader authority is dormant, runtime and
+coordination paths are absent, launcher is inactive/static and failed units
+are zero.
+
+E0.3 remains `IN_PROGRESS`; a new production activation is `BLOCKED_OWNER`.
+This slice authorizes no request, credential, signature, retry or launcher
+start. Exact next canonical item: the accountable owner explicitly authorizes
+or declines one fresh single-owner v4 production 064A attempt with a fresh
+nonce. Evidence:
+`docs/e0-3-bot-b5-3-064a-terminal-archive-v2-rollout.v1.json`.

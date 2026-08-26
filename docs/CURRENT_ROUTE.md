@@ -438,3 +438,54 @@ are consumed. This rollout authorizes no new request: any later production
 attempt requires an explicit owner decision and a fresh nonce; until then only
 non-production code/rehearsal work may proceed. Evidence:
 `docs/e0-3-bot-b5-3-064a-terminal-evidence-archive-rollout.v1.json`.
+
+## 2026-08-26 — 064A terminal archive v2 and exact-release rollout
+
+The post-terminal boundary is now ready for either exact terminal outcome,
+without authorizing another activation. Pushed implementation commit
+`e725d49932107d128b1621b7bdb37e2d499872cb` validates canonical digest-bound
+`CLOSED` receipts and archives that receipt with the journal. Both `CLOSED`
+and `RECONCILED_HOLD` can be archived only after the signed decision expires.
+A v2 crash-resume manifest binds the decision expiry and the trusted archive
+authorization time, rejects all legacy staging, and rechecks trusted time
+before any resumed move. Customer-row evidence is explicit: `CONFIRMED` for a
+successful refresh, `POSSIBLE` for HOLD after credential issuance, and
+`NOT_READ` only when HOLD proves no credential was issued. The completed v1
+archive remains idempotently verifiable with manifest `66cd1183...`.
+
+The signing ceremony now verifies the complete sealed release tree against the
+exact Git commit: owner/group, directory and file modes, entry set, executable
+bits, link count and every Git blob. This exposed that the formerly pinned
+`16fdc05...` directory had accumulated untracked `.pytest_cache` and
+`__pycache__` entries; the old release is no longer referenced. The new clean
+root-owned read-only release contains exactly 2181 Git blobs and remains exact
+after runtime execution. Pushed pin commit
+`af64ee6492c3af17321ba05566297bb584f7ede6` points the ceremony and all three
+064A units to it.
+
+Expanded non-Docker tests pass 192/192, pin-focused tests pass 88/88, staged
+secret scans and systemd verification pass, and architecture/security/ops
+latest-byte reviews report no P0/P1. A clean disposable PostgreSQL 17.11
+lifecycle returned `DISPOSABLE_ACTIVATION_REHEARSAL_VERIFIED`, journal
+`CLOSED`, one executor call, replay rejection, active-lease watchdog
+supervision, and cold/hard-kill recovery to `ACTIVATION_RECONCILED_HOLD`;
+receipt SHA-256 is
+`916a18307f8d093316ecb1b571cb6908aa62444b305ca4887fb5f01df363c713`.
+The exact disposable container and volume were removed.
+
+Production rollout replaced only the three unit files and ran daemon-reload;
+no service or PostgreSQL restart and no launcher start occurred. The loaded
+watchdog oneshot returned `DORMANT_VERIFIED_NO_RECOVERY_REQUEST`. PostgreSQL
+retained MainPID `3136948`, container PID `3137013`, start time and restart
+count zero. The reader is `NOLOGIN`, credential-absent and session-free; all
+runtime and coordination paths are absent, the timer is active/waiting, the
+launcher is inactive/static and failed units are zero. Rollback preimages are
+under
+`/var/lib/obsidian-exchange/deployment-preimages/e0-e0.3-b5.3-064a-terminal-archive-v2-20260826T015131Z`.
+
+Active route remains `E0/E0.3/B5.3/064A`; E0.3 is `IN_PROGRESS` and the next
+production attempt is `BLOCKED_OWNER`. No new request, credential, signature
+or launch is authorized. Exact next canonical item: obtain an explicit owner
+decision to authorize or decline one fresh single-owner v4 production 064A
+attempt with a fresh nonce. Evidence:
+`docs/e0-3-bot-b5-3-064a-terminal-archive-v2-rollout.v1.json`.

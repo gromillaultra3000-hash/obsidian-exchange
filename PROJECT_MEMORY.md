@@ -1,6 +1,6 @@
 # Project memory
 
-Updated: 2026-08-25 UTC
+Updated: 2026-08-26 UTC
 
 ## Current goal and status
 
@@ -10,24 +10,29 @@ Updated: 2026-08-25 UTC
   not a permanent suffix. New sessions use `docs/CURRENT_ROUTE.md`; unchanged
   long charters and history are not repeatedly reread within one logical task.
 
-- 2026-08-25 active route `E0 → E0.3 → B5.3 → 064A` is
-  `IN_PROGRESS_TERMINAL_EVIDENCE_ARCHIVED_NO_RETRY`. The failed owner-only run
-  remains terminal `RECONCILED_HOLD`: it issued no credential, read no customer
-  rows, changed no HBA and created no surviving resource. Pushed operational
-  release `16fdc05168e20151f646cf4cb97746fbde809e69` adds a root-only,
-  crash-resumable terminal archiver; historical release `c6c3eab...` verifies
-  the exact signed artifact closure without requiring a new signature. Pin
-  commit `51c2f61` is deployed without restart. The four exact runtime paths
-  were atomically moved, not deleted, to
-  `/var/backups/obsidian-exchange/b64-064a-terminal-evidence-v1/b64-064a-terminal-ZektkcmxVfBGwtHX5lnM03p9Y3OfJ2gm`;
-  manifest SHA is `66cd1183...`, source paths and staging are absent, and an
-  idempotent second pass verifies the archive. The next watchdog tick is
-  `DORMANT_VERIFIED_NO_RECOVERY_REQUEST`; PostgreSQL PIDs/restart count are
-  unchanged, reader is `NOLOGIN`/credential-absent/session-free. The consumed
-  signature/nonce remain forbidden from reuse. No new request is authorized;
-  a later production attempt requires an explicit owner decision and fresh
-  nonce. Evidence:
-  `docs/e0-3-bot-b5-3-064a-terminal-evidence-archive-rollout.v1.json`.
+- 2026-08-26 active route `E0 → E0.3 → B5.3 → 064A` is `IN_PROGRESS`; a new
+  production attempt is `BLOCKED_OWNER`. Pushed implementation `e725d49` and
+  pin `af64ee6` deploy terminal archive v2 and a complete Git-tree release
+  attestor without starting the launcher or restarting PostgreSQL. Every
+  terminal archive now requires an expired decision; v2 staging binds expiry
+  and trusted authorization time, rechecks time on resume and rejects legacy
+  staging. `CLOSED` requires and archives its canonical receipt; HOLD evidence
+  records customer-row reads as `POSSIBLE` after credential issuance and
+  `NOT_READ` only when no credential was issued. The new clean immutable
+  release has exactly 2181 Git blobs; the previously pinned `16fdc05` tree was
+  found polluted by untracked pytest/bytecode caches and is no longer
+  referenced. Expanded tests pass 192/192, pin tests 88/88, a real disposable
+  lifecycle passed with receipt `916a1830...`, and independent architecture,
+  security and operations reviews found no P0/P1. The loaded watchdog returns
+  `DORMANT_VERIFIED_NO_RECOVERY_REQUEST`; PostgreSQL MainPID `3136948`,
+  container PID `3137013`, start time and restart count zero are unchanged.
+  Reader authority is disabled/credential-absent/session-free and all runtime
+  and coordination paths are absent. The historical v1 archive remains exact
+  with manifest `66cd1183...`; its consumed nonce/signature remain unusable.
+  No new request is authorized. Exact next: obtain an explicit accountable
+  owner decision to authorize or decline one fresh single-owner v4 production
+  attempt with a fresh nonce. Evidence:
+  `docs/e0-3-bot-b5-3-064a-terminal-archive-v2-rollout.v1.json`.
 
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
