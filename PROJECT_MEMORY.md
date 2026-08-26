@@ -386,6 +386,14 @@ Updated: 2026-08-26 UTC
   the host; this completion claims static responsive and production-byte checks,
   not a visual click-through capture.
 
+- 2026-08-26 commit `7c1dd6f` closes the concrete public handoff from site to
+  Mini App: the site CTA now opens the configured Telegram bot with `start=app`.
+  That bounded start route replies only with the existing canonical `/webapp`
+  button and clear ecosystem context; it creates no order and invokes no
+  provider. Source deployment matches, both services are active and public site
+  returned `200`; focused cross-surface regression passes `23/23`. Rollback
+  preimage: `/var/lib/obsidian-exchange/deployment-preimages/e4-site-miniapp-entry-20260826T0916Z.DxAXo4`.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;
