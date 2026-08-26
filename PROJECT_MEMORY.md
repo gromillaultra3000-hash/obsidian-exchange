@@ -554,6 +554,16 @@ Updated: 2026-08-26 UTC
   owner-scoped CEX/portfolio APIs. Relay and bot are active. Rollback preimage:
   `/var/lib/obsidian-exchange/deployment-preimages/e4-market-quote-history-link-20260826T1011Z.D9looR`.
 
+- 2026-08-26 commit `a995816` improves market-card continuity without storing
+  identity, balance or financial intent: only the selected public asset code
+  (`BTC`/`ETH`/`LTC`) is retained in `sessionStorage`. The card also labels the
+  latest validated candle close as `Закрытие: … USDT`, distinct from any
+  exchange-app quote. Focused tests pass `33/33`; in production at `390px`, an
+  ETH selection stored only `ETH`, displayed the observed close and survived a
+  full Mini App reload as `ETH/USDT`, with history `200`, no overflow and no
+  app errors. Relay and bot are active. Rollback preimage:
+  `/var/lib/obsidian-exchange/deployment-preimages/e4-market-chart-session-state-20260826T1013Z.BNCUr8`.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;
