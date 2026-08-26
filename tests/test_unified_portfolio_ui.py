@@ -41,6 +41,7 @@ def test_ecosystem_overview_is_the_default_without_removing_legacy_flows():
     assert "renderEcosystemExchangeStatus(d)" in webapp
     for existing in ('data-tab="exchange"', 'data-tab="wallet"', 'data-tab="market"', 'data-tab="history"'):
         assert existing in webapp
+    assert "КОШЕЛЁК · PRIVATE EXCHANGE · CEX READ-ONLY" in webapp
 
 
 def test_mobile_navigation_keeps_secondary_sections_in_more_panel():
