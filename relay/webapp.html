@@ -500,6 +500,24 @@
             </div>
         </div>
 
+        <div id="exchange-review" role="dialog" aria-modal="true" aria-labelledby="exchange-review-title"
+             style="display:none;position:fixed;inset:0;z-index:1000;padding:20px;background:rgba(3,1,8,.82);align-items:flex-end;justify-content:center">
+          <div style="width:min(520px,100%);max-height:86vh;overflow:auto;padding:18px;border-radius:22px;background:#140a22;border:1px solid rgba(196,140,255,.45);box-shadow:0 18px 60px rgba(0,0,0,.5)">
+            <div id="exchange-review-title" style="font-size:20px;font-weight:800">Проверьте условия</div>
+            <div style="font-size:12px;color:var(--muted);margin:5px 0 14px;line-height:1.5">Заявка ещё не создана. Ничего не списывается до следующего подтверждения.</div>
+            <div id="exchange-review-summary" style="display:grid;gap:8px"></div>
+            <div id="exchange-review-risk" style="margin-top:12px;padding:10px 12px;border-radius:12px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.24);font-size:12px;line-height:1.5;color:#fde68a"></div>
+            <label style="display:flex;gap:9px;align-items:flex-start;margin:14px 0;font-size:12px;line-height:1.45">
+              <input id="exchange-review-ack" type="checkbox" style="width:auto;margin-top:2px">
+              <span>Я проверил(а) маршрут, сумму, сеть и реквизиты. Понимаю, что отправленный платёж или перевод в другой сети может быть необратимым.</span>
+            </label>
+            <div style="display:grid;grid-template-columns:1fr 1.35fr;gap:8px">
+              <button type="button" id="exchange-review-cancel" class="btn" style="background:rgba(255,255,255,.07)">Изменить</button>
+              <button type="button" id="exchange-review-confirm" class="btn" disabled>Подтвердить и создать</button>
+            </div>
+          </div>
+        </div>
+
         <!-- Рынок объединяет продукты, но не смешивает их правила и данные.
              Биржевой аккаунт — отдельный кастодиальный контур самой биржи. -->
         <div class="panel" id="panel-market">
@@ -1754,6 +1772,32 @@
             return sum % 10 === 0;
         }
 
+        let exchangeReviewCommit = null;
+        function closeExchangeReview() {
+            const modal = document.getElementById('exchange-review');
+            if (modal) modal.style.display = 'none';
+            exchangeReviewCommit = null;
+        }
+        function openExchangeReview({title, rows, risk, onConfirm}) {
+            const modal = document.getElementById('exchange-review');
+            const heading = document.getElementById('exchange-review-title');
+            const summary = document.getElementById('exchange-review-summary');
+            const riskBox = document.getElementById('exchange-review-risk');
+            const ack = document.getElementById('exchange-review-ack');
+            const confirm = document.getElementById('exchange-review-confirm');
+            if (!modal || !heading || !summary || !riskBox || !ack || !confirm) return;
+            heading.textContent = title;
+            summary.innerHTML = rows.map(row => '<div style="padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07)">'
+                + '<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">' + esc(row.label) + '</div>'
+                + '<div style="font-size:13px;margin-top:3px;line-height:1.4">' + esc(row.value) + '</div></div>').join('');
+            riskBox.textContent = '⚠ ' + risk;
+            ack.checked = false;
+            confirm.disabled = true;
+            exchangeReviewCommit = onConfirm;
+            modal.style.display = 'flex';
+            ack.focus();
+        }
+
         async function createSellOrder() {
             const btn = document.getElementById('sell-submit');
             const res = document.getElementById('sell-result');
@@ -1786,6 +1830,30 @@
             if (way.needs_name && fullName.split(/\s+/).filter(Boolean).length < 2) {
                 fail('Укажите ФИО получателя как в банке — два-три слова.'); return;
             }
+            const methodLabel = (document.querySelector('#sell-method option:checked') || {}).textContent
+                || (way.code === 'card' ? 'карта' : 'СБП');
+            openExchangeReview({
+                title: 'Продажа ' + amt + ' ' + cur,
+                rows: [
+                    {label: 'Маршрут и исполнитель', value: 'ObsidianExchange · private lane · без KYC'},
+                    {label: 'Custody', value: 'Монеты остаются в вашем кошельке до отправки на адрес заявки'},
+                    {label: 'Выплата', value: ((document.getElementById('sell-payout') || {}).textContent || '—') + ' · ' + methodLabel},
+                    {label: 'Комиссия и курс', value: ((document.getElementById('sell-fee-note') || {}).textContent || 'Показаны в расчёте выше')}
+                ],
+                risk: 'После перевода монет на адрес заявки отменить операцию блокчейна нельзя. Рубли отправляются после подтверждения поступления в сети.',
+                onConfirm: () => submitSellOrder({cur, amt, way, phone, bank, fullName})
+            });
+        }
+
+        async function submitSellOrder({cur, amt, way, phone, bank, fullName}) {
+            const btn = document.getElementById('sell-submit');
+            const res = document.getElementById('sell-result');
+            const fail = (msg) => {
+                res.textContent = msg;
+                res.style.display = 'block';
+                res.style.color = '#f87171';
+                if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
+            };
             btn.disabled = true;
             const was = btn.textContent;
             btn.textContent = 'Создаём заявку…';
@@ -2546,25 +2614,9 @@
             b.addEventListener('click', () => sellSide(b.dataset.side)));
         document.getElementById('sell-submit').addEventListener('click', createSellOrder);
 
-        document.getElementById('create-order').addEventListener('click', async () => {
+        async function submitBuyOrder({currency, amount, address, payMethod, destTag, noTag, network}) {
             const btn = document.getElementById('create-order');
             const resultEl = document.getElementById('exchange-result');
-            const currency = document.getElementById('currency').value;
-            const amount = document.getElementById('amount').value;
-            const address = document.getElementById('address').value.trim();
-            const payMethod = document.querySelector('input[name="pay_method"]:checked')?.value || 'sbp';
-            if (!amount || amount < 2000 || amount > 500000) { resultEl.textContent = 'Сумма от 2 000 до 500 000 ₽'; return; }
-            if (!address) { resultEl.textContent = 'Введите адрес кошелька'; return; }
-            // Тег отправляем как есть. Разбор и проверка — на сервере: две копии
-            // правил разошлись бы, а цена расхождения — потерянный перевод.
-            const tagEl = document.getElementById('dest_tag');
-            const tagVisible = document.getElementById('tag-group').style.display !== 'none';
-            const destTag = (tagVisible && tagEl) ? tagEl.value.trim() : '';
-            const ntEl = document.getElementById('no_tag');
-            const noTag = tagVisible && !!(ntEl && ntEl.checked);
-            const network = selectedNetwork();
-            localStorage.setItem('lastAddress_' + currency + '_' + network, address);
-
             resultEl.innerHTML = '🚀 Заявка создаётся…';
             document.getElementById('exchange-steps').style.display = 'flex';
             btn.disabled = true;
@@ -2590,7 +2642,59 @@
                 if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
                 btn.disabled = false;
             }
-        });
+        }
+
+        function beginBuyOrder() {
+            const resultEl = document.getElementById('exchange-result');
+            const currency = document.getElementById('currency').value;
+            const amount = Number(document.getElementById('amount').value);
+            const address = document.getElementById('address').value.trim();
+            const payMethod = document.querySelector('input[name="pay_method"]:checked')?.value || 'sbp';
+            if (!amount || amount < 2000 || amount > 500000) { resultEl.textContent = 'Сумма от 2 000 до 500 000 ₽'; return; }
+            if (!address) { resultEl.textContent = 'Введите адрес кошелька'; return; }
+            // Тег отправляем как есть. Разбор и проверка — на сервере: две копии
+            // правил разошлись бы, а цена расхождения — потерянный перевод.
+            const tagEl = document.getElementById('dest_tag');
+            const tagVisible = document.getElementById('tag-group').style.display !== 'none';
+            const destTag = (tagVisible && tagEl) ? tagEl.value.trim() : '';
+            const ntEl = document.getElementById('no_tag');
+            const noTag = tagVisible && !!(ntEl && ntEl.checked);
+            const network = selectedNetwork();
+            const shortAddress = address.length > 20 ? address.slice(0, 10) + '…' + address.slice(-8) : address;
+            const payLabel = payMethod === 'card' ? 'банковская карта' : 'СБП';
+            localStorage.setItem('lastAddress_' + currency + '_' + network, address);
+            openExchangeReview({
+                title: 'Покупка ' + currency + ' за ' + amount.toLocaleString('ru-RU') + ' ₽',
+                rows: [
+                    {label: 'Маршрут и исполнитель', value: 'ObsidianExchange · private lane · без KYC'},
+                    {label: 'Custody', value: 'Ключи и адрес получателя остаются под вашим контролем'},
+                    {label: 'Комиссия и расчёт', value: ((document.getElementById('fee-value') || {}).textContent || '—') + ' · итоговая сумма указана выше'},
+                    {label: 'Получатель и оплата', value: currency + (network ? ' · ' + network : '') + ' → ' + shortAddress + ' · ' + payLabel}
+                ],
+                risk: 'После создания появятся реквизиты для оплаты. Не переводите деньги вне заявки и не используйте адрес другой сети.',
+                onConfirm: () => submitBuyOrder({currency, amount, address, payMethod, destTag, noTag, network})
+            });
+        }
+
+        document.getElementById('create-order').addEventListener('click', beginBuyOrder);
+        (function wireExchangeReview() {
+            const modal = document.getElementById('exchange-review');
+            const ack = document.getElementById('exchange-review-ack');
+            const cancel = document.getElementById('exchange-review-cancel');
+            const confirm = document.getElementById('exchange-review-confirm');
+            if (!modal || !ack || !cancel || !confirm) return;
+            ack.addEventListener('change', () => { confirm.disabled = !ack.checked; });
+            cancel.addEventListener('click', closeExchangeReview);
+            confirm.addEventListener('click', async () => {
+                if (!ack.checked || !exchangeReviewCommit) return;
+                const commit = exchangeReviewCommit;
+                closeExchangeReview();
+                await commit();
+            });
+            document.addEventListener('keydown', event => {
+                if (event.key === 'Escape' && modal.style.display === 'flex') closeExchangeReview();
+            });
+        })();
 
         // --- Отслеживание оплаты заявки внутри Mini App ---
         let _orderPoll = null, _orderTimer = null;
