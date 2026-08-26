@@ -331,6 +331,15 @@ Updated: 2026-08-26 UTC
   Rollback preimage:
   `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-profile-20260826T0910Z.Z1yh6q`.
 
+- 2026-08-26 commit `0ef30ab` corrects the E4 Overview handoff: each custody
+  lane now opens its matching working surface (wallets → Wallet,
+  ObsidianExchange → Exchange, external CEX → read-only Market), rather than
+  routing all three to Wallet. No portfolio data, custody/key boundary or action
+  contract changed. Focused E4 tests 35/35 and standalone address-book checks
+  63/63 pass; production `/webapp` returned `200`, bot/Relay are active.
+  Rollback preimage:
+  `/var/lib/obsidian-exchange/deployment-preimages/e4-overview-custody-routing-20260826T0913Z.QygGHK`.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;

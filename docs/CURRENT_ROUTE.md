@@ -220,6 +220,14 @@ bot action. Python and Mini App syntax, focused E4 tests (34/34) and standalone
 address-book checks (63/63) pass; deployed `/webapp` returned `200`, the bot
 and Relay are active. Rollback preimage:
 `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-profile-20260826T0910Z.Z1yh6q`.
+Commit `0ef30ab` fixes the E4 Overview custody handoff: its three owner-scoped
+portfolio cards now open their matching working surface — user wallets →
+Wallet, ObsidianExchange operational lane → Exchange, verified external-CEX
+lane → read-only Market. It does not change data, custody, keys or an action
+contract. Focused E4 tests pass 35/35 and standalone address-book checks pass
+63/63; deployed `/webapp` returned `200`, the bot and Relay are active.
+Rollback preimage:
+`/var/lib/obsidian-exchange/deployment-preimages/e4-overview-custody-routing-20260826T0913Z.QygGHK`.
 
 Completed bounded slices:
 `obsidian_b64_snapshot_reader` is deployed in production against the frozen
