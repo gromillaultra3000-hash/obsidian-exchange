@@ -51,6 +51,17 @@ def test_mobile_navigation_keeps_secondary_sections_in_more_panel():
         assert f"switchTab('{target}')" in webapp
 
 
+def test_market_quotes_have_freshness_guard_and_manual_refresh():
+    assert 'id="market-refresh"' in webapp
+    assert 'id="market-quote-status"' in webapp
+    assert 'function validMarketSnapshot' in webapp
+    assert 'marketSnapshotMaxAgeMs' in webapp
+    assert "ageMs < 0 || ageMs > marketSnapshotMaxAgeMs" in webapp
+    assert "Старые значения не показываются" in webapp
+    assert "on('market-refresh', loadMarketQuotes)" in webapp
+    assert "fetch('/api/wallet/market', {cache: 'no-store'" in webapp
+
+
 def test_ecosystem_overview_uses_the_existing_read_only_portfolio_contract():
     assert 'id="ecosystem-portfolio"' in webapp
     assert 'function ecosystemPortfolioRender' in webapp

@@ -532,8 +532,9 @@
             <div style="padding:16px;text-align:center;color:var(--muted)">Загрузка режимов…</div>
           </div>
           <div id="market-rule" style="display:none;margin-top:12px;padding:11px 13px;border-radius:12px;background:rgba(159,103,255,.08);border:1px solid rgba(159,103,255,.22);font-size:12px;color:#cbd5e1"></div>
-          <div style="margin-top:18px;font-size:16px;font-weight:800">Цены на биржах</div>
-          <div style="font-size:12px;color:var(--muted);margin:5px 0 10px">Только просмотр. Эти цены не являются заявкой и не дают KAIROS права совершать сделки.</div>
+          <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;margin-top:18px"><div style="font-size:16px;font-weight:800">Цены на биржах</div><button type="button" id="market-refresh" aria-label="Обновить котировки" style="background:none;border:1px solid rgba(255,255,255,.12);color:var(--muted);border-radius:9px;padding:6px 9px;cursor:pointer">↻</button></div>
+          <div style="font-size:12px;color:var(--muted);margin:5px 0 7px">Только просмотр. Эти цены не являются заявкой и не дают KAIROS права совершать сделки.</div>
+          <div id="market-quote-status" style="font-size:11px;color:var(--muted);margin-bottom:10px">Проверяем свежесть котировок…</div>
           <div id="market-quotes" style="display:grid;gap:8px"><div style="padding:14px;color:var(--muted)">Загрузка котировок…</div></div>
         </div>
 
@@ -1415,21 +1416,35 @@
             loadMarketQuotes();
         }
 
+        const marketSnapshotMaxAgeMs = 5 * 60 * 1000;
+        function validMarketSnapshot(data) {
+            if (!data || data.status !== 'ok' || !Array.isArray(data.quotes) || !data.quotes.length) return null;
+            const observedAt = new Date(data.asOf || '');
+            const ageMs = Date.now() - observedAt.getTime();
+            if (Number.isNaN(observedAt.getTime()) || ageMs < 0 || ageMs > marketSnapshotMaxAgeMs) return null;
+            const quotes = data.quotes.filter(q => q && typeof q.pair === 'string'
+                && typeof q.exchange === 'string' && Number.isFinite(Number(q.last)) && Number(q.last) > 0);
+            return quotes.length ? {quotes, observedAt} : null;
+        }
+
         function marketQuotesRender(data) {
             const box = document.getElementById('market-quotes');
-            const rows = data && Array.isArray(data.quotes) ? data.quotes : [];
-            if (!rows.length) {
+            const status = document.getElementById('market-quote-status');
+            const snapshot = validMarketSnapshot(data);
+            if (!snapshot) {
+                if (status) status.textContent = 'Котировки временно недоступны или устарели. Старые значения не показываются.';
                 box.innerHTML = '<div style="padding:13px;border-radius:12px;background:rgba(255,255,255,.03);color:var(--muted)">Биржевые котировки временно недоступны. Приватный обмен продолжает работать.</div>';
                 return;
             }
-            box.innerHTML = rows.map(q => '<div style="display:flex;justify-content:space-between;gap:10px;padding:11px 13px;border-radius:12px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.08)">'
+            if (status) status.textContent = 'Снимок: ' + snapshot.observedAt.toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit', second: '2-digit'}) + ' · только наблюдение';
+            box.innerHTML = snapshot.quotes.map(q => '<div style="display:flex;justify-content:space-between;gap:10px;padding:11px 13px;border-radius:12px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.08)">'
                 + '<div><strong>' + esc(q.pair) + '</strong><div style="font-size:11px;color:var(--muted)">' + esc(String(q.exchange).toUpperCase()) + '</div></div>'
                 + '<div style="font-weight:800;text-align:right">' + Number(q.last).toLocaleString('ru-RU', {maximumFractionDigits:8}) + ' USDT</div></div>').join('');
         }
 
         async function loadMarketQuotes() {
             try {
-                const r = await fetch('/api/wallet/market', {headers: {'X-Telegram-Init-Data': tg.initData || ''}});
+                const r = await fetch('/api/wallet/market', {cache: 'no-store', headers: {'X-Telegram-Init-Data': tg.initData || ''}});
                 marketQuotesRender(r.ok ? await r.json() : null);
             } catch (_) { marketQuotesRender(null); }
         }
@@ -2582,6 +2597,7 @@
             };
             on('wallet-refresh', loadWallets);
             on('portfolio-refresh', loadUnifiedPortfolio);
+            on('market-refresh', loadMarketQuotes);
             on('wallet-disconnect', walletDisconnect);
             on('w-connect', () => tcConnect());
             on('w-act-recv', walletReceive);
