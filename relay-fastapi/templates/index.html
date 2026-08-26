@@ -20,6 +20,7 @@
         <div class="action-row">
             <a class="btn" href="{% if web_user %}/dashboard/exchange{% else %}https://t.me/{{ bot_username }}{% endif %}"><i data-lucide="arrow-right-left" width="16"></i>Создать заявку</a>
             <a class="btn ghost" href="/rates">Комиссии и калькулятор</a>
+            <a class="btn ghost" href="/preview/">Экосистема · preview</a>
         </div>
         <div class="metrics">
             <div class="metric"><small>обменов</small><strong>{{ total_orders|default(0) }}+</strong></div>
