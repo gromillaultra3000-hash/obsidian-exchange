@@ -88,3 +88,17 @@ def test_activity_navigation_preserves_existing_history_handler():
     assert 'function openSupport' in webapp
     assert "https://t.me/ObsidianSupBot" in webapp
     assert "Данные из приложения не отправляются автоматически" in webapp
+
+
+def test_mini_app_tabs_are_keyboard_and_screen_reader_accessible():
+    assert 'role="tablist" aria-label="Разделы"' in webapp
+    for name in ('ecosystem', 'exchange', 'wallet', 'history', 'market', 'referral', 'profile', 'faq', 'more'):
+        assert f'id="tab-{name}"' in webapp
+        assert f'aria-controls="panel-{name}"' in webapp
+        assert f'id="panel-{name}" role="tabpanel"' in webapp
+    assert 'tabindex="-1"' in webapp
+    assert 'font-family:inherit; -webkit-appearance:none; appearance:none;' in webapp
+    assert "const visibleAppTabs" in webapp
+    for key in ('ArrowLeft', 'ArrowRight', 'Home', 'End'):
+        assert key in webapp
+    assert "visibleTabs[next].focus()" in webapp
