@@ -7,10 +7,10 @@ WEBAPP = (ROOT / "relay" / "webapp.html").read_text(encoding="utf-8")
 RELAY = (ROOT / "relay-fastapi" / "main.py").read_text(encoding="utf-8")
 
 
-def test_public_site_links_to_the_isolated_ecosystem_preview_without_replacing_exchange():
+def test_public_site_links_to_preview_and_a_concrete_mini_app_entry_without_replacing_exchange():
     assert 'href="/preview/">Экосистема · preview</a>' in INDEX
-    assert 'href="https://t.me/{{ bot_username }}" target="_blank" rel="noopener"' in INDEX
-    assert 'Открыть в Telegram</a>' in INDEX
+    assert 'href="https://t.me/{{ bot_username }}?start=app" target="_blank" rel="noopener"' in INDEX
+    assert 'Открыть Mini App в Telegram</a>' in INDEX
     assert 'Создать заявку' in INDEX
     assert 'href="/rates"' in INDEX
 

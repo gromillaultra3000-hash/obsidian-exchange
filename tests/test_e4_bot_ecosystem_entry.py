@@ -55,3 +55,16 @@ def test_profile_deep_link_reuses_existing_bot_profile_settings():
     command = BOT[start:end]
     assert 'start_payload == "profile"' in command
     assert 'await profile(message, uid=message.from_user.id)' in command
+
+
+def test_site_mini_app_deep_link_renders_only_the_existing_canonical_webapp_button():
+    start = BOT.index('async def cmd_start')
+    end = BOT.index('# ---------- ОБРАБОТЧИКИ МЕНЮ ----------', start)
+    command = BOT[start:end]
+    assert 'start_payload == "app"' in command
+    assert 'reply_markup=build_mini_app_entry_kb()' in command
+    assert 'def build_mini_app_entry_kb()' in BOT
+    entry_start = BOT.index('def build_mini_app_entry_kb()')
+    entry = BOT[entry_start:BOT.index('def _fmt_rate_compact', entry_start)]
+    assert 'web_app=WebAppInfo(url=f"{PUBLIC_RELAY}/webapp")' in entry
+    assert 'не создаёт' in entry

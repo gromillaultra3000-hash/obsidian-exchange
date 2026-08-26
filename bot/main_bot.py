@@ -1582,6 +1582,21 @@ def build_main_menu_kb() -> InlineKeyboardMarkup:
     ])
 
 
+def build_mini_app_entry_kb() -> InlineKeyboardMarkup:
+    """Один явный вход из сайта в уже существующий канонический Mini App.
+
+    Это только Telegram WebApp-кнопка: открытие не выбирает обмен, не создаёт
+    заявку и не вызывает провайдера. Все действия остаются внутри прежних
+    экранов Mini App после отдельного пользовательского выбора.
+    """
+    return InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(
+            text="🟣 Открыть Экосистему · Mini App",
+            web_app=WebAppInfo(url=f"{PUBLIC_RELAY}/webapp"),
+        )
+    ]])
+
+
 def _fmt_rate_compact(r) -> str:
     """4 850 000 → '4.85М ₽', 93 → '93 ₽'."""
     if not r:
@@ -1870,6 +1885,15 @@ async def cmd_start(message: Message, state: FSMContext):
         return
     if start_payload == "profile":
         await profile(message, uid=message.from_user.id)
+        return
+    if start_payload == "app":
+        await message.answer(
+            "🟣 <b>Экосистема Obsidian</b>\n\n"
+            "Откройте Mini App: портфель, private exchange, read-only CEX, "
+            "статусы заявок и поддержка находятся в одном интерфейсе. "
+            "Никакое действие не запускается при открытии.",
+            parse_mode="HTML", reply_markup=build_mini_app_entry_kb(),
+        )
         return
     btc_rate  = get_cached_rate('BTC')  or 0
     ltc_rate  = get_cached_rate('LTC')  or 0
