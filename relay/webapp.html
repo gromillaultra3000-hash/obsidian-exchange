@@ -3084,11 +3084,20 @@
             const onReview = o.status === 'pending' && o.receipt === 'sent';
             const hasFile = o.status === 'pending' && !!o.receipt;
             const stuck = o.status === 'paid' && o.delayed;
+            const terminal = ['expired', 'failed', 'cancelled'].includes(o.status);
+            const terminalCopy = {
+                expired: 'Срок заявки истёк. По этим реквизитам не переводите.',
+                failed: 'Заявка закрыта. Не переводите средства по её реквизитам.',
+                cancelled: 'Заявка отменена. Не переводите средства по её реквизитам.',
+            };
             return {
-                onReview, hasFile,
-                emoji: onReview ? '🧾' : (stuck ? '⏳' : ({ pending:'⏳', paid:'✅', sent:'🚀' }[o.status] || '⚡')),
-                label: onReview ? 'На проверке' : (stuck ? 'Выплата задерживается' : ({ pending: 'Ожидание', paid: 'Оплачено', sent: 'Отправлено' }[o.status] || o.status)),
-                cls: ({ pending: 'pending', paid: 'success', sent: 'success' }[o.status] || '')
+                onReview, hasFile, terminal,
+                emoji: onReview ? '🧾' : (stuck ? '⏳' : ({ pending:'⏳', paid:'✅', sent:'🚀', expired:'⌛', failed:'⚠️', cancelled:'🚫' }[o.status] || '⚡')),
+                label: onReview ? 'Чек на проверке' : (stuck ? 'Выплата задерживается' : ({ pending: 'Ожидание оплаты', paid: 'Оплата получена', sent: 'Отправлено', expired: 'Истекла', failed: 'Закрыта', cancelled: 'Отменена' }[o.status] || o.status)),
+                advice: terminal ? terminalCopy[o.status]
+                    : (onReview ? 'Чек получен. Повторно не оплачивайте заявку.'
+                       : (stuck ? 'Оплата получена. Повторно не оплачивайте заявку.' : '')),
+                cls: terminal ? 'terminal' : ({ pending: 'pending', paid: 'success', sent: 'success' }[o.status] || '')
             };
         }
         function renderHistorySummary(orders) {
@@ -3175,7 +3184,10 @@
                 const copy = orderId
                     ? `<button type="button" class="history-copy-id" data-order-id="${esc(orderId)}" aria-label="Скопировать номер заявки ${esc(orderId)}" style="margin:10px 0 0;border:1px solid rgba(255,255,255,.14);background:none;color:var(--muted);border-radius:9px;padding:6px 9px;font-size:11px;cursor:pointer">Копировать №</button>`
                     : '';
-                return `<div class="history-item ${state.cls}"><span class="h-icon">${state.emoji}</span><div class="h-title">#${esc(o.order_id)} — ${esc(o.currency)}</div><div class="h-meta">${esc(o.amount)} RUB</div><div class="h-status-row"><small>${esc(o.created)}</small><span class="status">${esc(state.label)}</span></div>${action}${copy}</div>`;
+                const advice = state.advice
+                    ? `<div class="history-advice" style="margin-top:8px;font-size:11px;line-height:1.4;color:${state.terminal ? '#fbbf24' : 'var(--muted)'}">${esc(state.advice)}</div>`
+                    : '';
+                return `<div class="history-item ${state.cls}"><span class="h-icon">${state.emoji}</span><div class="h-title">#${esc(o.order_id)} — ${esc(o.currency)}</div><div class="h-meta">${esc(o.amount)} RUB</div><div class="h-status-row"><small>${esc(o.created)}</small><span class="status">${esc(state.label)}</span></div>${advice}${action}${copy}</div>`;
             }).join('');
             list.querySelectorAll('.history-copy-id').forEach(button =>
                 button.addEventListener('click', () => copyOrderId(button.dataset.orderId, button)));

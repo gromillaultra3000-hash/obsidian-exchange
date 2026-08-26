@@ -160,6 +160,14 @@ def test_activity_makes_the_existing_order_number_ready_for_support_copying():
     assert "Копировать №" in webapp
 
 
+def test_activity_explains_review_delay_and_terminal_order_next_steps():
+    assert "const terminal = ['expired', 'failed', 'cancelled'].includes(o.status)" in webapp
+    assert "Чек получен. Повторно не оплачивайте заявку." in webapp
+    assert "Оплата получена. Повторно не оплачивайте заявку." in webapp
+    assert "Не переводите средства по её реквизитам." in webapp
+    assert 'class="history-advice"' in webapp
+
+
 def test_narrow_mobile_layout_keeps_overview_and_review_actions_readable():
     assert 'class="ecosystem-lanes"' in webapp
     assert '.ecosystem-lanes { grid-template-columns:1fr; }' in webapp
