@@ -1,0 +1,64 @@
+{
+  "schemaVersion": "e4-visible-portfolio-preview-rollout.v1",
+  "recordedAt": "2026-08-26T07:29:00Z",
+  "stage": "E4",
+  "gateStatus": "IN_PROGRESS",
+  "boundedSlice": "VISIBLE_PORTFOLIO_PREVIEW",
+  "surfaceMatrix": {
+    "site": "REQUIRED: public static /preview/",
+    "telegramBot": "REQUIRED: /preview command and persistent menu button",
+    "miniApp": "REQUIRED: the same static /preview/ URL opens inside Telegram",
+    "api": "READ_ONLY: static /preview/api/v1/overview.json only",
+    "admin": "N/A: no admin route or capability",
+    "native": "N/A: no native-wallet capability"
+  },
+  "implementation": {
+    "commit": "53b25f9078a0fd63175ea6c6e902b14b6c9da2d9",
+    "rollbackCaptureCommit": "87efb6d26e2fba053fafe1f46027d8c58b8db54a",
+    "release": "/opt/obsidian-exchange/releases/e4-visible-portfolio-preview/53b25f9078a0fd63175ea6c6e902b14b6c9da2d9",
+    "releaseFiles": {
+      "index.html": "0af9fd5b19305405e89ebc1ca2115edc8065db5afebebe912bf4ac5333448553",
+      "assets/preview.css": "739eb7f27add31aa6655f3c2381f3f3beeec6db6bc7351babaa201570abf61d0",
+      "assets/preview.js": "f7b2b9988a6a9344155b291789198e8edecdc6bc83465938d97245ba8eecac42",
+      "api/v1/overview.json": "74967adbb6e6d68c9e8fd240fadd8cfd2232b53cec1152cde2f11bd8e30f9713"
+    }
+  },
+  "production": {
+    "url": "https://obsidian-exchange.org/preview/",
+    "nginxConfigSha256": "af12d7bd20e27955589dd4c068786ed7c8f95b4ed4cc273afffb99eb8e8166ff",
+    "nginxReloaded": true,
+    "botRestarted": true,
+    "rollbackReceipt": "/var/lib/obsidian-exchange/deployment-preimages/e4-visible-preview-20260826T0727Z.sgn7pi",
+    "rollback": "restore the preimage receipt with deploy/e4_visible_portfolio_preview_rollback.sh"
+  },
+  "acceptance": {
+    "tests": "11 passed: test_e4_visible_portfolio_preview.py, test_unified_portfolio.py, test_unified_portfolio_ui.py",
+    "routeContract": "tests/test_routes.py: 94 routes OK",
+    "secretScan": "gitleaks protect --staged: no leaks",
+    "http": {
+      "GET /preview/": 200,
+      "GET /preview/assets/preview.css": 200,
+      "GET /preview/assets/preview.js": 200,
+      "GET /preview/api/v1/overview.json": 200,
+      "POST /preview/": 405,
+      "POST /preview": 405
+    },
+    "headers": ["Cache-Control: no-store", "CSP", "HSTS", "Referrer-Policy", "nosniff"],
+    "runtime": {"nginx": "active", "exchangeBot": "active"}
+  },
+  "boundaries": {
+    "database": false,
+    "relayProxy": false,
+    "walletKeys": false,
+    "payout": false,
+    "orderCreation": false,
+    "trade": false,
+    "identityUpload": false
+  },
+  "review": {
+    "architectureSecurity": "independent E4 contract review accepted static isolation after method and rollback fixes",
+    "operations": "independent runtime review required in-place anchored Nginx patch and retained preimages; applied"
+  },
+  "knownLimitation": "Automated visual browser capture is not available on this host because the requested Chromium distribution is absent; public HTTP and static-asset verification passed.",
+  "nextCanonicalItem": "E4/VISIBLE_PORTFOLIO_PREVIEW: validate the production preview visually on the owner Telegram device, then add one read-only real-data lane without changing its writer boundaries."
+}

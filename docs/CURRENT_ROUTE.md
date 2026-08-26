@@ -29,6 +29,18 @@ wallet-key, signing and trade writers remain outside this slice; user actions
 are preview-only until their respective roadmap gates and production contracts
 are accepted. The next ordered item is `E4/VISIBLE_PORTFOLIO_PREVIEW`.
 
+### E4/VISIBLE_PORTFOLIO_PREVIEW — first production slice
+
+Commit `53b25f9` deploys an isolated static preview at
+`https://obsidian-exchange.org/preview/`, with the same URL exposed by the
+Telegram `/preview` command and persistent menu button. It is a distinct
+Nginx static location, not a Relay route: it has no database, provider, wallet,
+identity or writer capability. GET for its page, assets and static overview
+JSON returns `200`; POST to both `/preview` and `/preview/` returns `405`.
+Nginx and the bot are active after a reload/restart, and root-only rollback
+preimages are retained. Evidence:
+`docs/e4-visible-portfolio-preview-rollout.v1.json`.
+
 Completed bounded slices:
 `obsidian_b64_snapshot_reader` is deployed in production against the frozen
 PostgreSQL migrations `001–023` profile as a dormant `NOLOGIN` role with no

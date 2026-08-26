@@ -54,6 +54,16 @@ Updated: 2026-08-26 UTC
   reserve-backed asset work remains a separate post-ecosystem track requiring
   legal, custody and reserve-attestation authorization before production.
 
+- 2026-08-26 `E4/VISIBLE_PORTFOLIO_PREVIEW` first production slice is live at
+  `https://obsidian-exchange.org/preview/` and through the Telegram `/preview`
+  command/menu. It is a root-owned immutable static release behind an isolated
+  Nginx location: no Relay proxy, DB, order/payment/wallet/CEX API, identity
+  upload or money writer. GET page/assets/overview JSON returned `200`; POST
+  to `/preview` and `/preview/` returned `405`; Nginx and bot are active.
+  The release uses commit `53b25f9`, tests pass 11/11, and rollback preimages
+  are retained. Browser capture was unavailable because Chromium is absent on
+  the host. Evidence: `docs/e4-visible-portfolio-preview-rollout.v1.json`.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;
