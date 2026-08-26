@@ -564,6 +564,17 @@ Updated: 2026-08-26 UTC
   app errors. Relay and bot are active. Rollback preimage:
   `/var/lib/obsidian-exchange/deployment-preimages/e4-market-chart-session-state-20260826T1013Z.BNCUr8`.
 
+- 2026-08-26 commit `9377c4e` completes a cross-surface read-only market
+  entry: Telegram `/market` and `start=market` render a dedicated existing
+  Mini App WebApp button; public `/rates` links to that bot entry; Mini App
+  accepts only the allow-listed `market` URL asset before loading its existing
+  chart. The entry text makes clear that it is neither an exchange quote nor a
+  trade. Production bot and Relay are active. At `390px`,
+  `/webapp?market=ETH` opened `ETH/USDT` with a live closing observation and
+  no overflow/app error; mobile `/rates` exposes the expected bot deep link.
+  Focused tests pass `44/44`. Rollback preimage:
+  `/var/lib/obsidian-exchange/deployment-preimages/e4-cross-surface-market-entry-20260826T1017Z.KEzpsx`.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;
