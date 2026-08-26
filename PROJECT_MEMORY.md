@@ -542,6 +542,18 @@ Updated: 2026-08-26 UTC
   tests pass `28/28`. Rollback preimage:
   `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-selectable-market-20260826T1007Z.1jTqOk`.
 
+- 2026-08-26 commit `01a8415` links the authenticated read-only `Market` CEX
+  quote list to the public historical market card. A fresh quote for an
+  allow-listed BTC/ETH/LTC USDT pair now exposes `Открыть историю`; its tap
+  returns to Overview, selects the matching asset and scrolls to the history
+  card. Other pairs remain inert quote rows. This adds neither CEX trade nor
+  credential/key/order capability. Focused tests pass `32/32`; the production
+  `390px` browser flow using a validated injected CEX snapshot reaches
+  `ETH/USDT` history through real `200` data, without overflow or app errors.
+  The unauthenticated browser correctly receives `403` for pre-existing
+  owner-scoped CEX/portfolio APIs. Relay and bot are active. Rollback preimage:
+  `/var/lib/obsidian-exchange/deployment-preimages/e4-market-quote-history-link-20260826T1011Z.D9looR`.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;
