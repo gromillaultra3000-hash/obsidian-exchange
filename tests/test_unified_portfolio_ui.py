@@ -36,6 +36,9 @@ def test_ecosystem_overview_is_the_default_without_removing_legacy_flows():
     assert 'switchTab(\'wallet\')' in webapp
     assert 'switchTab(\'exchange\')' in webapp
     assert 'switchTab(\'market\')' in webapp
+    assert 'id="ecosystem-exchange-status"' in webapp
+    assert 'function renderEcosystemExchangeStatus' in webapp
+    assert "renderEcosystemExchangeStatus(d)" in webapp
     for existing in ('data-tab="exchange"', 'data-tab="wallet"', 'data-tab="market"', 'data-tab="history"'):
         assert existing in webapp
 
