@@ -124,3 +124,11 @@ def test_overview_has_an_owner_scoped_read_only_activity_entrypoint():
     assert "loadUnifiedPortfolio(); loadEcosystemActivity();" in webapp
     assert "renderEcosystemActivity(orders);" in webapp
     assert "loadSysStatus();\n        loadUnifiedPortfolio();\n        loadEcosystemActivity();" in webapp
+
+
+def test_narrow_mobile_layout_keeps_overview_and_review_actions_readable():
+    assert 'class="ecosystem-lanes"' in webapp
+    assert '.ecosystem-lanes { grid-template-columns:1fr; }' in webapp
+    assert 'class="exchange-review-surface"' in webapp
+    assert 'class="exchange-review-actions"' in webapp
+    assert '.exchange-review-actions { grid-template-columns:1fr !important; }' in webapp

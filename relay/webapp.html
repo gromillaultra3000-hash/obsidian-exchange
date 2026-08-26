@@ -71,10 +71,16 @@
         .tab .tab-icon { font-size:19px; display:block; transition:transform .15s, filter .15s; }
         .tab.active { background:rgba(159,103,255,.14); color:var(--purple-2); }
         .tab.active .tab-icon { filter:drop-shadow(0 0 5px rgba(159,103,255,.55)); transform:scale(1.1); }
+        .ecosystem-lanes { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin-bottom:12px; }
         @media (max-width:620px) {
           .tabs { position:sticky; bottom:0; z-index:20; grid-template-columns:repeat(5,1fr); background:rgba(12,12,20,.96); backdrop-filter:blur(14px); border:1px solid var(--border); border-radius:16px 16px 0 0; box-shadow:0 -10px 26px rgba(0,0,0,.25); }
           .tab.secondary-tab { display:none; }
           .panel { padding-bottom:82px; }
+        }
+        @media (max-width:420px) {
+          .ecosystem-lanes { grid-template-columns:1fr; }
+          .exchange-review-surface { max-height:90dvh !important; padding:16px !important; }
+          .exchange-review-actions { grid-template-columns:1fr !important; }
         }
         /* Действия кошелька: три равные кнопки, как в кошельковых приложениях */
         .w-act { background:rgba(159,103,255,.12); border:1px solid rgba(159,103,255,.25);
@@ -272,7 +278,7 @@
             <div style="font-size:13px;color:var(--muted);line-height:1.55">Средства и ключи не объединяются на сервере: каждый следующий экран показывает исполнителя и custody.</div>
           </div>
           <button type="button" id="ecosystem-exchange-status" onclick="switchTab('exchange')" style="display:block;width:100%;margin:0 0 12px;padding:12px;text-align:left;border:1px solid var(--border);border-radius:14px;background:rgba(255,255,255,.03);color:var(--muted);font-size:12px;cursor:pointer">Статус ObsidianExchange загружается…</button>
-          <div id="ecosystem-portfolio" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px"><div style="padding:12px;border:1px solid var(--border);border-radius:14px;color:var(--muted);font-size:12px">Загрузка портфеля…</div></div>
+          <div id="ecosystem-portfolio" class="ecosystem-lanes"><div style="padding:12px;border:1px solid var(--border);border-radius:14px;color:var(--muted);font-size:12px">Загрузка портфеля…</div></div>
           <button type="button" id="ecosystem-activity" onclick="switchTab('history')" style="display:block;width:100%;margin:0 0 12px;padding:12px;text-align:left;border:1px solid var(--border);border-radius:14px;background:rgba(255,255,255,.03);color:var(--muted);font-size:12px;cursor:pointer"><b style="color:var(--text)">📋 Активность и поддержка</b><br><span id="ecosystem-activity-status" role="status">Проверяем статусы ваших заявок…</span></button>
           <div style="display:grid;gap:9px">
             <button type="button" class="side-btn" onclick="switchTab('wallet')" style="text-align:left;padding:14px"><b>👛 Портфель и кошельки</b><br><span style="font-size:11px;color:var(--muted)">Ключи остаются у вас · адреса и история только после подтверждения</span></button>
@@ -513,7 +519,7 @@
 
         <div id="exchange-review" role="dialog" aria-modal="true" aria-labelledby="exchange-review-title" aria-describedby="exchange-review-description" tabindex="-1"
              style="display:none;position:fixed;inset:0;z-index:1000;padding:20px;background:rgba(3,1,8,.82);align-items:flex-end;justify-content:center">
-          <div style="width:min(520px,100%);max-height:86vh;overflow:auto;padding:18px;border-radius:22px;background:#140a22;border:1px solid rgba(196,140,255,.45);box-shadow:0 18px 60px rgba(0,0,0,.5)">
+          <div class="exchange-review-surface" style="width:min(520px,100%);max-height:86vh;overflow:auto;padding:18px;border-radius:22px;background:#140a22;border:1px solid rgba(196,140,255,.45);box-shadow:0 18px 60px rgba(0,0,0,.5)">
             <div id="exchange-review-title" style="font-size:20px;font-weight:800">Проверьте условия</div>
             <div id="exchange-review-description" style="font-size:12px;color:var(--muted);margin:5px 0 14px;line-height:1.5">Заявка ещё не создана. Ничего не списывается до следующего подтверждения.</div>
             <div id="exchange-review-summary" style="display:grid;gap:8px"></div>
@@ -522,7 +528,7 @@
               <input id="exchange-review-ack" type="checkbox" style="width:auto;margin-top:2px">
               <span>Я проверил(а) маршрут, сумму, сеть и реквизиты. Понимаю, что отправленный платёж или перевод в другой сети может быть необратимым.</span>
             </label>
-            <div style="display:grid;grid-template-columns:1fr 1.35fr;gap:8px">
+            <div class="exchange-review-actions" style="display:grid;grid-template-columns:1fr 1.35fr;gap:8px">
               <button type="button" id="exchange-review-cancel" class="btn" style="background:rgba(255,255,255,.07)">Изменить</button>
               <button type="button" id="exchange-review-confirm" class="btn" disabled>Подтвердить и создать</button>
             </div>
