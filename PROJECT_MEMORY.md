@@ -304,6 +304,15 @@ Updated: 2026-08-26 UTC
   Rollback preimage:
   `/var/lib/obsidian-exchange/deployment-preimages/e4-wallet-address-book-20260826T0900Z.Uc6Zgp`.
 
+- 2026-08-26 commit `3fe3c01` turns existing Activity facts into a clear next
+  step: receipt-under-review, delayed paid, expired, failed and cancelled cards
+  explain their state, and the relevant cards explicitly say not to pay again.
+  Existing payment, transaction-evidence and support links are unchanged. Mini
+  App syntax, focused E4 tests 30/30 and standalone address-book checks 63/63
+  pass; production `/webapp` returned `200`, bot/Relay are active. Rollback
+  preimage:
+  `/var/lib/obsidian-exchange/deployment-preimages/e4-activity-next-steps-20260826T0903Z.rnUpdH`.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;

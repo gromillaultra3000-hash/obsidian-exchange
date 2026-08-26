@@ -196,6 +196,14 @@ a signature, a provider call or a payment. Mini App syntax, focused E4 tests
 (29/29) and the standalone address-book checks (63/63) pass; deployed
 `/webapp` returned `200`, the bot and Relay are active. Rollback preimage:
 `/var/lib/obsidian-exchange/deployment-preimages/e4-wallet-address-book-20260826T0900Z.Uc6Zgp`.
+Commit `3fe3c01` makes the existing Activity data actionable without changing
+an order path: receipt-under-review, delayed paid and terminal
+expired/failed/cancelled cards now say what happened and whether the user must
+not pay again. Existing payment, transaction-evidence and support links remain
+unchanged. Mini App syntax, focused E4 tests (30/30) and standalone
+address-book checks (63/63) pass; deployed `/webapp` returned `200`, the bot
+and Relay are active. Rollback preimage:
+`/var/lib/obsidian-exchange/deployment-preimages/e4-activity-next-steps-20260826T0903Z.rnUpdH`.
 
 Completed bounded slices:
 `obsidian_b64_snapshot_reader` is deployed in production against the frozen
