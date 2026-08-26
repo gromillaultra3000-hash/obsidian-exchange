@@ -112,6 +112,14 @@ Overview now loads portfolio, exchange status and activity immediately.
 JavaScript syntax and focused E4 tests pass 19/19; live Mini App and
 system-status returned `200`, and Relay/bot are active. Rollback preimage:
 `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-overview-activity-20260826T0826Z.SJKEdB`.
+Commit `dc185df` completes the accessibility pass on the existing Buy/Sell
+conditions-review dialog: it is screen-reader described, traps Tab focus while
+open, restores focus to the invoking control on close and keeps Escape as an
+edit-only close. Acknowledgement, request payloads and writer contracts are
+unchanged. JavaScript syntax and focused E4 tests pass 19/19; live `/webapp`
+returned `200` with the dialog contract and Relay/bot are active. Rollback
+preimage:
+`/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-review-dialog-20260826T0828Z.UmLmd1`.
 
 Completed bounded slices:
 `obsidian_b64_snapshot_reader` is deployed in production against the frozen

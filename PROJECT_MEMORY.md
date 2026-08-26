@@ -202,6 +202,15 @@ Updated: 2026-08-26 UTC
   active. Rollback preimage:
   `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-overview-activity-20260826T0826Z.SJKEdB`.
 
+- 2026-08-26 commit `dc185df` completes the E4 exchange-review dialog
+  accessibility pass. The existing Buy/Sell acknowledgement modal now has a
+  screen-reader description, traps Tab focus while open, restores focus to its
+  invoking control on close and retains Escape-to-edit behaviour. It does not
+  alter acknowledgement, request payloads or money-writer contracts. JavaScript
+  syntax and focused E4 tests pass 19/19; public `/webapp` returned `200` with
+  the new dialog contract and Relay/bot are active. Rollback preimage:
+  `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-review-dialog-20260826T0828Z.UmLmd1`.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;
