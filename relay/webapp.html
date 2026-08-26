@@ -269,7 +269,7 @@
             <div class="chart-header">
                 <div>
                     <div class="chart-kicker">РЫНОК · НАБЛЮДЕНИЕ</div>
-                    <div class="chart-title" id="chart-title">₿ BTC/RUB · 24 часа</div>
+                    <div class="chart-title" id="chart-title">₿ BTC/USDT · 24 часа</div>
                     <div class="chart-subtitle">Историческая динамика, не курс заявки</div>
                 </div>
                 <div class="chart-change" id="chart-change" role="status">Загрузка…</div>
@@ -975,10 +975,13 @@
         // График BTC за 24 часа
         async function loadChart() {
             try {
-                const res = await fetch('https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=rub&days=1');
-                const data = await res.json();
-                const rawPoints = (data.prices || []).filter(point =>
-                    Array.isArray(point) && Number.isFinite(Number(point[0])) && Number.isFinite(Number(point[1])) && Number(point[1]) > 0);
+                const res = await fetch('/api/market/history', { cache: 'no-store' });
+                if (!res.ok) throw new Error('history unavailable');
+                const snapshot = await res.json();
+                if (snapshot.status !== 'ok' || !Array.isArray(snapshot.points)) throw new Error('history unavailable');
+                const rawPoints = snapshot.points.filter(point =>
+                    point && Number.isFinite(Number(point.observedAt)) && Number.isFinite(Number(point.close)) && Number(point.close) > 0)
+                    .map(point => [Number(point.observedAt), Number(point.close)]);
                 if (rawPoints.length < 2) throw new Error('history unavailable');
                 const maxPoints = 48;
                 const step = Math.max(1, Math.ceil(rawPoints.length / maxPoints));
@@ -991,6 +994,9 @@
                 const changeEl = document.getElementById('chart-change');
                 changeEl.textContent = `${change >= 0 ? '+' : ''}${change.toFixed(1)}%`;
                 changeEl.className = 'chart-change ' + (change >= 0 ? 'up' : 'down');
+                document.getElementById('chart-title').textContent = `₿ ${snapshot.symbol} · 24 часа`;
+                document.querySelector('.chart-subtitle').textContent = `${snapshot.exchange} · историческая динамика, не курс заявки`;
+                document.querySelector('.chart-footer span').textContent = `${snapshot.exchange} · 24 часа`;
                 document.getElementById('chart-updated').textContent = `Точка: ${labels[labels.length - 1]}`;
 
                 document.getElementById('chart-loading').style.display = 'none';
@@ -1025,7 +1031,7 @@
                                 borderWidth: 1,
                                 titleColor: '#b9aaca',
                                 bodyColor: '#f7f3ff',
-                                callbacks: { label: ctx => `${Math.round(ctx.parsed.y).toLocaleString('ru-RU')} ₽` }
+                                callbacks: { label: ctx => `${Math.round(ctx.parsed.y).toLocaleString('ru-RU')} USDT` }
                             }
                         },
                         scales: {

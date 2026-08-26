@@ -44,14 +44,15 @@ def test_sources_are_sequential_without_validation_or_quorum():
     assert "raise_for_status" not in body and "deviation" not in body and "confidence" not in body
 
 
-def test_mini_app_has_divergent_direct_and_backend_paths():
+def test_mini_app_uses_shared_backend_paths_for_current_prices_and_history():
     web = _text("/opt/obsidian-exchange/relay/webapp.html")
-    assert "api.coingecko.com/api/v3/simple/price" in web
-    assert "api.coingecko.com/api/v3/coins/bitcoin/market_chart" in web
+    assert "api.coingecko.com/api/v3/simple/price" not in web
+    assert "api.coingecko.com/api/v3/coins/bitcoin/market_chart" not in web
     assert "fetch('/api/rates')" in web
-    assert 'id="btc-ch">+2.4%</div>' in web
+    assert "fetch('/api/market/history'" in web
+    assert 'id="btc-ch">+2.4%</div>' not in web
     failure = web[web.index("async function fetchRates()"):web.index("function showRates(data)")]
-    assert "btc-ch" not in failure and "ltc-ch" not in failure and "usdt-ch" not in failure
+    assert "btc-ch" in failure and "ltc-ch" in failure and "usdt-ch" in failure
 
 
 def test_commercial_export_and_manual_override_are_not_safe_authority():

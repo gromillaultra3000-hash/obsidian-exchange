@@ -7,6 +7,8 @@ WEBAPP = (Path(__file__).resolve().parents[1] / "relay" / "webapp.html").read_te
 def test_market_chart_has_read_only_context_and_derived_24_hour_change():
     for marker in ("РЫНОК · НАБЛЮДЕНИЕ", "Историческая динамика, не курс заявки", "id=\"chart-change\"", "id=\"chart-updated\""):
         assert marker in WEBAPP
+    assert "fetch('/api/market/history', { cache: 'no-store' })" in WEBAPP
+    assert "market_chart?vs_currency=rub" not in WEBAPP
     assert "const change = ((last - first) / first) * 100;" in WEBAPP
     assert "const maxPoints = 48;" in WEBAPP
     assert "История рынка временно недоступна" in WEBAPP

@@ -2148,6 +2148,7 @@ async def api_widget_rates():
 
 
 _rates_cache: dict = {"data": {}, "ts": 0.0}
+_market_history_cache: dict = {"data": None, "ts": 0.0}
 
 @app.get("/api/rates")
 async def api_rates():
@@ -2219,6 +2220,35 @@ async def api_rates():
     _rates_cache["data"] = result
     _rates_cache["ts"] = time.time()
     return result
+
+
+@app.get("/api/market/history")
+async def api_market_history():
+    """Public, read-only BTC/USDT market history for the Mini App chart."""
+    now = time.time()
+    cached = _market_history_cache["data"]
+    if cached and now - _market_history_cache["ts"] < 60:
+        return cached
+    try:
+        import httpx
+        from market_history import normalize_okx_candles
+
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.get(
+                "https://www.okx.com/api/v5/market/candles",
+                params={"instId": "BTC-USDT", "bar": "30m", "limit": "48"})
+            response.raise_for_status()
+        payload = {
+            "status": "ok", "symbol": "BTC/USDT", "exchange": "OKX",
+            "bar": "30m", "observedAt": int(now * 1000),
+            "points": normalize_okx_candles(response.json(), limit=48),
+        }
+        _market_history_cache["data"] = payload
+        _market_history_cache["ts"] = now
+        return payload
+    except Exception as exc:
+        logger.warning("Public market history unavailable: %s", type(exc).__name__)
+        return JSONResponse(status_code=503, content={"status": "unavailable", "points": []})
 
 _rates_xml_cache = {"xml": None, "ts": 0.0}
 
