@@ -2483,6 +2483,11 @@
             ['obsidian_exchange', 'OBSIDIAN_OPERATIONAL'],
             ['verified_exchanges', 'CEX_CUSTODY']
         ];
+        const ecosystemLaneTarget = {
+            wallets: 'wallet',
+            obsidian_exchange: 'exchange',
+            verified_exchanges: 'market'
+        };
         function isUnifiedPortfolioV1(data) {
             return !!data && data.schemaVersion === 'unified-portfolio.v1'
                 && Array.isArray(data.lanes) && data.lanes.length === unifiedPortfolioShape.length
@@ -2555,7 +2560,8 @@
                     balance && (['STALE', 'UNKNOWN', 'ERROR'].includes(balance.state) || balance.total === null)));
                 const state = laneStateCopy[stale ? 'DEGRADED' : lane.state] || 'Временно недоступно';
                 const count = Array.isArray(lane.sources) ? lane.sources.length : 0;
-                return '<button type="button" class="side-btn" onclick="switchTab(\'wallet\')" style="text-align:left;padding:12px"><b>' + esc(copy.title) + '</b><br><span style="font-size:10px;color:var(--muted)">' + esc(copy.badge) + ' · ' + esc(state) + ' · источников: ' + count + '</span></button>';
+                const target = ecosystemLaneTarget[lane.id] || 'wallet';
+                return '<button type="button" class="side-btn" onclick="switchTab(\'' + target + '\')" style="text-align:left;padding:12px"><b>' + esc(copy.title) + '</b><br><span style="font-size:10px;color:var(--muted)">' + esc(copy.badge) + ' · ' + esc(state) + ' · источников: ' + count + '</span></button>';
             }).join('');
         }
 

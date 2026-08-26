@@ -113,6 +113,16 @@ def test_ecosystem_overview_uses_the_existing_read_only_portfolio_contract():
     assert "source && Array.isArray(source.balances)" in webapp
 
 
+def test_overview_custody_lanes_open_their_matching_working_sections():
+    assert "const ecosystemLaneTarget = {" in webapp
+    assert "wallets: 'wallet'" in webapp
+    assert "obsidian_exchange: 'exchange'" in webapp
+    assert "verified_exchanges: 'market'" in webapp
+    assert "const target = ecosystemLaneTarget[lane.id] || 'wallet'" in webapp
+    assert "onclick=\"switchTab(' + target + ')\"" not in webapp
+    assert "onclick=\"switchTab(\\'' + target + '\\')\"" in webapp
+
+
 def test_activity_navigation_preserves_existing_history_handler():
     assert 'data-tab="history"' in webapp
     assert '>Активность<' in webapp
