@@ -24,6 +24,7 @@ def test_preview_contract_is_explicitly_non_executable():
         "SELF_CUSTODY", "OBSIDIAN_OPERATIONAL", "CEX_CUSTODY"]
     market = OVERVIEW["market"]
     assert market["status"] == "INDICATIVE_SNAPSHOT"
+    assert market["snapshotId"].startswith("kairos-okx-")
     assert market["maxAgeSeconds"] > 0
     assert {quote["asset"] for quote in market["quotes"]} == {"BTC", "ETH", "LTC"}
 
@@ -38,6 +39,9 @@ def test_preview_has_no_writer_or_identity_surface():
     assert "credentials: 'omit'" in SCRIPT
     assert "snapshot устарел" in SCRIPT
     assert "market.observedAt" in SCRIPT
+    assert "ageMs < 0" in SCRIPT
+    assert "window.setTimeout" in SCRIPT
+    assert "renderMarket(null)" in SCRIPT
     assert "<form" not in INDEX
 
 

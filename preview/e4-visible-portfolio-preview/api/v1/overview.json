@@ -30,9 +30,11 @@
   },
   "market": {
     "status": "INDICATIVE_SNAPSHOT",
+    "snapshotId": "kairos-okx-20260826T073347Z",
     "observedAt": "2026-08-26T07:33:47.696785Z",
     "maxAgeSeconds": 900,
     "sourceLabel": "KAIROS public CEX observation · OKX spot",
+    "sourceEndpoint": "KAIROS GET /api/market/quotes?assets=BTC,ETH,LTC",
     "description": "Индикативная публичная spot-цена. Это не курс ObsidianExchange, не оферта, не фиксация и не сделка.",
     "quotes": [
       {"asset": "BTC", "last": 78931.4},

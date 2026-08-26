@@ -31,7 +31,7 @@
         <div><p class="eyebrow">ПОРТФЕЛЬ</p><h2 id="portfolio-title">Структура общего обзора</h2></div>
         <span class="status" id="portfolio-status">Загрузка статуса…</span>
       </div>
-      <div class="lanes" id="lanes" aria-live="polite"></div>
+      <div class="lanes" id="lanes"><article class="lane"><p>Структура портфеля доступна в режиме preview.</p></article></div>
     </section>
 
     <section class="split">
@@ -39,8 +39,8 @@
         <p class="eyebrow">КОТИРОВКИ</p>
         <h2>Индикативное наблюдение рынка</h2>
         <p id="market-copy">Цена не является курсом ObsidianExchange, офертой, фиксацией или сделкой.</p>
-        <div class="quotes" id="market-quotes"><span class="status muted">Загрузка snapshot…</span></div>
-        <span class="status muted" id="market-status">Проверяем свежесть…</span>
+        <div class="quotes" id="market-quotes"><span class="quote-time">Цена пока не загружена. Старые значения не показываются.</span></div>
+        <span class="status muted" id="market-status" role="status" aria-live="polite">Данные не загружены</span>
       </article>
       <article class="panel">
         <p class="eyebrow">ДЕЙСТВИЯ</p>
