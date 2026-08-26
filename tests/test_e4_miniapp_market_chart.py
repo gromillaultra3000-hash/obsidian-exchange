@@ -5,7 +5,7 @@ WEBAPP = (Path(__file__).resolve().parents[1] / "relay" / "webapp.html").read_te
 
 
 def test_market_chart_has_read_only_context_and_derived_24_hour_change():
-    for marker in ("РЫНОК · НАБЛЮДЕНИЕ", "Историческая динамика, не курс заявки", "id=\"chart-change\"", "id=\"chart-updated\"", "id=\"chart-refresh\"", "id=\"marketChart\""):
+    for marker in ("РЫНОК · НАБЛЮДЕНИЕ", "Историческая динамика, не курс заявки", "id=\"chart-change\"", "id=\"chart-updated\"", "id=\"chart-last\"", "id=\"chart-refresh\"", "id=\"marketChart\""):
         assert marker in WEBAPP
     assert "fetch(`/api/market/history?asset=${encodeURIComponent(requestedAsset)}`, { cache: 'no-store' })" in WEBAPP
     assert "market_chart?vs_currency=rub" not in WEBAPP
@@ -33,3 +33,10 @@ def test_market_chart_has_accessible_asset_switching_and_ticker_handoffs():
     assert "role=\"button\"" in WEBAPP
     assert "aria-controls=\"marketChart\"" in WEBAPP
     assert "marketAssets =" in WEBAPP
+
+
+def test_market_chart_persists_only_the_selected_public_asset_for_the_session():
+    assert "const chartAssetStorageKey = 'oe.market-history.asset.v1';" in WEBAPP
+    assert "sessionStorage.getItem(chartAssetStorageKey)" in WEBAPP
+    assert "function rememberChartAsset(asset)" in WEBAPP
+    assert "Закрытие: ${last.toLocaleString('ru-RU'" in WEBAPP

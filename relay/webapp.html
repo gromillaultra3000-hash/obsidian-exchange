@@ -303,7 +303,7 @@
                 <div class="chart-loading" id="chart-loading" role="status">Загружаем историю рынка…</div>
                 <canvas id="marketChart" aria-label="График исторической цены выбранного актива к USDT за 24 часа"></canvas>
             </div>
-            <div class="chart-footer"><span>24 часа</span><span id="chart-updated">Время точки загружается…</span></div>
+            <div class="chart-footer"><span id="chart-source">24 часа</span><span id="chart-last">Последняя точка загружается…</span><span id="chart-updated">Время точки загружается…</span></div>
         </section>
 
         <!-- Вкладки — иконка + подпись -->
@@ -1003,10 +1003,20 @@
             ETH: { icon: '◆', color: '#78b8ff', fill: 'rgba(120,184,255,0.15)' },
             LTC: { icon: 'Ł', color: '#8ee6d4', fill: 'rgba(110,231,183,0.15)' },
         };
+        const chartAssetStorageKey = 'oe.market-history.asset.v1';
         let marketChart = null;
         let chartLoading = false;
-        let selectedChartAsset = 'BTC';
+        let selectedChartAsset = (() => {
+            try {
+                const stored = sessionStorage.getItem(chartAssetStorageKey);
+                return marketAssets[stored] ? stored : 'BTC';
+            } catch (_) { return 'BTC'; }
+        })();
         let renderedChartAsset = null;
+
+        function rememberChartAsset(asset) {
+            try { sessionStorage.setItem(chartAssetStorageKey, asset); } catch (_) {}
+        }
 
         function updateChartAssetControls() {
             document.querySelectorAll('[data-chart-asset]').forEach(control => {
@@ -1025,6 +1035,7 @@
         function selectChartAsset(asset) {
             if (chartLoading || !marketAssets[asset] || asset === selectedChartAsset) return;
             selectedChartAsset = asset;
+            rememberChartAsset(asset);
             updateChartAssetControls();
             loadChart(false);
         }
@@ -1033,6 +1044,7 @@
             if (!marketAssets[asset]) return;
             if (asset !== selectedChartAsset) {
                 selectedChartAsset = asset;
+                rememberChartAsset(asset);
                 updateChartAssetControls();
                 loadChart(false);
             }
@@ -1073,7 +1085,8 @@
                 changeEl.className = 'chart-change ' + (change >= 0 ? 'up' : 'down');
                 document.getElementById('chart-title').textContent = `${marketAssets[requestedAsset].icon} ${snapshot.symbol} · 24 часа`;
                 document.querySelector('.chart-subtitle').textContent = `${snapshot.exchange} · историческая динамика, не курс заявки`;
-                document.querySelector('.chart-footer span').textContent = `${snapshot.exchange} · 24 часа`;
+                document.getElementById('chart-source').textContent = `${snapshot.exchange} · 24 часа`;
+                document.getElementById('chart-last').textContent = `Закрытие: ${last.toLocaleString('ru-RU', {maximumFractionDigits: 8})} USDT`;
                 document.getElementById('chart-updated').textContent = `Точка: ${labels[labels.length - 1]}`;
 
                 if (marketChart) marketChart.destroy();
@@ -1124,6 +1137,7 @@
             } catch(e) {
                 if (marketChart && requestedAsset !== renderedChartAsset) {
                     selectedChartAsset = renderedChartAsset;
+                    rememberChartAsset(renderedChartAsset);
                 }
                 loading.textContent = marketChart ? 'Не удалось обновить историю рынка' : 'История рынка временно недоступна';
                 document.getElementById('chart-change').textContent = 'недоступно';
