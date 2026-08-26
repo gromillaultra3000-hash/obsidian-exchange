@@ -126,6 +126,16 @@ def test_overview_has_an_owner_scoped_read_only_activity_entrypoint():
     assert "loadSysStatus();\n        loadUnifiedPortfolio();\n        loadEcosystemActivity();" in webapp
 
 
+def test_activity_makes_the_existing_order_number_ready_for_support_copying():
+    assert 'class="history-copy-id"' in webapp
+    assert 'data-order-id="${esc(orderId)}"' in webapp
+    assert "function copyOrderId" in webapp
+    assert "navigator.clipboard" in webapp
+    assert "document.execCommand('copy')" in webapp
+    assert "copyOrderId(button.dataset.orderId, button)" in webapp
+    assert "Копировать №" in webapp
+
+
 def test_narrow_mobile_layout_keeps_overview_and_review_actions_readable():
     assert 'class="ecosystem-lanes"' in webapp
     assert '.ecosystem-lanes { grid-template-columns:1fr; }' in webapp

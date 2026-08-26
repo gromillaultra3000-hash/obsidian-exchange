@@ -3043,6 +3043,34 @@
                 renderEcosystemActivity(Array.isArray(orders) ? orders : null);
             } catch (_) { renderEcosystemActivity(null); }
         }
+        async function copyOrderId(orderId, button) {
+            const value = String(orderId == null ? '' : orderId).trim().slice(0, 128);
+            if (!value) return;
+            const done = () => {
+                if (button) {
+                    button.textContent = '✓ Скопировано';
+                    window.setTimeout(() => { button.textContent = 'Копировать №'; }, 1800);
+                }
+                if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+            };
+            try {
+                if (navigator.clipboard && window.isSecureContext) {
+                    await navigator.clipboard.writeText(value);
+                    done();
+                    return;
+                }
+            } catch (_) {}
+            const field = document.createElement('textarea');
+            field.value = value;
+            field.setAttribute('readonly', '');
+            field.style.cssText = 'position:fixed;opacity:0;pointer-events:none';
+            document.body.appendChild(field);
+            field.select();
+            const copied = document.execCommand('copy');
+            field.remove();
+            if (copied) done();
+            else if (button) button.textContent = 'Не удалось скопировать';
+        }
         function renderHistoryOrders() {
             const list = document.getElementById('history-list');
             if (!list) return;
@@ -3052,6 +3080,7 @@
             if (!orders.length) { list.innerHTML = '<div class="history-item">В этой группе заявок пока нет.</div>'; return; }
             list.innerHTML = orders.map(o => {
                 const state = historyStatus(o);
+                const orderId = String(o.order_id == null ? '' : o.order_id).trim().slice(0, 128);
                 let action = '';
                 if (o.status === 'pending' && o.session_token) {
                     const purl = `${location.origin}/pay/${o.session_token}`;
@@ -3059,8 +3088,13 @@
                 } else if (o.status === 'sent' && o.tx_url) {
                     action = `<a href="#" class="btn-pay" style="background:rgba(159,103,255,.15)" onclick="tg.openLink('${o.tx_url}');return false">🔍 Транзакция</a>`;
                 }
-                return `<div class="history-item ${state.cls}"><span class="h-icon">${state.emoji}</span><div class="h-title">#${esc(o.order_id)} — ${esc(o.currency)}</div><div class="h-meta">${esc(o.amount)} RUB</div><div class="h-status-row"><small>${esc(o.created)}</small><span class="status">${esc(state.label)}</span></div>${action}</div>`;
+                const copy = orderId
+                    ? `<button type="button" class="history-copy-id" data-order-id="${esc(orderId)}" aria-label="Скопировать номер заявки ${esc(orderId)}" style="margin:10px 0 0;border:1px solid rgba(255,255,255,.14);background:none;color:var(--muted);border-radius:9px;padding:6px 9px;font-size:11px;cursor:pointer">Копировать №</button>`
+                    : '';
+                return `<div class="history-item ${state.cls}"><span class="h-icon">${state.emoji}</span><div class="h-title">#${esc(o.order_id)} — ${esc(o.currency)}</div><div class="h-meta">${esc(o.amount)} RUB</div><div class="h-status-row"><small>${esc(o.created)}</small><span class="status">${esc(state.label)}</span></div>${action}${copy}</div>`;
             }).join('');
+            list.querySelectorAll('.history-copy-id').forEach(button =>
+                button.addEventListener('click', () => copyOrderId(button.dataset.orderId, button)));
         }
         function setHistoryFilter(filter) {
             historyFilter = ['all', 'pending', 'paid', 'sent'].includes(filter) ? filter : 'all';
