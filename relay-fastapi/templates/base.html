@@ -44,12 +44,12 @@
                 <a href="/contacts" data-path="/contacts">Контакты</a>
                 {% if web_user %}<a href="/dashboard" data-path="/dashboard">Кабинет</a>{% endif %}
             </div>
-            <div style="display:flex;gap:8px;align-items:center">
+            <div class="nav-actions">
                 {% if web_user %}
                 <a class="btn" href="/dashboard/exchange">Обменять</a>
                 {% else %}
                 <a class="btn ghost" href="/login">Войти</a>
-                <a class="btn" href="https://t.me/{{ bot_username }}">Telegram</a>
+                <a class="btn" href="https://t.me/{{ bot_username }}?start=app">Mini App</a>
                 {% endif %}
                 <button class="nav-toggle" data-nav-toggle aria-label="Меню"><i data-lucide="menu" width="18"></i></button>
             </div>
