@@ -11,7 +11,7 @@ Updated: 2026-08-26 UTC
   long charters and history are not repeatedly reread within one logical task.
 
 - 2026-08-26 active route `E0 → E0.3 → B5.3 → 064A` is
-  `IN_PROGRESS/HARDENING_REPLACEMENT_ROLLOUT`. The owner authorized exactly one
+  `IN_PROGRESS/BLOCKED_OWNER_PATHS_READY`. The owner authorized exactly one
   fresh single-owner v4 production attempt with a new nonce, but no short
   request has been opened. The former e725 kit (SHA-256 `8ed60817...f9622`)
   and its readiness record are `SUPERSEDED_DO_NOT_USE`: final review found
@@ -31,11 +31,20 @@ Updated: 2026-08-26 UTC
   `f14d366...ab4abed3`, byte-exact HBA rollback and no production
   contact/mutation; its exact container and volume were removed. The exact
   production archive filesystem passes an automatically cleaned
-  `O_TMPFILE + linkat + fsync` capability probe. Production remains dormant
-  and the old consumed authority remains non-reusable. Exact next: publish the
-  immutable release and perform the inert three-unit rollout; then build a
-  replacement owner kit and obtain
-  `OWNER_PATHS_READY` before opening the single 15-minute request.
+  `O_TMPFILE + linkat + fsync` capability probe. Pushed implementation commit
+  `fbcf49928f82d22d277521ab1e388f3aec63046d` is published as a verified
+  2185-blob root-owned read-only release; pushed pin commit
+  `3f348a840ca2826c4956dff00f99bbefceed2883` is deployed to exactly three
+  unit files with rollback preimages. PostgreSQL was not restarted, its exact
+  PID/start/container tuple is unchanged, launcher start time is zero, and a
+  natural watchdog tick returned `DORMANT_VERIFIED_NO_RECOVERY_REQUEST`.
+  Replacement kit SHA-256 `fb94e709...791f8c4` is secret-free, internally
+  verified and server-ready at
+  `/root/064A-activation-handoff-fbcf499-20260826T040842Z/`.
+  Production remains dormant and the old consumed authority remains
+  non-reusable. Exact next: transfer and verify only the fbcf499 kit on the
+  external owner device and obtain `OWNER_PATHS_READY`; only then open the
+  single fresh 15-minute request.
 
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact

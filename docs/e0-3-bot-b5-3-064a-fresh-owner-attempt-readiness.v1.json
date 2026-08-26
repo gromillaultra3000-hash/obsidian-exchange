@@ -1,8 +1,8 @@
 {
   "schemaVersion": "e0-3-bot-b5-3-064a-fresh-owner-attempt-readiness.v1",
-  "observedAt": "2026-08-26T02:10:01Z",
+  "observedAt": "2026-08-26T04:09:49Z",
   "route": ["E0", "E0.3", "B5.3", "064A"],
-  "status": "SUPERSEDED_DO_NOT_USE_REPLACEMENT_HARDENING_ACTIVE",
+  "status": "READY_SERVER_BLOCKED_OWNER_PATHS",
   "ownerDecision": {
     "decision": "AUTHORIZE_ONE_FRESH_SINGLE_OWNER_V4_PRODUCTION_ATTEMPT",
     "freshNonceRequired": true,
@@ -10,8 +10,8 @@
     "automaticRetryAllowed": false
   },
   "productionPreflight": {
-    "implementationCommit": "e725d49932107d128b1621b7bdb37e2d499872cb",
-    "pinCommit": "af64ee6492c3af17321ba05566297bb584f7ede6",
+    "implementationCommit": "fbcf49928f82d22d277521ab1e388f3aec63046d",
+    "pinCommit": "3f348a840ca2826c4956dff00f99bbefceed2883",
     "trackedActivationInputsClean": true,
     "watchdogStatus": "DORMANT_VERIFIED",
     "watchdogReady": true,
@@ -63,15 +63,58 @@
     "useProhibited": true,
     "supersededReason": "Final latest-byte review found crash-prefix gaps after this kit was built; it must never be used for owner preflight, signing, runtime commit or launch."
   },
+  "replacementOfflineKit": {
+    "path": "/root/064A-activation-handoff-fbcf499-20260826T040842Z/obsidian-064a-single-owner-v4-offline-kit-fbcf499.tar",
+    "archiveSha256": "fb94e7096587e7aed9a297db490df6413b24f1f5328af1e6a335e752d791f8c4",
+    "archiveBytes": 348160,
+    "fileCount": 13,
+    "manifestSha256": "ab6411256b2d05b2fc1293a01b58b323be2cad7aa77894f359b6d0e2d07d5877",
+    "trustRegistrySha256": "d42dbdc2533574b813686289c3421b6d1468259caaaa4b193210901ee0b9e22f",
+    "implementationCommit": "fbcf49928f82d22d277521ab1e388f3aec63046d",
+    "archiveMode": "0600",
+    "archiveOwner": "root:root",
+    "parentMode": "0700",
+    "internalChecksums": "PASS",
+    "manifestSelfHash": "PASS",
+    "containsPrivateKey": false,
+    "containsPassphrase": false,
+    "containsCredential": false,
+    "containsRuntimeRequest": false,
+    "productionAuthorityComplete": false,
+    "serverPreflight": "SERVER_PREFLIGHT_READY"
+  },
   "controllerBoundary": {
     "onlineController": "/root/scripts/b64_064a_activation_ceremony.py",
-    "onlineControllerSha256": "44936c30140a8336002cb906bad8a7f2bf739139737e29824eb7e862b23ca077",
-    "sealedImplementationRelease": "/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/e725d49932107d128b1621b7bdb37e2d499872cb",
+    "onlineControllerSha256": "0afa2c689894dccbc91068847d1c6090c133f04d3d7eadaed49188ec8da8e359",
+    "sealedImplementationRelease": "/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/fbcf49928f82d22d277521ab1e388f3aec63046d",
     "sealedImplementationTreeVerifiedByController": true,
     "installedUnitsVerifiedByController": true,
-    "controllerAndUnitsSuperseded": true,
+    "controllerAndUnitsSuperseded": false,
     "historicalControllerCopyRejected": true,
-    "historicalControllerReason": "The ceremony copy inside implementation commit e725 still self-pins the superseded 16fdc release and correctly rejects its known non-exact tree; online ceremony commands use the current tracked pin-level controller, which verifies e725 and installed units before action."
+    "historicalControllerReason": "The ceremony copy inside the implementation commit predates its own pin commit; online and offline ceremony commands use the current tracked pin-level controller, which independently verifies the complete fbcf499 Git tree and all installed unit bytes before action."
+  },
+  "verificationAndRollout": {
+    "immutableReleaseBlobCount": 2185,
+    "immutableReleaseTree": "PASS",
+    "architectureReview": "PASS_P0_P1_P2_ZERO",
+    "securityReview": "PASS_P0_P1_P2_ZERO",
+    "operationsReview": "PASS_P0_P1_P2_ZERO",
+    "unsandboxedAffectedCeremonyTests": "333_PASSED",
+    "managedRelatedTests": "491_PASSED_7_UID70_NAMESPACE_DESELECTED",
+    "disposableStatus": "DISPOSABLE_ACTIVATION_REHEARSAL_VERIFIED",
+    "disposableReceiptSha256": "f14d366946d158c2d79ab8de884664d53d7e1c06db1b5f7f28f7b7c8ab4abed3",
+    "disposableResourcesRemoved": true,
+    "productionArchiveFilesystemCapability": "OTMPFILE_LINKAT_FSYNC_PASS_CLEANED",
+    "installedUnitSha256": {
+      "obsidian-postgres.service": "7501fdabcc5f4b22f106740088ca89b15ad19afe7966be50479d33394439e972",
+      "obsidian-b64-snapshot-reader-watchdog.service": "f377702af8e042c76e2cbb5642f9eff03d7212dfb54e80cb471e3decc3bc95ad",
+      "obsidian-b64-064a-activation.service": "0a8e1435a2a31a07777c3c72693d47d8108233878af1eb6928e5c19c378e3cda"
+    },
+    "rollbackPreimage": "/var/lib/obsidian-exchange/deployment-preimages/e0-e0.3-b5.3-064a-crash-safe-fbcf499-20260826T040733Z",
+    "daemonReloaded": true,
+    "postgresRestarted": false,
+    "launcherStarted": false,
+    "naturalWatchdogTick": "DORMANT_VERIFIED_NO_RECOVERY_REQUEST"
   },
   "effects": {
     "coordinationRootCreated": false,
@@ -87,8 +130,8 @@
   },
   "gate": {
     "stageStatus": "IN_PROGRESS",
-    "activationStatus": "HARDENING_REPLACEMENT_ROLLOUT",
-    "requiredReport": "REPLACEMENT_KIT_OWNER_PATHS_READY",
-    "nextCanonicalItem": "Finish latest-byte review, full and disposable verification, publish and inertly deploy a new immutable release, and build a replacement kit. Only the replacement kit may be used for OWNER_PATHS_READY before the single fresh 15-minute request."
+    "activationStatus": "BLOCKED_OWNER_PATHS_READY",
+    "requiredReport": "OWNER_PATHS_READY",
+    "nextCanonicalItem": "Transfer and verify the exact replacement kit on the external owner device, then run preflight-owner-paths against the embedded owner-public.json and the existing encrypted owner private key. Only an exact OWNER_PATHS_READY report permits the server to create the single fresh 15-minute request."
   }
 }

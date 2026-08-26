@@ -558,6 +558,40 @@ terminal-evidence filesystem also passes an automatically cleaned
 
 Active status is `IN_PROGRESS/HARDENING_REPLACEMENT_ROLLOUT`. The next
 canonical work is immutable release publication and an inert three-unit
-rollout. Only after a
-replacement kit passes exact server and owner-path preflight may the one
+rollout. Only after a replacement kit passes exact server and owner-path
+preflight may the one
 15-minute request be opened.
+
+## 2026-08-26 — crash-safe replacement rollout complete; owner paths gate
+
+Pushed implementation commit
+`fbcf49928f82d22d277521ab1e388f3aec63046d` is published as the exact
+root-owned read-only 2185-blob release. Pushed pin commit
+`3f348a840ca2826c4956dff00f99bbefceed2883` binds the tracked controller and
+exactly the PostgreSQL, recurring watchdog and static launcher units to that
+release. Rollback preimages are retained at
+`/var/lib/obsidian-exchange/deployment-preimages/e0-e0.3-b5.3-064a-crash-safe-fbcf499-20260826T040733Z`.
+Only those three unit files and `daemon-reload` changed; PostgreSQL was not
+restarted and retained MainPID `3136948`, container PID `3137013`, unchanged
+start time and restart count zero. The launcher remains `inactive/static` with
+start timestamp zero. The first natural post-rollout watchdog tick returned
+`DORMANT_VERIFIED_NO_RECOVERY_REQUEST`: reader `DISABLED`, credential absent,
+sessions zero and all authority/data/configuration effects false. All runtime,
+recovery, launch and coordination paths remain absent.
+
+The secret-free replacement owner kit is
+`/root/064A-activation-handoff-fbcf499-20260826T040842Z/obsidian-064a-single-owner-v4-offline-kit-fbcf499.tar`,
+348160 bytes, SHA-256
+`fb94e7096587e7aed9a297db490df6413b24f1f5328af1e6a335e752d791f8c4`.
+All internal checksums and manifest self-hash pass, it binds implementation
+`fbcf499...`, and server preflight reports `SERVER_PREFLIGHT_READY`. It contains
+no private key, passphrase, credential, runtime request or completed authority.
+The e725 kit remains permanently `SUPERSEDED_DO_NOT_USE`.
+
+Active status is now `IN_PROGRESS/BLOCKED_OWNER_PATHS_READY`. The sole next
+canonical step is external: transfer and verify only this replacement archive
+on the owner device, then run `preflight-owner-paths` with its embedded
+`owner-public.json` and the existing encrypted owner private key. Only the
+exact `OWNER_PATHS_READY` report permits creation of the one fresh 15-minute
+request; no plan, nonce, decision or signature exists yet. Evidence:
+`docs/e0-3-bot-b5-3-064a-fresh-owner-attempt-readiness.v1.json`.

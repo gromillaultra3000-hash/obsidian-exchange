@@ -2551,3 +2551,26 @@ E0.3 remains `IN_PROGRESS`; the exact status is
 `HARDENING_REPLACEMENT_ROLLOUT`. Next: immutable replacement release and inert
 unit deployment. A replacement owner kit and exact `OWNER_PATHS_READY` report are
 required before opening the single 15-minute request.
+
+## 2026-08-26 — 064A crash-safe replacement rollout and owner paths gate
+
+Implementation commit `fbcf49928f82d22d277521ab1e388f3aec63046d` is pushed
+and published as an exact root-owned read-only 2185-blob release. Pushed pin
+commit `3f348a840ca2826c4956dff00f99bbefceed2883` updates exactly three deployed
+unit files; rollback preimages are retained. No service was restarted and the
+launcher was not started. PostgreSQL retained the exact MainPID, container PID,
+start time and restart count zero; a natural watchdog tick from the replacement
+release returned `DORMANT_VERIFIED_NO_RECOVERY_REQUEST` with dormant reader,
+absent credential, zero sessions and no authority/data/configuration effect.
+Runtime and coordination paths remain absent.
+
+The replacement secret-free owner kit is 348160 bytes with SHA-256
+`fb94e7096587e7aed9a297db490df6413b24f1f5328af1e6a335e752d791f8c4`.
+Internal checksums, manifest self-hash, exact release/unit pins and server
+preflight pass; it contains no request, credential or completed authority. The
+e725 kit remains permanently prohibited. E0.3 remains `IN_PROGRESS`; its exact
+status is `BLOCKED_OWNER_PATHS_READY`. The next canonical step is the external
+owner-device `preflight-owner-paths` report for only the fbcf499 kit. No fresh
+plan/nonce/request may be created until the report is exactly
+`OWNER_PATHS_READY`. Evidence:
+`docs/e0-3-bot-b5-3-064a-fresh-owner-attempt-readiness.v1.json`.
