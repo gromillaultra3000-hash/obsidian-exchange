@@ -438,7 +438,7 @@ def test_systemd_unit_is_manual_fixed_and_watchdog_preserving():
     unit = UNIT.read_text("utf-8")
     release = (
         "/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/"
-        "16fdc05168e20151f646cf4cb97746fbde809e69"
+        "e725d49932107d128b1621b7bdb37e2d499872cb"
     )
     assert "IMPLEMENTATION_COMMIT" not in unit
     assert f"WorkingDirectory={release}" in unit

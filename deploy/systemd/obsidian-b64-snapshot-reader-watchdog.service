@@ -3,17 +3,17 @@ Description=Obsidian B64 snapshot-reader dormant-authority watchdog
 Requires=obsidian-postgres.service
 BindsTo=obsidian-postgres.service
 After=obsidian-postgres.service
-ConditionPathExists=/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/16fdc05168e20151f646cf4cb97746fbde809e69/deploy/postgres/b64_snapshot_reader_watchdog.py
-ConditionPathExists=/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/16fdc05168e20151f646cf4cb97746fbde809e69/deploy/postgres/verify_b64_snapshot_reader.py
-ConditionPathExists=/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/16fdc05168e20151f646cf4cb97746fbde809e69/deploy/postgres/load_sqlite_snapshot.py
-ConditionPathExists=/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/16fdc05168e20151f646cf4cb97746fbde809e69/deploy/postgres/verify_runtime_privileges.py
+ConditionPathExists=/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/e725d49932107d128b1621b7bdb37e2d499872cb/deploy/postgres/b64_snapshot_reader_watchdog.py
+ConditionPathExists=/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/e725d49932107d128b1621b7bdb37e2d499872cb/deploy/postgres/verify_b64_snapshot_reader.py
+ConditionPathExists=/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/e725d49932107d128b1621b7bdb37e2d499872cb/deploy/postgres/load_sqlite_snapshot.py
+ConditionPathExists=/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/e725d49932107d128b1621b7bdb37e2d499872cb/deploy/postgres/verify_runtime_privileges.py
 
 [Service]
 Type=oneshot
 User=root
 Group=root
 WorkingDirectory=/opt/obsidian-exchange
-ExecStart=/opt/obsidian-exchange/relay-venv/bin/python -B /opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/16fdc05168e20151f646cf4cb97746fbde809e69/deploy/postgres/b64_snapshot_reader_watchdog.py --expected-image-id sha256:7456ef82e5f5bc43d997f4781bbd7c0d6389bff397564649a356e206ba473aee --expected-server-version-num 170011 --require-dormant --cleanup-recovery
+ExecStart=/opt/obsidian-exchange/relay-venv/bin/python -B /opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/e725d49932107d128b1621b7bdb37e2d499872cb/deploy/postgres/b64_snapshot_reader_watchdog.py --expected-image-id sha256:7456ef82e5f5bc43d997f4781bbd7c0d6389bff397564649a356e206ba473aee --expected-server-version-num 170011 --require-dormant --cleanup-recovery
 TimeoutStartSec=180
 TimeoutStopSec=10
 KillMode=control-group
