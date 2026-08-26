@@ -497,6 +497,24 @@ Updated: 2026-08-26 UTC
   Rollback preimage:
   `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-ticker-20260826T0951Z.0MVwZA`.
 
+- 2026-08-26 commits `1c225d2` and `40cdd55` modernize the visible Mini App
+  graph into a compact mobile market card. It labels the non-binding BTC/USDT
+  observation, source (OKX), derived 24-hour change and last point time; the
+  chart is visually downsampled from validated public 30-minute close points
+  only. The initial browser-side CoinGecko history request was blocked by CORS
+  and then returned `429`; Relay now provides public read-only
+  `GET /api/market/history`, fetches OKX candles with a five-second timeout,
+  validates/sorts/deduplicates positive finite points, caches a successful
+  snapshot for 60 seconds and returns explicit `503/unavailable` otherwise.
+  No credential, account, order, quote, custody or writer path is used. The
+  production endpoint returns `200/ok` with 48 points; the `390px` browser
+  audit confirms live graph, source/context, derived change, no overflow and
+  no direct CoinGecko market-chart request. Focused tests pass `25/25`; Relay
+  and bot are active. Commit `644fbaf` keeps the 2026-08-18 market-inventory
+  evidence as a historical snapshot rather than falsely pinning later runtime
+  bytes. Rollback preimage:
+  `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-market-history-20260826T0957Z.Vi4dTN`.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;
