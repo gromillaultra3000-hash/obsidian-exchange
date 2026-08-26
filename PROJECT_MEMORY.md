@@ -452,6 +452,16 @@ Updated: 2026-08-26 UTC
   console errors. Relay is active. Rollback preimage:
   `/var/lib/obsidian-exchange/deployment-preimages/e4-public-support-20260826T0938Z.hMvwXi`.
 
+- 2026-08-26 commit `8905e83` completes a real-browser Mini App shell audit.
+  At `390px`, the canonical `/webapp` starts on Overview with no horizontal
+  overflow; primary tabs, More and Exchange switch correctly and retain the
+  existing paths. Browser audit found one actual shell request to missing
+  `/favicon.ico`; the Mini App now embeds the Obsidian favicon, so that request
+  is absent. The remaining unauthenticated `403` responses for owner-scoped
+  portfolio/history are expected outside Telegram and were not changed. Tests
+  pass `9/9`; deployed `/webapp` is `200`, Relay/bot are active. Rollback
+  preimage: `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-browser-shell-20260826T0941Z.bfXw9Q`.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;
