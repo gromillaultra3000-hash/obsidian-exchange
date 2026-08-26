@@ -257,7 +257,12 @@ def test_one_owner_signature_authorizes_only_exact_fresh_activation_plan():
 
 def test_v3_and_two_party_activation_authority_are_incompatible():
     package = _package()
-    legacy = copy.deepcopy(package)
+    # Modern cryptography backends deliberately make private-key objects
+    # non-pickleable.  This landmine mutates only the public decision payload,
+    # so do not deepcopy unrelated secret-bearing test fixtures.
+    legacy = {
+        **package, "decision": copy.deepcopy(package["decision"]),
+    }
     legacy["decision"]["schemaVersion"] = \
         "b64-064a-production-activation-decision.v3"
     with pytest.raises(
@@ -266,7 +271,9 @@ def test_v3_and_two_party_activation_authority_are_incompatible():
     ):
         _verify(legacy)
 
-    two_party = copy.deepcopy(package)
+    two_party = {
+        **package, "decision": copy.deepcopy(package["decision"]),
+    }
     two_party["decision"]["signatures"].append({
         "role": "INDEPENDENT_REVIEWER",
         "keyId": "b64a_" + "0" * 64,

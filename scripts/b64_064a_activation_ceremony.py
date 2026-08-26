@@ -24,6 +24,7 @@ import subprocess
 import sys
 import tarfile
 from pathlib import Path
+from pathlib import PurePosixPath
 from typing import Any, Mapping
 
 from cryptography.exceptions import InvalidSignature
@@ -34,6 +35,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
 
 
 ROOT = Path(__file__).resolve().parents[1]
+SERVER_GIT_DIR = Path("/root/.git")
 sys.path.insert(0, str(ROOT / "deploy/postgres"))
 import b64_064a_activation_entrypoint as activation  # noqa: E402
 
@@ -462,6 +464,136 @@ def _release_file(relative: str) -> Path:
     return RELEASE_ROOT / relative
 
 
+def _git_release_entries() -> dict[str, tuple[int, str]]:
+    try:
+        git_info = os.lstat(SERVER_GIT_DIR)
+    except OSError as exc:
+        raise CeremonyError("IMMUTABLE_RELEASE_GIT_TREE_UNAVAILABLE") from exc
+    if (not stat.S_ISDIR(git_info.st_mode)
+            or stat.S_ISLNK(git_info.st_mode)
+            or git_info.st_uid != 0 or git_info.st_gid != 0
+            or stat.S_IMODE(git_info.st_mode) & 0o022):
+        raise CeremonyError("IMMUTABLE_RELEASE_GIT_TREE_UNAVAILABLE")
+    try:
+        completed = subprocess.run(
+            [
+                "/usr/bin/git", f"--git-dir={SERVER_GIT_DIR}",
+                "ls-tree", "-rz",
+                "--full-tree", IMPLEMENTATION_COMMIT,
+            ],
+            stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE, env=_subprocess_environment(),
+            close_fds=True, timeout=30, check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise CeremonyError("IMMUTABLE_RELEASE_GIT_TREE_UNAVAILABLE") from exc
+    if completed.returncode != 0 or completed.stderr or not completed.stdout:
+        raise CeremonyError("IMMUTABLE_RELEASE_GIT_TREE_UNAVAILABLE")
+    entries: dict[str, tuple[int, str]] = {}
+    for raw in completed.stdout.split(b"\0"):
+        if not raw:
+            continue
+        try:
+            header, path_raw = raw.split(b"\t", 1)
+            mode_raw, kind, digest_raw = header.split(b" ", 2)
+            path = path_raw.decode("utf-8")
+            mode = int(mode_raw, 8)
+            digest = digest_raw.decode("ascii")
+        except (ValueError, UnicodeDecodeError) as exc:
+            raise CeremonyError("IMMUTABLE_RELEASE_GIT_TREE_INVALID") from exc
+        pure = PurePosixPath(path)
+        if (kind != b"blob" or mode not in {0o100644, 0o100755}
+                or len(digest) != 40
+                or re.fullmatch(r"[0-9a-f]{40}", digest) is None
+                or path in entries or path.startswith("/")
+                or not pure.parts or ".." in pure.parts):
+            raise CeremonyError("IMMUTABLE_RELEASE_GIT_TREE_INVALID")
+        entries[path] = (mode, digest)
+    return entries
+
+
+def _git_blob_sha1(path: Path, *, size: int) -> str:
+    digest = hashlib.sha1(usedforsecurity=False)
+    digest.update(f"blob {size}\0".encode("ascii"))
+    descriptor = -1
+    try:
+        descriptor = os.open(
+            path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+            | getattr(os, "O_CLOEXEC", 0),
+        )
+        remaining = size
+        while remaining:
+            chunk = os.read(descriptor, min(65536, remaining))
+            if not chunk:
+                raise CeremonyError("IMMUTABLE_RELEASE_FILE_SHORT_READ")
+            digest.update(chunk)
+            remaining -= len(chunk)
+        if os.read(descriptor, 1):
+            raise CeremonyError("IMMUTABLE_RELEASE_FILE_GREW")
+    except OSError as exc:
+        raise CeremonyError("IMMUTABLE_RELEASE_FILE_UNSAFE") from exc
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+    return digest.hexdigest()
+
+
+def _verify_release_tree() -> None:
+    expected = _git_release_entries()
+    expected_directories: set[str] = {"."}
+    for name in expected:
+        parent = PurePosixPath(name).parent
+        while str(parent) != ".":
+            expected_directories.add(str(parent))
+            parent = parent.parent
+    observed_files: dict[str, tuple[int, str]] = {}
+    observed_directories: set[str] = set()
+
+    def scan(directory: Path, relative: PurePosixPath) -> None:
+        try:
+            directory_info = os.lstat(directory)
+            children = list(os.scandir(directory))
+        except OSError as exc:
+            raise CeremonyError("IMMUTABLE_RELEASE_TREE_UNSAFE") from exc
+        relative_name = str(relative)
+        if (not stat.S_ISDIR(directory_info.st_mode)
+                or stat.S_ISLNK(directory_info.st_mode)
+                or directory_info.st_uid != 0 or directory_info.st_gid != 0
+                or stat.S_IMODE(directory_info.st_mode) != 0o555):
+            raise CeremonyError("IMMUTABLE_RELEASE_TREE_UNSAFE")
+        observed_directories.add(relative_name)
+        for child in children:
+            child_relative = (
+                PurePosixPath(child.name) if relative_name == "."
+                else relative / child.name
+            )
+            child_name = str(child_relative)
+            try:
+                info = child.stat(follow_symlinks=False)
+            except OSError as exc:
+                raise CeremonyError("IMMUTABLE_RELEASE_TREE_UNSAFE") from exc
+            if stat.S_ISDIR(info.st_mode) and not stat.S_ISLNK(info.st_mode):
+                scan(Path(child.path), child_relative)
+                continue
+            expected_entry = expected.get(child_name)
+            expected_mode = None if expected_entry is None else expected_entry[0]
+            sealed_mode = 0o555 if expected_mode == 0o100755 else 0o444
+            if (expected_entry is None or not stat.S_ISREG(info.st_mode)
+                    or stat.S_ISLNK(info.st_mode)
+                    or info.st_uid != 0 or info.st_gid != 0
+                    or info.st_nlink != 1
+                    or stat.S_IMODE(info.st_mode) != sealed_mode):
+                raise CeremonyError("IMMUTABLE_RELEASE_TREE_MISMATCH")
+            observed_files[child_name] = (
+                expected_mode, _git_blob_sha1(Path(child.path), size=info.st_size),
+            )
+
+    scan(RELEASE_ROOT, PurePosixPath("."))
+    if (observed_directories != expected_directories
+            or observed_files != expected):
+        raise CeremonyError("IMMUTABLE_RELEASE_TREE_MISMATCH")
+
+
 def _verify_release_and_pins() -> dict[str, str]:
     if IMPLEMENTATION_COMMIT == "IMPLEMENTATION_COMMIT":
         raise CeremonyError("IMPLEMENTATION_COMMIT_NOT_PINNED")
@@ -474,6 +606,7 @@ def _verify_release_and_pins() -> dict[str, str]:
             or stat.S_IMODE(release.st_mode) != 0o555
             or RELEASE_ROOT.name != IMPLEMENTATION_COMMIT):
         raise CeremonyError("DEPLOYED_RELEASE_UNSAFE")
+    _verify_release_tree()
     artifacts: dict[str, str] = {}
     for key, current_path in activation.ARTIFACT_PATHS.items():
         try:

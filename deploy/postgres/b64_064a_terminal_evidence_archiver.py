@@ -3,10 +3,12 @@
 
 The command accepts only explicit confirmation of a run nonce and decision
 digest.  It verifies a signed cleanup-recovery package, an exact terminal
-RECONCILED_HOLD journal, absent resources and dormant database authority.  It
-then atomically moves (never copies-and-deletes) the four runtime components
-into a root-only archive on the same filesystem.  A durable staging manifest
-makes every crash prefix resumable without re-enabling or retrying activation.
+terminal CLOSED or RECONCILED_HOLD journal, absent resources and dormant
+database authority.  A CLOSED run additionally requires its canonical,
+digest-bound execution receipt.  The command then atomically moves (never
+copies-and-deletes) the four runtime components into a root-only archive on the
+same filesystem.  A durable staging manifest makes every crash prefix
+resumable without re-enabling or retrying activation.
 """
 from __future__ import annotations
 
@@ -32,7 +34,7 @@ import b64_snapshot_reader_watchdog as watchdog
 
 ROUTE = activation.ROUTE
 RELEASE_BASE = Path("/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a")
-SIGNED_ARTIFACT_RELEASE = (
+LEGACY_SIGNED_ARTIFACT_RELEASE = (
     RELEASE_BASE / "c6c3eaba1b78b06235741ce88e003162c35d4bcb"
 )
 BACKUP_BASE = Path("/var/backups/obsidian-exchange")
@@ -41,10 +43,31 @@ RECOVERY_PARENT = watchdog.RECOVERY_PARENT
 ACTIVATION_ROOT = activation.PRODUCTION_ACTIVATION_ROOT
 ARCHIVE_LOCK = Path("/run/lock/obsidian-b64-064a-terminal-archive.lock")
 MANIFEST_NAME = "TERMINAL-MANIFEST.json"
-ARCHIVE_SCHEMA = "b64-064a-terminal-evidence-archive.v1"
+LEGACY_ARCHIVE_SCHEMA = "b64-064a-terminal-evidence-archive.v1"
+ARCHIVE_SCHEMA = "b64-064a-terminal-evidence-archive.v2"
 MAX_FILE_BYTES = 1024 * 1024
 RENAME_NOREPLACE = 1
 FaultHook = Callable[[str], None]
+
+LEGACY_MANIFEST_KEYS = {
+    "schemaVersion", "route", "runNonce", "decisionSha256", "planSha256",
+    "keyringSha256", "implementationCommit", "archiverSha256",
+    "signedArtifactReleaseCommit", "terminalState", "terminalReason",
+    "resourceState", "credentialIssued", "credentialReconciled",
+    "workspaceAbsent", "proxyAbsent", "dumpAbsent", "restoreAbsent",
+    "roleLoginState", "credentialState", "activeSessions", "containerId",
+    "containerPid", "imageId", "systemIdentifier", "files",
+    "sourceComponents", "customerRowsRead", "hbaChanged",
+    "authorityIncreased", "automaticRetryAllowed",
+    "activationRetryAllowed", "manifestSha256",
+}
+MANIFEST_KEYS = (
+    LEGACY_MANIFEST_KEYS - {"customerRowsRead"}
+) | {
+    "terminalReceiptSha256", "archiverCustomerRowsRead",
+    "terminalRunCustomerRowReadState", "decisionExpiresAtEpoch",
+    "archiveAuthorizedAtEpoch",
+}
 
 COMPONENTS = {
     "activation-state": lambda: ACTIVATION_ROOT,
@@ -176,40 +199,77 @@ def _open_directory(
     return descriptor
 
 
-def _historical_artifact_paths(release: Path) -> dict[str, Path]:
-    """Resolve the signed plan's files from its exact immutable release.
-
-    The terminal run predates a post-failure fix to the runtime package
-    committer.  Recovery must therefore verify the historical signature
-    against the bytes it actually bound, while this archiver and all active
-    runtime modules remain pinned to the current operational release.
-    """
-    descriptor = _open_directory(SIGNED_ARTIFACT_RELEASE, mode=0o555)
+def _artifact_paths(
+    operational_release: Path, signed_release: Path,
+) -> dict[str, Path]:
+    """Resolve one exact signed closure without trusting a package path."""
+    descriptor = _open_directory(signed_release, mode=0o555)
     os.close(descriptor)
     paths: dict[str, Path] = {}
     for key, current in activation.ARTIFACT_PATHS.items():
         try:
-            relative = current.relative_to(release)
+            relative = current.relative_to(operational_release)
         except ValueError as exc:
             raise ArchiveError(
                 "TERMINAL_ARCHIVE_ARTIFACT_PATH_UNBOUND"
             ) from exc
         if relative.is_absolute() or ".." in relative.parts:
             raise ArchiveError("TERMINAL_ARCHIVE_ARTIFACT_PATH_UNBOUND")
-        paths[key] = SIGNED_ARTIFACT_RELEASE / relative
+        paths[key] = signed_release / relative
     if set(paths) != activation.ARTIFACT_KEYS:
         raise ArchiveError("TERMINAL_ARCHIVE_ARTIFACT_SET_INVALID")
     return paths
 
 
 @contextlib.contextmanager
-def _signed_artifact_closure(release: Path):
+def _signed_artifact_closure(
+    operational_release: Path, signed_release: Path,
+):
     original = activation.ARTIFACT_PATHS
-    activation.ARTIFACT_PATHS = _historical_artifact_paths(release)
+    activation.ARTIFACT_PATHS = _artifact_paths(
+        operational_release, signed_release,
+    )
     try:
         yield
     finally:
         activation.ARTIFACT_PATHS = original
+
+
+def _select_signed_artifact_release(
+    *, operational_release: Path, activation_plan_raw: bytes,
+) -> Path:
+    """Select only a fixed local release whose bytes match the signed plan.
+
+    The operational release is preferred.  The single legacy release is a
+    bounded fallback for the already-consumed historical run.  No path comes
+    from the package, and every candidate must match all signed artifact
+    digests before signature verification.
+    """
+    try:
+        plan = activation.validate_plan(
+            activation._decode_json(activation_plan_raw),
+            expected_environment="PRODUCTION",
+        )
+    except activation.ActivationError as exc:
+        raise ArchiveError(str(exc)) from exc
+    seen: set[Path] = set()
+    for candidate in (
+        operational_release, LEGACY_SIGNED_ARTIFACT_RELEASE,
+    ):
+        if candidate in seen:
+            continue
+        seen.add(candidate)
+        try:
+            paths = _artifact_paths(operational_release, candidate)
+            observed = {
+                key: activation._artifact_bytes_and_sha256(path)[1]
+                for key, path in paths.items()
+            }
+        except (ArchiveError, activation.ActivationError):
+            continue
+        if observed == plan["artifactsSha256"]:
+            return candidate
+    raise ArchiveError("TERMINAL_ARCHIVE_SIGNED_RELEASE_NOT_FOUND")
 
 
 def _acquire_lock() -> int:
@@ -344,18 +404,30 @@ def _dormant() -> dict[str, Any]:
     return report
 
 
+def _trusted_now() -> int:
+    try:
+        value, _evidence = activation.supervisor._trusted_now_epoch()
+    except activation.supervisor.SupervisorError as exc:
+        raise ArchiveError(str(exc)) from exc
+    return value
+
+
 def _verified_recovery(
     package: Mapping[str, Any], *, release: Path, nonce: str,
     decision_sha256: str,
-) -> Any:
+) -> tuple[Any, Path, int]:
     request = package.get("request")
     if (package.get("stagedWithoutRequest") is not False
             or not isinstance(request, Mapping)
             or request.get("runNonce") != nonce
             or request.get("decisionSha256") != decision_sha256):
         raise ArchiveError("TERMINAL_ARCHIVE_RECOVERY_BINDING_MISMATCH")
-    now, _evidence = activation.supervisor._trusted_now_epoch()
-    with _signed_artifact_closure(release):
+    now = _trusted_now()
+    signed_release = _select_signed_artifact_release(
+        operational_release=release,
+        activation_plan_raw=package["activation-plan.json"],
+    )
+    with _signed_artifact_closure(release, signed_release):
         recovery = activation.verify_cleanup_recovery(
             keyring_raw=package["keyring.json"],
             decision_raw=package["decision.json"],
@@ -377,17 +449,56 @@ def _verified_recovery(
         "recoveryManifestSha256": "manifestSha256",
     }.items()):
         raise ArchiveError("TERMINAL_ARCHIVE_LAUNCH_BINDING_MISMATCH")
-    return recovery
+    return recovery, signed_release, now
+
+
+def _validate_closed_receipt(
+    recovery: Any, *, expected_sha256: str,
+) -> dict[str, Any]:
+    path = (
+        activation.PRODUCTION_JOURNAL_ROOT
+        / f"{recovery.run_nonce}.receipt.json"
+    )
+    raw = _read_file(path, mode=0o600)
+    try:
+        value = activation._decode_json(raw)
+        canonical = _canonical(value)
+        validated = activation._validate_execution_receipt(
+            value, authorization=recovery,
+        )
+    except activation.ActivationError as exc:
+        raise ArchiveError("TERMINAL_ARCHIVE_RECEIPT_INVALID") from exc
+    if (raw != canonical + b"\n"
+            or canonical != _canonical(validated)
+            or _sha(canonical) != expected_sha256):
+        raise ArchiveError("TERMINAL_ARCHIVE_RECEIPT_DIGEST_MISMATCH")
+    return validated
 
 
 def _terminal_state(recovery: Any) -> tuple[dict[str, Any], dict[str, Any]]:
     journal = activation.ActivationJournal(
         activation.PRODUCTION_JOURNAL_ROOT, recovery,
     ).inspect()
-    if (journal.get("state") != "RECONCILED_HOLD"
+    terminal_state = journal.get("state")
+    receipt_sha256 = journal.get("receiptSha256")
+    reason_code = journal.get("reasonCode")
+    if (terminal_state not in {"CLOSED", "RECONCILED_HOLD"}
             or journal.get("retryAllowed") is not False
-            or journal.get("receiptSha256") is not None):
-        raise ArchiveError("TERMINAL_ARCHIVE_JOURNAL_NOT_RECONCILED_HOLD")
+            or (terminal_state == "CLOSED" and (
+                type(receipt_sha256) is not str
+                or re.fullmatch(r"[0-9a-f]{64}", receipt_sha256) is None
+                or reason_code is not None
+            ))
+            or (terminal_state == "RECONCILED_HOLD" and (
+                receipt_sha256 is not None
+                or type(reason_code) is not str
+                or re.fullmatch(r"[A-Z0-9_]+", reason_code) is None
+            ))):
+        raise ArchiveError("TERMINAL_ARCHIVE_JOURNAL_NOT_TERMINAL")
+    if terminal_state == "CLOSED":
+        _validate_closed_receipt(
+            recovery, expected_sha256=receipt_sha256,
+        )
     resources = executor_module.ExecutorResourceJournal(
         root=activation.PRODUCTION_RESOURCE_JOURNAL_ROOT,
         run_nonce=recovery.run_nonce, environment="PRODUCTION",
@@ -397,14 +508,16 @@ def _terminal_state(recovery: Any) -> tuple[dict[str, Any], dict[str, Any]]:
         workspace_parent=activation.PRODUCTION_WORKSPACE_ROOT,
     ).inspect_optional()
     if (not isinstance(resources, Mapping)
-            or resources.get("state") != "RECONCILED_HOLD"
-            or resources.get("credentialIssued") is not False
+            or resources.get("state") != terminal_state
+            or type(resources.get("credentialIssued")) is not bool
+            or (terminal_state == "CLOSED"
+                and resources.get("credentialIssued") is not True)
             or resources.get("credentialReconciled") is not True
             or any(resources.get(name) is not True for name in (
                 "workspaceAbsent", "proxyAbsent", "dumpAbsent",
                 "restoreAbsent",
             ))):
-        raise ArchiveError("TERMINAL_ARCHIVE_RESOURCES_NOT_RECONCILED_HOLD")
+        raise ArchiveError("TERMINAL_ARCHIVE_RESOURCES_NOT_TERMINAL")
     if (not executor_module._path_entry_absent(
             activation.PRODUCTION_WORKSPACE_ROOT / resources["workspaceName"])
             or not executor_module._path_entry_absent(
@@ -417,14 +530,45 @@ def _terminal_state(recovery: Any) -> tuple[dict[str, Any], dict[str, Any]]:
     return journal, dict(resources)
 
 
+def _require_terminal_decision_expired(
+    recovery: Any, journal: Mapping[str, Any], *, now_epoch: int,
+) -> None:
+    """Prevent archived state from reopening the consumed nonce before expiry."""
+    expires = getattr(recovery, "decision_expires_at_epoch", None)
+    if (journal.get("state") not in {"CLOSED", "RECONCILED_HOLD"}
+            or type(now_epoch) is not int or type(expires) is not int
+            or expires <= 0):
+        raise ArchiveError("TERMINAL_ARCHIVE_EXPIRY_BINDING_INVALID")
+    if now_epoch < expires:
+        raise ArchiveError("TERMINAL_ARCHIVE_DECISION_STILL_FRESH")
+
+
+def _require_resumable_staging_manifest(
+    manifest: Mapping[str, Any], *, now_epoch: int,
+) -> None:
+    """Resume only staging that was created by the post-expiry v2 path."""
+    if manifest.get("schemaVersion") != ARCHIVE_SCHEMA:
+        raise ArchiveError("TERMINAL_ARCHIVE_LEGACY_STAGING_FORBIDDEN")
+    expires = manifest.get("decisionExpiresAtEpoch")
+    authorized = manifest.get("archiveAuthorizedAtEpoch")
+    if (type(now_epoch) is not int or type(expires) is not int
+            or type(authorized) is not int or expires <= 0
+            or authorized < expires):
+        raise ArchiveError("TERMINAL_ARCHIVE_EXPIRY_BINDING_INVALID")
+    if now_epoch < expires:
+        raise ArchiveError("TERMINAL_ARCHIVE_DECISION_STILL_FRESH")
+
+
 def _component_sources() -> dict[str, Path]:
     return {name: factory() for name, factory in COMPONENTS.items()}
 
 
-def _collect_files(nonce: str) -> dict[str, dict[str, Any]]:
+def _collect_files(
+    nonce: str, *, terminal_state: str,
+) -> dict[str, dict[str, Any]]:
     entries = _expected_files(
         nonce=nonce, activation_root=ACTIVATION_ROOT,
-        recovery_parent=RECOVERY_PARENT,
+        recovery_parent=RECOVERY_PARENT, terminal_state=terminal_state,
     )
     result: dict[str, dict[str, Any]] = {}
     for relative, (path, mode, allow_empty) in entries.items():
@@ -437,9 +581,10 @@ def _collect_files(nonce: str) -> dict[str, dict[str, Any]]:
 
 def _expected_files(
     *, nonce: str, activation_root: Path, recovery_parent: Path,
+    terminal_state: str,
 ) -> dict[str, tuple[Path, int, bool]]:
     package = recovery_parent / watchdog.RECOVERY_PACKAGE_NAME
-    return {
+    entries = {
         "recovery-package/keyring.json": (package / "keyring.json", 0o400, False),
         "recovery-package/decision.json": (package / "decision.json", 0o400, False),
         "recovery-package/activation-plan.json": (
@@ -465,17 +610,30 @@ def _expected_files(
             0o600, False,
         ),
     }
+    if terminal_state == "CLOSED":
+        entries[f"activation-state/journal/{nonce}.receipt.json"] = (
+            activation_root / "journal" / f"{nonce}.receipt.json",
+            0o600, False,
+        )
+    elif terminal_state != "RECONCILED_HOLD":
+        raise ArchiveError("TERMINAL_ARCHIVE_JOURNAL_NOT_TERMINAL")
+    return entries
 
 
-def _validate_component_trees(nonce: str) -> None:
+def _validate_component_trees(nonce: str, *, terminal_state: str) -> None:
     root_fd = _open_directory(ACTIVATION_ROOT, mode=0o700)
     try:
         if set(os.listdir(root_fd)) != {"journal", "resources", "workspace", "proxy"}:
             raise ArchiveError("TERMINAL_ARCHIVE_STATE_ENTRY_SET_INVALID")
     finally:
         os.close(root_fd)
+    journal_entries = {f"{nonce}.json", f".{nonce}.lock"}
+    if terminal_state == "CLOSED":
+        journal_entries.add(f"{nonce}.receipt.json")
+    elif terminal_state != "RECONCILED_HOLD":
+        raise ArchiveError("TERMINAL_ARCHIVE_JOURNAL_NOT_TERMINAL")
     for name, expected in {
-        "journal": {f"{nonce}.json", f".{nonce}.lock"},
+        "journal": journal_entries,
         "resources": {f"{nonce}.resources.json"},
         "workspace": set(), "proxy": set(),
     }.items():
@@ -490,6 +648,7 @@ def _validate_component_trees(nonce: str) -> None:
 def _manifest(
     *, release: Path, recovery: Any, journal: Mapping[str, Any],
     resources: Mapping[str, Any], dormant: Mapping[str, Any],
+    signed_artifact_release: Path, archive_authorized_at_epoch: int,
 ) -> bytes:
     container = dormant.get("container")
     if not isinstance(container, Mapping):
@@ -500,6 +659,11 @@ def _manifest(
         )
     except activation.ActivationError as exc:
         raise ArchiveError("TERMINAL_ARCHIVE_IMPLEMENTATION_UNSAFE") from exc
+    terminal_row_read_state = (
+        "CONFIRMED" if journal["state"] == "CLOSED"
+        else "POSSIBLE" if resources["credentialIssued"]
+        else "NOT_READ"
+    )
     unsigned = {
         "schemaVersion": ARCHIVE_SCHEMA,
         "route": ROUTE,
@@ -509,9 +673,12 @@ def _manifest(
         "keyringSha256": recovery.keyring_sha256,
         "implementationCommit": release.name,
         "archiverSha256": archiver_sha256,
-        "signedArtifactReleaseCommit": SIGNED_ARTIFACT_RELEASE.name,
+        "signedArtifactReleaseCommit": signed_artifact_release.name,
+        "decisionExpiresAtEpoch": recovery.decision_expires_at_epoch,
+        "archiveAuthorizedAtEpoch": archive_authorized_at_epoch,
         "terminalState": journal["state"],
         "terminalReason": journal["reasonCode"],
+        "terminalReceiptSha256": journal["receiptSha256"],
         "resourceState": resources["state"],
         "credentialIssued": resources["credentialIssued"],
         "credentialReconciled": resources["credentialReconciled"],
@@ -526,9 +693,12 @@ def _manifest(
         "containerPid": container["containerPid"],
         "imageId": container["imageId"],
         "systemIdentifier": dormant["systemIdentifier"],
-        "files": _collect_files(recovery.run_nonce),
+        "files": _collect_files(
+            recovery.run_nonce, terminal_state=journal["state"],
+        ),
         "sourceComponents": sorted(COMPONENTS),
-        "customerRowsRead": False,
+        "archiverCustomerRowsRead": False,
+        "terminalRunCustomerRowReadState": terminal_row_read_state,
         "hbaChanged": False,
         "authorityIncreased": False,
         "automaticRetryAllowed": False,
@@ -545,25 +715,93 @@ def _decode_manifest(raw: bytes, *, nonce: str, decision_sha256: str) -> dict[st
         raise ArchiveError("TERMINAL_ARCHIVE_MANIFEST_INVALID") from exc
     digest = value.get("manifestSha256")
     unsigned = {key: item for key, item in value.items() if key != "manifestSha256"}
-    if (value.get("schemaVersion") != ARCHIVE_SCHEMA
+    schema = value.get("schemaVersion")
+    terminal_state = value.get("terminalState")
+    signed_release = value.get("signedArtifactReleaseCommit")
+    implementation_commit = value.get("implementationCommit")
+    legacy = schema == LEGACY_ARCHIVE_SCHEMA
+    current = schema == ARCHIVE_SCHEMA
+    if (not (legacy or current)
+            or set(value) != (
+                LEGACY_MANIFEST_KEYS if legacy else MANIFEST_KEYS
+            )
             or value.get("route") != ROUTE
             or value.get("runNonce") != nonce
             or value.get("decisionSha256") != decision_sha256
+            or type(value.get("planSha256")) is not str
+            or re.fullmatch(r"[0-9a-f]{64}", value["planSha256"]) is None
+            or type(value.get("keyringSha256")) is not str
+            or re.fullmatch(r"[0-9a-f]{64}", value["keyringSha256"]) is None
             or type(value.get("implementationCommit")) is not str
             or re.fullmatch(
                 r"[0-9a-f]{40}", value["implementationCommit"],
             ) is None
             or type(value.get("archiverSha256")) is not str
             or re.fullmatch(r"[0-9a-f]{64}", value["archiverSha256"]) is None
-            or value.get("signedArtifactReleaseCommit")
-            != SIGNED_ARTIFACT_RELEASE.name
+            or type(signed_release) is not str
+            or re.fullmatch(r"[0-9a-f]{40}", signed_release) is None
+            or (legacy and signed_release
+                != LEGACY_SIGNED_ARTIFACT_RELEASE.name)
+            or (current and signed_release not in {
+                implementation_commit, LEGACY_SIGNED_ARTIFACT_RELEASE.name,
+            })
+            or (current and (
+                type(value.get("decisionExpiresAtEpoch")) is not int
+                or type(value.get("archiveAuthorizedAtEpoch")) is not int
+                or value["decisionExpiresAtEpoch"] <= 0
+                or value["archiveAuthorizedAtEpoch"]
+                < value["decisionExpiresAtEpoch"]
+            ))
             or digest != _sha(_canonical(unsigned))
-            or value.get("terminalState") != "RECONCILED_HOLD"
-            or value.get("resourceState") != "RECONCILED_HOLD"
-            or value.get("credentialIssued") is not False
+            or terminal_state not in (
+                {"RECONCILED_HOLD"} if legacy
+                else {"CLOSED", "RECONCILED_HOLD"}
+            )
+            or value.get("resourceState") != terminal_state
+            or type(value.get("credentialIssued")) is not bool
+            or (legacy and value.get("credentialIssued") is not False)
+            or (terminal_state == "CLOSED"
+                and value.get("credentialIssued") is not True)
             or value.get("credentialReconciled") is not True
+            or any(value.get(name) is not True for name in (
+                "workspaceAbsent", "proxyAbsent", "dumpAbsent",
+                "restoreAbsent",
+            ))
+            or value.get("roleLoginState") != "DISABLED"
+            or value.get("credentialState") != "ABSENT"
+            or value.get("activeSessions") != 0
+            or (current and terminal_state == "CLOSED" and (
+                type(value.get("terminalReceiptSha256")) is not str
+                or re.fullmatch(
+                    r"[0-9a-f]{64}", value["terminalReceiptSha256"],
+                ) is None or value.get("terminalReason") is not None
+            ))
+            or (current and terminal_state == "RECONCILED_HOLD" and (
+                value.get("terminalReceiptSha256") is not None
+                or type(value.get("terminalReason")) is not str
+                or re.fullmatch(
+                    r"[A-Z0-9_]+", value["terminalReason"],
+                ) is None
+            ))
+            or (legacy and (
+                type(value.get("terminalReason")) is not str
+                or re.fullmatch(
+                    r"[A-Z0-9_]+", value["terminalReason"],
+                ) is None
+            ))
             or value.get("automaticRetryAllowed") is not False
             or value.get("activationRetryAllowed") is not False
+            or (legacy and value.get("customerRowsRead") is not False)
+            or (current and (
+                value.get("archiverCustomerRowsRead") is not False
+                or value.get("terminalRunCustomerRowReadState") != (
+                    "CONFIRMED" if terminal_state == "CLOSED"
+                    else "POSSIBLE" if value.get("credentialIssued")
+                    else "NOT_READ"
+                )
+            ))
+            or value.get("hbaChanged") is not False
+            or value.get("authorityIncreased") is not False
             or value.get("sourceComponents") != sorted(COMPONENTS)
             or not isinstance(value.get("files"), Mapping)):
         raise ArchiveError("TERMINAL_ARCHIVE_MANIFEST_INVALID")
@@ -585,7 +823,9 @@ def _archive_leaf(
     )
 
 
-def _verify_component_trees(archive_root: Path, nonce: str) -> None:
+def _verify_component_trees(
+    archive_root: Path, nonce: str, *, terminal_state: str,
+) -> None:
     activation_root = archive_root / "activation-state"
     root_fd = _open_directory(activation_root, mode=0o700)
     try:
@@ -593,8 +833,13 @@ def _verify_component_trees(archive_root: Path, nonce: str) -> None:
             raise ArchiveError("TERMINAL_ARCHIVE_STATE_ENTRY_SET_INVALID")
     finally:
         os.close(root_fd)
+    journal_entries = {f"{nonce}.json", f".{nonce}.lock"}
+    if terminal_state == "CLOSED":
+        journal_entries.add(f"{nonce}.receipt.json")
+    elif terminal_state != "RECONCILED_HOLD":
+        raise ArchiveError("TERMINAL_ARCHIVE_JOURNAL_NOT_TERMINAL")
     for name, expected in {
-        "journal": {f"{nonce}.json", f".{nonce}.lock"},
+        "journal": journal_entries,
         "resources": {f"{nonce}.resources.json"},
         "workspace": set(), "proxy": set(),
     }.items():
@@ -631,10 +876,13 @@ def _verify_archive(
     manifest = _decode_manifest(
         manifest_raw, nonce=nonce, decision_sha256=decision_sha256,
     )
-    _verify_component_trees(archive_root, nonce)
+    _verify_component_trees(
+        archive_root, nonce, terminal_state=manifest["terminalState"],
+    )
     expected_files = _expected_files(
         nonce=nonce, activation_root=archive_root / "activation-state",
         recovery_parent=archive_root,
+        terminal_state=manifest["terminalState"],
     )
     if set(manifest["files"]) != set(expected_files):
         raise ArchiveError("TERMINAL_ARCHIVE_FILE_ENTRY_SET_INVALID")
@@ -808,11 +1056,19 @@ def archive_terminal_evidence(
                 manifest_raw = _read_file(final / MANIFEST_NAME, mode=0o400)
             elif _path_exists(staging):
                 manifest_raw = _read_file(staging / MANIFEST_NAME, mode=0o400)
+                staging_manifest = _decode_manifest(
+                    manifest_raw, nonce=nonce,
+                    decision_sha256=decision_sha256,
+                )
+                resume_now = _trusted_now()
+                _require_resumable_staging_manifest(
+                    staging_manifest, now_epoch=resume_now,
+                )
             else:
                 package = watchdog._load_recovery_package()
                 if package is None:
                     raise ArchiveError("TERMINAL_ARCHIVE_RECOVERY_PACKAGE_MISSING")
-                recovery = _verified_recovery(
+                recovery, signed_release, verified_now = _verified_recovery(
                     package, release=release, nonce=nonce,
                     decision_sha256=decision_sha256,
                 )
@@ -821,7 +1077,12 @@ def archive_terminal_evidence(
                 )
                 execution_lock = journal_object.acquire_execution_lock()
                 journal, resources = _terminal_state(recovery)
-                _validate_component_trees(nonce)
+                _require_terminal_decision_expired(
+                    recovery, journal, now_epoch=verified_now,
+                )
+                _validate_component_trees(
+                    nonce, terminal_state=journal["state"],
+                )
                 attestor = executor_module.BoundRecoveryExecutor(
                     container=activation.PRODUCTION_CONTAINER,
                     container_id=recovery.target["containerId"],
@@ -841,6 +1102,8 @@ def archive_terminal_evidence(
                 manifest_raw = _manifest(
                     release=release, recovery=recovery, journal=journal,
                     resources=resources, dormant=pre,
+                    signed_artifact_release=signed_release,
+                    archive_authorized_at_epoch=verified_now,
                 )
             archive, manifest, already = _publish_archive(
                 nonce=nonce, decision_sha256=decision_sha256,
@@ -852,7 +1115,7 @@ def archive_terminal_evidence(
         os.close(lock_fd)
     post = _dormant()
     return {
-        "schemaVersion": "b64-064a-terminal-evidence-archive-receipt.v1",
+        "schemaVersion": "b64-064a-terminal-evidence-archive-receipt.v2",
         "route": ROUTE,
         "status": (
             "TERMINAL_EVIDENCE_ALREADY_ARCHIVED_RUNTIME_ABSENT"
@@ -868,7 +1131,11 @@ def archive_terminal_evidence(
         ),
         "preWatchdogStatus": pre["status"],
         "postWatchdogStatus": post["status"],
-        "customerRowsRead": False,
+        "archiverCustomerRowsRead": False,
+        "terminalRunCustomerRowReadState": (
+            "NOT_READ" if manifest["schemaVersion"] == LEGACY_ARCHIVE_SCHEMA
+            else manifest["terminalRunCustomerRowReadState"]
+        ),
         "hbaChanged": False,
         "authorityIncreased": False,
         "automaticRetryAllowed": False,
@@ -896,12 +1163,12 @@ def main() -> int:
         return 0
     except BaseException as exc:
         print(json.dumps({
-            "schemaVersion": "b64-064a-terminal-evidence-archive-receipt.v1",
+            "schemaVersion": "b64-064a-terminal-evidence-archive-receipt.v2",
             "route": ROUTE,
             "status": "NO_GO",
             "reason": _reason(exc),
             "runtimePathsState": "ABSENT_OR_UNCHANGED_OR_RESUMABLE_STAGING",
-            "customerRowsRead": False,
+            "archiverCustomerRowsRead": False,
             "hbaChanged": False,
             "authorityIncreased": False,
             "automaticRetryAllowed": False,

@@ -591,6 +591,58 @@ def test_unpinned_implementation_cannot_run(monkeypatch):
         CEREMONY._verify_release_and_pins()
 
 
+def test_immutable_release_tree_rejects_every_untracked_extra(
+    tmp_path, monkeypatch,
+):
+    release = tmp_path / ("c" * 40)
+    package = release / "deploy" / "postgres"
+    package.mkdir(parents=True)
+    source = package / "module.py"
+    raw = b"value = 1\n"
+    source.write_bytes(raw)
+    source.chmod(0o444)
+    for directory in (package, package.parent, release):
+        directory.chmod(0o555)
+    digest = CEREMONY.hashlib.sha1(usedforsecurity=False)
+    digest.update(f"blob {len(raw)}\0".encode("ascii") + raw)
+    monkeypatch.setattr(CEREMONY, "RELEASE_ROOT", release)
+    monkeypatch.setattr(
+        CEREMONY, "_git_release_entries",
+        lambda: {"deploy/postgres/module.py": (0o100644, digest.hexdigest())},
+    )
+
+    CEREMONY._verify_release_tree()
+    package.chmod(0o755)
+    cache = package / "__pycache__"
+    cache.mkdir()
+    cache.chmod(0o555)
+    package.chmod(0o555)
+    with pytest.raises(
+        CEREMONY.CeremonyError, match="IMMUTABLE_RELEASE_TREE_MISMATCH",
+    ):
+        CEREMONY._verify_release_tree()
+
+
+def test_immutable_release_tree_rejects_tracked_blob_drift(
+    tmp_path, monkeypatch,
+):
+    release = tmp_path / ("d" * 40)
+    release.mkdir()
+    source = release / "module.py"
+    source.write_bytes(b"drift\n")
+    source.chmod(0o444)
+    release.chmod(0o555)
+    monkeypatch.setattr(CEREMONY, "RELEASE_ROOT", release)
+    monkeypatch.setattr(
+        CEREMONY, "_git_release_entries",
+        lambda: {"module.py": (0o100644, "0" * 40)},
+    )
+    with pytest.raises(
+        CEREMONY.CeremonyError, match="IMMUTABLE_RELEASE_TREE_MISMATCH",
+    ):
+        CEREMONY._verify_release_tree()
+
+
 def test_ceremony_pins_exact_immutable_implementation():
     assert CEREMONY.IMPLEMENTATION_COMMIT == \
         "16fdc05168e20151f646cf4cb97746fbde809e69"
