@@ -440,6 +440,18 @@ Updated: 2026-08-26 UTC
   calculation, no overflow and zero console errors. Relay is active. Rollback
   preimage: `/var/lib/obsidian-exchange/deployment-preimages/e4-public-rates-20260826T0935Z.SgXLLt`.
 
+- 2026-08-26 commit `b832605` aligns the public FAQ/support endpoint with the
+  unified E4 journey. The contacts card now opens the configured Telegram
+  Mini App through `start=app` while keeping the separate support route. FAQ
+  accordion buttons now expose their active answer through `aria-expanded`,
+  `aria-controls` and matching `aria-hidden`; its safety copy no longer claims
+  a risk-free transaction and states irreversibility plus the support path.
+  No money, pricing, custody or writer contract changed. Focused tests pass
+  `14/14`; public FAQ and contacts are `200`, and the `390px` browser audit
+  confirms state changes, correct Telegram targets, no overflow and zero
+  console errors. Relay is active. Rollback preimage:
+  `/var/lib/obsidian-exchange/deployment-preimages/e4-public-support-20260826T0938Z.hMvwXi`.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;
