@@ -212,6 +212,14 @@ Mini App syntax, focused E4 tests (32/32) and standalone address-book checks
 (63/63) pass; deployed `/webapp` returned `200`, the bot and Relay are active.
 Rollback preimage:
 `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-referral-20260826T0907Z.df8rfO`.
+Commit `261220e` keeps the existing bot profile settings visible in the
+ecosystem: the Mini App Profile now explicitly opens the bot’s rate-notification
+and promo-code settings through `start=profile`. The deep link only renders the
+existing settings screen; changing any setting still needs the user’s separate
+bot action. Python and Mini App syntax, focused E4 tests (34/34) and standalone
+address-book checks (63/63) pass; deployed `/webapp` returned `200`, the bot
+and Relay are active. Rollback preimage:
+`/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-profile-20260826T0910Z.Z1yh6q`.
 
 Completed bounded slices:
 `obsidian_b64_snapshot_reader` is deployed in production against the frozen

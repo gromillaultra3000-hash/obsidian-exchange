@@ -322,6 +322,15 @@ Updated: 2026-08-26 UTC
   `200`, bot/Relay are active. Rollback preimage:
   `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-referral-20260826T0907Z.df8rfO`.
 
+- 2026-08-26 commit `261220e` reconnects Mini App Profile to the existing
+  Telegram-bot settings: `Настройки в Telegram` opens the rate-notification
+  and promo-code profile through `start=profile`. It only renders the existing
+  screen; modifying a setting remains a separate user action in the bot.
+  Python/JavaScript syntax, focused E4 tests 34/34 and standalone address-book
+  checks 63/63 pass; production `/webapp` returned `200`, bot/Relay are active.
+  Rollback preimage:
+  `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-profile-20260826T0910Z.Z1yh6q`.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;
