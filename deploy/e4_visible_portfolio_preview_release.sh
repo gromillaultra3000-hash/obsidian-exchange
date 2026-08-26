@@ -13,15 +13,23 @@ case "$release_id" in
   *[!A-Za-z0-9._-]*|'') echo "invalid release id" >&2; exit 64 ;;
 esac
 
-for required in index.html assets/preview.css assets/preview.js api/v1/overview.json; do
+for required in index.html assets/preview.css assets/preview.js api/v1/overview.json portfolio/index.html portfolio/portfolio.js; do
   test -f "$source_tree/$required" || { echo "missing preview asset: $required" >&2; exit 65; }
 done
 
 if rg -n -e '/api/create_order' -e '/pay/' -e '/swap/' -e '/wallet/' -e '/sell/' \
-    -e '/admin/' -e 'sendData' -e 'localStorage' -e 'initData' "$source_tree"; then
-  echo "preview source contains a prohibited execution or identity marker" >&2
+    -e '/admin/' -e 'sendData' -e 'localStorage' -e 'initData' \
+    "$source_tree/index.html" "$source_tree/assets" "$source_tree/api"; then
+  echo "public preview source contains a prohibited execution or identity marker" >&2
   exit 66
 fi
+if rg -n -e '/api/create_order' -e '/pay/' -e '/swap/' -e '/sell/' -e '/admin/' \
+    -e 'sendData' -e 'localStorage' "$source_tree/portfolio"; then
+  echo "personal preview contains a prohibited execution marker" >&2
+  exit 66
+fi
+rg -q "'/api/wallet/portfolio'" "$source_tree/portfolio/portfolio.js" \
+  || { echo "personal preview misses the exact read-only portfolio endpoint" >&2; exit 66; }
 
 target="$release_base/$release_id"
 current="$release_base/current"
@@ -32,11 +40,13 @@ staging="$(mktemp -d "$release_base/.staging.XXXXXX")"
 cleanup() { rm -rf "$staging"; }
 trap cleanup EXIT
 
-install -d -o root -g root -m 0755 "$staging/assets" "$staging/api/v1"
+install -d -o root -g root -m 0755 "$staging/assets" "$staging/api/v1" "$staging/portfolio"
 install -o root -g root -m 0444 "$source_tree/index.html" "$staging/index.html"
 install -o root -g root -m 0444 "$source_tree/assets/preview.css" "$staging/assets/preview.css"
 install -o root -g root -m 0444 "$source_tree/assets/preview.js" "$staging/assets/preview.js"
 install -o root -g root -m 0444 "$source_tree/api/v1/overview.json" "$staging/api/v1/overview.json"
+install -o root -g root -m 0444 "$source_tree/portfolio/index.html" "$staging/portfolio/index.html"
+install -o root -g root -m 0444 "$source_tree/portfolio/portfolio.js" "$staging/portfolio/portfolio.js"
 
 find "$staging" -type d -exec chmod 0555 {} +
 find "$staging" -type f -exec chmod 0444 {} +
@@ -59,4 +69,4 @@ mv -Tf "$pointer_tmp" "$current"
 
 printf 'preview_release=%s\n' "$target"
 printf 'previous_preview_release=%s\n' "${previous_target:-none}"
-sha256sum "$target/index.html" "$target/assets/preview.css" "$target/assets/preview.js" "$target/api/v1/overview.json"
+sha256sum "$target/index.html" "$target/assets/preview.css" "$target/assets/preview.js" "$target/api/v1/overview.json" "$target/portfolio/index.html" "$target/portfolio/portfolio.js"

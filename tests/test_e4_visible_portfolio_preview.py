@@ -13,6 +13,7 @@ BOT = (ROOT / "bot" / "main_bot.py").read_text(encoding="utf-8")
 RELEASE = (ROOT / "deploy" / "e4_visible_portfolio_preview_release.sh").read_text(encoding="utf-8")
 ROLLBACK = (ROOT / "deploy" / "e4_visible_portfolio_preview_rollback.sh").read_text(encoding="utf-8")
 CAPTURE = (ROOT / "deploy" / "e4_visible_portfolio_preview_capture_preimage.sh").read_text(encoding="utf-8")
+PORTFOLIO = (PREVIEW / "portfolio" / "portfolio.js").read_text(encoding="utf-8")
 
 
 def test_preview_contract_is_explicitly_non_executable():
@@ -70,3 +71,17 @@ def test_preview_rollout_preserves_a_deterministic_rollback_path():
     assert 'nginx.conf.preimage' in CAPTURE
     assert 'bot.main_bot.py.preimage' in CAPTURE
     assert 'previous-preview-release' in CAPTURE
+
+
+def test_account_portfolio_requires_explicit_owner_scoped_read_only_request():
+    assert 'href="/preview/portfolio/"' in INDEX
+    assert "addEventListener('click'" in PORTFOLIO
+    assert "'/api/wallet/portfolio'" in PORTFOLIO
+    assert "cache: 'no-store'" in PORTFOLIO
+    assert "X-Telegram-Init-Data" in PORTFOLIO
+    assert "unified-portfolio.v1" in PORTFOLIO
+    assert "lane.id === shape[index][0]" in PORTFOLIO
+    assert "stale ? 'DEGRADED'" in PORTFOLIO
+    assert "credentials: tg && tg.initData ? 'omit' : 'same-origin'" in PORTFOLIO
+    for forbidden in ("localStorage", "sendData", "/api/create_order", "/pay/", "/sell/", "/admin/"):
+        assert forbidden not in PORTFOLIO

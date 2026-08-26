@@ -38,6 +38,8 @@ h2 { margin-bottom: 10px; font-size: 21px; letter-spacing: -.03em; }
 .quote-row strong { font-size: 14px; }.quote-row span { color: var(--muted); font-size: 13px; }
 .quote-time { color: var(--muted); font-size: 12px; line-height: 1.45; }
 a:focus-visible { outline: 3px solid var(--gold); outline-offset: 4px; border-radius: 5px; }
+.load { border: 1px solid var(--violet); background: var(--violet); color: #151121; border-radius: 10px; padding: 12px 16px; font: inherit; font-weight: 800; cursor: pointer; }
+.load:disabled { opacity: .6; cursor: wait; }
 .muted { color: var(--muted); }
 .next { margin-top: 12px; }
 footer { color: var(--muted); text-align: center; font-size: 12px; margin-top: 44px; }
