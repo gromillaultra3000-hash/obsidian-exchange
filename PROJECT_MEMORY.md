@@ -484,6 +484,19 @@ Updated: 2026-08-26 UTC
   errors. Relay/bot are active. Rollback preimage:
   `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-secondary-navigation-20260826T0946Z.dc9XQt`.
 
+- 2026-08-26 commit `dc7fa37` aligns the visible Mini App ticker with the
+  shared public price contract. Its BTC/LTC/USDT read-only cards now request
+  `/api/rates` with no-store and validate every numeric value, matching the
+  public site and exchange calculation rather than fetching an independent
+  CoinGecko simple-price feed. Unsubstantiated 24-hour percentage placeholders
+  are replaced by the truthful `котировка` label; invalid/failed values show
+  unavailable. The separate historical BTC chart remains unchanged. No price,
+  order, custody or writer contract changed. Focused tests pass `13/13`;
+  deployed `/webapp` is `200`, `390px` browser audit confirms matching values,
+  no simple-price request, no overflow and no new errors. Relay/bot are active.
+  Rollback preimage:
+  `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-ticker-20260826T0951Z.0MVwZA`.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;
