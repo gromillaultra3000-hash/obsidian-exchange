@@ -5,7 +5,7 @@ WEBAPP = (Path(__file__).resolve().parents[1] / "relay" / "webapp.html").read_te
 
 
 def test_market_chart_has_read_only_context_and_derived_24_hour_change():
-    for marker in ("РЫНОК · НАБЛЮДЕНИЕ", "Историческая динамика, не курс заявки", "id=\"chart-change\"", "id=\"chart-updated\""):
+    for marker in ("РЫНОК · НАБЛЮДЕНИЕ", "Историческая динамика, не курс заявки", "id=\"chart-change\"", "id=\"chart-updated\"", "id=\"chart-refresh\""):
         assert marker in WEBAPP
     assert "fetch('/api/market/history', { cache: 'no-store' })" in WEBAPP
     assert "market_chart?vs_currency=rub" not in WEBAPP
@@ -17,3 +17,10 @@ def test_market_chart_has_read_only_context_and_derived_24_hour_change():
 def test_market_chart_uses_compact_mobile_chart_options():
     for marker in ("height:158px", "maxTicksLimit: 3", "pointHoverRadius: 4", "displayColors: false"):
         assert marker in WEBAPP
+
+
+def test_market_chart_can_be_manually_refreshed_without_a_money_action():
+    assert "async function loadChart(manual = false)" in WEBAPP
+    assert "manual ? 'Обновляем историю рынка…'" in WEBAPP
+    assert "if (btcChart) btcChart.destroy();" in WEBAPP
+    assert "document.getElementById('chart-refresh').addEventListener('click', () => loadChart(true));" in WEBAPP

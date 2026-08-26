@@ -57,6 +57,11 @@
         .chart-change { flex:0 0 auto; border:1px solid var(--border); border-radius:999px; padding:6px 8px; color:var(--muted); background:rgba(5,3,10,.38); font-size:11px; font-weight:800; }
         .chart-change.up { color:var(--green); border-color:rgba(110,231,183,.28); background:rgba(110,231,183,.06); }
         .chart-change.down { color:#fca5a5; border-color:rgba(252,165,165,.26); background:rgba(252,165,165,.06); }
+        .chart-actions { display:flex; align-items:center; gap:7px; }
+        .chart-refresh { min-width:32px; min-height:32px; display:grid; place-items:center; padding:0 8px; border:1px solid var(--border); border-radius:10px; background:rgba(5,3,10,.38); color:var(--text); font:inherit; font-size:15px; cursor:pointer; }
+        .chart-refresh:active { transform:scale(.96); }
+        .chart-refresh:disabled { opacity:.58; cursor:wait; }
+        .chart-refresh:focus-visible { outline:2px solid var(--purple-2); outline-offset:2px; }
         .chart-stage { position:relative; height:158px; }
         .chart-loading { position:absolute; inset:0; z-index:2; display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:12px; animation:pulse 1.4s ease-in-out infinite; }
         .chart-footer { position:relative; z-index:1; display:flex; justify-content:space-between; gap:12px; margin-top:6px; color:var(--muted); font-size:10px; }
@@ -272,10 +277,13 @@
                     <div class="chart-title" id="chart-title">₿ BTC/USDT · 24 часа</div>
                     <div class="chart-subtitle">Историческая динамика, не курс заявки</div>
                 </div>
-                <div class="chart-change" id="chart-change" role="status">Загрузка…</div>
+                <div class="chart-actions">
+                    <button type="button" class="chart-refresh" id="chart-refresh" aria-label="Обновить рыночный график" title="Обновить">↻</button>
+                    <div class="chart-change" id="chart-change" role="status">Загрузка…</div>
+                </div>
             </div>
             <div class="chart-stage">
-                <div class="chart-loading" id="chart-loading">Загружаем историю рынка…</div>
+                <div class="chart-loading" id="chart-loading" role="status">Загружаем историю рынка…</div>
                 <canvas id="btcChart" aria-label="График исторической цены BTC к рублю за 24 часа"></canvas>
             </div>
             <div class="chart-footer"><span>24 часа</span><span id="chart-updated">Время точки загружается…</span></div>
@@ -972,8 +980,18 @@
         }
         fetchRates();
 
-        // График BTC за 24 часа
-        async function loadChart() {
+        // График BTC за 24 часа — отдельное read-only наблюдение рынка.
+        let btcChart = null;
+        let chartLoading = false;
+        async function loadChart(manual = false) {
+            if (chartLoading) return;
+            chartLoading = true;
+            const refreshButton = document.getElementById('chart-refresh');
+            const loading = document.getElementById('chart-loading');
+            refreshButton.disabled = true;
+            refreshButton.setAttribute('aria-busy', 'true');
+            loading.textContent = manual ? 'Обновляем историю рынка…' : 'Загружаем историю рынка…';
+            loading.style.display = 'flex';
             try {
                 const res = await fetch('/api/market/history', { cache: 'no-store' });
                 if (!res.ok) throw new Error('history unavailable');
@@ -999,8 +1017,8 @@
                 document.querySelector('.chart-footer span').textContent = `${snapshot.exchange} · 24 часа`;
                 document.getElementById('chart-updated').textContent = `Точка: ${labels[labels.length - 1]}`;
 
-                document.getElementById('chart-loading').style.display = 'none';
-                new Chart(document.getElementById('btcChart'), {
+                if (btcChart) btcChart.destroy();
+                btcChart = new Chart(document.getElementById('btcChart'), {
                     type: 'line',
                     data: {
                         labels: labels,
@@ -1044,12 +1062,19 @@
                     }
                 });
             } catch(e) {
-                document.getElementById('chart-loading').textContent = 'История рынка временно недоступна';
+                loading.textContent = btcChart ? 'Не удалось обновить историю рынка' : 'История рынка временно недоступна';
                 document.getElementById('chart-change').textContent = 'недоступно';
-                document.getElementById('chart-updated').textContent = 'Повторите обновление позже';
+                document.getElementById('chart-updated').textContent = btcChart ? 'Показан последний доступный снимок' : 'Повторите обновление позже';
+                return;
+            } finally {
+                chartLoading = false;
+                refreshButton.disabled = false;
+                refreshButton.removeAttribute('aria-busy');
+                if (btcChart) loading.style.display = 'none';
             }
         }
         loadChart();
+        document.getElementById('chart-refresh').addEventListener('click', () => loadChart(true));
 
         // Комиссия приходит с сервера (/api/rates → commission_tiers, единый
         // источник core/pricing.py — тот же, по которому считается заявка).
