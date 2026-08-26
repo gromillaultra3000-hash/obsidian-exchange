@@ -713,7 +713,14 @@
           </div>
         </div>
         <div class="panel" id="panel-history">
-          <div style="margin-bottom:14px"><div style="font-size:20px;font-weight:800">Активность</div><div style="font-size:12px;color:var(--muted);margin-top:4px">Статусы ваших заявок. Источники не смешиваются и не считаются общим балансом.</div></div>
+          <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:14px"><div><div style="font-size:20px;font-weight:800">Активность</div><div style="font-size:12px;color:var(--muted);margin-top:4px;line-height:1.45">Заявки ObsidianExchange: статусы и доказательства исполнения. Операции кошелька остаются в разделе «Кошелёк».</div></div><button type="button" id="history-refresh" aria-label="Обновить активность" style="background:none;border:1px solid rgba(255,255,255,.14);color:var(--muted);border-radius:10px;padding:7px 10px;font-size:13px;cursor:pointer">🔄</button></div>
+          <div id="history-summary" style="display:none;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px"></div>
+          <div id="history-filters" style="display:flex;gap:7px;overflow:auto;margin-bottom:12px">
+            <button type="button" class="side-btn active" data-history-filter="all" style="padding:7px 10px;font-size:12px">Все</button>
+            <button type="button" class="side-btn" data-history-filter="pending" style="padding:7px 10px;font-size:12px">Ожидают</button>
+            <button type="button" class="side-btn" data-history-filter="paid" style="padding:7px 10px;font-size:12px">В работе</button>
+            <button type="button" class="side-btn" data-history-filter="sent" style="padding:7px 10px;font-size:12px">Завершены</button>
+          </div>
           <div id="history-list"></div>
         </div>
         <div class="panel" id="panel-referral">
@@ -2910,53 +2917,78 @@
             if (!hasInApp) openPay();
         }
 
+        let historyOrders = [];
+        let historyFilter = 'all';
+        function historyStatus(o) {
+            const onReview = o.status === 'pending' && o.receipt === 'sent';
+            const hasFile = o.status === 'pending' && !!o.receipt;
+            const stuck = o.status === 'paid' && o.delayed;
+            return {
+                onReview, hasFile,
+                emoji: onReview ? '🧾' : (stuck ? '⏳' : ({ pending:'⏳', paid:'✅', sent:'🚀' }[o.status] || '⚡')),
+                label: onReview ? 'На проверке' : (stuck ? 'Выплата задерживается' : ({ pending: 'Ожидание', paid: 'Оплачено', sent: 'Отправлено' }[o.status] || o.status)),
+                cls: ({ pending: 'pending', paid: 'success', sent: 'success' }[o.status] || '')
+            };
+        }
+        function renderHistorySummary(orders) {
+            const summary = document.getElementById('history-summary');
+            if (!summary) return;
+            const count = key => orders.filter(o => o.status === key).length;
+            summary.innerHTML = [
+                ['Ожидают', count('pending'), '#fbbf24'],
+                ['В работе', count('paid'), '#a78bfa'],
+                ['Завершены', count('sent'), '#34d399']
+            ].map(([label, value, color]) => '<div style="padding:9px 10px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07)"><div style="font-size:18px;font-weight:800;color:' + color + '">' + value + '</div><div style="font-size:10px;color:var(--muted)">' + label + '</div></div>').join('');
+            summary.style.display = orders.length ? 'grid' : 'none';
+        }
+        function renderHistoryOrders() {
+            const list = document.getElementById('history-list');
+            if (!list) return;
+            renderHistorySummary(historyOrders);
+            const orders = historyFilter === 'all' ? historyOrders : historyOrders.filter(o => o.status === historyFilter);
+            if (!historyOrders.length) { list.innerHTML = '<div class="history-item">У вас пока нет заявок.</div>'; return; }
+            if (!orders.length) { list.innerHTML = '<div class="history-item">В этой группе заявок пока нет.</div>'; return; }
+            list.innerHTML = orders.map(o => {
+                const state = historyStatus(o);
+                let action = '';
+                if (o.status === 'pending' && o.session_token) {
+                    const purl = `${location.origin}/pay/${o.session_token}`;
+                    action = `<a href="#" class="btn-pay" onclick="tg.openLink('${purl}');return false">${state.hasFile ? '🧾 Открыть заявку' : '💳 Оплатить'}</a>`;
+                } else if (o.status === 'sent' && o.tx_url) {
+                    action = `<a href="#" class="btn-pay" style="background:rgba(159,103,255,.15)" onclick="tg.openLink('${o.tx_url}');return false">🔍 Транзакция</a>`;
+                }
+                return `<div class="history-item ${state.cls}"><span class="h-icon">${state.emoji}</span><div class="h-title">#${esc(o.order_id)} — ${esc(o.currency)}</div><div class="h-meta">${esc(o.amount)} RUB</div><div class="h-status-row"><small>${esc(o.created)}</small><span class="status">${esc(state.label)}</span></div>${action}</div>`;
+            }).join('');
+        }
+        function setHistoryFilter(filter) {
+            historyFilter = ['all', 'pending', 'paid', 'sent'].includes(filter) ? filter : 'all';
+            document.querySelectorAll('[data-history-filter]').forEach(button =>
+                button.classList.toggle('active', button.dataset.historyFilter === historyFilter));
+            renderHistoryOrders();
+        }
         async function loadHistory() {
             const list = document.getElementById('history-list');
+            if (!list) return;
             list.innerHTML = '<div class="skeleton-line"></div><div class="skeleton-line"></div><div class="skeleton-line" style="width:60%"></div>';
             try {
-                const res = await fetch(`/api/history?user_id=${userId}`, { headers: { 'X-Telegram-Init-Data': tg.initData || '' } });
-                const orders = await res.json();
-                if (!orders.length) { list.innerHTML = '<div class="history-item">У вас пока нет заявок.</div>'; return; }
-                const statusLabels = { pending: 'Ожидание', paid: 'Оплачено', sent: 'Отправлено' };
-                const statusClass = { pending: 'pending', paid: 'success', sent: 'success' };
-                let html = '';
-                orders.forEach(o => {
-                    // pending с ДОШЕДШИМ до партнёра чеком — это не «ждём вашу
-                    // оплату», а «проверяем»: слово «Оплатить» здесь зовёт
-                    // заплатить второй раз. Но путь к заявке не отбираем —
-                    // меняем подпись кнопки: у 'stored' (файл есть, партнёру не
-                    // ушёл) клиент мог ещё не платить, и реквизиты ему нужны.
-                    const onReview = o.status === 'pending' && o.receipt === 'sent';
-                    const hasFile = o.status === 'pending' && !!o.receipt;
-                    // Оплаченная и зависшая заявка не «Оплачено» — это ожидание
-                    // с нашей стороны, и называть его надо своим именем.
-                    const stuck = o.status === 'paid' && o.delayed;
-                    const emoji = onReview ? '🧾' : (stuck ? '⏳' : ({ pending:'⏳', paid:'✅', sent:'🚀' }[o.status] || '⚡'));
-                    const label = onReview ? 'На проверке'
-                                : (stuck ? 'Выплата задерживается' : (statusLabels[o.status] || o.status));
-                    const cls = statusClass[o.status] || '';
-                    let action = '';
-                    if (o.status === 'pending' && o.session_token) {
-                        const purl = `${location.origin}/pay/${o.session_token}`;
-                        const cap = hasFile ? '🧾 Открыть заявку' : '💳 Оплатить';
-                        action = `<a href="#" class="btn-pay" onclick="tg.openLink('${purl}');return false">${cap}</a>`;
-                    } else if (o.status === 'sent' && o.tx_url) {
-                        action = `<a href="#" class="btn-pay" style="background:rgba(159,103,255,.15)" onclick="tg.openLink('${o.tx_url}');return false">🔍 Транзакция</a>`;
-                    }
-                    html += `<div class="history-item ${cls}">
-                        <span class="h-icon">${emoji}</span>
-                        <div class="h-title">#${o.order_id} — ${o.currency}</div>
-                        <div class="h-meta">${o.amount} RUB</div>
-                        <div class="h-status-row">
-                            <small>${o.created}</small>
-                            <span class="status">${label}</span>
-                        </div>
-                        ${action}
-                    </div>`;
-                });
-                list.innerHTML = html;
-            } catch(e) { list.innerHTML = '<div class="history-item">Ошибка загрузки.</div>'; }
+                const res = await fetch(`/api/history?user_id=${userId}`, { cache: 'no-store', headers: { 'X-Telegram-Init-Data': tg.initData || '' } });
+                const orders = res.ok ? await res.json().catch(() => null) : null;
+                if (!Array.isArray(orders)) throw new Error('history unavailable');
+                historyOrders = orders;
+                renderHistoryOrders();
+            } catch(e) {
+                historyOrders = [];
+                const summary = document.getElementById('history-summary');
+                if (summary) summary.style.display = 'none';
+                list.innerHTML = '<div class="history-item">История сейчас недоступна. Попробуйте обновить.</div>';
+            }
         }
+        (function wireHistoryControls() {
+            const refresh = document.getElementById('history-refresh');
+            if (refresh) refresh.addEventListener('click', loadHistory);
+            document.querySelectorAll('[data-history-filter]').forEach(button =>
+                button.addEventListener('click', () => setHistoryFilter(button.dataset.historyFilter)));
+        })();
 
         function loadReferral() {
             const botUsername = 'Obsidian666999bot';

@@ -65,3 +65,8 @@ def test_activity_navigation_preserves_existing_history_handler():
     assert 'data-tab="history"' in webapp
     assert '>Активность<' in webapp
     assert "tab.dataset.tab === 'history') loadHistory()" in webapp
+    assert 'id="history-refresh"' in webapp
+    assert 'data-history-filter="pending"' in webapp
+    assert 'function setHistoryFilter' in webapp
+    assert "cache: 'no-store'" in webapp
+    assert "Операции кошелька остаются в разделе «Кошелёк»" in webapp
