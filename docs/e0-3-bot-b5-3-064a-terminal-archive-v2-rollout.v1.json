@@ -1,6 +1,6 @@
 {
   "schemaVersion": "e0-3-bot-b5-3-064a-terminal-archive-v2-rollout.v1",
-  "observedAt": "2026-08-26T01:57:46Z",
+  "observedAt": "2026-08-26T02:01:53Z",
   "route": ["E0", "E0.3", "B5.3", "064A"],
   "status": "INERT_TERMINAL_ARCHIVE_V2_DEPLOYED_OWNER_AUTHORIZATION_REQUIRED",
   "objective": "Make successful and failed 064A terminal evidence archivable without reopening a consumed decision, and reject any non-exact immutable release before a future signing request.",
