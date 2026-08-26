@@ -102,3 +102,13 @@ def test_mini_app_tabs_are_keyboard_and_screen_reader_accessible():
     for key in ('ArrowLeft', 'ArrowRight', 'Home', 'End'):
         assert key in webapp
     assert "visibleTabs[next].focus()" in webapp
+
+
+def test_exchange_shows_private_and_cex_custody_context_before_form():
+    assert 'aria-label="Маршрут обмена"' in webapp
+    assert "💎 Private lane" in webapp
+    assert "ObsidianExchange · без KYC" in webapp
+    assert "📈 CEX / KYC lane" in webapp
+    assert "switchTab('market')" in webapp
+    assert "Сейчас только котировки и портфель" in webapp
+    assert "торговое подключение в этом приложении пока недоступно" in webapp

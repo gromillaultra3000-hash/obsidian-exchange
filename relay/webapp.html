@@ -294,6 +294,14 @@
 
         <!-- Обмен -->
         <div class="panel" id="panel-exchange" role="tabpanel" tabindex="0" aria-labelledby="tab-exchange">
+            <section aria-label="Маршрут обмена" style="margin-bottom:12px;padding:12px;border:1px solid rgba(159,103,255,.26);border-radius:14px;background:rgba(159,103,255,.06)">
+              <div style="font-size:11px;font-weight:800;letter-spacing:.06em;color:var(--purple-2);margin-bottom:8px">ВЫБЕРИТЕ КОНТЕКСТ ОБМЕНА</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                <button type="button" class="side-btn active" aria-current="page" style="text-align:left;padding:10px"><b>💎 Private lane</b><br><span style="font-size:10px;color:var(--muted)">ObsidianExchange · без KYC</span></button>
+                <button type="button" class="side-btn" onclick="switchTab('market')" style="text-align:left;padding:10px"><b>📈 CEX / KYC lane</b><br><span style="font-size:10px;color:var(--muted)">Сейчас только котировки и портфель</span></button>
+              </div>
+              <div style="font-size:11px;color:var(--muted);line-height:1.45;margin-top:8px">Private lane использует отдельный маршрут ObsidianExchange. Для CEX KYC и custody остаются у выбранной биржи; торговое подключение в этом приложении пока недоступно.</div>
+            </section>
             <!-- Живой статус платёжной системы из /api/system-status -->
             <div id="sys-status" style="display:none;align-items:center;gap:6px;margin-bottom:6px;padding:6px 10px;border-radius:10px;font-size:11px;font-weight:600"></div>
             <!-- Слой доверия к оплате: умный роутинг (агрегат, без имён провайдеров) -->
