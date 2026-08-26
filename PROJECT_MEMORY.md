@@ -394,6 +394,20 @@ Updated: 2026-08-26 UTC
   returned `200`; focused cross-surface regression passes `23/23`. Rollback
   preimage: `/var/lib/obsidian-exchange/deployment-preimages/e4-site-miniapp-entry-20260826T0916Z.DxAXo4`.
 
+- 2026-08-26 real browser E4 mobile acceptance found and fixed a public-site
+  horizontal overflow: at viewport `390px`, the v5 header's brand, two CTAs and
+  menu expanded document width to `506px`. Commits `0069607` and `96d7331`
+  compact the header, retain the concrete `start=app` Mini App entry and move
+  the hidden mobile login into the opened navigation menu. After deployment,
+  Playwright snapshot, click and screenshot verify `scrollWidth=390`,
+  `viewportWidth=390`, `overflow=false`, Mini App link and Login menu item.
+  Focused regression passes `25/25`, deployed bytes match, Relay is active and
+  public site is `200`. Rollback preimages:
+  `/var/lib/obsidian-exchange/deployment-preimages/e4-mobile-site-navigation-20260826T0921Z.bDLWqZ`
+  and `/var/lib/obsidian-exchange/deployment-preimages/e4-mobile-site-login-20260826T0922Z.U4BWKI`.
+  Google Chrome `152.0.7977.64` is now installed for future non-root
+  Playwright visual checks; no browser session or application state was retained.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;
