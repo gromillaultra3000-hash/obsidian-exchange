@@ -179,6 +179,15 @@ money-writer contract changed. Python and Mini App syntax plus focused E4 tests
 pass 26/26; deployed `/webapp` returned `200`, the bot and Relay are active.
 Rollback preimage:
 `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-bot-swap-20260826T0855Z.S64e57`.
+Commit `b909009` restores the remaining optional exchange tools as one bounded
+Mini App handoff: `Ещё → Инструменты обмена` opens the bot’s existing limit,
+DCA, rate-lock, gift, reviews and about menu through explicit `start=tools`.
+Opening it only renders the current menu; its pre-existing individual handlers
+remain responsible for every later action. No provider, custody or money-writer
+contract changed. Python and Mini App syntax plus focused E4 tests pass 28/28;
+deployed `/webapp` returned `200`, the bot and Relay are active. Rollback
+preimage:
+`/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-bot-tools-20260826T0858Z.ZEUF2h`.
 
 Completed bounded slices:
 `obsidian_b64_snapshot_reader` is deployed in production against the frozen

@@ -285,6 +285,15 @@ Updated: 2026-08-26 UTC
   the link, and bot/Relay are active. Rollback preimage:
   `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-bot-swap-20260826T0855Z.S64e57`.
 
+- 2026-08-26 commit `b909009` adds a second honest handoff in Mini App `Ещё`:
+  `Инструменты обмена` opens the bot’s current limit, DCA, rate-lock, gift,
+  reviews and about menu via `start=tools`. It renders only the existing menu;
+  each pre-existing tool handler remains the sole later action surface. No
+  provider, custody or money-writer contract changed. Python/JavaScript syntax
+  and focused E4 tests pass 28/28; production `/webapp` returned `200`, and
+  bot/Relay are active. Rollback preimage:
+  `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-bot-tools-20260826T0858Z.ZEUF2h`.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;
