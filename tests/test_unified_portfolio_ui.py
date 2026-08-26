@@ -46,3 +46,10 @@ def test_mobile_navigation_keeps_secondary_sections_in_more_panel():
     assert '.tab.secondary-tab' in webapp
     for target in ('market', 'referral', 'profile', 'faq'):
         assert f"switchTab('{target}')" in webapp
+
+
+def test_ecosystem_overview_uses_the_existing_read_only_portfolio_contract():
+    assert 'id="ecosystem-portfolio"' in webapp
+    assert 'function ecosystemPortfolioRender' in webapp
+    assert 'ecosystemPortfolioRender(data)' in webapp
+    assert "tab.dataset.tab === 'ecosystem'" in webapp

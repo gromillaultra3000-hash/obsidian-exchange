@@ -270,6 +270,7 @@
             <div style="font-size:22px;font-weight:800;margin:6px 0">Все активы — в одном понятном интерфейсе</div>
             <div style="font-size:13px;color:var(--muted);line-height:1.55">Средства и ключи не объединяются на сервере: каждый следующий экран показывает исполнителя и custody.</div>
           </div>
+          <div id="ecosystem-portfolio" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px"><div style="padding:12px;border:1px solid var(--border);border-radius:14px;color:var(--muted);font-size:12px">Загрузка портфеля…</div></div>
           <div style="display:grid;gap:9px">
             <button type="button" class="side-btn" onclick="switchTab('wallet')" style="text-align:left;padding:14px"><b>👛 Портфель и кошельки</b><br><span style="font-size:11px;color:var(--muted)">Ключи остаются у вас · адреса и история только после подтверждения</span></button>
             <button type="button" class="side-btn" onclick="switchTab('exchange')" style="text-align:left;padding:14px"><b>💎 ObsidianExchange</b><br><span style="font-size:11px;color:var(--muted)">Отдельный маршрут обмена · условия будут показаны до заявки</span></button>
@@ -2299,12 +2300,26 @@
             }).join('');
         }
 
+        function ecosystemPortfolioRender(data) {
+            const box = document.getElementById('ecosystem-portfolio');
+            if (!box) return;
+            const lanes = data && Array.isArray(data.lanes) ? data.lanes : [];
+            if (lanes.length !== 3) { box.innerHTML = '<div style="grid-column:1/-1;padding:12px;border:1px solid var(--border);border-radius:14px;color:var(--muted);font-size:12px">Портфель временно недоступен. Старые значения не показываются.</div>'; return; }
+            box.innerHTML = lanes.map(lane => {
+                const copy = custodyCopy[lane.custodyDomain] || {title:'Источник', badge:''};
+                const state = laneStateCopy[lane.state] || 'Временно недоступно';
+                const count = Array.isArray(lane.sources) ? lane.sources.length : 0;
+                return '<button type="button" class="side-btn" onclick="switchTab(\'wallet\')" style="text-align:left;padding:12px"><b>' + esc(copy.title) + '</b><br><span style="font-size:10px;color:var(--muted)">' + esc(copy.badge) + ' · ' + esc(state) + ' · источников: ' + count + '</span></button>';
+            }).join('');
+        }
+
         async function loadUnifiedPortfolio() {
             try {
                 const r = await fetch('/api/wallet/portfolio', {
                     headers: {'X-Telegram-Init-Data': tg.initData || ''}});
-                unifiedPortfolioRender(r.ok ? await r.json().catch(() => null) : null);
-            } catch (_) { unifiedPortfolioRender(null); }
+                const data = r.ok ? await r.json().catch(() => null) : null;
+                unifiedPortfolioRender(data); ecosystemPortfolioRender(data);
+            } catch (_) { unifiedPortfolioRender(null); ecosystemPortfolioRender(null); }
         }
 
         function cexManagementRender(data) {
@@ -2886,6 +2901,7 @@
                 if (tab.dataset.tab === 'referral') loadReferral();
                 if (tab.dataset.tab === 'profile') { loadProfile(); loadWallets(); }
                 if (tab.dataset.tab === 'wallet') { loadWallets(); loadWalletBook(); }
+                if (tab.dataset.tab === 'ecosystem') loadUnifiedPortfolio();
                 if (tab.dataset.tab === 'market') loadMarketModes();
                 if (tab.dataset.tab === 'admin') loadAdmin();
             };
