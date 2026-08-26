@@ -40,3 +40,9 @@ def test_market_chart_persists_only_the_selected_public_asset_for_the_session():
     assert "sessionStorage.getItem(chartAssetStorageKey)" in WEBAPP
     assert "function rememberChartAsset(asset)" in WEBAPP
     assert "Закрытие: ${last.toLocaleString('ru-RU'" in WEBAPP
+
+
+def test_market_chart_accepts_only_an_allow_listed_public_asset_from_its_entry_url():
+    assert "new URLSearchParams(window.location.search).get('market')" in WEBAPP
+    assert "requested.toUpperCase()" in WEBAPP
+    assert "if (marketAssets[requestedAsset]) return requestedAsset;" in WEBAPP

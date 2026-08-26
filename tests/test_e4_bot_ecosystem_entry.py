@@ -68,3 +68,13 @@ def test_site_mini_app_deep_link_renders_only_the_existing_canonical_webapp_butt
     entry = BOT[entry_start:BOT.index('def _fmt_rate_compact', entry_start)]
     assert 'web_app=WebAppInfo(url=f"{PUBLIC_RELAY}/webapp")' in entry
     assert 'не создаёт' in entry
+
+
+def test_bot_market_entry_is_read_only_and_reuses_the_existing_mini_app():
+    assert 'def build_market_entry_kb()' in BOT
+    assert 'web_app=WebAppInfo(url=f"{PUBLIC_RELAY}/webapp?market=BTC")' in BOT
+    assert '@router.message(Command("market"))' in BOT
+    assert 'Это не курс заявки и не запускает обмен или торговлю.' in BOT
+    command = BOT[BOT.index('async def cmd_start'):BOT.index('# ---------- ОБРАБОТЧИКИ МЕНЮ ----------')]
+    assert 'start_payload == "market"' in command
+    assert 'await cmd_market(message)' in command

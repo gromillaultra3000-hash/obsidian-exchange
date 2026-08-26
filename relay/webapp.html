@@ -1008,6 +1008,9 @@
         let chartLoading = false;
         let selectedChartAsset = (() => {
             try {
+                const requested = new URLSearchParams(window.location.search).get('market');
+                const requestedAsset = typeof requested === 'string' ? requested.toUpperCase() : '';
+                if (marketAssets[requestedAsset]) return requestedAsset;
                 const stored = sessionStorage.getItem(chartAssetStorageKey);
                 return marketAssets[stored] ? stored : 'BTC';
             } catch (_) { return 'BTC'; }

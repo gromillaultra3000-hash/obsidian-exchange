@@ -1597,6 +1597,16 @@ def build_mini_app_entry_kb() -> InlineKeyboardMarkup:
     ]])
 
 
+def build_market_entry_kb() -> InlineKeyboardMarkup:
+    """Open the existing Mini App market observation without creating an action."""
+    return InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(
+            text="📈 Открыть рынок · графики",
+            web_app=WebAppInfo(url=f"{PUBLIC_RELAY}/webapp?market=BTC"),
+        )
+    ]])
+
+
 def _fmt_rate_compact(r) -> str:
     """4 850 000 → '4.85М ₽', 93 → '93 ₽'."""
     if not r:
@@ -1800,6 +1810,18 @@ async def cmd_preview(message: Message):
     )
 
 
+@router.message(Command("market"))
+async def cmd_market(message: Message):
+    """Expose the existing public market observation as a separate bot entry."""
+    await message.answer(
+        "<b>Рынок · только наблюдение</b>\n\n"
+        "Исторические графики BTC, ETH и LTC из публичных CEX-данных. "
+        "Это не курс заявки и не запускает обмен или торговлю.",
+        parse_mode="HTML",
+        reply_markup=build_market_entry_kb(),
+    )
+
+
 @router.message(Command("start"))
 async def cmd_start(message: Message, state: FSMContext):
     await state.clear()
@@ -1879,6 +1901,9 @@ async def cmd_start(message: Message, state: FSMContext):
         return
     if start_payload == "tools":
         await send_tools_menu(message)
+        return
+    if start_payload == "market":
+        await cmd_market(message)
         return
     if start_payload == "referral":
         await send_referral_menu(message, message.from_user.id)

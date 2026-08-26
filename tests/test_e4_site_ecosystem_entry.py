@@ -3,6 +3,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 INDEX = (ROOT / "relay-fastapi" / "templates" / "index.html").read_text(encoding="utf-8")
+RATES = (ROOT / "relay-fastapi" / "templates" / "rates.html").read_text(encoding="utf-8")
 WEBAPP = (ROOT / "relay" / "webapp.html").read_text(encoding="utf-8")
 RELAY = (ROOT / "relay-fastapi" / "main.py").read_text(encoding="utf-8")
 
@@ -32,3 +33,8 @@ def test_mini_app_uses_the_configured_bot_username_for_telegram_handoffs():
     assert "def _mini_app_bot_username()" in RELAY
     assert "re.fullmatch(r'[A-Za-z0-9_]{5,32}', candidate)" in RELAY
     assert "replace('__OBSIDIAN_BOT_USERNAME__', _mini_app_bot_username())" in RELAY
+
+
+def test_public_rates_page_has_a_read_only_market_mini_app_entry():
+    assert 'href="https://t.me/{{ bot_username }}?start=market"' in RATES
+    assert 'Открыть рынок и графики в Mini App' in RATES
