@@ -249,6 +249,14 @@ Updated: 2026-08-26 UTC
   active. Rollback preimage:
   `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-wallet-order-payment-review-20260826T0840Z.bfroMi`.
 
+- 2026-08-26 commit `791ac77` aligns the visible Mini App identity with the
+  implemented ecosystem: its header now names Wallet, private exchange and
+  read-only CEX rather than presenting the whole app as a standalone exchange.
+  No flow, data or authority changed. Focused E4 tests pass 23/23; live
+  `/webapp` returned `200` with the header and Relay/bot are active. Rollback
+  preimage:
+  `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-ecosystem-header-20260826T0843Z.bV3YLK`.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;
