@@ -124,6 +124,15 @@ Updated: 2026-08-26 UTC
   compilation passed and `exchange-bot.service` is active. Rollback preimage:
   `/var/lib/obsidian-exchange/deployment-preimages/e4-preview-portfolio-bot-20260826T0805Z.dzMTXd`.
 
+- 2026-08-26 commit `171c2f2` connects the public landing page to the
+  isolated `/preview/` ecosystem through an additional `Экосистема · preview`
+  link while preserving the existing exchange and fee actions. The FastAPI
+  template was deployed with a retained preimage and controlled restart; one
+  request during process startup returned `502`, then service readiness and
+  public `/`, `/webapp` checks returned `200`; Relay and bot are active.
+  Focused E4 tests pass 15/15. Rollback preimage:
+  `/var/lib/obsidian-exchange/deployment-preimages/e4-site-ecosystem-entry-20260826T0806Z.Z5zWw0`.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;

@@ -69,6 +69,9 @@ exchange or aggregate balance view (commit `4a9ba8f`, deployed).
 Telegram `/preview` now exposes this personal screen as a separate WebApp
 button while preserving its original public Preview button (commit `d15a91c`,
 deployed).
+The public landing page has a separate `Экосистема · preview` link to the
+isolated overview; existing exchange and fee paths remain unchanged (commit
+`171c2f2`, deployed).
 
 Completed bounded slices:
 `obsidian_b64_snapshot_reader` is deployed in production against the frozen
