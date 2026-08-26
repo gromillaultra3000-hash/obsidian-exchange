@@ -46,6 +46,13 @@ def test_preview_has_no_writer_or_identity_surface():
     assert "<form" not in INDEX
 
 
+def test_preview_and_personal_portfolio_use_an_embedded_favicon_without_an_extra_request():
+    portfolio_index = (PREVIEW / "portfolio" / "index.html").read_text(encoding="utf-8")
+    favicon = '<link rel="icon" href="data:image/svg+xml,'
+    assert favicon in INDEX
+    assert favicon in portfolio_index
+
+
 def test_preview_is_isolated_static_nginx_location_and_bot_entrypoint():
     assert "location = /preview" in NGINX
     assert "location ^~ /preview/" in NGINX
