@@ -112,3 +112,15 @@ def test_exchange_shows_private_and_cex_custody_context_before_form():
     assert "switchTab('market')" in webapp
     assert "Сейчас только котировки и портфель" in webapp
     assert "торговое подключение в этом приложении пока недоступно" in webapp
+
+
+def test_overview_has_an_owner_scoped_read_only_activity_entrypoint():
+    assert 'id="ecosystem-activity"' in webapp
+    assert 'id="ecosystem-activity-status" role="status"' in webapp
+    assert "function loadEcosystemActivity" in webapp
+    assert "function renderEcosystemActivity" in webapp
+    assert "Статусы заявок временно недоступны" in webapp
+    assert "cache: 'no-store'" in webapp
+    assert "loadUnifiedPortfolio(); loadEcosystemActivity();" in webapp
+    assert "renderEcosystemActivity(orders);" in webapp
+    assert "loadSysStatus();\n        loadUnifiedPortfolio();\n        loadEcosystemActivity();" in webapp
