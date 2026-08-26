@@ -16,7 +16,6 @@ import hashlib
 import json
 import os
 import re
-import secrets
 import stat
 import subprocess
 import sys
@@ -286,7 +285,9 @@ def _trusted_now() -> int:
     return value
 
 
-def _load_and_verify(release: Path) -> tuple[dict[str, bytes], Any]:
+def _load_and_verify(
+    release: Path, *, allow_historical_prefix: bool = False,
+) -> tuple[dict[str, bytes], Any]:
     inputs = _load_coordination()
     try:
         keyring = activation._decode_json(inputs["keyring.json"])
@@ -297,18 +298,33 @@ def _load_and_verify(release: Path) -> tuple[dict[str, bytes], Any]:
             or re.fullmatch(r"[0-9a-f]{64}", expected_keyring) is None):
         raise CommitError("RUNTIME_COMMIT_KEYRING_DIGEST_INVALID")
     now = _trusted_now()
+    verified = None
     try:
-        verified = activation.verify_activation_decision(
+        current = activation.verify_activation_decision(
             keyring_raw=inputs["keyring.json"],
             decision_raw=inputs["decision.json"],
             activation_plan_raw=inputs["activation-plan.json"],
             expected_keyring_sha256=expected_keyring,
             expected_environment="PRODUCTION", now_epoch=now,
         )
+        if current.expires_at_epoch - now >= MINIMUM_COMMIT_WINDOW_SECONDS:
+            verified = current
+        elif not allow_historical_prefix:
+            raise CommitError("INSUFFICIENT_DECISION_WINDOW_REMAINING")
     except activation.ActivationError as exc:
-        raise CommitError(str(exc)) from exc
-    if verified.expires_at_epoch - now < MINIMUM_COMMIT_WINDOW_SECONDS:
-        raise CommitError("INSUFFICIENT_DECISION_WINDOW_REMAINING")
+        if not allow_historical_prefix:
+            raise CommitError(str(exc)) from exc
+    if verified is None:
+        try:
+            verified = activation.verify_cleanup_recovery(
+                keyring_raw=inputs["keyring.json"],
+                decision_raw=inputs["decision.json"],
+                activation_plan_raw=inputs["activation-plan.json"],
+                expected_keyring_sha256=expected_keyring,
+                expected_environment="PRODUCTION", now_epoch=now,
+            )
+        except activation.ActivationError as exc:
+            raise CommitError(str(exc)) from exc
     observed = _dormant_tuple(release)
     target = verified.target
     if any(observed[name] != target.get(name) for name in observed):
@@ -379,6 +395,183 @@ def _stage_file(parent_fd: int, name: str, raw: bytes, *, mode: int) -> None:
             os.close(descriptor)
 
 
+def _entry_exists(parent_fd: int, name: str) -> bool:
+    try:
+        os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+        return True
+    except FileNotFoundError:
+        return False
+    except OSError as exc:
+        raise CommitError("RUNTIME_COMMIT_TARGET_UNSAFE") from exc
+
+
+def _transaction_names(verified: Any) -> dict[str, str]:
+    token = _sha(_canonical({
+        "schemaVersion": "b64-064a-runtime-commit-transaction.v1",
+        "route": ROUTE,
+        "runNonce": verified.run_nonce,
+        "planSha256": verified.plan_sha256,
+        "decisionSha256": verified.decision_sha256,
+    }))[:24]
+    return {
+        "package_tmp": f".{watchdog.RECOVERY_PACKAGE_NAME}.tmp-{token}",
+        "state_tmp": f".{ACTIVATION_ROOT.name}.tmp-{token}",
+        "recovery_tmp": f".{watchdog.RECOVERY_REQUEST_NAME}.tmp-{token}",
+        "launch_tmp": f".{launcher.LAUNCH_REQUEST_NAME}.tmp-{token}",
+        "rollback_intent_tmp":
+            f"{launcher.ROLLBACK_INTENT_NAME}.tmp-{token}",
+        "rollback_intent": launcher.ROLLBACK_INTENT_NAME,
+    }
+
+
+def _rollback_intent_raw(verified: Any) -> bytes:
+    return _canonical({
+        "schemaVersion": "b64-064a-runtime-rollback-intent.v1",
+        "route": ROUTE,
+        "runNonce": verified.run_nonce,
+        "planSha256": verified.plan_sha256,
+        "decisionSha256": verified.decision_sha256,
+        "action": "ROLLBACK_WITHOUT_LAUNCH",
+        "automaticRetryAllowed": False,
+    }) + b"\n"
+
+
+def _verify_expected_file(
+    parent_fd: int, name: str, expected: bytes, *, mode: int,
+    allow_prefix: bool = False,
+) -> tuple[int, int]:
+    descriptor = -1
+    try:
+        descriptor = os.open(
+            name, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+            | getattr(os, "O_CLOEXEC", 0), dir_fd=parent_fd,
+        )
+        metadata = os.fstat(descriptor)
+        if (not stat.S_ISREG(metadata.st_mode)
+                or metadata.st_uid != 0 or metadata.st_gid != 0
+                or stat.S_IMODE(metadata.st_mode) != mode
+                or metadata.st_nlink != 1
+                or (allow_prefix and metadata.st_size > len(expected))
+                or (not allow_prefix and metadata.st_size != len(expected))):
+            raise CommitError("RUNTIME_COMMIT_PREFIX_CHANGED")
+        raw = b""
+        while len(raw) < metadata.st_size:
+            chunk = os.read(descriptor, metadata.st_size - len(raw))
+            if not chunk:
+                raise CommitError("RUNTIME_COMMIT_PREFIX_CHANGED")
+            raw += chunk
+        if os.read(descriptor, 1):
+            raise CommitError("RUNTIME_COMMIT_PREFIX_CHANGED")
+        if ((allow_prefix and raw != expected[:len(raw)])
+                or (not allow_prefix and raw != expected)):
+            raise CommitError("RUNTIME_COMMIT_PREFIX_CHANGED")
+        return metadata.st_dev, metadata.st_ino
+    except OSError as exc:
+        raise CommitError("RUNTIME_COMMIT_PREFIX_CHANGED") from exc
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+
+
+def _verify_expected_package(
+    parent_fd: int, name: str, *, artifacts: Mapping[str, bytes],
+    manifest_raw: bytes, allow_partial: bool,
+) -> None:
+    descriptor = -1
+    expected = {**artifacts, watchdog.RECOVERY_MANIFEST_NAME: manifest_raw}
+    try:
+        descriptor = os.open(
+            name, os.O_RDONLY | os.O_DIRECTORY
+            | getattr(os, "O_NOFOLLOW", 0)
+            | getattr(os, "O_CLOEXEC", 0), dir_fd=parent_fd,
+        )
+        metadata = os.fstat(descriptor)
+        entries = set(os.listdir(descriptor))
+        if (not stat.S_ISDIR(metadata.st_mode)
+                or metadata.st_uid != 0 or metadata.st_gid != 0
+                or stat.S_IMODE(metadata.st_mode)
+                not in ({0o700, 0o500} if allow_partial else {0o500})
+                or (allow_partial and not entries.issubset(expected))
+                or (not allow_partial and entries != set(expected))):
+            raise CommitError("RUNTIME_COMMIT_PREFIX_CHANGED")
+        for entry in entries:
+            _verify_expected_file(
+                descriptor, entry, expected[entry], mode=0o400,
+                allow_prefix=allow_partial,
+            )
+    except OSError as exc:
+        raise CommitError("RUNTIME_COMMIT_PREFIX_CHANGED") from exc
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+
+
+def _verify_expected_state(
+    parent_fd: int, name: str, *, verified: Any, allow_partial: bool,
+) -> None:
+    state_fd = -1
+    try:
+        state_fd = os.open(
+            name, os.O_RDONLY | os.O_DIRECTORY
+            | getattr(os, "O_NOFOLLOW", 0)
+            | getattr(os, "O_CLOEXEC", 0), dir_fd=parent_fd,
+        )
+        metadata = os.fstat(state_fd)
+        entries = set(os.listdir(state_fd))
+        if (not stat.S_ISDIR(metadata.st_mode) or metadata.st_uid != 0
+                or (allow_partial and (
+                    metadata.st_gid not in {0, ACTIVATION_PARENT_GID}
+                    or stat.S_IMODE(metadata.st_mode) not in {0o700, 0o2700}
+                    or not entries.issubset(STATE_NAMES)
+                ))
+                or (not allow_partial and (
+                    metadata.st_gid != 0
+                    or stat.S_IMODE(metadata.st_mode) != 0o700
+                    or entries != set(STATE_NAMES)
+                ))):
+            raise CommitError("RUNTIME_COMMIT_PREFIX_CHANGED")
+        for entry in entries:
+            child_fd = os.open(
+                entry, os.O_RDONLY | os.O_DIRECTORY
+                | getattr(os, "O_NOFOLLOW", 0)
+                | getattr(os, "O_CLOEXEC", 0), dir_fd=state_fd,
+            )
+            try:
+                child_metadata = os.fstat(child_fd)
+                children = set(os.listdir(child_fd))
+                if (not stat.S_ISDIR(child_metadata.st_mode)
+                        or child_metadata.st_uid != 0
+                        or child_metadata.st_gid != 0
+                        or stat.S_IMODE(child_metadata.st_mode) != 0o700):
+                    raise CommitError("RUNTIME_COMMIT_PREFIX_CHANGED")
+                if entry == "journal":
+                    journal_expected = {
+                        f".{verified.run_nonce}.lock": b"",
+                        f"{verified.run_nonce}.json": _canonical(
+                            activation._journal_claim_value(verified)
+                        ) + b"\n",
+                    }
+                    if ((allow_partial
+                         and not children.issubset(journal_expected))
+                            or (not allow_partial
+                                and children != set(journal_expected))):
+                        raise CommitError("RUNTIME_COMMIT_PREFIX_CHANGED")
+                    for child in children:
+                        _verify_expected_file(
+                            child_fd, child, journal_expected[child],
+                            mode=0o600, allow_prefix=allow_partial,
+                        )
+                elif children:
+                    raise CommitError("RUNTIME_COMMIT_PREFIX_CHANGED")
+            finally:
+                os.close(child_fd)
+    except OSError as exc:
+        raise CommitError("RUNTIME_COMMIT_PREFIX_CHANGED") from exc
+    finally:
+        if state_fd >= 0:
+            os.close(state_fd)
+
+
 def _publish_directory_noreplace(
     source_parent_fd: int, source: str, target_parent_fd: int, target: str,
     *, published: dict[str, bool], publication_key: str,
@@ -416,13 +609,27 @@ def _publish_file_noreplace(
     parent_fd: int, temporary: str, final: str, *,
     published: dict[str, bool], publication_key: str,
 ) -> None:
+    libc = ctypes.CDLL(None, use_errno=True)
+    renameat2 = getattr(libc, "renameat2", None)
+    if renameat2 is None:
+        raise CommitError("ATOMIC_MARKER_PUBLICATION_UNAVAILABLE")
+    renameat2.argtypes = [
+        ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p,
+        ctypes.c_uint,
+    ]
+    renameat2.restype = ctypes.c_int
+    if renameat2(
+        parent_fd, os.fsencode(temporary), parent_fd, os.fsencode(final),
+        RENAME_NOREPLACE,
+    ) != 0:
+        code = ctypes.get_errno()
+        if code == errno.EEXIST:
+            raise CommitError("RUNTIME_COMMIT_TARGET_ALREADY_EXISTS")
+        if code in {errno.ENOSYS, errno.EINVAL, errno.EOPNOTSUPP}:
+            raise CommitError("ATOMIC_MARKER_PUBLICATION_UNAVAILABLE")
+        raise CommitError("RUNTIME_COMMIT_MARKER_PUBLICATION_FAILED")
+    published[publication_key] = True
     try:
-        os.link(
-            temporary, final, src_dir_fd=parent_fd, dst_dir_fd=parent_fd,
-            follow_symlinks=False,
-        )
-        published[publication_key] = True
-        os.unlink(temporary, dir_fd=parent_fd)
         os.fsync(parent_fd)
     except OSError as exc:
         raise CommitError("RUNTIME_COMMIT_MARKER_PUBLICATION_FAILED") from exc
@@ -462,7 +669,10 @@ def _remove_package(parent_fd: int, name: str) -> None:
     os.rmdir(name, dir_fd=parent_fd)
 
 
-def _remove_state(parent_fd: int, name: str) -> None:
+def _remove_state(
+    parent_fd: int, name: str, *, verified: Any,
+    allow_incomplete_staged: bool = False,
+) -> None:
     try:
         state_fd = os.open(
             name, os.O_RDONLY | os.O_DIRECTORY
@@ -482,7 +692,54 @@ def _remove_state(parent_fd: int, name: str) -> None:
                 | getattr(os, "O_CLOEXEC", 0), dir_fd=state_fd,
             )
             try:
-                if os.listdir(child_fd):
+                children = set(os.listdir(child_fd))
+                if entry == "journal":
+                    expected = {
+                        f"{verified.run_nonce}.json",
+                        f".{verified.run_nonce}.lock",
+                    }
+                    if not children.issubset(expected):
+                        raise CommitError(
+                            "RUNTIME_COMMIT_ROLLBACK_STATE_CHANGED"
+                        )
+                    for child in children:
+                        descriptor = os.open(
+                            child, os.O_RDONLY
+                            | getattr(os, "O_NOFOLLOW", 0)
+                            | getattr(os, "O_CLOEXEC", 0),
+                            dir_fd=child_fd,
+                        )
+                        try:
+                            metadata = os.fstat(descriptor)
+                            if (not stat.S_ISREG(metadata.st_mode)
+                                    or metadata.st_uid != 0
+                                    or metadata.st_gid != 0
+                                    or stat.S_IMODE(metadata.st_mode) != 0o600
+                                    or metadata.st_nlink != 1):
+                                raise CommitError(
+                                    "RUNTIME_COMMIT_ROLLBACK_STATE_CHANGED"
+                                )
+                            if child.endswith(".json"):
+                                raw = os.read(descriptor, 64 * 1024)
+                                wanted = _canonical(
+                                    activation._journal_claim_value(verified)
+                                ) + b"\n"
+                                if ((allow_incomplete_staged
+                                     and raw != wanted[:len(raw)])
+                                        or (not allow_incomplete_staged
+                                            and raw != wanted)
+                                        or os.read(descriptor, 1)):
+                                    raise CommitError(
+                                        "RUNTIME_COMMIT_ROLLBACK_STATE_CHANGED"
+                                    )
+                            elif metadata.st_size != 0:
+                                raise CommitError(
+                                    "RUNTIME_COMMIT_ROLLBACK_STATE_CHANGED"
+                                )
+                        finally:
+                            os.close(descriptor)
+                        os.unlink(child, dir_fd=child_fd)
+                elif children:
                     raise CommitError("RUNTIME_COMMIT_ROLLBACK_STATE_CHANGED")
             finally:
                 os.close(child_fd)
@@ -492,8 +749,295 @@ def _remove_state(parent_fd: int, name: str) -> None:
     os.rmdir(name, dir_fd=parent_fd)
 
 
+def _cleanup_transaction_staging(
+    recovery_fd: int, activation_parent_fd: int,
+    names: Mapping[str, str], *, artifacts: Mapping[str, bytes],
+    manifest_raw: bytes, recovery_raw: bytes, launch_raw: bytes,
+    verified: Any, preserve: set[str] | None = None,
+) -> None:
+    preserved = preserve or set()
+    if ("package_tmp" not in preserved
+            and _entry_exists(recovery_fd, names["package_tmp"])):
+        _verify_expected_package(
+            recovery_fd, names["package_tmp"], artifacts=artifacts,
+            manifest_raw=manifest_raw, allow_partial=True,
+        )
+        _remove_package(recovery_fd, names["package_tmp"])
+    if ("state_tmp" not in preserved
+            and _entry_exists(activation_parent_fd, names["state_tmp"])):
+        _verify_expected_state(
+            activation_parent_fd, names["state_tmp"], verified=verified,
+            allow_partial=True,
+        )
+        _remove_state(
+            activation_parent_fd, names["state_tmp"], verified=verified,
+            allow_incomplete_staged=True,
+        )
+    for key, raw in (
+        ("recovery_tmp", recovery_raw), ("launch_tmp", launch_raw),
+    ):
+        if key in preserved or not _entry_exists(recovery_fd, names[key]):
+            continue
+        _verify_expected_file(
+            recovery_fd, names[key], raw, mode=0o400,
+            allow_prefix=True,
+        )
+        _remove_file(recovery_fd, names[key])
+    os.fsync(recovery_fd)
+    os.fsync(activation_parent_fd)
+
+
+def _resume_rollback(
+    recovery_fd: int, activation_parent_fd: int,
+    names: Mapping[str, str], *, artifacts: Mapping[str, bytes],
+    manifest_raw: bytes, recovery_raw: bytes, launch_raw: bytes,
+    verified: Any, fault: FaultHook | None = None,
+) -> None:
+    """Resume a durable no-launch rollback from any exact move prefix."""
+    rollback_raw = _rollback_intent_raw(verified)
+    _verify_expected_file(
+        recovery_fd, names["rollback_intent"], rollback_raw, mode=0o400,
+    )
+    components = {
+        "package": (
+            recovery_fd, watchdog.RECOVERY_PACKAGE_NAME,
+            recovery_fd, names["package_tmp"],
+        ),
+        "recovery": (
+            recovery_fd, watchdog.RECOVERY_REQUEST_NAME,
+            recovery_fd, names["recovery_tmp"],
+        ),
+        "state": (
+            activation_parent_fd, ACTIVATION_ROOT.name,
+            activation_parent_fd, names["state_tmp"],
+        ),
+        "launch": (
+            recovery_fd, launcher.LAUNCH_REQUEST_NAME,
+            recovery_fd, names["launch_tmp"],
+        ),
+    }
+    for key, (final_fd, final, staged_fd, staged) in components.items():
+        final_exists = _entry_exists(final_fd, final)
+        staged_exists = _entry_exists(staged_fd, staged)
+        if final_exists and staged_exists:
+            raise CommitError("RUNTIME_COMMIT_ROLLBACK_COMPONENT_DUPLICATE")
+        if key == "package":
+            if final_exists:
+                _verify_expected_package(
+                    final_fd, final, artifacts=artifacts,
+                    manifest_raw=manifest_raw, allow_partial=False,
+                )
+            if staged_exists:
+                _verify_expected_package(
+                    staged_fd, staged, artifacts=artifacts,
+                    manifest_raw=manifest_raw, allow_partial=True,
+                )
+        elif key == "state":
+            if final_exists:
+                _verify_expected_state(
+                    final_fd, final, verified=verified,
+                    allow_partial=False,
+                )
+            if staged_exists:
+                _verify_expected_state(
+                    staged_fd, staged, verified=verified,
+                    allow_partial=True,
+                )
+        else:
+            raw = recovery_raw if key == "recovery" else launch_raw
+            if final_exists:
+                _verify_expected_file(
+                    final_fd, final, raw, mode=0o400,
+                )
+            if staged_exists:
+                _verify_expected_file(
+                    staged_fd, staged, raw, mode=0o400,
+                    allow_prefix=True,
+                )
+
+    moved: dict[str, bool] = {}
+    for key in ("launch", "state", "recovery", "package"):
+        final_fd, final, staged_fd, staged = components[key]
+        if _entry_exists(final_fd, final):
+            if key in {"package", "state"}:
+                _publish_directory_noreplace(
+                    final_fd, final, staged_fd, staged,
+                    published=moved, publication_key=key,
+                )
+            else:
+                _publish_file_noreplace(
+                    final_fd, final, staged,
+                    published=moved, publication_key=key,
+                )
+        if fault is not None:
+            fault(f"rollback_after_{key}_move")
+
+    if _entry_exists(recovery_fd, names["package_tmp"]):
+        _verify_expected_package(
+            recovery_fd, names["package_tmp"], artifacts=artifacts,
+            manifest_raw=manifest_raw, allow_partial=True,
+        )
+        _remove_package(recovery_fd, names["package_tmp"])
+        os.fsync(recovery_fd)
+    if fault is not None:
+        fault("rollback_after_package_cleanup")
+    if _entry_exists(activation_parent_fd, names["state_tmp"]):
+        _verify_expected_state(
+            activation_parent_fd, names["state_tmp"], verified=verified,
+            allow_partial=True,
+        )
+        _remove_state(
+            activation_parent_fd, names["state_tmp"], verified=verified,
+            allow_incomplete_staged=True,
+        )
+        os.fsync(activation_parent_fd)
+    if fault is not None:
+        fault("rollback_after_state_cleanup")
+    for key, raw in (
+        ("recovery_tmp", recovery_raw), ("launch_tmp", launch_raw),
+    ):
+        if _entry_exists(recovery_fd, names[key]):
+            _verify_expected_file(
+                recovery_fd, names[key], raw, mode=0o400,
+                allow_prefix=True,
+            )
+            _remove_file(recovery_fd, names[key])
+            os.fsync(recovery_fd)
+        if fault is not None:
+            fault(f"rollback_after_{key.removesuffix('_tmp')}_cleanup")
+    _remove_file(recovery_fd, names["rollback_intent"])
+    os.fsync(recovery_fd)
+    if fault is not None:
+        fault("rollback_after_intent_cleanup")
+
+
+def _recover_publication_prefix(
+    recovery_fd: int, activation_parent_fd: int,
+    names: Mapping[str, str], *, artifacts: Mapping[str, bytes],
+    manifest_raw: bytes, recovery_raw: bytes, launch_raw: bytes,
+    verified: Any,
+) -> str:
+    rollback_raw = _rollback_intent_raw(verified)
+    rollback_temp = _entry_exists(
+        recovery_fd, names["rollback_intent_tmp"],
+    )
+    rollback_intent = _entry_exists(
+        recovery_fd, names["rollback_intent"],
+    )
+    if rollback_temp and rollback_intent:
+        raise CommitError("RUNTIME_COMMIT_ROLLBACK_INTENT_DUPLICATE")
+    if rollback_temp:
+        _verify_expected_file(
+            recovery_fd, names["rollback_intent_tmp"], rollback_raw,
+            mode=0o400, allow_prefix=True,
+        )
+        _remove_file(recovery_fd, names["rollback_intent_tmp"])
+        os.fsync(recovery_fd)
+    if rollback_intent:
+        _resume_rollback(
+            recovery_fd, activation_parent_fd, names,
+            artifacts=artifacts, manifest_raw=manifest_raw,
+            recovery_raw=recovery_raw, launch_raw=launch_raw,
+            verified=verified,
+        )
+        return "ROLLED_BACK"
+    fixed = {
+        "package": _entry_exists(
+            recovery_fd, watchdog.RECOVERY_PACKAGE_NAME,
+        ),
+        "recovery": _entry_exists(
+            recovery_fd, watchdog.RECOVERY_REQUEST_NAME,
+        ),
+        "state": _entry_exists(
+            activation_parent_fd, ACTIVATION_ROOT.name,
+        ),
+        "launch": _entry_exists(
+            recovery_fd, launcher.LAUNCH_REQUEST_NAME,
+        ),
+    }
+    prefix = {name for name, exists in fixed.items() if exists}
+    staging_present = (
+        _entry_exists(recovery_fd, names["package_tmp"])
+        or _entry_exists(recovery_fd, names["recovery_tmp"])
+        or _entry_exists(recovery_fd, names["launch_tmp"])
+        or _entry_exists(activation_parent_fd, names["state_tmp"])
+    )
+    allowed = (
+        set(), {"package"}, {"package", "recovery"},
+        {"package", "recovery", "state"},
+        {"package", "recovery", "state", "launch"},
+    )
+    if prefix not in allowed:
+        raise CommitError("RUNTIME_COMMIT_PREFIX_SHAPE_INVALID")
+    if "package" in prefix:
+        _verify_expected_package(
+            recovery_fd, watchdog.RECOVERY_PACKAGE_NAME,
+            artifacts=artifacts, manifest_raw=manifest_raw,
+            allow_partial=False,
+        )
+    if "recovery" in prefix:
+        _verify_expected_file(
+            recovery_fd, watchdog.RECOVERY_REQUEST_NAME,
+            recovery_raw, mode=0o400,
+        )
+    if "state" in prefix:
+        _verify_expected_state(
+            activation_parent_fd, ACTIVATION_ROOT.name,
+            verified=verified, allow_partial=False,
+        )
+    if "launch" in prefix:
+        _verify_expected_file(
+            recovery_fd, launcher.LAUNCH_REQUEST_NAME,
+            launch_raw, mode=0o400,
+        )
+    if prefix in ({"package"}, {"package", "recovery"}):
+        # No activation state or launch authority exists.  Exact current
+        # coordination bytes and deterministic staging names prove that this
+        # is our interrupted transaction, so rollback and recommit are safe.
+        _cleanup_transaction_staging(
+            recovery_fd, activation_parent_fd, names,
+            artifacts=artifacts, manifest_raw=manifest_raw,
+            recovery_raw=recovery_raw, launch_raw=launch_raw,
+            verified=verified,
+        )
+        if "recovery" in prefix:
+            _remove_file(recovery_fd, watchdog.RECOVERY_REQUEST_NAME)
+        _remove_package(recovery_fd, watchdog.RECOVERY_PACKAGE_NAME)
+        os.fsync(recovery_fd)
+        return "ROLLED_BACK"
+    if prefix == {"package", "recovery", "state"}:
+        if not _entry_exists(recovery_fd, names["launch_tmp"]):
+            raise CommitError("RUNTIME_COMMIT_PREFIX_CHANGED")
+        _verify_expected_file(
+            recovery_fd, names["launch_tmp"], launch_raw, mode=0o400,
+        )
+        _cleanup_transaction_staging(
+            recovery_fd, activation_parent_fd, names,
+            artifacts=artifacts, manifest_raw=manifest_raw,
+            recovery_raw=recovery_raw, launch_raw=launch_raw,
+            verified=verified, preserve={"launch_tmp"},
+        )
+        return "RESUME_LAUNCH"
+    if prefix == {"package", "recovery", "state", "launch"}:
+        _cleanup_transaction_staging(
+            recovery_fd, activation_parent_fd, names,
+            artifacts=artifacts, manifest_raw=manifest_raw,
+            recovery_raw=recovery_raw, launch_raw=launch_raw,
+            verified=verified,
+        )
+        return "COMPLETE"
+    _cleanup_transaction_staging(
+        recovery_fd, activation_parent_fd, names,
+        artifacts=artifacts, manifest_raw=manifest_raw,
+        recovery_raw=recovery_raw, launch_raw=launch_raw,
+        verified=verified,
+    )
+    return "STAGING_CLEANED" if staging_present else "FRESH"
+
+
 def _cleanup_staged(
     recovery_fd: int, activation_parent_fd: int, names: Mapping[str, str],
+    *, verified: Any,
 ) -> None:
     for name in (names["recovery_tmp"], names["launch_tmp"]):
         try:
@@ -505,27 +1049,43 @@ def _cleanup_staged(
     except OSError:
         pass
     try:
-        _remove_state(activation_parent_fd, names["state_tmp"])
+        _remove_state(
+            activation_parent_fd, names["state_tmp"], verified=verified,
+        )
     except OSError:
         pass
 
 
 def _rollback(
     recovery_fd: int, activation_parent_fd: int, names: Mapping[str, str],
-    published: Mapping[str, bool],
+    published: Mapping[str, bool], *, artifacts: Mapping[str, bytes],
+    manifest_raw: bytes, recovery_raw: bytes, launch_raw: bytes,
+    verified: Any, fault: FaultHook | None = None,
 ) -> None:
+    del published  # Exact filesystem state, not process memory, drives repair.
     try:
-        if published["launch"]:
-            _remove_file(recovery_fd, launcher.LAUNCH_REQUEST_NAME)
-        if published["recovery"]:
-            _remove_file(recovery_fd, watchdog.RECOVERY_REQUEST_NAME)
-        if published["state"]:
-            _remove_state(activation_parent_fd, ACTIVATION_ROOT.name)
-        if published["package"]:
-            _remove_package(recovery_fd, watchdog.RECOVERY_PACKAGE_NAME)
-        _cleanup_staged(recovery_fd, activation_parent_fd, names)
+        rollback_raw = _rollback_intent_raw(verified)
+        _stage_file(
+            recovery_fd, names["rollback_intent_tmp"], rollback_raw,
+            mode=0o400,
+        )
         os.fsync(recovery_fd)
-        os.fsync(activation_parent_fd)
+        if fault is not None:
+            fault("rollback_after_intent_staging")
+        marker_published: dict[str, bool] = {}
+        _publish_file_noreplace(
+            recovery_fd, names["rollback_intent_tmp"],
+            names["rollback_intent"], published=marker_published,
+            publication_key="rollback_intent",
+        )
+        if fault is not None:
+            fault("rollback_after_intent_publish")
+        _resume_rollback(
+            recovery_fd, activation_parent_fd, names,
+            artifacts=artifacts, manifest_raw=manifest_raw,
+            recovery_raw=recovery_raw, launch_raw=launch_raw,
+            verified=verified, fault=fault,
+        )
     except BaseException as exc:
         raise CommitError("RUNTIME_COMMIT_ROLLBACK_FAILED") from exc
 
@@ -604,7 +1164,9 @@ def _stage_package(
     os.fsync(recovery_fd)
 
 
-def _stage_state(activation_parent_fd: int, name: str) -> None:
+def _stage_state(
+    activation_parent_fd: int, name: str, *, verified: Any,
+) -> None:
     os.mkdir(name, 0o700, dir_fd=activation_parent_fd)
     state_fd = os.open(
         name, os.O_RDONLY | os.O_DIRECTORY
@@ -622,15 +1184,42 @@ def _stage_state(activation_parent_fd: int, name: str) -> None:
         os.fchmod(state_fd, 0o700)
         for entry in STATE_NAMES:
             os.mkdir(entry, 0o700, dir_fd=state_fd)
+        journal_fd = os.open(
+            "journal", os.O_RDONLY | os.O_DIRECTORY
+            | getattr(os, "O_NOFOLLOW", 0)
+            | getattr(os, "O_CLOEXEC", 0), dir_fd=state_fd,
+        )
+        try:
+            _stage_file(
+                journal_fd, f".{verified.run_nonce}.lock", b"", mode=0o600,
+            )
+            _stage_file(
+                journal_fd, f"{verified.run_nonce}.json",
+                _canonical(activation._journal_claim_value(verified)) + b"\n",
+                mode=0o600,
+            )
+            os.fsync(journal_fd)
+        finally:
+            os.close(journal_fd)
         os.fsync(state_fd)
     finally:
         os.close(state_fd)
     os.fsync(activation_parent_fd)
 
 
-def _postverify(inputs: Mapping[str, bytes], verified: Any, release: Path) -> None:
+def _postverify(
+    inputs: Mapping[str, bytes], verified: Any, release: Path,
+    *, launch_raw: bytes, historical_prefix: bool = False,
+) -> None:
     package = watchdog._load_recovery_package()
-    request = launcher._load_launch_request()
+    try:
+        request = launcher._validate_launch_request(
+            watchdog._decode_object(
+                launch_raw, "RUNTIME_COMMIT_LAUNCH_REQUEST_INVALID",
+            )
+        )
+    except (launcher.LauncherError, watchdog.WatchdogError) as exc:
+        raise CommitError("RUNTIME_COMMIT_LAUNCH_REQUEST_INVALID") from exc
     if (package is None or package.get("stagedWithoutRequest") is not False
             or any(package.get(name) != raw for name, raw in {
                 "keyring.json": inputs["keyring.json"],
@@ -642,10 +1231,14 @@ def _postverify(inputs: Mapping[str, bytes], verified: Any, release: Path) -> No
             or request["planSha256"] != verified.plan_sha256
             or request["decisionSha256"] != verified.decision_sha256):
         raise CommitError("RUNTIME_COMMIT_POSTVERIFY_BINDING_MISMATCH")
-    activation._require_empty_production_activation_state()
+    activation._require_preclaimed_production_activation_state(verified)
     now = _trusted_now()
     try:
-        observed = activation.verify_activation_decision(
+        verifier = (
+            activation.verify_cleanup_recovery
+            if historical_prefix else activation.verify_activation_decision
+        )
+        observed = verifier(
             keyring_raw=package["keyring.json"],
             decision_raw=package["decision.json"],
             activation_plan_raw=package["activation-plan.json"],
@@ -668,90 +1261,166 @@ def commit_runtime_package(
 ) -> dict[str, Any]:
     release = _verify_runtime_identity()
     lock_fd = _acquire_lock()
+    interlock_fd = -1
     recovery_fd = -1
     activation_parent_fd = -1
     try:
-        inputs, verified = _load_and_verify(release)
+        inputs, verified = _load_and_verify(
+            release, allow_historical_prefix=True,
+        )
+        historical_prefix = type(verified) is activation.VerifiedRecovery
+        # Serialize all publication and rollback with launcher claim and
+        # watchdog recovery.  In particular, an operator cannot consume the
+        # last-published launch request before postverification has completed.
+        interlock_fd = activation._acquire_production_interlock(verified)
         recovery_fd = _open_root_directory(RECOVERY_PARENT)
         activation_parent_fd = _open_root_directory(
             ACTIVATION_ROOT.parent, exact_mode=ACTIVATION_PARENT_MODE,
             exact_gid=ACTIVATION_PARENT_GID,
         )
-        for name in (
-            watchdog.RECOVERY_PACKAGE_NAME,
-            watchdog.RECOVERY_REQUEST_NAME,
-            launcher.LAUNCH_REQUEST_NAME,
-        ):
-            _assert_absent(recovery_fd, name)
-        _assert_absent(activation_parent_fd, ACTIVATION_ROOT.name)
         artifacts, manifest_raw, recovery_raw, launch_raw = _payloads(
             inputs, verified,
         )
-        token = secrets.token_hex(12)
-        names = {
-            "package_tmp": f".{watchdog.RECOVERY_PACKAGE_NAME}.tmp-{token}",
-            "state_tmp": f".{ACTIVATION_ROOT.name}.tmp-{token}",
-            "recovery_tmp": f".{watchdog.RECOVERY_REQUEST_NAME}.tmp-{token}",
-            "launch_tmp": f".{launcher.LAUNCH_REQUEST_NAME}.tmp-{token}",
-        }
+        names = _transaction_names(verified)
+        recovery_mode = _recover_publication_prefix(
+            recovery_fd, activation_parent_fd, names,
+            artifacts=artifacts, manifest_raw=manifest_raw,
+            recovery_raw=recovery_raw, launch_raw=launch_raw,
+            verified=verified,
+        )
+        if historical_prefix and recovery_mode == "FRESH":
+            raise CommitError("INSUFFICIENT_DECISION_WINDOW_REMAINING")
+        if historical_prefix and recovery_mode in {
+                "ROLLED_BACK", "STAGING_CLEANED"}:
+            return {
+                "schemaVersion":
+                    "b64-064a-runtime-package-commit-receipt.v1",
+                "route": ROUTE,
+                "status": "RUNTIME_COMMIT_EXPIRED_PREFIX_CLEANED_NO_LAUNCH",
+                "runNonce": verified.run_nonce,
+                "expectedKeyringSha256": verified.keyring_sha256,
+                "planSha256": verified.plan_sha256,
+                "decisionSha256": verified.decision_sha256,
+                "runtimePackageCommitted": False,
+                "runtimePathsState": "ABSENT_VERIFIED",
+                "activationAuthorizationClaimed": False,
+                "launcherStarted": False,
+                "automaticRetryAllowed": False,
+                "actionAllowed": False,
+            }
+        if not historical_prefix and recovery_mode in {
+                "ROLLED_BACK", "STAGING_CLEANED"}:
+            recovery_mode = "FRESH"
+        if recovery_mode == "FRESH":
+            for name in (
+                watchdog.RECOVERY_PACKAGE_NAME,
+                watchdog.RECOVERY_REQUEST_NAME,
+                launcher.LAUNCH_REQUEST_NAME,
+            ):
+                _assert_absent(recovery_fd, name)
+            _assert_absent(activation_parent_fd, ACTIVATION_ROOT.name)
         published = {
-            "package": False, "state": False,
-            "recovery": False, "launch": False,
+            "package": recovery_mode in {"RESUME_LAUNCH", "COMPLETE"},
+            "recovery": recovery_mode in {"RESUME_LAUNCH", "COMPLETE"},
+            "state": recovery_mode in {"RESUME_LAUNCH", "COMPLETE"},
+            "launch": recovery_mode == "COMPLETE",
         }
-        try:
-            _stage_package(
-                recovery_fd, names["package_tmp"], artifacts, manifest_raw,
-            )
-            _stage_state(activation_parent_fd, names["state_tmp"])
-            _stage_file(
-                recovery_fd, names["recovery_tmp"], recovery_raw, mode=0o400,
-            )
-            _stage_file(
-                recovery_fd, names["launch_tmp"], launch_raw, mode=0o400,
-            )
-            os.fsync(recovery_fd)
-            if fault is not None:
-                fault("after_staging")
-            _publish_directory_noreplace(
-                recovery_fd, names["package_tmp"], recovery_fd,
-                watchdog.RECOVERY_PACKAGE_NAME, published=published,
-                publication_key="package",
-            )
-            if fault is not None:
-                fault("after_package_publish")
-            _publish_directory_noreplace(
-                activation_parent_fd, names["state_tmp"],
-                activation_parent_fd, ACTIVATION_ROOT.name,
-                published=published, publication_key="state",
-            )
-            if fault is not None:
-                fault("after_state_publish")
-            _publish_file_noreplace(
-                recovery_fd, names["recovery_tmp"],
-                watchdog.RECOVERY_REQUEST_NAME, published=published,
-                publication_key="recovery",
-            )
-            if fault is not None:
-                fault("after_recovery_request_publish")
-            _publish_file_noreplace(
-                recovery_fd, names["launch_tmp"],
-                launcher.LAUNCH_REQUEST_NAME, published=published,
-                publication_key="launch",
-            )
-            if fault is not None:
-                fault("after_launch_request_publish")
-            _postverify(inputs, verified, release)
-            if fault is not None:
-                fault("after_postverify")
-        except BaseException:
-            _rollback(
-                recovery_fd, activation_parent_fd, names, published,
-            )
-            raise
+        if recovery_mode == "COMPLETE":
+            try:
+                _postverify(
+                    inputs, verified, release, launch_raw=launch_raw,
+                    historical_prefix=historical_prefix,
+                )
+                if fault is not None:
+                    fault("after_postverify")
+            except BaseException as exc:
+                # Authority existed before this process.  A failed
+                # re-attestation cannot truthfully report runtime absence.
+                raise CommitError(
+                    "RUNTIME_COMMIT_AUTHORITY_PUBLICATION_UNCERTAIN"
+                ) from exc
+        else:
+            try:
+                if recovery_mode == "FRESH":
+                    _stage_package(
+                        recovery_fd, names["package_tmp"], artifacts,
+                        manifest_raw,
+                    )
+                    _stage_state(
+                        activation_parent_fd, names["state_tmp"],
+                        verified=verified,
+                    )
+                    _stage_file(
+                        recovery_fd, names["recovery_tmp"], recovery_raw,
+                        mode=0o400,
+                    )
+                    _stage_file(
+                        recovery_fd, names["launch_tmp"], launch_raw,
+                        mode=0o400,
+                    )
+                    os.fsync(recovery_fd)
+                    if fault is not None:
+                        fault("after_staging")
+                    _publish_directory_noreplace(
+                        recovery_fd, names["package_tmp"], recovery_fd,
+                        watchdog.RECOVERY_PACKAGE_NAME, published=published,
+                        publication_key="package",
+                    )
+                    if fault is not None:
+                        fault("after_package_publish")
+                    _publish_file_noreplace(
+                        recovery_fd, names["recovery_tmp"],
+                        watchdog.RECOVERY_REQUEST_NAME, published=published,
+                        publication_key="recovery",
+                    )
+                    if fault is not None:
+                        fault("after_recovery_request_publish")
+                    _publish_directory_noreplace(
+                        activation_parent_fd, names["state_tmp"],
+                        activation_parent_fd, ACTIVATION_ROOT.name,
+                        published=published, publication_key="state",
+                    )
+                    if fault is not None:
+                        fault("after_state_publish")
+                _postverify(
+                    inputs, verified, release, launch_raw=launch_raw,
+                    historical_prefix=historical_prefix,
+                )
+                if fault is not None:
+                    fault("after_postverify")
+            except BaseException:
+                _rollback(
+                    recovery_fd, activation_parent_fd, names, published,
+                    artifacts=artifacts, manifest_raw=manifest_raw,
+                    recovery_raw=recovery_raw, launch_raw=launch_raw,
+                    verified=verified, fault=fault,
+                )
+                raise
+            # This is the sole authority publication.  All fallible
+            # postverification and rollback-eligible work is complete.  Any
+            # exception or hard kill from this point leaves either the exact
+            # resumable P+R+S+launch_tmp prefix or the exact complete set;
+            # it must never trigger rollback.
+            try:
+                _publish_file_noreplace(
+                    recovery_fd, names["launch_tmp"],
+                    launcher.LAUNCH_REQUEST_NAME, published=published,
+                    publication_key="launch",
+                )
+                if fault is not None:
+                    fault("after_launch_request_publish")
+            except BaseException as exc:
+                raise CommitError(
+                    "RUNTIME_COMMIT_AUTHORITY_PUBLICATION_UNCERTAIN"
+                ) from exc
         return {
             "schemaVersion": "b64-064a-runtime-package-commit-receipt.v1",
             "route": ROUTE,
-            "status": "RUNTIME_PACKAGE_COMMITTED_LAUNCHER_NOT_STARTED",
+            "status": (
+                "RUNTIME_PACKAGE_RECOVERED_EXPIRED_LAUNCHER_NOT_STARTED"
+                if historical_prefix else
+                "RUNTIME_PACKAGE_COMMITTED_LAUNCHER_NOT_STARTED"
+            ),
             "runNonce": verified.run_nonce,
             "expectedKeyringSha256": verified.keyring_sha256,
             "planSha256": verified.plan_sha256,
@@ -759,7 +1428,9 @@ def commit_runtime_package(
             "recoveryManifestSha256": _sha(manifest_raw),
             "runtimePackageCommitted": True,
             "runtimePathsState": "COMMITTED_VERIFIED",
-            "emptyActivationStateCreated": True,
+            "activationAuthorizationClaimed": True,
+            "activationJournalState": "CLAIMED",
+            "historicalPrefixRecovery": historical_prefix,
             "launcherStarted": False,
             "automaticRetryAllowed": False,
             "actionAllowed": False,
@@ -769,6 +1440,8 @@ def commit_runtime_package(
             os.close(activation_parent_fd)
         if recovery_fd >= 0:
             os.close(recovery_fd)
+        if interlock_fd >= 0:
+            os.close(interlock_fd)
         os.close(lock_fd)
 
 
@@ -779,15 +1452,23 @@ def main() -> int:
         code = 0
     except BaseException as exc:
         rollback_uncertain = str(exc) == "RUNTIME_COMMIT_ROLLBACK_FAILED"
+        authority_uncertain = str(exc) == \
+            "RUNTIME_COMMIT_AUTHORITY_PUBLICATION_UNCERTAIN"
+        uncertain = rollback_uncertain or authority_uncertain
         receipt = {
             "schemaVersion": "b64-064a-runtime-package-commit-receipt.v1",
             "route": ROUTE,
             "status": "NO_GO",
             "reason": _reason(exc),
-            "runtimePackageCommitted": None if rollback_uncertain else False,
+            "runtimePackageCommitted": None if uncertain else False,
             "runtimePathsState": (
+                "COMMITTED_OR_RESUMABLE_PREFIX_REQUIRES_INSPECTION"
+                if authority_uncertain else
                 "UNKNOWN_REQUIRES_MANUAL_INSPECTION"
                 if rollback_uncertain else "ABSENT_OR_UNCHANGED"
+            ),
+            "activationAuthorizationClaimed": (
+                None if uncertain else False
             ),
             "launcherStarted": False,
             "automaticRetryAllowed": False,

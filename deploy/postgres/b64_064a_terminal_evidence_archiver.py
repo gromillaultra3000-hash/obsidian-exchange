@@ -43,10 +43,14 @@ RECOVERY_PARENT = watchdog.RECOVERY_PARENT
 ACTIVATION_ROOT = activation.PRODUCTION_ACTIVATION_ROOT
 ARCHIVE_LOCK = Path("/run/lock/obsidian-b64-064a-terminal-archive.lock")
 MANIFEST_NAME = "TERMINAL-MANIFEST.json"
+MANIFEST_TEMP_NAME = ".TERMINAL-MANIFEST.json.create.tmp"
 LEGACY_ARCHIVE_SCHEMA = "b64-064a-terminal-evidence-archive.v1"
 ARCHIVE_SCHEMA = "b64-064a-terminal-evidence-archive.v2"
 MAX_FILE_BYTES = 1024 * 1024
 RENAME_NOREPLACE = 1
+AT_EMPTY_PATH = 0x1000
+AT_SYMLINK_FOLLOW = 0x400
+AT_FDCWD = -100
 FaultHook = Callable[[str], None]
 
 LEGACY_MANIFEST_KEYS = {
@@ -370,6 +374,85 @@ def _atomic_write(parent_fd: int, name: str, raw: bytes, *, mode: int) -> None:
     os.fsync(parent_fd)
 
 
+def _publish_staging_manifest(
+    staging: Path, staging_fd: int, manifest_raw: bytes,
+    *, fault: FaultHook | None,
+) -> None:
+    """Repair or atomically publish the deterministic staging manifest."""
+    entries = set(os.listdir(staging_fd))
+    if MANIFEST_NAME in entries:
+        existing = _read_file(staging / MANIFEST_NAME, mode=0o400)
+        if existing != manifest_raw:
+            raise ArchiveError("TERMINAL_ARCHIVE_STAGING_MANIFEST_MISMATCH")
+        if MANIFEST_TEMP_NAME in entries:
+            # Atomic rename cannot legitimately leave both names.  Reject the
+            # ambiguous tree rather than deleting unbound evidence.
+            raise ArchiveError("TERMINAL_ARCHIVE_STAGING_MANIFEST_AMBIGUOUS")
+        return
+    if entries - {MANIFEST_TEMP_NAME}:
+        raise ArchiveError("TERMINAL_ARCHIVE_STAGING_MANIFEST_MISSING")
+    if MANIFEST_TEMP_NAME in entries:
+        temporary = _read_file(
+            staging / MANIFEST_TEMP_NAME, mode=0o400, allow_empty=True,
+        )
+        if temporary == manifest_raw:
+            _rename_noreplace(
+                staging / MANIFEST_TEMP_NAME, staging / MANIFEST_NAME,
+            )
+            os.fsync(staging_fd)
+            if fault is not None:
+                fault("after_manifest")
+            return
+        raise ArchiveError("TERMINAL_ARCHIVE_STAGING_MANIFEST_MISMATCH")
+
+    descriptor = -1
+    try:
+        unnamed_flag = getattr(os, "O_TMPFILE", 0)
+        if unnamed_flag == 0:
+            raise ArchiveError("TERMINAL_ARCHIVE_ATOMIC_LINK_UNAVAILABLE")
+        descriptor = os.open(
+            ".", os.O_RDWR | unnamed_flag | getattr(os, "O_CLOEXEC", 0),
+            0o400, dir_fd=staging_fd,
+        )
+        if fault is not None:
+            fault("after_manifest_temp_create")
+        split = max(1, len(manifest_raw) // 2)
+        first = memoryview(manifest_raw[:split])
+        while first:
+            written = os.write(descriptor, first)
+            if written <= 0:
+                raise ArchiveError("TERMINAL_ARCHIVE_WRITE_FAILED")
+            first = first[written:]
+        if fault is not None:
+            fault("after_manifest_partial_write")
+        remainder = memoryview(manifest_raw[split:])
+        while remainder:
+            written = os.write(descriptor, remainder)
+            if written <= 0:
+                raise ArchiveError("TERMINAL_ARCHIVE_WRITE_FAILED")
+            remainder = remainder[written:]
+        os.fsync(descriptor)
+        if fault is not None:
+            fault("after_manifest_temp_fsync")
+        _link_unnamed_noreplace(
+            descriptor, staging_fd, MANIFEST_TEMP_NAME,
+        )
+        os.fsync(staging_fd)
+        if fault is not None:
+            fault("after_manifest_temp_publish")
+    except OSError as exc:
+        raise ArchiveError("TERMINAL_ARCHIVE_WRITE_FAILED") from exc
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+    _rename_noreplace(
+        staging / MANIFEST_TEMP_NAME, staging / MANIFEST_NAME,
+    )
+    os.fsync(staging_fd)
+    if fault is not None:
+        fault("after_manifest")
+
+
 def _rename_noreplace(source: Path, target: Path) -> None:
     libc = ctypes.CDLL(None, use_errno=True)
     renameat2 = getattr(libc, "renameat2", None)
@@ -389,6 +472,40 @@ def _rename_noreplace(source: Path, target: Path) -> None:
         if code in {errno.ENOSYS, errno.EINVAL, errno.EOPNOTSUPP, errno.EXDEV}:
             raise ArchiveError("TERMINAL_ARCHIVE_ATOMIC_RENAME_UNAVAILABLE")
         raise ArchiveError("TERMINAL_ARCHIVE_RENAME_FAILED")
+
+
+def _link_unnamed_noreplace(
+    source_fd: int, target_parent_fd: int, target: str,
+) -> None:
+    libc = ctypes.CDLL(None, use_errno=True)
+    linkat = getattr(libc, "linkat", None)
+    if linkat is None:
+        raise ArchiveError("TERMINAL_ARCHIVE_ATOMIC_LINK_UNAVAILABLE")
+    linkat.argtypes = [
+        ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p,
+        ctypes.c_int,
+    ]
+    linkat.restype = ctypes.c_int
+    linked = linkat(
+        source_fd, b"", target_parent_fd, os.fsencode(target), AT_EMPTY_PATH,
+    )
+    if linked != 0 and ctypes.get_errno() in {errno.ENOENT, errno.EPERM}:
+        # Root inside a constrained service/container may intentionally lack
+        # CAP_DAC_READ_SEARCH.  The proc-fd form links the same unnamed inode
+        # without broadening filesystem authority.
+        linked = linkat(
+            AT_FDCWD, os.fsencode(f"/proc/self/fd/{source_fd}"),
+            target_parent_fd, os.fsencode(target), AT_SYMLINK_FOLLOW,
+        )
+    if linked != 0:
+        code = ctypes.get_errno()
+        if code == errno.EEXIST:
+            raise ArchiveError("TERMINAL_ARCHIVE_TARGET_EXISTS")
+        if code in {
+                errno.ENOSYS, errno.EINVAL, errno.EOPNOTSUPP, errno.EXDEV,
+        }:
+            raise ArchiveError("TERMINAL_ARCHIVE_ATOMIC_LINK_UNAVAILABLE")
+        raise ArchiveError("TERMINAL_ARCHIVE_LINK_FAILED")
 
 
 def _dormant() -> dict[str, Any]:
@@ -507,10 +624,18 @@ def _terminal_state(recovery: Any) -> tuple[dict[str, Any], dict[str, Any]]:
         derived_plan_sha256=recovery.derived_execution_plan_sha256,
         workspace_parent=activation.PRODUCTION_WORKSPACE_ROOT,
     ).inspect_optional()
+    resource_state = resources.get("state") \
+        if isinstance(resources, Mapping) else None
+    terminal_pair_valid = (
+        (terminal_state == "CLOSED" and resource_state == "CLOSED")
+        or (terminal_state == "RECONCILED_HOLD" and resource_state in {
+            "RECONCILED_HOLD", "CLOSED",
+        })
+    )
     if (not isinstance(resources, Mapping)
-            or resources.get("state") != terminal_state
+            or not terminal_pair_valid
             or type(resources.get("credentialIssued")) is not bool
-            or (terminal_state == "CLOSED"
+            or (resource_state == "CLOSED"
                 and resources.get("credentialIssued") is not True)
             or resources.get("credentialReconciled") is not True
             or any(resources.get(name) is not True for name in (
@@ -561,6 +686,71 @@ def _require_resumable_staging_manifest(
 
 def _component_sources() -> dict[str, Path]:
     return {name: factory() for name, factory in COMPONENTS.items()}
+
+
+def _staging_manifest_for_resume(
+    staging: Path, *, nonce: str, decision_sha256: str,
+) -> bytes | None:
+    """Return a durable manifest, or identify an uninitialized safe prefix."""
+    descriptor = -1
+    try:
+        info = os.lstat(staging)
+        mode = stat.S_IMODE(info.st_mode)
+        if (not stat.S_ISDIR(info.st_mode) or info.st_uid != 0
+                or info.st_gid != 0 or mode not in {0o700, 0o500}):
+            raise ArchiveError("TERMINAL_ARCHIVE_STAGING_UNSAFE")
+        descriptor = _open_directory(staging, mode=mode)
+        entries = set(os.listdir(descriptor))
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+    if MANIFEST_NAME in entries:
+        if MANIFEST_TEMP_NAME in entries:
+            raise ArchiveError("TERMINAL_ARCHIVE_STAGING_MANIFEST_AMBIGUOUS")
+        return _read_file(staging / MANIFEST_NAME, mode=0o400)
+    if (mode != 0o700 or entries - {MANIFEST_TEMP_NAME}
+            or not all(_path_exists(path)
+                       for path in _component_sources().values())):
+        raise ArchiveError("TERMINAL_ARCHIVE_STAGING_MANIFEST_MISSING")
+    if MANIFEST_TEMP_NAME in entries:
+        # Only a fully fsync'ed unnamed inode can be linked under this name.
+        # Read and validate its original bytes so dynamic evidence is never
+        # recomputed after a crash between link and final rename.
+        temporary = _read_file(
+            staging / MANIFEST_TEMP_NAME, mode=0o400, allow_empty=True,
+        )
+        _decode_manifest(
+            temporary, nonce=nonce, decision_sha256=decision_sha256,
+        )
+        return temporary
+    return None
+
+
+def _require_locked_dormant_target(
+    dormant: Mapping[str, Any], recovery: Any,
+) -> Mapping[str, Any]:
+    """Bind pre-lock exact dormancy to the live tuple held for archiving."""
+    prior = dormant.get("container")
+    target = getattr(recovery, "target", None)
+    if not isinstance(prior, Mapping) or not isinstance(target, Mapping):
+        raise ArchiveError("TERMINAL_ARCHIVE_DORMANT_TUPLE_INVALID")
+    try:
+        current = watchdog.inspect_container(
+            activation.PRODUCTION_CONTAINER,
+            expected_image_id=activation.PRODUCTION_IMAGE_ID,
+            expected_volume_name=watchdog.PRODUCTION_VOLUME,
+            allow_contract_container=False,
+        )
+    except BaseException as exc:
+        raise ArchiveError("TERMINAL_ARCHIVE_DORMANT_TUPLE_CHANGED") from exc
+    if (dict(prior) != current
+            or target.get("containerName") != activation.PRODUCTION_CONTAINER
+            or target.get("containerId") != current.get("containerId")
+            or target.get("imageId") != current.get("imageId")
+            or target.get("systemIdentifier")
+            != dormant.get("systemIdentifier")):
+        raise ArchiveError("TERMINAL_ARCHIVE_DORMANT_TUPLE_CHANGED")
+    return dormant
 
 
 def _collect_files(
@@ -757,10 +947,18 @@ def _decode_manifest(raw: bytes, *, nonce: str, decision_sha256: str) -> dict[st
                 {"RECONCILED_HOLD"} if legacy
                 else {"CLOSED", "RECONCILED_HOLD"}
             )
-            or value.get("resourceState") != terminal_state
+            or (legacy and value.get("resourceState") != terminal_state)
+            or (current and not (
+                (terminal_state == "CLOSED"
+                 and value.get("resourceState") == "CLOSED")
+                or (terminal_state == "RECONCILED_HOLD"
+                    and value.get("resourceState") in {
+                        "RECONCILED_HOLD", "CLOSED",
+                    })
+            ))
             or type(value.get("credentialIssued")) is not bool
             or (legacy and value.get("credentialIssued") is not False)
-            or (terminal_state == "CLOSED"
+            or (value.get("resourceState") == "CLOSED"
                 and value.get("credentialIssued") is not True)
             or value.get("credentialReconciled") is not True
             or any(value.get(name) is not True for name in (
@@ -971,20 +1169,45 @@ def _publish_archive(
         if not _path_exists(staging):
             os.mkdir(staging.name, 0o700, dir_fd=parent_fd)
             os.fsync(parent_fd)
-            staging_fd = _open_directory(staging, mode=0o700)
-            try:
-                _atomic_write(staging_fd, MANIFEST_NAME, manifest_raw, mode=0o400)
-            finally:
-                os.close(staging_fd)
             if fault is not None:
-                fault("after_manifest")
-        else:
+                fault("after_staging_mkdir")
+        staging_info = os.lstat(staging)
+        staging_mode = stat.S_IMODE(staging_info.st_mode)
+        if (not stat.S_ISDIR(staging_info.st_mode)
+                or staging_info.st_uid != 0 or staging_info.st_gid != 0
+                or staging_mode not in {0o700, 0o500}):
+            raise ArchiveError("TERMINAL_ARCHIVE_STAGING_UNSAFE")
+        if staging_mode == 0o500:
             existing = _read_file(staging / MANIFEST_NAME, mode=0o400)
             if existing != manifest_raw:
-                raise ArchiveError("TERMINAL_ARCHIVE_STAGING_MANIFEST_MISMATCH")
+                raise ArchiveError(
+                    "TERMINAL_ARCHIVE_STAGING_MANIFEST_MISMATCH"
+                )
+            manifest = _verify_archive(
+                staging, nonce=nonce, decision_sha256=decision_sha256,
+                root_mode=0o500,
+            )
+            if any(
+                    _path_exists(path)
+                    for path in _component_sources().values()):
+                raise ArchiveError(
+                    "TERMINAL_ARCHIVE_SEALED_STAGING_WITH_RUNTIME_PATHS"
+                )
+            _rename_noreplace(staging, final)
+            os.fsync(parent_fd)
+            if fault is not None:
+                fault("after_archive_publish")
+            manifest = _verify_archive(
+                final, nonce=nonce, decision_sha256=decision_sha256,
+                root_mode=0o500,
+            )
+            return final, manifest, False
         staging_fd = _open_directory(staging, mode=0o700)
         archive_device = os.fstat(parent_fd).st_dev
         try:
+            _publish_staging_manifest(
+                staging, staging_fd, manifest_raw, fault=fault,
+            )
             for component, source in _component_sources().items():
                 target = staging / component
                 source_exists = _path_exists(source)
@@ -1020,6 +1243,8 @@ def _publish_archive(
             )
             os.chmod(staging, 0o500, follow_symlinks=False)
             os.fsync(staging_fd)
+            if fault is not None:
+                fault("after_archive_seal")
             _rename_noreplace(staging, final)
             os.fsync(parent_fd)
             if fault is not None:
@@ -1052,19 +1277,24 @@ def archive_terminal_evidence(
             if activation_live:
                 raise ArchiveError("TERMINAL_ARCHIVE_ACTIVATION_LIVE")
             staging, final = _archive_names(nonce)
+            manifest_raw = None
             if _path_exists(final):
                 manifest_raw = _read_file(final / MANIFEST_NAME, mode=0o400)
             elif _path_exists(staging):
-                manifest_raw = _read_file(staging / MANIFEST_NAME, mode=0o400)
-                staging_manifest = _decode_manifest(
-                    manifest_raw, nonce=nonce,
+                manifest_raw = _staging_manifest_for_resume(
+                    staging, nonce=nonce,
                     decision_sha256=decision_sha256,
                 )
-                resume_now = _trusted_now()
-                _require_resumable_staging_manifest(
-                    staging_manifest, now_epoch=resume_now,
-                )
-            else:
+                if manifest_raw is not None:
+                    staging_manifest = _decode_manifest(
+                        manifest_raw, nonce=nonce,
+                        decision_sha256=decision_sha256,
+                    )
+                    resume_now = _trusted_now()
+                    _require_resumable_staging_manifest(
+                        staging_manifest, now_epoch=resume_now,
+                    )
+            if manifest_raw is None:
                 package = watchdog._load_recovery_package()
                 if package is None:
                     raise ArchiveError("TERMINAL_ARCHIVE_RECOVERY_PACKAGE_MISSING")
@@ -1075,7 +1305,14 @@ def archive_terminal_evidence(
                 journal_object = activation.ActivationJournal(
                     activation.PRODUCTION_JOURNAL_ROOT, recovery,
                 )
-                execution_lock = journal_object.acquire_execution_lock()
+                try:
+                    execution_lock = journal_object.acquire_execution_lock(
+                        require_existing=True,
+                    )
+                except FileNotFoundError as exc:
+                    raise ArchiveError(
+                        "TERMINAL_ARCHIVE_EXECUTION_LOCK_MISSING"
+                    ) from exc
                 journal, resources = _terminal_state(recovery)
                 _require_terminal_decision_expired(
                     recovery, journal, now_epoch=verified_now,
@@ -1083,6 +1320,7 @@ def archive_terminal_evidence(
                 _validate_component_trees(
                     nonce, terminal_state=journal["state"],
                 )
+                locked_dormant = _require_locked_dormant_target(pre, recovery)
                 attestor = executor_module.BoundRecoveryExecutor(
                     container=activation.PRODUCTION_CONTAINER,
                     container_id=recovery.target["containerId"],
@@ -1099,9 +1337,15 @@ def archive_terminal_evidence(
                         or dormant_attestation.get("credentialState") != "ABSENT"
                         or dormant_attestation.get("activeSessions") != 0):
                     raise ArchiveError("TERMINAL_ARCHIVE_DORMANT_ATTESTATION_FAILED")
+                # Container PID/start/restart changes cannot be smuggled into
+                # the manifest between the pre-lock watchdog pass and the
+                # signed-target executor attestation.
+                locked_dormant = _require_locked_dormant_target(
+                    locked_dormant, recovery,
+                )
                 manifest_raw = _manifest(
                     release=release, recovery=recovery, journal=journal,
-                    resources=resources, dormant=pre,
+                    resources=resources, dormant=locked_dormant,
                     signed_artifact_release=signed_release,
                     archive_authorized_at_epoch=verified_now,
                 )

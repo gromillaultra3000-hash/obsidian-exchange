@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import ctypes
+import errno
 import fcntl
 import hashlib
 import json
@@ -271,6 +272,8 @@ class ExecutorResourceJournal:
         self.workspace_parent = workspace_parent
         self.run_nonce = run_nonce
         self.path = root / f"{run_nonce}.resources.json"
+        self.create_temp_name = f".{self.path.name}.create.tmp"
+        self.update_temp_name = f".{self.path.name}.transition.tmp"
         workspace_parent_stat = workspace_parent.stat()
         self.initial = {
             "schemaVersion": self.SCHEMA,
@@ -320,11 +323,11 @@ class ExecutorResourceJournal:
             raise ExecutorError("EXECUTOR_JOURNAL_ROOT_UNSAFE")
         return descriptor
 
-    def _read_at(self, directory_fd: int) -> dict[str, Any]:
+    def _read_named(self, directory_fd: int, name: str) -> dict[str, Any]:
         descriptor = -1
         try:
             descriptor = os.open(
-                self.path.name,
+                name,
                 os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
                 | getattr(os, "O_CLOEXEC", 0),
                 dir_fd=directory_fd,
@@ -381,6 +384,135 @@ class ExecutorResourceJournal:
             raise ExecutorError("EXECUTOR_RESOURCE_JOURNAL_INVALID")
         return value
 
+    def _read_at(self, directory_fd: int) -> dict[str, Any]:
+        return self._read_named(directory_fd, self.path.name)
+
+    @staticmethod
+    def _rename_noreplace(
+        directory_fd: int, source: str, target: str,
+    ) -> None:
+        renameat2 = getattr(ctypes.CDLL(None, use_errno=True), "renameat2", None)
+        if renameat2 is None:
+            raise ExecutorError("EXECUTOR_ATOMIC_JOURNAL_CREATE_UNAVAILABLE")
+        renameat2.argtypes = [
+            ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p,
+            ctypes.c_uint,
+        ]
+        renameat2.restype = ctypes.c_int
+        if renameat2(
+            directory_fd, os.fsencode(source), directory_fd,
+            os.fsencode(target), 1,
+        ) != 0:
+            code = ctypes.get_errno()
+            if code == errno.EEXIST:
+                raise ExecutorError("EXECUTOR_RESOURCE_JOURNAL_REPLAY")
+            raise ExecutorError("EXECUTOR_ATOMIC_JOURNAL_CREATE_FAILED")
+
+    def _repair_create_temp(
+        self, directory_fd: int, expected_raw: bytes,
+    ) -> bool:
+        try:
+            descriptor = os.open(
+                self.create_temp_name,
+                os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+                | getattr(os, "O_CLOEXEC", 0), dir_fd=directory_fd,
+            )
+        except FileNotFoundError:
+            return False
+        try:
+            metadata = os.fstat(descriptor)
+            if (not stat.S_ISREG(metadata.st_mode)
+                    or metadata.st_uid != os.geteuid()
+                    or stat.S_IMODE(metadata.st_mode) != 0o600
+                    or metadata.st_nlink != 1
+                    or metadata.st_size > len(expected_raw)):
+                raise ExecutorError("EXECUTOR_CREATE_TEMP_UNSAFE")
+            raw = b""
+            while len(raw) < metadata.st_size:
+                chunk = os.read(descriptor, metadata.st_size - len(raw))
+                if not chunk:
+                    raise ExecutorError("EXECUTOR_CREATE_TEMP_UNSAFE")
+                raw += chunk
+            if raw != expected_raw[:len(raw)] or os.read(descriptor, 1):
+                raise ExecutorError("EXECUTOR_CREATE_TEMP_UNSAFE")
+        finally:
+            os.close(descriptor)
+        try:
+            os.stat(
+                self.path.name, dir_fd=directory_fd,
+                follow_symlinks=False,
+            )
+        except FileNotFoundError:
+            os.unlink(self.create_temp_name, dir_fd=directory_fd)
+            os.fsync(directory_fd)
+            return True
+        raise ExecutorError("EXECUTOR_CREATE_TEMP_WITH_FINAL")
+
+    def _write_update_image(
+        self, directory_fd: int, value: Mapping[str, Any],
+    ) -> None:
+        raw = activation._canonical(value) + b"\n"
+        descriptor = os.open(
+            self.update_temp_name,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL
+            | getattr(os, "O_NOFOLLOW", 0)
+            | getattr(os, "O_CLOEXEC", 0), 0o600,
+            dir_fd=directory_fd,
+        )
+        try:
+            activation._write_all(descriptor, raw)
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+        os.replace(
+            self.update_temp_name, self.path.name,
+            src_dir_fd=directory_fd, dst_dir_fd=directory_fd,
+        )
+        os.fsync(directory_fd)
+
+    def _repair_update_temp(self, directory_fd: int) -> bool:
+        try:
+            os.stat(
+                self.update_temp_name, dir_fd=directory_fd,
+                follow_symlinks=False,
+            )
+        except FileNotFoundError:
+            return False
+        current = self._read_at(directory_fd)
+        try:
+            pending = self._read_named(
+                directory_fd, self.update_temp_name,
+            )
+            self._validate_transition(current, pending)
+        except ExecutorError:
+            try:
+                metadata = os.stat(
+                    self.update_temp_name, dir_fd=directory_fd,
+                    follow_symlinks=False,
+                )
+            except OSError as exc:
+                raise ExecutorError("EXECUTOR_UPDATE_TEMP_UNSAFE") from exc
+            if (not stat.S_ISREG(metadata.st_mode)
+                    or metadata.st_uid != os.geteuid()
+                    or stat.S_IMODE(metadata.st_mode) != 0o600
+                    or metadata.st_nlink != 1
+                    or metadata.st_size > 64 * 1024
+                    or current["state"] in {"CLOSED", "RECONCILED_HOLD"}):
+                raise ExecutorError("EXECUTOR_UPDATE_TEMP_UNSAFE")
+            os.unlink(self.update_temp_name, dir_fd=directory_fd)
+            os.fsync(directory_fd)
+            pending = {
+                **current, "state": "HOLD", "credentialIssued": True,
+            }
+            self._write_update_image(directory_fd, pending)
+            return True
+        os.replace(
+            self.update_temp_name, self.path.name,
+            src_dir_fd=directory_fd, dst_dir_fd=directory_fd,
+        )
+        os.fsync(directory_fd)
+        return True
+
     @staticmethod
     def _validate_transition(
         current: Mapping[str, Any], value: Mapping[str, Any],
@@ -426,6 +558,20 @@ class ExecutorResourceJournal:
 
     def create(self) -> None:
         raw = activation._canonical(self.initial) + b"\n"
+        directory_fd = self._open_root()
+        try:
+            self._repair_create_temp(directory_fd, raw)
+            try:
+                os.stat(
+                    self.path.name, dir_fd=directory_fd,
+                    follow_symlinks=False,
+                )
+            except FileNotFoundError:
+                pass
+            else:
+                raise ExecutorError("EXECUTOR_RESOURCE_JOURNAL_REPLAY")
+        finally:
+            os.close(directory_fd)
         workspace_parent_fd = os.open(
             self.workspace_parent,
             os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_NOFOLLOW", 0)
@@ -452,7 +598,7 @@ class ExecutorResourceJournal:
         directory_fd = self._open_root()
         try:
             descriptor = os.open(
-                self.path.name,
+                self.create_temp_name,
                 os.O_WRONLY | os.O_CREAT | os.O_EXCL
                 | getattr(os, "O_NOFOLLOW", 0),
                 0o600, dir_fd=directory_fd,
@@ -462,6 +608,9 @@ class ExecutorResourceJournal:
                 os.fsync(descriptor)
             finally:
                 os.close(descriptor)
+            self._rename_noreplace(
+                directory_fd, self.create_temp_name, self.path.name,
+            )
             os.fsync(directory_fd)
         except FileExistsError as exc:
             raise ExecutorError(
@@ -474,41 +623,20 @@ class ExecutorResourceJournal:
         if not set(changes) <= set(self.initial):
             raise ExecutorError("EXECUTOR_RESOURCE_JOURNAL_UPDATE_INVALID")
         directory_fd = self._open_root()
-        temporary = (
-            f".{self.path.name}.{os.getpid()}.{time.monotonic_ns()}.tmp"
-        )
         try:
+            self._repair_update_temp(directory_fd)
             current = self._read_at(directory_fd)
             value = {**current, **changes}
             self._validate_transition(current, value)
-            raw = activation._canonical(value) + b"\n"
-            descriptor = os.open(
-                temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL
-                | getattr(os, "O_NOFOLLOW", 0)
-                | getattr(os, "O_CLOEXEC", 0), 0o600,
-                dir_fd=directory_fd,
-            )
-            try:
-                activation._write_all(descriptor, raw)
-                os.fsync(descriptor)
-            finally:
-                os.close(descriptor)
-            os.replace(
-                temporary, self.path.name,
-                src_dir_fd=directory_fd, dst_dir_fd=directory_fd,
-            )
-            os.fsync(directory_fd)
+            self._write_update_image(directory_fd, value)
         finally:
-            try:
-                os.unlink(temporary, dir_fd=directory_fd)
-            except OSError:
-                pass
             os.close(directory_fd)
         return value
 
     def inspect(self) -> dict[str, Any]:
         directory_fd = self._open_root()
         try:
+            self._repair_update_temp(directory_fd)
             return self._read_at(directory_fd)
         finally:
             os.close(directory_fd)
@@ -516,6 +644,9 @@ class ExecutorResourceJournal:
     def inspect_optional(self) -> dict[str, Any] | None:
         directory_fd = self._open_root()
         try:
+            self._repair_create_temp(
+                directory_fd, activation._canonical(self.initial) + b"\n",
+            )
             try:
                 os.stat(
                     self.path.name, dir_fd=directory_fd,
@@ -523,6 +654,7 @@ class ExecutorResourceJournal:
                 )
             except FileNotFoundError:
                 return None
+            self._repair_update_temp(directory_fd)
             return self._read_at(directory_fd)
         finally:
             os.close(directory_fd)
@@ -1871,9 +2003,43 @@ class BoundRecoveryExecutor(BoundActivationExecutor):
         )
         if type(verified) is not activation.VerifiedRecovery:
             raise ExecutorError("RECOVERY_EXECUTOR_CAPABILITY_INVALID")
-        return super().reconcile_resources(
+        receipt = super().reconcile_resources(
             plan=plan, authorization=verified,
         )
+        if receipt.get("status") != "EXECUTOR_RESOURCES_ABSENT_NO_JOURNAL":
+            return receipt
+
+        # The canonical execute path creates this journal before it can issue
+        # the reader credential.  Its complete absence, combined with the
+        # exact dormant/absence receipt above, therefore proves a pre-executor
+        # stop.  Synthesize terminal cleanup evidence so the durable outer
+        # CLAIMED/RUNNING journal can become archivable without inventing a
+        # customer-row read or granting an execution capability.
+        resources = ExecutorResourceJournal(
+            root=self.resource_journal_root,
+            workspace_parent=self.workspace_parent,
+            run_nonce=verified.run_nonce,
+            environment=verified.environment,
+            target=verified.target,
+            plan_sha256=verified.plan_sha256,
+            decision_sha256=verified.decision_sha256,
+            derived_plan_sha256=verified.derived_execution_plan_sha256,
+        )
+        resources.create()
+        resources.update(
+            state="HOLD", credentialReconciled=True,
+            workspaceAbsent=True, proxyAbsent=True,
+            dumpAbsent=True, restoreAbsent=True,
+        )
+        resources.update(state="RECONCILED_HOLD")
+        return {
+            "status": "EXECUTOR_RESOURCES_RECONCILED_HOLD",
+            "loginState": "DISABLED", "credentialState": "ABSENT",
+            "activeSessions": 0, "workspaceAbsent": True,
+            "proxyAbsent": True, "dumpAbsent": True,
+            "restoreAbsent": True, "automaticRetryAllowed": False,
+            "actionAllowed": False,
+        }
 
     def _reconcile_credential(
         self, effective_plan: Mapping[str, Any],

@@ -56,6 +56,11 @@ RECOVERY_PACKAGE_NAME = "b64-064a-recovery-package.v1"
 RECOVERY_REQUEST_SCHEMA = "b64-064a-watchdog-recovery-request.v1"
 RECOVERY_PACKAGE_SCHEMA = "b64-064a-watchdog-recovery-package.v1"
 RECOVERY_ACTION = "RECONCILE_EXISTING_INCOMPLETE_ONLY"
+LAUNCH_REQUEST_NAME = "b64-064a-launch-request.v1.json"
+LAUNCH_REQUEST_SCHEMA = "b64-064a-production-launch-request.v1"
+LAUNCH_ACTION = "EXECUTE_SIGNED_ACTIVATION_ONCE"
+ROLLBACK_INTENT_NAME = ".b64-064a-runtime-rollback.intent"
+ROLLBACK_INTENT_SCHEMA = "b64-064a-runtime-rollback-intent.v1"
 ACTIVATION_ROUTE = "E0/E0.3/B5.3/064A"
 ACTIVATION_JOURNAL_SCHEMA = "b64-064a-production-activation-journal.v2"
 ACTIVATION_RECEIPT_SCHEMA = "b64-064a-production-activation-receipt.v2"
@@ -220,6 +225,150 @@ def _validate_recovery_binding(value: Mapping[str, Any], *, schema: str) -> None
     )
 
 
+def _canonical_runtime_marker(value: Mapping[str, Any]) -> bytes:
+    try:
+        return json.dumps(
+            dict(value), sort_keys=True, separators=(",", ":"),
+            ensure_ascii=False,
+        ).encode("utf-8")
+    except (TypeError, ValueError, UnicodeError) as exc:
+        raise WatchdogError("WATCHDOG_RUNTIME_MARKER_INVALID") from exc
+
+
+def _runtime_commit_markers() -> dict[str, Any]:
+    """Read rollback/launch markers while the activation interlock is held."""
+    parent_fd = _open_recovery_parent()
+    if parent_fd is None:
+        return {"rollbackIntent": None, "launchRequest": None}
+    try:
+        entries = set(os.listdir(parent_fd))
+        rollback_temps = {
+            name for name in entries if re.fullmatch(
+                re.escape(ROLLBACK_INTENT_NAME) + r"\.tmp-[0-9a-f]{24}",
+                name,
+            ) is not None
+        }
+        if (len(rollback_temps) > 1
+                or (rollback_temps and ROLLBACK_INTENT_NAME in entries)):
+            raise WatchdogError(
+                "WATCHDOG_RUNTIME_ROLLBACK_INTENT_INVALID"
+            )
+        rollback_raw = (
+            _read_bound_file(
+                parent_fd, ROLLBACK_INTENT_NAME, mode=0o400,
+                maximum=64 * 1024, missing_ok=False,
+            )
+            if ROLLBACK_INTENT_NAME in entries else None
+        )
+        if rollback_temps:
+            temp_name = next(iter(rollback_temps))
+            temp_fd = -1
+            try:
+                temp_fd = os.open(
+                    temp_name, os.O_RDONLY
+                    | getattr(os, "O_NOFOLLOW", 0)
+                    | getattr(os, "O_CLOEXEC", 0), dir_fd=parent_fd,
+                )
+                metadata = os.fstat(temp_fd)
+                if (not stat.S_ISREG(metadata.st_mode)
+                        or metadata.st_uid != 0 or metadata.st_gid != 0
+                        or stat.S_IMODE(metadata.st_mode) != 0o400
+                        or metadata.st_nlink != 1
+                        or metadata.st_size > 64 * 1024):
+                    raise WatchdogError(
+                        "WATCHDOG_RUNTIME_ROLLBACK_INTENT_INVALID"
+                    )
+            except OSError as exc:
+                raise WatchdogError(
+                    "WATCHDOG_RUNTIME_ROLLBACK_INTENT_INVALID"
+                ) from exc
+            finally:
+                if temp_fd >= 0:
+                    os.close(temp_fd)
+        launch_raw = _read_bound_file(
+            parent_fd, LAUNCH_REQUEST_NAME, mode=0o400,
+            maximum=64 * 1024, missing_ok=True,
+        )
+    finally:
+        os.close(parent_fd)
+    rollback = (
+        {"phase": "STAGING", "runNonce": None}
+        if rollback_temps else None
+    )
+    if rollback_raw is not None:
+        rollback = _decode_object(
+            rollback_raw, "WATCHDOG_RUNTIME_ROLLBACK_INTENT_INVALID",
+        )
+        if (set(rollback) != {
+                "schemaVersion", "route", "runNonce", "planSha256",
+                "decisionSha256", "action", "automaticRetryAllowed"}
+                or rollback.get("schemaVersion") != ROLLBACK_INTENT_SCHEMA
+                or rollback.get("route") != ACTIVATION_ROUTE
+                or type(rollback.get("runNonce")) is not str
+                or re.fullmatch(
+                    r"[A-Za-z0-9_-]{16,64}", rollback["runNonce"],
+                ) is None
+                or rollback.get("action") != "ROLLBACK_WITHOUT_LAUNCH"
+                or rollback.get("automaticRetryAllowed") is not False
+                or rollback_raw
+                != _canonical_runtime_marker(rollback) + b"\n"):
+            raise WatchdogError(
+                "WATCHDOG_RUNTIME_ROLLBACK_INTENT_INVALID"
+            )
+        _digest(
+            rollback.get("planSha256"),
+            "WATCHDOG_RUNTIME_ROLLBACK_INTENT_INVALID",
+        )
+        _digest(
+            rollback.get("decisionSha256"),
+            "WATCHDOG_RUNTIME_ROLLBACK_INTENT_INVALID",
+        )
+    launch = None
+    if launch_raw is not None:
+        launch = _decode_object(
+            launch_raw, "WATCHDOG_RUNTIME_LAUNCH_REQUEST_INVALID",
+        )
+        if (set(launch) != {
+                "schemaVersion", "route", "environment", "runNonce",
+                "action", "operatorCommitOnly", "grantsAuthority",
+                "automaticRetryAllowed", "expectedKeyringSha256",
+                "planSha256", "decisionSha256",
+                "recoveryManifestSha256"}
+                or launch.get("schemaVersion") != LAUNCH_REQUEST_SCHEMA
+                or launch.get("route") != ACTIVATION_ROUTE
+                or launch.get("environment") != "PRODUCTION"
+                or type(launch.get("runNonce")) is not str
+                or re.fullmatch(
+                    r"[A-Za-z0-9_-]{16,64}", launch["runNonce"],
+                ) is None
+                or launch.get("action") != LAUNCH_ACTION
+                or launch.get("operatorCommitOnly") is not True
+                or launch.get("grantsAuthority") is not False
+                or launch.get("automaticRetryAllowed") is not False
+                or launch_raw != _canonical_runtime_marker(launch) + b"\n"):
+            raise WatchdogError("WATCHDOG_RUNTIME_LAUNCH_REQUEST_INVALID")
+        for name in (
+                "expectedKeyringSha256", "planSha256", "decisionSha256",
+                "recoveryManifestSha256"):
+            _digest(
+                launch.get(name), "WATCHDOG_RUNTIME_LAUNCH_REQUEST_INVALID",
+            )
+    return {"rollbackIntent": rollback, "launchRequest": launch}
+
+
+def _require_launch_marker_binding(
+    launch: Mapping[str, Any], request: Mapping[str, Any],
+) -> None:
+    if any(launch.get(name) != request.get(target) for name, target in {
+        "runNonce": "runNonce",
+        "expectedKeyringSha256": "expectedKeyringSha256",
+        "planSha256": "planSha256",
+        "decisionSha256": "decisionSha256",
+        "recoveryManifestSha256": "manifestSha256",
+    }.items()):
+        raise WatchdogError("WATCHDOG_RUNTIME_LAUNCH_BINDING_MISMATCH")
+
+
 def _load_recovery_package() -> dict[str, Any] | None:
     """Read the fixed request and exact read-only package snapshot.
 
@@ -380,6 +529,8 @@ def _scan_activation_journals_snapshot() -> dict[str, dict[str, Any]]:
         journals: dict[str, dict[str, Any]] = {}
         locks: set[str] = set()
         busy_locks: set[str] = set()
+        pending_transitions: set[str] = set()
+        pending_receipts: set[str] = set()
         receipts: dict[str, tuple[str, dict[str, Any]]] = {}
         foreign_entries: set[str] = set()
         entries_before = set(os.listdir(journal_fd))
@@ -388,6 +539,14 @@ def _scan_activation_journals_snapshot() -> dict[str, dict[str, Any]]:
             lock_match = re.fullmatch(r"\.([A-Za-z0-9_-]{16,64})\.lock", name)
             receipt_match = re.fullmatch(
                 r"([A-Za-z0-9_-]{16,64})\.receipt\.json", name
+            )
+            transition_match = re.fullmatch(
+                r"\.([A-Za-z0-9_-]{16,64})\.json\.transition\.tmp",
+                name,
+            )
+            receipt_temp_match = re.fullmatch(
+                r"\.([A-Za-z0-9_-]{16,64})\.receipt\.json\.create\.tmp",
+                name,
             )
             if lock_match:
                 lock_fd = -1
@@ -403,7 +562,7 @@ def _scan_activation_journals_snapshot() -> dict[str, dict[str, Any]]:
                             or metadata.st_uid != 0 or metadata.st_gid != 0
                             or stat.S_IMODE(metadata.st_mode) != 0o600
                             or metadata.st_nlink != 1
-                            or metadata.st_size > 64 * 1024):
+                            or metadata.st_size != 0):
                         raise WatchdogError(
                             "WATCHDOG_ACTIVATION_LOCK_UNSAFE"
                         )
@@ -418,6 +577,10 @@ def _scan_activation_journals_snapshot() -> dict[str, dict[str, Any]]:
                 finally:
                     if lock_fd >= 0:
                         os.close(lock_fd)
+            elif transition_match:
+                pending_transitions.add(transition_match.group(1))
+            elif receipt_temp_match:
+                pending_receipts.add(receipt_temp_match.group(1))
             elif receipt_match:
                 receipt_raw = _read_bound_file(
                     journal_fd, name, mode=0o600, maximum=1024 * 1024,
@@ -488,6 +651,60 @@ def _scan_activation_journals_snapshot() -> dict[str, dict[str, Any]]:
             # replaces the journal.  Treat every such snapshot as live work,
             # never as corruption and never as cleanup authority.
             raise WatchdogError("WATCHDOG_ACTIVATION_DISCOVERY_DEFERRED")
+        if pending_receipts:
+            if (not pending_receipts.issubset(journals)
+                    or not pending_receipts.issubset(locks)):
+                raise WatchdogError(
+                    "WATCHDOG_ACTIVATION_RECEIPT_TEMP_BINDING_MISMATCH"
+                )
+            import b64_064a_activation_entrypoint as activation
+            for nonce in sorted(pending_receipts):
+                value = journals[nonce]
+                binding = activation._LaunchClaimBinding(
+                    run_nonce=nonce,
+                    plan_sha256=value["planSha256"],
+                    decision_sha256=value["decisionSha256"],
+                )
+                try:
+                    repaired = activation.ActivationJournal(
+                        PRODUCTION_ACTIVATION_ROOT / "journal", binding,
+                    ).repair_pending_receipt()
+                except activation.ActivationError as exc:
+                    raise WatchdogError(
+                        "WATCHDOG_ACTIVATION_RECEIPT_REPAIR_FAILED"
+                    ) from exc
+                if not repaired:
+                    raise WatchdogError(
+                        "WATCHDOG_ACTIVATION_JOURNAL_CHANGED"
+                    )
+            raise WatchdogError("WATCHDOG_ACTIVATION_JOURNAL_CHANGED")
+        if pending_transitions:
+            if (not pending_transitions.issubset(journals)
+                    or not pending_transitions.issubset(locks)):
+                raise WatchdogError(
+                    "WATCHDOG_ACTIVATION_TRANSITION_BINDING_MISMATCH"
+                )
+            import b64_064a_activation_entrypoint as activation
+            for nonce in sorted(pending_transitions):
+                value = journals[nonce]
+                binding = activation._LaunchClaimBinding(
+                    run_nonce=nonce,
+                    plan_sha256=value["planSha256"],
+                    decision_sha256=value["decisionSha256"],
+                )
+                try:
+                    repaired = activation.ActivationJournal(
+                        PRODUCTION_ACTIVATION_ROOT / "journal", binding,
+                    ).repair_pending_transition()
+                except activation.ActivationError as exc:
+                    raise WatchdogError(
+                        "WATCHDOG_ACTIVATION_TRANSITION_REPAIR_FAILED"
+                    ) from exc
+                if not repaired:
+                    raise WatchdogError(
+                        "WATCHDOG_ACTIVATION_JOURNAL_CHANGED"
+                    )
+            raise WatchdogError("WATCHDOG_ACTIVATION_JOURNAL_CHANGED")
         if foreign_entries:
             raise WatchdogError("WATCHDOG_ACTIVATION_JOURNAL_FOREIGN_ENTRY")
         if entries_after != entries_before:
@@ -501,6 +718,25 @@ def _scan_activation_journals_snapshot() -> dict[str, dict[str, Any]]:
         for nonce, journal in journals.items():
             closed = journal["state"] == "CLOSED"
             receipt = receipts.get(nonce)
+            if receipt is not None:
+                import b64_064a_activation_entrypoint as activation
+                binding = activation._LaunchClaimBinding(
+                    run_nonce=nonce,
+                    plan_sha256=journal["planSha256"],
+                    decision_sha256=journal["decisionSha256"],
+                )
+                try:
+                    validated = activation.ActivationJournal(
+                        PRODUCTION_ACTIVATION_ROOT / "journal", binding,
+                    ).inspect_receipt_optional()
+                except activation.ActivationError as exc:
+                    raise WatchdogError(
+                        "WATCHDOG_ACTIVATION_RECEIPT_INVALID"
+                    ) from exc
+                if validated is None or validated[1] != receipt[0]:
+                    raise WatchdogError(
+                        "WATCHDOG_ACTIVATION_RECEIPT_INVALID"
+                    )
             if (closed and (receipt is None
                     or journal["receiptSha256"] != receipt[0])):
                 raise WatchdogError(
@@ -511,23 +747,11 @@ def _scan_activation_journals_snapshot() -> dict[str, dict[str, Any]]:
                     "WATCHDOG_ACTIVATION_RECEIPT_BINDING_MISMATCH"
                 )
             if receipt is not None and not closed:
-                value = receipt[1]
-                if (journal["state"] not in {
-                        "RUNNING", "HOLD", "RECONCILED_HOLD"}
-                        or value.get("schemaVersion")
-                        != ACTIVATION_RECEIPT_SCHEMA
-                        or value.get("route") != ACTIVATION_ROUTE
-                        or value.get("environment") != "PRODUCTION"
-                        or value.get("runNonce") != nonce
-                        or value.get("planSha256")
-                        != journal["planSha256"]
-                        or value.get("decisionSha256")
-                        != journal["decisionSha256"]
-                        or value.get("status")
-                        != "COMPLETED_DORMANT_VERIFIED"):
+                if journal["state"] not in {"RUNNING", "HOLD"}:
                     raise WatchdogError(
                         "WATCHDOG_ACTIVATION_RESIDUAL_RECEIPT_INVALID"
                     )
+                journal["residualReceiptSha256"] = receipt[0]
         incomplete = [
             nonce for nonce, value in journals.items()
             if value["state"] in {"CLAIMED", "RUNNING", "HOLD"}
@@ -542,16 +766,20 @@ def _scan_activation_journals_snapshot() -> dict[str, dict[str, Any]]:
 
 
 def _scan_activation_journals() -> dict[str, dict[str, Any]]:
-    """Require one exact snapshot, retrying one concurrent atomic transition."""
-    try:
-        return _scan_activation_journals_snapshot()
-    except WatchdogError as first:
-        if str(first) == "WATCHDOG_ACTIVATION_DISCOVERY_DEFERRED":
-            raise
+    """Require one exact snapshot with bounded deterministic prefix repair."""
+    first: WatchdogError | None = None
+    for attempt in range(3):
         try:
             return _scan_activation_journals_snapshot()
-        except WatchdogError as second:
-            raise second from first
+        except WatchdogError as error:
+            if first is None:
+                first = error
+            if str(error) == "WATCHDOG_ACTIVATION_DISCOVERY_DEFERRED":
+                raise
+            if (str(error) != "WATCHDOG_ACTIVATION_JOURNAL_CHANGED"
+                    or attempt == 2):
+                raise error from first
+    raise WatchdogError("WATCHDOG_ACTIVATION_JOURNAL_UNSTABLE")
 
 
 @contextlib.contextmanager
@@ -1062,8 +1290,27 @@ def watchdog_with_cleanup_recovery(
     *, container_name: str, expected_image_id: str,
     expected_volume_name: str, expected_server_version_num: int,
     expected_system_identifier: str,
+    manual_hold: bool = False,
+    confirm_run_nonce: str | None = None,
+    confirm_decision_sha256: str | None = None,
 ) -> dict[str, Any]:
     """Run fixed-path, once-only cleanup recovery between dormant passes."""
+    if (type(manual_hold) is not bool
+            or (manual_hold and (
+                type(confirm_run_nonce) is not str
+                or re.fullmatch(
+                    r"[A-Za-z0-9_-]{16,64}", confirm_run_nonce,
+                ) is None
+                or type(confirm_decision_sha256) is not str
+                or re.fullmatch(
+                    r"[0-9a-f]{64}", confirm_decision_sha256,
+                ) is None
+            ))
+            or (not manual_hold and (
+                confirm_run_nonce is not None
+                or confirm_decision_sha256 is not None
+            ))):
+        raise WatchdogError("WATCHDOG_MANUAL_HOLD_SCOPE_INVALID")
     arguments = {
         "container_name": container_name,
         "expected_image_id": expected_image_id,
@@ -1092,7 +1339,11 @@ def watchdog_with_cleanup_recovery(
                 raise WatchdogError(
                     "WATCHDOG_ACTIVATION_DISCOVERY_DEFERRED"
                 )
-            journals = _scan_activation_journals()
+            runtime_markers = _runtime_commit_markers()
+            journals = (
+                {} if runtime_markers["rollbackIntent"] is not None
+                else _scan_activation_journals()
+            )
     except WatchdogError as exc:
         if str(exc) != "WATCHDOG_ACTIVATION_DISCOVERY_DEFERRED":
             raise
@@ -1103,6 +1354,18 @@ def watchdog_with_cleanup_recovery(
             "recoveryStatus": "DEFERRED_LIVE_ACTIVATION",
             "automaticRetryAllowed": False, "actionAllowed": False,
         }
+    if runtime_markers["rollbackIntent"] is not None:
+        rollback = runtime_markers["rollbackIntent"]
+        result = {
+            **pre,
+            "status": "DORMANT_VERIFIED_RUNTIME_ROLLBACK_PENDING",
+            "preWatchdogStatus": pre["status"],
+            "recoveryStatus": "COMMIT_ROLLBACK_PENDING_NO_ACTION",
+            "automaticRetryAllowed": False, "actionAllowed": False,
+        }
+        if type(rollback.get("runNonce")) is str:
+            result["recoveryRunNonce"] = rollback["runNonce"]
+        return result
     incomplete = {
         nonce: value for nonce, value in journals.items()
         if value["state"] in {"CLAIMED", "RUNNING", "HOLD"}
@@ -1127,10 +1390,17 @@ def watchdog_with_cleanup_recovery(
         }
     request = package["request"]
     request_nonce = request["runNonce"]
+    if manual_hold and (
+        request_nonce != confirm_run_nonce
+        or request.get("decisionSha256") != confirm_decision_sha256
+    ):
+        raise WatchdogError("WATCHDOG_MANUAL_HOLD_CONFIRMATION_MISMATCH")
     if incomplete and request_nonce not in incomplete:
         raise WatchdogError("WATCHDOG_RECOVERY_INCOMPLETE_JOURNAL_MISMATCH")
     journal = journals.get(request_nonce)
     if journal is None:
+        if manual_hold:
+            raise WatchdogError("WATCHDOG_MANUAL_HOLD_JOURNAL_MISSING")
         post = watchdog_once(**arguments)
         if _live_activation_defer(post):
             return {
@@ -1153,7 +1423,32 @@ def watchdog_with_cleanup_recovery(
     if (journal["planSha256"] != request["planSha256"]
             or journal["decisionSha256"] != request["decisionSha256"]):
         raise WatchdogError("WATCHDOG_RECOVERY_JOURNAL_BINDING_MISMATCH")
-    if journal["state"] == "HOLD":
+    launch_marker = runtime_markers["launchRequest"]
+    if launch_marker is not None:
+        _require_launch_marker_binding(launch_marker, request)
+    elif journal["state"] == "CLAIMED":
+        return {
+            **pre,
+            "status": "DORMANT_VERIFIED_COMMIT_PREFIX_PENDING",
+            "preWatchdogStatus": pre["status"],
+            "recoveryStatus": "STATE_CLAIMED_LAUNCH_NOT_PUBLISHED_NO_ACTION",
+            "recoveryRunNonce": request_nonce,
+            "automaticRetryAllowed": False, "actionAllowed": False,
+        }
+    else:
+        raise WatchdogError("WATCHDOG_RUNTIME_LAUNCH_REQUEST_MISSING")
+    residual_receipt = journal.get("residualReceiptSha256")
+    if manual_hold and journal["state"] != "HOLD":
+        raise WatchdogError("WATCHDOG_MANUAL_HOLD_STATE_INVALID")
+    if manual_hold and residual_receipt is not None:
+        # A complete residual receipt is an automatic terminal-close prefix.
+        # The manual HOLD path must not close it and then reject its own
+        # result; leave it untouched for the timer's exact close recovery.
+        raise WatchdogError(
+            "WATCHDOG_MANUAL_HOLD_RESIDUAL_RECEIPT_AUTOMATIC_REQUIRED"
+        )
+    if (not manual_hold and journal["state"] == "HOLD"
+            and residual_receipt is None):
         raise WatchdogError("WATCHDOG_RECOVERY_HOLD_MANUAL_REQUIRED")
     if journal["state"] in {"CLOSED", "RECONCILED_HOLD"}:
         post = watchdog_once(**arguments)
@@ -1206,6 +1501,21 @@ def watchdog_with_cleanup_recovery(
             or recovery.plan_sha256 != request["planSha256"]
             or recovery.decision_sha256 != request["decisionSha256"]):
         raise WatchdogError("WATCHDOG_RECOVERY_VERIFIED_BINDING_MISMATCH")
+    if manual_hold and trusted_now < recovery.decision_expires_at_epoch:
+        raise WatchdogError("WATCHDOG_MANUAL_HOLD_DECISION_NOT_EXPIRED")
+    if (not manual_hold and journal["state"] == "CLAIMED"
+            and trusted_now < recovery.decision_expires_at_epoch):
+        post = watchdog_once(**arguments)
+        _require_exact_dormant(post, phase="POST_PENDING_LAUNCH")
+        return {
+            **post,
+            "status": "DORMANT_VERIFIED_LAUNCH_PENDING",
+            "preWatchdogStatus": pre["status"],
+            "postWatchdogStatus": post["status"],
+            "recoveryStatus": "CLAIMED_PENDING_SIGNED_EXPIRY",
+            "recoveryRunNonce": recovery.run_nonce,
+            "automaticRetryAllowed": False, "actionAllowed": False,
+        }
     target = recovery.target
     container = pre.get("container")
     if (not isinstance(target, Mapping) or not isinstance(container, Mapping)
@@ -1231,6 +1541,53 @@ def watchdog_with_cleanup_recovery(
     except BaseException as exc:
         raise WatchdogError("WATCHDOG_RECOVERY_EXECUTOR_CONSTRUCTION_FAILED") \
             from exc
+    if residual_receipt is not None:
+        try:
+            recovered_close = activation.recover_completed_close(
+                authorization=recovery,
+                journal_root=activation.PRODUCTION_JOURNAL_ROOT,
+                activation_plan_raw=package["activation-plan.json"],
+                executor=executor, reconcile=executor.attest_dormant,
+                verify_dormant=executor.attest_dormant,
+            )
+        except activation.ActivationError as exc:
+            raise WatchdogError(
+                f"WATCHDOG_RECOVERY_{activation._reason(exc)}"
+            ) from exc
+        except BaseException as exc:
+            raise WatchdogError(
+                "WATCHDOG_RECOVERY_COMPLETED_CLOSE_FAILED"
+            ) from exc
+        if (recovered_close.get("status")
+                != "ACTIVATION_COMPLETED_CLOSE_RECOVERED"
+                or recovered_close.get("journalState") != "CLOSED"
+                or recovered_close.get("receiptSha256")
+                != residual_receipt
+                or recovered_close.get("automaticRetryAllowed") is not False
+                or recovered_close.get("actionAllowed") is not False):
+            raise WatchdogError(
+                "WATCHDOG_RECOVERY_COMPLETED_CLOSE_RESULT_INVALID"
+            )
+        post = watchdog_once(**arguments)
+        if _live_activation_defer(post):
+            return {
+                **post,
+                "status": "WATCHDOG_RECOVERY_POST_DEFERRED_LIVE_ACTIVATION",
+                "preWatchdogStatus": pre["status"],
+                "postWatchdogStatus": post["status"],
+                "recoveryStatus": recovered_close["status"],
+                "automaticRetryAllowed": False, "actionAllowed": False,
+            }
+        _require_exact_dormant(post, phase="POST_RECOVERY_COMPLETED_CLOSE")
+        return {
+            **post,
+            "status": "DORMANT_VERIFIED_RECOVERY_COMPLETED_CLOSED",
+            "preWatchdogStatus": pre["status"],
+            "postWatchdogStatus": post["status"],
+            "recoveryStatus": recovered_close["status"],
+            "recoveryRunNonce": recovered_close["runNonce"],
+            "automaticRetryAllowed": False, "actionAllowed": False,
+        }
     try:
         recovered = activation.reconcile_incomplete(
             authorization=recovery,
@@ -1238,7 +1595,7 @@ def watchdog_with_cleanup_recovery(
             activation_plan_raw=package["activation-plan.json"],
             executor=executor, reconcile=executor.attest_dormant,
             verify_dormant=executor.attest_dormant,
-            automatic_no_retry=True,
+            automatic_no_retry=not manual_hold,
         )
     except BaseException as exc:
         # Preserve the primary recovery reason.  This best-effort pass gives
@@ -1282,7 +1639,11 @@ def watchdog_with_cleanup_recovery(
     _require_exact_dormant(post, phase="POST_RECOVERY")
     return {
         **post,
-        "status": "DORMANT_VERIFIED_RECOVERY_RECONCILED_HOLD",
+        "status": (
+            "DORMANT_VERIFIED_MANUAL_HOLD_RECONCILED"
+            if manual_hold else
+            "DORMANT_VERIFIED_RECOVERY_RECONCILED_HOLD"
+        ),
         "preWatchdogStatus": pre["status"],
         "postWatchdogStatus": post["status"],
         "recoveryStatus": recovered["status"],

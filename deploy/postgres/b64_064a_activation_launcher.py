@@ -33,6 +33,7 @@ import b64_snapshot_reader_watchdog as watchdog
 ROUTE = activation.ROUTE
 UNIT_NAME = "obsidian-b64-064a-activation.service"
 LAUNCH_REQUEST_NAME = "b64-064a-launch-request.v1.json"
+ROLLBACK_INTENT_NAME = ".b64-064a-runtime-rollback.intent"
 LAUNCH_REQUEST_SCHEMA = "b64-064a-production-launch-request.v1"
 LAUNCH_ACTION = "EXECUTE_SIGNED_ACTIVATION_ONCE"
 CREDENTIALS_DIRECTORY = Path(f"/run/credentials/{UNIT_NAME}")
@@ -107,6 +108,15 @@ def _load_launch_request() -> dict[str, Any]:
     if parent_fd is None:
         raise LauncherError("LAUNCH_REQUEST_PARENT_MISSING")
     try:
+        entries = set(os.listdir(parent_fd))
+        rollback_temps = {
+            name for name in entries if re.fullmatch(
+                re.escape(ROLLBACK_INTENT_NAME) + r"\.tmp-[0-9a-f]{24}",
+                name,
+            ) is not None
+        }
+        if ROLLBACK_INTENT_NAME in entries or rollback_temps:
+            raise LauncherError("LAUNCH_RUNTIME_ROLLBACK_IN_PROGRESS")
         raw = watchdog._read_bound_file(
             parent_fd, LAUNCH_REQUEST_NAME, mode=0o400,
             maximum=64 * 1024, missing_ok=True,
@@ -124,8 +134,13 @@ def _load_launch_request() -> dict[str, Any]:
         os.close(parent_fd)
 
 
-def _load_committed_package() -> tuple[dict[str, Any], Any]:
-    launch_request = _load_launch_request()
+def _load_committed_package(
+    launch_request: Mapping[str, Any] | None = None,
+) -> tuple[dict[str, Any], Any]:
+    if launch_request is None:
+        launch_request = _load_launch_request()
+    else:
+        launch_request = _validate_launch_request(launch_request)
     try:
         package = watchdog._load_recovery_package()
     except watchdog.WatchdogError as exc:
@@ -286,33 +301,39 @@ def _reject_ambient_authority() -> None:
 
 def _execute_production_once() -> dict[str, Any]:
     _reject_ambient_authority()
-    package, verified = _load_committed_package()
-    observed = activation_executor._inspect_container(
-        activation.PRODUCTION_CONTAINER
+    launch_request = _load_launch_request()
+    lease = activation.claim_precommitted_production_execution(
+        run_nonce=launch_request["runNonce"],
+        plan_sha256=launch_request["planSha256"],
+        decision_sha256=launch_request["decisionSha256"],
     )
-    if observed is None:
-        raise LauncherError("LAUNCH_PRODUCTION_CONTAINER_MISSING")
+    passfile_fd = -1
     try:
-        container_id = observed["Id"].removeprefix("sha256:")
-        image_id = observed["Image"]
-        running = observed["State"]["Running"]
-        container_pid = observed["State"]["Pid"]
-    except (KeyError, TypeError, AttributeError) as exc:
-        raise LauncherError("LAUNCH_PRODUCTION_CONTAINER_INVALID") from exc
-    if (container_id != verified.target.get("containerId")
-            or image_id != activation.PRODUCTION_IMAGE_ID
-            or running is not True
-            or type(container_pid) is not int or container_pid <= 1):
-        raise LauncherError("LAUNCH_PRODUCTION_TARGET_MISMATCH")
-    # Early secret-free rejection avoids opening even the observation
-    # credential when any older activation evidence remains.  run_once()
-    # repeats the same check while holding the global interlock, closing the
-    # check/use race before it creates the nonce journal.
-    activation._require_empty_production_activation_state()
-    passfile_fd, observation_dsn, admin_dsn = _production_connections(
-        container_pid=container_pid
-    )
-    try:
+        # The committer's durable CLAIMED journal is consumed to RUNNING and
+        # both serialization locks are held before package/time/target or
+        # credential work.  Every failure below is therefore cleanup-only and
+        # a later manual start cannot replay the signed launch request.
+        package, verified = _load_committed_package(launch_request)
+        observed = activation_executor._inspect_container(
+            activation.PRODUCTION_CONTAINER
+        )
+        if observed is None:
+            raise LauncherError("LAUNCH_PRODUCTION_CONTAINER_MISSING")
+        try:
+            container_id = observed["Id"].removeprefix("sha256:")
+            image_id = observed["Image"]
+            running = observed["State"]["Running"]
+            container_pid = observed["State"]["Pid"]
+        except (KeyError, TypeError, AttributeError) as exc:
+            raise LauncherError("LAUNCH_PRODUCTION_CONTAINER_INVALID") from exc
+        if (container_id != verified.target.get("containerId")
+                or image_id != activation.PRODUCTION_IMAGE_ID
+                or running is not True
+                or type(container_pid) is not int or container_pid <= 1):
+            raise LauncherError("LAUNCH_PRODUCTION_TARGET_MISMATCH")
+        passfile_fd, observation_dsn, admin_dsn = _production_connections(
+            container_pid=container_pid
+        )
         dormant = activation_executor.BoundRecoveryExecutor(
             container=activation.PRODUCTION_CONTAINER,
             container_id=container_id, image_id=image_id,
@@ -344,9 +365,12 @@ def _execute_production_once() -> dict[str, Any]:
             journal_root=activation.PRODUCTION_JOURNAL_ROOT,
             executor=executor, reconcile=dormant.attest_dormant,
             verify_dormant=dormant.attest_dormant,
+            production_lease=lease,
         )
     finally:
-        os.close(passfile_fd)
+        if passfile_fd >= 0:
+            os.close(passfile_fd)
+        lease.close()
     if (result.get("status") != "ACTIVATION_COMPLETED_DORMANT_VERIFIED"
             or result.get("journalState") != "CLOSED"
             or result.get("automaticRetryAllowed") is not False

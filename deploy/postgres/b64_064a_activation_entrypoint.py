@@ -11,6 +11,8 @@ contact.  No production executor is registered by this CLI.
 from __future__ import annotations
 
 import argparse
+import ctypes
+import errno
 import fcntl
 import hashlib
 import json
@@ -94,7 +96,7 @@ PRODUCTION_PROXY_ROOT = PRODUCTION_ACTIVATION_ROOT / "proxy"
 SIGNER_ROLES = {"ACCOUNTABLE_OWNER"}
 ARTIFACT_KEYS = {
     "activationEntrypoint", "activationExecutor", "activationLauncher",
-    "runtimePackageCommitter",
+    "runtimePackageCommitter", "manualHoldReconciler",
     "activationTrustRegistry", "singleOwnerPolicy",
     "hardenedRefresh", "snapshotReaderRuntime", "snapshotReaderWatchdog",
     "dumpRestoreSupervisor", "hardenedPlanRaw",
@@ -110,6 +112,9 @@ ARTIFACT_PATHS = {
     ),
     "runtimePackageCommitter": Path(__file__).with_name(
         "b64_064a_runtime_package_committer.py"
+    ),
+    "manualHoldReconciler": Path(__file__).with_name(
+        "b64_064a_manual_hold_reconciler.py"
     ),
     "activationTrustRegistry": PROJECT_ROOT
     / "docs/e0-3-bot-b5-3-064a-activation-trust-registry.v1.json",
@@ -133,6 +138,7 @@ ARTIFACT_PATHS = {
 
 _VERIFIED_ACTIVATION_SEAL = object()
 _VERIFIED_RECOVERY_SEAL = object()
+_PRODUCTION_EXECUTION_LEASE_SEAL = object()
 
 
 class _ExecutionCapabilityState:
@@ -999,6 +1005,22 @@ class VerifiedRecovery:
     _recovery_seal: object
 
 
+@dataclass(frozen=True)
+class _LaunchClaimBinding:
+    run_nonce: str
+    plan_sha256: str
+    decision_sha256: str
+
+
+@dataclass(frozen=True)
+class _ReceiptValidationBinding:
+    environment: str
+    run_nonce: str
+    plan_sha256: str
+    decision_sha256: str
+    limits: Mapping[str, Any]
+
+
 def require_verified_execution_authorization(
     authorization: Any, *, expected_environment: str,
     require_started: bool = True,
@@ -1271,8 +1293,56 @@ def _require_empty_production_activation_state() -> None:
         os.close(root_fd)
 
 
+def _require_preclaimed_production_activation_state(
+    authorization: VerifiedActivation | VerifiedRecovery | _LaunchClaimBinding,
+) -> None:
+    expected = {
+        "journal": PRODUCTION_JOURNAL_ROOT,
+        "resources": PRODUCTION_RESOURCE_JOURNAL_ROOT,
+        "workspace": PRODUCTION_WORKSPACE_ROOT,
+        "proxy": PRODUCTION_PROXY_ROOT,
+    }
+    root_fd = _safe_open_root(PRODUCTION_ACTIVATION_ROOT)
+    try:
+        entries_before = set(os.listdir(root_fd))
+        if entries_before != set(expected):
+            raise ActivationError("PRODUCTION_ACTIVATION_PRECLAIM_INVALID")
+        for name, path in expected.items():
+            descriptor = _safe_open_root(path)
+            try:
+                entries = set(os.listdir(descriptor))
+                wanted = (
+                    {
+                        f"{authorization.run_nonce}.json",
+                        f".{authorization.run_nonce}.lock",
+                    }
+                    if name == "journal" else set()
+                )
+                if entries != wanted:
+                    raise ActivationError(
+                        "PRODUCTION_ACTIVATION_PRECLAIM_INVALID"
+                    )
+                metadata = os.fstat(descriptor)
+                root_metadata = os.stat(
+                    name, dir_fd=root_fd, follow_symlinks=False,
+                )
+                if ((metadata.st_dev, metadata.st_ino)
+                        != (root_metadata.st_dev, root_metadata.st_ino)):
+                    raise ActivationError(
+                        "PRODUCTION_ACTIVATION_STATE_CHANGED"
+                    )
+            finally:
+                os.close(descriptor)
+        if set(os.listdir(root_fd)) != entries_before:
+            raise ActivationError("PRODUCTION_ACTIVATION_STATE_CHANGED")
+    finally:
+        os.close(root_fd)
+
+
 def _acquire_production_interlock(
-    authorization: VerifiedActivation | VerifiedRecovery,
+    authorization: (
+        VerifiedActivation | VerifiedRecovery | _LaunchClaimBinding
+    ),
 ) -> int:
     try:
         descriptor = os.open(
@@ -1320,21 +1390,23 @@ class ActivationJournal:
         self.lock_name = f".{authorization.run_nonce}.lock"
         self.receipt_name = f"{authorization.run_nonce}.receipt.json"
 
-    def acquire_execution_lock(self) -> int:
+    def acquire_execution_lock(self, *, require_existing: bool = False) -> int:
         directory_fd = _safe_open_root(self.root)
         descriptor = -1
         try:
+            flags = os.O_RDWR | getattr(os, "O_NOFOLLOW", 0) \
+                | getattr(os, "O_CLOEXEC", 0)
+            if not require_existing:
+                flags |= os.O_CREAT
             descriptor = os.open(
-                self.lock_name, os.O_RDWR | os.O_CREAT
-                | getattr(os, "O_NOFOLLOW", 0)
-                | getattr(os, "O_CLOEXEC", 0),
+                self.lock_name, flags,
                 0o600, dir_fd=directory_fd,
             )
             metadata = os.fstat(descriptor)
             if (not stat.S_ISREG(metadata.st_mode)
                     or metadata.st_uid != os.geteuid()
                     or stat.S_IMODE(metadata.st_mode) != 0o600
-                    or metadata.st_nlink != 1):
+                    or metadata.st_nlink != 1 or metadata.st_size != 0):
                 raise ActivationError("ACTIVATION_LOCK_UNSAFE")
             try:
                 fcntl.flock(
@@ -1351,10 +1423,118 @@ class ActivationJournal:
         finally:
             os.close(directory_fd)
 
-    def _read(self, directory_fd: int) -> dict[str, Any]:
+    @property
+    def transition_name(self) -> str:
+        return f".{self.name}.transition.tmp"
+
+    @property
+    def receipt_temp_name(self) -> str:
+        return f".{self.receipt_name}.create.tmp"
+
+    @staticmethod
+    def _rename_noreplace(
+        directory_fd: int, source: str, target: str,
+    ) -> None:
+        renameat2 = getattr(ctypes.CDLL(None, use_errno=True), "renameat2", None)
+        if renameat2 is None:
+            raise ActivationError("ACTIVATION_ATOMIC_RECEIPT_CREATE_UNAVAILABLE")
+        renameat2.argtypes = [
+            ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p,
+            ctypes.c_uint,
+        ]
+        renameat2.restype = ctypes.c_int
+        if renameat2(
+            directory_fd, os.fsencode(source), directory_fd,
+            os.fsencode(target), 1,
+        ) != 0:
+            code = ctypes.get_errno()
+            if code == errno.EEXIST:
+                raise ActivationError("ACTIVATION_RECEIPT_ALREADY_EXISTS")
+            raise ActivationError("ACTIVATION_ATOMIC_RECEIPT_CREATE_FAILED")
+
+    def _receipt_binding(self) -> _ReceiptValidationBinding:
+        authorization = self.authorization
+        if type(authorization) is _LaunchClaimBinding:
+            environment = "PRODUCTION"
+            limits = LIMITS
+        elif type(authorization) in {VerifiedActivation, VerifiedRecovery}:
+            environment = authorization.environment
+            limits = authorization.limits
+        else:
+            raise ActivationError("ACTIVATION_RECEIPT_BINDING_INVALID")
+        return _ReceiptValidationBinding(
+            environment=environment,
+            run_nonce=authorization.run_nonce,
+            plan_sha256=authorization.plan_sha256,
+            decision_sha256=authorization.decision_sha256,
+            limits=limits,
+        )
+
+    def _read_receipt_named(
+        self, directory_fd: int, name: str,
+    ) -> tuple[dict[str, Any], str]:
+        descriptor = -1
+        try:
+            descriptor = os.open(
+                name, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+                | getattr(os, "O_CLOEXEC", 0), dir_fd=directory_fd,
+            )
+            metadata = os.fstat(descriptor)
+            if (not stat.S_ISREG(metadata.st_mode)
+                    or metadata.st_uid != os.geteuid()
+                    or stat.S_IMODE(metadata.st_mode) != 0o600
+                    or metadata.st_nlink != 1
+                    or not 1 <= metadata.st_size <= 1024 * 1024):
+                raise ActivationError("ACTIVATION_RECEIPT_UNSAFE")
+            raw = b""
+            while len(raw) < metadata.st_size:
+                chunk = os.read(descriptor, metadata.st_size - len(raw))
+                if not chunk:
+                    raise ActivationError("ACTIVATION_RECEIPT_SHORT_READ")
+                raw += chunk
+            if os.read(descriptor, 1):
+                raise ActivationError("ACTIVATION_RECEIPT_GREW")
+        except OSError as exc:
+            raise ActivationError("ACTIVATION_RECEIPT_UNSAFE") from exc
+        finally:
+            if descriptor >= 0:
+                os.close(descriptor)
+        if not raw.endswith(b"\n"):
+            raise ActivationError("ACTIVATION_RECEIPT_INVALID")
+        value = _decode_json(raw)
+        canonical = _canonical(value)
+        if raw != canonical + b"\n":
+            raise ActivationError("ACTIVATION_RECEIPT_NOT_CANONICAL")
+        validated = _validate_execution_receipt(
+            value, authorization=self._receipt_binding(),
+        )
+        if canonical != _canonical(validated):
+            raise ActivationError("ACTIVATION_RECEIPT_INVALID")
+        return validated, _sha(canonical)
+
+    def inspect_receipt_optional(self) -> tuple[dict[str, Any], str] | None:
+        directory_fd = _safe_open_root(self.root)
+        try:
+            try:
+                return self._read_receipt_named(
+                    directory_fd, self.receipt_name,
+                )
+            except ActivationError as exc:
+                try:
+                    os.stat(
+                        self.receipt_name, dir_fd=directory_fd,
+                        follow_symlinks=False,
+                    )
+                except FileNotFoundError:
+                    return None
+                raise exc
+        finally:
+            os.close(directory_fd)
+
+    def _read_named(self, directory_fd: int, name: str) -> dict[str, Any]:
         try:
             fd = os.open(
-                self.name, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+                name, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
                 | getattr(os, "O_CLOEXEC", 0), dir_fd=directory_fd,
             )
         except OSError as exc:
@@ -1404,6 +1584,214 @@ class ActivationJournal:
             raise ActivationError("ACTIVATION_JOURNAL_BINDING_MISMATCH")
         return value
 
+    def _write_transition_image(
+        self, directory_fd: int, value: Mapping[str, Any],
+    ) -> None:
+        raw = _canonical(dict(value)) + b"\n"
+        descriptor = -1
+        try:
+            descriptor = os.open(
+                self.transition_name,
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL
+                | getattr(os, "O_NOFOLLOW", 0)
+                | getattr(os, "O_CLOEXEC", 0),
+                0o600, dir_fd=directory_fd,
+            )
+            _write_all(descriptor, raw)
+            os.fsync(descriptor)
+            os.close(descriptor)
+            descriptor = -1
+            os.replace(
+                self.transition_name, self.name,
+                src_dir_fd=directory_fd, dst_dir_fd=directory_fd,
+            )
+            os.fsync(directory_fd)
+        finally:
+            if descriptor >= 0:
+                os.close(descriptor)
+
+    @staticmethod
+    def _pending_transition_valid(
+        current: Mapping[str, Any], pending: Mapping[str, Any],
+    ) -> bool:
+        immutable = {
+            "schemaVersion", "route", "runNonce", "planSha256",
+            "decisionSha256", "attempt", "retryAllowed",
+        }
+        allowed = {
+            "CLAIMED": {"RUNNING", "HOLD", "RECONCILED_HOLD"},
+            "RUNNING": {"CLOSED", "HOLD", "RECONCILED_HOLD"},
+            "HOLD": {"HOLD", "CLOSED", "RECONCILED_HOLD"},
+            "CLOSED": set(), "RECONCILED_HOLD": set(),
+        }
+        if not (
+            all(current[name] == pending[name] for name in immutable)
+            and pending["state"] in allowed[current["state"]]
+        ):
+            return False
+        if pending["state"] == "CLOSED":
+            return (
+                type(pending["receiptSha256"]) is str
+                and re.fullmatch(
+                    r"[0-9a-f]{64}", pending["receiptSha256"],
+                ) is not None
+                and pending["reasonCode"] is None
+            )
+        if pending["state"] in {"HOLD", "RECONCILED_HOLD"}:
+            return (
+                pending["receiptSha256"] is None
+                and type(pending["reasonCode"]) is str
+            )
+        return pending["receiptSha256"] is None
+
+    def repair_pending_receipt(self) -> bool:
+        """Repair a killed atomic receipt publication without retrying work."""
+        directory_fd = _safe_open_root(self.root)
+        execution_lock = -1
+        try:
+            execution_lock = self.acquire_execution_lock(
+                require_existing=True,
+            )
+            try:
+                os.stat(
+                    self.receipt_temp_name, dir_fd=directory_fd,
+                    follow_symlinks=False,
+                )
+            except FileNotFoundError:
+                return False
+            current = self._read_named(directory_fd, self.name)
+            if current["state"] not in {"RUNNING", "HOLD"}:
+                raise ActivationError("ACTIVATION_RECEIPT_TEMP_STATE_INVALID")
+            try:
+                os.stat(
+                    self.receipt_name, dir_fd=directory_fd,
+                    follow_symlinks=False,
+                )
+            except FileNotFoundError:
+                pass
+            else:
+                raise ActivationError("ACTIVATION_RECEIPT_TEMP_WITH_FINAL")
+            try:
+                self._read_receipt_named(
+                    directory_fd, self.receipt_temp_name,
+                )
+            except ActivationError:
+                try:
+                    metadata = os.stat(
+                        self.receipt_temp_name, dir_fd=directory_fd,
+                        follow_symlinks=False,
+                    )
+                except OSError as exc:
+                    raise ActivationError(
+                        "ACTIVATION_RECEIPT_TEMP_UNSAFE"
+                    ) from exc
+                if (not stat.S_ISREG(metadata.st_mode)
+                        or metadata.st_uid != os.geteuid()
+                        or stat.S_IMODE(metadata.st_mode) != 0o600
+                        or metadata.st_nlink != 1
+                        or metadata.st_size > 1024 * 1024):
+                    raise ActivationError(
+                        "ACTIVATION_RECEIPT_TEMP_UNSAFE"
+                    )
+                os.unlink(self.receipt_temp_name, dir_fd=directory_fd)
+                os.fsync(directory_fd)
+                if current["state"] == "RUNNING":
+                    try:
+                        os.stat(
+                            self.transition_name, dir_fd=directory_fd,
+                            follow_symlinks=False,
+                        )
+                    except FileNotFoundError:
+                        self._write_transition_image(directory_fd, {
+                            **current,
+                            "state": "HOLD",
+                            "receiptSha256": None,
+                            "reasonCode":
+                                "INTERRUPTED_RECEIPT_PUBLICATION_NO_RETRY",
+                        })
+                    # If the failed writer already began its HOLD transition,
+                    # leave that deterministic image for the next repair pass.
+                return True
+            self._rename_noreplace(
+                directory_fd, self.receipt_temp_name, self.receipt_name,
+            )
+            os.fsync(directory_fd)
+            return True
+        finally:
+            if execution_lock >= 0:
+                os.close(execution_lock)
+            os.close(directory_fd)
+
+    def repair_pending_transition(self) -> bool:
+        directory_fd = _safe_open_root(self.root)
+        execution_lock = -1
+        try:
+            execution_lock = self.acquire_execution_lock(
+                require_existing=True,
+            )
+            try:
+                os.stat(
+                    self.transition_name, dir_fd=directory_fd,
+                    follow_symlinks=False,
+                )
+            except FileNotFoundError:
+                return False
+            current = self._read_named(directory_fd, self.name)
+            try:
+                pending = self._read_named(
+                    directory_fd, self.transition_name,
+                )
+            except ActivationError:
+                # A killed writer may leave only a prefix.  Conservatively
+                # consume execution authority: CLAIMED becomes RUNNING;
+                # RUNNING/HOLD become HOLD and require cleanup, never retry.
+                try:
+                    metadata = os.stat(
+                        self.transition_name, dir_fd=directory_fd,
+                        follow_symlinks=False,
+                    )
+                except OSError as exc:
+                    raise ActivationError(
+                        "ACTIVATION_TRANSITION_TEMP_UNSAFE"
+                    ) from exc
+                if (not stat.S_ISREG(metadata.st_mode)
+                        or metadata.st_uid != os.geteuid()
+                        or stat.S_IMODE(metadata.st_mode) != 0o600
+                        or metadata.st_nlink != 1
+                        or metadata.st_size > 64 * 1024
+                        or current["state"] in {
+                            "CLOSED", "RECONCILED_HOLD",
+                        }):
+                    raise ActivationError(
+                        "ACTIVATION_TRANSITION_TEMP_UNSAFE"
+                    )
+                os.unlink(self.transition_name, dir_fd=directory_fd)
+                os.fsync(directory_fd)
+                state = (
+                    "RUNNING" if current["state"] == "CLAIMED" else "HOLD"
+                )
+                pending = {
+                    **current, "state": state, "receiptSha256": None,
+                    "reasonCode": "INTERRUPTED_JOURNAL_TRANSITION_NO_RETRY",
+                }
+                self._write_transition_image(directory_fd, pending)
+                return True
+            if not self._pending_transition_valid(current, pending):
+                raise ActivationError("ACTIVATION_TRANSITION_TEMP_INVALID")
+            os.replace(
+                self.transition_name, self.name,
+                src_dir_fd=directory_fd, dst_dir_fd=directory_fd,
+            )
+            os.fsync(directory_fd)
+            return True
+        finally:
+            if execution_lock >= 0:
+                os.close(execution_lock)
+            os.close(directory_fd)
+
+    def _read(self, directory_fd: int) -> dict[str, Any]:
+        return self._read_named(directory_fd, self.name)
+
     def _write_new(self, directory_fd: int, value: Mapping[str, Any]) -> None:
         raw = _canonical(dict(value)) + b"\n"
         try:
@@ -1435,50 +1823,18 @@ class ActivationJournal:
             "receiptSha256": receipt_sha256,
             "reasonCode": reason_code,
         }
-        temporary = f".{self.name}.{secrets.token_hex(8)}.tmp"
-        raw = _canonical(value) + b"\n"
-        fd = -1
+        if not self._pending_transition_valid(current, value):
+            raise ActivationError("ACTIVATION_JOURNAL_TRANSITION_INVALID")
         try:
-            fd = os.open(
-                temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL
-                | getattr(os, "O_NOFOLLOW", 0)
-                | getattr(os, "O_CLOEXEC", 0),
-                0o600, dir_fd=directory_fd,
-            )
-            _write_all(fd, raw)
-            os.fsync(fd)
-            os.close(fd)
-            fd = -1
-            os.replace(
-                temporary, self.name,
-                src_dir_fd=directory_fd, dst_dir_fd=directory_fd,
-            )
-            os.fsync(directory_fd)
+            self._write_transition_image(directory_fd, value)
         except BaseException:
-            if fd >= 0:
-                os.close(fd)
-            try:
-                os.unlink(temporary, dir_fd=directory_fd)
-            except OSError:
-                pass
             raise
         return value
 
     def claim(self) -> dict[str, Any]:
         directory_fd = _safe_open_root(self.root)
         try:
-            value = {
-                "schemaVersion": JOURNAL_SCHEMA,
-                "route": ROUTE,
-                "runNonce": self.authorization.run_nonce,
-                "planSha256": self.authorization.plan_sha256,
-                "decisionSha256": self.authorization.decision_sha256,
-                "state": "CLAIMED",
-                "attempt": 1,
-                "retryAllowed": False,
-                "receiptSha256": None,
-                "reasonCode": None,
-            }
+            value = _journal_claim_value(self.authorization)
             self._write_new(directory_fd, value)
             return value
         finally:
@@ -1512,13 +1868,17 @@ class ActivationJournal:
             os.close(directory_fd)
 
     def write_receipt(self, receipt: Mapping[str, Any]) -> str:
-        raw = _canonical(dict(receipt)) + b"\n"
+        validated = _validate_execution_receipt(
+            receipt, authorization=self._receipt_binding(),
+        )
+        raw = _canonical(validated) + b"\n"
         receipt_sha = _sha(raw[:-1])
         directory_fd = _safe_open_root(self.root)
+        descriptor = -1
         try:
             try:
                 descriptor = os.open(
-                    self.receipt_name,
+                    self.receipt_temp_name,
                     os.O_WRONLY | os.O_CREAT | os.O_EXCL
                     | getattr(os, "O_NOFOLLOW", 0)
                     | getattr(os, "O_CLOEXEC", 0),
@@ -1533,10 +1893,192 @@ class ActivationJournal:
                 os.fsync(descriptor)
             finally:
                 os.close(descriptor)
+                descriptor = -1
+            self._rename_noreplace(
+                directory_fd, self.receipt_temp_name, self.receipt_name,
+            )
             os.fsync(directory_fd)
         finally:
+            if descriptor >= 0:
+                os.close(descriptor)
             os.close(directory_fd)
         return receipt_sha
+
+
+def _journal_claim_value(
+    authorization: VerifiedActivation | VerifiedRecovery | _LaunchClaimBinding,
+) -> dict[str, Any]:
+    return {
+        "schemaVersion": JOURNAL_SCHEMA,
+        "route": ROUTE,
+        "runNonce": authorization.run_nonce,
+        "planSha256": authorization.plan_sha256,
+        "decisionSha256": authorization.decision_sha256,
+        "state": "CLAIMED",
+        "attempt": 1,
+        "retryAllowed": False,
+        "receiptSha256": None,
+        "reasonCode": None,
+    }
+
+
+class ProductionExecutionLease:
+    """One process-local capability backed by a durable RUNNING journal."""
+
+    def __init__(
+        self, *, binding: _LaunchClaimBinding, journal: ActivationJournal,
+        interlock_fd: int, execution_lock_fd: int, _factory_seal: object,
+    ) -> None:
+        if (_factory_seal is not _PRODUCTION_EXECUTION_LEASE_SEAL
+                or type(binding) is not _LaunchClaimBinding
+                or type(journal) is not ActivationJournal
+                or type(interlock_fd) is not int or interlock_fd < 0
+                or type(execution_lock_fd) is not int
+                or execution_lock_fd < 0):
+            raise ActivationError("PRODUCTION_EXECUTION_LEASE_INVALID")
+        self._binding = binding
+        self._journal = journal
+        self._interlock_fd = interlock_fd
+        self._execution_lock_fd = execution_lock_fd
+        self._interlock_identity = self._descriptor_identity(interlock_fd)
+        self._execution_lock_identity = self._descriptor_identity(
+            execution_lock_fd
+        )
+        self._seal = _PRODUCTION_EXECUTION_LEASE_SEAL
+        self._consumed = False
+        self._closed = False
+
+    @staticmethod
+    def _descriptor_identity(descriptor: int) -> tuple[int, int, int, int, int]:
+        try:
+            metadata = os.fstat(descriptor)
+        except OSError as exc:
+            raise ActivationError("PRODUCTION_EXECUTION_LEASE_INVALID") \
+                from exc
+        if (not stat.S_ISREG(metadata.st_mode)
+                or metadata.st_uid != os.geteuid()
+                or stat.S_IMODE(metadata.st_mode) != 0o600
+                or metadata.st_nlink != 1):
+            raise ActivationError("PRODUCTION_EXECUTION_LEASE_INVALID")
+        return (
+            metadata.st_dev, metadata.st_ino, metadata.st_mode,
+            metadata.st_uid, metadata.st_gid,
+        )
+
+    @staticmethod
+    def _require_distinct_lock_held(path: Path) -> None:
+        descriptor = -1
+        try:
+            descriptor = os.open(
+                path, os.O_RDWR | getattr(os, "O_NOFOLLOW", 0)
+                | getattr(os, "O_CLOEXEC", 0),
+            )
+            try:
+                fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                return
+            raise ActivationError("PRODUCTION_EXECUTION_LEASE_LOCK_LOST")
+        except OSError as exc:
+            raise ActivationError("PRODUCTION_EXECUTION_LEASE_INVALID") \
+                from exc
+        finally:
+            if descriptor >= 0:
+                os.close(descriptor)
+
+    def _validate_live_locks(self) -> None:
+        if (self._descriptor_identity(self._interlock_fd)
+                != self._interlock_identity
+                or self._descriptor_identity(self._execution_lock_fd)
+                != self._execution_lock_identity):
+            raise ActivationError("PRODUCTION_EXECUTION_LEASE_INVALID")
+        try:
+            interlock_path = os.stat(
+                PRODUCTION_INTERLOCK_PATH, follow_symlinks=False,
+            )
+            execution_path = os.stat(
+                self._journal.root / self._journal.lock_name,
+                follow_symlinks=False,
+            )
+        except OSError as exc:
+            raise ActivationError("PRODUCTION_EXECUTION_LEASE_INVALID") \
+                from exc
+        if ((interlock_path.st_dev, interlock_path.st_ino)
+                != self._interlock_identity[:2]
+                or (execution_path.st_dev, execution_path.st_ino)
+                != self._execution_lock_identity[:2]):
+            raise ActivationError("PRODUCTION_EXECUTION_LEASE_INVALID")
+        self._require_distinct_lock_held(PRODUCTION_INTERLOCK_PATH)
+        self._require_distinct_lock_held(
+            self._journal.root / self._journal.lock_name
+        )
+
+    def bind(self, authorization: VerifiedActivation) -> ActivationJournal:
+        if (type(self) is not ProductionExecutionLease
+                or self._seal is not _PRODUCTION_EXECUTION_LEASE_SEAL
+                or self._closed or self._consumed
+                or not isinstance(authorization, VerifiedActivation)
+                or authorization._verification_seal
+                is not _VERIFIED_ACTIVATION_SEAL
+                or authorization.environment != "PRODUCTION"
+                or authorization.run_nonce != self._binding.run_nonce
+                or authorization.plan_sha256 != self._binding.plan_sha256
+                or authorization.decision_sha256
+                != self._binding.decision_sha256):
+            raise ActivationError("PRODUCTION_EXECUTION_LEASE_INVALID")
+        self._validate_live_locks()
+        current = self._journal.inspect()
+        if current["state"] != "RUNNING":
+            raise ActivationError("PRODUCTION_EXECUTION_LEASE_STATE_INVALID")
+        self._consumed = True
+        return self._journal
+
+    def close(self) -> None:
+        if self._closed:
+            return
+        self._closed = True
+        for descriptor in (self._execution_lock_fd, self._interlock_fd):
+            if descriptor >= 0:
+                os.close(descriptor)
+        self._execution_lock_fd = -1
+        self._interlock_fd = -1
+
+
+def claim_precommitted_production_execution(
+    *, run_nonce: str, plan_sha256: str, decision_sha256: str,
+) -> ProductionExecutionLease:
+    binding = _LaunchClaimBinding(
+        run_nonce=_token(run_nonce, "PRODUCTION_PRECLAIM_NONCE_INVALID"),
+        plan_sha256=_digest(
+            plan_sha256, "PRODUCTION_PRECLAIM_PLAN_DIGEST_INVALID",
+        ),
+        decision_sha256=_digest(
+            decision_sha256, "PRODUCTION_PRECLAIM_DECISION_DIGEST_INVALID",
+        ),
+    )
+    interlock_fd = -1
+    execution_lock_fd = -1
+    try:
+        interlock_fd = _acquire_production_interlock(binding)
+        _require_preclaimed_production_activation_state(binding)
+        journal = ActivationJournal(PRODUCTION_JOURNAL_ROOT, binding)
+        execution_lock_fd = journal.acquire_execution_lock(
+            require_existing=True,
+        )
+        if journal.inspect()["state"] != "CLAIMED":
+            raise ActivationError("PRODUCTION_PRECLAIM_ALREADY_CONSUMED")
+        journal.transition(expected_state={"CLAIMED"}, state="RUNNING")
+        return ProductionExecutionLease(
+            binding=binding, journal=journal,
+            interlock_fd=interlock_fd,
+            execution_lock_fd=execution_lock_fd,
+            _factory_seal=_PRODUCTION_EXECUTION_LEASE_SEAL,
+        )
+    except BaseException:
+        if execution_lock_fd >= 0:
+            os.close(execution_lock_fd)
+        if interlock_fd >= 0:
+            os.close(interlock_fd)
+        raise
 
 
 def _validate_dormant_receipt(value: Mapping[str, Any]) -> dict[str, Any]:
@@ -1625,12 +2167,86 @@ def _validate_resource_reconcile_receipt(
     return dict(value)
 
 
+def recover_completed_close(
+    *, authorization: VerifiedRecovery, journal_root: Path,
+    activation_plan_raw: bytes, executor: ActivationExecutor,
+    reconcile: Callable[[], Mapping[str, Any]],
+    verify_dormant: Callable[[], Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Finish only an already successful, fully evidenced terminal commit.
+
+    A hard kill may occur after the executor durably closes its resource
+    journal and publishes the canonical receipt but before the outer journal
+    reaches CLOSED.  This path never executes work: it requires the exact
+    signed package, a bound canonical receipt, already-CLOSED resources, and
+    two dormant attestations before reconstructing the outer CLOSED state.
+    """
+    recovery = require_verified_recovery_authorization(
+        authorization, expected_environment="PRODUCTION",
+    )
+    if type(recovery) is not VerifiedRecovery:
+        raise ActivationError("ACTIVATION_CLOSE_RECOVERY_CAPABILITY_INVALID")
+    if journal_root != PRODUCTION_JOURNAL_ROOT:
+        raise ActivationError("PRODUCTION_JOURNAL_ROOT_MISMATCH")
+    plan = validate_plan(
+        _decode_json(activation_plan_raw), expected_environment="PRODUCTION",
+    )
+    if _sha(_canonical(plan)) != recovery.plan_sha256:
+        raise ActivationError("ACTIVATION_CLOSE_RECOVERY_PLAN_MISMATCH")
+    if getattr(executor, "production_contact", None) is not True:
+        raise ActivationError("EXECUTOR_ENVIRONMENT_MISMATCH")
+    journal = ActivationJournal(journal_root, recovery)
+    execution_lock = -1
+    interlock_fd = -1
+    try:
+        interlock_fd = _acquire_production_interlock(recovery)
+        execution_lock = journal.acquire_execution_lock(
+            require_existing=True,
+        )
+        current = journal.inspect()
+        if current["state"] not in {"RUNNING", "HOLD"}:
+            raise ActivationError("ACTIVATION_CLOSE_RECOVERY_STATE_INVALID")
+        observed = journal.inspect_receipt_optional()
+        if observed is None:
+            raise ActivationError("ACTIVATION_CLOSE_RECOVERY_RECEIPT_MISSING")
+        _receipt, receipt_sha = observed
+        resources = _validate_resource_reconcile_receipt(
+            executor.reconcile_resources(
+                plan=plan, authorization=recovery,
+            )
+        )
+        if resources["status"] != "EXECUTOR_RESOURCES_ALREADY_CLOSED":
+            raise ActivationError(
+                "ACTIVATION_CLOSE_RECOVERY_RESOURCES_NOT_CLOSED"
+            )
+        _validate_dormant_receipt(reconcile())
+        _validate_dormant_receipt(verify_dormant())
+        journal.transition(
+            expected_state={current["state"]}, state="CLOSED",
+            receipt_sha256=receipt_sha,
+        )
+    finally:
+        if interlock_fd >= 0:
+            os.close(interlock_fd)
+        if execution_lock >= 0:
+            os.close(execution_lock)
+    return {
+        "status": "ACTIVATION_COMPLETED_CLOSE_RECOVERED",
+        "runNonce": recovery.run_nonce,
+        "receiptSha256": receipt_sha,
+        "journalState": "CLOSED",
+        "automaticRetryAllowed": False,
+        "actionAllowed": False,
+    }
+
+
 def run_once(
     *, keyring_raw: bytes, decision_raw: bytes, activation_plan_raw: bytes,
     expected_keyring_sha256: str, expected_environment: str, now_epoch: int,
     journal_root: Path, executor: ActivationExecutor,
     reconcile: Callable[[], Mapping[str, Any]],
     verify_dormant: Callable[[], Mapping[str, Any]],
+    production_lease: ProductionExecutionLease | None = None,
     monotonic: Callable[[], float] = time.monotonic,
 ) -> dict[str, Any]:
     if expected_environment == "PRODUCTION":
@@ -1657,6 +2273,12 @@ def run_once(
     if (expected_environment == "PRODUCTION"
             and journal_root != PRODUCTION_JOURNAL_ROOT):
         raise ActivationError("PRODUCTION_JOURNAL_ROOT_MISMATCH")
+    valid_production_lease = (
+        type(production_lease) is ProductionExecutionLease
+        and production_lease._seal is _PRODUCTION_EXECUTION_LEASE_SEAL
+    )
+    if (expected_environment == "PRODUCTION") != valid_production_lease:
+        raise ActivationError("PRODUCTION_EXECUTION_LEASE_REQUIRED")
     if now_epoch >= authorization.expires_at_epoch:
         raise ActivationError("ACTIVATION_DECISION_TIME_INVALID")
     _validate_dormant_receipt(reconcile())
@@ -1665,16 +2287,20 @@ def run_once(
         _decode_json(activation_plan_raw),
         expected_environment=expected_environment,
     )
-    journal = ActivationJournal(journal_root, authorization)
+    journal = (
+        production_lease.bind(authorization)
+        if production_lease is not None else
+        ActivationJournal(journal_root, authorization)
+    )
     execution_lock = -1
     interlock_fd = -1
     try:
         if expected_environment == "PRODUCTION":
-            interlock_fd = _acquire_production_interlock(authorization)
-            _require_empty_production_activation_state()
-        execution_lock = journal.acquire_execution_lock()
-        journal.claim()
-        journal.transition(expected_state={"CLAIMED"}, state="RUNNING")
+            _require_preclaimed_production_activation_state(authorization)
+        else:
+            execution_lock = journal.acquire_execution_lock()
+            journal.claim()
+            journal.transition(expected_state={"CLAIMED"}, state="RUNNING")
         authorization._capability_state.begin_execution()
         started = monotonic()
         work_deadline = (

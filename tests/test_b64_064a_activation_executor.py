@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import importlib
 import os
+import signal
 import subprocess
 import sys
 from pathlib import Path
@@ -128,6 +129,80 @@ def test_resource_journal_symlink_is_never_followed(tmp_path):
         journal.create()
     with pytest.raises(executor.ExecutorError):
         journal.inspect()
+
+
+def test_resource_journal_repairs_real_kill_during_create(tmp_path):
+    journal = _journal(tmp_path)
+    child = os.fork()
+    if child == 0:
+        def partial_write(descriptor, raw):
+            os.write(descriptor, raw[:max(1, len(raw) // 2)])
+            os.kill(os.getpid(), signal.SIGKILL)
+
+        activation._write_all = partial_write
+        journal.create()
+        os._exit(99)
+    _waited, status = os.waitpid(child, 0)
+    assert os.WIFSIGNALED(status)
+    assert os.WTERMSIG(status) == signal.SIGKILL
+    assert not journal.path.exists()
+    assert (journal.root / journal.create_temp_name).exists()
+
+    journal.create()
+
+    assert journal.inspect()["state"] == "PREPARED"
+    assert set(path.name for path in journal.root.iterdir()) == {
+        journal.path.name,
+    }
+
+
+@pytest.mark.parametrize(
+    "kill_point", ["partial_write", "before_replace", "after_replace"],
+)
+def test_resource_journal_repairs_real_kill_during_update(
+    tmp_path, kill_point,
+):
+    journal = _journal(tmp_path)
+    journal.create()
+    child = os.fork()
+    if child == 0:
+        if kill_point == "partial_write":
+            def partial_write(descriptor, raw):
+                os.write(descriptor, raw[:max(1, len(raw) // 2)])
+                os.kill(os.getpid(), signal.SIGKILL)
+
+            activation._write_all = partial_write
+        else:
+            real_replace = executor.os.replace
+
+            def killed_replace(*args, **kwargs):
+                if kill_point == "after_replace":
+                    real_replace(*args, **kwargs)
+                os.kill(os.getpid(), signal.SIGKILL)
+
+            executor.os.replace = killed_replace
+        journal.update(state="RUNNING")
+        os._exit(99)
+    _waited, status = os.waitpid(child, 0)
+    assert os.WIFSIGNALED(status)
+    assert os.WTERMSIG(status) == signal.SIGKILL
+
+    repaired = journal.inspect()
+    if kill_point == "partial_write":
+        assert repaired["state"] == "HOLD"
+        assert repaired["credentialIssued"] is True
+    else:
+        assert repaired["state"] == "RUNNING"
+        journal.update(state="HOLD")
+    journal.update(
+        state="RECONCILED_HOLD", credentialReconciled=True,
+        workspaceAbsent=True, proxyAbsent=True,
+        dumpAbsent=True, restoreAbsent=True,
+    )
+    assert journal.inspect()["state"] == "RECONCILED_HOLD"
+    assert set(path.name for path in journal.root.iterdir()) == {
+        journal.path.name,
+    }
 
 
 def test_workspace_reconcile_preserves_replaced_inode_and_canary(tmp_path):
@@ -434,6 +509,116 @@ def test_resource_reconcile_accepts_cleanup_only_recovery_capability(
     )
     assert result["status"] == "EXECUTOR_RESOURCES_RECONCILED_HOLD"
     assert journal.inspect()["state"] == "RECONCILED_HOLD"
+
+
+@pytest.mark.parametrize("crash_point", [None, "after_create", "after_hold"])
+def test_recovery_executor_synthesizes_terminal_no_resource_journal(
+    monkeypatch, tmp_path, crash_point,
+):
+    workspace = tmp_path / "workspace"
+    proxy = tmp_path / "proxy"
+    resources_root = tmp_path / "resources"
+    for path in (workspace, proxy, resources_root):
+        path.mkdir(mode=0o700)
+    run_nonce = "YWN0aXZhdGlvbi1ydW4tMDE"
+    target = {
+        "containerName": activation.PRODUCTION_CONTAINER,
+        "containerId": "1" * 64,
+        "imageId": activation.PRODUCTION_IMAGE_ID,
+        "systemIdentifier": activation.PRODUCTION_SYSTEM_IDENTIFIER,
+    }
+    derived = {"bound": "derived-plan"}
+    recovery = activation.VerifiedRecovery(
+        environment="PRODUCTION", run_nonce=run_nonce,
+        plan_sha256="3" * 64, decision_sha256="4" * 64,
+        keyring_sha256="5" * 64,
+        derived_execution_plan_sha256=hashlib.sha256(
+            activation._canonical(derived)
+        ).hexdigest(),
+        decision_expires_at_epoch=1_700_000_000, target=target,
+        limits=dict(activation.LIMITS),
+        _recovery_seal=activation._VERIFIED_RECOVERY_SEAL,
+    )
+    monkeypatch.setattr(activation, "PRODUCTION_WORKSPACE_ROOT", workspace)
+    monkeypatch.setattr(activation, "PRODUCTION_PROXY_ROOT", proxy)
+    monkeypatch.setattr(
+        activation, "PRODUCTION_RESOURCE_JOURNAL_ROOT", resources_root,
+    )
+    bound = executor.BoundRecoveryExecutor(
+        container=target["containerName"],
+        container_id=target["containerId"],
+        image_id=target["imageId"],
+        system_identifier=target["systemIdentifier"],
+        workspace_parent=workspace, proxy_parent=proxy,
+        resource_journal_root=resources_root,
+    )
+    monkeypatch.setattr(
+        activation, "derive_execution_plan", lambda **_kwargs: derived,
+    )
+    monkeypatch.setattr(bound, "_reconcile_credential", lambda _plan: {
+        "loginState": "DISABLED", "credentialState": "ABSENT",
+        "activeSessions": 0,
+    })
+    monkeypatch.setattr(executor, "_inspect_container", lambda _name: None)
+
+    if crash_point is not None:
+        real_create = executor.ExecutorResourceJournal.create
+        real_update = executor.ExecutorResourceJournal.update
+        child = os.fork()
+        if child == 0:
+            if crash_point == "after_create":
+                def crash_create(self):
+                    result = real_create(self)
+                    os.kill(os.getpid(), signal.SIGKILL)
+                    return result
+
+                executor.ExecutorResourceJournal.create = crash_create
+            else:
+                def crash_update(self, **changes):
+                    result = real_update(self, **changes)
+                    if changes.get("state") == "HOLD":
+                        os.kill(os.getpid(), signal.SIGKILL)
+                    return result
+
+                executor.ExecutorResourceJournal.update = crash_update
+            bound.reconcile_resources(
+                plan={"target": target, "artifactsSha256": {}},
+                authorization=recovery,
+            )
+            os._exit(99)
+        _waited, status = os.waitpid(child, 0)
+        assert os.WIFSIGNALED(status)
+        assert os.WTERMSIG(status) == signal.SIGKILL
+        interrupted = executor.ExecutorResourceJournal(
+            root=resources_root, workspace_parent=workspace,
+            run_nonce=run_nonce, environment="PRODUCTION", target=target,
+            plan_sha256=recovery.plan_sha256,
+            decision_sha256=recovery.decision_sha256,
+            derived_plan_sha256=recovery.derived_execution_plan_sha256,
+        ).inspect()
+        assert interrupted["state"] == (
+            "PREPARED" if crash_point == "after_create" else "HOLD"
+        )
+
+    result = bound.reconcile_resources(
+        plan={"target": target, "artifactsSha256": {}},
+        authorization=recovery,
+    )
+
+    assert result["status"] == "EXECUTOR_RESOURCES_RECONCILED_HOLD"
+    journal = executor.ExecutorResourceJournal(
+        root=resources_root, workspace_parent=workspace,
+        run_nonce=run_nonce, environment="PRODUCTION", target=target,
+        plan_sha256=recovery.plan_sha256,
+        decision_sha256=recovery.decision_sha256,
+        derived_plan_sha256=recovery.derived_execution_plan_sha256,
+    ).inspect()
+    assert journal["state"] == "RECONCILED_HOLD"
+    assert journal["credentialIssued"] is False
+    assert journal["credentialReconciled"] is True
+    assert all(journal[name] is True for name in (
+        "workspaceAbsent", "proxyAbsent", "dumpAbsent", "restoreAbsent",
+    ))
 
 
 def test_bound_executor_rejects_recovery_capability_before_contact():

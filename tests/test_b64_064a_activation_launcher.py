@@ -56,6 +56,14 @@ def _result():
     }
 
 
+class _Lease:
+    def __init__(self):
+        self.closed = False
+
+    def close(self):
+        self.closed = True
+
+
 def test_signed_artifact_closure_includes_exact_launcher_bytes():
     assert activation.ARTIFACT_PATHS["activationLauncher"] == \
         POSTGRES / "b64_064a_activation_launcher.py"
@@ -79,6 +87,31 @@ def test_signed_artifact_closure_includes_exact_launcher_bytes():
 def test_launch_request_is_exact_non_authorizing_commit(change, reason):
     with pytest.raises(launcher.LauncherError, match=reason):
         launcher._validate_launch_request(_request(**change))
+
+
+@pytest.mark.parametrize("marker_name", [
+    launcher.ROLLBACK_INTENT_NAME,
+    launcher.ROLLBACK_INTENT_NAME + ".tmp-" + "a" * 24,
+])
+def test_launch_request_rejects_durable_runtime_rollback_intent(
+    monkeypatch, tmp_path, marker_name,
+):
+    tmp_path.chmod(0o700)
+    launch = tmp_path / launcher.LAUNCH_REQUEST_NAME
+    launch.write_bytes(activation._canonical(_request()) + b"\n")
+    launch.chmod(0o400)
+    marker = tmp_path / marker_name
+    marker.write_bytes(b'{"rollback":true}\n')
+    marker.chmod(0o400)
+    monkeypatch.setattr(
+        watchdog, "_open_recovery_parent",
+        lambda: os.open(tmp_path, os.O_RDONLY | os.O_DIRECTORY),
+    )
+    with pytest.raises(
+        launcher.LauncherError,
+        match="LAUNCH_RUNTIME_ROLLBACK_IN_PROGRESS",
+    ):
+        launcher._load_launch_request()
 
 
 def test_committed_package_requires_launch_and_recovery_exact_binding(
@@ -133,10 +166,16 @@ def test_committed_package_requires_launch_and_recovery_exact_binding(
 
 
 def test_unsafe_or_missing_package_fails_before_production_contact(monkeypatch):
+    lease = _Lease()
     monkeypatch.setattr(launcher, "_reject_ambient_authority", lambda: None)
+    monkeypatch.setattr(launcher, "_load_launch_request", lambda: _request())
+    monkeypatch.setattr(
+        activation, "claim_precommitted_production_execution",
+        lambda **_kwargs: lease,
+    )
     monkeypatch.setattr(
         launcher, "_load_committed_package",
-        lambda: (_ for _ in ()).throw(
+        lambda _request=None: (_ for _ in ()).throw(
             launcher.LauncherError("LAUNCH_RECOVERY_PACKAGE_MISSING")
         ),
     )
@@ -148,6 +187,7 @@ def test_unsafe_or_missing_package_fails_before_production_contact(monkeypatch):
         launcher.LauncherError, match="LAUNCH_RECOVERY_PACKAGE_MISSING"
     ):
         launcher._execute_production_once()
+    assert lease.closed is True
 
 
 def test_observation_secret_moves_only_through_sealed_fd(tmp_path):
@@ -194,6 +234,7 @@ def test_ambient_libpq_or_arguments_are_rejected(monkeypatch):
 
 def test_production_wiring_uses_verified_target_and_one_run_once(monkeypatch):
     request = _request()
+    lease = _Lease()
     verified = SimpleNamespace(
         run_nonce=request["runNonce"], keyring_sha256="1" * 64,
         target={"containerId": "a" * 64},
@@ -203,17 +244,25 @@ def test_production_wiring_uses_verified_target_and_one_run_once(monkeypatch):
         "activation-plan.json": b"plan",
     }
     monkeypatch.setattr(launcher, "_reject_ambient_authority", lambda: None)
+    monkeypatch.setattr(launcher, "_load_launch_request", lambda: request)
     monkeypatch.setattr(
-        launcher, "_load_committed_package", lambda: (package, verified)
+        activation, "claim_precommitted_production_execution",
+        lambda **kwargs: lease if kwargs == {
+            "run_nonce": request["runNonce"],
+            "plan_sha256": request["planSha256"],
+            "decision_sha256": request["decisionSha256"],
+        } else pytest.fail("claim binding changed"),
+    )
+    monkeypatch.setattr(
+        launcher, "_load_committed_package",
+        lambda observed=None: (package, verified)
+        if observed is request else pytest.fail("launch request changed"),
     )
     monkeypatch.setattr(
         launcher.activation_executor, "_inspect_container", lambda _name: {
             "Id": "a" * 64, "Image": activation.PRODUCTION_IMAGE_ID,
             "State": {"Running": True, "Pid": 12345},
         },
-    )
-    monkeypatch.setattr(
-        activation, "_require_empty_production_activation_state", lambda: None,
     )
     read_fd, write_fd = os.pipe()
     os.close(write_fd)
@@ -252,31 +301,29 @@ def test_production_wiring_uses_verified_target_and_one_run_once(monkeypatch):
     assert len(calls) == 1
     assert calls[0]["expected_environment"] == "PRODUCTION"
     assert calls[0]["journal_root"] == activation.PRODUCTION_JOURNAL_ROOT
+    assert calls[0]["production_lease"] is lease
+    assert lease.closed is True
 
 
-def test_old_activation_state_blocks_before_secret_or_executor(monkeypatch):
-    verified = SimpleNamespace(
-        run_nonce="fresh_nonce_12345", keyring_sha256="1" * 64,
-        target={"containerId": "a" * 64},
-    )
+def test_invalid_preclaim_blocks_before_package_secret_or_executor(monkeypatch):
+    request = _request(runNonce="fresh_nonce_12345")
     monkeypatch.setattr(launcher, "_reject_ambient_authority", lambda: None)
+    monkeypatch.setattr(launcher, "_load_launch_request", lambda: request)
     monkeypatch.setattr(
-        launcher, "_load_committed_package",
-        lambda: ({"unused": b"unused"}, verified),
-    )
-    monkeypatch.setattr(
-        launcher.activation_executor, "_inspect_container", lambda _name: {
-            "Id": "a" * 64, "Image": activation.PRODUCTION_IMAGE_ID,
-            "State": {"Running": True, "Pid": 12345},
-        },
-    )
-    monkeypatch.setattr(
-        activation, "_require_empty_production_activation_state",
-        lambda: (_ for _ in ()).throw(
+        activation, "claim_precommitted_production_execution",
+        lambda **_kwargs: (_ for _ in ()).throw(
             activation.ActivationError(
-                "PRODUCTION_ACTIVATION_STATE_NOT_EMPTY"
+                "PRODUCTION_ACTIVATION_PRECLAIM_INVALID"
             )
         ),
+    )
+    monkeypatch.setattr(
+        launcher, "_load_committed_package",
+        lambda *_args: pytest.fail("package was loaded before claim"),
+    )
+    monkeypatch.setattr(
+        launcher.activation_executor, "_inspect_container",
+        lambda _name: pytest.fail("production target was inspected"),
     )
     monkeypatch.setattr(
         launcher, "_production_connections",
@@ -292,7 +339,7 @@ def test_old_activation_state_blocks_before_secret_or_executor(monkeypatch):
     )
     with pytest.raises(
         activation.ActivationError,
-        match="PRODUCTION_ACTIVATION_STATE_NOT_EMPTY",
+        match="PRODUCTION_ACTIVATION_PRECLAIM_INVALID",
     ):
         launcher._execute_production_once()
 

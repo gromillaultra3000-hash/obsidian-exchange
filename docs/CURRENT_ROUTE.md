@@ -489,3 +489,75 @@ or launch is authorized. Exact next canonical item: obtain an explicit owner
 decision to authorize or decline one fresh single-owner v4 production 064A
 attempt with a fresh nonce. Evidence:
 `docs/e0-3-bot-b5-3-064a-terminal-archive-v2-rollout.v1.json`.
+
+## 2026-08-26 — fresh owner attempt authorized; e725 kit ready
+
+The accountable owner explicitly authorized exactly one fresh single-owner v4
+production 064A attempt with a new nonce. The exact live preflight remains
+dormant: PostgreSQL is healthy on the unchanged container/system identifier
+with restart count zero; the reader is `NOLOGIN`, credential-absent and
+session-free; customer rows are unread, HBA and authority are unchanged; NTP
+is synchronized; the launcher is inactive/static with no prior start; the
+watchdog timer is active/waiting; failed units and all coordination/runtime
+paths are absent.
+
+The current tracked pin-level controller verified the complete sealed e725
+tree and installed e725 units and produced a new 286720-byte static owner-only
+kit at
+`/root/064A-activation-handoff-e725-20260826T0206Z/obsidian-064a-single-owner-v4-offline-kit-e725.tar`.
+Archive SHA-256 is
+`8ed608174eeb8add80f80940674be4087a0190dc83438a7ad702115c197f9622`;
+all 12 internal checksums and manifest self-hash pass. The kit contains no
+private key, passphrase, credential, runtime request, decision or signature.
+The ceremony copy inside the implementation commit still self-pins the
+historical `16fdc05` controller boundary and correctly rejects that known
+non-exact superseded tree; online ceremony commands therefore use the current
+tracked pin-level controller, which independently verifies e725 before each
+action.
+
+No short decision window, nonce, signature, coordination root, credential or
+runtime state has been created. Active status is
+`IN_PROGRESS/BLOCKED_OWNER_PATHS_READY`. Exact next: the owner verifies this
+archive on the owner device and runs `preflight-owner-paths` with the embedded
+public profile and existing encrypted private key. Only an exact
+`OWNER_PATHS_READY` report permits creation of the single fresh 15-minute
+request. Evidence:
+`docs/e0-3-bot-b5-3-064a-fresh-owner-attempt-readiness.v1.json`.
+
+## 2026-08-26 — e725 readiness superseded; replacement hardening active
+
+This section supersedes the preceding e725 readiness section. The owner still
+authorizes exactly one fresh single-owner v4 production attempt with a new
+nonce, but the e725 offline kit (SHA-256 `8ed60817...f9622`) is permanently
+`SUPERSEDED_DO_NOT_USE`. It was created before final review exposed hard-kill
+gaps in runtime rollback, state-before-launch watchdog handling and terminal
+archive publication. No request, nonce, decision, signature, credential,
+launcher start or production data read was created from that kit.
+
+The replacement implementation now treats the launch marker as the sole
+authority publication; provides deterministic rollback intent and archive /
+receipt prefix repair; keeps a CLAIMED state without launch nonmutating;
+routes residual receipts only through automatic exact close; requires the
+pre-existing execution lock and a stable signed target tuple for terminal
+archive evidence; and reports post-authority uncertainty truthfully. An
+integrated real-SIGKILL regression passes the complete sequence from a killed
+state publication through watchdog nonmutation, launch resume,
+`RECONCILED_HOLD` and terminal archive. Final architecture, security and
+operations reviews all report PASS with no P0/P1/P2 finding. The full
+unsandboxed affected/ceremony suite passes 333/333; the broader managed run
+passes 491 tests and only the seven expected uid-70 `chown` cases cannot
+execute in that restricted namespace. A clean isolated PostgreSQL 17.11 run
+returned `DISPOSABLE_ACTIVATION_REHEARSAL_VERIFIED`, closed the journal,
+rejected replay, exercised live-lease supervision plus cold/hard-kill
+recovery, restored the HBA byte-exact and contacted or mutated no production
+database. Receipt SHA-256 is
+`f14d366946d158c2d79ab8de884664d53d7e1c06db1b5f7f28f7b7c8ab4abed3`;
+the exact disposable container and volume were removed. The exact production
+terminal-evidence filesystem also passes an automatically cleaned
+`O_TMPFILE + linkat + fsync` publication capability probe.
+
+Active status is `IN_PROGRESS/HARDENING_REPLACEMENT_ROLLOUT`. The next
+canonical work is immutable release publication and an inert three-unit
+rollout. Only after a
+replacement kit passes exact server and owner-path preflight may the one
+15-minute request be opened.

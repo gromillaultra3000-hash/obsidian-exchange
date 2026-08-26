@@ -654,6 +654,71 @@ def test_abnormal_running_journal_only_reconciles_to_no_retry_hold(tmp_path):
     assert result["automaticRetryAllowed"] is False
 
 
+@pytest.mark.parametrize("outer_state", ["RUNNING", "HOLD"])
+def test_completed_close_recovery_requires_valid_receipt_and_closed_resources(
+    monkeypatch, tmp_path, outer_state,
+):
+    root = tmp_path / "activation"
+    journal_root = root / "journal"
+    root.mkdir(mode=0o700)
+    journal_root.mkdir(mode=0o700)
+    package = _package(environment="PRODUCTION")
+    verified = _verify(package)
+    recovery = MODULE.VerifiedRecovery(
+        environment="PRODUCTION", run_nonce=verified.run_nonce,
+        plan_sha256=verified.plan_sha256,
+        decision_sha256=verified.decision_sha256,
+        keyring_sha256=verified.keyring_sha256,
+        derived_execution_plan_sha256=verified.derived_execution_plan_sha256,
+        decision_expires_at_epoch=verified.expires_at_epoch,
+        target=verified.target, limits=verified.limits,
+        _recovery_seal=MODULE._VERIFIED_RECOVERY_SEAL,
+    )
+    monkeypatch.setattr(MODULE, "PRODUCTION_ACTIVATION_ROOT", root)
+    monkeypatch.setattr(MODULE, "PRODUCTION_JOURNAL_ROOT", journal_root)
+    monkeypatch.setattr(
+        MODULE, "PRODUCTION_INTERLOCK_PATH", tmp_path / "activation.lock",
+    )
+    journal = MODULE.ActivationJournal(journal_root, recovery)
+    lock_fd = journal.acquire_execution_lock()
+    os.close(lock_fd)
+    journal.claim()
+    journal.transition(expected_state={"CLAIMED"}, state="RUNNING")
+    if outer_state == "HOLD":
+        journal.transition(
+            expected_state={"RUNNING"}, state="HOLD",
+            reason_code="INTERRUPTED_JOURNAL_TRANSITION_NO_RETRY",
+        )
+    receipt_sha = journal.write_receipt(_receipt(recovery))
+
+    class ClosedResources(FakeExecutor):
+        production_contact = True
+
+        def reconcile_resources(self, *, plan, authorization):
+            assert plan["runNonce"] == authorization.run_nonce
+            return {
+                "status": "EXECUTOR_RESOURCES_ALREADY_CLOSED",
+                "loginState": "DISABLED", "credentialState": "ABSENT",
+                "activeSessions": 0, "workspaceAbsent": True,
+                "proxyAbsent": True, "dumpAbsent": True,
+                "restoreAbsent": True, "automaticRetryAllowed": False,
+                "actionAllowed": False,
+            }
+
+    result = MODULE.recover_completed_close(
+        authorization=recovery, journal_root=journal_root,
+        activation_plan_raw=MODULE._canonical(package["plan"]),
+        executor=ClosedResources(), reconcile=_dormant,
+        verify_dormant=_dormant,
+    )
+    assert result["status"] == "ACTIVATION_COMPLETED_CLOSE_RECOVERED"
+    assert result["receiptSha256"] == receipt_sha
+    terminal = journal.inspect()
+    assert terminal["state"] == "CLOSED"
+    assert terminal["receiptSha256"] == receipt_sha
+    assert terminal["reasonCode"] is None
+
+
 def test_automatic_recovery_claims_durable_hold_before_cleanup_and_never_retries(
     tmp_path,
 ):
@@ -1020,7 +1085,7 @@ def test_production_consumption_rejects_caller_selected_journal_root(
     assert list(tmp_path.iterdir()) == []
 
 
-def test_production_new_nonce_rejects_any_existing_activation_state(
+def test_production_preclaim_is_consumed_once_before_execution(
     monkeypatch, tmp_path,
 ):
     root = tmp_path / "activation"
@@ -1033,9 +1098,6 @@ def test_production_new_nonce_rejects_any_existing_activation_state(
     root.mkdir(mode=0o700)
     for path in roots.values():
         path.mkdir(mode=0o700)
-    residual = roots["journal"] / "older_nonce_12345.json"
-    residual.write_text("{}\n", encoding="utf-8")
-    residual.chmod(0o600)
     monkeypatch.setattr(MODULE, "PRODUCTION_ACTIVATION_ROOT", root)
     monkeypatch.setattr(MODULE, "PRODUCTION_JOURNAL_ROOT", roots["journal"])
     monkeypatch.setattr(
@@ -1044,23 +1106,131 @@ def test_production_new_nonce_rejects_any_existing_activation_state(
     monkeypatch.setattr(MODULE, "PRODUCTION_WORKSPACE_ROOT", roots["workspace"])
     monkeypatch.setattr(MODULE, "PRODUCTION_PROXY_ROOT", roots["proxy"])
     monkeypatch.setattr(
-        MODULE.supervisor, "_trusted_now_epoch",
-        lambda: (1_800_000_000, {"source": "synthetic"}),
+        MODULE, "PRODUCTION_INTERLOCK_PATH", tmp_path / "activation.lock",
     )
+    package = _package(environment="PRODUCTION")
+    authorization = _verify(package)
+    journal = MODULE.ActivationJournal(roots["journal"], authorization)
+    lock_fd = journal.acquire_execution_lock()
+    os.close(lock_fd)
+    journal.claim()
+
+    lease = MODULE.claim_precommitted_production_execution(
+        run_nonce=authorization.run_nonce,
+        plan_sha256=authorization.plan_sha256,
+        decision_sha256=authorization.decision_sha256,
+    )
+    assert journal.inspect()["state"] == "RUNNING"
+    assert lease.bind(authorization).inspect()["state"] == "RUNNING"
+    with pytest.raises(
+        MODULE.ActivationError, match="PRODUCTION_EXECUTION_LEASE_INVALID",
+    ):
+        lease.bind(authorization)
+    lease.close()
+
+    with pytest.raises(
+        MODULE.ActivationError,
+        match="PRODUCTION_PRECLAIM_ALREADY_CONSUMED",
+    ):
+        MODULE.claim_precommitted_production_execution(
+            run_nonce=authorization.run_nonce,
+            plan_sha256=authorization.plan_sha256,
+            decision_sha256=authorization.decision_sha256,
+        )
+    assert journal.inspect()["state"] == "RUNNING"
+
+
+def test_production_lease_rejects_replaced_lock_descriptor(
+    monkeypatch, tmp_path,
+):
+    root = tmp_path / "activation"
+    roots = {
+        "journal": root / "journal", "resources": root / "resources",
+        "workspace": root / "workspace", "proxy": root / "proxy",
+    }
+    root.mkdir(mode=0o700)
+    for path in roots.values():
+        path.mkdir(mode=0o700)
+    monkeypatch.setattr(MODULE, "PRODUCTION_ACTIVATION_ROOT", root)
+    monkeypatch.setattr(MODULE, "PRODUCTION_JOURNAL_ROOT", roots["journal"])
     monkeypatch.setattr(
-        MODULE, "_acquire_production_interlock",
-        lambda _authorization: os.open("/dev/null", os.O_RDONLY),
+        MODULE, "PRODUCTION_RESOURCE_JOURNAL_ROOT", roots["resources"]
     )
+    monkeypatch.setattr(MODULE, "PRODUCTION_WORKSPACE_ROOT", roots["workspace"])
+    monkeypatch.setattr(MODULE, "PRODUCTION_PROXY_ROOT", roots["proxy"])
+    monkeypatch.setattr(
+        MODULE, "PRODUCTION_INTERLOCK_PATH", tmp_path / "activation.lock",
+    )
+    authorization = _verify(_package(environment="PRODUCTION"))
+    journal = MODULE.ActivationJournal(roots["journal"], authorization)
+    lock_fd = journal.acquire_execution_lock()
+    os.close(lock_fd)
+    journal.claim()
+    lease = MODULE.claim_precommitted_production_execution(
+        run_nonce=authorization.run_nonce,
+        plan_sha256=authorization.plan_sha256,
+        decision_sha256=authorization.decision_sha256,
+    )
+    replacement = os.open("/dev/null", os.O_RDONLY)
+    try:
+        os.dup2(replacement, lease._execution_lock_fd)
+    finally:
+        os.close(replacement)
+    with pytest.raises(
+        MODULE.ActivationError, match="PRODUCTION_EXECUTION_LEASE_INVALID",
+    ):
+        lease.bind(authorization)
+    lease.close()
+    assert journal.inspect()["state"] == "RUNNING"
+
+
+def test_production_run_once_requires_preclaimed_execution_lease(
+    monkeypatch, tmp_path,
+):
     package = _package(environment="PRODUCTION")
     executor = FakeExecutor()
     executor.production_contact = True
+    monkeypatch.setattr(
+        MODULE.supervisor, "_trusted_now_epoch",
+        lambda: (package["now"], {"source": "synthetic"}),
+    )
+    monkeypatch.setattr(MODULE, "PRODUCTION_JOURNAL_ROOT", tmp_path)
     with pytest.raises(
-        MODULE.ActivationError,
-        match="PRODUCTION_ACTIVATION_STATE_NOT_EMPTY",
+        MODULE.ActivationError, match="PRODUCTION_EXECUTION_LEASE_INVALID",
     ):
-        _run(package, roots["journal"], executor)
+        MODULE.ProductionExecutionLease(
+            binding=object(), journal=object(),
+            interlock_fd=-1, execution_lock_fd=-1,
+            _factory_seal=object(),
+        )
+    with pytest.raises(
+        MODULE.ActivationError, match="PRODUCTION_EXECUTION_LEASE_REQUIRED",
+    ):
+        _run(package, tmp_path, executor)
     assert executor.calls == 0
-    assert residual.read_text("utf-8") == "{}\n"
+
+    class ForgedLease:
+        @staticmethod
+        def bind(_authorization):
+            pytest.fail("forged lease was called")
+
+    with pytest.raises(
+        MODULE.ActivationError, match="PRODUCTION_EXECUTION_LEASE_REQUIRED",
+    ):
+        _run(package, tmp_path, executor, production_lease=ForgedLease())
+    assert executor.calls == 0
+
+    class LeaseSubclass(MODULE.ProductionExecutionLease):
+        def bind(self, _authorization):
+            pytest.fail("subclass override was called")
+
+    subclass = object.__new__(LeaseSubclass)
+    subclass._seal = MODULE._PRODUCTION_EXECUTION_LEASE_SEAL
+    with pytest.raises(
+        MODULE.ActivationError, match="PRODUCTION_EXECUTION_LEASE_REQUIRED",
+    ):
+        _run(package, tmp_path, executor, production_lease=subclass)
+    assert executor.calls == 0
 
 
 def test_work_deadline_preserves_cleanup_reserve_and_is_hold(tmp_path):

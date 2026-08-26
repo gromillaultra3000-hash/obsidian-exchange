@@ -67,6 +67,7 @@ OFFLINE_KIT_FILES = (
     "deploy/postgres/b64_064a_activation_entrypoint.py",
     "deploy/postgres/b64_064a_hardened_refresh.py",
     "deploy/postgres/b64_064a_runtime_package_committer.py",
+    "deploy/postgres/b64_064a_manual_hold_reconciler.py",
     "deploy/postgres/b64_dump_restore_supervisor.py",
     "docs/e0-3-bot-b5-3-064a-activation-trust-registry.v1.json",
     "docs/e0-3-bot-b5-3-064a-single-owner-policy.v1.json",

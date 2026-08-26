@@ -10,29 +10,32 @@ Updated: 2026-08-26 UTC
   not a permanent suffix. New sessions use `docs/CURRENT_ROUTE.md`; unchanged
   long charters and history are not repeatedly reread within one logical task.
 
-- 2026-08-26 active route `E0 → E0.3 → B5.3 → 064A` is `IN_PROGRESS`; a new
-  production attempt is `BLOCKED_OWNER`. Pushed implementation `e725d49` and
-  pin `af64ee6` deploy terminal archive v2 and a complete Git-tree release
-  attestor without starting the launcher or restarting PostgreSQL. Every
-  terminal archive now requires an expired decision; v2 staging binds expiry
-  and trusted authorization time, rechecks time on resume and rejects legacy
-  staging. `CLOSED` requires and archives its canonical receipt; HOLD evidence
-  records customer-row reads as `POSSIBLE` after credential issuance and
-  `NOT_READ` only when no credential was issued. The new clean immutable
-  release has exactly 2181 Git blobs; the previously pinned `16fdc05` tree was
-  found polluted by untracked pytest/bytecode caches and is no longer
-  referenced. Expanded tests pass 192/192, pin tests 88/88, a real disposable
-  lifecycle passed with receipt `916a1830...`, and independent architecture,
-  security and operations reviews found no P0/P1. The loaded watchdog returns
-  `DORMANT_VERIFIED_NO_RECOVERY_REQUEST`; PostgreSQL MainPID `3136948`,
-  container PID `3137013`, start time and restart count zero are unchanged.
-  Reader authority is disabled/credential-absent/session-free and all runtime
-  and coordination paths are absent. The historical v1 archive remains exact
-  with manifest `66cd1183...`; its consumed nonce/signature remain unusable.
-  No new request is authorized. Exact next: obtain an explicit accountable
-  owner decision to authorize or decline one fresh single-owner v4 production
-  attempt with a fresh nonce. Evidence:
-  `docs/e0-3-bot-b5-3-064a-terminal-archive-v2-rollout.v1.json`.
+- 2026-08-26 active route `E0 → E0.3 → B5.3 → 064A` is
+  `IN_PROGRESS/HARDENING_REPLACEMENT_ROLLOUT`. The owner authorized exactly one
+  fresh single-owner v4 production attempt with a new nonce, but no short
+  request has been opened. The former e725 kit (SHA-256 `8ed60817...f9622`)
+  and its readiness record are `SUPERSEDED_DO_NOT_USE`: final review found
+  crash-prefix gaps after that kit was built. Current code now makes launch the
+  sole authority publication, repairs deterministic rollback/receipt/archive
+  prefixes after hard kill, prevents the watchdog from terminalizing a
+  pre-launch CLAIMED state, preserves manual residual receipts for automatic
+  close, requires exact pre-existing terminal evidence, and never reports a
+  possibly published authority set as absent. The integrated hard-kill chain
+  `state → watchdog nonmutation → launch resume → RECONCILED_HOLD → archive`
+  passes. Final architecture, security and operations reviews report PASS with
+  no P0/P1/P2 findings. The unsandboxed affected/ceremony suite passes 333/333;
+  the broader managed run passes 491 tests and reaches only the expected
+  namespace limitation in seven uid-70 `chown` cases. A fresh isolated
+  PostgreSQL 17.11 rehearsal returned
+  `DISPOSABLE_ACTIVATION_REHEARSAL_VERIFIED`, receipt SHA-256
+  `f14d366...ab4abed3`, byte-exact HBA rollback and no production
+  contact/mutation; its exact container and volume were removed. The exact
+  production archive filesystem passes an automatically cleaned
+  `O_TMPFILE + linkat + fsync` capability probe. Production remains dormant
+  and the old consumed authority remains non-reusable. Exact next: publish the
+  immutable release and perform the inert three-unit rollout; then build a
+  replacement owner kit and obtain
+  `OWNER_PATHS_READY` before opening the single 15-minute request.
 
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact

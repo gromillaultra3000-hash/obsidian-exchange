@@ -2486,3 +2486,68 @@ start. Exact next canonical item: the accountable owner explicitly authorizes
 or declines one fresh single-owner v4 production 064A attempt with a fresh
 nonce. Evidence:
 `docs/e0-3-bot-b5-3-064a-terminal-archive-v2-rollout.v1.json`.
+
+## 2026-08-26 — 064A fresh owner attempt readiness
+
+The accountable owner explicitly authorized one fresh single-owner v4
+production attempt with a new nonce. Exact live preflight is green: the
+PostgreSQL container and cluster identity are unchanged and healthy with
+restart count zero; the snapshot reader is dormant, credential-absent and
+session-free; HBA, customer-row reads and authority are unchanged; NTP is
+synchronized; the watchdog timer is active/waiting, the launcher is
+inactive/static with start timestamp zero, failed units are zero, and all
+coordination/runtime paths are absent.
+
+The tracked pin-level ceremony controller verified the full sealed e725 tree
+and installed e725 units. It created a deterministic 286720-byte, 12-file
+secret-free owner kit at
+`/root/064A-activation-handoff-e725-20260826T0206Z/obsidian-064a-single-owner-v4-offline-kit-e725.tar`,
+SHA-256
+`8ed608174eeb8add80f80940674be4087a0190dc83438a7ad702115c197f9622`.
+All internal checksums and the manifest self-hash pass; the manifest binds
+implementation `e725d49`, trust registry `d42dbdc...`, and explicitly contains
+no private key, passphrase, credential or runtime request. A diagnostic run of
+the historical controller copy inside e725 correctly rejected the known
+polluted superseded `16fdc05` release to which that older copy is self-pinned;
+it created no output or authority.
+
+No fresh plan, nonce, short decision, signature, coordination root, runtime
+package, credential or launcher start exists. E0.3 remains `IN_PROGRESS` and
+the exact blocker is now `BLOCKED_OWNER_PATHS_READY`. The one next canonical
+step is an offline `preflight-owner-paths` report of `OWNER_PATHS_READY` from
+the owner device using the exact new kit and existing encrypted owner key.
+Only then may the server open one 15-minute signing request. Evidence:
+`docs/e0-3-bot-b5-3-064a-fresh-owner-attempt-readiness.v1.json`.
+
+## 2026-08-26 — 064A replacement hardening supersedes e725 readiness
+
+This gate entry supersedes the preceding e725 readiness entry. The owner
+authorization for exactly one fresh single-owner v4 attempt remains bounded,
+but the e725 owner kit (SHA-256 `8ed60817...f9622`) is permanently
+`SUPERSEDED_DO_NOT_USE` after final review identified crash-prefix gaps. No
+short request, fresh nonce, decision, signature, credential, launcher start or
+production data read was created from it.
+
+Replacement code makes launch the sole authority marker and adds deterministic
+hard-kill recovery for publication rollback, execution receipts and terminal
+archive staging. The watchdog leaves a CLAIMED pre-launch prefix unchanged,
+manual HOLD cannot consume an automatic-close residual receipt, archive
+evidence requires its pre-existing execution lock and stable signed target,
+and CLI receipts never claim that an uncertain published authority set is
+absent. A single cross-module real-SIGKILL regression covers state publication,
+nonmutating watchdog inspection, launch resume, terminal reconciliation and
+archive publication. Final architecture, security and operations reviews pass
+with no P0/P1/P2 finding. The unsandboxed affected/ceremony suite passes
+333/333; the broader managed suite passes 491 tests with only seven uid-70
+`chown` cases unavailable in its restricted namespace. The exact isolated
+PostgreSQL 17.11 lifecycle returned
+`DISPOSABLE_ACTIVATION_REHEARSAL_VERIFIED`, closed/replay-rejected the journal,
+covered live-lease/cold/hard-kill recovery, restored HBA byte-exact and made no
+production contact or mutation; its container and volume were removed. The
+exact production evidence filesystem passes a cleaned
+`O_TMPFILE + linkat + fsync` publication capability probe.
+
+E0.3 remains `IN_PROGRESS`; the exact status is
+`HARDENING_REPLACEMENT_ROLLOUT`. Next: immutable replacement release and inert
+unit deployment. A replacement owner kit and exact `OWNER_PATHS_READY` report are
+required before opening the single 15-minute request.

@@ -310,11 +310,17 @@ def test_publish_moves_original_components_without_deleting_evidence(
 
 
 @pytest.mark.parametrize("failure_point", [
+    "after_staging_mkdir",
+    "after_manifest_temp_create",
+    "after_manifest_partial_write",
+    "after_manifest_temp_fsync",
+    "after_manifest_temp_publish",
     "after_manifest",
     "after_activation-state_move",
     "after_launch-request.json_move",
     "after_recovery-request.json_move",
     "after_recovery-package_move",
+    "after_archive_seal",
     "after_archive_publish",
 ])
 def test_every_crash_prefix_resumes_to_one_verified_archive(
@@ -336,6 +342,120 @@ def test_every_crash_prefix_resumes_to_one_verified_archive(
         nonce=NONCE, decision_sha256=DECISION,
         manifest_raw=terminal_sources["manifestRaw"],
     )
+
+
+@pytest.mark.parametrize("kill_point", [
+    "after_staging_mkdir",
+    "after_manifest_temp_create",
+    "after_manifest_partial_write",
+    "after_manifest_temp_fsync",
+    "after_manifest_temp_publish",
+    "after_archive_seal",
+])
+def test_real_sigkill_archive_prefix_is_repaired_and_published(
+    terminal_sources, kill_point,
+):
+    child = os.fork()
+    if child == 0:
+        def kill(point):
+            if point == kill_point:
+                os.kill(os.getpid(), 9)
+
+        archiver._publish_archive(
+            nonce=NONCE, decision_sha256=DECISION,
+            manifest_raw=terminal_sources["manifestRaw"], fault=kill,
+        )
+        os._exit(99)
+    _waited, status = os.waitpid(child, 0)
+    assert os.WIFSIGNALED(status)
+    assert os.WTERMSIG(status) == 9
+
+    archive, manifest, already = archiver._publish_archive(
+        nonce=NONCE, decision_sha256=DECISION,
+        manifest_raw=terminal_sources["manifestRaw"],
+    )
+    assert already is False
+    assert manifest["manifestSha256"]
+    assert stat.S_IMODE(archive.stat().st_mode) == 0o500
+    assert not any(_path.exists() for _path in (
+        terminal_sources["activation"],
+        terminal_sources["recovery"]
+        / archiver.watchdog.RECOVERY_PACKAGE_NAME,
+        terminal_sources["recovery"]
+        / archiver.watchdog.RECOVERY_REQUEST_NAME,
+        terminal_sources["recovery"]
+        / archiver.launcher.LAUNCH_REQUEST_NAME,
+    ))
+
+
+def test_sigkill_partial_manifest_allows_dynamic_manifest_recomputation(
+    terminal_sources,
+):
+    first_raw = terminal_sources["manifestRaw"]
+    updated = dict(terminal_sources["manifest"])
+    updated.pop("manifestSha256")
+    updated["archiveAuthorizedAtEpoch"] += 1
+    second_raw = archiver._canonical({
+        **updated,
+        "manifestSha256": archiver._sha(archiver._canonical(updated)),
+    }) + b"\n"
+
+    child = os.fork()
+    if child == 0:
+        def kill(point):
+            if point == "after_manifest_partial_write":
+                os.kill(os.getpid(), 9)
+
+        archiver._publish_archive(
+            nonce=NONCE, decision_sha256=DECISION,
+            manifest_raw=first_raw, fault=kill,
+        )
+        os._exit(99)
+    _waited, status = os.waitpid(child, 0)
+    assert os.WIFSIGNALED(status)
+    assert os.WTERMSIG(status) == 9
+    staging, _final = archiver._archive_names(NONCE)
+    assert set(staging.iterdir()) == set()
+
+    archive, manifest, already = archiver._publish_archive(
+        nonce=NONCE, decision_sha256=DECISION,
+        manifest_raw=second_raw,
+    )
+    assert already is False
+    assert manifest["archiveAuthorizedAtEpoch"] == \
+        terminal_sources["manifest"]["archiveAuthorizedAtEpoch"] + 1
+    assert archive.exists()
+
+
+def test_linked_complete_manifest_resumes_with_original_dynamic_evidence(
+    terminal_sources,
+):
+    child = os.fork()
+    if child == 0:
+        def kill(point):
+            if point == "after_manifest_temp_publish":
+                os.kill(os.getpid(), 9)
+
+        archiver._publish_archive(
+            nonce=NONCE, decision_sha256=DECISION,
+            manifest_raw=terminal_sources["manifestRaw"], fault=kill,
+        )
+        os._exit(99)
+    _waited, status = os.waitpid(child, 0)
+    assert os.WIFSIGNALED(status)
+    staging, _final = archiver._archive_names(NONCE)
+    recovered_raw = archiver._staging_manifest_for_resume(
+        staging, nonce=NONCE, decision_sha256=DECISION,
+    )
+    assert recovered_raw == terminal_sources["manifestRaw"]
+
+    archive, manifest, already = archiver._publish_archive(
+        nonce=NONCE, decision_sha256=DECISION,
+        manifest_raw=recovered_raw,
+    )
+    assert already is False
+    assert manifest == terminal_sources["manifest"]
+    assert archive.exists()
     assert manifest["manifestSha256"]
     assert stat.S_IMODE(archive.stat().st_mode) == 0o500
     assert not terminal_sources["activation"].exists()
@@ -362,6 +482,26 @@ def test_staging_manifest_drift_is_rejected(terminal_sources):
             nonce=NONCE, decision_sha256=DECISION,
             manifest_raw=terminal_sources["manifestRaw"],
         )
+
+
+def test_staging_manifest_temp_drift_is_preserved_and_rejected(
+    terminal_sources,
+):
+    staging, _final = archiver._archive_names(NONCE)
+    terminal_sources["archiveParent"].mkdir(mode=0o700)
+    staging.mkdir(mode=0o700)
+    drift = b'{"drift":'
+    _write(staging / archiver.MANIFEST_TEMP_NAME, drift, 0o400)
+
+    with pytest.raises(
+        archiver.ArchiveError,
+        match="TERMINAL_ARCHIVE_STAGING_MANIFEST_MISMATCH",
+    ):
+        archiver._publish_archive(
+            nonce=NONCE, decision_sha256=DECISION,
+            manifest_raw=terminal_sources["manifestRaw"],
+        )
+    assert (staging / archiver.MANIFEST_TEMP_NAME).read_bytes() == drift
 
 
 def test_staging_resume_requires_v2_post_expiry_evidence(terminal_sources):
@@ -532,6 +672,17 @@ def test_issued_credential_hold_records_customer_row_reads_as_possible(
     )
     assert observed["terminalRunCustomerRowReadState"] == "POSSIBLE"
 
+    unsigned["resourceState"] = "CLOSED"
+    closed_resource_raw = archiver._canonical({
+        **unsigned,
+        "manifestSha256": archiver._sha(archiver._canonical(unsigned)),
+    }) + b"\n"
+    observed = archiver._decode_manifest(
+        closed_resource_raw, nonce=NONCE, decision_sha256=DECISION,
+    )
+    assert observed["terminalState"] == "RECONCILED_HOLD"
+    assert observed["resourceState"] == "CLOSED"
+
     unsigned["terminalRunCustomerRowReadState"] = "NOT_READ"
     drifted = archiver._canonical({
         **unsigned,
@@ -595,6 +746,13 @@ def test_hold_accepts_reconciled_issued_credential_but_rejects_nonterminal(
     observed_journal, observed_resources = archiver._terminal_state(recovery)
     assert observed_journal["state"] == "RECONCILED_HOLD"
     assert observed_resources["credentialIssued"] is True
+
+    # A hard kill after the executor durably closes resources but before the
+    # outer receipt commit is a conservative, terminal hold—not a mismatch.
+    resources["state"] = "CLOSED"
+    observed_journal, observed_resources = archiver._terminal_state(recovery)
+    assert observed_journal["state"] == "RECONCILED_HOLD"
+    assert observed_resources["state"] == "CLOSED"
 
     resources["credentialIssued"] = False
     journal["state"] = "HOLD"
@@ -691,7 +849,7 @@ def test_fresh_terminal_decision_cannot_reach_archive_publication(
         def __init__(self, *_args):
             pass
 
-        def acquire_execution_lock(self):
+        def acquire_execution_lock(self, **_kwargs):
             return os.open(lock, os.O_RDONLY)
 
     monkeypatch.setattr(archiver, "_verify_runtime_identity", lambda: release)
@@ -735,6 +893,91 @@ def test_fresh_terminal_decision_cannot_reach_archive_publication(
             confirm_decision_sha256=DECISION,
         )
     assert published == []
+
+
+def test_terminal_archive_does_not_invent_missing_execution_lock(
+    tmp_path, monkeypatch,
+):
+    archive_lock = tmp_path / "archive.lock"
+    archive_lock.write_bytes(b"")
+    archive_lock.chmod(0o600)
+    journal_root = tmp_path / "journal"
+    journal_root.mkdir(mode=0o700)
+    release = tmp_path / ("a" * 40)
+    release.mkdir(mode=0o555)
+    recovery = SimpleNamespace(
+        run_nonce=NONCE, plan_sha256="2" * 64,
+        decision_sha256=DECISION, decision_expires_at_epoch=900,
+    )
+    staging = tmp_path / "staging"
+    final = tmp_path / "final"
+    published = []
+
+    monkeypatch.setattr(activation, "PRODUCTION_JOURNAL_ROOT", journal_root)
+    monkeypatch.setattr(archiver, "_verify_runtime_identity", lambda: release)
+    monkeypatch.setattr(archiver, "_dormant", lambda: {})
+    monkeypatch.setattr(
+        archiver, "_acquire_lock", lambda: os.open(archive_lock, os.O_RDONLY),
+    )
+    monkeypatch.setattr(
+        archiver.watchdog, "_activation_interlock_status",
+        lambda: contextlib.nullcontext(False),
+    )
+    monkeypatch.setattr(
+        archiver, "_archive_names", lambda _nonce: (staging, final),
+    )
+    monkeypatch.setattr(
+        archiver.watchdog, "_load_recovery_package", lambda: {"package": True},
+    )
+    monkeypatch.setattr(
+        archiver, "_verified_recovery",
+        lambda *_args, **_kwargs: (recovery, release, 1_000),
+    )
+    monkeypatch.setattr(
+        archiver, "_publish_archive",
+        lambda **_kwargs: published.append(True),
+    )
+
+    with pytest.raises(
+        archiver.ArchiveError,
+        match="TERMINAL_ARCHIVE_EXECUTION_LOCK_MISSING",
+    ):
+        archiver.archive_terminal_evidence(
+            confirm_run_nonce=NONCE,
+            confirm_decision_sha256=DECISION,
+        )
+    assert not (journal_root / f".{NONCE}.lock").exists()
+    assert published == []
+
+
+def test_locked_dormant_tuple_change_is_rejected(monkeypatch):
+    original = {
+        "containerId": "c" * 64, "containerPid": 1234,
+        "imageId": activation.PRODUCTION_IMAGE_ID,
+        "health": "healthy", "startedAt": "2026-08-26T00:00:00Z",
+        "restartCount": 0, "hostPort": 5432,
+        "mountSource": "/var/lib/docker/volumes/obsidian-postgres-data/_data",
+    }
+    dormant = {
+        "container": original,
+        "systemIdentifier": activation.PRODUCTION_SYSTEM_IDENTIFIER,
+    }
+    recovery = SimpleNamespace(target={
+        "containerName": activation.PRODUCTION_CONTAINER,
+        "containerId": original["containerId"],
+        "imageId": original["imageId"],
+        "systemIdentifier": activation.PRODUCTION_SYSTEM_IDENTIFIER,
+    })
+    monkeypatch.setattr(
+        archiver.watchdog, "inspect_container",
+        lambda *_args, **_kwargs: {**original, "containerPid": 4321},
+    )
+
+    with pytest.raises(
+        archiver.ArchiveError,
+        match="TERMINAL_ARCHIVE_DORMANT_TUPLE_CHANGED",
+    ):
+        archiver._require_locked_dormant_target(dormant, recovery)
 
 
 def _closed_receipt(recovery, **overrides):
