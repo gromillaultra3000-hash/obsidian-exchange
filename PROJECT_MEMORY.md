@@ -89,6 +89,16 @@ Updated: 2026-08-26 UTC
   pass 12/12. Rollback preimage:
   `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-overview-contract-20260826T0754Z.K21Yjp`.
 
+- 2026-08-26 commit `16785b9` deploys a final, accessible review dialog before
+  either existing Mini App Buy or Sell request. It snapshots the intended
+  route/executor, custody, no-KYC lane, fee/rate, payout or destination and
+  irreversibility copy; the pre-existing POST is not invoked until the user
+  explicitly acknowledges it. No writer contract or custody/key handling was
+  changed, and the remembered destination-address behaviour remains. JavaScript
+  syntax and E4 focused/preview regression tests pass 14/14. Production
+  `GET /webapp` contains the dialog. Rollback preimage:
+  `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-exchange-review-20260826T0759Z.yOXleq`.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;

@@ -51,6 +51,11 @@ Overview uses the owner-scoped, authenticated read-only
 operational custody and verified-CEX custody without an aggregate balance.
 It fails closed for any unknown shape and degrades stale balances rather than
 showing cached values (commit `6af865f`, deployed).
+Before the existing Buy or Sell POST, Mini App now presents an accessible
+conditions review with route/executor, custody, no-KYC lane, fees/rate,
+destination or payout and irreversibility notice. The request remains the
+existing server-side contract and is sent only after explicit acknowledgement
+(commit `16785b9`, deployed).
 
 Completed bounded slices:
 `obsidian_b64_snapshot_reader` is deployed in production against the frozen
