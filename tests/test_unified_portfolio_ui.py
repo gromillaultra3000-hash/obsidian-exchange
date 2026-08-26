@@ -66,6 +66,15 @@ def test_more_panel_reaches_existing_optional_exchange_tools():
     assert 'Лимит · DCA · фиксация курса · подарки' in webapp
 
 
+def test_wallet_address_book_can_copy_and_name_an_existing_address():
+    assert "copy.onclick = () => walletCopy(a.address, copy)" in webapp
+    assert "rename.onclick = () => renameWalletBookAddress(a, rename)" in webapp
+    assert 'async function renameWalletBookAddress(entry, button)' in webapp
+    assert "fetch('/api/wallet/address/note'" in webapp
+    assert 'currency: entry.currency' in webapp
+    assert 'address: entry.address' in webapp
+
+
 def test_market_quotes_have_freshness_guard_and_manual_refresh():
     assert 'id="market-refresh"' in webapp
     assert 'id="market-quote-status"' in webapp

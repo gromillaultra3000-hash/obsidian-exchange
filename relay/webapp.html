@@ -2125,6 +2125,22 @@
                     + (a.label ? ' · ' + esc(a.label) : '') + '</div>'
                     + '<div style="font-family:monospace;font-size:11px;color:var(--muted);'
                     + 'overflow:hidden;text-overflow:ellipsis">' + esc(a.short) + '</div></div>';
+                const actions = document.createElement('div');
+                actions.style.cssText = 'display:grid;gap:6px;flex:0 0 auto';
+                const copy = document.createElement('button');
+                copy.type = 'button';
+                copy.textContent = 'Копировать';
+                copy.style.cssText = 'padding:7px 12px;border-radius:10px;cursor:pointer;'
+                    + 'font-size:12px;font-weight:700;color:var(--muted);'
+                    + 'border:1px solid rgba(255,255,255,.14);background:transparent';
+                copy.onclick = () => walletCopy(a.address, copy);
+                const rename = document.createElement('button');
+                rename.type = 'button';
+                rename.textContent = a.label ? 'Изменить имя' : 'Назвать';
+                rename.style.cssText = 'padding:7px 12px;border-radius:10px;cursor:pointer;'
+                    + 'font-size:12px;font-weight:700;color:var(--muted);'
+                    + 'border:1px solid rgba(255,255,255,.14);background:transparent';
+                rename.onclick = () => renameWalletBookAddress(a, rename);
                 const use = document.createElement('button');
                 use.type = 'button';
                 use.textContent = 'Обменять';
@@ -2154,7 +2170,8 @@
                     if (typeof updateTagField === 'function') updateTagField();
                     switchTab('exchange');
                 };
-                row.appendChild(use);
+                actions.append(copy, rename, use);
+                row.appendChild(actions);
                 list.appendChild(row);
             });
             box.style.display = addrs.length ? '' : 'none';
@@ -2188,6 +2205,35 @@
 
             proofNets = data.proof_networks || {};
             proofRenderCurrencies(data.proof_currencies || []);
+        }
+
+        async function renameWalletBookAddress(entry, button) {
+            const label = window.prompt('Название для этого адреса (пусто — убрать имя):', entry.label || '');
+            if (label === null) return;
+            const original = button.textContent;
+            button.disabled = true;
+            button.textContent = 'Сохраняем…';
+            try {
+                const r = await fetch('/api/wallet/address/note', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Telegram-Init-Data': tg.initData || '',
+                    },
+                    body: JSON.stringify({
+                        currency: entry.currency,
+                        network: entry.network || '',
+                        address: entry.address,
+                        label: label.trim(),
+                    }),
+                });
+                if (!r.ok) throw new Error('address note unavailable');
+                await loadWalletBook();
+            } catch (e) {
+                button.disabled = false;
+                button.textContent = 'Не сохранено';
+                setTimeout(() => { button.textContent = original; }, 1600);
+            }
         }
 
         // Сети, в которых сервер умеет проверять подпись. Список приходит
