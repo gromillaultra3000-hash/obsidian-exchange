@@ -134,6 +134,14 @@ automatically, and no API/writer path is added. JavaScript syntax and focused
 E4 tests pass 21/21; live `/webapp` returned `200` with the feature and
 Relay/bot are active. Rollback preimage:
 `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-order-id-copy-20260826T0834Z.BSjt0a`.
+Commit `a52637f` extends the shared explicit review to the existing TON wallet
+send flow. After the existing address check, the user sees executor, custody,
+full destination, amount/network, comment and irreversibility before the
+unchanged request is handed to their wallet for signature. No wallet API,
+payload, server-side signing or custody capability changed. JavaScript syntax
+and focused E4 tests pass 22/22; live `/webapp` returned `200` with the review
+and Relay/bot are active. Rollback preimage:
+`/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-wallet-transfer-review-20260826T0837Z.duTW3w`.
 
 Completed bounded slices:
 `obsidian_b64_snapshot_reader` is deployed in production against the frozen

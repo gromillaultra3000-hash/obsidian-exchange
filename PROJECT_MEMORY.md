@@ -229,6 +229,16 @@ Updated: 2026-08-26 UTC
   preimage:
   `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-order-id-copy-20260826T0834Z.BSjt0a`.
 
+- 2026-08-26 commit `a52637f` completes the E4 pre-signature UX for the
+  existing TON wallet send flow. After its existing server-side address check,
+  the client now presents the shared explicit review with executor, custody,
+  full destination, amount/network, comment and irreversibility copy before it
+  hands the unchanged transaction request to the user’s TON wallet. No wallet
+  API, payload, server-side signing or custody capability changed. JavaScript
+  syntax and focused E4 tests pass 22/22; live `/webapp` returned `200` with
+  the review and Relay/bot are active. Rollback preimage:
+  `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-wallet-transfer-review-20260826T0837Z.duTW3w`.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;
