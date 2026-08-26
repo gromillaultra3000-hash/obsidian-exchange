@@ -66,6 +66,13 @@ def test_more_panel_reaches_existing_optional_exchange_tools():
     assert 'Лимит · DCA · фиксация курса · подарки' in webapp
 
 
+def test_referral_bonus_handoff_opens_the_existing_bot_referral_menu():
+    assert 'onclick="openBotReferral()"' in webapp
+    assert 'function openBotReferral()' in webapp
+    assert 'https://t.me/Obsidian666999bot?start=referral' in webapp
+    assert 'Вывести бонус в боте' in webapp
+
+
 def test_wallet_address_book_can_copy_and_name_an_existing_address():
     assert "copy.onclick = () => walletCopy(a.address, copy)" in webapp
     assert "rename.onclick = () => renameWalletBookAddress(a, rename)" in webapp

@@ -1865,6 +1865,9 @@ async def cmd_start(message: Message, state: FSMContext):
     if start_payload == "tools":
         await send_tools_menu(message)
         return
+    if start_payload == "referral":
+        await send_referral_menu(message, message.from_user.id)
+        return
     btc_rate  = get_cached_rate('BTC')  or 0
     ltc_rate  = get_cached_rate('LTC')  or 0
     usdt_rate = get_cached_rate('USDT') or 0
@@ -2162,11 +2165,11 @@ async def cancel_order_callback(callback: CallbackQuery):
         parse_mode="HTML"
     )
 
-@router.callback_query(F.data == "menu_ref")
-async def menu_ref(callback: CallbackQuery):
+async def send_referral_menu(message: Message, user_id: int) -> None:
+    """Render the existing referral menu without initiating a bonus payout."""
     username = (await bot.get_me()).username
-    ref_link = f"https://t.me/{username}?start=ref_{callback.from_user.id}"
-    ref_stats = _engagement.referral_stats(callback.from_user.id)
+    ref_link = f"https://t.me/{username}?start=ref_{user_id}"
+    ref_stats = _engagement.referral_stats(user_id)
     ref_count, total_bonus = ref_stats["referrals"], ref_stats["total_bonus_btc"]
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📤 Поделиться ссылкой", switch_inline_query=ref_link)],
@@ -2183,11 +2186,16 @@ async def menu_ref(callback: CallbackQuery):
         f"💡 Бонус начисляется сразу после завершения обмена реферала. "
         f"Вывести можно в любой момент на любой BTC-адрес."
     )
-    await send_sticker_safe(callback.message.chat.id, STICKER_REFERRAL)
+    await send_sticker_safe(message.chat.id, STICKER_REFERRAL)
     if IMG_REFERRAL.exists():
-        await callback.message.answer_photo(FSInputFile(IMG_REFERRAL), caption=text, reply_markup=kb, parse_mode="HTML")
+        await message.answer_photo(FSInputFile(IMG_REFERRAL), caption=text, reply_markup=kb, parse_mode="HTML")
     else:
-        await callback.message.answer(text, reply_markup=kb, parse_mode="HTML")
+        await message.answer(text, reply_markup=kb, parse_mode="HTML")
+
+
+@router.callback_query(F.data == "menu_ref")
+async def menu_ref(callback: CallbackQuery):
+    await send_referral_menu(callback.message, callback.from_user.id)
     await callback.answer()
 
 @router.callback_query(F.data == "rate_sub_toggle")
