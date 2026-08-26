@@ -53,3 +53,9 @@ def test_ecosystem_overview_uses_the_existing_read_only_portfolio_contract():
     assert 'function ecosystemPortfolioRender' in webapp
     assert 'ecosystemPortfolioRender(data)' in webapp
     assert "tab.dataset.tab === 'ecosystem'" in webapp
+
+
+def test_activity_navigation_preserves_existing_history_handler():
+    assert 'data-tab="history"' in webapp
+    assert '>Активность<' in webapp
+    assert "tab.dataset.tab === 'history') loadHistory()" in webapp
