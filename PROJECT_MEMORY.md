@@ -473,6 +473,17 @@ Updated: 2026-08-26 UTC
   directions, no overflow and zero console errors. Relay is active. Rollback
   preimage: `/var/lib/obsidian-exchange/deployment-preimages/e4-landing-miniapp-entry-20260826T0943Z.A7xKCV`.
 
+- 2026-08-26 commit `71c18ff` fixes a confirmed mobile Mini App navigation
+  context loss. Entering Market, referrals, profile or FAQ from `Ещё` previously
+  activated a hidden secondary tab, leaving every visible bottom-tab control
+  inactive. On narrow screens `Ещё` now remains visibly contextual, gets
+  `aria-current=page`, and a labelled `← Ещё · <раздел>` return control restores
+  the More panel. Desktop tabs and all secondary-panel data/actions are
+  unchanged. Focused tests pass `10/10`; production `/webapp` is `200` and the
+  `390px` browser flow Market → return confirms state, no overflow and no new
+  errors. Relay/bot are active. Rollback preimage:
+  `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-secondary-navigation-20260826T0946Z.dc9XQt`.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;
