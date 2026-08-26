@@ -159,6 +159,20 @@ Updated: 2026-08-26 UTC
   Rollback preimage:
   `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-activity-support-20260826T0814Z.a7lYku`.
 
+- 2026-08-26 requested `E4/VISIBLE_PORTFOLIO_PREVIEW` vertical is complete:
+  the public site links to `/preview/`, Telegram exposes both public Preview
+  and personal read-only portfolio, and canonical `/webapp` retains its
+  existing Exchange/Wallet/Market/Activity flows behind the unified Overview.
+  Commit `95a7873` aligns the public Preview copy with the deployed personal
+  portfolio rather than presenting it as future work. Immutable release
+  `e4-preview-current-state-20260826T0818Z` is live; site, Preview, personal
+  screen and Mini App returned `200`, Preview POST returned `405`, unauthenticated
+  personal API returned `403`, and both Relay and bot services are active.
+  Focused tests pass 16/16. Rollback preimage:
+  `/var/lib/obsidian-exchange/deployment-preimages/e4-visible-preview-preimage.cOnscA`.
+  The next roadmap work is a separately scoped E4 gate, not another cycle on
+  this visible vertical.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;

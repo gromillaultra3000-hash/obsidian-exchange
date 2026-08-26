@@ -22,12 +22,13 @@ inspectable and useful before further internal 064A work. This replaces only
 new 064A work; its current terminal evidence and status are retained and it
 receives no new request, nonce, signature or launch.
 
-The E4 slice is `IN_PROGRESS`, not a closed E4 gate. Site, bot and Mini App
-may expose the same read-only portfolio, exchange status and market quote
-information, with explicit executor/custody/KYC/fees/risk copy. Payout,
-wallet-key, signing and trade writers remain outside this slice; user actions
-are preview-only until their respective roadmap gates and production contracts
-are accepted. The next ordered item is `E4/VISIBLE_PORTFOLIO_PREVIEW`.
+The requested `E4/VISIBLE_PORTFOLIO_PREVIEW` vertical is `COMPLETED`; it does
+not close the full E4 gate. Site, bot and Mini App expose read-only portfolio,
+exchange status and market quote information, with explicit
+executor/custody/KYC/fees/risk copy. Payout, wallet-key, signing and trade
+writers remain outside this slice; their respective roadmap gates and
+production contracts remain required. The next work must be a separately
+scoped E4 roadmap gate, rather than another iteration on this vertical.
 
 ### E4/VISIBLE_PORTFOLIO_PREVIEW — first production slice
 
@@ -81,6 +82,13 @@ no-store refresh and hides stale/invalid values (commit `676f18f`, deployed).
 The activity centre links to the existing Telegram support bot only after an
 explicit tap and directs users to include their order number; it does not
 automatically send ticket, order or personal data (commit `e964125`, deployed).
+Commit `95a7873` updates the public Preview from a stale “next slice” promise
+to the deployed personal read-only portfolio state. Immutable static release
+`e4-preview-current-state-20260826T0818Z` is active. Post-deploy verification
+returned `200` for public site, Preview, personal preview screen and canonical
+Mini App; Preview POST returned `405`; unauthenticated personal API access
+returned `403`; Relay and bot services are active. Rollback preimage:
+`/var/lib/obsidian-exchange/deployment-preimages/e4-visible-preview-preimage.cOnscA`.
 
 Completed bounded slices:
 `obsidian_b64_snapshot_reader` is deployed in production against the frozen
