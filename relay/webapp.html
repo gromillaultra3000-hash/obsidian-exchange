@@ -73,9 +73,9 @@
         .tab.active .tab-icon { filter:drop-shadow(0 0 5px rgba(159,103,255,.55)); transform:scale(1.1); }
         .ecosystem-lanes { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin-bottom:12px; }
         @media (max-width:620px) {
-          .tabs { position:sticky; bottom:0; z-index:20; grid-template-columns:repeat(5,1fr); background:rgba(12,12,20,.96); backdrop-filter:blur(14px); border:1px solid var(--border); border-radius:16px 16px 0 0; box-shadow:0 -10px 26px rgba(0,0,0,.25); }
+          .tabs { position:sticky; top:auto; bottom:env(safe-area-inset-bottom, 0px); z-index:20; grid-template-columns:repeat(5,1fr); background:rgba(12,12,20,.96); backdrop-filter:blur(14px); border:1px solid var(--border); border-radius:16px 16px 0 0; box-shadow:0 -10px 26px rgba(0,0,0,.25); }
           .tab.secondary-tab { display:none; }
-          .panel { padding-bottom:82px; }
+          .panel { padding-bottom:calc(82px + env(safe-area-inset-bottom, 0px)); }
         }
         @media (max-width:420px) {
           .ecosystem-lanes { grid-template-columns:1fr; }
