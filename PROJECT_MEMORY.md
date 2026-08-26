@@ -419,6 +419,15 @@ Updated: 2026-08-26 UTC
   Rollback receipt:
   `/var/lib/obsidian-exchange/deployment-preimages/e4-visible-preview-preimage.WaikX4`.
 
+- 2026-08-26 commit `8220348` aligns the public "Как это работает" first
+  step and main exchange CTA with the canonical Telegram `start=app` route.
+  It no longer directs users to unauthenticated `/webapp` in a browser; the bot
+  instead renders its existing Mini App button. Sale and swap instructional
+  paths remain unchanged. Focused tests pass `26/26`; mobile browser confirms
+  two `start=app` links, no `/webapp` link, `390px` no-overflow and zero console
+  errors. Relay is active and page returned `200`. Rollback preimage:
+  `/var/lib/obsidian-exchange/deployment-preimages/e4-public-onramp-20260826T0929Z.6i49Hf`.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;
