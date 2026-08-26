@@ -142,6 +142,14 @@ payload, server-side signing or custody capability changed. JavaScript syntax
 and focused E4 tests pass 22/22; live `/webapp` returned `200` with the review
 and Relay/bot are active. Rollback preimage:
 `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-wallet-transfer-review-20260826T0837Z.duTW3w`.
+Commit `4525052` applies this shared review to payment of an existing pending
+sell order from the TON wallet. It displays the server-prepared owner order ID,
+destination, amount/network and mandatory marker before the unchanged TON
+Connect signature request; the order remains unpaid until network confirmation.
+No wallet API, payload, server signing or custody capability changed.
+JavaScript syntax and focused E4 tests pass 23/23; live `/webapp` returned
+`200` with the review and Relay/bot are active. Rollback preimage:
+`/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-wallet-order-payment-review-20260826T0840Z.bfroMi`.
 
 Completed bounded slices:
 `obsidian_b64_snapshot_reader` is deployed in production against the frozen

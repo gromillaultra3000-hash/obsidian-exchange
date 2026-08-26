@@ -239,6 +239,16 @@ Updated: 2026-08-26 UTC
   the review and Relay/bot are active. Rollback preimage:
   `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-wallet-transfer-review-20260826T0837Z.duTW3w`.
 
+- 2026-08-26 commit `4525052` applies the shared E4 review to the existing
+  “pay a pending sell order from TON wallet” flow. It displays the
+  server-prepared owner order ID, destination, amount/network and mandatory
+  marker before the unchanged TON Connect signature request; the order remains
+  unpaid until network confirmation. No wallet API, payload, server signing or
+  custody capability changed. JavaScript syntax and focused E4 tests pass
+  23/23; live `/webapp` returned `200` with the review and Relay/bot are
+  active. Rollback preimage:
+  `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-wallet-order-payment-review-20260826T0840Z.bfroMi`.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;
