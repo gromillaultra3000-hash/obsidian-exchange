@@ -59,11 +59,11 @@ async function fetchMarketRates() {
             // открытых направлений — фронту нечего хардкодить. И никакого CORS.
             const res = await fetch('/api/rates');
             const api = await res.json();
+            const rates = Object.fromEntries(Object.entries(api).filter(([code, value]) =>
+                /^[A-Z0-9]{2,12}$/.test(code) && Number.isFinite(Number(value)) && Number(value) > 0
+            ));
             data = {
-                bitcoin:  { rub: api.BTC },
-                litecoin: { rub: api.LTC },
-                tether:   { rub: api.USDT },
-                ethereum: api.ETH ? { rub: api.ETH } : undefined,
+                rates,
                 _tiers: api.commission_tiers,
                 _offerings: api.offerings
             };
@@ -77,11 +77,19 @@ async function fetchMarketRates() {
     if (data._tiers) window.__oeTiers = data._tiers;
     if (data._offerings) window.__oeOfferings = data._offerings;
 
+    // `rates` — текущий контракт /api/rates. Старый кэш с именами CoinGecko
+    // остаётся читаемым только до его минутного TTL, чтобы не ломать открытую
+    // вкладку во время релиза.
+    const rates = data.rates || {
+        BTC: data.bitcoin?.rub, LTC: data.litecoin?.rub,
+        USDT: data.tether?.rub, ETH: data.ethereum?.rub
+    };
     const map = {
-        bitcoin: data.bitcoin?.rub,
-        litecoin: data.litecoin?.rub,
-        tether: data.tether?.rub,
-        ethereum: data.ethereum?.rub
+        ...rates,
+        bitcoin: rates.BTC,
+        litecoin: rates.LTC,
+        tether: rates.USDT,
+        ethereum: rates.ETH
     };
 
     targets.forEach(el => {
@@ -92,19 +100,21 @@ async function fetchMarketRates() {
         el.textContent = Math.round(val).toLocaleString('ru-RU') + ' ₽';
     });
 
-    window.__oeRates = {
-        BTC: map.bitcoin,
-        LTC: map.litecoin,
-        USDT: map.tether,
-        ETH: map.ethereum
-    };
+    window.__oeRates = Object.fromEntries(Object.entries(rates).filter(([, value]) =>
+        Number.isFinite(Number(value)) && Number(value) > 0
+    ));
     // Направления, закрытые на бэкенде (нет ликвидности), не должны предлагаться
-    document.querySelectorAll('[data-coin-card]').forEach(el => {
-        const code = el.dataset.coinCard;
+    document.querySelectorAll('[data-coin-card], [data-offering]').forEach(el => {
+        const code = el.dataset.coinCard || el.dataset.offering;
         const open = !window.__oeOfferings ||
                      window.__oeOfferings.some(o => o.code === code);
         el.hidden = !open;
     });
+    const calculator = document.getElementById('calc-currency');
+    if (calculator && calculator.selectedOptions[0]?.hidden) {
+        const firstOpen = [...calculator.options].find(option => !option.hidden);
+        if (firstOpen) calculator.value = firstOpen.value;
+    }
 
     // Тикер
     const tickBtc = document.getElementById('tick-btc');
@@ -223,7 +233,8 @@ function initCalculator() {
         const commission     = getCommissionPercent(amount);
         const rateWithMarkup = rates[currency] / (1 - commission / 100);
         const cryptoAmount   = amount / rateWithMarkup;
-        big.textContent   = `≈ ${cryptoAmount.toFixed(8).replace(/0+$/, '').replace(/\.$/, '')} ${currency}`;
+        const decimals = { USDT: 2, TON: 4, LTC: 4, XRP: 6, ETH: 5, BTC: 6 }[currency] ?? 6;
+        big.textContent   = `≈ ${cryptoAmount.toFixed(decimals).replace(/0+$/, '').replace(/\.$/, '')} ${currency}`;
         small.textContent = `Комиссия ${commission}% · курс ${Math.round(rateWithMarkup).toLocaleString('ru-RU')} ₽ за 1 ${currency}`;
     }
 

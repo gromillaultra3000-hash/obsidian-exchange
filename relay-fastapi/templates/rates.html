@@ -10,9 +10,17 @@
 
 <section class="section">
     <div class="rates-grid">
-        <div class="rate-card"><div class="coin">₿ Bitcoin (BTC)</div><div class="value loading" data-rate="bitcoin">загрузка…</div></div>
-        <div class="rate-card"><div class="coin">Ł Litecoin (LTC)</div><div class="value loading" data-rate="litecoin">загрузка…</div></div>
-        <div class="rate-card"><div class="coin">💵 USDT (TRC20)</div><div class="value loading" data-rate="tether">загрузка…</div></div>
+        {% set rate_labels = {
+            "BTC": "₿ Bitcoin (BTC)", "LTC": "Ł Litecoin (LTC)",
+            "USDT": "💵 USDT (TRC20)", "XRP": "✕ XRP (XRP Ledger)",
+            "TON": "🔷 Toncoin (TON)"
+        } %}
+        {% for currency in offered_currencies %}
+        <div class="rate-card" data-offering="{{ currency }}">
+            <div class="coin">{{ rate_labels.get(currency, currency) }}</div>
+            <div class="value loading" data-rate="{{ currency }}">загрузка…</div>
+        </div>
+        {% endfor %}
     </div>
     <p class="section-sub" style="margin-top:10px;">Рыночные котировки без учёта комиссии обмена.</p>
 </section>
@@ -51,9 +59,9 @@
         <div class="input-group">
             <label>Валюта</label>
             <select id="calc-currency">
-                <option value="BTC">BTC</option>
-                <option value="LTC">LTC</option>
-                <option value="USDT">USDT (TRC20)</option>
+                {% for currency in offered_currencies %}
+                <option value="{{ currency }}" data-offering="{{ currency }}">{{ rate_labels.get(currency, currency) }}</option>
+                {% endfor %}
             </select>
         </div>
         <div class="calc-result" id="calc-result">
@@ -61,7 +69,7 @@
             <div class="small">Введите сумму в RUB</div>
         </div>
         <div class="hero-cta" style="margin-top:18px;">
-            <a href="https://t.me/{{ bot_username }}" class="btn btn-primary btn-block">Создать заявку в Telegram</a>
+            <a href="https://t.me/{{ bot_username }}?start=app" class="btn btn-primary btn-block">Открыть Mini App и создать заявку</a>
         </div>
     </div>
 </section>
