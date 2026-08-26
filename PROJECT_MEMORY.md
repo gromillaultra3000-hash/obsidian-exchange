@@ -108,6 +108,16 @@ Updated: 2026-08-26 UTC
   controls. Rollback preimage:
   `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-activity-center-20260826T0800Z.54shQf`.
 
+- 2026-08-26 commit `4a9ba8f` deploys
+  `https://obsidian-exchange.org/preview/portfolio/`: a separate static
+  personal read-only screen reached from the public Preview. It sends no
+  request until the user clicks inside Telegram, accepts only the exact
+  owner-scoped `unified-portfolio.v1` three-lane contract, never aggregates
+  custody domains and hides stale/unknown amounts. The public Preview remains
+  identity-free; unauthenticated API access returns `403`, the personal page
+  returns `200` to GET and `405` to POST. Tests pass 14/14. Evidence:
+  `docs/e4-preview-personal-portfolio-rollout.v1.json`.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;

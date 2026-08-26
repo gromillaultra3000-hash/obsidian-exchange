@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "e4-preview-personal-portfolio-rollout.v1",
+  "recordedAt": "2026-08-26T08:03:00Z",
+  "route": "E4/VISIBLE_PORTFOLIO_PREVIEW",
+  "implementationCommit": "4a9ba8f",
+  "release": "/opt/obsidian-exchange/releases/e4-visible-portfolio-preview/e4-preview-personal-20260826T0803Z",
+  "publicEntry": "https://obsidian-exchange.org/preview/",
+  "personalEntry": "https://obsidian-exchange.org/preview/portfolio/",
+  "dataContract": "unified-portfolio.v1",
+  "activation": "explicit user click inside Telegram only",
+  "capabilities": {
+    "portfolioRead": true,
+    "orderCreation": false,
+    "payment": false,
+    "walletConnection": false,
+    "keyHandling": false,
+    "cexConnection": false,
+    "aggregateBalance": false
+  },
+  "verification": {
+    "focusedTests": "14 passed",
+    "javascriptSyntax": "passed",
+    "personalPageGet": 200,
+    "personalPagePost": 405,
+    "unauthenticatedPortfolioApi": 403
+  },
+  "rollbackReceipt": "/var/lib/obsidian-exchange/deployment-preimages/e4-visible-preview-preimage.Q2g6bS"
+}
