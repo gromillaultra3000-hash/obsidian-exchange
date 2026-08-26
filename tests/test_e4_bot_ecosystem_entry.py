@@ -25,3 +25,13 @@ def test_swap_deep_link_reuses_the_existing_bot_pair_selector():
     handler_start = BOT.index('async def menu_swap')
     handler = BOT[handler_start:BOT.index('@router.callback_query(F.data.startswith("swap_pair_"))', handler_start)]
     assert 'await send_swap_menu(callback.message)' in handler
+
+
+def test_tools_deep_link_reuses_the_existing_optional_tools_menu():
+    start = BOT.index('async def cmd_start')
+    end = BOT.index('# ---------- ОБРАБОТЧИКИ МЕНЮ ----------', start)
+    command = BOT[start:end]
+    assert 'start_payload == "tools"' in command
+    assert 'await send_tools_menu(message)' in command
+    assert 'async def send_tools_menu(message: Message)' in BOT
+    assert 'reply_markup=build_tools_kb()' in BOT

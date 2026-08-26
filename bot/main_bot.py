@@ -1735,6 +1735,11 @@ def build_tools_kb() -> InlineKeyboardMarkup:
     ])
 
 
+async def send_tools_menu(message: Message) -> None:
+    """Render existing optional exchange tools without starting an action."""
+    await message.answer("⚙️ Дополнительные инструменты:", reply_markup=build_tools_kb())
+
+
 @router.callback_query(F.data == "menu_tools")
 async def menu_tools(callback: CallbackQuery):
     """Разворачивает подменю на месте — клавиатура меняется без нового сообщения."""
@@ -1856,6 +1861,9 @@ async def cmd_start(message: Message, state: FSMContext):
             await message.answer("⛔ Вы превысили лимит заявок или заблокированы.")
         else:
             await send_swap_menu(message)
+        return
+    if start_payload == "tools":
+        await send_tools_menu(message)
         return
     btc_rate  = get_cached_rate('BTC')  or 0
     ltc_rate  = get_cached_rate('LTC')  or 0

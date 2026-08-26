@@ -59,6 +59,13 @@ def test_more_panel_reaches_the_existing_telegram_swap_flow():
     assert "tg.openTelegramLink(url)" in webapp
 
 
+def test_more_panel_reaches_existing_optional_exchange_tools():
+    assert 'onclick="openBotTools()"' in webapp
+    assert 'function openBotTools()' in webapp
+    assert 'https://t.me/Obsidian666999bot?start=tools' in webapp
+    assert 'Лимит · DCA · фиксация курса · подарки' in webapp
+
+
 def test_market_quotes_have_freshness_guard_and_manual_refresh():
     assert 'id="market-refresh"' in webapp
     assert 'id="market-quote-status"' in webapp

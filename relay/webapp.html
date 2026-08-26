@@ -293,6 +293,7 @@
           <div style="font-size:13px;color:var(--muted);margin-bottom:14px">Дополнительные разделы. Основные сценарии остаются в нижней навигации.</div>
           <div style="display:grid;gap:9px">
             <button type="button" class="side-btn" onclick="openBotSwap()"><b>🔄 Своп криптовалют</b><br><span style="font-size:11px;color:var(--muted)">BTC · LTC · USDT · открыть существующий сценарий в Telegram</span></button>
+            <button type="button" class="side-btn" onclick="openBotTools()"><b>⚙️ Инструменты обмена</b><br><span style="font-size:11px;color:var(--muted)">Лимит · DCA · фиксация курса · подарки — существующие сценарии Telegram</span></button>
             <button type="button" class="side-btn" onclick="switchTab('market')">📈 Рынок и внешние CEX</button>
             <button type="button" class="side-btn" onclick="switchTab('referral')">👥 Рефералы</button>
             <button type="button" class="side-btn" onclick="switchTab('profile')">👤 Профиль и адреса</button>
@@ -3146,6 +3147,11 @@
         }
         function openBotSwap() {
             const url = 'https://t.me/Obsidian666999bot?start=swap';
+            if (tg && typeof tg.openTelegramLink === 'function') { tg.openTelegramLink(url); return; }
+            window.open(url, '_blank', 'noopener');
+        }
+        function openBotTools() {
+            const url = 'https://t.me/Obsidian666999bot?start=tools';
             if (tg && typeof tg.openTelegramLink === 'function') { tg.openTelegramLink(url); return; }
             window.open(url, '_blank', 'noopener');
         }
