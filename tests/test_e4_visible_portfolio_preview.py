@@ -12,6 +12,7 @@ NGINX = (ROOT / "deploy" / "nginx" / "obsidian-exchange.org").read_text(encoding
 BOT = (ROOT / "bot" / "main_bot.py").read_text(encoding="utf-8")
 RELEASE = (ROOT / "deploy" / "e4_visible_portfolio_preview_release.sh").read_text(encoding="utf-8")
 ROLLBACK = (ROOT / "deploy" / "e4_visible_portfolio_preview_rollback.sh").read_text(encoding="utf-8")
+CAPTURE = (ROOT / "deploy" / "e4_visible_portfolio_preview_capture_preimage.sh").read_text(encoding="utf-8")
 
 
 def test_preview_contract_is_explicitly_non_executable():
@@ -56,3 +57,6 @@ def test_preview_rollout_preserves_a_deterministic_rollback_path():
     assert 'bot.main_bot.py.preimage' in ROLLBACK
     assert 'systemctl reload nginx' in ROLLBACK
     assert 'systemctl restart exchange-bot.service' in ROLLBACK
+    assert 'nginx.conf.preimage' in CAPTURE
+    assert 'bot.main_bot.py.preimage' in CAPTURE
+    assert 'previous-preview-release' in CAPTURE
