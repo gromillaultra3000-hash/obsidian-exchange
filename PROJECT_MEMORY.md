@@ -183,6 +183,15 @@ Updated: 2026-08-26 UTC
   Rollback preimage:
   `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-accessibility-20260826T0822Z.ztlxNh`.
 
+- 2026-08-26 commit `b189175` deploys explicit exchange-context selection at
+  the start of Mini App Exchange: the active `Private lane` is honestly marked
+  as ObsidianExchange/no-KYC, while `CEX / KYC lane` routes only to its current
+  read-only market/portfolio view and explicitly says trading connection is
+  unavailable. It adds no API, writer, custody or CEX-key capability. JavaScript
+  syntax and focused E4 tests pass 18/18; public `/webapp` returned `200` with
+  both lanes and Relay/bot are active. Rollback preimage:
+  `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-exchange-lanes-20260826T0824Z.vaqwBd`.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;

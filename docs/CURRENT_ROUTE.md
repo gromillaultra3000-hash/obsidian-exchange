@@ -96,6 +96,14 @@ sections hidden in the mobile layout and does not change any existing flow.
 JavaScript syntax and focused E4 tests pass 17/17; live `/webapp` returned
 `200` with this contract and Relay/bot are active. Rollback preimage:
 `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-accessibility-20260826T0822Z.ztlxNh`.
+Commit `b189175` makes exchange custody/identity context explicit before the
+Mini App form: `Private lane` is the active ObsidianExchange/no-KYC flow;
+`CEX / KYC lane` opens only the present read-only market/portfolio screen and
+states that a trading connection is unavailable. This adds no writer, custody
+or CEX-key capability. JavaScript syntax and focused E4 tests pass 18/18;
+live `/webapp` returned `200` with both lane labels and Relay/bot are active.
+Rollback preimage:
+`/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-exchange-lanes-20260826T0824Z.vaqwBd`.
 
 Completed bounded slices:
 `obsidian_b64_snapshot_reader` is deployed in production against the frozen
