@@ -1,8 +1,8 @@
 {
   "schemaVersion": "e0-3-bot-b5-3-064a-fresh-owner-attempt-readiness.v1",
-  "observedAt": "2026-08-26T04:59:00Z",
+  "observedAt": "2026-08-26T05:16:32Z",
   "route": ["E0", "E0.3", "B5.3", "064A"],
-  "status": "FAIL_CLOSED_ROOT_CAUSE_FIXED_PENDING_INERT_ROLLOUT",
+  "status": "INERT_FIX_ROLLED_OUT_DORMANT_VERIFIED",
   "ownerDecision": {
     "decision": "ONE_FRESH_SINGLE_OWNER_V4_PRODUCTION_ATTEMPT_CONSUMED",
     "runNonce": "--UCMVv0KQC6X6xiH5q1X32WxwteUY44",
@@ -49,7 +49,7 @@
   },
   "rootCause": {
     "classification": "P1_FUNCTIONAL_GATE_BLOCKER_FAIL_CLOSED",
-    "status": "REPRODUCED_AND_FIXED_IN_WORKTREE",
+    "status": "REPRODUCED_FIXED_AND_INERTLY_ROLLED_OUT",
     "cause": "The launcher built the obsidian_readonly observation DSN with target_session_attrs=read-write even though that role has default_transaction_read_only=on. libpq rejected the observation connection as read-only during exact runtime binding.",
     "preCredentialMutation": true,
     "primaryPath": "issue_credential_lease exact runtime binding",
@@ -58,7 +58,11 @@
     "regressionsAdded": [
       "launcher DSN role/session-attribute assertions",
       "exact-binding failure proves credential verifier issuance is unreachable"
-    ]
+    ],
+    "implementationCommit": "37bd98a313fde587980bbd9a37161e2b8eeb7582",
+    "pinCommit": "5ea98d80705f5e3f6ba5c2e36137596f3b06c021",
+    "immutableReleaseTree": "PASS_2186_GIT_BLOBS",
+    "postDeployWatchdog": "DORMANT_VERIFIED_NO_RECOVERY_REQUEST"
   },
   "terminalClosure": {
     "manualReconcileStatus": "MANUAL_HOLD_RECONCILED_DORMANT_VERIFIED",
@@ -95,8 +99,8 @@
   },
   "gate": {
     "stageStatus": "IN_PROGRESS",
-    "activationStatus": "BLOCKED_INERT_FIX_ROLLOUT",
-    "requiredReport": "IMMUTABLE_RELEASE_PIN_AND_DORMANT_POST_ROLLOUT_VERIFICATION",
-    "nextCanonicalItem": "Finish and verify the code-only corrective release and inert unit rollout. This opens neither a request nor a new owner signature."
+    "activationStatus": "BLOCKED_OWNER_DECISION_AFTER_FAIL_CLOSED_FIX",
+    "requiredReport": "EXPLICIT_OWNER_DECISION_ONLY",
+    "nextCanonicalItem": "The corrective release is deployed and dormant-verified. Do not create a request or ask for another signature; a later fresh attempt exists only if the owner independently chooses to authorize it after reviewing this terminal evidence."
   }
 }

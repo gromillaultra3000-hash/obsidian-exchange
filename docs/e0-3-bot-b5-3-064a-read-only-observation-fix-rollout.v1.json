@@ -1,0 +1,111 @@
+{
+  "schemaVersion": "e0-3-bot-b5-3-064a-read-only-observation-fix-rollout.v1",
+  "recordedAtUtc": "2026-08-26T05:16:32Z",
+  "route": "E0/E0.3/B5.3/064A",
+  "status": "INERT_FIX_ROLLED_OUT_DORMANT_VERIFIED",
+  "incident": {
+    "consumedRunNonce": "--UCMVv0KQC6X6xiH5q1X32WxwteUY44",
+    "consumedDecisionSha256": "28a93dd74bd5c67d741ade74257e22617ab8d40f53443904f777643d29fa1ba8",
+    "launcherInvocations": 1,
+    "launcherReason": "ACTIVATION_CLOSE_UNCERTAIN",
+    "terminalState": "RECONCILED_HOLD",
+    "terminalManifestSha256": "da6fb91d389699c5c9eb2021464bf2e09239cbc092339b6c86e60e80e6e31f0a",
+    "signatureAndNonceReusable": false
+  },
+  "rootCause": {
+    "classification": "P1_FUNCTIONAL_GATE_BLOCKER_FAIL_CLOSED",
+    "observationRole": "obsidian_readonly",
+    "roleSetting": "default_transaction_read_only=on",
+    "badTargetSessionAttrs": "read-write",
+    "observedFailure": "libpq rejected the observation connection as session is read-only during exact runtime binding before credential mutation",
+    "masking": "cleanup repeated the same binding and run_once emitted the safe generic ACTIVATION_CLOSE_UNCERTAIN receipt",
+    "securityFinding": "No P0/P1/P2 residual-exposure finding; no 064A customer-row read and current authority is dormant. credentialIssued=false does not independently prove no transient LOGIN, because the marker follows verifier installation."
+  },
+  "correction": {
+    "implementationCommit": "37bd98a313fde587980bbd9a37161e2b8eeb7582",
+    "pinCommit": "5ea98d80705f5e3f6ba5c2e36137596f3b06c021",
+    "observationTargetSessionAttrs": "read-only",
+    "adminTargetSessionAttrs": "read-write",
+    "reviews": {
+      "architectureRootCause": "GO",
+      "securityTerminalExposure": "GO_NO_P0_P1_P2",
+      "patchReview": "GO",
+      "operationsPostDeploy": "GO_P0_P1_ZERO"
+    },
+    "regressions": [
+      "launcher asserts obsidian_readonly/read-only and admin/read-write DSNs",
+      "exact runtime-binding rejection is proven to stop before verifier issuance and close its lock"
+    ],
+    "tests": {
+      "focused": "47_PASSED",
+      "expandedRelated": "351_PASSED_7_UID70_NAMESPACE_DESELECTED",
+      "pinAndDeployment": "45_PASSED",
+      "unfilteredUid70Result": "7_EXPECTED_EINVAL_CHOWN_FAILS_ONLY"
+    }
+  },
+  "immutableRelease": {
+    "path": "/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/37bd98a313fde587980bbd9a37161e2b8eeb7582",
+    "owner": "root:root",
+    "mode": "0555",
+    "verifiedGitBlobCount": 2186,
+    "treeVerification": "PASS",
+    "activationLauncherSha256": "2ebb212f5ef70862eabf68fa8460b6bf1a462f916a14fa5af8563566cbe554b9"
+  },
+  "deployment": {
+    "unitsPinned": [
+      "obsidian-b64-064a-activation.service",
+      "obsidian-b64-snapshot-reader-watchdog.service",
+      "obsidian-postgres.service"
+    ],
+    "installedUnitSha256": {
+      "obsidian-b64-064a-activation.service": "baded1f7732be7a7b99ab8b4961da477af4a9fa93356827d4e8b4d3b309f13c1",
+      "obsidian-b64-snapshot-reader-watchdog.service": "ab2e7a90eb304ed9e6d062ceba2c67e04991936bd1d9777aa820695acfe5b0e0",
+      "obsidian-postgres.service": "93b928e670a1cc031061ba30219f9b8bd7585ba12ecc8a509a8d22323e5d2b8c"
+    },
+    "unitPinVerification": "PASS",
+    "daemonReloaded": true,
+    "rollbackPreimage": {
+      "path": "/var/lib/obsidian-exchange/deployment-preimages/e0-e0.3-b5.3-064a-observation-dsn-fix-20260826T051229Z",
+      "verifiedUnitSha256": {
+        "obsidian-b64-064a-activation.service": "0a8e1435a2a31a07777c3c72693d47d8108233878af1eb6928e5c19c378e3cda",
+        "obsidian-b64-snapshot-reader-watchdog.service": "f377702af8e042c76e2cbb5642f9eff03d7212dfb54e80cb471e3decc3bc95ad",
+        "obsidian-postgres.service": "7501fdabcc5f4b22f106740088ca89b15ad19afe7966be50479d33394439e972"
+      },
+      "matchesPriorPinnedUnits": true,
+      "systemdVerification": "PASS"
+    },
+    "launcherStartedByRollout": false,
+    "postgresRestartedByRollout": false
+  },
+  "postDeployVerification": {
+    "watchdogStatus": "DORMANT_VERIFIED_NO_RECOVERY_REQUEST",
+    "watchdogTimer": "active/waiting",
+    "launcher": "inactive/dead",
+    "launcherRestarts": 0,
+    "postgres": {
+      "mainPid": 3136948,
+      "containerPid": 3137013,
+      "restartCount": 0,
+      "health": "healthy",
+      "containerId": "818735cd7df301eeb54b3630a6dbae1551db99a8368a2e4c96596c1a2572a3a4",
+      "systemIdentifier": "7672203973020184609"
+    },
+    "reader": {
+      "loginState": "DISABLED",
+      "credentialState": "ABSENT",
+      "activeSessions": 0
+    },
+    "customerRowsRead": false,
+    "hbaChanged": false,
+    "authorityIncreased": false,
+    "runtimePathsAbsent": true,
+    "failedUnits": 0
+  },
+  "authorityBoundary": {
+    "newRequestCreated": false,
+    "newSignatureCreated": false,
+    "newLaunchStarted": false,
+    "automaticRetryAllowed": false,
+    "next": "No action from the owner is requested. The terminal signature remains consumed. A later fresh attempt is possible only after a separate explicit owner decision."
+  }
+}

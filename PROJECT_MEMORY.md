@@ -11,7 +11,7 @@ Updated: 2026-08-26 UTC
   long charters and history are not repeatedly reread within one logical task.
 
 - 2026-08-26 active route `E0 → E0.3 → B5.3 → 064A` is
-  `IN_PROGRESS/FAIL_CLOSED_ROOT_CAUSE_PATCH_VALIDATED_PENDING_INERT_ROLLOUT`.
+  `IN_PROGRESS/FAIL_CLOSED_FIX_ROLLED_OUT_NO_NEW_SIGNATURE`.
   The one owner-signed v4 attempt (decision `28a93dd7...`, nonce
   `--UCMVv0KQC6X6xiH5q1X32WxwteUY44`) launched exactly once and stopped
   fail-closed as `ACTIVATION_CLOSE_UNCERTAIN`; it is consumed and may never
@@ -28,12 +28,21 @@ Updated: 2026-08-26 UTC
   for a `read-write` observation session although `obsidian_readonly` has
   `default_transaction_read_only=on`; exact runtime binding failed before
   credential mutation, and cleanup repeated the same failure. The minimal
-  worktree correction uses `target_session_attrs=read-only` for observation
-  only, retains `read-write` for the admin socket, and adds direct DSN plus
-  pre-mutation-binding regressions (focused suite: 47 passed). No new request,
-  signature or owner action is requested. Exact next: publish the correction
-  as a verified immutable release, pin the three units inertly and verify the
-  dormant production tuple before any later owner decision is even considered.
+  correction uses `target_session_attrs=read-only` for observation only and
+  retains `read-write` for the admin socket. It is now pushed as implementation
+  `37bd98a313fde587980bbd9a37161e2b8eeb7582`, pinned by
+  `5ea98d80705f5e3f6ba5c2e36137596f3b06c021`, and published as a verified
+  root-owned read-only 2186-blob release. The three units were updated only
+  through retained rollback preimages and daemon-reload; PostgreSQL was not
+  restarted and launcher was not started. The post-rollout watchdog returned
+  `DORMANT_VERIFIED_NO_RECOVERY_REQUEST` against the unchanged healthy tuple.
+  Focused tests pass 47/47, pin tests 45/45, and the expanded related suite
+  passes 351 with seven expected uid-70 chown cases deselected in this sandbox.
+  Independent architecture, security, patch and post-deploy operations reviews
+  report GO.
+  No new request, signature or owner action is requested. Exact next: retain
+  the terminal evidence and wait for a separate explicit owner decision before
+  any fresh attempt is even considered.
 
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact

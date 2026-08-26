@@ -70,5 +70,17 @@
     "reuseProhibited": true,
     "newOwnerSignatureRequested": false
   },
-  "next": "Do not relaunch or reuse this nonce, request, decision, package or signature. The code-only correction is observation target_session_attrs=read-only while the admin DSN remains read-write; it must be tested and deployed inertly. A later fresh attempt requires a separate explicit owner decision, but none is being requested now."
+  "correctiveInertRollout": {
+    "implementationCommit": "37bd98a313fde587980bbd9a37161e2b8eeb7582",
+    "pinCommit": "5ea98d80705f5e3f6ba5c2e36137596f3b06c021",
+    "immutableRelease": "/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/37bd98a313fde587980bbd9a37161e2b8eeb7582",
+    "releaseTree": "PASS_2186_GIT_BLOBS",
+    "activationLauncherSha256": "2ebb212f5ef70862eabf68fa8460b6bf1a462f916a14fa5af8563566cbe554b9",
+    "unitPinVerification": "PASS",
+    "watchdogStatus": "DORMANT_VERIFIED_NO_RECOVERY_REQUEST",
+    "launcherStartedByRollout": false,
+    "postgresRestartedByRollout": false,
+    "newOwnerSignatureRequested": false
+  },
+  "next": "Do not relaunch or reuse this nonce, request, decision, package or signature. The code-only correction is deployed inertly: observation uses target_session_attrs=read-only while the admin DSN remains read-write. A later fresh attempt requires a separate explicit owner decision, but none is being requested now."
 }

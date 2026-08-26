@@ -595,3 +595,49 @@ on the owner device, then run `preflight-owner-paths` with its embedded
 exact `OWNER_PATHS_READY` report permits creation of the one fresh 15-minute
 request; no plan, nonce, decision or signature exists yet. Evidence:
 `docs/e0-3-bot-b5-3-064a-fresh-owner-attempt-readiness.v1.json`.
+
+## 2026-08-26 — owner-signed v4 attempt terminalized; read-only observation fix rolled out
+
+The owner-path gate completed and exactly one fresh v4 decision was signed,
+verified, committed and launched once. Its nonce
+`--UCMVv0KQC6X6xiH5q1X32WxwteUY44` and decision
+`28a93dd74bd5c67d741ade74257e22617ab8d40f53443904f777643d29fa1ba8`
+are consumed. The launcher returned `NO_GO/ACTIVATION_CLOSE_UNCERTAIN` and
+never retried. After expiry, the exact cleanup-only reconciler reached
+`RECONCILED_HOLD/ABNORMAL_EXIT_RECONCILED_NO_RETRY`; terminal archive manifest
+`da6fb91d389699c5c9eb2021464bf2e09239cbc092339b6c86e60e80e6e31f0a`
+is sealed. It proves disabled/absent/zero current reader authority, all
+runtime resources/paths absent and `NOT_READ` for the 064A customer-row path.
+The terminal `credentialIssued=false` marker does not by itself prove a
+transient LOGIN state never existed, because it follows verifier installation;
+it does prove source construction and row-reading were not reached.
+
+The exact P1 functional root cause was reproduced without another launch:
+the launcher asked libpq for a `read-write` observation session using
+`obsidian_readonly`, whose role setting is `default_transaction_read_only=on`.
+Exact runtime binding therefore failed before credential mutation; its cleanup
+repeated the same binding and the fail-closed wrapper emitted the generic
+receipt. Pushed implementation commit
+`37bd98a313fde587980bbd9a37161e2b8eeb7582` changes only the observation DSN
+to `target_session_attrs=read-only`; the admin Unix-socket DSN remains
+`read-write`. Direct DSN and pre-mutation binding regressions pass (47/47),
+the expanded related suite passes 351 with only seven known uid-70 sandbox
+`chown` cases deselected, and pin checks pass 45/45. Independent architecture,
+security, patch and post-deploy operations reviews report GO; no residual
+exposure finding was made.
+
+Pushed pin commit `5ea98d80705f5e3f6ba5c2e36137596f3b06c021` binds all three
+units to the root-owned read-only 2186-blob immutable release
+`/opt/obsidian-exchange/releases/e0-e0.3-b5.3-064a/37bd98a313fde587980bbd9a37161e2b8eeb7582`.
+Only rollback-preimage-backed unit replacement and daemon-reload occurred;
+the launcher was not started and PostgreSQL retained MainPID `3136948`,
+container PID `3137013` and restart count zero. Post-rollout watchdog status
+is `DORMANT_VERIFIED_NO_RECOVERY_REQUEST`; the timer is active/waiting and
+failed units are zero.
+
+Active route remains `E0/E0.3/B5.3/064A`, status
+`IN_PROGRESS/FAIL_CLOSED_FIX_ROLLED_OUT_NO_NEW_SIGNATURE`. No request, nonce,
+signature or activation is being requested or created. The sole next
+canonical item is to retain this evidence until the owner independently makes
+a new explicit decision; the consumed authority can never be reused. Evidence:
+`docs/e0-3-bot-b5-3-064a-read-only-observation-fix-rollout.v1.json`.

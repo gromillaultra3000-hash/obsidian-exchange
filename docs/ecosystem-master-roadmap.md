@@ -2574,3 +2574,40 @@ owner-device `preflight-owner-paths` report for only the fbcf499 kit. No fresh
 plan/nonce/request may be created until the report is exactly
 `OWNER_PATHS_READY`. Evidence:
 `docs/e0-3-bot-b5-3-064a-fresh-owner-attempt-readiness.v1.json`.
+
+## 2026-08-26 — 064A signed attempt closed fail-safe; corrective release deployed inertly
+
+One owner-only v4 decision was then actually signed and launched once. It
+stopped fail-closed as `ACTIVATION_CLOSE_UNCERTAIN`, did not retry, and its
+nonce/decision are permanently consumed. Post-expiry manual reconciliation
+and a v2 terminal archive reached `RECONCILED_HOLD`; the archive validates
+disabled/absent/session-free current authority, no 064A customer-row read and
+all runtime resources absent. `credentialIssued=false` is not asserted as
+proof that a transient LOGIN could never have occurred, but it is durable
+evidence that the source/read path was never reached; current authority is
+conclusively dormant.
+
+The concrete P1 blocker was an incompatible libpq session preference: the
+launcher passed `target_session_attrs=read-write` to `obsidian_readonly`,
+whose default transaction mode is deliberately read-only. Exact binding
+therefore failed before credential mutation, and cleanup repeated it. Commit
+`37bd98a313fde587980bbd9a37161e2b8eeb7582` changes only this observation DSN
+to `read-only`; the admin socket remains `read-write`. Direct DSN and
+pre-mutation regressions pass 47/47, expanded related tests pass 351 with
+seven expected uid-70 sandbox deselections, and pin/deployment tests pass
+45/45. Independent architecture, security, patch and post-deploy operations
+reviews report GO.
+
+Pin commit `5ea98d80705f5e3f6ba5c2e36137596f3b06c021` deploys the verified
+2186-blob root-owned read-only release through the three unit files only, with
+rollback preimages and daemon-reload; it does not start the launcher or restart
+PostgreSQL. Post-rollout watchdog returns
+`DORMANT_VERIFIED_NO_RECOVERY_REQUEST`; PostgreSQL's PID/container/restart
+tuple is unchanged, the timer is active/waiting and failed units are zero.
+
+E0.3 remains `IN_PROGRESS/FAIL_CLOSED_FIX_ROLLED_OUT_NO_NEW_SIGNATURE`.
+This corrective rollout opens no request and asks the owner for no signature.
+The consumed attempt cannot be reused. A future fresh production attempt is
+not a next automatic step: it exists only if the owner later makes a separate
+explicit decision after reviewing the terminal evidence. Evidence:
+`docs/e0-3-bot-b5-3-064a-read-only-observation-fix-rollout.v1.json`.
