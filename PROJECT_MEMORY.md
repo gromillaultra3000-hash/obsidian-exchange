@@ -211,6 +211,15 @@ Updated: 2026-08-26 UTC
   the new dialog contract and Relay/bot are active. Rollback preimage:
   `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-review-dialog-20260826T0828Z.UmLmd1`.
 
+- 2026-08-26 commit `58815d5` deploys the responsive E4 narrow-screen pass:
+  at 420px and below, Overview custody cards use a single readable column and
+  the conditions-review actions stack vertically; the dialog also gains more
+  usable viewport height. It changes no data, navigation contract or exchange
+  request. JavaScript syntax and focused E4 tests pass 20/20; live `/webapp`
+  returned `200` with responsive classes and Relay/bot are active. Rollback
+  preimage:
+  `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-narrow-layout-20260826T0831Z.yixnRU`.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;

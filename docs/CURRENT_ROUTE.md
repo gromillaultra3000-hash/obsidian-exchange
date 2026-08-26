@@ -120,6 +120,13 @@ unchanged. JavaScript syntax and focused E4 tests pass 19/19; live `/webapp`
 returned `200` with the dialog contract and Relay/bot are active. Rollback
 preimage:
 `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-review-dialog-20260826T0828Z.UmLmd1`.
+Commit `58815d5` adds the responsive E4 narrow-screen pass: at 420px and
+below, Overview custody cards use one readable column and the review dialog
+stacks its edit/confirm actions vertically with more usable viewport height.
+No data, route or exchange-request contract changed. JavaScript syntax and
+focused E4 tests pass 20/20; live `/webapp` returned `200` with the responsive
+classes and Relay/bot are active. Rollback preimage:
+`/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-narrow-layout-20260826T0831Z.yixnRU`.
 
 Completed bounded slices:
 `obsidian_b64_snapshot_reader` is deployed in production against the frozen
