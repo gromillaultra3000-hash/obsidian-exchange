@@ -38,3 +38,11 @@ def test_ecosystem_overview_is_the_default_without_removing_legacy_flows():
     assert 'switchTab(\'market\')' in webapp
     for existing in ('data-tab="exchange"', 'data-tab="wallet"', 'data-tab="market"', 'data-tab="history"'):
         assert existing in webapp
+
+
+def test_mobile_navigation_keeps_secondary_sections_in_more_panel():
+    assert 'data-tab="more"' in webapp
+    assert 'id="panel-more"' in webapp
+    assert '.tab.secondary-tab' in webapp
+    for target in ('market', 'referral', 'profile', 'faq'):
+        assert f"switchTab('{target}')" in webapp
