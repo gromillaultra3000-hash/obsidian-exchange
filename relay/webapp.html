@@ -1587,11 +1587,29 @@
                 });
                 const d = await r.json().catch(() => ({}));
                 if (!r.ok || !d.ok || !d.request) { say(d.message || 'Не получилось'); return; }
-                say('Подтвердите в кошельке: ' + d.amount + ' TON → ' + walletShorten(d.address));
-                await tcUI.sendTransaction(d.request);
-                say('✅ Подписано. Операция появится в списке, когда её увидит сеть.');
-                if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
-                setTimeout(loadWallets, 4000);
+                say('Проверьте условия перед подписью в кошельке.');
+                openExchangeReview({
+                    title: 'Отправить ' + d.amount + ' TON',
+                    rows: [
+                        {label: 'Исполнитель', value: 'Ваш подключённый TON-кошелёк'},
+                        {label: 'Custody', value: 'Ключи остаются только в вашем кошельке'},
+                        {label: 'Получатель', value: d.address || '—'},
+                        {label: 'Сумма и сеть', value: d.amount + ' TON · сеть TON'},
+                        {label: 'Комментарий', value: comment || 'Нет'}
+                    ],
+                    risk: 'После подписи в кошельке перевод в сети TON нельзя отменить. Проверьте адрес, сумму и комментарий в окне кошелька.',
+                    onConfirm: async () => {
+                        try {
+                            say('Подтвердите в кошельке: ' + d.amount + ' TON → ' + walletShorten(d.address));
+                            await tcUI.sendTransaction(d.request);
+                            say('✅ Подписано. Операция появится в списке, когда её увидит сеть.');
+                            if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+                            setTimeout(loadWallets, 4000);
+                        } catch (_) {
+                            say('Перевод не подтверждён');
+                        }
+                    }
+                });
             } catch (e) {
                 // Отказ в кошельке — обычный исход, а не сбой.
                 say('Перевод не подтверждён');

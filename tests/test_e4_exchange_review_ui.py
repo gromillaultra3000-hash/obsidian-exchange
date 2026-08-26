@@ -23,7 +23,7 @@ def test_review_explains_route_custody_fees_and_irreversibility_for_both_lanes()
     webapp = WEBAPP.read_text(encoding="utf-8")
 
     assert webapp.count("Маршрут и исполнитель") == 2
-    assert webapp.count("{label: 'Custody'") == 2
+    assert webapp.count("{label: 'Custody'") >= 2
     assert "Комиссия и расчёт" in webapp
     assert "Комиссия и курс" in webapp
     assert "необратим" in webapp
@@ -33,3 +33,17 @@ def test_review_explains_route_custody_fees_and_irreversibility_for_both_lanes()
     assert "event.key !== 'Tab'" in webapp
     assert "event.key === 'Escape'" in webapp
     assert "last.focus()" in webapp and "first.focus()" in webapp
+
+
+def test_wallet_send_uses_the_same_explicit_review_before_wallet_signature():
+    webapp = WEBAPP.read_text(encoding="utf-8")
+
+    transfer = webapp[webapp.index("async function walletTransfer"):
+                      webapp.index("function showSellCard", webapp.index("async function walletTransfer"))]
+    assert "title: 'Отправить ' + d.amount + ' TON'" in transfer
+    assert "Ваш подключённый TON-кошелёк" in transfer
+    assert "Ключи остаются только в вашем кошельке" in transfer
+    assert "Получатель" in transfer and "Сумма и сеть" in transfer
+    assert "openExchangeReview({" in transfer
+    assert "await tcUI.sendTransaction(d.request);" in transfer
+    assert transfer.index("openExchangeReview({") < transfer.index("await tcUI.sendTransaction(d.request);")
