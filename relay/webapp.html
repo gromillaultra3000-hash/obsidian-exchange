@@ -73,6 +73,10 @@
         .chart-stage { position:relative; height:158px; }
         .chart-loading { position:absolute; inset:0; z-index:2; display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:12px; animation:pulse 1.4s ease-in-out infinite; }
         .chart-footer { position:relative; z-index:1; display:flex; justify-content:space-between; gap:12px; margin-top:6px; color:var(--muted); font-size:10px; }
+        .market-quote-chart { width:100%; display:flex; justify-content:space-between; gap:10px; align-items:center; padding:11px 13px; border:1px solid rgba(255,255,255,.08); border-radius:12px; background:rgba(255,255,255,.035); color:var(--text); font:inherit; text-align:left; cursor:pointer; }
+        .market-quote-chart:active { transform:scale(.985); }
+        .market-quote-chart:focus-visible { outline:2px solid var(--purple-2); outline-offset:2px; }
+        .market-quote-action { display:block; margin-top:4px; color:var(--purple-2); font-size:10px; font-weight:800; }
 
         /* ── Вкладки ── */
         .tabs {
@@ -1025,6 +1029,17 @@
             loadChart(false);
         }
 
+        function openMarketHistory(asset) {
+            if (!marketAssets[asset]) return;
+            if (asset !== selectedChartAsset) {
+                selectedChartAsset = asset;
+                updateChartAssetControls();
+                loadChart(false);
+            }
+            switchTab('ecosystem');
+            requestAnimationFrame(() => document.querySelector('.chart-container')?.scrollIntoView({behavior: 'smooth', block: 'start'}));
+        }
+
         async function loadChart(manual = false) {
             if (chartLoading) return;
             const requestedAsset = selectedChartAsset;
@@ -1633,9 +1648,17 @@
                 return;
             }
             if (status) status.textContent = 'Снимок: ' + snapshot.observedAt.toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit', second: '2-digit'}) + ' · только наблюдение';
-            box.innerHTML = snapshot.quotes.map(q => '<div style="display:flex;justify-content:space-between;gap:10px;padding:11px 13px;border-radius:12px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.08)">'
-                + '<div><strong>' + esc(q.pair) + '</strong><div style="font-size:11px;color:var(--muted)">' + esc(String(q.exchange).toUpperCase()) + '</div></div>'
-                + '<div style="font-weight:800;text-align:right">' + Number(q.last).toLocaleString('ru-RU', {maximumFractionDigits:8}) + ' USDT</div></div>').join('');
+            box.innerHTML = snapshot.quotes.map(q => {
+                const asset = String(q.pair).match(/^([A-Z]+)\/USDT$/)?.[1];
+                const canShowHistory = asset && marketAssets[asset];
+                const tag = canShowHistory ? 'button type="button" class="market-quote-chart" data-market-history-asset="' + asset + '"' : 'div style="display:flex;justify-content:space-between;gap:10px;padding:11px 13px;border-radius:12px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.08)"';
+                return '<' + tag + '>'
+                    + '<div><strong>' + esc(q.pair) + '</strong><div style="font-size:11px;color:var(--muted)">' + esc(String(q.exchange).toUpperCase()) + '</div>'
+                    + (canShowHistory ? '<span class="market-quote-action">Открыть историю</span>' : '') + '</div>'
+                    + '<div style="font-weight:800;text-align:right">' + Number(q.last).toLocaleString('ru-RU', {maximumFractionDigits:8}) + ' USDT</div></' + (canShowHistory ? 'button' : 'div') + '>';
+            }).join('');
+            box.querySelectorAll('[data-market-history-asset]').forEach(button =>
+                button.addEventListener('click', () => openMarketHistory(button.dataset.marketHistoryAsset)));
         }
 
         async function loadMarketQuotes() {

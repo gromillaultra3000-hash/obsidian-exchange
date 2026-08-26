@@ -100,6 +100,14 @@ def test_market_quotes_have_freshness_guard_and_manual_refresh():
     assert "fetch('/api/wallet/market', {cache: 'no-store'" in webapp
 
 
+def test_read_only_cex_quotes_can_open_an_allowed_asset_history_without_a_trade():
+    assert 'data-market-history-asset' in webapp
+    assert 'function openMarketHistory(asset)' in webapp
+    assert "switchTab('ecosystem')" in webapp
+    assert "scrollIntoView({behavior: 'smooth', block: 'start'})" in webapp
+    assert "openMarketHistory(button.dataset.marketHistoryAsset)" in webapp
+
+
 def test_ecosystem_overview_uses_the_existing_read_only_portfolio_contract():
     assert 'id="ecosystem-portfolio"' in webapp
     assert 'function ecosystemPortfolioRender' in webapp
