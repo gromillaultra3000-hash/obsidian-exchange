@@ -46,6 +46,7 @@
         .rate-change { font-size:10px; font-weight:700; margin-top:3px; }
         .rate-change.up { color:#10b981; }
         .rate-change.down { color:#f87171; }
+        .rate-change.neutral { color:var(--muted); }
 
         .chart-container { margin: 0 0 16px; background: var(--input); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; position: relative; min-height: 130px; }
         .chart-loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 13px; animation: pulse 1.4s ease-in-out infinite; }
@@ -240,17 +241,17 @@
             <div class="rate-box">
                 <div class="rate-coin">₿ BTC</div>
                 <div class="rate-value loading" id="btc-rate">…</div>
-                <div class="rate-change up" id="btc-ch">+2.4%</div>
+                <div class="rate-change neutral" id="btc-ch">…</div>
             </div>
             <div class="rate-box">
                 <div class="rate-coin">Ł LTC</div>
                 <div class="rate-value loading" id="ltc-rate">…</div>
-                <div class="rate-change up" id="ltc-ch">+1.1%</div>
+                <div class="rate-change neutral" id="ltc-ch">…</div>
             </div>
             <div class="rate-box">
                 <div class="rate-coin">💵 USDT</div>
                 <div class="rate-value loading" id="usdt-rate">…</div>
-                <div class="rate-change down" id="usdt-ch">−0.1%</div>
+                <div class="rate-change neutral" id="usdt-ch">…</div>
             </div>
         </div>
 
@@ -901,43 +902,52 @@
         let userId = user.id || 0;
 
         async function fetchRates() {
-            if (cache.rates && Date.now() - cache.ts < 300000) {
+            if (cache.rates && Date.now() - cache.ts < 60000) {
                 showRates(cache.rates);
                 return;
             }
             try {
-                const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,litecoin,tether&vs_currencies=rub&include_24hr_change=true');
+                const res = await fetch('/api/rates', { cache: 'no-store' });
+                if (!res.ok) throw new Error('rates unavailable');
                 const data = await res.json();
                 cache.rates = data;
                 cache.ts = Date.now();
                 showRates(data);
             } catch(e) {
-                ['btc-rate','ltc-rate','usdt-rate'].forEach(id => {
-                    const el = document.getElementById(id);
-                    el.textContent = 'н/д';
-                    el.classList.remove('loading');
+                [['btc-rate', 'btc-ch'], ['ltc-rate', 'ltc-ch'], ['usdt-rate', 'usdt-ch']].forEach(([rateId, labelId]) => {
+                    const rate = document.getElementById(rateId);
+                    const label = document.getElementById(labelId);
+                    rate.textContent = 'н/д';
+                    rate.classList.remove('loading');
+                    label.textContent = 'недоступно';
+                    label.className = 'rate-change neutral';
                 });
             }
         }
 
         function showRates(data) {
-            window.__oeRates = { BTC: data.bitcoin.rub, LTC: data.litecoin.rub, USDT: data.tether.rub };
-            ['btc-rate','ltc-rate','usdt-rate'].forEach(id => document.getElementById(id).classList.remove('loading'));
-            document.getElementById('btc-rate').textContent = data.bitcoin.rub.toLocaleString() + ' ₽';
-            document.getElementById('ltc-rate').textContent = data.litecoin.rub.toLocaleString() + ' ₽';
-            document.getElementById('usdt-rate').textContent = data.tether.rub.toLocaleString() + ' ₽';
-
-            // % изменение за 24ч
-            function setChange(elId, val) {
-                const el = document.getElementById(elId);
-                if (val == null) return;
-                const sign = val >= 0 ? '+' : '';
-                el.textContent = sign + val.toFixed(1) + '%';
-                el.className = 'rate-change ' + (val >= 0 ? 'up' : 'down');
-            }
-            setChange('btc-ch', data.bitcoin?.rub_24h_change);
-            setChange('ltc-ch', data.litecoin?.rub_24h_change);
-            setChange('usdt-ch', data.tether?.rub_24h_change);
+            const ticker = [
+                ['BTC', 'btc-rate', 'btc-ch'], ['LTC', 'ltc-rate', 'ltc-ch'],
+                ['USDT', 'usdt-rate', 'usdt-ch']
+            ];
+            window.__oeRates = {};
+            ticker.forEach(([code, rateId, labelId]) => {
+                const value = Number(data?.[code]);
+                const rate = document.getElementById(rateId);
+                const label = document.getElementById(labelId);
+                if (!Number.isFinite(value) || value <= 0) {
+                    rate.textContent = 'н/д';
+                    rate.classList.remove('loading');
+                    label.textContent = 'недоступно';
+                    label.className = 'rate-change neutral';
+                    return;
+                }
+                window.__oeRates[code] = value;
+                rate.textContent = Math.round(value).toLocaleString('ru-RU') + ' ₽';
+                rate.classList.remove('loading');
+                label.textContent = 'котировка';
+                label.className = 'rate-change neutral';
+            });
         }
         fetchRates();
 
