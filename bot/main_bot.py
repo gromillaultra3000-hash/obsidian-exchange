@@ -1578,7 +1578,7 @@ def build_main_menu_kb() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="👤 Профиль", callback_data="menu_profile"),
          InlineKeyboardButton(text="💬 Поддержка", callback_data="menu_support")],
         [InlineKeyboardButton(text="⚙️ Ещё", callback_data="menu_tools"),
-         InlineKeyboardButton(text="🟣 Экосистема", web_app=WebAppInfo(url=f"{PUBLIC_RELAY}/preview/"))]
+         InlineKeyboardButton(text="🟣 Открыть Mini App", web_app=WebAppInfo(url=f"{PUBLIC_RELAY}/webapp"))]
     ])
 
 
@@ -11201,12 +11201,12 @@ async def main():
         ])
     except Exception as e:
         logger.warning(f"set_my_commands: {e}")
-    # Постоянная кнопка открывает изолированный read-only preview. Рабочий
-    # Mini App остаётся отдельной legacy-поверхностью и сюда не проксируется.
+    # Полный Mini App остаётся основной пользовательской точкой входа; обзор
+    # экосистемы — его первая вкладка, а не отдельная замена функций.
     try:
         from aiogram.types import MenuButtonWebApp, WebAppInfo as _WAI
         await bot.set_chat_menu_button(
-            menu_button=MenuButtonWebApp(text="🟣 Экосистема", web_app=_WAI(url=f"{PUBLIC_RELAY}/preview/"))
+            menu_button=MenuButtonWebApp(text="🟣 Obsidian", web_app=_WAI(url=f"{PUBLIC_RELAY}/webapp"))
         )
     except Exception as e:
         logger.warning(f"set_chat_menu_button: {e}")

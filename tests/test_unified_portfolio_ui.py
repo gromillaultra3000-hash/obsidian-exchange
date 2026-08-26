@@ -28,3 +28,13 @@ def test_renderer_does_not_coerce_missing_balance_to_zero():
 def test_existing_wallet_actions_remain_wired():
     for marker in ("on('w-act-send'", "on('w-act-recv'", "on('w-act-buy'", "portfolioRender(d && d.portfolio)"):
         assert marker in webapp
+
+
+def test_ecosystem_overview_is_the_default_without_removing_legacy_flows():
+    assert 'data-tab="ecosystem"' in webapp
+    assert 'id="panel-ecosystem"' in webapp
+    assert 'switchTab(\'wallet\')' in webapp
+    assert 'switchTab(\'exchange\')' in webapp
+    assert 'switchTab(\'market\')' in webapp
+    for existing in ('data-tab="exchange"', 'data-tab="wallet"', 'data-tab="market"', 'data-tab="history"'):
+        assert existing in webapp
