@@ -51,7 +51,7 @@ def test_mini_app_uses_shared_backend_paths_for_current_prices_and_history():
     assert "api.coingecko.com/api/v3/simple/price" not in web
     assert "api.coingecko.com/api/v3/coins/bitcoin/market_chart" not in web
     assert "fetch('/api/rates')" in web
-    assert "fetch('/api/market/history'" in web
+    assert "fetch(`/api/market/history?asset=${encodeURIComponent(requestedAsset)}`" in web
     assert 'id="btc-ch">+2.4%</div>' not in web
     failure = web[web.index("async function fetchRates()"):web.index("function showRates(data)")]
     assert "btc-ch" in failure and "ltc-ch" in failure and "usdt-ch" in failure
