@@ -428,6 +428,18 @@ Updated: 2026-08-26 UTC
   errors. Relay is active and page returned `200`. Rollback preimage:
   `/var/lib/obsidian-exchange/deployment-preimages/e4-public-onramp-20260826T0929Z.6i49Hf`.
 
+- 2026-08-26 commit `272c92f` fixes the next verified E4 public-journey gap:
+  `/api/rates` already offered BTC, LTC, USDT, XRP and TON, while the public
+  rate cards and calculator were hard-coded to the historical first three.
+  The page now renders its cards and calculator options from the same server
+  offering list and consumes every valid numeric public rate; unavailable
+  offerings are hidden. Its explicit action now opens the canonical Telegram
+  `start=app` Mini App entry. No pricing, quote, order, custody or writer
+  contract changed. Focused tests pass `12/12`; production `/rates` is `200`,
+  and the `390px` browser audit confirms five cards/options, a working XRP
+  calculation, no overflow and zero console errors. Relay is active. Rollback
+  preimage: `/var/lib/obsidian-exchange/deployment-preimages/e4-public-rates-20260826T0935Z.SgXLLt`.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;
