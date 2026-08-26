@@ -43,6 +43,7 @@
                 <a href="/faq" data-path="/faq">FAQ</a>
                 <a href="/contacts" data-path="/contacts">Контакты</a>
                 {% if web_user %}<a href="/dashboard" data-path="/dashboard">Кабинет</a>{% endif %}
+                {% if not web_user %}<a class="nav-mobile-login" href="/login">Войти</a>{% endif %}
             </div>
             <div class="nav-actions">
                 {% if web_user %}

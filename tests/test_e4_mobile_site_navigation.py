@@ -22,3 +22,6 @@ def test_mobile_v5_navigation_can_fit_without_hiding_the_mini_app_entry():
         ".nav-actions .btn.ghost{display:none}",
     ):
         assert rule in mobile
+    assert 'class="nav-mobile-login" href="/login">Войти</a>' in BASE
+    assert ".nav-mobile-login{display:none}" in CSS
+    assert ".navlinks.open .nav-mobile-login{display:block}" in CSS
