@@ -363,6 +363,17 @@ Updated: 2026-08-26 UTC
   UI for owner visual acceptance, then separately scope the next canonical E4
   gate rather than replace or remove existing flows.
 
+- 2026-08-26 follow-on E4 activity-centre slice is deployed in commit
+  `059112f`: each owner-scoped order now explicitly distinguishes receipt or
+  on-chain evidence, and its support handoff copies only the order number to
+  the local clipboard before opening the existing support bot. It sends no
+  order or personal data automatically. The same centre now links to the
+  existing bot profile for Telegram rate-notification preferences without
+  changing them in Mini App. No API, writer, custody or bot-notification
+  contract changed. Focused regression passes `18/18`; deployed `/webapp`
+  returned `200`, source bytes match and Relay/bot remain active. Rollback
+  preimage: `/var/lib/obsidian-exchange/deployment-preimages/e4-activity-notifications-20260826T0910Z.Y3XTiq`.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;
