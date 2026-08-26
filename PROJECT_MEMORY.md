@@ -408,6 +408,17 @@ Updated: 2026-08-26 UTC
   Google Chrome `152.0.7977.64` is now installed for future non-root
   Playwright visual checks; no browser session or application state was retained.
 
+- 2026-08-26 the public Preview and personal read-only Portfolio mobile audit
+  is complete. Both `390px` views have no horizontal overflow; Preview and
+  Portfolio GET return `200` and Preview POST remains `405`. Browser audit found
+  only a root favicon `404`; commit `459b957` embeds the Obsidian favicon in
+  both static documents, removing that network error without changing any
+  identity, API, custody or action surface. The immutable release
+  `e4-preview-favicon-20260826T0926Z` is live with current-pointer rollback to
+  `e4-preview-current-state-20260826T0818Z`; focused regression passes `24/24`.
+  Rollback receipt:
+  `/var/lib/obsidian-exchange/deployment-preimages/e4-visible-preview-preimage.WaikX4`.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;
