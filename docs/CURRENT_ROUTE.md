@@ -41,6 +41,10 @@ Nginx and the bot are active after a reload/restart, and root-only rollback
 preimages are retained. Evidence:
 `docs/e4-visible-portfolio-preview-rollout.v1.json`.
 
+The canonical Telegram Mini App remains `/webapp`, not the static preview.
+Commit `c377946` made `Обзор` its default tab and preserves all existing
+Exchange, Wallet, Market, History and support flows behind that unified entry.
+
 Completed bounded slices:
 `obsidian_b64_snapshot_reader` is deployed in production against the frozen
 PostgreSQL migrations `001–023` profile as a dormant `NOLOGIN` role with no

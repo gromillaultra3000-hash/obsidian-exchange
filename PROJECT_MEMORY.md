@@ -71,6 +71,13 @@ Updated: 2026-08-26 UTC
   or a future/expired observation timestamp. Commit `0030929` is deployed as
   the immutable static release; GET still returns `200` and POST `405`.
 
+- 2026-08-26 owner rejected the static preview as a replacement for the Mini
+  App. Commit `c377946` restores `/webapp` as the Telegram entrypoint and adds
+  an `Обзор` first tab inside the existing Mini App; Buy/Sell, Wallet, Market,
+  History and the remaining legacy panels stay intact. Production webapp bytes
+  match the committed source and the bot is active after restart. Rollback
+  preimages: `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-overview-20260826T0743Z.3ERJcJ`.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;
