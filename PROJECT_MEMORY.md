@@ -515,6 +515,18 @@ Updated: 2026-08-26 UTC
   bytes. Rollback preimage:
   `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-market-history-20260826T0957Z.Vi4dTN`.
 
+- 2026-08-26 commit `333dc63` adds an accessible compact `↻` control to the
+  read-only Mini App market card. It disables with `aria-busy` while history is
+  fetched, replaces the previous Chart instance after a successful refresh and
+  keeps the last valid snapshot with explicit copy if a later refresh fails.
+  It uses the existing public cached `GET /api/market/history` observation
+  endpoint only; no quote, order, wallet, custody or writer contract changed.
+  Focused tests pass `21/21`, JavaScript/Python compilation and secret scan
+  pass. Production `/webapp` at `390px` has no overflow; a real manual click
+  returned a second history request with `200`, refreshed the point time and
+  produced no app errors. Relay and bot remain active. Rollback preimage:
+  `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-chart-refresh-20260826T1002Z.e9wCIn`.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;
