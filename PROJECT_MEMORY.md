@@ -78,6 +78,17 @@ Updated: 2026-08-26 UTC
   match the committed source and the bot is active after restart. Rollback
   preimages: `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-overview-20260826T0743Z.3ERJcJ`.
 
+- 2026-08-26 E4 Mini App now has compact mobile navigation (`Обзор`, `Обмен`,
+  `Кошелёк`, `Активность`, `Ещё`) while retaining Market, referral, profile and
+  help through `Ещё` (commits `80d5a78`, `2369ea0`). Overview shows the three
+  custody domains from the existing authenticated read-only
+  `unified-portfolio.v1` endpoint without aggregate value. Commit `6af865f`
+  validates the exact three-lane contract, prevents cached/unknown data from
+  being displayed, and marks stale data degraded. It is deployed at
+  `https://obsidian-exchange.org/webapp`; focused and preview regression tests
+  pass 12/12. Rollback preimage:
+  `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-overview-contract-20260826T0754Z.K21Yjp`.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;

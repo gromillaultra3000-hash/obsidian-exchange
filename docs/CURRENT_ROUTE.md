@@ -1,6 +1,6 @@
 # Current canonical route
 
-Updated: 2026-08-25 UTC
+Updated: 2026-08-26 UTC
 
 ## Product objective
 
@@ -44,6 +44,13 @@ preimages are retained. Evidence:
 The canonical Telegram Mini App remains `/webapp`, not the static preview.
 Commit `c377946` made `Обзор` its default tab and preserves all existing
 Exchange, Wallet, Market, History and support flows behind that unified entry.
+The mobile shell now prioritizes `Обзор`, `Обмен`, `Кошелёк`, `Активность` and
+`Ещё`; the latter retains access to Market, referrals, profile and help.
+Overview uses the owner-scoped, authenticated read-only
+`unified-portfolio.v1` endpoint to distinguish self-custody, Obsidian
+operational custody and verified-CEX custody without an aggregate balance.
+It fails closed for any unknown shape and degrades stale balances rather than
+showing cached values (commit `6af865f`, deployed).
 
 Completed bounded slices:
 `obsidian_b64_snapshot_reader` is deployed in production against the frozen
