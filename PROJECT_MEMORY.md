@@ -340,6 +340,17 @@ Updated: 2026-08-26 UTC
   Rollback preimage:
   `/var/lib/obsidian-exchange/deployment-preimages/e4-overview-custody-routing-20260826T0913Z.QygGHK`.
 
+- 2026-08-26 commit `530af86` makes all Mini App Telegram handoffs use one
+  safe runtime-rendered configured bot username, eliminating copied username
+  drift for swap, tools, referral, profile and referral links. Only a valid
+  Telegram username shape is rendered; the established default is the fallback.
+  No bot flow changed. Python/JavaScript syntax, focused E4 tests 36/36 and
+  standalone address-book checks 63/63 pass. A controlled Relay restart caused
+  two transient `502`s during process replacement; the final production
+  `/webapp` check was `200`, the placeholder was absent, all routes rendered,
+  and Relay/bot are active. Rollback preimage:
+  `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-configured-bot-20260826T0917Z.afDp59`.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;

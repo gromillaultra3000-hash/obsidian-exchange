@@ -228,6 +228,16 @@ contract. Focused E4 tests pass 35/35 and standalone address-book checks pass
 63/63; deployed `/webapp` returned `200`, the bot and Relay are active.
 Rollback preimage:
 `/var/lib/obsidian-exchange/deployment-preimages/e4-overview-custody-routing-20260826T0913Z.QygGHK`.
+Commit `530af86` removes Mini App Telegram-link drift: swap, tools, referral,
+profile and referral-link handoffs now share a safe runtime-rendered configured
+bot username rather than a copied literal. The replacement accepts only a
+Telegram username shape and otherwise falls back to the established default;
+it does not alter any bot flow. Python and Mini App syntax, focused E4 tests
+(36/36) and standalone address-book checks (63/63) pass. A controlled Relay
+restart briefly returned two `502`s during process replacement, then production
+`/webapp` returned `200` with the placeholder absent and all five routes
+rendered; Relay and bot are active. Rollback preimage:
+`/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-configured-bot-20260826T0917Z.afDp59`.
 
 Completed bounded slices:
 `obsidian_b64_snapshot_reader` is deployed in production against the frozen
