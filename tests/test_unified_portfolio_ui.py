@@ -73,6 +73,13 @@ def test_referral_bonus_handoff_opens_the_existing_bot_referral_menu():
     assert 'Вывести бонус в боте' in webapp
 
 
+def test_profile_keeps_existing_bot_notification_and_promo_settings_reachable():
+    assert 'onclick="openBotProfile()"' in webapp
+    assert 'function openBotProfile()' in webapp
+    assert 'https://t.me/Obsidian666999bot?start=profile' in webapp
+    assert 'Уведомления о курсе и промокод управляются' in webapp
+
+
 def test_wallet_address_book_can_copy_and_name_an_existing_address():
     assert "copy.onclick = () => walletCopy(a.address, copy)" in webapp
     assert "rename.onclick = () => renameWalletBookAddress(a, rename)" in webapp

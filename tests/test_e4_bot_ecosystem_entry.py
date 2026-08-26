@@ -47,3 +47,11 @@ def test_referral_deep_link_reuses_the_existing_referral_menu():
     menu_start = BOT.index('async def menu_ref')
     menu = BOT[menu_start:BOT.index('@router.callback_query(F.data == "rate_sub_toggle")', menu_start)]
     assert 'await send_referral_menu(callback.message, callback.from_user.id)' in menu
+
+
+def test_profile_deep_link_reuses_existing_bot_profile_settings():
+    start = BOT.index('async def cmd_start')
+    end = BOT.index('# ---------- ОБРАБОТЧИКИ МЕНЮ ----------', start)
+    command = BOT[start:end]
+    assert 'start_payload == "profile"' in command
+    assert 'await profile(message, uid=message.from_user.id)' in command

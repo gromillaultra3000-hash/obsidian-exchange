@@ -1868,6 +1868,9 @@ async def cmd_start(message: Message, state: FSMContext):
     if start_payload == "referral":
         await send_referral_menu(message, message.from_user.id)
         return
+    if start_payload == "profile":
+        await profile(message, uid=message.from_user.id)
+        return
     btc_rate  = get_cached_rate('BTC')  or 0
     ltc_rate  = get_cached_rate('LTC')  or 0
     usdt_rate = get_cached_rate('USDT') or 0

@@ -780,6 +780,11 @@
                 <div style="font-size:16px;font-weight:800;color:var(--green)" id="profile-volume">—</div>
               </div>
             </div>
+            <div style="margin-bottom:14px;padding:12px 14px;background:rgba(159,103,255,.06);border:1px solid rgba(159,103,255,.20);border-radius:14px">
+              <div style="font-size:13px;font-weight:800">🔔 Настройки в Telegram</div>
+              <div style="font-size:11px;color:var(--muted);line-height:1.45;margin:4px 0 9px">Уведомления о курсе и промокод управляются в существующем профиле бота.</div>
+              <button type="button" onclick="openBotProfile()" style="border:0;border-radius:9px;padding:8px 11px;background:var(--accent);color:#fff;font-weight:700;cursor:pointer">Открыть настройки</button>
+            </div>
             <!-- Кошелёк переехал в свой раздел: это самостоятельный сервис, а
                  не строчка в профиле. Здесь остаётся только указатель. -->
             <div id="wallet-hint" style="display:none;margin-bottom:14px;padding:11px 14px;background:rgba(159,103,255,.06);border:1px solid rgba(159,103,255,.2);border-radius:14px;font-size:13px">
@@ -3272,6 +3277,12 @@
 
         function openBotReferral() {
             const url = 'https://t.me/Obsidian666999bot?start=referral';
+            if (tg && typeof tg.openTelegramLink === 'function') { tg.openTelegramLink(url); return; }
+            window.open(url, '_blank', 'noopener');
+        }
+
+        function openBotProfile() {
+            const url = 'https://t.me/Obsidian666999bot?start=profile';
             if (tg && typeof tg.openTelegramLink === 'function') { tg.openTelegramLink(url); return; }
             window.open(url, '_blank', 'noopener');
         }
