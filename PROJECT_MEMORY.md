@@ -173,6 +173,16 @@ Updated: 2026-08-26 UTC
   The next roadmap work is a separately scoped E4 gate, not another cycle on
   this visible vertical.
 
+- 2026-08-26 commit `41e895e` deploys the first follow-on E4 usability slice:
+  Mini App navigation is now native button-based ARIA tabs with a labelled
+  tablist, one roving tab stop, explicit tab-to-panel relationships and
+  `Left/Right`, `Home/End`, Enter and Space navigation. Hidden mobile-only
+  sections are skipped during keyboard navigation; existing tabs and flows are
+  unchanged. JavaScript syntax and focused E4 tests pass 17/17; public
+  `/webapp` returned `200` with the new contract and Relay/bot are active.
+  Rollback preimage:
+  `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-accessibility-20260826T0822Z.ztlxNh`.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;

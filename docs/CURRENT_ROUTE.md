@@ -89,6 +89,13 @@ returned `200` for public site, Preview, personal preview screen and canonical
 Mini App; Preview POST returned `405`; unauthenticated personal API access
 returned `403`; Relay and bot services are active. Rollback preimage:
 `/var/lib/obsidian-exchange/deployment-preimages/e4-visible-preview-preimage.cOnscA`.
+Commit `41e895e` adds the first follow-on E4 usability slice: Mini App tabs
+are native ARIA buttons with explicit panel relationships, roving tab focus and
+`Left/Right`, `Home/End`, Enter and Space control. Keyboard navigation skips
+sections hidden in the mobile layout and does not change any existing flow.
+JavaScript syntax and focused E4 tests pass 17/17; live `/webapp` returned
+`200` with this contract and Relay/bot are active. Rollback preimage:
+`/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-accessibility-20260826T0822Z.ztlxNh`.
 
 Completed bounded slices:
 `obsidian_b64_snapshot_reader` is deployed in production against the frozen
