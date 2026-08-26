@@ -163,6 +163,13 @@ support callbacks remain in place and public Preview is unchanged. Python
 compilation and focused E4 tests pass 24/24; production bot source matches,
 bot/Relay are active and public Mini App returned `200`. Rollback preimage:
 `/var/lib/obsidian-exchange/deployment-preimages/e4-bot-ecosystem-menu-20260826T0846Z.ZzvNGK`.
+Commit `5d6e20e` completes the public site→Telegram part of the visible E4
+journey. Alongside isolated Preview, the site hero now has an explicit
+`Открыть в Telegram` link to the existing configured bot; it does not claim a
+nonexistent direct Mini App deep-link. Existing exchange CTA and calculator
+remain. Focused E4 tests pass 24/24; after a controlled Relay restart, public
+site and Preview returned `200`, bot/Relay are active. Rollback preimage:
+`/var/lib/obsidian-exchange/deployment-preimages/e4-site-telegram-entry-20260826T0849Z.5hq8se`.
 
 Completed bounded slices:
 `obsidian_b64_snapshot_reader` is deployed in production against the frozen
