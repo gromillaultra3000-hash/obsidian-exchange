@@ -64,6 +64,13 @@ Updated: 2026-08-26 UTC
   are retained. Browser capture was unavailable because Chromium is absent on
   the host. Evidence: `docs/e4-visible-portfolio-preview-rollout.v1.json`.
 
+- 2026-08-26 preview now also shows one bounded real market-observation
+  snapshot from the KAIROS public OKX spot projection for BTC/USDT, ETH/USDT
+  and LTC/USDT. It is indicative only, has no price/quote/order authority and
+  hides all numeric values after 900 seconds, on fetch failure, invalid input
+  or a future/expired observation timestamp. Commit `0030929` is deployed as
+  the immutable static release; GET still returns `200` and POST `405`.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;

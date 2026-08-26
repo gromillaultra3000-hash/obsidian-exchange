@@ -60,5 +60,13 @@
     "operations": "independent runtime review required in-place anchored Nginx patch and retained preimages; applied"
   },
   "knownLimitation": "Automated visual browser capture is not available on this host because the requested Chromium distribution is absent; public HTTP and static-asset verification passed.",
+  "marketSnapshotSlice": {
+    "commit": "00309290dc927b1a54117a16a1609e305527d74f",
+    "status": "DEPLOYED",
+    "source": "single KAIROS public OKX spot observation captured at release time",
+    "assets": ["BTC/USDT", "ETH/USDT", "LTC/USDT"],
+    "truthfulExpiry": "the browser hides every numeric value after 900 seconds, on fetch failure, invalid input or a future observation timestamp",
+    "productionRelease": "/opt/obsidian-exchange/releases/e4-visible-portfolio-preview/00309290dc927b1a54117a16a1609e305527d74f"
+  },
   "nextCanonicalItem": "E4/VISIBLE_PORTFOLIO_PREVIEW: validate the production preview visually on the owner Telegram device, then add one read-only real-data lane without changing its writer boundaries."
 }
