@@ -264,13 +264,33 @@ async function loadPublicStats() {
 // FAQ АККОРДЕОН
 // ══════════════════════════════════════
 function initFaq() {
-    document.querySelectorAll('.faq-item').forEach(item => {
+    const items = [...document.querySelectorAll('.faq-item')];
+    if (!items.length) return;
+
+    function setOpen(activeItem) {
+        items.forEach(item => {
+            const question = item.querySelector('.faq-question');
+            const answer = item.querySelector('.faq-answer');
+            const open = item === activeItem;
+            item.classList.toggle('open', open);
+            question?.setAttribute('aria-expanded', String(open));
+            answer?.setAttribute('aria-hidden', String(!open));
+        });
+    }
+
+    items.forEach((item, index) => {
         const q = item.querySelector('.faq-question');
+        const answer = item.querySelector('.faq-answer');
         if (!q) return;
+        q.type = 'button';
+        if (answer) {
+            answer.id = answer.id || `faq-answer-${index + 1}`;
+            q.setAttribute('aria-controls', answer.id);
+        }
         q.addEventListener('click', () => {
             const wasOpen = item.classList.contains('open');
-            item.parentElement.querySelectorAll('.faq-item').forEach(i => i.classList.remove('open'));
-            if (!wasOpen) item.classList.add('open');
+            setOpen(wasOpen ? null : item);
         });
     });
+    setOpen(items.find(item => item.classList.contains('open')) || null);
 }
