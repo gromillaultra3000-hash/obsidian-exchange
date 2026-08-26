@@ -527,6 +527,21 @@ Updated: 2026-08-26 UTC
   produced no app errors. Relay and bot remain active. Rollback preimage:
   `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-chart-refresh-20260826T1002Z.e9wCIn`.
 
+- 2026-08-26 commit `4c2cbfd` expands that read-only market card without
+  replacing the existing quote, wallet, exchange or activity flows. Its ten
+  compact E4 improvements comprise a strict BTC/ETH/LTC server allow-list,
+  independent 60-second snapshot cache per asset, rejection of unknown assets,
+  segmented mobile asset choice, BTC/LTC quote-card handoffs, selected-card
+  state, keyboard activation, ARIA pressed/busy context, per-asset chart colour
+  and retained-last-snapshot failure handling. The endpoint continues to use
+  public OKX 30-minute observations only. Production returned `200` with 48
+  points for ETH and LTC and `422` for unsupported USDT; a `390px` browser
+  flow switched BTC → ETH → LTC with no overflow or app errors and observed
+  the three matching `200` requests. Relay and bot are active. Commit
+  `bb2828e` pins the deployed market-inventory contract; focused regression
+  tests pass `28/28`. Rollback preimage:
+  `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-selectable-market-20260826T1007Z.1jTqOk`.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;
