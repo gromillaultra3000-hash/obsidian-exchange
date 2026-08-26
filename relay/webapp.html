@@ -871,6 +871,7 @@
     <script src="/static/js/chart-4.4.7.umd.min.js"></script>
     <script>
         const tg = window.Telegram.WebApp;
+        const ecosystemBotUsername = '__OBSIDIAN_BOT_USERNAME__';
         tg.expand();
         // Обсидиановая шапка/фон Telegram под бренд (контент тему не подстраивает — тёмная фирменная)
         try {
@@ -3215,12 +3216,12 @@
             window.open(url, '_blank', 'noopener');
         }
         function openBotSwap() {
-            const url = 'https://t.me/Obsidian666999bot?start=swap';
+            const url = `https://t.me/${ecosystemBotUsername}?start=swap`;
             if (tg && typeof tg.openTelegramLink === 'function') { tg.openTelegramLink(url); return; }
             window.open(url, '_blank', 'noopener');
         }
         function openBotTools() {
-            const url = 'https://t.me/Obsidian666999bot?start=tools';
+            const url = `https://t.me/${ecosystemBotUsername}?start=tools`;
             if (tg && typeof tg.openTelegramLink === 'function') { tg.openTelegramLink(url); return; }
             window.open(url, '_blank', 'noopener');
         }
@@ -3251,8 +3252,7 @@
         })();
 
         function loadReferral() {
-            const botUsername = 'Obsidian666999bot';
-            const refLink = `https://t.me/${botUsername}?start=ref_${userId}`;
+            const refLink = `https://t.me/${ecosystemBotUsername}?start=ref_${userId}`;
             document.getElementById('ref-link').textContent = refLink;
             document.getElementById('ref-stats').innerHTML = '<div class="skeleton-line"></div><div class="skeleton-line" style="width:50%"></div>';
             fetch(`/api/referral_stats?user_id=${userId}`, { headers: { 'X-Telegram-Init-Data': tg.initData || '' } }).then(r=>r.json()).then(data => {
@@ -3282,13 +3282,13 @@
         }
 
         function openBotReferral() {
-            const url = 'https://t.me/Obsidian666999bot?start=referral';
+            const url = `https://t.me/${ecosystemBotUsername}?start=referral`;
             if (tg && typeof tg.openTelegramLink === 'function') { tg.openTelegramLink(url); return; }
             window.open(url, '_blank', 'noopener');
         }
 
         function openBotProfile() {
-            const url = 'https://t.me/Obsidian666999bot?start=profile';
+            const url = `https://t.me/${ecosystemBotUsername}?start=profile`;
             if (tg && typeof tg.openTelegramLink === 'function') { tg.openTelegramLink(url); return; }
             window.open(url, '_blank', 'noopener');
         }

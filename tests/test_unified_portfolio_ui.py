@@ -55,28 +55,28 @@ def test_mobile_navigation_keeps_secondary_sections_in_more_panel():
 def test_more_panel_reaches_the_existing_telegram_swap_flow():
     assert 'onclick="openBotSwap()"' in webapp
     assert 'function openBotSwap()' in webapp
-    assert 'https://t.me/Obsidian666999bot?start=swap' in webapp
+    assert 'https://t.me/${ecosystemBotUsername}?start=swap' in webapp
     assert "tg.openTelegramLink(url)" in webapp
 
 
 def test_more_panel_reaches_existing_optional_exchange_tools():
     assert 'onclick="openBotTools()"' in webapp
     assert 'function openBotTools()' in webapp
-    assert 'https://t.me/Obsidian666999bot?start=tools' in webapp
+    assert 'https://t.me/${ecosystemBotUsername}?start=tools' in webapp
     assert 'Лимит · DCA · фиксация курса · подарки' in webapp
 
 
 def test_referral_bonus_handoff_opens_the_existing_bot_referral_menu():
     assert 'onclick="openBotReferral()"' in webapp
     assert 'function openBotReferral()' in webapp
-    assert 'https://t.me/Obsidian666999bot?start=referral' in webapp
+    assert 'https://t.me/${ecosystemBotUsername}?start=referral' in webapp
     assert 'Вывести бонус в боте' in webapp
 
 
 def test_profile_keeps_existing_bot_notification_and_promo_settings_reachable():
     assert 'onclick="openBotProfile()"' in webapp
     assert 'function openBotProfile()' in webapp
-    assert 'https://t.me/Obsidian666999bot?start=profile' in webapp
+    assert 'https://t.me/${ecosystemBotUsername}?start=profile' in webapp
     assert 'Уведомления о курсе и промокод управляются' in webapp
 
 

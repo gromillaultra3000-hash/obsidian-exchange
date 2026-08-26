@@ -60,6 +60,13 @@ BOT_USERNAME = os.getenv('BOT_USERNAME', 'Obsidian666999bot')
 SUPPORT_USERNAME = os.getenv('SUPPORT_USERNAME', 'ObsidianSupBot')
 REVIEWS_USERNAME = os.getenv('REVIEWS_USERNAME', 'ObsidianReviews')
 
+
+def _mini_app_bot_username() -> str:
+    """Return a JavaScript-safe Telegram username for Mini App deep links."""
+    candidate = str(BOT_USERNAME or '').strip().lstrip('@')
+    return candidate if re.fullmatch(r'[A-Za-z0-9_]{5,32}', candidate) else 'Obsidian666999bot'
+
+
 # Путь к relay берётся ОТ СЕБЯ, а не зашит как /root/relay. Зашитый путь означает,
 # что копия проекта (git worktree, проверочный клон) исполняет свой main.py, но
 # импортирует core/services/wallet из БОЕВОГО каталога — и проверка «на копии»
@@ -2308,7 +2315,7 @@ async def webapp():
         # Из своего дерева, а не из боевого: иначе копия проекта отдавала бы
         # прод-версию Mini App и правки ветки нельзя было бы увидеть вообще.
         with open(os.path.join(RELAY_PATH, 'webapp.html'), 'r') as f:
-            return f.read()
+            return f.read().replace('__OBSIDIAN_BOT_USERNAME__', _mini_app_bot_username())
     except:
         raise HTTPException(status_code=500)
 
