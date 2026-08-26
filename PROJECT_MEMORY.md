@@ -99,6 +99,15 @@ Updated: 2026-08-26 UTC
   `GET /webapp` contains the dialog. Rollback preimage:
   `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-exchange-review-20260826T0759Z.yOXleq`.
 
+- 2026-08-26 commit `3e00499` deploys the Mini App activity centre: an
+  authenticated read-only ObsidianExchange order view with explicit source
+  boundary, grouped Pending/In-progress/Completed counts, filters and manual
+  no-store refresh. Existing pending-payment and on-chain-transaction links
+  remain, while wallet operations stay in `Кошелёк`. JavaScript syntax and E4
+  focused/preview tests pass 14/14; public `GET /webapp` confirms the new
+  controls. Rollback preimage:
+  `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-activity-center-20260826T0800Z.54shQf`.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;

@@ -56,6 +56,10 @@ conditions review with route/executor, custody, no-KYC lane, fees/rate,
 destination or payout and irreversibility notice. The request remains the
 existing server-side contract and is sent only after explicit acknowledgement
 (commit `16785b9`, deployed).
+The `Активность` tab is a separate read-only ObsidianExchange status centre
+with grouped status counts, filters and a manual no-store refresh. It preserves
+existing order/payment and transaction links and explicitly leaves on-chain
+wallet activity in the wallet section (commit `3e00499`, deployed).
 
 Completed bounded slices:
 `obsidian_b64_snapshot_reader` is deployed in production against the frozen
