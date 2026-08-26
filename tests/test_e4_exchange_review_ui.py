@@ -47,3 +47,16 @@ def test_wallet_send_uses_the_same_explicit_review_before_wallet_signature():
     assert "openExchangeReview({" in transfer
     assert "await tcUI.sendTransaction(d.request);" in transfer
     assert transfer.index("openExchangeReview({") < transfer.index("await tcUI.sendTransaction(d.request);")
+
+
+def test_wallet_payment_for_a_sell_order_uses_review_before_wallet_signature():
+    webapp = WEBAPP.read_text(encoding="utf-8")
+
+    payment = webapp[webapp.index("async function walletPay"):
+                     webapp.index("async function loadDues", webapp.index("async function walletPay"))]
+    assert "title: 'Оплатить заявку #' + d.sell_id + ' из кошелька'" in payment
+    assert "Комментарий к переводу" in payment
+    assert "Заявка будет считаться оплаченной только после подтверждения в сети" in payment
+    assert "openExchangeReview({" in payment
+    assert "await tcUI.sendTransaction(d.request);" in payment
+    assert payment.index("openExchangeReview({") < payment.index("await tcUI.sendTransaction(d.request);")

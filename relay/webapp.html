@@ -2033,20 +2033,38 @@
                     say(d.message || 'Не получилось — попробуйте позже');
                     return;
                 }
-                say('Подтвердите в кошельке…');
-                // Запрос уходит в кошелёк КАК ПРИШЁЛ: подменять адрес или сумму
-                // на фронте нечем и незачем — подписывать всё равно клиенту.
-                await tcUI.sendTransaction(d.request);
-                // Подпись — не поступление денег: сервер лишь отмечает время,
-                // заявку закроет проверка блокчейна.
-                await fetch('/api/wallet/send-signed', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json',
-                               'X-Telegram-Init-Data': tg.initData || '' },
-                    body: JSON.stringify({ sell_id: Number(sellId) })
-                }).catch(() => {});
-                say('✅ Подписано — ждём сеть');
-                if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+                say('Проверьте условия перед подписью в кошельке.');
+                openExchangeReview({
+                    title: 'Оплатить заявку #' + d.sell_id + ' из кошелька',
+                    rows: [
+                        {label: 'Исполнитель', value: 'Ваш подключённый TON-кошелёк'},
+                        {label: 'Custody', value: 'Ключи остаются только в вашем кошельке'},
+                        {label: 'Получатель', value: d.address || '—'},
+                        {label: 'Сумма и сеть', value: d.amount + ' TON · сеть TON'},
+                        {label: 'Комментарий к переводу', value: d.marker || '—'}
+                    ],
+                    risk: 'После подписи перевод в сети TON нельзя отменить. Заявка будет считаться оплаченной только после подтверждения в сети.',
+                    onConfirm: async () => {
+                        try {
+                            say('Подтвердите в кошельке…');
+                            // Запрос уходит в кошелёк КАК ПРИШЁЛ: подменять адрес или сумму
+                            // на фронте нечем и незачем — подписывать всё равно клиенту.
+                            await tcUI.sendTransaction(d.request);
+                            // Подпись — не поступление денег: сервер лишь отмечает время,
+                            // заявку закроет проверка блокчейна.
+                            await fetch('/api/wallet/send-signed', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json',
+                                           'X-Telegram-Init-Data': tg.initData || '' },
+                                body: JSON.stringify({ sell_id: Number(sellId) })
+                            }).catch(() => {});
+                            say('✅ Подписано — ждём сеть');
+                            if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+                        } catch (_) {
+                            say('Перевод не подтверждён');
+                        }
+                    }
+                });
             } catch (e) {
                 // Отказ в кошельке — нормальный исход, а не сбой: так и пишем.
                 say('Перевод не подтверждён');
