@@ -257,6 +257,15 @@ Updated: 2026-08-26 UTC
   preimage:
   `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-ecosystem-header-20260826T0843Z.bV3YLK`.
 
+- 2026-08-26 commit `69f6cbb` aligns the main Telegram bot entry with the
+  ecosystem UI: its existing canonical `/webapp` WebApp button is now labelled
+  `🟣 Экосистема · Mini App`. All existing exchange, sell, swap, orders,
+  profile and support callbacks remain in the same main menu; public Preview
+  is unchanged. Python compilation and focused E4 tests pass 24/24; production
+  bot source matches, bot/Relay are active and public Mini App returned `200`.
+  Rollback preimage:
+  `/var/lib/obsidian-exchange/deployment-preimages/e4-bot-ecosystem-menu-20260826T0846Z.ZzvNGK`.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;

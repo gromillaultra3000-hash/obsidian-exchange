@@ -156,6 +156,13 @@ rather than presenting the whole app as a standalone exchange. No flow, data
 or authority changed. Focused E4 tests pass 23/23; live `/webapp` returned
 `200` with the header and Relay/bot are active. Rollback preimage:
 `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-ecosystem-header-20260826T0843Z.bV3YLK`.
+Commit `69f6cbb` aligns the main Telegram bot entry with the ecosystem UI: its
+existing canonical `/webapp` WebApp button is now labelled
+`🟣 Экосистема · Mini App`. Existing exchange, sell, swap, orders, profile and
+support callbacks remain in place and public Preview is unchanged. Python
+compilation and focused E4 tests pass 24/24; production bot source matches,
+bot/Relay are active and public Mini App returned `200`. Rollback preimage:
+`/var/lib/obsidian-exchange/deployment-preimages/e4-bot-ecosystem-menu-20260826T0846Z.ZzvNGK`.
 
 Completed bounded slices:
 `obsidian_b64_snapshot_reader` is deployed in production against the frozen
