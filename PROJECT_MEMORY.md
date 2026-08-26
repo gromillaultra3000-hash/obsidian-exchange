@@ -118,6 +118,12 @@ Updated: 2026-08-26 UTC
   returns `200` to GET and `405` to POST. Tests pass 14/14. Evidence:
   `docs/e4-preview-personal-portfolio-rollout.v1.json`.
 
+- 2026-08-26 commit `d15a91c` adds the direct `👛 Мой портфель · read-only`
+  WebApp button to Telegram `/preview`, alongside the preserved public
+  Ecosystem Preview button. Production bot source matches the commit,
+  compilation passed and `exchange-bot.service` is active. Rollback preimage:
+  `/var/lib/obsidian-exchange/deployment-preimages/e4-preview-portfolio-bot-20260826T0805Z.dzMTXd`.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;

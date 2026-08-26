@@ -66,6 +66,9 @@ an action surface nor stored identity; after the user clicks, it may read only
 the authenticated owner-scoped `unified-portfolio.v1` contract, validates its
 exact three custody lanes and hides stale/unknown amounts. It is not a wallet,
 exchange or aggregate balance view (commit `4a9ba8f`, deployed).
+Telegram `/preview` now exposes this personal screen as a separate WebApp
+button while preserving its original public Preview button (commit `d15a91c`,
+deployed).
 
 Completed bounded slices:
 `obsidian_b64_snapshot_reader` is deployed in production against the frozen
