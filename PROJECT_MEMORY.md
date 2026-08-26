@@ -462,6 +462,17 @@ Updated: 2026-08-26 UTC
   pass `9/9`; deployed `/webapp` is `200`, Relay/bot are active. Rollback
   preimage: `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-browser-shell-20260826T0941Z.bfXw9Q`.
 
+- 2026-08-26 commit `cd46f3a` closes the remaining public landing-page
+  Mini-App routing gap. For unauthenticated users both primary creation CTA
+  and quick-widget CTA now use Telegram `start=app`; authenticated users retain
+  their existing `/dashboard/exchange` destination. The quick widget and public
+  rate cards now expose the same current open BTC/LTC/USDT/XRP/TON offerings as
+  `/api/rates`; browser confirmation includes a live XRP calculation. No price,
+  order, custody or writer contract changed. Focused tests pass `15/15`; public
+  landing is `200`, and `390px` browser audit confirms correct targets, five
+  directions, no overflow and zero console errors. Relay is active. Rollback
+  preimage: `/var/lib/obsidian-exchange/deployment-preimages/e4-landing-miniapp-entry-20260826T0943Z.A7xKCV`.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;
