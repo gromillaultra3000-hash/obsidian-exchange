@@ -53,6 +53,12 @@ def test_ecosystem_overview_uses_the_existing_read_only_portfolio_contract():
     assert 'function ecosystemPortfolioRender' in webapp
     assert 'ecosystemPortfolioRender(data)' in webapp
     assert "tab.dataset.tab === 'ecosystem'" in webapp
+    assert "function isUnifiedPortfolioV1" in webapp
+    assert "schemaVersion === 'unified-portfolio.v1'" in webapp
+    assert "cache: 'no-store'" in webapp
+    assert "Старые значения не показываются" in webapp
+    assert "stale ? 'DEGRADED'" in webapp
+    assert "source && Array.isArray(source.balances)" in webapp
 
 
 def test_activity_navigation_preserves_existing_history_handler():

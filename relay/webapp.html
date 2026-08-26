@@ -2250,11 +2250,24 @@
             PENDING_PROOF: 'Проверяем доступ', BLOCKED: 'Доступ остановлен', REVOKED: 'Отключено'
         };
 
+        const unifiedPortfolioShape = [
+            ['wallets', 'SELF_CUSTODY'],
+            ['obsidian_exchange', 'OBSIDIAN_OPERATIONAL'],
+            ['verified_exchanges', 'CEX_CUSTODY']
+        ];
+        function isUnifiedPortfolioV1(data) {
+            return !!data && data.schemaVersion === 'unified-portfolio.v1'
+                && Array.isArray(data.lanes) && data.lanes.length === unifiedPortfolioShape.length
+                && data.lanes.every((lane, index) => lane && lane.id === unifiedPortfolioShape[index][0]
+                    && lane.custodyDomain === unifiedPortfolioShape[index][1]
+                    && typeof lane.state === 'string' && Array.isArray(lane.sources));
+        }
+
         function unifiedPortfolioRender(data) {
             const box = document.getElementById('unified-portfolio-lanes');
             const note = document.getElementById('unified-portfolio-note');
             if (!box || !note) return;
-            const lanes = data && Array.isArray(data.lanes) ? data.lanes : [];
+            const lanes = isUnifiedPortfolioV1(data) ? data.lanes : [];
             if (!lanes.length) {
                 box.innerHTML = '<div style="padding:10px;color:var(--muted);font-size:12px">Портфель временно недоступен. Кошелёк и обмен продолжают работать.</div>';
                 note.style.display = 'none';
@@ -2306,11 +2319,13 @@
         function ecosystemPortfolioRender(data) {
             const box = document.getElementById('ecosystem-portfolio');
             if (!box) return;
-            const lanes = data && Array.isArray(data.lanes) ? data.lanes : [];
-            if (lanes.length !== 3) { box.innerHTML = '<div style="grid-column:1/-1;padding:12px;border:1px solid var(--border);border-radius:14px;color:var(--muted);font-size:12px">Портфель временно недоступен. Старые значения не показываются.</div>'; return; }
+            const lanes = isUnifiedPortfolioV1(data) ? data.lanes : [];
+            if (!lanes.length) { box.innerHTML = '<div style="grid-column:1/-1;padding:12px;border:1px solid var(--border);border-radius:14px;color:var(--muted);font-size:12px">Портфель временно недоступен. Старые значения не показываются.</div>'; return; }
             box.innerHTML = lanes.map(lane => {
                 const copy = custodyCopy[lane.custodyDomain] || {title:'Источник', badge:''};
-                const state = laneStateCopy[lane.state] || 'Временно недоступно';
+                const stale = lane.sources.some(source => source && Array.isArray(source.balances) && source.balances.some(balance =>
+                    balance && (['STALE', 'UNKNOWN', 'ERROR'].includes(balance.state) || balance.total === null)));
+                const state = laneStateCopy[stale ? 'DEGRADED' : lane.state] || 'Временно недоступно';
                 const count = Array.isArray(lane.sources) ? lane.sources.length : 0;
                 return '<button type="button" class="side-btn" onclick="switchTab(\'wallet\')" style="text-align:left;padding:12px"><b>' + esc(copy.title) + '</b><br><span style="font-size:10px;color:var(--muted)">' + esc(copy.badge) + ' · ' + esc(state) + ' · источников: ' + count + '</span></button>';
             }).join('');
@@ -2319,7 +2334,7 @@
         async function loadUnifiedPortfolio() {
             try {
                 const r = await fetch('/api/wallet/portfolio', {
-                    headers: {'X-Telegram-Init-Data': tg.initData || ''}});
+                    cache: 'no-store', headers: {'X-Telegram-Init-Data': tg.initData || ''}});
                 const data = r.ok ? await r.json().catch(() => null) : null;
                 unifiedPortfolioRender(data); ecosystemPortfolioRender(data);
             } catch (_) { unifiedPortfolioRender(null); ecosystemPortfolioRender(null); }
