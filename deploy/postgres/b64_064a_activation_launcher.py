@@ -276,7 +276,10 @@ def _production_connections(
         user=principal.decode("ascii"),
         passfile=f"/proc/self/fd/{passfile_fd}",
         connect_timeout=5, sslmode="disable",
-        target_session_attrs="read-write",
+        # obsidian_readonly has default_transaction_read_only=on.  libpq's
+        # read-write probe rejects that deliberately read-only session before
+        # the activation executor can attest the dormant target.
+        target_session_attrs="read-only",
         application_name="obsidian-b64-064a-activation-launcher",
     )
     admin_dsn = make_conninfo(

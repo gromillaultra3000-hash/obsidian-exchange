@@ -208,6 +208,8 @@ def test_observation_secret_moves_only_through_sealed_fd(tmp_path):
         assert "s" * 64 not in admin_dsn
         assert f"passfile=/proc/self/fd/{fd}" in observation_dsn
         assert "user=obsidian_readonly" in observation_dsn
+        assert "target_session_attrs=read-only" in observation_dsn
+        assert "target_session_attrs=read-write" in admin_dsn
         assert f"host=/proc/{os.getpid()}/root/var/run/postgresql" \
             in admin_dsn
         os.lseek(fd, 0, os.SEEK_SET)

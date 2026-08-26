@@ -143,6 +143,74 @@ def test_production_login_activation_is_hard_disabled_before_contact(
         )
 
 
+def test_exact_binding_failure_stops_before_credential_issuance(monkeypatch):
+    """A rejected observation DSN cannot reach ALTER ROLE issuance."""
+    class Lock:
+        closed = False
+
+        def close(self):
+            self.closed = True
+
+    observed = []
+    lock = Lock()
+    passfile_fd = os.open("/dev/null", os.O_RDONLY)
+    monkeypatch.setattr(
+        MODULE, "_validate_observation_dsn_secret_boundary",
+        lambda _dsn: None,
+    )
+    monkeypatch.setattr(
+        MODULE, "_inspect_container",
+        lambda *_args, **_kwargs: {"containerPid": 123},
+    )
+    monkeypatch.setattr(
+        MODULE, "_validate_container_admin_dsn", lambda *_args: None,
+    )
+    monkeypatch.setattr(
+        MODULE, "_bind_empty_memfd_passfile",
+        lambda _dsn: (passfile_fd, "bound-admin-dsn"),
+    )
+    monkeypatch.setattr(
+        MODULE, "_acquire_runtime_lock", lambda *_args: lock,
+    )
+    monkeypatch.setattr(
+        MODULE, "_minimal_mutation_binding", lambda **_kwargs: object(),
+    )
+    monkeypatch.setattr(
+        MODULE, "_role_auth_state_on",
+        lambda _lock: {
+            "login": False, "passwordAbsent": True,
+            "sessions": 0, "validUntil": "",
+        },
+    )
+
+    def reject_observation_dsn(**kwargs):
+        observed.append(kwargs)
+        raise MODULE.RuntimeContractError("OBSERVATION_DSN_READ_ONLY_REQUIRED")
+
+    monkeypatch.setattr(MODULE, "_exact_runtime_binding", reject_observation_dsn)
+    monkeypatch.setattr(
+        MODULE, "_set_short_lived_verifier",
+        lambda *_args: pytest.fail("credential issuance was reached"),
+    )
+
+    with pytest.raises(
+        MODULE.RuntimeContractError,
+        match="OBSERVATION_DSN_READ_ONLY_REQUIRED",
+    ):
+        MODULE.issue_credential_lease(
+            observation_dsn="sealed-observation-dsn",
+            admin_dsn="admin-dsn", container="b64-hba-contract-123",
+            expected_container_id="a" * 64,
+            expected_image_id="sha256:" + "b" * 64,
+            allow_contract_container=True,
+        )
+
+    assert len(observed) == 1
+    assert observed[0]["observation_dsn"] == "sealed-observation-dsn"
+    assert observed[0]["expected_login"] is False
+    assert lock.closed is True
+
+
 def test_lease_repr_never_exposes_stored_dsns():
     lease = object.__new__(MODULE.CredentialLease)
     for field_name in MODULE.CredentialLease.__dataclass_fields__:

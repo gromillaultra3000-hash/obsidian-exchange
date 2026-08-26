@@ -1,0 +1,74 @@
+{
+  "schemaVersion": "b64-064a-single-owner-v4-fail-closed-terminal.v1",
+  "recordedAtUtc": "2026-08-26T04:55:53Z",
+  "route": "E0/E0.3/B5.3/064A",
+  "status": "FAIL_CLOSED_TERMINAL_EVIDENCE_ARCHIVED",
+  "authorization": {
+    "model": "ACCOUNTABLE_OWNER_ONLY",
+    "runNonce": "--UCMVv0KQC6X6xiH5q1X32WxwteUY44",
+    "decisionSha256": "28a93dd74bd5c67d741ade74257e22617ab8d40f53443904f777643d29fa1ba8",
+    "planSha256": "a8dd23948c66358e4bb85dfeb9852ce61305604ca10d31e1156867a2c378ce40",
+    "keyringSha256": "d0e884fe6ded36824e17399d924e204673e95814eeb1490b7bf5f6a77cce96a8",
+    "ownerSignatureSha256": "fd21cc662f61df2124aa26cc5a80d8468375c7e05fe5070ea7ee7d59b549c6c9",
+    "decisionExpiresAtUtc": "2026-08-26T04:44:53Z",
+    "signatureReusable": false,
+    "automaticRetryAllowed": false
+  },
+  "attempt": {
+    "implementationCommit": "fbcf49928f82d22d277521ab1e388f3aec63046d",
+    "pinCommit": "3f348a840ca2826c4956dff00f99bbefceed2883",
+    "runtimePackageCommitStatus": "RUNTIME_PACKAGE_COMMITTED_LAUNCHER_NOT_STARTED",
+    "launcherInvocations": 1,
+    "launcherStatus": "NO_GO",
+    "launcherReason": "ACTIVATION_CLOSE_UNCERTAIN",
+    "launcherReceiptOrResidualReceiptPresent": false,
+    "launcherRetryAllowed": false
+  },
+  "terminalEvidence": {
+    "manualReconcileStatus": "MANUAL_HOLD_RECONCILED_DORMANT_VERIFIED",
+    "activationJournalState": "RECONCILED_HOLD",
+    "activationJournalReason": "ABNORMAL_EXIT_RECONCILED_NO_RETRY",
+    "resourceJournalState": "RECONCILED_HOLD",
+    "credentialIssued": false,
+    "credentialReconciled": true,
+    "roleLoginState": "DISABLED",
+    "credentialState": "ABSENT",
+    "activeSessions": 0,
+    "terminalRunCustomerRowReadState": "NOT_READ",
+    "hbaChanged": false,
+    "authorityIncreased": false,
+    "workspaceAbsent": true,
+    "proxyAbsent": true,
+    "dumpAbsent": true,
+    "restoreAbsent": true,
+    "runtimePathsAbsent": true,
+    "archivePath": "/var/backups/obsidian-exchange/b64-064a-terminal-evidence-v1/b64-064a-terminal---UCMVv0KQC6X6xiH5q1X32WxwteUY44",
+    "archiveManifestSha256": "da6fb91d389699c5c9eb2021464bf2e09239cbc092339b6c86e60e80e6e31f0a",
+    "archiveAuthorizedAfterExpiry": true
+  },
+  "postClosureVerification": {
+    "watchdogStatus": "DORMANT_VERIFIED_NO_RECOVERY_REQUEST",
+    "watchdogTimerState": "active/waiting",
+    "launcherState": "inactive/dead",
+    "launcherRestarts": 0,
+    "postgresMainPid": 3136948,
+    "postgresContainerPid": 3137013,
+    "postgresRestartCount": 0,
+    "postgresHealth": "healthy",
+    "systemIdentifier": "7672203973020184609"
+  },
+  "interpretation": {
+    "noCustomerRowsReadThrough064A": true,
+    "currentReaderAuthorityDormant": true,
+    "credentialIssuedFalseCaveat": "The durable marker follows verifier installation, so it does not by itself prove a transient LOGIN state never existed. It does prove that the source-construction and row-reading path was not reached; terminal reconciliation proves disabled/absent/zero current authority.",
+    "rootCauseStatus": "REPRODUCED_OBSERVATION_DSN_SESSION_ATTRIBUTE_MISMATCH",
+    "rootCause": "The launcher used target_session_attrs=read-write for obsidian_readonly, whose default_transaction_read_only=on made libpq reject exact runtime binding before credential mutation. Cleanup retried that same binding and the safety wrapper emitted ACTIVATION_CLOSE_UNCERTAIN."
+  },
+  "durableState": {
+    "coordinationArchive": "/root/064A-activation-signing-reconciled-hold-28a93dd7",
+    "requestArchive": "/root/064A-activation-request-failed-28a93dd7/request.tar",
+    "reuseProhibited": true,
+    "newOwnerSignatureRequested": false
+  },
+  "next": "Do not relaunch or reuse this nonce, request, decision, package or signature. The code-only correction is observation target_session_attrs=read-only while the admin DSN remains read-write; it must be tested and deployed inertly. A later fresh attempt requires a separate explicit owner decision, but none is being requested now."
+}

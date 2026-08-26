@@ -11,40 +11,29 @@ Updated: 2026-08-26 UTC
   long charters and history are not repeatedly reread within one logical task.
 
 - 2026-08-26 active route `E0 → E0.3 → B5.3 → 064A` is
-  `IN_PROGRESS/BLOCKED_OWNER_PATHS_READY`. The owner authorized exactly one
-  fresh single-owner v4 production attempt with a new nonce, but no short
-  request has been opened. The former e725 kit (SHA-256 `8ed60817...f9622`)
-  and its readiness record are `SUPERSEDED_DO_NOT_USE`: final review found
-  crash-prefix gaps after that kit was built. Current code now makes launch the
-  sole authority publication, repairs deterministic rollback/receipt/archive
-  prefixes after hard kill, prevents the watchdog from terminalizing a
-  pre-launch CLAIMED state, preserves manual residual receipts for automatic
-  close, requires exact pre-existing terminal evidence, and never reports a
-  possibly published authority set as absent. The integrated hard-kill chain
-  `state → watchdog nonmutation → launch resume → RECONCILED_HOLD → archive`
-  passes. Final architecture, security and operations reviews report PASS with
-  no P0/P1/P2 findings. The unsandboxed affected/ceremony suite passes 333/333;
-  the broader managed run passes 491 tests and reaches only the expected
-  namespace limitation in seven uid-70 `chown` cases. A fresh isolated
-  PostgreSQL 17.11 rehearsal returned
-  `DISPOSABLE_ACTIVATION_REHEARSAL_VERIFIED`, receipt SHA-256
-  `f14d366...ab4abed3`, byte-exact HBA rollback and no production
-  contact/mutation; its exact container and volume were removed. The exact
-  production archive filesystem passes an automatically cleaned
-  `O_TMPFILE + linkat + fsync` capability probe. Pushed implementation commit
-  `fbcf49928f82d22d277521ab1e388f3aec63046d` is published as a verified
-  2185-blob root-owned read-only release; pushed pin commit
-  `3f348a840ca2826c4956dff00f99bbefceed2883` is deployed to exactly three
-  unit files with rollback preimages. PostgreSQL was not restarted, its exact
-  PID/start/container tuple is unchanged, launcher start time is zero, and a
-  natural watchdog tick returned `DORMANT_VERIFIED_NO_RECOVERY_REQUEST`.
-  Replacement kit SHA-256 `fb94e709...791f8c4` is secret-free, internally
-  verified and server-ready at
-  `/root/064A-activation-handoff-fbcf499-20260826T040842Z/`.
-  Production remains dormant and the old consumed authority remains
-  non-reusable. Exact next: transfer and verify only the fbcf499 kit on the
-  external owner device and obtain `OWNER_PATHS_READY`; only then open the
-  single fresh 15-minute request.
+  `IN_PROGRESS/FAIL_CLOSED_ROOT_CAUSE_PATCH_VALIDATED_PENDING_INERT_ROLLOUT`.
+  The one owner-signed v4 attempt (decision `28a93dd7...`, nonce
+  `--UCMVv0KQC6X6xiH5q1X32WxwteUY44`) launched exactly once and stopped
+  fail-closed as `ACTIVATION_CLOSE_UNCERTAIN`; it is consumed and may never
+  be retried. Post-expiry manual reconciliation and the terminal archive
+  `da6fb91d...` prove `RECONCILED_HOLD`, disabled/absent/session-free current
+  reader authority, all runtime paths/resources absent, and `NOT_READ` for
+  the 064A customer-row path. `credentialIssued=false` does not alone prove
+  that transient LOGIN never existed, because its durable marker follows the
+  verifier install; it does prove source construction and row-reading were not
+  reached. PostgreSQL retained its healthy PID/container/start/restart tuple;
+  the recurring watchdog is `DORMANT_VERIFIED_NO_RECOVERY_REQUEST`.
+
+  The concrete P1 functional blocker is reproduced: the launcher asked libpq
+  for a `read-write` observation session although `obsidian_readonly` has
+  `default_transaction_read_only=on`; exact runtime binding failed before
+  credential mutation, and cleanup repeated the same failure. The minimal
+  worktree correction uses `target_session_attrs=read-only` for observation
+  only, retains `read-write` for the admin socket, and adds direct DSN plus
+  pre-mutation-binding regressions (focused suite: 47 passed). No new request,
+  signature or owner action is requested. Exact next: publish the correction
+  as a verified immutable release, pin the three units inertly and verify the
+  dormant production tuple before any later owner decision is even considered.
 
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
