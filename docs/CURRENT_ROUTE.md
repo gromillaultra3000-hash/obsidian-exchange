@@ -188,6 +188,14 @@ contract changed. Python and Mini App syntax plus focused E4 tests pass 28/28;
 deployed `/webapp` returned `200`, the bot and Relay are active. Rollback
 preimage:
 `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-bot-tools-20260826T0858Z.ZEUF2h`.
+Commit `221f09b` completes a practical E4 address-book gap in the existing
+Wallet: every already-known address can now be copied in full or given a
+user-chosen name before it is reused for an exchange. Names use the existing
+owner-scoped address-note route; they neither add an address nor request keys,
+a signature, a provider call or a payment. Mini App syntax, focused E4 tests
+(29/29) and the standalone address-book checks (63/63) pass; deployed
+`/webapp` returned `200`, the bot and Relay are active. Rollback preimage:
+`/var/lib/obsidian-exchange/deployment-preimages/e4-wallet-address-book-20260826T0900Z.Uc6Zgp`.
 
 Completed bounded slices:
 `obsidian_b64_snapshot_reader` is deployed in production against the frozen

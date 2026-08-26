@@ -294,6 +294,16 @@ Updated: 2026-08-26 UTC
   bot/Relay are active. Rollback preimage:
   `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-bot-tools-20260826T0858Z.ZEUF2h`.
 
+- 2026-08-26 commit `221f09b` makes the established Wallet address book usable
+  as a receive/send reference: users can copy the full address and name an
+  existing address before reusing it for an exchange. Naming calls only the
+  existing owner-scoped address-note preference route; it cannot add an
+  address, access a key, request a signature, invoke a provider or create a
+  payment. Mini App syntax, focused E4 tests 29/29 and standalone address-book
+  checks 63/63 pass; production `/webapp` returned `200`, bot/Relay are active.
+  Rollback preimage:
+  `/var/lib/obsidian-exchange/deployment-preimages/e4-wallet-address-book-20260826T0900Z.Uc6Zgp`.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;
