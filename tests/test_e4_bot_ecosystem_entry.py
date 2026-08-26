@@ -12,3 +12,16 @@ def test_main_bot_menu_exposes_the_canonical_ecosystem_mini_app():
     assert 'web_app=WebAppInfo(url=f"{PUBLIC_RELAY}/webapp")' in menu
     assert 'callback_data="menu_exchange"' in menu
     assert 'callback_data="menu_orders"' in menu
+
+
+def test_swap_deep_link_reuses_the_existing_bot_pair_selector():
+    start = BOT.index('async def cmd_start')
+    end = BOT.index('# ---------- ОБРАБОТЧИКИ МЕНЮ ----------', start)
+    command = BOT[start:end]
+    assert 'start_payload == "swap"' in command
+    assert 'await send_swap_menu(message)' in command
+    assert 'def build_swap_pairs_kb()' in BOT
+    assert 'async def send_swap_menu(message: Message)' in BOT
+    handler_start = BOT.index('async def menu_swap')
+    handler = BOT[handler_start:BOT.index('@router.callback_query(F.data.startswith("swap_pair_"))', handler_start)]
+    assert 'await send_swap_menu(callback.message)' in handler

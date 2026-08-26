@@ -1783,6 +1783,11 @@ async def cmd_preview(message: Message):
 @router.message(Command("start"))
 async def cmd_start(message: Message, state: FSMContext):
     await state.clear()
+    start_payload = ""
+    if message.text:
+        start_parts = message.text.split(maxsplit=1)
+        if len(start_parts) > 1:
+            start_payload = start_parts[1].strip()
     # Верификация по запросу Montera: /start verify_<order_id>
     if message.text:
         parts = message.text.split(maxsplit=1)
@@ -1843,6 +1848,15 @@ async def cmd_start(message: Message, state: FSMContext):
             last_name=message.from_user.last_name)
     except Exception:
         pass
+    # Mini App opens this exact existing bot flow through an explicit deep link.
+    # It only renders the pair selector; the provider is contacted later by the
+    # unchanged pair/amount handlers after the user makes their choices.
+    if start_payload == "swap":
+        if is_user_blocked(message.from_user.id):
+            await message.answer("⛔ Вы превысили лимит заявок или заблокированы.")
+        else:
+            await send_swap_menu(message)
+        return
     btc_rate  = get_cached_rate('BTC')  or 0
     ltc_rate  = get_cached_rate('LTC')  or 0
     usdt_rate = get_cached_rate('USDT') or 0
@@ -1897,25 +1911,37 @@ async def menu_exchange(callback: CallbackQuery, state: FSMContext):
 SWAP_COINS = ["BTC", "LTC", "USDT"]
 SWAP_NETWORKS = {"BTC": "Mainnet", "LTC": "Mainnet", "USDT": "TRC20"}
 
+
+def build_swap_pairs_kb() -> InlineKeyboardMarkup:
+    rows = []
+    for coin_from in SWAP_COINS:
+        for coin_to in SWAP_COINS:
+            if coin_from != coin_to:
+                rows.append([InlineKeyboardButton(
+                    text=f"{coin_from} → {coin_to}",
+                    callback_data=f"swap_pair_{coin_from}_{coin_to}",
+                )])
+    rows.append([InlineKeyboardButton(text="🔙 Назад в меню", callback_data="back_to_menu")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+async def send_swap_menu(message: Message) -> None:
+    """Render the existing swap pair selector without invoking a provider."""
+    await message.answer(
+        "🔄 <b>Своп криптовалют</b>\n\n"
+        f"<blockquote expandable>Прямой обмен {', '.join(SWAP_COINS)} без рублей — вы отправляете монеты на указанный адрес и сразу получаете выбранную монету на свой кошелёк.\n\n💰 Комиссия ~1% включена в курс, скрытых сборов нет\n🔒 Без регистрации и KYC</blockquote>\n\n"
+        "Выберите пару обмена:",
+        reply_markup=build_swap_pairs_kb(),
+        parse_mode="HTML",
+    )
+
+
 @router.callback_query(F.data == "menu_swap")
 async def menu_swap(callback: CallbackQuery, state: FSMContext):
     if is_user_blocked(callback.from_user.id):
         await callback.answer("⛔ Вы превысили лимит заявок или заблокированы.", show_alert=True)
         return
-    rows = []
-    for coin_from in SWAP_COINS:
-        for coin_to in SWAP_COINS:
-            if coin_from != coin_to:
-                rows.append([InlineKeyboardButton(text=f"{coin_from} → {coin_to}", callback_data=f"swap_pair_{coin_from}_{coin_to}")])
-    rows.append([InlineKeyboardButton(text="🔙 Назад в меню", callback_data="back_to_menu")])
-    kb = InlineKeyboardMarkup(inline_keyboard=rows)
-    await callback.message.answer(
-        "🔄 <b>Своп криптовалют</b>\n\n"
-        f"<blockquote expandable>Прямой обмен {', '.join(SWAP_COINS)} без рублей — вы отправляете монеты на указанный адрес и сразу получаете выбранную монету на свой кошелёк.\n\n💰 Комиссия ~1% включена в курс, скрытых сборов нет\n🔒 Без регистрации и KYC</blockquote>\n\n"
-        "Выберите пару обмена:",
-        reply_markup=kb,
-        parse_mode="HTML"
-    )
+    await send_swap_menu(callback.message)
     await callback.answer()
 
 @router.callback_query(F.data.startswith("swap_pair_"))

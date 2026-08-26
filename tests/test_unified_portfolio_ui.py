@@ -52,6 +52,13 @@ def test_mobile_navigation_keeps_secondary_sections_in_more_panel():
         assert f"switchTab('{target}')" in webapp
 
 
+def test_more_panel_reaches_the_existing_telegram_swap_flow():
+    assert 'onclick="openBotSwap()"' in webapp
+    assert 'function openBotSwap()' in webapp
+    assert 'https://t.me/Obsidian666999bot?start=swap' in webapp
+    assert "tg.openTelegramLink(url)" in webapp
+
+
 def test_market_quotes_have_freshness_guard_and_manual_refresh():
     assert 'id="market-refresh"' in webapp
     assert 'id="market-quote-status"' in webapp
