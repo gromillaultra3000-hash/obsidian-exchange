@@ -170,6 +170,15 @@ nonexistent direct Mini App deep-link. Existing exchange CTA and calculator
 remain. Focused E4 tests pass 24/24; after a controlled Relay restart, public
 site and Preview returned `200`, bot/Relay are active. Rollback preimage:
 `/var/lib/obsidian-exchange/deployment-preimages/e4-site-telegram-entry-20260826T0849Z.5hq8se`.
+Commit `81d0cbd` reconnects the Mini App to the existing Telegram swap flow:
+`Ещё → Своп криптовалют` opens an explicit `start=swap` link and renders the
+same BTC/LTC/USDT pair selector as the bot’s existing `🔄 Своп` menu. Opening
+the link only renders that selector; the pre-existing provider call remains in
+the later pair/amount flow after the user chooses it. No provider, custody or
+money-writer contract changed. Python and Mini App syntax plus focused E4 tests
+pass 26/26; deployed `/webapp` returned `200`, the bot and Relay are active.
+Rollback preimage:
+`/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-bot-swap-20260826T0855Z.S64e57`.
 
 Completed bounded slices:
 `obsidian_b64_snapshot_reader` is deployed in production against the frozen
