@@ -1578,7 +1578,7 @@ def build_main_menu_kb() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="👤 Профиль", callback_data="menu_profile"),
          InlineKeyboardButton(text="💬 Поддержка", callback_data="menu_support")],
         [InlineKeyboardButton(text="⚙️ Ещё", callback_data="menu_tools"),
-         InlineKeyboardButton(text="🟣 Открыть Mini App", web_app=WebAppInfo(url=f"{PUBLIC_RELAY}/webapp"))]
+         InlineKeyboardButton(text="🟣 Экосистема · Mini App", web_app=WebAppInfo(url=f"{PUBLIC_RELAY}/webapp"))]
     ])
 
 
