@@ -204,6 +204,14 @@ unchanged. Mini App syntax, focused E4 tests (30/30) and standalone
 address-book checks (63/63) pass; deployed `/webapp` returned `200`, the bot
 and Relay are active. Rollback preimage:
 `/var/lib/obsidian-exchange/deployment-preimages/e4-activity-next-steps-20260826T0903Z.rnUpdH`.
+Commit `524e81b` replaces the Mini App referral-bonus instruction popup with
+an explicit handoff to the existing bot referral menu (`start=referral`). The
+bot shows the same referral link/statistics and its pre-existing separate
+withdraw button; opening the link does not start a bonus payout. Python and
+Mini App syntax, focused E4 tests (32/32) and standalone address-book checks
+(63/63) pass; deployed `/webapp` returned `200`, the bot and Relay are active.
+Rollback preimage:
+`/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-referral-20260826T0907Z.df8rfO`.
 
 Completed bounded slices:
 `obsidian_b64_snapshot_reader` is deployed in production against the frozen

@@ -313,6 +313,15 @@ Updated: 2026-08-26 UTC
   preimage:
   `/var/lib/obsidian-exchange/deployment-preimages/e4-activity-next-steps-20260826T0903Z.rnUpdH`.
 
+- 2026-08-26 commit `524e81b` makes the Mini App referral-bonus action a real
+  handoff instead of an instruction popup: it opens the existing bot referral
+  menu through `start=referral`. That menu preserves referral link/statistics
+  and requires the user's separate existing `Вывести бонус` click; opening the
+  link cannot start a payout. Python/JavaScript syntax, focused E4 tests 32/32
+  and standalone address-book checks 63/63 pass; production `/webapp` returned
+  `200`, bot/Relay are active. Rollback preimage:
+  `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-referral-20260826T0907Z.df8rfO`.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;
