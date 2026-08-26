@@ -33,6 +33,11 @@ h2 { margin-bottom: 10px; font-size: 21px; letter-spacing: -.03em; }
 .lane p { color: var(--muted); line-height: 1.5; font-size: 14px; }
 .lane .status { margin-top: auto; align-self: flex-start; }
 .split { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+.quotes { display: grid; gap: 7px; margin: 14px 0; }
+.quote-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding-top: 7px; border-top: 1px solid var(--line); }
+.quote-row strong { font-size: 14px; }.quote-row span { color: var(--muted); font-size: 13px; }
+.quote-time { color: var(--muted); font-size: 12px; line-height: 1.45; }
+a:focus-visible { outline: 3px solid var(--gold); outline-offset: 4px; border-radius: 5px; }
 .muted { color: var(--muted); }
 .next { margin-top: 12px; }
 footer { color: var(--muted); text-align: center; font-size: 12px; margin-top: 44px; }

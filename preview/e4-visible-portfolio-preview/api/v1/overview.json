@@ -29,7 +29,15 @@
     ]
   },
   "market": {
-    "status": "NOT_CONNECTED",
-    "description": "Котировки будут добавлены отдельным read-only срезом. В этом preview нет цены, фиксации курса или сделки."
+    "status": "INDICATIVE_SNAPSHOT",
+    "observedAt": "2026-08-26T07:33:47.696785Z",
+    "maxAgeSeconds": 900,
+    "sourceLabel": "KAIROS public CEX observation · OKX spot",
+    "description": "Индикативная публичная spot-цена. Это не курс ObsidianExchange, не оферта, не фиксация и не сделка.",
+    "quotes": [
+      {"asset": "BTC", "last": 78931.4},
+      {"asset": "ETH", "last": 2463.15},
+      {"asset": "LTC", "last": 50.06}
+    ]
   }
 }
