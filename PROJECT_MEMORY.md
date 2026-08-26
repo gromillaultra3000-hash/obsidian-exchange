@@ -192,6 +192,16 @@ Updated: 2026-08-26 UTC
   both lanes and Relay/bot are active. Rollback preimage:
   `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-exchange-lanes-20260826T0824Z.vaqwBd`.
 
+- 2026-08-26 commit `c1e6f33` puts an owner-scoped, read-only activity card on
+  the default Mini App Overview. It loads the existing authenticated history
+  endpoint with `no-store`, distinguishes pending/in-progress/no-active states,
+  links only to the existing Activity/evidence/support centre and fails closed
+  to unavailable copy. The default Overview now loads portfolio, exchange
+  status and activity immediately. JavaScript syntax and focused E4 tests pass
+  19/19; live Mini App and system-status returned `200`, and Relay/bot are
+  active. Rollback preimage:
+  `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-overview-activity-20260826T0826Z.SJKEdB`.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;

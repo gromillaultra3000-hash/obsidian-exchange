@@ -104,6 +104,14 @@ or CEX-key capability. JavaScript syntax and focused E4 tests pass 18/18;
 live `/webapp` returned `200` with both lane labels and Relay/bot are active.
 Rollback preimage:
 `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-exchange-lanes-20260826T0824Z.vaqwBd`.
+Commit `c1e6f33` completes the Overview handoff to the existing Activity
+centre: an owner-scoped, no-store read-only card distinguishes pending,
+in-progress and no-active-order states, then links only to existing statuses,
+evidence and support. It fails closed when history is unavailable. The default
+Overview now loads portfolio, exchange status and activity immediately.
+JavaScript syntax and focused E4 tests pass 19/19; live Mini App and
+system-status returned `200`, and Relay/bot are active. Rollback preimage:
+`/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-overview-activity-20260826T0826Z.SJKEdB`.
 
 Completed bounded slices:
 `obsidian_b64_snapshot_reader` is deployed in production against the frozen
