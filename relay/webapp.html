@@ -72,10 +72,13 @@
         .tab .tab-icon { font-size:19px; display:block; transition:transform .15s, filter .15s; }
         .tab.active { background:rgba(159,103,255,.14); color:var(--purple-2); }
         .tab.active .tab-icon { filter:drop-shadow(0 0 5px rgba(159,103,255,.55)); transform:scale(1.1); }
+        .tab.context-active { background:rgba(159,103,255,.14); color:var(--purple-2); }
+        .mobile-secondary-back { display:none; width:100%; margin:0 0 12px; padding:10px 12px; text-align:left; background:rgba(159,103,255,.08); border:1px solid rgba(159,103,255,.26); border-radius:12px; color:var(--text); font:inherit; font-size:12px; font-weight:700; cursor:pointer; }
         .ecosystem-lanes { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin-bottom:12px; }
         @media (max-width:620px) {
           .tabs { position:sticky; top:auto; bottom:env(safe-area-inset-bottom, 0px); z-index:20; grid-template-columns:repeat(5,1fr); background:rgba(12,12,20,.96); backdrop-filter:blur(14px); border:1px solid var(--border); border-radius:16px 16px 0 0; box-shadow:0 -10px 26px rgba(0,0,0,.25); }
           .tab.secondary-tab { display:none; }
+          .mobile-secondary-back:not([hidden]) { display:block; }
           .panel { padding-bottom:calc(82px + env(safe-area-inset-bottom, 0px)); }
         }
         @media (max-width:420px) {
@@ -269,6 +272,7 @@
           <button type="button" class="tab" id="tab-more" data-tab="more" role="tab" tabindex="-1" aria-selected="false" aria-controls="panel-more"><span class="tab-icon">•••</span>Ещё</button>
           <button type="button" class="tab" data-tab="admin" id="admin-tab" role="tab" tabindex="-1" aria-selected="false" aria-controls="panel-admin" style="display:none"><span class="tab-icon">⚙️</span>Admin</button>
         </div>
+        <button type="button" id="mobile-secondary-back" class="mobile-secondary-back" hidden>← Ещё</button>
 
         <!-- Единая стартовая точка: не заменяет рабочие сценарии, а ведёт в
              них с понятным custody/executor контекстом. -->
@@ -3338,16 +3342,29 @@
 
         const appTabs = Array.from(document.querySelectorAll('.tab'));
         const visibleAppTabs = () => appTabs.filter(tab => tab.offsetParent !== null);
+        const mobileSecondaryBack = document.getElementById('mobile-secondary-back');
+        const moreTab = document.getElementById('tab-more');
         appTabs.forEach(tab => {
             const activate = () => {
+                const mobileSecondary = tab.classList.contains('secondary-tab') && tab.offsetParent === null;
                 appTabs.forEach(t => {
                     t.classList.remove('active');
+                    t.classList.remove('context-active');
+                    t.removeAttribute('aria-current');
                     t.setAttribute('aria-selected', 'false');
                     t.tabIndex = -1;
                 });
                 tab.classList.add('active');
                 tab.setAttribute('aria-selected', 'true');
                 tab.tabIndex = 0;
+                if (mobileSecondary && moreTab) {
+                    moreTab.classList.add('context-active');
+                    moreTab.setAttribute('aria-current', 'page');
+                }
+                if (mobileSecondaryBack) {
+                    mobileSecondaryBack.hidden = !mobileSecondary;
+                    mobileSecondaryBack.textContent = mobileSecondary ? `← Ещё · ${tab.textContent.trim()}` : '← Ещё';
+                }
                 document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
                 document.getElementById(`panel-${tab.dataset.tab}`).classList.add('active');
                 if (tab.dataset.tab === 'history') loadHistory();
@@ -3373,6 +3390,7 @@
                 visibleTabs[next].click();
             });
         });
+        mobileSecondaryBack?.addEventListener('click', () => switchTab('more'));
         // «Обзор» — стартовый экран, поэтому три read-only карточки должны
         // получить актуальное состояние уже при первом открытии, а не только
         // после повторного тапа по активной вкладке.
