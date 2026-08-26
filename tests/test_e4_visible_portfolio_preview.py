@@ -76,6 +76,9 @@ def test_preview_rollout_preserves_a_deterministic_rollback_path():
 
 def test_account_portfolio_requires_explicit_owner_scoped_read_only_request():
     assert 'href="/preview/portfolio/"' in INDEX
+    assert "УЖЕ ДОСТУПНО" in INDEX
+    assert "Личный read-only портфель" in INDEX
+    assert "СЛЕДУЮЩИЙ СРЕЗ" not in INDEX
     assert "addEventListener('click'" in PORTFOLIO
     assert "'/api/wallet/portfolio'" in PORTFOLIO
     assert "cache: 'no-store'" in PORTFOLIO
