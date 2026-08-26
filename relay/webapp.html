@@ -511,11 +511,11 @@
             </div>
         </div>
 
-        <div id="exchange-review" role="dialog" aria-modal="true" aria-labelledby="exchange-review-title"
+        <div id="exchange-review" role="dialog" aria-modal="true" aria-labelledby="exchange-review-title" aria-describedby="exchange-review-description" tabindex="-1"
              style="display:none;position:fixed;inset:0;z-index:1000;padding:20px;background:rgba(3,1,8,.82);align-items:flex-end;justify-content:center">
           <div style="width:min(520px,100%);max-height:86vh;overflow:auto;padding:18px;border-radius:22px;background:#140a22;border:1px solid rgba(196,140,255,.45);box-shadow:0 18px 60px rgba(0,0,0,.5)">
             <div id="exchange-review-title" style="font-size:20px;font-weight:800">Проверьте условия</div>
-            <div style="font-size:12px;color:var(--muted);margin:5px 0 14px;line-height:1.5">Заявка ещё не создана. Ничего не списывается до следующего подтверждения.</div>
+            <div id="exchange-review-description" style="font-size:12px;color:var(--muted);margin:5px 0 14px;line-height:1.5">Заявка ещё не создана. Ничего не списывается до следующего подтверждения.</div>
             <div id="exchange-review-summary" style="display:grid;gap:8px"></div>
             <div id="exchange-review-risk" style="margin-top:12px;padding:10px 12px;border-radius:12px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.24);font-size:12px;line-height:1.5;color:#fde68a"></div>
             <label style="display:flex;gap:9px;align-items:flex-start;margin:14px 0;font-size:12px;line-height:1.45">
@@ -1829,10 +1829,18 @@
         }
 
         let exchangeReviewCommit = null;
+        let exchangeReviewRestoreFocus = null;
+        function exchangeReviewFocusable(modal) {
+            return Array.from(modal.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href]'))
+                .filter(element => element.offsetParent !== null);
+        }
         function closeExchangeReview() {
             const modal = document.getElementById('exchange-review');
             if (modal) modal.style.display = 'none';
             exchangeReviewCommit = null;
+            const restore = exchangeReviewRestoreFocus;
+            exchangeReviewRestoreFocus = null;
+            if (restore && document.contains(restore) && !restore.disabled) restore.focus();
         }
         function openExchangeReview({title, rows, risk, onConfirm}) {
             const modal = document.getElementById('exchange-review');
@@ -1850,6 +1858,7 @@
             ack.checked = false;
             confirm.disabled = true;
             exchangeReviewCommit = onConfirm;
+            exchangeReviewRestoreFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
             modal.style.display = 'flex';
             ack.focus();
         }
@@ -2750,6 +2759,18 @@
             });
             document.addEventListener('keydown', event => {
                 if (event.key === 'Escape' && modal.style.display === 'flex') closeExchangeReview();
+            });
+            modal.addEventListener('keydown', event => {
+                if (event.key !== 'Tab' || modal.style.display !== 'flex') return;
+                const focusable = exchangeReviewFocusable(modal);
+                if (!focusable.length) { event.preventDefault(); modal.focus(); return; }
+                const first = focusable[0];
+                const last = focusable[focusable.length - 1];
+                if (event.shiftKey && document.activeElement === first) {
+                    event.preventDefault(); last.focus();
+                } else if (!event.shiftKey && document.activeElement === last) {
+                    event.preventDefault(); first.focus();
+                }
             });
         })();
 

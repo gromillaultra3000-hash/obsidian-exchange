@@ -9,6 +9,7 @@ def test_exchange_actions_open_a_clear_review_before_the_write_request():
 
     assert 'id="exchange-review"' in webapp
     assert 'role="dialog"' in webapp
+    assert 'aria-describedby="exchange-review-description"' in webapp
     assert "function openExchangeReview" in webapp
     assert "function beginBuyOrder" in webapp
     assert "function createSellOrder" in webapp
@@ -27,3 +28,8 @@ def test_review_explains_route_custody_fees_and_irreversibility_for_both_lanes()
     assert "Комиссия и курс" in webapp
     assert "необратим" in webapp
     assert "confirm.disabled = !ack.checked" in webapp
+    assert "exchangeReviewRestoreFocus" in webapp
+    assert "exchangeReviewFocusable" in webapp
+    assert "event.key !== 'Tab'" in webapp
+    assert "event.key === 'Escape'" in webapp
+    assert "last.focus()" in webapp and "first.focus()" in webapp
