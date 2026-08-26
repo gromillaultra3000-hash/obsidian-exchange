@@ -351,6 +351,18 @@ Updated: 2026-08-26 UTC
   and Relay/bot are active. Rollback preimage:
   `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-configured-bot-20260826T0917Z.afDp59`.
 
+- 2026-08-26 final visible-E4 acceptance confirms the unified production
+  journey is complete: site, public Preview, personal read-only Portfolio and
+  canonical Mini App each return `200`; deployed Mini App, Relay and bot files
+  match the repository; Relay and bot services are active. The focused
+  site/bot/Mini-App, custody-routing, address-book, activity, referral and
+  profile suite passes `23/23`; JavaScript syntax, Python compilation, diff and
+  staged secret checks pass. The legacy full-E4 rehearsal manifest has one
+  separate stale PostgreSQL-runbook hash and remains outside this completed
+  visible UX route; it does not trigger new 064A work. Next: use the deployed
+  UI for owner visual acceptance, then separately scope the next canonical E4
+  gate rather than replace or remove existing flows.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;
