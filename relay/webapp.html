@@ -733,13 +733,18 @@
           </div>
         </div>
         <div class="panel" id="panel-history" role="tabpanel" tabindex="0" aria-labelledby="tab-history">
-          <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:14px"><div><div style="font-size:20px;font-weight:800">Активность</div><div style="font-size:12px;color:var(--muted);margin-top:4px;line-height:1.45">Заявки ObsidianExchange: статусы и доказательства исполнения. Операции кошелька остаются в разделе «Кошелёк».</div></div><button type="button" id="history-refresh" aria-label="Обновить активность" style="background:none;border:1px solid rgba(255,255,255,.14);color:var(--muted);border-radius:10px;padding:7px 10px;font-size:13px;cursor:pointer">🔄</button></div>
+          <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:14px"><div><div style="font-size:20px;font-weight:800">Активность</div><div style="font-size:12px;color:var(--muted);margin-top:4px;line-height:1.45">Заявки ObsidianExchange: статусы, уведомления, доказательства исполнения и помощь. Операции кошелька остаются в разделе «Кошелёк».</div></div><button type="button" id="history-refresh" aria-label="Обновить активность" style="background:none;border:1px solid rgba(255,255,255,.14);color:var(--muted);border-radius:10px;padding:7px 10px;font-size:13px;cursor:pointer">🔄</button></div>
           <div id="history-summary" style="display:none;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px"></div>
           <div id="history-filters" style="display:flex;gap:7px;overflow:auto;margin-bottom:12px">
             <button type="button" class="side-btn active" data-history-filter="all" style="padding:7px 10px;font-size:12px">Все</button>
             <button type="button" class="side-btn" data-history-filter="pending" style="padding:7px 10px;font-size:12px">Ожидают</button>
             <button type="button" class="side-btn" data-history-filter="paid" style="padding:7px 10px;font-size:12px">В работе</button>
             <button type="button" class="side-btn" data-history-filter="sent" style="padding:7px 10px;font-size:12px">Завершены</button>
+          </div>
+          <div id="activity-notifications" style="margin:0 0 12px;padding:12px 14px;border-radius:14px;background:rgba(159,103,255,.07);border:1px solid rgba(159,103,255,.20)">
+            <div style="font-size:13px;font-weight:800">🔔 Уведомления в Telegram</div>
+            <div style="font-size:11px;color:var(--muted);line-height:1.45;margin:4px 0 10px">Статусы заявок приходят в Telegram. Уведомления о курсе настраиваются в существующем профиле бота; приложение не меняет их само.</div>
+            <button type="button" onclick="openBotProfile()" style="border:0;border-radius:9px;padding:8px 11px;background:rgba(159,103,255,.18);color:var(--text);font-weight:700;cursor:pointer">Настроить уведомления</button>
           </div>
           <div id="history-list"></div>
           <div id="activity-support" style="margin-top:14px;padding:12px 14px;border-radius:14px;background:rgba(159,103,255,.07);border:1px solid rgba(159,103,255,.20)">
@@ -3150,7 +3155,7 @@
         }
         async function copyOrderId(orderId, button) {
             const value = String(orderId == null ? '' : orderId).trim().slice(0, 128);
-            if (!value) return;
+            if (!value) return false;
             const done = () => {
                 if (button) {
                     button.textContent = '✓ Скопировано';
@@ -3162,7 +3167,7 @@
                 if (navigator.clipboard && window.isSecureContext) {
                     await navigator.clipboard.writeText(value);
                     done();
-                    return;
+                    return true;
                 }
             } catch (_) {}
             const field = document.createElement('textarea');
@@ -3173,8 +3178,20 @@
             field.select();
             const copied = document.execCommand('copy');
             field.remove();
-            if (copied) done();
+            if (copied) { done(); return true; }
             else if (button) button.textContent = 'Не удалось скопировать';
+            return false;
+        }
+        async function openOrderSupport(orderId, button) {
+            const copied = await copyOrderId(orderId);
+            if (button) {
+                button.textContent = copied ? 'Номер скопирован · открываем…' : 'Открываем поддержку…';
+                button.disabled = true;
+            }
+            // Номер остаётся только в локальном clipboard: в бот не передаём
+            // заказ или личные данные автоматически, чтобы пользователь сам
+            // контролировал обращение.
+            openSupport();
         }
         function renderHistoryOrders() {
             const list = document.getElementById('history-list');
@@ -3199,10 +3216,20 @@
                 const advice = state.advice
                     ? `<div class="history-advice" style="margin-top:8px;font-size:11px;line-height:1.4;color:${state.terminal ? '#fbbf24' : 'var(--muted)'}">${esc(state.advice)}</div>`
                     : '';
-                return `<div class="history-item ${state.cls}"><span class="h-icon">${state.emoji}</span><div class="h-title">#${esc(o.order_id)} — ${esc(o.currency)}</div><div class="h-meta">${esc(o.amount)} RUB</div><div class="h-status-row"><small>${esc(o.created)}</small><span class="status">${esc(state.label)}</span></div>${advice}${action}${copy}</div>`;
+                const evidence = o.receipt
+                    ? `<div class="history-evidence" style="margin-top:8px;font-size:11px;line-height:1.4;color:var(--muted)">🧾 ${o.receipt === 'sent' ? 'Чек передан на проверку. Не оплачивайте повторно.' : 'Файл чека получен. Его статус появится здесь.'}</div>`
+                    : (o.status === 'sent' && o.tx_url
+                        ? '<div class="history-evidence" style="margin-top:8px;font-size:11px;line-height:1.4;color:var(--muted)">🔍 Доказательство выдачи — ссылка на транзакцию выше.</div>'
+                        : '');
+                const support = orderId
+                    ? `<button type="button" class="history-support-order" data-order-id="${esc(orderId)}" style="margin:10px 0 0 7px;border:1px solid rgba(159,103,255,.35);background:rgba(159,103,255,.08);color:var(--text);border-radius:9px;padding:6px 9px;font-size:11px;cursor:pointer">💬 Поддержка по заявке</button>`
+                    : '';
+                return `<div class="history-item ${state.cls}"><span class="h-icon">${state.emoji}</span><div class="h-title">#${esc(o.order_id)} — ${esc(o.currency)}</div><div class="h-meta">${esc(o.amount)} RUB</div><div class="h-status-row"><small>${esc(o.created)}</small><span class="status">${esc(state.label)}</span></div>${advice}${evidence}${action}${copy}${support}</div>`;
             }).join('');
             list.querySelectorAll('.history-copy-id').forEach(button =>
                 button.addEventListener('click', () => copyOrderId(button.dataset.orderId, button)));
+            list.querySelectorAll('.history-support-order').forEach(button =>
+                button.addEventListener('click', () => openOrderSupport(button.dataset.orderId, button)));
         }
         function setHistoryFilter(filter) {
             historyFilter = ['all', 'pending', 'paid', 'sent'].includes(filter) ? filter : 'all';
