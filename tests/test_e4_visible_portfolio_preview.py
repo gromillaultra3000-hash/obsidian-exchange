@@ -59,6 +59,7 @@ def test_preview_is_isolated_static_nginx_location_and_bot_entrypoint():
     assert "proxy_pass" not in location.group("body")
     assert 'Command("preview")' in BOT
     assert 'f"{PUBLIC_RELAY}/preview/"' in BOT
+    assert 'f"{PUBLIC_RELAY}/preview/portfolio/"' in BOT
 
 
 def test_preview_rollout_preserves_a_deterministic_rollback_path():

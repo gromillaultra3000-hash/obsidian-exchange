@@ -1763,12 +1763,18 @@ async def cmd_preview(message: Message):
             text="🟣 Открыть Ecosystem Preview",
             web_app=WebAppInfo(url=f"{PUBLIC_RELAY}/preview/"),
         )
+    ], [
+        InlineKeyboardButton(
+            text="👛 Мой портфель · read-only",
+            web_app=WebAppInfo(url=f"{PUBLIC_RELAY}/preview/portfolio/"),
+        )
     ]])
     await message.answer(
         "<b>Obsidian ecosystem preview</b>\n\n"
         "Единый вид Wallet, ObsidianExchange и внешних CEX без заявок, "
         "выплат, подключения кошельков или бирж. Это только просмотр структуры "
-        "custody и будущих действий.",
+        "custody и будущих действий. Личный портфель открывается отдельно: "
+        "только после явного запроса и без заявок или подключений.",
         parse_mode="HTML",
         reply_markup=keyboard,
     )
