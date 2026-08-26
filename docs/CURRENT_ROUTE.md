@@ -72,6 +72,9 @@ deployed).
 The public landing page has a separate `Экосистема · preview` link to the
 isolated overview; existing exchange and fee paths remain unchanged (commit
 `171c2f2`, deployed).
+The default Mini App overview also surfaces the existing read-only aggregate
+ObsidianExchange availability state, with a conservative unavailable fallback
+and a link into the preserved Exchange tab (commit `5b36fcf`, deployed).
 
 Completed bounded slices:
 `obsidian_b64_snapshot_reader` is deployed in production against the frozen

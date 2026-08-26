@@ -133,6 +133,15 @@ Updated: 2026-08-26 UTC
   Focused E4 tests pass 15/15. Rollback preimage:
   `/var/lib/obsidian-exchange/deployment-preimages/e4-site-ecosystem-entry-20260826T0806Z.Z5zWw0`.
 
+- 2026-08-26 commit `5b36fcf` puts the existing read-only
+  `/api/system-status` result onto the default Mini App overview. The card is
+  green only for `operational`, warns on non-operational data and fails closed
+  to an unavailable message; it only navigates to the existing Exchange tab.
+  Production `/webapp` contains it and the status endpoint returned
+  `operational` with five healthy providers. Tests pass 15/15. Rollback
+  preimage:
+  `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-exchange-status-20260826T0808Z.UhvhLO`.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;
