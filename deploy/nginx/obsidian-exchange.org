@@ -30,6 +30,27 @@ server {
     # Скрываем версию nginx
     server_tokens off;
 
+    # Isolated, static E4 ecosystem preview. It deliberately does not proxy to
+    # the Relay application, so this public/Mini App surface cannot reach
+    # orders, payment providers, wallets, CEX credentials or the database.
+    location = /preview {
+        if ($request_method !~ ^(GET|HEAD)$) { return 405; }
+        return 308 /preview/;
+    }
+    location ^~ /preview/ {
+        if ($request_method !~ ^(GET|HEAD)$) { return 405; }
+        alias /opt/obsidian-exchange/releases/e4-visible-portfolio-preview/current/;
+        index index.html;
+        try_files $uri $uri/ =404;
+        autoindex off;
+        expires -1;
+        add_header Cache-Control "no-store" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self' https://telegram.org; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self' https://web.telegram.org https://*.telegram.org" always;
+    }
+
     # Заголовки безопасности
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header X-Content-Type-Options "nosniff" always;

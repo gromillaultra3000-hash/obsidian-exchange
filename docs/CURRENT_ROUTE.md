@@ -13,6 +13,22 @@ non-custodial wallet whose keys never reach the server.
 
 `E0 → E0.3 → B5.3 → 064A`
 
+### Owner reprioritization — 2026-08-26
+
+The owner has explicitly reprioritized the next implementation slices to the
+visible `E4` experience: one coherent, production-preview vertical across the
+site, Telegram bot and Mini App. The reason is to make the unified ecosystem
+inspectable and useful before further internal 064A work. This replaces only
+new 064A work; its current terminal evidence and status are retained and it
+receives no new request, nonce, signature or launch.
+
+The E4 slice is `IN_PROGRESS`, not a closed E4 gate. Site, bot and Mini App
+may expose the same read-only portfolio, exchange status and market quote
+information, with explicit executor/custody/KYC/fees/risk copy. Payout,
+wallet-key, signing and trade writers remain outside this slice; user actions
+are preview-only until their respective roadmap gates and production contracts
+are accepted. The next ordered item is `E4/VISIBLE_PORTFOLIO_PREVIEW`.
+
 Completed bounded slices:
 `obsidian_b64_snapshot_reader` is deployed in production against the frozen
 PostgreSQL migrations `001–023` profile as a dormant `NOLOGIN` role with no

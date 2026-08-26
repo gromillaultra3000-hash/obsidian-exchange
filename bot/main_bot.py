@@ -1578,7 +1578,7 @@ def build_main_menu_kb() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="👤 Профиль", callback_data="menu_profile"),
          InlineKeyboardButton(text="💬 Поддержка", callback_data="menu_support")],
         [InlineKeyboardButton(text="⚙️ Ещё", callback_data="menu_tools"),
-         InlineKeyboardButton(text="🌐 Личный кабинет", web_app=WebAppInfo(url=f"{PUBLIC_RELAY}/webapp"))]
+         InlineKeyboardButton(text="🟣 Экосистема", web_app=WebAppInfo(url=f"{PUBLIC_RELAY}/preview/"))]
     ])
 
 
@@ -1753,6 +1753,25 @@ async def menu_tools_back(callback: CallbackQuery):
     except Exception:
         pass
     await callback.answer()
+
+
+@router.message(Command("preview"))
+async def cmd_preview(message: Message):
+    """Open the isolated read-only ecosystem preview without changing state."""
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(
+            text="🟣 Открыть Ecosystem Preview",
+            web_app=WebAppInfo(url=f"{PUBLIC_RELAY}/preview/"),
+        )
+    ]])
+    await message.answer(
+        "<b>Obsidian ecosystem preview</b>\n\n"
+        "Единый вид Wallet, ObsidianExchange и внешних CEX без заявок, "
+        "выплат, подключения кошельков или бирж. Это только просмотр структуры "
+        "custody и будущих действий.",
+        parse_mode="HTML",
+        reply_markup=keyboard,
+    )
 
 
 @router.message(Command("start"))
@@ -11171,6 +11190,7 @@ async def main():
         from aiogram.types import BotCommand
         await bot.set_my_commands([
             BotCommand(command="start",     description="🟣 Главное меню"),
+            BotCommand(command="preview",   description="🟣 Единая экосистема (preview)"),
             BotCommand(command="mystatus",  description="👤 Мой VIP-статус и скидка"),
             BotCommand(command="myhistory", description="📋 История заявок"),
             BotCommand(command="mywallet",  description="🔌 Мой подключённый кошелёк"),
@@ -11181,11 +11201,12 @@ async def main():
         ])
     except Exception as e:
         logger.warning(f"set_my_commands: {e}")
-    # Постоянная Menu Button у поля ввода → открывает Mini App одним тапом
+    # Постоянная кнопка открывает изолированный read-only preview. Рабочий
+    # Mini App остаётся отдельной legacy-поверхностью и сюда не проксируется.
     try:
         from aiogram.types import MenuButtonWebApp, WebAppInfo as _WAI
         await bot.set_chat_menu_button(
-            menu_button=MenuButtonWebApp(text="🟣 Обменять", web_app=_WAI(url=f"{PUBLIC_RELAY}/webapp"))
+            menu_button=MenuButtonWebApp(text="🟣 Экосистема", web_app=_WAI(url=f"{PUBLIC_RELAY}/preview/"))
         )
     except Exception as e:
         logger.warning(f"set_chat_menu_button: {e}")

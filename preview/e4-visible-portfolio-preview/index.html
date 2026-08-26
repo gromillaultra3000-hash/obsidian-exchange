@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Obsidian — Ecosystem Preview</title>
+  <meta name="description" content="Read-only preview единой экосистемы Obsidian.">
+  <link rel="stylesheet" href="assets/preview.css">
+  <script src="https://telegram.org/js/telegram-web-app.js" defer></script>
+  <script src="assets/preview.js" defer></script>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <a class="brand" href="/preview/" aria-label="Obsidian ecosystem preview">
+        <span class="gem" aria-hidden="true">◆</span><span>OBSIDIAN</span>
+      </a>
+      <span class="mode" id="mode">PREVIEW · read-only</span>
+    </header>
+
+    <section class="hero">
+      <p class="eyebrow">ЕДИНАЯ ЭКОСИСТЕМА</p>
+      <h1>Один обзор.<br><span>Три разных custody-домена.</span></h1>
+      <p class="lead">Здесь видна будущая общая оболочка Wallet, ObsidianExchange и внешних CEX. Средства, ключи и исполнитель действий намеренно не смешиваются.</p>
+      <div class="notice" role="status"><strong>Режим preview.</strong> Нет входа, заявок, выплат, подключения кошелька или биржи. Эта страница ничего не исполняет.</div>
+    </section>
+
+    <section aria-labelledby="portfolio-title">
+      <div class="section-heading">
+        <div><p class="eyebrow">ПОРТФЕЛЬ</p><h2 id="portfolio-title">Структура общего обзора</h2></div>
+        <span class="status" id="portfolio-status">Загрузка статуса…</span>
+      </div>
+      <div class="lanes" id="lanes" aria-live="polite"></div>
+    </section>
+
+    <section class="split">
+      <article class="panel">
+        <p class="eyebrow">КОТИРОВКИ</p>
+        <h2>Индикативные данные</h2>
+        <p id="market-copy">Котировки для preview готовятся. Они не являются предложением, фиксацией цены или сделкой.</p>
+        <span class="status muted" id="market-status">Не подключено</span>
+      </article>
+      <article class="panel">
+        <p class="eyebrow">ДЕЙСТВИЯ</p>
+        <h2>Сначала ясность</h2>
+        <p>Перед любым будущим действием пользователь увидит исполнителя, custody, KYC, комиссии, риск и необратимость.</p>
+        <span class="status muted">Только preview</span>
+      </article>
+    </section>
+
+    <section class="panel next">
+      <p class="eyebrow">СЛЕДУЮЩИЙ СРЕЗ</p>
+      <h2>Подключение read-only данных</h2>
+      <p>После проверки этого интерфейса в него будут поочерёдно добавляться подтверждённые адреса, история ObsidianExchange и read-only CEX — без единого серверного баланса и без доступа к ключам.</p>
+    </section>
+
+    <footer>Obsidian ecosystem preview · данные и действия в этом экране не исполняются</footer>
+  </main>
+</body>
+</html>

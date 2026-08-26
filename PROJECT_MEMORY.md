@@ -44,6 +44,16 @@ Updated: 2026-08-26 UTC
   the terminal evidence and wait for a separate explicit owner decision before
   any fresh attempt is even considered.
 
+- 2026-08-26 owner explicitly reprioritized the next implementation slices to
+  visible `E4/VISIBLE_PORTFOLIO_PREVIEW`: a coherent production-preview across
+  site, Telegram bot and Mini App. This freezes new 064A work without altering
+  its terminal evidence or authorizing a new request/signature/launch. The
+  preview exposes only read-only portfolio, exchange-status and market data
+  with clear executor/custody/KYC/fees/risk copy; payout, trading, signing and
+  key-management writers stay outside the slice. Any future token/coin and
+  reserve-backed asset work remains a separate post-ecosystem track requiring
+  legal, custody and reserve-attestation authorization before production.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;

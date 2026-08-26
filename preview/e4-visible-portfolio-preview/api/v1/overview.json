@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "e4-visible-portfolio-preview.v1",
+  "mode": "PREVIEW",
+  "executable": false,
+  "quote": false,
+  "orderCreation": false,
+  "custodyAction": false,
+  "portfolio": {
+    "state": "STRUCTURE_ONLY",
+    "lanes": [
+      {
+        "domain": "SELF_CUSTODY",
+        "title": "Ваши кошельки",
+        "description": "Ключи и подтверждение транзакций остаются только у владельца кошелька.",
+        "status": "Данные ещё не подключены"
+      },
+      {
+        "domain": "OBSIDIAN_OPERATIONAL",
+        "title": "ObsidianExchange",
+        "description": "Операционный контур обмена — не серверный баланс пользователя.",
+        "status": "Нет средств в preview"
+      },
+      {
+        "domain": "CEX_CUSTODY",
+        "title": "Внешние биржи",
+        "description": "KYC и custody остаются у выбранной пользователем биржи.",
+        "status": "Read-only подключение позже"
+      }
+    ]
+  },
+  "market": {
+    "status": "NOT_CONNECTED",
+    "description": "Котировки будут добавлены отдельным read-only срезом. В этом preview нет цены, фиксации курса или сделки."
+  }
+}
