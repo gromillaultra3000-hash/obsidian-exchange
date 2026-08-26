@@ -151,6 +151,14 @@ Updated: 2026-08-26 UTC
   preimage:
   `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-market-freshness-20260826T0810Z.g8Atp2`.
 
+- 2026-08-26 commit `e964125` adds the existing Telegram support entrypoint
+  `@ObsidianSupBot` to the Mini App activity centre. It tells the user to
+  include the order number and opens the Telegram link only after a tap; no
+  ticket, order or personal data is sent from Mini App automatically. Focused
+  E4 tests pass 16/16 and production bytes match; Relay/bot are active.
+  Rollback preimage:
+  `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-activity-support-20260826T0814Z.a7lYku`.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;
