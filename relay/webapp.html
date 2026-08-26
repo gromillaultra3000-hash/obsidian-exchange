@@ -724,6 +724,11 @@
             <button type="button" class="side-btn" data-history-filter="sent" style="padding:7px 10px;font-size:12px">Завершены</button>
           </div>
           <div id="history-list"></div>
+          <div id="activity-support" style="margin-top:14px;padding:12px 14px;border-radius:14px;background:rgba(159,103,255,.07);border:1px solid rgba(159,103,255,.20)">
+            <div style="font-size:13px;font-weight:800">Нужна помощь по заявке?</div>
+            <div style="font-size:11px;color:var(--muted);line-height:1.45;margin:4px 0 10px">Откройте поддержку и укажите номер заявки — это ускорит разбор. Данные из приложения не отправляются автоматически.</div>
+            <button type="button" onclick="openSupport()" style="border:0;border-radius:9px;padding:8px 11px;background:var(--accent);color:#fff;font-weight:700;cursor:pointer">💬 Открыть поддержку</button>
+          </div>
         </div>
         <div class="panel" id="panel-referral">
             <div class="ref-item">
@@ -3000,6 +3005,11 @@
             document.querySelectorAll('[data-history-filter]').forEach(button =>
                 button.classList.toggle('active', button.dataset.historyFilter === historyFilter));
             renderHistoryOrders();
+        }
+        function openSupport() {
+            const url = 'https://t.me/ObsidianSupBot';
+            if (tg && typeof tg.openTelegramLink === 'function') { tg.openTelegramLink(url); return; }
+            window.open(url, '_blank', 'noopener');
         }
         async function loadHistory() {
             const list = document.getElementById('history-list');

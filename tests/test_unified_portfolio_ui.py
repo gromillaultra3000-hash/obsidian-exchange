@@ -84,3 +84,7 @@ def test_activity_navigation_preserves_existing_history_handler():
     assert 'function setHistoryFilter' in webapp
     assert "cache: 'no-store'" in webapp
     assert "Операции кошелька остаются в разделе «Кошелёк»" in webapp
+    assert 'id="activity-support"' in webapp
+    assert 'function openSupport' in webapp
+    assert "https://t.me/ObsidianSupBot" in webapp
+    assert "Данные из приложения не отправляются автоматически" in webapp
