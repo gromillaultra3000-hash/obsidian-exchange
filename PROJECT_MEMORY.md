@@ -374,6 +374,18 @@ Updated: 2026-08-26 UTC
   returned `200`, source bytes match and Relay/bot remain active. Rollback
   preimage: `/var/lib/obsidian-exchange/deployment-preimages/e4-activity-notifications-20260826T0910Z.Y3XTiq`.
 
+- 2026-08-26 commit `a6b1ceb` fixes a real narrow-screen Mini App defect:
+  the mobile sticky tab bar inherited desktop `top:0` while also declaring a
+  bottom position. It now explicitly clears the top anchor, is bottom-anchored
+  inside Telegram's safe area and reserves matching panel space, keeping the
+  five primary ecosystem paths visible above system UI. Focused E4 regression
+  passes `20/20`, deployed `/webapp` is `200`, source bytes match and Relay/bot
+  are active. Rollback preimage:
+  `/var/lib/obsidian-exchange/deployment-preimages/e4-mobile-navigation-20260826T0913Z.3Iu415`.
+  Playwright browser interaction was attempted but Chrome/Chromium is absent on
+  the host; this completion claims static responsive and production-byte checks,
+  not a visual click-through capture.
+
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact
   pinned 17.11 digest and healthy after a controlled force-recreate restart;
