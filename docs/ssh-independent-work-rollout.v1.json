@@ -1,0 +1,106 @@
+{
+  "schemaVersion": "ssh-independent-work-rollout.v1",
+  "recordedAt": "2026-09-06T04:46:27.352330+00:00",
+  "stage": "E4",
+  "scope": "Explicit owner-requested SSH-independent operational support for canonical E4 delivery",
+  "status": "IN_PROGRESS",
+  "installation": "INSTALLED_NOT_STARTED_PENDING_FINAL_HANDOFF",
+  "codeSha256": {
+    "scripts/obsidian_roadmap_autopilot.py": "086ae37a695d0ffd3a9daaa2881cee1fa14abf1e5546490e85f279e8011a1f8d",
+    "tests/test_obsidian_roadmap_autopilot.py": "da3d2bc71ec17526706c842d11a9e10c18b7e17977dcaae4b8b03b72991e011e",
+    "deploy/systemd/obsidian-roadmap-autopilot.service": "fd107091287bbe0320ee39dbc8b371aa9b34f3f57f50dde891db202a1feb3940",
+    "deploy/obsidian_roadmap_autopilot_install.sh": "b4a042f6fe93b14f9ef569493d4e02c2e57290d1c1bb01e603ca4f7d156bee8e",
+    "deploy/obsidian-roadmap-autopilot/iteration-prompt.md": "99793d6610d7661c6b072f59b90c20368d722196121910dd2b43e65a6d6c785c",
+    "deploy/obsidian-roadmap-autopilot/iteration.schema.json": "55a012afd78c248b3b55dd016bbb7449c6e5119c890bdef37cdf65fadbe2a065"
+  },
+  "tests": "24 passed with isolated Git repos and real subprocesses",
+  "reviews": [
+    {
+      "reviewer": "/root/recipient_review",
+      "result": "PASS",
+      "role": "context-aware acceptance"
+    },
+    {
+      "reviewer": "/root/browser_acceptance",
+      "result": "PASS",
+      "role": "independent process/security/tool review",
+      "extraChecks": "4/4 cgroup reader checks"
+    }
+  ],
+  "reviewFinding": {
+    "initial": "P1: detached descendants could overlap next iteration",
+    "disposition": "FIXED: group and recursive dedicated cgroup checks, fail-stop, systemd control-group cleanup"
+  },
+  "runtimeRehearsal": {
+    "productionDataUsed": false,
+    "detachedDescendantAbsentAfterServiceExit": true,
+    "runs": {
+      "success": {
+        "mode": "success",
+        "root": "/tmp/obsidian-autopilot-success-v_8xiuue",
+        "parent_pid": 1,
+        "cgroup": "0::/system.slice/obsidian-roadmap-autopilot.service",
+        "state": {
+          "status": "COMPLETE",
+          "updated_at": "2026-09-06T04:44:54.757085+00:00",
+          "head": "ce2dff3ed9130e953d8700512c551d4d8fb21de9",
+          "untracked": [],
+          "package_digest": "feea9780c21c6ab40836ef6a21de7638af472576461dfd46f6e03e743e4e0536",
+          "max_iterations": 2,
+          "deadline": 1788673494.534836,
+          "pid": 3733425,
+          "iteration": 2,
+          "before": "0eb7457a631373eb0bd181f790fc71438b20b90a",
+          "run_dir": "/tmp/obsidian-autopilot-success-v_8xiuue/state/run-20260906T044454-2",
+          "receipt": "/tmp/obsidian-autopilot-success-v_8xiuue/state/run-20260906T044454-2/receipt.json"
+        },
+        "returncode": 0
+      },
+      "detached": {
+        "mode": "detached",
+        "root": "/tmp/obsidian-autopilot-detached-2kq4pjeh",
+        "parent_pid": 1,
+        "cgroup": "0::/system.slice/obsidian-roadmap-autopilot.service",
+        "state": {
+          "status": "FAILED",
+          "updated_at": "2026-09-06T04:44:29.111537+00:00",
+          "head": "becf4bbe9beff50c7a51be2d0c46bd05ba868135",
+          "untracked": [],
+          "package_digest": "feea9780c21c6ab40836ef6a21de7638af472576461dfd46f6e03e743e4e0536",
+          "max_iterations": 2,
+          "deadline": 1788673469.0022411,
+          "pid": 3732808,
+          "iteration": 1,
+          "before": "becf4bbe9beff50c7a51be2d0c46bd05ba868135",
+          "run_dir": "/tmp/obsidian-autopilot-detached-2kq4pjeh/state/run-20260906T044429-1",
+          "reason": "DETACHED_ITERATION_DESCENDANTS_REMAIN"
+        },
+        "returncode": 1,
+        "descendant_pid": 3732827
+      }
+    }
+  },
+  "codex": {
+    "version": "0.153.4",
+    "authSmoke": "AUTONOMY_AUTH_OK via existing ChatGPT login; no credential copied",
+    "approval": "--approve-for-me; workspace sandbox and existing approval rules retained",
+    "officialReference": "https://learn.chatgpt.com/docs/non-interactive-mode"
+  },
+  "limits": {
+    "iterations": 8,
+    "hours": 12,
+    "restart": "no",
+    "automaticBootStart": false
+  },
+  "installationRollback": "/var/lib/obsidian-roadmap-autopilot/install-preimage.gqWWKH",
+  "control": "systemctl stop obsidian-roadmap-autopilot.service; inspect effects before new arm",
+  "observedLimitations": [
+    "An arbitrary interactive editor does not participate in flock; AGENTS requires checking/stopping the service before edits.",
+    "Model availability, automatic approval decisions and credentials can stop a run.",
+    "Runtime status must be read from /var/lib/obsidian-roadmap-autopilot/status.json."
+  ],
+  "nextCanonicalItem": "E4 / USABILITY_TEST_MONEY_PATHS / supported isolated-browser review with synthetic data and blocked writers",
+  "unrelatedObservedRuntime": {
+    "obsidian-b64-dump-restore-supervisor.service": "failed at read-only inventory; frozen 064A surface was not altered or restarted"
+  }
+}

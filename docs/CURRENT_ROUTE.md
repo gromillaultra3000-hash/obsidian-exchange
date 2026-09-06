@@ -1,6 +1,6 @@
 # Current canonical route
 
-Updated: 2026-08-26 UTC
+Updated: 2026-09-06 UTC
 
 ## Product objective
 
@@ -11,7 +11,34 @@ non-custodial wallet whose keys never reach the server.
 
 ## Active route
 
-`E0 → E0.3 → B5.3 → 064A`
+`E4 / explicit action review / no-money browser usability`
+
+Current execution checkpoint (2026-09-06): the owner reaffirmed autonomous
+code-first continuation during SSH disconnection. Commit `0ce81c4` completes
+the interrupted recipient review: full buy address/memo and normalized sell
+recipient details are shown before acknowledgement; the existing submitted
+snapshot remains unchanged. Related executable/static tests pass 64/64, two
+independent reviews pass, and the public Mini App rollout returned GET 200,
+POST 405 with Relay, bot and Nginx active. Evidence:
+`docs/e4-recipient-review-rollout.v1.json`.
+
+Exactly next: `E4 / USABILITY_TEST_MONEY_PATHS / obtain a supported isolated
+browser and validate the review using synthetic data with all writers blocked`.
+The existing root Chromium and the non-root user-namespace probe cannot supply
+that evidence; no real-browser acceptance is claimed. Provisioning a supported
+browser is a bounded prerequisite, not permission to relax host isolation or
+exercise customer funds. E4 remains `IN_PROGRESS`.
+
+SSH-independent execution is an operational prerequisite for this same route,
+documented in `docs/ssh-independent-work.md` and
+`docs/ssh-independent-work-rollout.v1.json`. Before interactive edits, check
+the runner; an active runner is the sole writer. Its iterations preserve the
+existing approval review and stop on a concrete blocker. Current runtime status
+is `/var/lib/obsidian-roadmap-autopilot/status.json`, not an assumption from this
+document. The older sections below are historical evidence.
+
+Frozen prerequisite route: `E0 → E0.3 → B5.3 → 064A`. No fresh request,
+signature, credential or launch is authorized by this continuation.
 
 ### Owner reprioritization — 2026-08-26
 

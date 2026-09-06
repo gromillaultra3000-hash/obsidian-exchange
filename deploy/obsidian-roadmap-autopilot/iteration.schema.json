@@ -1,0 +1,60 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "status",
+    "active_route",
+    "summary",
+    "next_step",
+    "commit",
+    "evidence_paths",
+    "tests_passed",
+    "acceptance_review_passed",
+    "independent_review_passed",
+    "runtime_verified",
+    "blocker"
+  ],
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": [
+        "VERIFIED_NEXT",
+        "BLOCKED",
+        "COMPLETE"
+      ]
+    },
+    "active_route": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "next_step": {
+      "type": "string"
+    },
+    "commit": {
+      "type": "string"
+    },
+    "evidence_paths": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "tests_passed": {
+      "type": "boolean"
+    },
+    "acceptance_review_passed": {
+      "type": "boolean"
+    },
+    "independent_review_passed": {
+      "type": "boolean"
+    },
+    "runtime_verified": {
+      "type": "boolean"
+    },
+    "blocker": {
+      "type": "string"
+    }
+  }
+}

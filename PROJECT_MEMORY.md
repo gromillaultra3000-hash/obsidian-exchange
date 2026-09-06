@@ -4,13 +4,36 @@ Updated: 2026-09-06 UTC
 
 ## Current goal and status
 
+- 2026-09-06 current execution route is **E4 / explicit action review /
+  no-money browser usability** under the owner's 2026-08-26 reprioritization,
+  reaffirmed by the request to continue during SSH loss. `0ce81c4` completes
+  the interrupted recipient review: full buy address/memo and normalized sell
+  recipient details, captured confirmation values, uppercase/long Bech32 and
+  embedded XRP/TON metadata shape compatibility. 64 focused tests and two
+  independent reviews pass; public Mini App GET 200 / POST 405, Relay/bot/Nginx
+  active, deployed SHA-256 `30f34732...`. Rollback and evidence:
+  `docs/e4-recipient-review-rollout.v1.json`. E4 remains `IN_PROGRESS`.
+  Exactly next: supported isolated-browser no-money review usability; existing
+  root Chromium and non-root namespace probe cannot provide browser evidence.
+
+- 2026-09-06 SSH-independent supervisor installed for that E4 route:
+  `obsidian-roadmap-autopilot.service`, serial Codex `--approve-for-me`, existing
+  sandbox/approval rules retained, no automatic retry/reboot restart, maximum
+  eight iterations/twelve hours. 24 tests and two independent reviews pass;
+  actual PID-1 systemd rehearsals prove sequential completion and cleanup of a
+  detached child with fail-stop before iteration two. Before any interactive
+  edit check/stop the active service: flock does not cover arbitrary editors.
+  Runtime truth: `/var/lib/obsidian-roadmap-autopilot/status.json`. Instructions
+  and evidence: `docs/ssh-independent-work.md` and corresponding rollout JSON.
+  No ongoing activity should be inferred without checking that state.
+
 - 2026-08-23 owner selected code-first continuous delivery: bounded reversible
   work proceeds as project code → tests → rehearsal/canary → rollout →
   post-deploy evidence. `NO_GO` is reserved for a concrete failed preflight,
   not a permanent suffix. New sessions use `docs/CURRENT_ROUTE.md`; unchanged
   long charters and history are not repeatedly reread within one logical task.
 
-- 2026-08-26 active route `E0 → E0.3 → B5.3 → 064A` is
+- 2026-08-26 frozen prerequisite route `E0 → E0.3 → B5.3 → 064A` is
   `IN_PROGRESS/FAIL_CLOSED_FIX_ROLLED_OUT_NO_NEW_SIGNATURE`.
   The one owner-signed v4 attempt (decision `28a93dd7...`, nonce
   `--UCMVv0KQC6X6xiH5q1X32WxwteUY44`) launched exactly once and stopped

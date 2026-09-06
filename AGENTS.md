@@ -1,5 +1,12 @@
 # Project continuity
 
+Before interactive project edits, check `systemctl is-active
+obsidian-roadmap-autopilot.service` on the host. An active autonomous runner is
+the sole writer: inspect its status and finish/stop it before taking over. SSH
+reconnection alone must not create a second writer. The runner's own iteration
+may continue under its inherited writer lock. Its status and receipts are in
+`/var/lib/obsidian-roadmap-autopilot`; see `docs/ssh-independent-work.md`.
+
 At the first task of a new session, or whenever its digest changed, read
 `/root/docs/MEGA_PROMPT.md` in full and follow it as the durable execution
 charter. For a continuation of the same logical task, do not reread unchanged

@@ -1,0 +1,27 @@
+[Unit]
+Description=Obsidian serial E4 roadmap delivery independent of SSH
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root
+Environment=HOME=/root
+Environment=PATH=/root/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+UMask=0077
+StateDirectory=obsidian-roadmap-autopilot
+StateDirectoryMode=0700
+ExecStart=/usr/bin/python3 /usr/local/lib/obsidian-roadmap-autopilot/obsidian_roadmap_autopilot.py run
+Restart=no
+RuntimeMaxSec=12h
+KillMode=control-group
+TimeoutStopSec=45
+SendSIGKILL=yes
+StandardOutput=journal
+StandardError=journal
+StandardInput=null
+SyslogIdentifier=obsidian-roadmap-autopilot
+
+[Install]
+WantedBy=multi-user.target

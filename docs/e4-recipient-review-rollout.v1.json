@@ -1,0 +1,51 @@
+{
+  "recordedAt": "2026-09-06T04:45:11.992292+00:00",
+  "deployedSha256": "30f347322ad3cead9233eb15af927c500cac036cf0ccb6c4d4ee50d539e90e58",
+  "previousSha256": "615ef475a1bb50cb8063b58b28368c235b9a63601c939a5df184bbee681ef975",
+  "rollbackPreimage": "/var/lib/obsidian-exchange/deployment-preimages/e4-recipient-review-20260906-2_okz_mi/webapp.html",
+  "schemaVersion": "e4-recipient-review-rollout.v1",
+  "stage": "E4",
+  "status": "IN_PROGRESS",
+  "sliceStatus": "VERIFIED",
+  "implementationCommit": "0ce81c4f18bd360ec101dc7aacb4227865fcb333",
+  "accountableOwner": "project owner; executed by Codex /root",
+  "gateCriterion": "Full recipient and executor/custody/fees/risk are inspectable before explicit confirmation; accidental tap cannot submit.",
+  "surfaceMatrix": {
+    "miniApp": "REQUIRED: recipient review and input shape hints",
+    "publicSite": "READ_ONLY: canonical edge verification",
+    "telegramBot": "READ_ONLY: service health",
+    "admin": "N/A: unchanged"
+  },
+  "moneyWritersChanged": false,
+  "custodyChanged": false,
+  "secretHandlingChanged": false,
+  "verification": {
+    "focusedTests": "64 passed",
+    "acceptanceReview": {
+      "reviewer": "/root/recipient_review",
+      "result": "PASS",
+      "independentTests": "50 passed"
+    },
+    "independentDiffToolReview": {
+      "reviewer": "/root/browser_acceptance",
+      "result": "PASS",
+      "independentTests": "44 passed"
+    },
+    "inlineScriptCompilation": "PASS: Node v22.22.3",
+    "diffCheck": "PASS",
+    "stagedSecretScan": "Gitleaks PASS",
+    "publicGet": 200,
+    "publicPost": 405,
+    "renderedMarkers": "PASS",
+    "relayFastapi": "active",
+    "exchangeBot": "active",
+    "nginx": "active"
+  },
+  "browserAcceptance": {
+    "status": "UNVERIFIED",
+    "observedBlocker": "Non-root unshare --user --map-root-user true failed uid_map Operation not permitted; cached root Chromium lacks supported sandbox. No browser isolation relaxed."
+  },
+  "rollout": "Root-owned preimage; hash-bound staged file and atomic rename, no service restart.",
+  "rollback": "Atomically restore recorded preimage and repeat public/runtime checks.",
+  "nextCanonicalItem": "E4 / USABILITY_TEST_MONEY_PATHS / supported isolated-browser review with synthetic data and blocked writers"
+}
