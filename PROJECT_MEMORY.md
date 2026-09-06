@@ -1,6 +1,6 @@
 # Project memory
 
-Updated: 2026-08-26 UTC
+Updated: 2026-09-06 UTC
 
 ## Current goal and status
 
@@ -574,6 +574,23 @@ Updated: 2026-08-26 UTC
   no overflow/app error; mobile `/rates` exposes the expected bot deep link.
   Focused tests pass `44/44`. Rollback preimage:
   `/var/lib/obsidian-exchange/deployment-preimages/e4-cross-surface-market-entry-20260826T1017Z.KEzpsx`.
+
+- 2026-09-06 commit `283fdfa` deploys a bounded E4 action-safety slice. The
+  existing Mini App review for Buy, Sell and TON-wallet paths has a two-minute
+  acknowledgement window: expiry clears the callback and keeps confirmation
+  disabled until the user opens a fresh review. A buy destination is now stored
+  locally only after explicit acknowledgement and a successful existing
+  create-order response, not when the review merely opens. No API, money
+  writer, custody, key or service-unit contract changed. Focused tests pass
+  `26/26`; inline JavaScript compiles; diff and changed-file secret scans pass.
+  The deployed file SHA-256 is `5c0fcacb...`, public `/webapp` GET is `200` and
+  POST is `405`; FastAPI and bot are active. Root-only rollback preimage:
+  `/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-review-freshness-20260906T031000Z/webapp.html`.
+  Browser automation could not launch because Chromium sandboxing is unavailable
+  for the host root environment. E4 remains `IN_PROGRESS`; next canonical item:
+  bounded no-money usability validation of the explicit-review flow on a
+  supported non-root browser or Telegram device. Evidence:
+  `docs/e4-miniapp-review-freshness-rollout.v1.json`.
 
 - 2026-08-24 active route is `E0 → E0.3 → B5.3 → 064A`; E4 and migrations
   `024+` remain out of scope. Production PostgreSQL is upgraded to the exact

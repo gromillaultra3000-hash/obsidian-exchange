@@ -1,0 +1,93 @@
+{
+  "schemaVersion": "e4-miniapp-review-freshness-rollout.v1",
+  "recordedAt": "2026-09-06T03:10:00Z",
+  "stage": "E4",
+  "gateCriterion": "Before confirmation the user understands the executor, custody, KYC lane, fees and irreversibility; a dangerous action cannot be completed by an accidental tap.",
+  "status": "IN_PROGRESS",
+  "boundedSlice": "REVIEW_FRESHNESS_AND_CONFIRMATION_ONLY_ADDRESS_MEMORY",
+  "scope": {
+    "changedSurfaces": [
+      "Telegram Mini App /webapp",
+      "focused Mini App UI regression tests"
+    ],
+    "surfaceMatrix": {
+      "miniApp": {
+        "mode": "REQUIRED",
+        "reason": "This is the only surface changed; it shows the existing buy, sell and TON wallet review before an external action."
+      },
+      "publicSite": {
+        "mode": "READ_ONLY",
+        "reason": "The public edge serves the unchanged Mini App bytes for runtime verification only."
+      },
+      "telegramBot": {
+        "mode": "READ_ONLY",
+        "reason": "The existing bot entry was health-checked; no handler, command or callback changed."
+      },
+      "admin": {
+        "mode": "N/A",
+        "reason": "No operator surface or policy changed."
+      }
+    },
+    "excluded": [
+      "money API, quote, order, payout, wallet-signing or custody contract changes",
+      "database, migration, credential and service-unit changes",
+      "new execution authority or automatic action"
+    ]
+  },
+  "trustAndMoneyImpact": {
+    "moneyWritersChanged": false,
+    "custodyChanged": false,
+    "secretHandlingChanged": false,
+    "behavior": [
+      "A review acknowledgement is valid for at most two minutes; expiry clears its callback and disables confirmation until the form opens a new review.",
+      "The existing buy destination is retained in browser storage only after the user explicitly confirms and the existing create-order API returns success."
+    ]
+  },
+  "release": {
+    "implementationCommit": "283fdfaea16ef662ebaae410c75b72a69c25dcf1",
+    "files": [
+      "relay/webapp.html",
+      "tests/test_e4_exchange_review_ui.py"
+    ],
+    "deployedSha256": "5c0fcacbb38ed3724d12805b894d282044ae287002ebb3acbd75ff460b71b0cf",
+    "rollbackPreimage": {
+      "path": "/var/lib/obsidian-exchange/deployment-preimages/e4-miniapp-review-freshness-20260906T031000Z/webapp.html",
+      "sha256": "0601cd26ddce15b99a3ed521c577bb5b8678b982a3fd875a24e9d40bae1916f0",
+      "owner": "root:root",
+      "mode": "0644"
+    }
+  },
+  "acceptanceEvidence": {
+    "tests": {
+      "command": "/root/lumi/venv/bin/python -m pytest -q tests/test_e4_exchange_review_ui.py tests/test_e4_miniapp_market_chart.py tests/test_e4_miniapp_browser_shell.py tests/test_e4_miniapp_mobile_secondary_navigation.py tests/test_e4_responsive_navigation.py tests/test_e4_bot_ecosystem_entry.py tests/test_e4_site_ecosystem_entry.py",
+      "result": "26 passed"
+    },
+    "staticChecks": [
+      "All two inline Mini App script blocks compile with Node.js.",
+      "git diff --check passed.",
+      "Gitleaks found no secrets in either changed file."
+    ],
+    "runtime": {
+      "relayFastapiService": "active",
+      "exchangeBotService": "active",
+      "publicGetWebapp": 200,
+      "publicPostWebapp": 405,
+      "publicResponseContains": [
+        "exchange-review-freshness",
+        "exchangeReviewAckWindowMs"
+      ],
+      "directLocalFastapiGet": 401,
+      "directLocalFastapiPost": 401,
+      "directLocalInterpretation": "The direct unauthenticated FastAPI listener is not the public acceptance path; the canonical Nginx edge served the expected bytes and method boundary."
+    },
+    "browserAutomation": {
+      "status": "UNAVAILABLE_ON_HOST",
+      "reason": "Playwright CLI was available, but Chromium exited because this root-host environment does not support Chromium sandboxing. No no-sandbox browser launch was used."
+    }
+  },
+  "rollout": {
+    "method": "A root-owned preimage was captured first. A mode- and ownership-bound staging file was then renamed atomically over /opt/obsidian-exchange/relay/webapp.html. Relay reads this file on each /webapp GET, so no service restart was required.",
+    "rollback": "Atomically replace the deployed file with the recorded root-only preimage, then repeat the public GET/POST and byte checks."
+  },
+  "nextCanonicalItem": "E4 / USABILITY_TEST_MONEY_PATHS: perform a bounded no-money usability validation of the current explicit-review flow on a supported non-root browser or Telegram device; the E4 gate remains open."
+}
