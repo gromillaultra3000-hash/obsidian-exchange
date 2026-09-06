@@ -576,6 +576,7 @@
           <div class="exchange-review-surface" style="width:min(520px,100%);max-height:86vh;overflow:auto;padding:18px;border-radius:22px;background:#140a22;border:1px solid rgba(196,140,255,.45);box-shadow:0 18px 60px rgba(0,0,0,.5)">
             <div id="exchange-review-title" style="font-size:20px;font-weight:800">Проверьте условия</div>
             <div id="exchange-review-description" style="font-size:12px;color:var(--muted);margin:5px 0 14px;line-height:1.5">Заявка ещё не создана. Ничего не списывается до следующего подтверждения.</div>
+            <div id="exchange-review-freshness" role="status" aria-live="polite" style="font-size:11px;color:var(--muted);margin:-7px 0 14px;line-height:1.45"></div>
             <div id="exchange-review-summary" style="display:grid;gap:8px"></div>
             <div id="exchange-review-risk" style="margin-top:12px;padding:10px 12px;border-radius:12px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.24);font-size:12px;line-height:1.5;color:#fde68a"></div>
             <label style="display:flex;gap:9px;align-items:flex-start;margin:14px 0;font-size:12px;line-height:1.45">
@@ -2069,13 +2070,39 @@
 
         let exchangeReviewCommit = null;
         let exchangeReviewRestoreFocus = null;
+        let exchangeReviewExpiresAt = 0;
+        let exchangeReviewExpiryTimer = null;
+        const exchangeReviewAckWindowMs = 2 * 60 * 1000;
         function exchangeReviewFocusable(modal) {
             return Array.from(modal.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href]'))
                 .filter(element => element.offsetParent !== null);
         }
+        function clearExchangeReviewExpiry() {
+            if (exchangeReviewExpiryTimer) clearTimeout(exchangeReviewExpiryTimer);
+            exchangeReviewExpiryTimer = null;
+            exchangeReviewExpiresAt = 0;
+        }
+        function updateExchangeReviewConfirm() {
+            const modal = document.getElementById('exchange-review');
+            const ack = document.getElementById('exchange-review-ack');
+            const confirm = document.getElementById('exchange-review-confirm');
+            const fresh = exchangeReviewCommit && Date.now() < exchangeReviewExpiresAt;
+            if (confirm) confirm.disabled = !ack || !ack.checked || !fresh
+                || !modal || modal.style.display !== 'flex';
+        }
+        function invalidateExchangeReview() {
+            const ack = document.getElementById('exchange-review-ack');
+            const freshness = document.getElementById('exchange-review-freshness');
+            clearExchangeReviewExpiry();
+            exchangeReviewCommit = null;
+            if (ack) ack.checked = false;
+            if (freshness) freshness.textContent = 'Время проверки истекло. Вернитесь к форме и откройте условия заново.';
+            updateExchangeReviewConfirm();
+        }
         function closeExchangeReview() {
             const modal = document.getElementById('exchange-review');
             if (modal) modal.style.display = 'none';
+            clearExchangeReviewExpiry();
             exchangeReviewCommit = null;
             const restore = exchangeReviewRestoreFocus;
             exchangeReviewRestoreFocus = null;
@@ -2088,17 +2115,26 @@
             const riskBox = document.getElementById('exchange-review-risk');
             const ack = document.getElementById('exchange-review-ack');
             const confirm = document.getElementById('exchange-review-confirm');
-            if (!modal || !heading || !summary || !riskBox || !ack || !confirm) return;
+            const freshness = document.getElementById('exchange-review-freshness');
+            if (!modal || !heading || !summary || !riskBox || !ack || !confirm || !freshness) return;
             heading.textContent = title;
             summary.innerHTML = rows.map(row => '<div style="padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07)">'
                 + '<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">' + esc(row.label) + '</div>'
                 + '<div style="font-size:13px;margin-top:3px;line-height:1.4">' + esc(row.value) + '</div></div>').join('');
             riskBox.textContent = '⚠ ' + risk;
             ack.checked = false;
-            confirm.disabled = true;
             exchangeReviewCommit = onConfirm;
+            clearExchangeReviewExpiry();
+            exchangeReviewExpiresAt = Date.now() + exchangeReviewAckWindowMs;
+            freshness.textContent = 'Подтверждение доступно 2 минуты. Если время истечёт, откройте проверку заново.';
+            exchangeReviewExpiryTimer = setTimeout(() => {
+                if (modal.style.display === 'flex' && Date.now() >= exchangeReviewExpiresAt) {
+                    invalidateExchangeReview();
+                }
+            }, exchangeReviewAckWindowMs + 50);
             exchangeReviewRestoreFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
             modal.style.display = 'flex';
+            updateExchangeReviewConfirm();
             ack.focus();
         }
 
@@ -3007,6 +3043,9 @@
                 if (!res.ok || !data.ok) {
                     throw new Error(data.detail || 'Не удалось создать заявку. Попробуйте ещё раз.');
                 }
+                // Адрес — пользовательские данные, поэтому запоминаем его только
+                // после явного подтверждения условий и успешного создания заявки.
+                try { localStorage.setItem('lastAddress_' + currency + '_' + network, address); } catch (_) {}
                 resultEl.innerHTML = '';
                 if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
                 startOrderTracking(data.order_id, data.payment_url, currency, data.qr_image, data.pay_amount, data.requisites);
@@ -3037,7 +3076,6 @@
             const network = selectedNetwork();
             const shortAddress = address.length > 20 ? address.slice(0, 10) + '…' + address.slice(-8) : address;
             const payLabel = payMethod === 'card' ? 'банковская карта' : 'СБП';
-            localStorage.setItem('lastAddress_' + currency + '_' + network, address);
             openExchangeReview({
                 title: 'Покупка ' + currency + ' за ' + amount.toLocaleString('ru-RU') + ' ₽',
                 rows: [
@@ -3058,10 +3096,13 @@
             const cancel = document.getElementById('exchange-review-cancel');
             const confirm = document.getElementById('exchange-review-confirm');
             if (!modal || !ack || !cancel || !confirm) return;
-            ack.addEventListener('change', () => { confirm.disabled = !ack.checked; });
+            ack.addEventListener('change', updateExchangeReviewConfirm);
             cancel.addEventListener('click', closeExchangeReview);
             confirm.addEventListener('click', async () => {
-                if (!ack.checked || !exchangeReviewCommit) return;
+                if (!ack.checked || !exchangeReviewCommit || Date.now() >= exchangeReviewExpiresAt) {
+                    if (Date.now() >= exchangeReviewExpiresAt) invalidateExchangeReview();
+                    return;
+                }
                 const commit = exchangeReviewCommit;
                 closeExchangeReview();
                 await commit();

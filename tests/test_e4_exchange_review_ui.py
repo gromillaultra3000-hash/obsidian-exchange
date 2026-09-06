@@ -27,12 +27,32 @@ def test_review_explains_route_custody_fees_and_irreversibility_for_both_lanes()
     assert "Комиссия и расчёт" in webapp
     assert "Комиссия и курс" in webapp
     assert "необратим" in webapp
-    assert "confirm.disabled = !ack.checked" in webapp
+    assert "function updateExchangeReviewConfirm()" in webapp
+    assert "if (confirm) confirm.disabled = !ack || !ack.checked || !fresh" in webapp
     assert "exchangeReviewRestoreFocus" in webapp
     assert "exchangeReviewFocusable" in webapp
     assert "event.key !== 'Tab'" in webapp
     assert "event.key === 'Escape'" in webapp
     assert "last.focus()" in webapp and "first.focus()" in webapp
+
+
+def test_review_confirmation_expires_and_buy_address_is_not_stored_before_confirmation():
+    webapp = WEBAPP.read_text(encoding="utf-8")
+
+    assert 'id="exchange-review-freshness"' in webapp
+    assert "const exchangeReviewAckWindowMs = 2 * 60 * 1000;" in webapp
+    assert "function invalidateExchangeReview()" in webapp
+    assert "const fresh = exchangeReviewCommit && Date.now() < exchangeReviewExpiresAt;" in webapp
+    assert "exchangeReviewExpiryTimer = setTimeout(() =>" in webapp
+    assert "!exchangeReviewCommit || Date.now() >= exchangeReviewExpiresAt" in webapp
+
+    begin = webapp[webapp.index("function beginBuyOrder"):
+                   webapp.index("document.getElementById('create-order').addEventListener", webapp.index("function beginBuyOrder"))]
+    submit = webapp[webapp.index("async function submitBuyOrder"):
+                    webapp.index("function beginBuyOrder", webapp.index("async function submitBuyOrder"))]
+    assert "localStorage.setItem('lastAddress_'" not in begin
+    assert "localStorage.setItem('lastAddress_' + currency + '_' + network, address)" in submit
+    assert submit.index("if (!res.ok || !data.ok)") < submit.index("localStorage.setItem('lastAddress_' + currency + '_' + network, address)")
 
 
 def test_wallet_send_uses_the_same_explicit_review_before_wallet_signature():
