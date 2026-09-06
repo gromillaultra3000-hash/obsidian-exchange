@@ -3066,6 +3066,15 @@
             const payMethod = document.querySelector('input[name="pay_method"]:checked')?.value || 'sbp';
             if (!amount || amount < 2000 || amount > 500000) { resultEl.textContent = 'Сумма от 2 000 до 500 000 ₽'; return; }
             if (!address) { resultEl.textContent = 'Введите адрес кошелька'; return; }
+            // Если клиент знает формат выбранной сети, не открываем review для
+            // заведомо ошибочного получателя. Неизвестный клиенту формат не
+            // блокируем здесь: единственная окончательная проверка остаётся на
+            // сервере и не должна расходиться с витриной новых активов.
+            if (validateAddress() === false) {
+                resultEl.textContent = 'Проверьте формат адреса получателя';
+                document.getElementById('address').focus();
+                return;
+            }
             // Тег отправляем как есть. Разбор и проверка — на сервере: две копии
             // правил разошлись бы, а цена расхождения — потерянный перевод.
             const tagEl = document.getElementById('dest_tag');
@@ -3829,7 +3838,7 @@
             const cur  = document.getElementById('currency').value;
             const input = document.getElementById('address');
             const msg   = document.getElementById('address-msg');
-            if (!addr) { input.classList.remove('valid','invalid'); msg.textContent = ''; return; }
+            if (!addr) { input.classList.remove('valid','invalid'); msg.textContent = ''; return false; }
             const net = (typeof selectedNetwork === 'function') ? selectedNetwork() : '';
             const EVM = /^0x[a-fA-F0-9]{40}$/;
             const patterns = {
@@ -3858,7 +3867,7 @@
             if (!patterns[cur]) {
                 input.classList.remove('valid','invalid');
                 msg.textContent = '';
-                return;
+                return null;
             }
             const ok = patterns[cur].test(addr);
             input.classList.toggle('valid', ok);
@@ -3875,6 +3884,7 @@
             // функция — без вызова X-адрес оставлял поле тега открытым, клиент
             // вводил второй тег и получал отказ сервера на исправной заявке.
             if (typeof updateTagField === 'function') updateTagField();
+            return ok;
         }
     </script>
     <script>

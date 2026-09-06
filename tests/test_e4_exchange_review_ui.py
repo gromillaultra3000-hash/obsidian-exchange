@@ -55,6 +55,21 @@ def test_review_confirmation_expires_and_buy_address_is_not_stored_before_confir
     assert submit.index("if (!res.ok || !data.ok)") < submit.index("localStorage.setItem('lastAddress_' + currency + '_' + network, address)")
 
 
+def test_buy_review_is_not_opened_for_a_known_invalid_recipient_format():
+    webapp = WEBAPP.read_text(encoding="utf-8")
+
+    begin = webapp[webapp.index("function beginBuyOrder"):
+                   webapp.index("document.getElementById('create-order').addEventListener", webapp.index("function beginBuyOrder"))]
+    validation = webapp[webapp.index("function validateAddress"):
+                        webapp.index("</script>", webapp.index("function validateAddress"))]
+    assert "if (validateAddress() === false)" in begin
+    assert "Проверьте формат адреса получателя" in begin
+    assert begin.index("if (validateAddress() === false)") < begin.index("openExchangeReview({")
+    assert "return false;" in validation
+    assert "return null;" in validation
+    assert "return ok;" in validation
+
+
 def test_wallet_send_uses_the_same_explicit_review_before_wallet_signature():
     webapp = WEBAPP.read_text(encoding="utf-8")
 
