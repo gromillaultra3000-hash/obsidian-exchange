@@ -2120,7 +2120,7 @@
             heading.textContent = title;
             summary.innerHTML = rows.map(row => '<div style="padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07)">'
                 + '<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">' + esc(row.label) + '</div>'
-                + '<div style="font-size:13px;margin-top:3px;line-height:1.4">' + esc(row.value) + '</div></div>').join('');
+                + '<div style="font-size:13px;margin-top:3px;line-height:1.4;white-space:pre-wrap;overflow-wrap:anywhere">' + esc(row.value) + '</div></div>').join('');
             riskBox.textContent = '⚠ ' + risk;
             ack.checked = false;
             exchangeReviewCommit = onConfirm;
@@ -2178,6 +2178,9 @@
                     {label: 'Маршрут и исполнитель', value: 'ObsidianExchange · private lane · без KYC'},
                     {label: 'Custody', value: 'Монеты остаются в вашем кошельке до отправки на адрес заявки'},
                     {label: 'Выплата', value: ((document.getElementById('sell-payout') || {}).textContent || '—') + ' · ' + methodLabel},
+                    {label: way.code === 'card' ? 'Карта получателя' : 'Телефон получателя', value: phone},
+                    ...(bank ? [{label: 'Банк получателя', value: (document.querySelector('#sell-bank option:checked') || {}).textContent || bank}] : []),
+                    ...(fullName ? [{label: 'Получатель', value: fullName}] : []),
                     {label: 'Комиссия и курс', value: ((document.getElementById('sell-fee-note') || {}).textContent || 'Показаны в расчёте выше')}
                 ],
                 risk: 'После перевода монет на адрес заявки отменить операцию блокчейна нельзя. Рубли отправляются после подтверждения поступления в сети.',
@@ -3083,7 +3086,6 @@
             const ntEl = document.getElementById('no_tag');
             const noTag = tagVisible && !!(ntEl && ntEl.checked);
             const network = selectedNetwork();
-            const shortAddress = address.length > 20 ? address.slice(0, 10) + '…' + address.slice(-8) : address;
             const payLabel = payMethod === 'card' ? 'банковская карта' : 'СБП';
             openExchangeReview({
                 title: 'Покупка ' + currency + ' за ' + amount.toLocaleString('ru-RU') + ' ₽',
@@ -3091,7 +3093,10 @@
                     {label: 'Маршрут и исполнитель', value: 'ObsidianExchange · private lane · без KYC'},
                     {label: 'Custody', value: 'Ключи и адрес получателя остаются под вашим контролем'},
                     {label: 'Комиссия и расчёт', value: ((document.getElementById('fee-value') || {}).textContent || '—') + ' · итоговая сумма указана выше'},
-                    {label: 'Получатель и оплата', value: currency + (network ? ' · ' + network : '') + ' → ' + shortAddress + ' · ' + payLabel}
+                    {label: 'Валюта и сеть', value: currency + (network ? ' · ' + network : '')},
+                    {label: 'Адрес получателя', value: address},
+                    ...(tagVisible ? [{label: 'Тег / memo', value: noTag ? 'Без тега — подтверждено в форме' : (destTag || 'Не указан — проверьте, нужен ли тег получателю')}] : []),
+                    {label: 'Способ оплаты', value: payLabel}
                 ],
                 risk: 'После создания появятся реквизиты для оплаты. Не переводите деньги вне заявки и не используйте адрес другой сети.',
                 onConfirm: () => submitBuyOrder({currency, amount, address, payMethod, destTag, noTag, network})
@@ -3839,21 +3844,27 @@
             const input = document.getElementById('address');
             const msg   = document.getElementById('address-msg');
             if (!addr) { input.classList.remove('valid','invalid'); msg.textContent = ''; return false; }
+            // Для склеенного адреса проверяем только основу. Разбор тега/memo,
+            // его диапазон и нормализация остаются у серверного реестра.
+            const formatAddress = (cur === 'XRP' ? addr.split(':', 1)[0]
+                : (cur === 'TON' ? addr.split('#', 1)[0] : addr)).trim();
             const net = (typeof selectedNetwork === 'function') ? selectedNetwork() : '';
             const EVM = /^0x[a-fA-F0-9]{40}$/;
             const patterns = {
-                BTC:  /^(bc1[ac-hj-np-z02-9]{6,62}|[13][a-km-zA-HJ-NP-Z1-9]{25,34})$/,
-                LTC:  /^[LM3][a-km-zA-HJ-NP-Z1-9]{26,33}$|^ltc1[ac-hj-np-z02-9]{6,62}$/,
+                // Bech32 допускает целиком верхний регистр и длинные witness-
+                // адреса; смешанный регистр и checksum проверяет также сервер.
+                BTC:  /^(bc1[ac-hj-np-z02-9]{6,87}|BC1[AC-HJ-NP-Z02-9]{6,87}|[13][a-km-zA-HJ-NP-Z1-9]{25,34})$/,
+                LTC:  /^([LM3][a-km-zA-HJ-NP-Z1-9]{26,33}|ltc1[ac-hj-np-z02-9]{6,86}|LTC1[AC-HJ-NP-Z02-9]{6,86})$/,
                 // USDT живёт в двух сетях — формат зависит от выбранной
                 USDT: net === 'ERC20' ? EVM : /^T[A-Za-z0-9]{33}$/,
                 ETH:  EVM,
                 // XRPL: classic r… и X-адрес (несёт тег). Алфавит свой.
                 XRP:  /^(r[rpshnaf39wBUDNEGHJKLM4PQRST7VWXYZ2bcdeCg65jkm8oFqi1tuvAxyz]{24,34}|X[rpshnaf39wBUDNEGHJKLM4PQRST7VWXYZ2bcdeCg65jkm8oFqi1tuvAxyz]{40,50})$/,
                 // TON: дружественная форма (48 символов base64url) и сырая
-                // (workchain:hex64), обе — с необязательной склейкой «#memo».
+                // (workchain:hex64). Склейку «#memo» отделили выше.
                 // Контрольную сумму здесь не считаем: это подсказка ввода,
                 // проверяет сервер (core.address.is_valid_ton).
-                TON:  /^(?:[A-Za-z0-9+/_-]{48}|-?\d+:[0-9a-fA-F]{64})(?:#[^\r\n]{0,127})?$/,
+                TON:  /^(?:[A-Za-z0-9+/_-]{48}|-?\d+:[0-9a-fA-F]{64})$/,
                 // Monero: обычный/субадрес — 95 символов, integrated — 106
                 // (в нём лежит payment id). Второй символ не ограничиваем: он
                 // кодирует префикс ВМЕСТЕ с началом ключа траты и пробегает
@@ -3869,7 +3880,7 @@
                 msg.textContent = '';
                 return null;
             }
-            const ok = patterns[cur].test(addr);
+            const ok = patterns[cur].test(formatAddress);
             input.classList.toggle('valid', ok);
             input.classList.toggle('invalid', !ok);
             const netName = net === 'ERC20' ? 'ERC-20' : (net === 'TRC20' ? 'TRC-20' : '');
