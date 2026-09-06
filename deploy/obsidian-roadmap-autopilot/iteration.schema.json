@@ -12,7 +12,8 @@
     "acceptance_review_passed",
     "independent_review_passed",
     "runtime_verified",
-    "blocker"
+    "blocker",
+    "transition_evidence"
   ],
   "properties": {
     "status": {
@@ -55,6 +56,10 @@
     },
     "blocker": {
       "type": "string"
+    },
+    "transition_evidence": {
+      "type": "string",
+      "description": "Committed docs/ transition assessment path on a stage change or full-roadmap COMPLETE; empty for same-stage or BLOCKED."
     }
   }
 }

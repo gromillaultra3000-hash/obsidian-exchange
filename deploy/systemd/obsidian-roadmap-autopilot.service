@@ -1,5 +1,5 @@
 [Unit]
-Description=Obsidian serial E4 roadmap delivery independent of SSH
+Description=Obsidian serial E0-E5 roadmap delivery independent of SSH
 Wants=network-online.target
 After=network-online.target
 

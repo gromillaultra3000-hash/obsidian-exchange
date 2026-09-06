@@ -4,6 +4,30 @@ Updated: 2026-09-06 UTC
 
 ## Current goal and status
 
+- 2026-09-06 owner explicitly enabled autonomous transitions across **E0–E5**,
+  replacing the E4-only runner restriction. Finish the interrupted E4 browser
+  slice first; subsequent stages require committed transition evidence bound
+  to the master roadmap and assessments of all six gates. Forward acceptance
+  requires earlier gates VERIFIED. A named early blocker permits separately
+  labelled KEYLESS_NONPRODUCTION preparation; that scope persists across
+  same-stage iterations. COMPLETE requires all six gates VERIFIED. Frozen064A,
+  separate credential/money/signing gates and the 8-iteration/12-hour limit
+  remain. Transition tests pass 47/47; two independent reviews pass, including
+  resolved-path self-citation rejection and three-iteration keyless retention.
+  Reviewed controller/prompt/schema/unit installed with a retained preimage.
+  Canonical decision: `docs/ecosystem-master-roadmap.md`; implementation
+  evidence: `docs/autonomous-roadmap-transitions-rollout.v1.json`.
+
+- 2026-09-06 04:47 autonomous run was intentionally stopped at 04:50:53 UTC
+  for this owner-requested expansion. No tracked product changes/commits or
+  production Mini App change occurred; supervisor cgroup and browser units
+  are absent. Supported sandboxed non-root Chrome/private-network startup was
+  found, superseding the previous availability blocker. Preserve and finish
+  untracked `scripts/run_e4_review_browser.py`, `tests/e4_review_browser.cjs`,
+  and `output/playwright/e4-review-opening-baseline/isolation.json`; these are
+  interrupted drafts, not verified usability evidence. Exactly next remains
+  E4 no-money mobile review validation, including initial scroll/focus.
+
 - 2026-09-06 current execution route is **E4 / explicit action review /
   no-money browser usability** under the owner's 2026-08-26 reprioritization,
   reaffirmed by the request to continue during SSH loss. `0ce81c4` completes
@@ -13,8 +37,7 @@ Updated: 2026-09-06 UTC
   independent reviews pass; public Mini App GET 200 / POST 405, Relay/bot/Nginx
   active, deployed SHA-256 `30f34732...`. Rollback and evidence:
   `docs/e4-recipient-review-rollout.v1.json`. E4 remains `IN_PROGRESS`.
-  Exactly next: supported isolated-browser no-money review usability; existing
-  root Chromium and non-root namespace probe cannot provide browser evidence.
+  Exactly next: finish the supported isolated-browser no-money review as above.
 
 - 2026-09-06 SSH-independent supervisor installed for that E4 route:
   `obsidian-roadmap-autopilot.service`, serial Codex `--approve-for-me`, existing

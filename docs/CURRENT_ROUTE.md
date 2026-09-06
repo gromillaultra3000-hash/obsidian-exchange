@@ -13,6 +13,16 @@ non-custodial wallet whose keys never reach the server.
 
 `E4 / explicit action review / no-money browser usability`
 
+Owner decision 2026-09-06: automatic continuation now covers E0–E5, replacing
+the former E4-only supervisor restriction. Finish the already-started E4
+browser slice first, then select the next canonical prerequisite using
+`docs/autonomous-roadmap-transitions.md` and the matching decision in the
+master roadmap. Actual forward acceptance requires earlier gates VERIFIED;
+named early blockers permit separately labelled KEYLESS_NONPRODUCTION
+preparation, never a false gate closure or live authority. The supervisor binds
+the next stage and carries its scope across iterations. Limits remain eight
+iterations/twelve hours; 064A stays frozen.
+
 Current execution checkpoint (2026-09-06): the owner reaffirmed autonomous
 code-first continuation during SSH disconnection. Commit `0ce81c4` completes
 the interrupted recipient review: full buy address/memo and normalized sell
@@ -22,12 +32,20 @@ independent reviews pass, and the public Mini App rollout returned GET 200,
 POST 405 with Relay, bot and Nginx active. Evidence:
 `docs/e4-recipient-review-rollout.v1.json`.
 
-Exactly next: `E4 / USABILITY_TEST_MONEY_PATHS / obtain a supported isolated
-browser and validate the review using synthetic data with all writers blocked`.
-The existing root Chromium and the non-root user-namespace probe cannot supply
-that evidence; no real-browser acceptance is claimed. Provisioning a supported
-browser is a bounded prerequisite, not permission to relax host isolation or
-exercise customer funds. E4 remains `IN_PROGRESS`.
+Exactly next: `E4 / USABILITY_TEST_MONEY_PATHS / complete isolated-browser
+review validation using synthetic data with all writers blocked`.
+The autonomous 04:47 UTC iteration found a supported non-root installed Chrome
+with sandbox enabled and a private network namespace; the earlier browser
+availability assumption is superseded. It created untracked
+`scripts/run_e4_review_browser.py`, `tests/e4_review_browser.cjs` and a baseline
+isolation artifact under `output/playwright/`. They remain interrupted drafts,
+not accepted browser evidence. The supervisor was deliberately stopped at
+04:50:53 UTC to apply the owner's scope change; no tracked source, commit or
+production Mini App bytes changed during that run. No browser units or old
+supervisor cgroup remained. Inspect and finish these drafts without losing
+them; check whether opening a mobile review focuses/scrolls past its conditions.
+E4 remains `IN_PROGRESS`. Handoff/reconciliation evidence:
+`docs/autonomous-roadmap-transitions-rollout.v1.json`.
 
 SSH-independent execution is an operational prerequisite for this same route,
 documented in `docs/ssh-independent-work.md` and

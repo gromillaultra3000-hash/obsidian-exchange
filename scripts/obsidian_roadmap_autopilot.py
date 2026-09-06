@@ -15,6 +15,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import signal
 import subprocess
 import sys
@@ -28,9 +29,11 @@ RECEIPT_KEYS = {
     'status', 'active_route', 'summary', 'next_step', 'commit', 'evidence_paths',
     'tests_passed', 'acceptance_review_passed', 'independent_review_passed',
     'runtime_verified', 'blocker',
+    'transition_evidence',
 }
 CHECKS = ('tests_passed', 'acceptance_review_passed',
           'independent_review_passed', 'runtime_verified')
+STAGES = tuple(f'E{index}' for index in range(6))
 
 
 def now():
@@ -89,10 +92,97 @@ def writer_lock(state):
         yield stream.fileno()
 
 
-def validate_receipt(receipt, repo, before):
+def stage_of(route):
+    match = re.fullmatch(r'(E[0-5])(?: / .+)?', route)
+    if not match:
+        raise ValueError('INVALID_CANONICAL_STAGE')
+    return match[1]
+
+
+def checked_evidence(repo, name):
+    if not isinstance(name, str):
+        raise ValueError('UNSAFE_EVIDENCE_PATH')
+    path = Path(name)
+    if (path.is_absolute() or '..' in path.parts or not name.startswith('docs/')
+            or (repo / path).is_symlink()
+            or not (repo / path).resolve().is_relative_to(repo.resolve())):
+        raise ValueError('UNSAFE_EVIDENCE_PATH')
+    git(repo, 'ls-files', '--error-unmatch', '--', name)
+    if not (repo / path).is_file():
+        raise ValueError('EVIDENCE_MISSING')
+    return repo / path
+
+
+def validate_transition(receipt, repo):
+    current = stage_of(receipt['active_route'])
+    complete = receipt['status'] == 'COMPLETE'
+    target = 'COMPLETE' if complete else stage_of(receipt['next_step'])
+    if target == current:
+        return 'CURRENT_AUTHORIZED_SCOPE'
+    path = receipt['transition_evidence']
+    if not path or path not in receipt['evidence_paths']:
+        raise ValueError('TRANSITION_EVIDENCE_REQUIRED')
+    transition_path = checked_evidence(repo, path).resolve()
+    transition = json.loads(transition_path.read_text())
+    if (transition.get('schemaVersion') != 'autonomy-route-transition.v1'
+            or transition.get('fromStage') != current
+            or transition.get('toStage') != target
+            or transition.get('roadmapSha256') != hashlib.sha256(
+                (repo / 'docs/ecosystem-master-roadmap.md').read_bytes()).hexdigest()
+            or not isinstance(transition.get('reason'), str)
+            or not transition['reason'].strip()):
+        raise ValueError('TRANSITION_BINDING_INVALID')
+    assessments = transition.get('gateAssessments')
+    if not isinstance(assessments, list) or len(assessments) != 6:
+        raise ValueError('ALL_GATE_ASSESSMENTS_REQUIRED')
+    for expected, gate in zip(STAGES, assessments):
+        if not isinstance(gate, dict) or gate.get('stage') != expected:
+            raise ValueError('GATE_ASSESSMENTS_ORDER_INVALID')
+        if gate.get('status') not in ('VERIFIED', 'IN_PROGRESS', 'NOT_STARTED',
+                                     'BLOCKED_OWNER', 'BLOCKED_EXTERNAL'):
+            raise ValueError('GATE_STATUS_INVALID')
+        paths = gate.get('evidencePaths')
+        if not isinstance(paths, list) or not paths:
+            raise ValueError('GATE_EVIDENCE_REQUIRED')
+        for evidence in paths:
+            if checked_evidence(repo, evidence).resolve() == transition_path:
+                raise ValueError('TRANSITION_IS_NOT_GATE_EVIDENCE')
+    basis = transition.get('basis')
+    scope = transition.get('scope')
+    if complete:
+        if basis != 'ROADMAP_COMPLETE' or any(g['status'] != 'VERIFIED' for g in assessments):
+            raise ValueError('ROADMAP_GATES_NOT_VERIFIED')
+        return 'COMPLETE'
+    first_unmet = next((g for g in assessments if g['status'] != 'VERIFIED'), None)
+    if basis == 'RETURN_TO_EARLIEST':
+        if (STAGES.index(target) >= STAGES.index(current) or first_unmet is None
+                or first_unmet['stage'] != target):
+            raise ValueError('NOT_EARLIEST_UNMET_GATE')
+        if scope != 'EXISTING_AUTHORITY':
+            raise ValueError('TRANSITION_SCOPE_INVALID')
+    elif basis == 'VERIFIED_GATE_ADVANCE':
+        if (STAGES.index(target) <= STAGES.index(current) or any(
+                g['status'] != 'VERIFIED' for g in assessments[:STAGES.index(target)])):
+            raise ValueError('EARLIER_GATES_NOT_VERIFIED')
+        if scope != 'EXISTING_AUTHORITY':
+            raise ValueError('TRANSITION_SCOPE_INVALID')
+    elif basis == 'PREPARATION_UNDER_BLOCKER':
+        if (first_unmet is None or first_unmet['status'] not in ('BLOCKED_OWNER', 'BLOCKED_EXTERNAL')
+                or STAGES.index(first_unmet['stage']) >= STAGES.index(target)
+                or not isinstance(transition.get('blocker'), str)
+                or not transition['blocker'].strip()
+                or transition.get('productionAllowed') is not False
+                or scope != 'KEYLESS_NONPRODUCTION'):
+            raise ValueError('PREPARATION_BOUNDARY_INVALID')
+    else:
+        raise ValueError('TRANSITION_BASIS_INVALID')
+    return scope
+
+
+def validate_receipt(receipt, repo, before, expected_stage='E4'):
     if not isinstance(receipt, dict) or set(receipt) != RECEIPT_KEYS:
         raise ValueError('INVALID_RECEIPT_FIELDS')
-    for key in ('status', 'active_route', 'summary', 'next_step', 'commit', 'blocker'):
+    for key in ('status', 'active_route', 'summary', 'next_step', 'commit', 'blocker', 'transition_evidence'):
         if not isinstance(receipt[key], str):
             raise ValueError('INVALID_RECEIPT_TYPES')
     if any(type(receipt[key]) is not bool for key in CHECKS):
@@ -103,34 +193,31 @@ def validate_receipt(receipt, repo, before):
     status = receipt['status']
     if status not in ('VERIFIED_NEXT', 'BLOCKED', 'COMPLETE'):
         raise ValueError('INVALID_RECEIPT_STATUS')
+    if stage_of(receipt['active_route']) != expected_stage:
+        raise ValueError('UNSCHEDULED_STAGE')
     if status == 'BLOCKED':
         if not receipt['blocker'].strip():
             raise ValueError('BLOCKED_WITHOUT_REASON')
         return status
-    if not (receipt['active_route'] == 'E4'
-            or receipt['active_route'].startswith('E4 /')):
-        raise ValueError('ROUTE_CHANGED')
     if receipt['blocker'] or not all(receipt[k] for k in CHECKS):
         raise ValueError('ACCEPTANCE_INCOMPLETE')
     head = clean_checkout(repo)
     if receipt['commit'] != head or not receipt['summary'].strip() or not paths:
         raise ValueError('COMMIT_OR_EVIDENCE_MISSING')
     if status == 'VERIFIED_NEXT':
-        if head == before or not receipt['next_step'].startswith('E4 /'):
+        if head == before:
             raise ValueError('NO_VERIFIED_PROGRESS')
         changes = git(repo, 'diff', '--name-only', before, head).splitlines()
-        if not any(p.startswith(('relay/', 'bot/', 'web/', 'native-wallet/'))
-                   or p == 'exchange.py' for p in changes):
+        if not any(p.startswith(('relay/', 'bot/', 'web/', 'native-wallet/',
+                                 'native/', 'kairos/', 'lumi/', 'core/', 'admin-panel/',
+                                 'relay-fastapi/', 'contracts/', 'payment/', 'preview/',
+                                 'monitoring/', 'news_bot/', 'support_bot/'))
+                   or p in ('exchange.py', 'scripts/run_e4_review_browser.py',
+                            'tests/e4_review_browser.cjs') for p in changes):
             raise ValueError('NO_PRODUCT_CODE_PROGRESS')
     for name in paths:
-        path = Path(name)
-        if (path.is_absolute() or '..' in path.parts or not name.startswith('docs/')
-                or (repo / path).is_symlink()
-                or not (repo / path).resolve().is_relative_to(repo.resolve())):
-            raise ValueError('UNSAFE_EVIDENCE_PATH')
-        git(repo, 'ls-files', '--error-unmatch', '--', name)
-        if not (repo / path).is_file():
-            raise ValueError('EVIDENCE_MISSING')
+        checked_evidence(repo, name)
+    validate_transition(receipt, repo)
     return status
 
 
@@ -191,6 +278,7 @@ def arm(args):
             'package_digest': package_digest(PACKAGE),
             'max_iterations': args.max_iterations,
             'deadline': time.time() + args.hours * 3600,
+            'start_stage': getattr(args, 'start_stage', 'E4'),
         }
         atomic_json(STATE / 'armed.json', receipt)
         atomic_json(status_file, receipt)
@@ -206,6 +294,8 @@ def run():
         state.update(status='STARTING', updated_at=now(), pid=os.getpid())
         atomic_json(STATE / 'status.json', state)
         child = None
+        expected_stage = request.get('start_stage', 'E4')
+        continuation_scope = 'CURRENT_AUTHORIZED_SCOPE'
 
         def stop(signum, frame):
             raise InterruptedError('SERVICE_STOPPED')
@@ -235,6 +325,11 @@ def run():
                 atomic_json(STATE / 'status.json', state)
                 print(f'{now()} iteration {index} started', flush=True)
                 prompt = (PACKAGE / 'iteration-prompt.md').read_text()
+                prompt += (f'\nSupervisor scheduled stage: {expected_stage}. '
+                           f'Allowed scope for this iteration: {continuation_scope}. '
+                           'Your active_route must match this scheduled stage.\n')
+                if state.get('next_step'):
+                    prompt += 'Accepted next item: ' + state['next_step'] + '\n'
                 with (run_dir / 'codex.log').open('w') as log:
                     child = subprocess.Popen(codex_command(PACKAGE, output),
                                              stdin=subprocess.PIPE, stdout=log, stderr=log,
@@ -248,7 +343,7 @@ def run():
                 if service_other_pids():
                     raise ValueError('DETACHED_ITERATION_DESCENDANTS_REMAIN')
                 receipt = json.loads(output.read_text())
-                result = validate_receipt(receipt, REPO, before)
+                result = validate_receipt(receipt, REPO, before, expected_stage)
                 if request['package_digest'] != package_digest(PACKAGE):
                     raise ValueError('SUPERVISOR_PACKAGE_CHANGED')
                 if set(untracked(REPO)) - set(request['untracked']):
@@ -258,6 +353,12 @@ def run():
                 print(f'{now()} iteration {index}: {result}', flush=True)
                 if result != 'VERIFIED_NEXT':
                     break
+                next_scope = validate_transition(receipt, REPO)
+                if next_scope != 'CURRENT_AUTHORIZED_SCOPE':
+                    continuation_scope = next_scope
+                expected_stage = stage_of(receipt['next_step'])
+                state.update(next_step=receipt['next_step'], scheduled_stage=expected_stage,
+                             continuation_scope=continuation_scope)
             else:
                 state.update(status='LIMIT_REACHED', reason='overnight iteration limit')
         except (InterruptedError, subprocess.TimeoutExpired):
@@ -284,6 +385,7 @@ def main():
     arming = commands.add_parser('arm')
     arming.add_argument('--max-iterations', type=int, choices=range(1, 17), default=8)
     arming.add_argument('--hours', type=int, choices=range(1, 13), default=12)
+    arming.add_argument('--start-stage', choices=STAGES, default='E4')
     commands.add_parser('run')
     commands.add_parser('status')
     args = parser.parse_args()

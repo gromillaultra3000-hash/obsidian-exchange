@@ -1,0 +1,78 @@
+{
+  "schemaVersion": "autonomous-roadmap-transitions-rollout.v1",
+  "recordedAt": "2026-09-06T04:57:20.315784+00:00",
+  "stage": "E4",
+  "scope": "Owner-requested operational expansion of serial delivery to canonical E0-E5",
+  "status": "IN_PROGRESS",
+  "implementationStatus": "VERIFIED_INSTALLED",
+  "runtimeStatusSource": "/var/lib/obsidian-roadmap-autopilot/status.json",
+  "ownerDecision": "2026-09-06: enable transitions to the other roadmap stages",
+  "policy": {
+    "initialStage": "E4",
+    "allowedStages": [
+      "E0",
+      "E1",
+      "E2",
+      "E3",
+      "E4",
+      "E5"
+    ],
+    "allowedTransitions": [
+      "RETURN_TO_EARLIEST",
+      "VERIFIED_GATE_ADVANCE",
+      "PREPARATION_UNDER_BLOCKER"
+    ],
+    "completeRequires": "All six gate assessments VERIFIED with committed independent acceptance evidence",
+    "frozen064A": true,
+    "newCredentialsOrMoneyAuthority": false,
+    "limitsChanged": false
+  },
+  "verification": {
+    "tests": "47 passed",
+    "acceptanceReviewer": "/root/recipient_review: PASS",
+    "independentReviewer": "/root/browser_acceptance: PASS",
+    "independentScopeRehearsal": "Three real synthetic worker invocations: E4->E5 keyless, E5->E5, final E5 still keyless",
+    "fixedFinding": "P2 aliased self-citation bypass: compare resolved evidence paths; docs/./ regression passes",
+    "systemdValidation": "PASS; unrelated existing xray nobody warning",
+    "pythonCompilation": "PASS",
+    "diffCheck": "PASS",
+    "stagedSecretScan": "Gitleaks PASS"
+  },
+  "sha256": {
+    "scripts/obsidian_roadmap_autopilot.py": "97925944db8797541265f5adf98c137d3e328ba27f1fa97f52b061bcbcaea09a",
+    "tests/test_obsidian_roadmap_autopilot.py": "16d61900947aca76e931f1a5f627095622e0e40068ab706f225bf9bafd847124",
+    "deploy/obsidian-roadmap-autopilot/iteration-prompt.md": "935e2cf01187d90295edc60b03e87e24fa40d4e7f97bf698451c96b75fb4ea95",
+    "deploy/obsidian-roadmap-autopilot/iteration.schema.json": "6eec2c6d7952d38989ae47c5e08df1c4c3d94db1ae7d5c6e31f8214ba180b19f",
+    "deploy/systemd/obsidian-roadmap-autopilot.service": "5e4bf780a3be04714fcc68cc4a16a983c33a42ab483017dea85a076e0c3bfc37",
+    "docs/autonomous-roadmap-transitions.md": "6a46ec4976ecbcc538c6ffe378ba085c5f1946ed2b6936658efa63c273cb0d3d",
+    "docs/ecosystem-master-roadmap.md": "23bfeaf89dd4d2727c02f5afb3db7ebdf68b03b7fba01f35057ce63a7be4ce6a"
+  },
+  "interruptedRunReconciliation": {
+    "reason": "Explicit owner requested changing supervisor scope while running",
+    "previousHead": "143f1c974783ebb506004636e86e3ef16dc2b2f7",
+    "runDirectory": "/var/lib/obsidian-roadmap-autopilot/run-20260906T044715-1",
+    "stoppedAt": "2026-09-06T04:50:53.193859+00:00",
+    "status": "INTERRUPTED",
+    "supervisorCgroupAbsent": true,
+    "browserUnitsAbsent": true,
+    "trackedProductChangesAtHandoff": false,
+    "productionMiniAppSha256Unchanged": "30f347322ad3cead9233eb15af927c500cac036cf0ccb6c4d4ee50d539e90e58",
+    "health": {
+      "relay-fastapi": "active",
+      "exchange-bot": "active",
+      "nginx": "active"
+    },
+    "unfinishedArtifacts": {
+      "scripts/run_e4_review_browser.py": "10fac4e8de45fbef2423fceb91cc81e419c5ab15ce47335fe05b46880f1ad28a",
+      "tests/e4_review_browser.cjs": "e844de9d2a94e79473f6034a100fa9b2c1a9923b1ceac1c4ec3283579a3f84c6",
+      "output/playwright/e4-review-opening-baseline/isolation.json": "3c618985c063430ed9e7c2ad13a0ffaa859247849992128c96bc6b96be6baf1d"
+    },
+    "interpretation": "Preserved interrupted drafts; sandbox startup discovery is not a completed browser/usability gate."
+  },
+  "rollout": {
+    "method": "Stop/check prior run; reviewed bytes installed via root-owned preimage and daemon-reload; separately reconcile and arm initial E4 only after clean commit",
+    "rollbackPreimage": "/var/lib/obsidian-roadmap-autopilot/install-preimage.ucx2Fn",
+    "rollback": "Stop/check active worker, restore package and unit from preimage, daemon-reload; never replay an interrupted action automatically"
+  },
+  "nextCanonicalItem": "E4 / USABILITY_TEST_MONEY_PATHS / finish preserved isolated-browser review implementation and validate opening scroll/focus"
+}
