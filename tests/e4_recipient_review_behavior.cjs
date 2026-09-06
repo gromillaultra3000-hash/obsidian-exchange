@@ -66,6 +66,9 @@ function harness() {
             return ['exchange-review-ack', 'exchange-review-cancel', 'exchange-review-confirm']
                 .map(id => elements.get(id)).filter(element => !element.disabled);
         }
+        querySelector(selector) {
+            return selector === '.exchange-review-surface' ? this : null;
+        }
     }
 
     const ids = [

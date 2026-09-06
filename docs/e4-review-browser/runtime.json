@@ -1,0 +1,18 @@
+{
+  "recordedAt": "2026-09-06T05:05:32.073839+00:00",
+  "target": "/opt/obsidian-exchange/relay/webapp.html",
+  "deployedSha256": "dfab2b2dab9b4af57592c2dc39d60e0a63c7ecf310c0251fc47de14fd1f71a6a",
+  "previousSha256": "30f347322ad3cead9233eb15af927c500cac036cf0ccb6c4d4ee50d539e90e58",
+  "rollbackPreimage": "/var/lib/obsidian-exchange/deployment-preimages/e4-review-browser-20260906-5njfybyx/webapp.html",
+  "method": "root-owned preimage; fsync and hash-bound atomic rename; no restart",
+  "publicGet": 200,
+  "publicMatchesDeployedTemplate": true,
+  "publicBodySha256": "955744303a0ae7cb7950e009b5f082a06eaf79e01f17d7a2ec190958b5eb3238",
+  "publicPost": 405,
+  "services": {
+    "relay-fastapi.service": "active",
+    "exchange-bot.service": "active",
+    "nginx.service": "active"
+  },
+  "status": "VERIFIED"
+}

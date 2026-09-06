@@ -1,0 +1,100 @@
+{
+  "schemaVersion": "e4-review-browser-acceptance.v1",
+  "reviewedAt": "2026-09-06",
+  "reviewer": {
+    "identity": "/root/acceptance",
+    "role": "independent context-aware acceptance reviewer",
+    "modelVersion": "not exposed to reviewer",
+    "productAuthor": false
+  },
+  "activeRoute": "E4 / USABILITY_TEST_MONEY_PATHS / isolated exchange-review browser validation",
+  "verdict": "PASS",
+  "scope": "Existing Mini App buy and sell review opening, keyboard containment, recipient rendering, acknowledgement, expiry and blocked synthetic submission at 320, 390 and 1280 pixel viewport widths.",
+  "canonicalContext": [
+    "AGENTS.md",
+    "docs/MEGA_PROMPT.md",
+    "PROJECT_MEMORY.md compact current status",
+    "docs/CURRENT_ROUTE.md current E4 route and relevant completed UX slices",
+    "docs/ecosystem-master-roadmap.md E4 gate"
+  ],
+  "inputSha256": {
+    "relay/webapp.html": "dfab2b2dab9b4af57592c2dc39d60e0a63c7ecf310c0251fc47de14fd1f71a6a",
+    "tests/e4_review_browser.cjs": "ffc1d16feba280be5ea13b3469432ef61d58313da68aff0255b7161b2c70686c",
+    "tests/e4_recipient_review_behavior.cjs": "bde047e6c9f4ac184cf62afd3a857049e7e970e856fb056f84cd3a5ed58e36ef",
+    "docs/e4-review-browser/report.json": "26620b10b5cf08e0492d4b767f99f908a395378c231626d3cfde9a3d4457263c",
+    "docs/e4-review-browser/isolation.json": "7790c46732d86cd7745846dab3c86d34bafcc1a933dc3b8262152c266bd0ef12",
+    "docs/e4-review-browser/baseline-report.json": "db0ef06f51f4541d74421d92e12e6640fae101b05babf22749495a45d3b60a0a"
+  },
+  "independentChecks": [
+    {
+      "kind": "pytest",
+      "command": "/opt/lumi/venv/bin/python -m pytest -q tests/test_e4_exchange_review_ui.py tests/test_e4_recipient_review_behavior.py tests/test_e4_miniapp_browser_shell.py",
+      "toolVersion": "pytest 8.3.4",
+      "result": "PASS",
+      "passed": 44,
+      "durationSeconds": 5.81
+    },
+    {
+      "kind": "direct existing Node behavior harness",
+      "toolVersion": "Node v22.23.2",
+      "result": "PASS",
+      "passed": 13,
+      "cases": "Seven acknowledgement boundaries, four buy snapshot/tag modes, two normalized sell snapshots; overlap with the 44 pytest cases, not additional unique coverage."
+    },
+    {
+      "kind": "product diff and browser evidence inspection",
+      "result": "PASS",
+      "observedBrowserVersion": "152.0.7977.64",
+      "observedPlaywrightVersion": "1.62.0",
+      "browserExecutedBy": "root implementer; reviewer inspected code, hashes, report and isolation evidence",
+      "groupedBrowserChecks": 33,
+      "openingObservations": 15,
+      "syntheticPostAttemptsReturned409": 9,
+      "pageErrors": 0,
+      "visualInspection": [
+        "320-buy.png: initial title, route, custody and fees visible; long recipient wraps",
+        "320-sell-card.png: initial title, route, custody, payout and synthetic card recipient visible"
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "E4-ACCEPTANCE-INITIAL-SCROLL",
+      "disposition": "FIXED",
+      "observation": "Baseline acknowledgement focus scrolled the 320-pixel review to scrollTop 437 and hid its heading.",
+      "resolution": "Review resets its scroll surface and focuses the accessible heading with preventScroll. All 15 final opening observations report scrollTop 0, visible heading and no horizontal overflow."
+    },
+    {
+      "id": "E4-ACCEPTANCE-INITIAL-KEYBOARD-FOCUS",
+      "disposition": "FIXED",
+      "observation": "Moving initial focus to a non-tabbable heading requires handling Tab and Shift+Tab from that heading, in addition to wrapping first/last controls.",
+      "resolution": "The updated handler explicitly contains focus from a noninteractive initial target; real browser checks also cover disabled/enabled confirmation, Escape and cancel focus restoration."
+    },
+    {
+      "id": "E4-ACCEPTANCE-TEST-TEXT-CASE",
+      "disposition": "FIXED",
+      "observation": "The first expanded browser run used case-sensitive innerText assertions despite CSS uppercase label rendering.",
+      "resolution": "The final runner checks source textContent for literal content and separately verifies visibility/geometry in the browser. The final report passes against the exact reviewed product and runner hashes."
+    },
+    {
+      "id": "E4-ACCEPTANCE-UNAVAILABLE-PYTEST-PATHS",
+      "disposition": "RESOLVED",
+      "observation": "Reviewer attempts with /root/venv/bin/python and python3 could not import pytest.",
+      "resolution": "The installed /opt/lumi/venv/bin/python environment ran all 44 focused cases successfully; no installation or dependency change was needed."
+    }
+  ],
+  "blockingFindings": [],
+  "limits": [
+    "This review accepts the bounded exchange browser slice, not full E4 gate completion or human comprehension.",
+    "No real Telegram-device, screen-reader or native-wallet-signing acceptance is claimed.",
+    "All browser data and intercepted submissions are synthetic; no real API, customer dataset, credential, wallet signature or money movement was used.",
+    "Production rollout was not yet performed at review time and must be verified separately.",
+    "Earlier canonical blockers and frozen 064A authority remain unchanged."
+  ],
+  "nextCanonicalItem": {
+    "route": "E4 / explicit action review / wallet action-specific wording and network-fee disclosure",
+    "evidence": "walletTransfer and walletPay reuse a modal whose description says an order has not been created and whose confirmation says create, although they hand off a signature or pay an existing order. Their review rows omit network-fee disclosure required by the E4 gate.",
+    "boundedAcceptance": "Use action-specific description and confirmation wording, disclose fees without inventing an estimate, and validate the existing signature handoff using keyless synthetic fixtures and blocked signing/writers.",
+    "reasonNotRepeatedVertical": "This addresses observed semantics and fee gaps in existing wallet actions; it does not repeat the accepted exchange-recipient/browser or visible-portfolio slices."
+  }
+}

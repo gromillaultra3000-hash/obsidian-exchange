@@ -5,8 +5,8 @@ Updated: 2026-09-06 UTC
 ## Current goal and status
 
 - 2026-09-06 owner explicitly enabled autonomous transitions across **E0–E5**,
-  replacing the E4-only runner restriction. Finish the interrupted E4 browser
-  slice first; subsequent stages require committed transition evidence bound
+  replacing the E4-only runner restriction. The initial E4 browser slice is
+  completed below; subsequent stages require committed transition evidence bound
   to the master roadmap and assessments of all six gates. Forward acceptance
   requires earlier gates VERIFIED. A named early blocker permits separately
   labelled KEYLESS_NONPRODUCTION preparation; that scope persists across
@@ -18,26 +18,25 @@ Updated: 2026-09-06 UTC
   Canonical decision: `docs/ecosystem-master-roadmap.md`; implementation
   evidence: `docs/autonomous-roadmap-transitions-rollout.v1.json`.
 
-- 2026-09-06 04:47 autonomous run was intentionally stopped at 04:50:53 UTC
-  for this owner-requested expansion. No tracked product changes/commits or
-  production Mini App change occurred; supervisor cgroup and browser units
-  are absent. Supported sandboxed non-root Chrome/private-network startup was
-  found, superseding the previous availability blocker. Preserve and finish
-  untracked `scripts/run_e4_review_browser.py`, `tests/e4_review_browser.cjs`,
-  and `output/playwright/e4-review-opening-baseline/isolation.json`; these are
-  interrupted drafts, not verified usability evidence. Exactly next remains
-  E4 no-money mobile review validation, including initial scroll/focus.
-
-- 2026-09-06 current execution route is **E4 / explicit action review /
-  no-money browser usability** under the owner's 2026-08-26 reprioritization,
-  reaffirmed by the request to continue during SSH loss. `0ce81c4` completes
-  the interrupted recipient review: full buy address/memo and normalized sell
-  recipient details, captured confirmation values, uppercase/long Bech32 and
-  embedded XRP/TON metadata shape compatibility. 64 focused tests and two
-  independent reviews pass; public Mini App GET 200 / POST 405, Relay/bot/Nginx
-  active, deployed SHA-256 `30f34732...`. Rollback and evidence:
-  `docs/e4-recipient-review-rollout.v1.json`. E4 remains `IN_PROGRESS`.
-  Exactly next: finish the supported isolated-browser no-money review as above.
+- 2026-09-06 active route **E4 / USABILITY_TEST_MONEY_PATHS**: completed the
+  interrupted synthetic browser slice. Mobile baseline opened 437px down with
+  conditions hidden; product code now resets scroll and focuses the heading,
+  with forward/reverse keyboard containment. 54 focused tests and 33 browser
+  checks pass at 320/390/1280px; nine synthetic writer attempts were blocked,
+  no customer data/signatures/money used. Chrome remains sandboxed as nobody
+  in a private network; harness now verifies stopped unit/empty cgroup and
+  retains files on uncertain cleanup. Evidence/reviews/runtime outcome:
+  `docs/e4-review-browser/` and `docs/e4-review-browser-rollout.v1.json`.
+  Both independent reviews pass. Exact HTML deployed as `dfab2b2d...`; public
+  GET200/POST405/template match and Relay/bot/Nginx health pass. Retained
+  root-owned rollback preimage; no restart. Staged Gitleaks scan passes.
+  The 04:47 drafts are superseded; all unrelated untracked files preserved.
+  E4 remains IN_PROGRESS; human and real Telegram/iOS/WebKit acceptance is
+  unverified. Exactly next: E4 / EXPLICIT_ACTION_REVIEW / wallet-specific
+  transfer/payment description, confirmation label and network-fee disclosure,
+  validated keylessly with signing blocked. Existing wallet reviews wrongly
+  reuse order-creation copy and omit explicit network-fee guidance. Same-stage
+  continuation preserves existing scope; 064A stays frozen.
 
 - 2026-09-06 SSH-independent supervisor installed for that E4 route:
   `obsidian-roadmap-autopilot.service`, serial Codex `--approve-for-me`, existing

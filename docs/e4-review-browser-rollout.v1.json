@@ -1,0 +1,102 @@
+{
+  "schemaVersion": "e4-review-browser-rollout.v1",
+  "recordedAt": "2026-09-06T05:05:57.044805+00:00",
+  "stage": "E4",
+  "gateCriterion": "USABILITY_TEST_MONEY_PATHS / explicit preconfirmation conditions and accidental-tap prevention",
+  "status": "IN_PROGRESS",
+  "sliceStatus": "VERIFIED",
+  "scope": "CURRENT_AUTHORIZED_SCOPE",
+  "accountableOwner": "project owner; executed by Codex /root under inherited supervisor writer lock",
+  "baselineCommit": "681ef445a9f45a816b885522c2622c23c261586d",
+  "surfaceMatrix": {
+    "miniApp": "REQUIRED: shared review focus/scroll; exchange buy/sell browser acceptance",
+    "publicSite": "READ_ONLY: public /webapp byte and method checks",
+    "telegramBot": "READ_ONLY: service health only; no messages",
+    "admin": "N/A: unchanged",
+    "walletSigning": "N/A: no SDK loaded or real wallet action; wallet wording deferred to next E4 item"
+  },
+  "trustAndMoneyImpact": {
+    "moneyWritersChanged": false,
+    "custodyChanged": false,
+    "credentialsChanged": false,
+    "realMoneyOrTrades": false,
+    "064ATouched": false
+  },
+  "capabilities": {
+    "implementation": "Codex /root",
+    "acceptanceReview": "/root/acceptance",
+    "diffSecurityReview": "/root/diff_security",
+    "skills": [
+      "playwright",
+      "security-best-practices"
+    ],
+    "browser": "existing playwright-core 1.62.0 and Chrome 152.0.7977.64, sandboxed nobody/private network",
+    "tools": [
+      "pytest 8.3.4",
+      "Node v22.23.2",
+      "systemd 255",
+      "Gitleaks 8.30.0"
+    ],
+    "pluginsOrResearch": "none needed; no external dependency added"
+  },
+  "tests": {
+    "focused": "54 passed",
+    "command": "/opt/lumi/venv/bin/python -m pytest -q tests/test_e4_review_browser_runner.py tests/test_e4_exchange_review_ui.py tests/test_e4_recipient_review_behavior.py tests/test_e4_responsive_navigation.py tests/test_e4_miniapp_browser_shell.py",
+    "browser": "33 grouped checks / 15 opening measurements; PASS",
+    "browserReport": "docs/e4-review-browser/report.json",
+    "isolation": "docs/e4-review-browser/isolation.json",
+    "inlineScripts": "2 scripts compile with Node vm.Script; no network",
+    "diffCheck": "PASS",
+    "stagedSecretScan": "Gitleaks 8.30.0 PASS on explicit staged product/tests/status/evidence; no allowlist added"
+  },
+  "negativeFindings": [
+    "Interrupted runner failed public-file/dependency-parent permissions under private umask; fixed explicit read/traverse modes.",
+    "Baseline Chrome reproduced scrollTop=437, heading hidden; fixed heading focus, scroll reset and keyboard containment.",
+    "Independent review found false cleanup acceptance on failed query, premature temporary deletion and post-run source hashing; fixed and fault-tested.",
+    "Expanded test initially mismatched CSS uppercase labels; corrected text assertions with separate visibility/geometry checks.",
+    "Simulated expiry runs rate refresh which resets form address; test now re-enters synthetic destination for fresh review. This existing form-refresh behavior is unchanged.",
+    "Final staged scan flagged the SHA-256 of the empty findings array beside the secret-scan.json manifest key as generic-api-key. Verified the value is a public artifact digest, renamed report to gitleaks-report.json and rescanned without an allowlist."
+  ],
+  "limits": [
+    "Automated Chrome viewport/keyboard checks only; no human comprehension, real Telegram, iOS/WebKit or physical touch acceptance.",
+    "All external scripts, wallet SDKs and non-allowlisted requests denied; screenshot missing decorative images/fonts reflects isolation.",
+    "E4 remains IN_PROGRESS; earlier mandatory gates including frozen E0.3/064A are not closed."
+  ],
+  "reviews": {
+    "acceptance": "docs/e4-review-browser/acceptance-review.json",
+    "independentDiffSecurity": "docs/e4-review-browser/security-review.json",
+    "acceptanceResult": "PASS",
+    "independentDiffSecurityResult": "PASS",
+    "outputSha256": {
+      "docs/e4-review-browser/acceptance-review.json": "19fe21904481c1808fd617da9ff8c40ebb7b5fda295302b12b53c9802942850e",
+      "docs/e4-review-browser/security-review.json": "1a332e53f7c08ce919fa08c65808e272ca2afc56f40aa32589aeaa1cb83ef33b"
+    }
+  },
+  "rollout": {
+    "status": "VERIFIED",
+    "target": "/opt/obsidian-exchange/relay/webapp.html",
+    "method": "root-owned preimage; fsync and hash-bound atomic rename; no restart",
+    "rollback": "Atomic restore of retained exact preimage and repeat public/runtime verification; stop on unknown outcome",
+    "recordedAt": "2026-09-06T05:05:32.073839+00:00",
+    "deployedSha256": "dfab2b2dab9b4af57592c2dc39d60e0a63c7ecf310c0251fc47de14fd1f71a6a",
+    "previousSha256": "30f347322ad3cead9233eb15af927c500cac036cf0ccb6c4d4ee50d539e90e58",
+    "rollbackPreimage": "/var/lib/obsidian-exchange/deployment-preimages/e4-review-browser-20260906-5njfybyx/webapp.html",
+    "publicGet": 200,
+    "publicMatchesDeployedTemplate": true,
+    "publicBodySha256": "955744303a0ae7cb7950e009b5f082a06eaf79e01f17d7a2ec190958b5eb3238",
+    "publicPost": 405,
+    "services": {
+      "relay-fastapi.service": "active",
+      "exchange-bot.service": "active",
+      "nginx.service": "active"
+    },
+    "preflight": "PASS: deployed previous hash and rendered public template matched before mutation",
+    "rollbackPreimageSha256": "30f347322ad3cead9233eb15af927c500cac036cf0ccb6c4d4ee50d539e90e58",
+    "rollbackExecuted": false
+  },
+  "dataRetention": "Checked-in evidence contains only public code metadata and invented synthetic fixtures; project owner retains it as engineering evidence. Disposable profiles/results are removed after verified unit/cgroup cleanup.",
+  "blocker": "",
+  "nextCanonicalItem": "E4 / EXPLICIT_ACTION_REVIEW / wallet transfer/payment-specific description, confirmation label and network-fee disclosure with keyless blocked-signing browser validation",
+  "transitionEvidence": "",
+  "productionStatus": "VERIFIED: exact reviewed HTML deployed, public GET200 / POST405, rendered template matches, Relay/bot/Nginx active; no restart"
+}

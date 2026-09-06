@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "e4-review-browser.v1",
+  "sourceSha256": "30f347322ad3cead9233eb15af927c500cac036cf0ccb6c4d4ee50d539e90e58",
+  "checks": [],
+  "writerAttempts": [],
+  "blockedRequests": [
+    "https://fonts.googleapis.com/css2",
+    "https://e4.invalid/static/img/v5/gem.png",
+    "https://e4.invalid/static/img/v5/btc.png",
+    "https://e4.invalid/static/img/v5/ltc.png",
+    "https://e4.invalid/static/img/v5/usdt.png",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://e4.invalid/static/js/chart-4.4.7.umd.min.js",
+    "https://e4.invalid/static/js/tonconnect-ui-3.0.0.min.js",
+    "https://e4.invalid/api/market/history",
+    "https://e4.invalid/api/system-status",
+    "https://e4.invalid/api/reserves",
+    "https://e4.invalid/api/system-status",
+    "https://e4.invalid/api/wallet/portfolio",
+    "https://e4.invalid/api/history",
+    "https://e4.invalid/api/history"
+  ],
+  "pageErrors": [],
+  "browserVersion": "152.0.7977.64",
+  "opening": {
+    "scrollTop": 437,
+    "focused": "exchange-review-ack",
+    "titleVisible": false,
+    "clientWidth": 278,
+    "scrollWidth": 278
+  },
+  "result": "FAIL",
+  "failure": "review must open at its conditions, not at acknowledgement\n\n437 !== 0\n"
+}

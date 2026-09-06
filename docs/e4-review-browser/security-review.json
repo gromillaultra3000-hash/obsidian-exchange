@@ -1,0 +1,117 @@
+{
+  "schemaVersion": "e4-review-browser-security-review.v1",
+  "reviewedAt": "2026-09-06T05:04:22Z",
+  "reviewer": {
+    "identity": "Codex independent diff/security agent /root/diff_security",
+    "independentOfImplementation": true,
+    "modelBuild": "Not exposed by the runtime; no exact model build claimed",
+    "skill": "/root/.codex/skills/security-best-practices/SKILL.md"
+  },
+  "route": "E4 / explicit action review / no-money browser usability",
+  "scope": [
+    "Review-dialog initial scroll, heading focus and keyboard containment diff",
+    "Synthetic browser request isolation and acknowledgement/expiry checks",
+    "Disposable systemd browser cleanup, retained failure state and staged-input evidence binding",
+    "Final browser report, isolation receipt and selected 320-pixel screenshots"
+  ],
+  "inputsSha256": {
+    "relay/webapp.html": "dfab2b2dab9b4af57592c2dc39d60e0a63c7ecf310c0251fc47de14fd1f71a6a",
+    "scripts/run_e4_review_browser.py": "6f4c9bf3020ae80b323655333a1eb3697eca4d44672ef6d28c679749136c412b",
+    "tests/e4_review_browser.cjs": "ffc1d16feba280be5ea13b3469432ef61d58313da68aff0255b7161b2c70686c",
+    "tests/test_e4_review_browser_runner.py": "10e63f75d216cd5a11a4c6c883db7d15a134d00088a3f6a41b8deb80b375a98b",
+    "tests/e4_recipient_review_behavior.cjs": "bde047e6c9f4ac184cf62afd3a857049e7e970e856fb056f84cd3a5ed58e36ef",
+    "docs/e4-review-browser/report.json": "26620b10b5cf08e0492d4b767f99f908a395378c231626d3cfde9a3d4457263c",
+    "docs/e4-review-browser/isolation.json": "7790c46732d86cd7745846dab3c86d34bafcc1a933dc3b8262152c266bd0ef12",
+    "docs/e4-review-browser/baseline-report.json": "db0ef06f51f4541d74421d92e12e6640fae101b05babf22749495a45d3b60a0a",
+    "docs/e4-review-browser/320-buy.png": "a1e2dec215097a344fac0d71d1665e64aba232193b0f8bf978b071954ac70c93",
+    "docs/e4-review-browser/320-sell-card.png": "d3adf79b458b85b42db1e9a9623cdcbc698b89c1cd9a77ecd0444f20adf9865d"
+  },
+  "tools": {
+    "python": "3.12.3",
+    "pytest": "8.3.4 via /opt/lumi/venv/bin/python",
+    "node": "v22.23.2",
+    "git": "2.43.0",
+    "systemd": "255 (255.4-1ubuntu8.17)",
+    "playwrightCore": "1.62.0, installed version and supplied browser report",
+    "chrome": "152.0.7977.64, supplied browser report; reviewer did not launch a second browser"
+  },
+  "independentVerification": [
+    {
+      "check": "Focused cleanup, static UI and executable recipient/review tests",
+      "command": "PYTHONDONTWRITEBYTECODE=1 /opt/lumi/venv/bin/python -m pytest -q -p no:cacheprovider tests/test_e4_review_browser_runner.py tests/test_e4_exchange_review_ui.py tests/test_e4_recipient_review_behavior.py",
+      "result": "PASS",
+      "passed": 51,
+      "failed": 0
+    },
+    {
+      "check": "Six additional mocked cleanup probes: failed query, empty success, active main process, collected unit, detached child and empty hierarchy",
+      "result": "PASS",
+      "passed": 6,
+      "liveServicesStarted": false
+    },
+    {
+      "check": "node --check tests/e4_review_browser.cjs and git diff --check on the product/test-stub diff",
+      "result": "PASS"
+    },
+    {
+      "check": "Final report and isolation hashes match the actual reviewed HTML and JavaScript runner; counts, opening geometry and synthetic writer paths are consistent",
+      "result": "PASS"
+    },
+    {
+      "check": "Read-only host observation of the exact completed browser unit and cgroup",
+      "unit": "e4-review-browser-bc3e243b5b2b4aa580319fe0930a13a9.service",
+      "result": "PASS",
+      "LoadState": "not-found",
+      "ActiveState": "inactive",
+      "MainPID": "0",
+      "cgroupAbsent": true
+    }
+  ],
+  "browserEvidenceReviewed": {
+    "execution": "Performed by the supervisor; independently inspected and hash-validated by this reviewer",
+    "result": "PASS",
+    "groupedChecks": 33,
+    "reviewOpenings": 15,
+    "viewportSizes": [[320, 568], [390, 844], [1280, 800]],
+    "allOpenings": "Visible dialog, scrollTop zero, heading visible/focused, no horizontal overflow, acknowledgement clear and confirmation disabled",
+    "syntheticPostAttempts": 9,
+    "postDisposition": "All fulfilled locally with HTTP 409; three buy and six sell attempts, only after explicit acknowledgement",
+    "pageErrors": 0,
+    "isolation": "Non-root nobody, Chromium sandbox enabled, PrivateNetwork, ProtectHome, blocked service workers, only public HTML and synthetic fixtures; every unmatched browser request denied",
+    "cleanup": "Positive collected/inactive/MainPID-zero observation and absent cgroup; independently rechecked on host"
+  },
+  "resolvedFindings": [
+    {
+      "id": "E4-BROWSER-SEC-001",
+      "originalPriority": "P1",
+      "issue": "Interrupted draft treated empty or failed systemctl queries as successful cleanup",
+      "disposition": "RESOLVED",
+      "evidence": "stop_and_verify requires successful explicit service fields and checks every remaining cgroup.procs; fault tests reject unknown state and detached children"
+    },
+    {
+      "id": "E4-BROWSER-SEC-002",
+      "originalPriority": "P2",
+      "issue": "TemporaryDirectory removed disposable files even when cleanup was unverified",
+      "disposition": "RESOLVED",
+      "evidence": "Explicit stage lifetime retains files unless launch never occurred or cleanup was positively verified; retention regression passes"
+    },
+    {
+      "id": "E4-BROWSER-SEC-003",
+      "originalPriority": "P2",
+      "issue": "Isolation hash identified the original source after execution instead of the bytes actually staged",
+      "disposition": "RESOLVED",
+      "evidence": "HTML and runner hashes are captured from staged inputs before launch and checked against the browser report"
+    }
+  ],
+  "openFindings": [],
+  "result": "PASS",
+  "conclusion": "No remaining P0/P1/P2 finding in the bounded candidate. The focus change preserves escaped review text, captured submission values, expiry and acknowledgement guards. Final runner corrections account for CSS text casing and re-enter the synthetic form recipient after the existing rates refresh without bypassing review checks.",
+  "limits": [
+    "This is a bounded diff and browser-evidence review, not a whole-application security audit or closure of the E4 gate.",
+    "Chrome viewport and keyboard automation do not establish human comprehension, real Telegram integration, screen-reader behavior, touch behavior or iOS/WebKit compatibility.",
+    "The browser uses synthetic API responses and blocked external assets/SDKs; it does not establish live order execution, settlement, wallet signing or production API correctness.",
+    "The historical baseline report corroborates the original scrolled-checkbox opening but lacks a runner hash; it is not claimed as a rerun of the exact final browser suite.",
+    "The reviewer did not independently rerun the live browser. Final code, supplied run evidence, selected screenshots and current exact-unit cleanup were independently checked.",
+    "No production rollout, frozen 064A operation, credential/customer-data access or supervisor modification was performed by this reviewer. Only this requested review artifact was written."
+  ]
+}

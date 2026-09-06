@@ -1,0 +1,392 @@
+{
+  "schemaVersion": "e4-review-browser.v1",
+  "sourceSha256": "dfab2b2dab9b4af57592c2dc39d60e0a63c7ecf310c0251fc47de14fd1f71a6a",
+  "runnerSha256": "ffc1d16feba280be5ea13b3469432ef61d58313da68aff0255b7161b2c70686c",
+  "playwrightVersion": "1.62.0",
+  "checks": [
+    "320: buy opens at conditions without overflow",
+    "320: reopen opens at conditions without overflow",
+    "320: keyboard containment, Enter inert, Escape/cancel restore focus",
+    "320: after-expiry opens at conditions without overflow",
+    "320: expiry blocks confirmation and reopening resets acknowledgement",
+    "320: acknowledged buy reaches only blocked synthetic writer",
+    "320: memo spaces/markup remain literal text",
+    "320: sell-sbp opens at conditions without overflow",
+    "320: sbp recipient review/cancel and one blocked confirmed writer",
+    "320: sell-card opens at conditions without overflow",
+    "320: card recipient review/cancel and one blocked confirmed writer",
+    "390: buy opens at conditions without overflow",
+    "390: reopen opens at conditions without overflow",
+    "390: keyboard containment, Enter inert, Escape/cancel restore focus",
+    "390: after-expiry opens at conditions without overflow",
+    "390: expiry blocks confirmation and reopening resets acknowledgement",
+    "390: acknowledged buy reaches only blocked synthetic writer",
+    "390: memo spaces/markup remain literal text",
+    "390: sell-sbp opens at conditions without overflow",
+    "390: sbp recipient review/cancel and one blocked confirmed writer",
+    "390: sell-card opens at conditions without overflow",
+    "390: card recipient review/cancel and one blocked confirmed writer",
+    "1280: buy opens at conditions without overflow",
+    "1280: reopen opens at conditions without overflow",
+    "1280: keyboard containment, Enter inert, Escape/cancel restore focus",
+    "1280: after-expiry opens at conditions without overflow",
+    "1280: expiry blocks confirmation and reopening resets acknowledgement",
+    "1280: acknowledged buy reaches only blocked synthetic writer",
+    "1280: memo spaces/markup remain literal text",
+    "1280: sell-sbp opens at conditions without overflow",
+    "1280: sbp recipient review/cancel and one blocked confirmed writer",
+    "1280: sell-card opens at conditions without overflow",
+    "1280: card recipient review/cancel and one blocked confirmed writer"
+  ],
+  "openings": [
+    {
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "label": "buy",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 278,
+      "scrollWidth": 278
+    },
+    {
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "label": "reopen",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 278,
+      "scrollWidth": 278
+    },
+    {
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "label": "after-expiry",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 278,
+      "scrollWidth": 278
+    },
+    {
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "label": "sell-sbp",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 278,
+      "scrollWidth": 278
+    },
+    {
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "label": "sell-card",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 278,
+      "scrollWidth": 278
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "label": "buy",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 348,
+      "scrollWidth": 348
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "label": "reopen",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 348,
+      "scrollWidth": 348
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "label": "after-expiry",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 348,
+      "scrollWidth": 348
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "label": "sell-sbp",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 348,
+      "scrollWidth": 348
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "label": "sell-card",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 348,
+      "scrollWidth": 348
+    },
+    {
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "label": "buy",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 518,
+      "scrollWidth": 518
+    },
+    {
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "label": "reopen",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 518,
+      "scrollWidth": 518
+    },
+    {
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "label": "after-expiry",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 518,
+      "scrollWidth": 518
+    },
+    {
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "label": "sell-sbp",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 518,
+      "scrollWidth": 518
+    },
+    {
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "label": "sell-card",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 518,
+      "scrollWidth": 518
+    }
+  ],
+  "writerAttempts": [
+    {
+      "path": "/api/create_order",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 12500,
+        "address": "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+        "network": "MAINNET",
+        "pay_method": "sbp",
+        "dest_tag": "",
+        "no_tag": false
+      }
+    },
+    {
+      "path": "/api/sell/create",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 0.01,
+        "phone": "70000000000",
+        "method": "sbp",
+        "bank": "test-bank",
+        "full_name": "Тестовый Получатель"
+      }
+    },
+    {
+      "path": "/api/sell/create",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 0.01,
+        "phone": "4111111111111111",
+        "method": "card",
+        "bank": "test-bank",
+        "full_name": "Тестовый Получатель"
+      }
+    },
+    {
+      "path": "/api/create_order",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 12500,
+        "address": "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+        "network": "MAINNET",
+        "pay_method": "sbp",
+        "dest_tag": "",
+        "no_tag": false
+      }
+    },
+    {
+      "path": "/api/sell/create",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 0.01,
+        "phone": "70000000000",
+        "method": "sbp",
+        "bank": "test-bank",
+        "full_name": "Тестовый Получатель"
+      }
+    },
+    {
+      "path": "/api/sell/create",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 0.01,
+        "phone": "4111111111111111",
+        "method": "card",
+        "bank": "test-bank",
+        "full_name": "Тестовый Получатель"
+      }
+    },
+    {
+      "path": "/api/create_order",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 12500,
+        "address": "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+        "network": "MAINNET",
+        "pay_method": "sbp",
+        "dest_tag": "",
+        "no_tag": false
+      }
+    },
+    {
+      "path": "/api/sell/create",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 0.01,
+        "phone": "70000000000",
+        "method": "sbp",
+        "bank": "test-bank",
+        "full_name": "Тестовый Получатель"
+      }
+    },
+    {
+      "path": "/api/sell/create",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 0.01,
+        "phone": "4111111111111111",
+        "method": "card",
+        "bank": "test-bank",
+        "full_name": "Тестовый Получатель"
+      }
+    }
+  ],
+  "blockedRequests": [
+    "https://fonts.googleapis.com/css2",
+    "https://e4.invalid/static/img/v5/gem.png",
+    "https://e4.invalid/static/img/v5/btc.png",
+    "https://e4.invalid/static/img/v5/ltc.png",
+    "https://e4.invalid/static/img/v5/usdt.png",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://e4.invalid/static/js/chart-4.4.7.umd.min.js",
+    "https://e4.invalid/static/js/tonconnect-ui-3.0.0.min.js",
+    "https://e4.invalid/api/market/history",
+    "https://e4.invalid/api/system-status",
+    "https://e4.invalid/api/reserves",
+    "https://e4.invalid/api/system-status",
+    "https://e4.invalid/api/wallet/portfolio",
+    "https://e4.invalid/api/history",
+    "https://e4.invalid/api/history",
+    "https://e4.invalid/api/system-status",
+    "https://e4.invalid/api/reserves",
+    "https://fonts.googleapis.com/css2",
+    "https://e4.invalid/static/img/v5/gem.png",
+    "https://e4.invalid/static/img/v5/btc.png",
+    "https://e4.invalid/static/img/v5/ltc.png",
+    "https://e4.invalid/static/img/v5/usdt.png",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://e4.invalid/static/js/chart-4.4.7.umd.min.js",
+    "https://e4.invalid/static/js/tonconnect-ui-3.0.0.min.js",
+    "https://e4.invalid/api/market/history",
+    "https://e4.invalid/api/system-status",
+    "https://e4.invalid/api/reserves",
+    "https://e4.invalid/api/system-status",
+    "https://e4.invalid/api/wallet/portfolio",
+    "https://e4.invalid/api/history",
+    "https://e4.invalid/api/history",
+    "https://e4.invalid/api/system-status",
+    "https://e4.invalid/api/reserves",
+    "https://fonts.googleapis.com/css2",
+    "https://e4.invalid/static/img/v5/gem.png",
+    "https://e4.invalid/static/img/v5/btc.png",
+    "https://e4.invalid/static/img/v5/ltc.png",
+    "https://e4.invalid/static/img/v5/usdt.png",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://e4.invalid/static/js/chart-4.4.7.umd.min.js",
+    "https://e4.invalid/static/js/tonconnect-ui-3.0.0.min.js",
+    "https://e4.invalid/api/market/history",
+    "https://e4.invalid/api/system-status",
+    "https://e4.invalid/api/reserves",
+    "https://e4.invalid/api/system-status",
+    "https://e4.invalid/api/wallet/portfolio",
+    "https://e4.invalid/api/history",
+    "https://e4.invalid/api/history",
+    "https://e4.invalid/api/system-status",
+    "https://e4.invalid/api/reserves"
+  ],
+  "pageErrors": [],
+  "browserVersion": "152.0.7977.64",
+  "result": "PASS"
+}

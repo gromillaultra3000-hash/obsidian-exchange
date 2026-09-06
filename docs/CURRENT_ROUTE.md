@@ -14,8 +14,8 @@ non-custodial wallet whose keys never reach the server.
 `E4 / explicit action review / no-money browser usability`
 
 Owner decision 2026-09-06: automatic continuation now covers E0–E5, replacing
-the former E4-only supervisor restriction. Finish the already-started E4
-browser slice first, then select the next canonical prerequisite using
+the former E4-only supervisor restriction. The initial E4 browser slice is
+completed below; subsequent canonical prerequisites are selected using
 `docs/autonomous-roadmap-transitions.md` and the matching decision in the
 master roadmap. Actual forward acceptance requires earlier gates VERIFIED;
 named early blockers permit separately labelled KEYLESS_NONPRODUCTION
@@ -23,29 +23,30 @@ preparation, never a false gate closure or live authority. The supervisor binds
 the next stage and carries its scope across iterations. Limits remain eight
 iterations/twelve hours; 064A stays frozen.
 
-Current execution checkpoint (2026-09-06): the owner reaffirmed autonomous
-code-first continuation during SSH disconnection. Commit `0ce81c4` completes
-the interrupted recipient review: full buy address/memo and normalized sell
-recipient details are shown before acknowledgement; the existing submitted
-snapshot remains unchanged. Related executable/static tests pass 64/64, two
-independent reviews pass, and the public Mini App rollout returned GET 200,
-POST 405 with Relay, bot and Nginx active. Evidence:
-`docs/e4-recipient-review-rollout.v1.json`.
+Current execution checkpoint (2026-09-06): the interrupted no-money browser
+slice is verified and deployed. Real sandboxed Chrome reproduced a 437px opening
+scroll with the review heading hidden at 320px. The Mini App now resets the
+review scroll, focuses its heading and contains both Tab directions from that
+initial focus. Synthetic buy/sell/SBP/card review checks cover 320/390/1280px,
+acknowledgement, cancellation, Escape/focus restoration, expiry, full recipient
+wrapping and literal memo text. All nine attempted synthetic submissions are
+intercepted; no real money, wallet signing or customer data was used. Evidence:
+`docs/e4-review-browser/report.json` and
+`docs/e4-review-browser-rollout.v1.json`. The exact reviewed HTML is deployed
+with a retained rollback preimage; public GET 200 / POST 405 and template-byte
+checks pass, and Relay, bot and Nginx are active. Both independent reviews pass.
+Earlier 04:47 drafts and browser-availability assumptions are superseded by
+this accepted browser evidence. E4 remains `IN_PROGRESS`: these are automated
+Chrome checks, not human usability or real Telegram/iOS/WebKit acceptance.
 
-Exactly next: `E4 / USABILITY_TEST_MONEY_PATHS / complete isolated-browser
-review validation using synthetic data with all writers blocked`.
-The autonomous 04:47 UTC iteration found a supported non-root installed Chrome
-with sandbox enabled and a private network namespace; the earlier browser
-availability assumption is superseded. It created untracked
-`scripts/run_e4_review_browser.py`, `tests/e4_review_browser.cjs` and a baseline
-isolation artifact under `output/playwright/`. They remain interrupted drafts,
-not accepted browser evidence. The supervisor was deliberately stopped at
-04:50:53 UTC to apply the owner's scope change; no tracked source, commit or
-production Mini App bytes changed during that run. No browser units or old
-supervisor cgroup remained. Inspect and finish these drafts without losing
-them; check whether opening a mobile review focuses/scrolls past its conditions.
-E4 remains `IN_PROGRESS`. Handoff/reconciliation evidence:
-`docs/autonomous-roadmap-transitions-rollout.v1.json`.
+Exactly next: `E4 / EXPLICIT_ACTION_REVIEW / wallet transfer/payment-specific description, confirmation label and network-fee disclosure with keyless blocked-signing browser validation`.
+The shared modal currently says an order is not yet created and uses a create
+label even for an existing-order payment or wallet signature handoff; those
+two wallet reviews also omit explicit network-fee guidance. This is a remaining
+E4 gate defect, not a repeat of the completed portfolio/exchange vertical.
+No stage transition occurred; CURRENT_AUTHORIZED_SCOPE persists. No new
+credential, real wallet connection, signature, money/trade or 064A authority
+is granted by this next item.
 
 SSH-independent execution is an operational prerequisite for this same route,
 documented in `docs/ssh-independent-work.md` and

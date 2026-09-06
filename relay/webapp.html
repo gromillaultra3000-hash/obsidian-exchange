@@ -574,7 +574,7 @@
         <div id="exchange-review" role="dialog" aria-modal="true" aria-labelledby="exchange-review-title" aria-describedby="exchange-review-description" tabindex="-1"
              style="display:none;position:fixed;inset:0;z-index:1000;padding:20px;background:rgba(3,1,8,.82);align-items:flex-end;justify-content:center">
           <div class="exchange-review-surface" style="width:min(520px,100%);max-height:86vh;overflow:auto;padding:18px;border-radius:22px;background:#140a22;border:1px solid rgba(196,140,255,.45);box-shadow:0 18px 60px rgba(0,0,0,.5)">
-            <div id="exchange-review-title" style="font-size:20px;font-weight:800">Проверьте условия</div>
+            <div id="exchange-review-title" role="heading" aria-level="2" tabindex="-1" style="font-size:20px;font-weight:800">Проверьте условия</div>
             <div id="exchange-review-description" style="font-size:12px;color:var(--muted);margin:5px 0 14px;line-height:1.5">Заявка ещё не создана. Ничего не списывается до следующего подтверждения.</div>
             <div id="exchange-review-freshness" role="status" aria-live="polite" style="font-size:11px;color:var(--muted);margin:-7px 0 14px;line-height:1.45"></div>
             <div id="exchange-review-summary" style="display:grid;gap:8px"></div>
@@ -2135,7 +2135,11 @@
             exchangeReviewRestoreFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
             modal.style.display = 'flex';
             updateExchangeReviewConfirm();
-            ack.focus();
+            // Start with the conditions, including when reopening a scrolled
+            // review. Focusing the checkbox skips these on a small screen.
+            const surface = modal.querySelector('.exchange-review-surface');
+            if (surface) surface.scrollTop = 0;
+            heading.focus({preventScroll: true});
         }
 
         async function createSellOrder() {
@@ -3130,7 +3134,10 @@
                 if (!focusable.length) { event.preventDefault(); modal.focus(); return; }
                 const first = focusable[0];
                 const last = focusable[focusable.length - 1];
-                if (event.shiftKey && document.activeElement === first) {
+                if (!focusable.includes(document.activeElement)) {
+                    event.preventDefault();
+                    (event.shiftKey ? last : first).focus();
+                } else if (event.shiftKey && document.activeElement === first) {
                     event.preventDefault(); last.focus();
                 } else if (!event.shiftKey && document.activeElement === last) {
                     event.preventDefault(); first.focus();
