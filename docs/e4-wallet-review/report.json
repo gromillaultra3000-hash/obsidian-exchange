@@ -1,0 +1,831 @@
+{
+  "schemaVersion": "e4-review-browser.v1",
+  "sourceSha256": "9fce42ebde7efc0463aace1ae0b27ac7aca9f66b33ba0ba250b11216f0e8cb97",
+  "runnerSha256": "24870da312f0a67f93a11380cb72a8beca97ecabb93db3680a57ab29bce8ea24",
+  "playwrightVersion": "1.62.0",
+  "checks": [
+    "320: buy opens at conditions without overflow",
+    "320: reopen opens at conditions without overflow",
+    "320: keyboard containment, Enter inert, Escape/cancel restore focus",
+    "320: after-expiry opens at conditions without overflow",
+    "320: expiry blocks confirmation and reopening resets acknowledgement",
+    "320: acknowledged buy reaches only blocked synthetic writer",
+    "320: memo spaces/markup remain literal text",
+    "320: sell-sbp opens at conditions without overflow",
+    "320: sbp recipient review/cancel and one blocked confirmed writer",
+    "320: sell-card opens at conditions without overflow",
+    "320: card recipient review/cancel and one blocked confirmed writer",
+    "320: wallet-transfer opens at conditions without overflow",
+    "320: wallet transfer network fee visible without clipping",
+    "320: wallet-transfer-fresh opens at conditions without overflow",
+    "320: wallet transfer copy/fees/literal recipient and memo verified",
+    "320: wallet transfer cancel/Escape/expiry block handoff; fresh acknowledgement reaches rejecting stub once",
+    "320: wallet-payment opens at conditions without overflow",
+    "320: wallet payment network fee visible without clipping",
+    "320: wallet-payment-fresh opens at conditions without overflow",
+    "320: wallet payment copy/fees/literal recipient and memo verified",
+    "320: wallet payment cancel/Escape/expiry block handoff; fresh acknowledgement reaches rejecting stub once",
+    "320: wallet-to-buy/sell restores order description, label and unchecked acknowledgement",
+    "390: buy opens at conditions without overflow",
+    "390: reopen opens at conditions without overflow",
+    "390: keyboard containment, Enter inert, Escape/cancel restore focus",
+    "390: after-expiry opens at conditions without overflow",
+    "390: expiry blocks confirmation and reopening resets acknowledgement",
+    "390: acknowledged buy reaches only blocked synthetic writer",
+    "390: memo spaces/markup remain literal text",
+    "390: sell-sbp opens at conditions without overflow",
+    "390: sbp recipient review/cancel and one blocked confirmed writer",
+    "390: sell-card opens at conditions without overflow",
+    "390: card recipient review/cancel and one blocked confirmed writer",
+    "390: wallet-transfer opens at conditions without overflow",
+    "390: wallet transfer network fee visible without clipping",
+    "390: wallet-transfer-fresh opens at conditions without overflow",
+    "390: wallet transfer copy/fees/literal recipient and memo verified",
+    "390: wallet transfer cancel/Escape/expiry block handoff; fresh acknowledgement reaches rejecting stub once",
+    "390: wallet-payment opens at conditions without overflow",
+    "390: wallet payment network fee visible without clipping",
+    "390: wallet-payment-fresh opens at conditions without overflow",
+    "390: wallet payment copy/fees/literal recipient and memo verified",
+    "390: wallet payment cancel/Escape/expiry block handoff; fresh acknowledgement reaches rejecting stub once",
+    "390: wallet-to-buy/sell restores order description, label and unchecked acknowledgement",
+    "1280: buy opens at conditions without overflow",
+    "1280: reopen opens at conditions without overflow",
+    "1280: keyboard containment, Enter inert, Escape/cancel restore focus",
+    "1280: after-expiry opens at conditions without overflow",
+    "1280: expiry blocks confirmation and reopening resets acknowledgement",
+    "1280: acknowledged buy reaches only blocked synthetic writer",
+    "1280: memo spaces/markup remain literal text",
+    "1280: sell-sbp opens at conditions without overflow",
+    "1280: sbp recipient review/cancel and one blocked confirmed writer",
+    "1280: sell-card opens at conditions without overflow",
+    "1280: card recipient review/cancel and one blocked confirmed writer",
+    "1280: wallet-transfer opens at conditions without overflow",
+    "1280: wallet transfer network fee visible without clipping",
+    "1280: wallet-transfer-fresh opens at conditions without overflow",
+    "1280: wallet transfer copy/fees/literal recipient and memo verified",
+    "1280: wallet transfer cancel/Escape/expiry block handoff; fresh acknowledgement reaches rejecting stub once",
+    "1280: wallet-payment opens at conditions without overflow",
+    "1280: wallet payment network fee visible without clipping",
+    "1280: wallet-payment-fresh opens at conditions without overflow",
+    "1280: wallet payment copy/fees/literal recipient and memo verified",
+    "1280: wallet payment cancel/Escape/expiry block handoff; fresh acknowledgement reaches rejecting stub once",
+    "1280: wallet-to-buy/sell restores order description, label and unchecked acknowledgement"
+  ],
+  "openings": [
+    {
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "label": "buy",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 278,
+      "scrollWidth": 278
+    },
+    {
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "label": "reopen",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 278,
+      "scrollWidth": 278
+    },
+    {
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "label": "after-expiry",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 278,
+      "scrollWidth": 278
+    },
+    {
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "label": "sell-sbp",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 278,
+      "scrollWidth": 278
+    },
+    {
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "label": "sell-card",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 278,
+      "scrollWidth": 278
+    },
+    {
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "label": "wallet-transfer",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 278,
+      "scrollWidth": 278
+    },
+    {
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "label": "wallet-transfer-fresh",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 278,
+      "scrollWidth": 278
+    },
+    {
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "label": "wallet-payment",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 278,
+      "scrollWidth": 278
+    },
+    {
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "label": "wallet-payment-fresh",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 278,
+      "scrollWidth": 278
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "label": "buy",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 348,
+      "scrollWidth": 348
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "label": "reopen",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 348,
+      "scrollWidth": 348
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "label": "after-expiry",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 348,
+      "scrollWidth": 348
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "label": "sell-sbp",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 348,
+      "scrollWidth": 348
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "label": "sell-card",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 348,
+      "scrollWidth": 348
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "label": "wallet-transfer",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 348,
+      "scrollWidth": 348
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "label": "wallet-transfer-fresh",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 348,
+      "scrollWidth": 348
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "label": "wallet-payment",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 348,
+      "scrollWidth": 348
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "label": "wallet-payment-fresh",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 348,
+      "scrollWidth": 348
+    },
+    {
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "label": "buy",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 518,
+      "scrollWidth": 518
+    },
+    {
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "label": "reopen",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 518,
+      "scrollWidth": 518
+    },
+    {
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "label": "after-expiry",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 518,
+      "scrollWidth": 518
+    },
+    {
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "label": "sell-sbp",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 518,
+      "scrollWidth": 518
+    },
+    {
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "label": "sell-card",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 518,
+      "scrollWidth": 518
+    },
+    {
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "label": "wallet-transfer",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 518,
+      "scrollWidth": 518
+    },
+    {
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "label": "wallet-transfer-fresh",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 518,
+      "scrollWidth": 518
+    },
+    {
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "label": "wallet-payment",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 518,
+      "scrollWidth": 518
+    },
+    {
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "label": "wallet-payment-fresh",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 518,
+      "scrollWidth": 518
+    }
+  ],
+  "writerAttempts": [
+    {
+      "path": "/api/create_order",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 12500,
+        "address": "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+        "network": "MAINNET",
+        "pay_method": "sbp",
+        "dest_tag": "",
+        "no_tag": false
+      }
+    },
+    {
+      "path": "/api/sell/create",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 0.01,
+        "phone": "70000000000",
+        "method": "sbp",
+        "bank": "test-bank",
+        "full_name": "Тестовый Получатель"
+      }
+    },
+    {
+      "path": "/api/sell/create",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 0.01,
+        "phone": "4111111111111111",
+        "method": "card",
+        "bank": "test-bank",
+        "full_name": "Тестовый Получатель"
+      }
+    },
+    {
+      "path": "/api/create_order",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 12500,
+        "address": "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+        "network": "MAINNET",
+        "pay_method": "sbp",
+        "dest_tag": "",
+        "no_tag": false
+      }
+    },
+    {
+      "path": "/api/sell/create",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 0.01,
+        "phone": "70000000000",
+        "method": "sbp",
+        "bank": "test-bank",
+        "full_name": "Тестовый Получатель"
+      }
+    },
+    {
+      "path": "/api/sell/create",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 0.01,
+        "phone": "4111111111111111",
+        "method": "card",
+        "bank": "test-bank",
+        "full_name": "Тестовый Получатель"
+      }
+    },
+    {
+      "path": "/api/create_order",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 12500,
+        "address": "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+        "network": "MAINNET",
+        "pay_method": "sbp",
+        "dest_tag": "",
+        "no_tag": false
+      }
+    },
+    {
+      "path": "/api/sell/create",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 0.01,
+        "phone": "70000000000",
+        "method": "sbp",
+        "bank": "test-bank",
+        "full_name": "Тестовый Получатель"
+      }
+    },
+    {
+      "path": "/api/sell/create",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 0.01,
+        "phone": "4111111111111111",
+        "method": "card",
+        "bank": "test-bank",
+        "full_name": "Тестовый Получатель"
+      }
+    }
+  ],
+  "walletPreparations": [
+    {
+      "path": "/api/wallet/transfer-request",
+      "payload": {
+        "to": "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "amount": "1.25",
+        "comment": "invoice  42 <b>literal</b>"
+      }
+    },
+    {
+      "path": "/api/wallet/transfer-request",
+      "payload": {
+        "to": "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "amount": "1.25",
+        "comment": "invoice  42 <b>literal</b>"
+      }
+    },
+    {
+      "path": "/api/wallet/transfer-request",
+      "payload": {
+        "to": "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "amount": "1.25",
+        "comment": "invoice  42 <b>literal</b>"
+      }
+    },
+    {
+      "path": "/api/wallet/transfer-request",
+      "payload": {
+        "to": "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "amount": "1.25",
+        "comment": "invoice  42 <b>literal</b>"
+      }
+    },
+    {
+      "path": "/api/wallet/send-request",
+      "payload": {
+        "sell_id": 42
+      }
+    },
+    {
+      "path": "/api/wallet/send-request",
+      "payload": {
+        "sell_id": 42
+      }
+    },
+    {
+      "path": "/api/wallet/send-request",
+      "payload": {
+        "sell_id": 42
+      }
+    },
+    {
+      "path": "/api/wallet/send-request",
+      "payload": {
+        "sell_id": 42
+      }
+    },
+    {
+      "path": "/api/wallet/transfer-request",
+      "payload": {
+        "to": "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "amount": "1.25",
+        "comment": "invoice  42 <b>literal</b>"
+      }
+    },
+    {
+      "path": "/api/wallet/transfer-request",
+      "payload": {
+        "to": "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "amount": "1.25",
+        "comment": "invoice  42 <b>literal</b>"
+      }
+    },
+    {
+      "path": "/api/wallet/transfer-request",
+      "payload": {
+        "to": "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "amount": "1.25",
+        "comment": "invoice  42 <b>literal</b>"
+      }
+    },
+    {
+      "path": "/api/wallet/transfer-request",
+      "payload": {
+        "to": "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "amount": "1.25",
+        "comment": "invoice  42 <b>literal</b>"
+      }
+    },
+    {
+      "path": "/api/wallet/send-request",
+      "payload": {
+        "sell_id": 42
+      }
+    },
+    {
+      "path": "/api/wallet/send-request",
+      "payload": {
+        "sell_id": 42
+      }
+    },
+    {
+      "path": "/api/wallet/send-request",
+      "payload": {
+        "sell_id": 42
+      }
+    },
+    {
+      "path": "/api/wallet/send-request",
+      "payload": {
+        "sell_id": 42
+      }
+    },
+    {
+      "path": "/api/wallet/transfer-request",
+      "payload": {
+        "to": "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "amount": "1.25",
+        "comment": "invoice  42 <b>literal</b>"
+      }
+    },
+    {
+      "path": "/api/wallet/transfer-request",
+      "payload": {
+        "to": "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "amount": "1.25",
+        "comment": "invoice  42 <b>literal</b>"
+      }
+    },
+    {
+      "path": "/api/wallet/transfer-request",
+      "payload": {
+        "to": "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "amount": "1.25",
+        "comment": "invoice  42 <b>literal</b>"
+      }
+    },
+    {
+      "path": "/api/wallet/transfer-request",
+      "payload": {
+        "to": "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "amount": "1.25",
+        "comment": "invoice  42 <b>literal</b>"
+      }
+    },
+    {
+      "path": "/api/wallet/send-request",
+      "payload": {
+        "sell_id": 42
+      }
+    },
+    {
+      "path": "/api/wallet/send-request",
+      "payload": {
+        "sell_id": 42
+      }
+    },
+    {
+      "path": "/api/wallet/send-request",
+      "payload": {
+        "sell_id": 42
+      }
+    },
+    {
+      "path": "/api/wallet/send-request",
+      "payload": {
+        "sell_id": 42
+      }
+    }
+  ],
+  "signingAttempts": [
+    {
+      "validUntil": 2000,
+      "network": "-239",
+      "messages": [
+        {
+          "address": "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+          "amount": "1250000000",
+          "payload": "synthetic-not-a-boc"
+        }
+      ]
+    },
+    {
+      "validUntil": 2000,
+      "network": "-239",
+      "messages": [
+        {
+          "address": "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+          "amount": "1250000000",
+          "payload": "synthetic-not-a-boc"
+        }
+      ]
+    },
+    {
+      "validUntil": 2000,
+      "network": "-239",
+      "messages": [
+        {
+          "address": "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+          "amount": "1250000000",
+          "payload": "synthetic-not-a-boc"
+        }
+      ]
+    },
+    {
+      "validUntil": 2000,
+      "network": "-239",
+      "messages": [
+        {
+          "address": "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+          "amount": "1250000000",
+          "payload": "synthetic-not-a-boc"
+        }
+      ]
+    },
+    {
+      "validUntil": 2000,
+      "network": "-239",
+      "messages": [
+        {
+          "address": "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+          "amount": "1250000000",
+          "payload": "synthetic-not-a-boc"
+        }
+      ]
+    },
+    {
+      "validUntil": 2000,
+      "network": "-239",
+      "messages": [
+        {
+          "address": "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+          "amount": "1250000000",
+          "payload": "synthetic-not-a-boc"
+        }
+      ]
+    }
+  ],
+  "blockedRequests": [
+    "https://fonts.googleapis.com/css2",
+    "https://e4.invalid/static/img/v5/gem.png",
+    "https://e4.invalid/static/img/v5/btc.png",
+    "https://e4.invalid/static/img/v5/ltc.png",
+    "https://e4.invalid/static/img/v5/usdt.png",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://e4.invalid/static/js/chart-4.4.7.umd.min.js",
+    "https://e4.invalid/static/js/tonconnect-ui-3.0.0.min.js",
+    "https://e4.invalid/api/market/history",
+    "https://e4.invalid/api/system-status",
+    "https://e4.invalid/api/reserves",
+    "https://e4.invalid/api/system-status",
+    "https://e4.invalid/api/wallet/portfolio",
+    "https://e4.invalid/api/history",
+    "https://e4.invalid/api/history",
+    "https://e4.invalid/api/system-status",
+    "https://e4.invalid/api/reserves",
+    "https://e4.invalid/api/wallet/portfolio",
+    "https://e4.invalid/api/wallet/cex-sources",
+    "https://e4.invalid/api/wallet/cex-events",
+    "https://e4.invalid/api/wallet/addresses",
+    "https://e4.invalid/api/system-status",
+    "https://e4.invalid/api/reserves",
+    "https://e4.invalid/api/system-status",
+    "https://e4.invalid/api/reserves",
+    "https://fonts.googleapis.com/css2",
+    "https://e4.invalid/static/img/v5/gem.png",
+    "https://e4.invalid/static/img/v5/btc.png",
+    "https://e4.invalid/static/img/v5/ltc.png",
+    "https://e4.invalid/static/img/v5/usdt.png",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://e4.invalid/static/js/chart-4.4.7.umd.min.js",
+    "https://e4.invalid/static/js/tonconnect-ui-3.0.0.min.js",
+    "https://e4.invalid/api/market/history",
+    "https://e4.invalid/api/system-status",
+    "https://e4.invalid/api/reserves",
+    "https://e4.invalid/api/system-status",
+    "https://e4.invalid/api/wallet/portfolio",
+    "https://e4.invalid/api/history",
+    "https://e4.invalid/api/history",
+    "https://e4.invalid/api/system-status",
+    "https://e4.invalid/api/reserves",
+    "https://e4.invalid/api/wallet/portfolio",
+    "https://e4.invalid/api/wallet/cex-sources",
+    "https://e4.invalid/api/wallet/cex-events",
+    "https://e4.invalid/api/wallet/addresses",
+    "https://e4.invalid/api/system-status",
+    "https://e4.invalid/api/reserves",
+    "https://e4.invalid/api/system-status",
+    "https://e4.invalid/api/reserves",
+    "https://fonts.googleapis.com/css2",
+    "https://e4.invalid/static/img/v5/gem.png",
+    "https://e4.invalid/static/img/v5/btc.png",
+    "https://e4.invalid/static/img/v5/ltc.png",
+    "https://e4.invalid/static/img/v5/usdt.png",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://e4.invalid/static/js/chart-4.4.7.umd.min.js",
+    "https://e4.invalid/static/js/tonconnect-ui-3.0.0.min.js",
+    "https://e4.invalid/api/market/history",
+    "https://e4.invalid/api/system-status",
+    "https://e4.invalid/api/reserves",
+    "https://e4.invalid/api/system-status",
+    "https://e4.invalid/api/wallet/portfolio",
+    "https://e4.invalid/api/history",
+    "https://e4.invalid/api/history",
+    "https://e4.invalid/api/system-status",
+    "https://e4.invalid/api/reserves",
+    "https://e4.invalid/api/wallet/portfolio",
+    "https://e4.invalid/api/wallet/cex-sources",
+    "https://e4.invalid/api/wallet/cex-events",
+    "https://e4.invalid/api/wallet/addresses",
+    "https://e4.invalid/api/system-status",
+    "https://e4.invalid/api/reserves",
+    "https://e4.invalid/api/system-status",
+    "https://e4.invalid/api/reserves"
+  ],
+  "pageErrors": [],
+  "browserVersion": "152.0.7977.64",
+  "result": "PASS"
+}

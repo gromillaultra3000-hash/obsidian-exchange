@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "e4-wallet-review-acceptance.v1",
+  "recordedAt": "2026-09-07T03:15:35.758162+00:00",
+  "reviewer": {
+    "identity": "/root/acceptance_review",
+    "role": "independent context-aware acceptance review",
+    "modelVersion": "not exposed",
+    "productAuthor": false
+  },
+  "recordedBy": "/root from reviewer final response",
+  "verdict": "PASS",
+  "activeRoute": "E4 / EXPLICIT_ACTION_REVIEW / wallet payment/transfer wording and network-fee disclosure",
+  "inputSha256": {
+    "relay/webapp.html": "9fce42ebde7efc0463aace1ae0b27ac7aca9f66b33ba0ba250b11216f0e8cb97",
+    "tests/e4_recipient_review_behavior.cjs": "f0ebbc443222066ec7c64b2ba2a6dbb99814ec67cfd0ed1bdec310123a5e40c3",
+    "tests/e4_review_browser.cjs": "24870da312f0a67f93a11380cb72a8beca97ecabb93db3680a57ab29bce8ea24",
+    "tests/test_e4_recipient_review_behavior.py": "0dba9cc3e4b4a490b8d88705434968a53b487698a444aa1b512326bd238d5ccf",
+    "docs/e4-wallet-review/report.json": "cfa6995ae1357f391d0ab1ebdb5b2e43184b6c9d051d4971268d47dc2a3a991d",
+    "docs/e4-wallet-review/isolation.json": "a22d32f6a1df279d461101940c71cabe6f7b2b20f1b6ab30bbf01992e3bdee27"
+  },
+  "findings": [],
+  "verified": [
+    "Distinct transfer and existing-order payment descriptions, wallet continuation labels, executor/route/KYC/custody/recipient/amount/network/additional TON fee/irreversibility disclosures",
+    "Payment distinguishes network and exchange fees; no invented numeric estimate",
+    "textContent copy rendering and reset to buy/sell defaults",
+    "Unchanged signing payload, acknowledgement/cancel/Escape/expiry/single-handoff guards",
+    "62 focused tests PASS; eight new wallet cases fail previous HTML",
+    "66 browser checks PASS; 27 openings at 320/390/1280; 24 synthetic preparations; six rejected SDK handoffs; nine blocked order submissions; no page errors",
+    "Sandboxed nobody/private-network Chrome; unit stopped and cgroup empty",
+    "Independent visual inspection of two 320px fee screenshots and 390px payment screenshot"
+  ],
+  "limits": [
+    "No independent live wallet signature or production action performed by reviewer",
+    "Human comprehension, real Telegram/iOS/WebKit and full E4 gate remain unverified",
+    "Rollout verification remains parent responsibility"
+  ],
+  "nextCanonicalItem": "E4 / RECEIVE_ADDRESS_INTEGRITY / preserve receive address during clipboard feedback and report clipboard success only after completion",
+  "nextItemEvidence": "Reviewer executed extracted existing walletCopy with synthetic clipboard: consecutive copies contain address then ✓ скопировано; clipboard promise not awaited."
+}

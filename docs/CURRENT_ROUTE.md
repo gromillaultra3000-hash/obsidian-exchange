@@ -11,7 +11,7 @@ non-custodial wallet whose keys never reach the server.
 
 ## Active route
 
-`E4 / explicit action review / no-money browser usability`
+`E4 / EXPLICIT_ACTION_REVIEW / wallet payment and transfer review`
 
 Owner decision 2026-09-07: restore autonomous code-first E0–E5 delivery for
 24 hours, without the former eight-iteration ceiling, with immediate reversible
@@ -34,29 +34,36 @@ preparation, never a false gate closure or live authority. The supervisor binds
 the next stage and carries its scope across iterations. The old eight-iteration/
 twelve-hour allowance is superseded by the 2026-09-07 decision above.
 
-Current execution checkpoint (2026-09-06): the interrupted no-money browser
-slice is verified and deployed. Real sandboxed Chrome reproduced a 437px opening
-scroll with the review heading hidden at 320px. The Mini App now resets the
-review scroll, focuses its heading and contains both Tab directions from that
-initial focus. Synthetic buy/sell/SBP/card review checks cover 320/390/1280px,
-acknowledgement, cancellation, Escape/focus restoration, expiry, full recipient
-wrapping and literal memo text. All nine attempted synthetic submissions are
-intercepted; no real money, wallet signing or customer data was used. Evidence:
-`docs/e4-review-browser/report.json` and
-`docs/e4-review-browser-rollout.v1.json`. The exact reviewed HTML is deployed
-with a retained rollback preimage; public GET 200 / POST 405 and template-byte
-checks pass, and Relay, bot and Nginx are active. Both independent reviews pass.
-Earlier 04:47 drafts and browser-availability assumptions are superseded by
-this accepted browser evidence. E4 remains `IN_PROGRESS`: these are automated
-Chrome checks, not human usability or real Telegram/iOS/WebKit acceptance.
+Current execution checkpoint (2026-09-07): wallet transfer and existing-order
+payment reviews are verified and deployed. They now identify the correct action,
+use “Продолжить в кошельке”, explain separate signature approval, show
+route/KYC/custody and disclose the additional TON network fee without inventing
+an estimate. Payment distinguishes network fees from exchange fees. Buy/sell
+openings restore their original create-order wording and unchecked acknowledgement.
 
-Exactly next: `E4 / EXPLICIT_ACTION_REVIEW / wallet transfer/payment-specific description, confirmation label and network-fee disclosure with keyless blocked-signing browser validation`.
-The shared modal currently says an order is not yet created and uses a create
-label even for an existing-order payment or wallet signature handoff; those
-two wallet reviews also omit explicit network-fee guidance. This is a remaining
-E4 gate defect, not a repeat of the completed portfolio/exchange vertical.
-No stage transition occurred; CURRENT_AUTHORIZED_SCOPE persists. This next
-item requires no real wallet connection, signature, credential or money action.
+62 focused tests pass; eight new wallet scenarios reject the previous HTML.
+66 isolated Chrome checks pass across 320/390/1280px, including visible fee
+rows, literal recipient/memo, cancellation, Escape, expiry and unchanged prepared
+handoff. All six synthetic signing attempts reject; no send-signed request or
+real wallet signature occurs. All nine synthetic order writes are blocked.
+Both independent reviews pass. Exact HTML SHA-256 `9fce42eb...f0e8cb97` is live:
+public GET 200, POST 405, rendered template match, Relay/bot/Nginx active with
+unchanged PID/start identities. Root-only rollback preimage is retained; no
+service restart occurred. Evidence: `docs/e4-wallet-review-rollout.v1.json`
+and `docs/e4-wallet-review/`.
+
+Exactly next: `E4 / RECEIVE_ADDRESS_INTEGRITY / preserve receive address during clipboard feedback and report clipboard success only after completion`.
+Independent acceptance review reproduced two immediate receive-copy taps
+copying the address then “✓ скопировано”: the feedback temporarily overwrites
+the address source. Clipboard rejection also currently reports success before
+the promise resolves. This is a concrete remaining E4 receive/send usability
+defect, separate from the completed review/portfolio verticals.
+
+No stage transition occurred; CURRENT_AUTHORIZED_SCOPE persists. E4 remains
+IN_PROGRESS. Automated Chrome evidence does not establish human comprehension,
+real Telegram/iOS/WebKit behavior or live wallet signing. Earlier mandatory
+gates remain unverified; consumed 064A authority and terminal archives are
+unchanged. This next item requires only keyless clipboard tests and reversible UI.
 
 SSH-independent execution is an operational prerequisite for this same route,
 documented in `docs/ssh-independent-work.md` and

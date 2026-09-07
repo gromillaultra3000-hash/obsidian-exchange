@@ -15,7 +15,13 @@ const report = {schemaVersion: 'e4-review-browser.v1', sourceSha256:
     crypto.createHash('sha256').update(source).digest('hex'),
     runnerSha256: crypto.createHash('sha256').update(fs.readFileSync(__filename)).digest('hex'),
     playwrightVersion: require('playwright-core/package.json').version, checks: [], openings: [],
-    writerAttempts: [], blockedRequests: [], pageErrors: []};
+    writerAttempts: [], walletPreparations: [], signingAttempts: [], blockedRequests: [], pageErrors: []};
+const walletAddress = 'EQ' + 'A'.repeat(46);
+const walletMemo = 'invoice  42 <b>literal</b>';
+// Intentionally unsigned and unusable: even a harness regression cannot turn
+// this fixture into a chain transaction. No wallet SDK is loaded.
+const walletRequest = {validUntil: 2000, network: '-239', messages: [
+    {address: walletAddress, amount: '1250000000', payload: 'synthetic-not-a-boc'}]};
 fs.mkdirSync(outputDir, {recursive: true});
 
 async function main() {
@@ -36,6 +42,13 @@ async function main() {
         await context.route('**/*', async route => {
             const req = route.request();
             const url = new URL(req.url());
+            if (url.origin === origin && req.method() === 'POST'
+                    && ['/api/wallet/transfer-request', '/api/wallet/send-request'].includes(url.pathname)) {
+                report.walletPreparations.push({path: url.pathname, payload: req.postDataJSON()});
+                return route.fulfill({contentType: 'application/json', body: JSON.stringify({
+                    ok: true, sell_id: 42, amount: 1.25, address: walletAddress,
+                    marker: walletMemo, request: walletRequest})});
+            }
             if (req.method() !== 'GET') {
                 report.writerAttempts.push({path: url.pathname, method: req.method(),
                     payload: req.postDataJSON()});
@@ -46,6 +59,9 @@ async function main() {
                 return route.fulfill({contentType: 'text/html', body: source});
             }
             const fixtures = {
+                '/api/wallet/links': {wallets: [{chain: 'TON', address: walletAddress, balance: null}]},
+                '/api/wallet/history': {status: 'OK', items: []},
+                '/api/wallet/dues': {dues: [{sell_id: 42, amount: 1.25, currency: 'TON', marker: 'invoice-42'}]},
                 '/api/rates': {BTC: 5000000, TON: 200, offerings: [
                     {code: 'BTC', networks: [{code: 'MAINNET', label: 'Bitcoin'}]},
                     {code: 'TON', networks: [{code: 'MAINNET', label: 'TON'}],
@@ -81,6 +97,7 @@ async function main() {
         const cancel = page.locator('#exchange-review-cancel');
         const writerCount = report.writerAttempts.length;
         async function openingCheck(label) {
+            await modal.waitFor({state: 'visible'});
             assert.equal(await modal.isVisible(), true);
             const opening = await page.evaluate(() => {
                 const surface = document.querySelector('.exchange-review-surface');
@@ -206,16 +223,121 @@ async function main() {
             assert.equal(report.writerAttempts.at(-1).payload.method, method);
             report.checks.push(`${viewport.width}: ${method} recipient review/cancel and one blocked confirmed writer`);
         }
+        // Replace only the SDK boundary with a rejecting synthetic stub. The
+        // shipped wallet buttons, prepare calls, review and handlers run intact.
+        await page.evaluate(() => {
+            window.__syntheticSigningAttempts = [];
+            tcUI = {async sendTransaction(request) {
+                window.__syntheticSigningAttempts.push(structuredClone(request));
+                throw new Error('Synthetic signing blocked');
+            }};
+        });
+        await page.locator('#tab-wallet').click();
+        await page.locator('#w-act-send').click();
+        await page.locator('#w-to').fill(walletAddress);
+        await page.locator('#w-amount').fill('1.25');
+        await page.locator('#w-comment').fill(walletMemo);
+        const walletWritersBefore = report.writerAttempts.length;
+        for (const action of ['transfer', 'payment']) {
+            const opener = action === 'transfer' ? page.locator('#w-send-go') : page.locator('.wallet-pay');
+            async function openWalletReview() {
+                await opener.click();
+                // check() can return immediately for the still-checked input
+                // in a closed modal; wait for the async prepare/open/reset.
+                await modal.waitFor({state: 'visible'});
+                assert.equal(await ack.isChecked(), false);
+            }
+            const signingCount = (await page.evaluate(() => window.__syntheticSigningAttempts)).length;
+            await openWalletReview();
+            await openingCheck('wallet-' + action);
+            const description = await page.locator('#exchange-review-description').textContent();
+            assert.ok(description.includes(action === 'payment' ? 'Заявка уже создана' : 'Это перевод из вашего кошелька'));
+            assert.ok(description.includes('подпись нужно подтвердить отдельно'));
+            assert.ok(!description.includes('Заявка ещё не создана'));
+            assert.equal(await confirm.textContent(), 'Продолжить в кошельке');
+            const summary = await page.locator('#exchange-review-summary').textContent();
+            for (const text of [walletAddress, walletMemo, '1.25 TON', 'Ваш подключённый TON-кошелёк',
+                    'Ключи остаются только в вашем кошельке', 'Сетевая комиссия', 'отдельно в TON',
+                    'сверх суммы перевода', 'Здесь не рассчитана', 'итоговое списание в кошельке']) {
+                assert.ok(summary.includes(text), `${action}: ${text}`);
+            }
+            assert.ok(summary.includes(action === 'payment' ? 'private lane · без KYC' : 'CEX / KYC-аккаунт не используются'));
+            if (action === 'payment') assert.ok(summary.includes('не комиссия обмена'));
+            assert.equal(await page.locator('#exchange-review-summary b').count(), 0);
+            const risk = await page.locator('#exchange-review-risk').textContent();
+            assert.ok(risk.includes('нельзя отменить'));
+            if (action === 'payment') assert.ok(risk.includes('только после подтверждения в сети'));
+            const feeCard = page.locator('#exchange-review-summary > div').filter({hasText: 'Сетевая комиссия'});
+            await feeCard.scrollIntoViewIfNeeded();
+            assert.equal(await feeCard.evaluate(el => {
+                const row = el.getBoundingClientRect();
+                const surface = el.closest('.exchange-review-surface').getBoundingClientRect();
+                return row.top >= surface.top && row.bottom <= surface.bottom
+                    && el.scrollWidth <= el.clientWidth;
+            }), true, 'network-fee disclosure must be scrollable into view without clipping');
+            await page.screenshot({path: path.join(outputDir, `${viewport.width}-wallet-${action}-fee.png`)});
+            report.checks.push(`${viewport.width}: wallet ${action} network fee visible without clipping`);
+            await page.keyboard.press('Enter');
+            assert.equal((await page.evaluate(() => window.__syntheticSigningAttempts)).length, signingCount);
+            await page.keyboard.press('Escape');
+            assert.equal(await opener.evaluate(el => document.activeElement === el), true);
+            await openWalletReview();
+            await ack.check();
+            await cancel.click();
+            assert.equal(await opener.evaluate(el => document.activeElement === el), true);
+            assert.equal((await page.evaluate(() => window.__syntheticSigningAttempts)).length, signingCount);
+            await openWalletReview();
+            await ack.check();
+            await page.clock.fastForward(120051);
+            assert.equal(await confirm.isDisabled(), true);
+            assert.equal(await ack.isChecked(), false);
+            assert.ok((await page.locator('#exchange-review-freshness').textContent()).includes('истекло'));
+            await ack.check();
+            assert.equal(await confirm.isDisabled(), true);
+            await cancel.click();
+            await openWalletReview();
+            await openingCheck('wallet-' + action + '-fresh');
+            await ack.check();
+            await confirm.click();
+            const attempts = await page.evaluate(() => window.__syntheticSigningAttempts);
+            assert.equal(attempts.length, signingCount + 1);
+            assert.deepEqual(attempts.at(-1), walletRequest, 'handoff preserves the prepared request');
+            assert.equal(await modal.isVisible(), false);
+            const feedback = action === 'transfer' ? page.locator('#w-send-msg') : opener;
+            assert.equal(await feedback.textContent(), 'Перевод не подтверждён');
+            assert.equal(report.writerAttempts.length, walletWritersBefore, 'no send-signed call after rejected signing');
+            report.checks.push(`${viewport.width}: wallet ${action} copy/fees/literal recipient and memo verified`);
+            report.checks.push(`${viewport.width}: wallet ${action} cancel/Escape/expiry block handoff; fresh acknowledgement reaches rejecting stub once`);
+        }
+        report.signingAttempts.push(...(await page.evaluate(() => window.__syntheticSigningAttempts)));
+        await page.locator('#tab-exchange').click();
+        for (const side of ['buy', 'sell']) {
+            await page.locator(`#deal-side [data-side="${side}"]`).click();
+            if (side === 'buy') {
+                await page.locator('#currency').selectOption('BTC');
+                await page.locator('#address').fill('bc1' + 'q'.repeat(87));
+            }
+            await page.locator(side === 'buy' ? '#create-order' : '#sell-submit').click();
+            assert.equal(await modal.isVisible(), true);
+            assert.ok((await page.locator('#exchange-review-description').textContent()).startsWith('Заявка ещё не создана.'));
+            assert.equal(await confirm.textContent(), 'Подтвердить и создать');
+            assert.equal(await ack.isChecked(), false);
+            assert.equal(await confirm.isDisabled(), true);
+            await cancel.click();
+        }
+        report.checks.push(`${viewport.width}: wallet-to-buy/sell restores order description, label and unchecked acknowledgement`);
         await context.close();
         }
         assert.equal(report.writerAttempts.length, 9);
+        assert.equal(report.walletPreparations.length, 24);
+        assert.equal(report.signingAttempts.length, 6);
         assert.deepEqual(report.pageErrors, []);
         report.result = 'PASS';
     } finally {
         await browser.close();
     }
 }
-main().catch(error => { report.result = 'FAIL'; report.failure = error.message;
+main().catch(error => { report.result = 'FAIL'; report.failure = error.message; report.failureStack = error.stack;
     process.exitCode = 1;
 }).finally(() => fs.writeFileSync(path.join(outputDir, 'report.json'),
     JSON.stringify(report, null, 2) + '\n'));

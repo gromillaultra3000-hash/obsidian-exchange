@@ -1,0 +1,126 @@
+{
+  "schemaVersion": "e4-wallet-review-rollout.v1",
+  "recordedAt": "2026-09-07T03:17:30.229503+00:00",
+  "stage": "E4",
+  "gateCriterion": "EXPLICIT_ACTION_REVIEW / executor, custody, KYC, fees, irreversibility before explicit confirmation",
+  "status": "IN_PROGRESS",
+  "sliceStatus": "VERIFIED",
+  "scope": "CURRENT_AUTHORIZED_SCOPE",
+  "accountableOwner": "project owner; executed by Codex /root under inherited supervisor writer lock",
+  "baselineCommit": "e1751397b109a14cb9b19e56bba66d9d9f5f865d",
+  "surfaceMatrix": {
+    "miniApp": "REQUIRED: shared review and wallet payment/transfer descriptions, labels and fee disclosure",
+    "walletSigning": "READ_ONLY: existing SDK contract unchanged; exercised only through rejecting keyless stub",
+    "publicSite": "READ_ONLY: public /webapp response/template/method verification",
+    "telegramBot": "READ_ONLY: health verification, no messages sent",
+    "backend": "N/A: no endpoint or data mutation changes",
+    "native": "N/A: no native keys or bridge changes",
+    "admin": "N/A: unchanged"
+  },
+  "trustAndMoneyImpact": {
+    "moneyWritersChanged": false,
+    "custodyChanged": false,
+    "credentialsChanged": false,
+    "realSignaturesOrMoney": false,
+    "064ATouched": false
+  },
+  "capabilities": {
+    "implementation": "Codex /root",
+    "acceptanceReview": "/root/acceptance_review",
+    "independentDiffSecurityReview": "/root/diff_security_review",
+    "skill": "playwright; existing isolated repository harness",
+    "browser": "playwright-core 1.62.0 / Chrome 152.0.7977.64; sandboxed nobody with PrivateNetwork and ProtectHome",
+    "tools": [
+      "pytest 8.3.4",
+      "Node v22.23.2",
+      "Gitleaks 8.30.0",
+      "Git",
+      "systemd"
+    ],
+    "externalPluginsOrResearch": "none needed; no dependency added"
+  },
+  "implementation": "Action-specific description and continuation label via textContent; wallet route/custody and unknown additional TON network-fee disclosure; default order wording restored on each buy/sell opening. Prepared d.request and callbacks unchanged.",
+  "tests": {
+    "command": "/opt/lumi/venv/bin/python -m pytest -q tests/test_e4_review_browser_runner.py tests/test_e4_exchange_review_ui.py tests/test_e4_recipient_review_behavior.py tests/test_e4_responsive_navigation.py tests/test_e4_miniapp_browser_shell.py",
+    "focusedPassed": 62,
+    "baseline": "8 new wallet scenarios fail old HTML at action-label assertion; this detects baseline defect, not independent mutation coverage of every guard",
+    "browserPassed": 66,
+    "browserOpenings": 27,
+    "syntheticPreparations": 24,
+    "rejectedSigningAttempts": 6,
+    "blockedOrderWrites": 9,
+    "sendSignedRequests": 0,
+    "pageErrors": 0,
+    "browserReport": "docs/e4-wallet-review/report.json",
+    "isolation": "docs/e4-wallet-review/isolation.json",
+    "syntax": "PASS: inline scripts compiled with Node vm.Script; browser runner node --check",
+    "diffCheck": "PASS",
+    "stagedGitleaks": "PASS; final explicit staged scope scanned with redaction and no added allowlist",
+    "stagedGitleaksReport": "docs/e4-wallet-review/gitleaks-report.json"
+  },
+  "reviews": {
+    "acceptance": "docs/e4-wallet-review/acceptance-review.json",
+    "independentDiffSecurity": "docs/e4-wallet-review/security-review.json",
+    "acceptanceResult": "PASS",
+    "independentDiffSecurityResult": "PASS",
+    "outputSha256": {
+      "acceptance-review.json": "532058ca1496eff4f1a78f264325435d4362e675c45fcba7b4621cad166eb930",
+      "security-review.json": "61863534b968364d22e34bd930d467ef8006827284c81ecd18ff7cd768255c68"
+    },
+    "postDeploymentEvidenceReview": "PASS: /root/acceptance_review checked final runtime/rollout/status records and hashes; no live tools, no full-gate closure claim"
+  },
+  "negativeFindings": [
+    "Eight expected regression failures on previous HTML at action-label assertion.",
+    "First browser fixture lacked wallet history, causing existing loadWallets error handling to hide the synthetic wallet; supplied explicit empty history fixture.",
+    "Browser assertions initially raced asynchronous preparation and stale hidden checkbox state; every wallet opening now waits for visible modal and unchecked acknowledgement, with an explicit expiry-status assertion.",
+    "Managed filesystem denied Git index write and service-bus inspection; normal require_escalated path succeeded. No approval rejection or bypass."
+  ],
+  "limits": [
+    "Automated Chrome only; human comprehension, real Telegram/iOS/WebKit, actual wallet SDK signing and full E4 acceptance remain unverified.",
+    "Network fee amount is not calculated by Mini App; user is directed to wallet estimate and total before signature.",
+    "Earlier mandatory gates are not closed by this same-stage slice.",
+    "Browser blocks SDKs, external assets and nonfixture requests; missing decorative assets reflect isolation."
+  ],
+  "rollout": {
+    "recordedAt": "2026-09-07T03:16:16.741820+00:00",
+    "target": "/opt/obsidian-exchange/relay/webapp.html",
+    "previousSha256": "dfab2b2dab9b4af57592c2dc39d60e0a63c7ecf310c0251fc47de14fd1f71a6a",
+    "deployedSha256": "9fce42ebde7efc0463aace1ae0b27ac7aca9f66b33ba0ba250b11216f0e8cb97",
+    "rollbackPreimage": "/var/lib/obsidian-exchange/deployment-preimages/e4-wallet-review-20260907-1eknswvx/webapp.html",
+    "rollbackPreimageSha256": "dfab2b2dab9b4af57592c2dc39d60e0a63c7ecf310c0251fc47de14fd1f71a6a",
+    "method": "hash-bound fsynced atomic rename; no restart",
+    "rollback": "Restore retained preimage using same fsynced atomic replacement, then verify public bytes and service state",
+    "rollbackExecuted": false,
+    "preflight": "PASS: prior template/public bytes and active services matched; two reviews and proportional checks passed",
+    "publicGet": 200,
+    "publicMatchesDeployedTemplate": true,
+    "publicBodySha256": "e27dfd7106c99819546ee429973570ecbad0916229bd8d6f5eb69f8cdfde74fa",
+    "publicPost": 405,
+    "services": {
+      "relay-fastapi.service": {
+        "MainPID": "3877703",
+        "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:55 UTC",
+        "ActiveState": "active"
+      },
+      "exchange-bot.service": {
+        "MainPID": "3877887",
+        "ExecMainStartTimestamp": "Tue 2026-09-01 06:20:00 UTC",
+        "ActiveState": "active"
+      },
+      "nginx.service": {
+        "MainPID": "3877705",
+        "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:56 UTC",
+        "ActiveState": "active"
+      }
+    },
+    "serviceIdentityUnchanged": true,
+    "status": "VERIFIED"
+  },
+  "rollbackRehearsal": "docs/e4-wallet-review/rollback-rehearsal.json",
+  "productionStatus": "VERIFIED: reviewed HTML deployed; public GET200/POST405/template match; Relay/bot/Nginx active and unchanged identities; no restart",
+  "dataRetention": "Checked-in evidence is public code metadata and invented synthetic fixtures only. Owner retains engineering evidence; temporary browser profiles removed after stopped-unit and empty-cgroup verification. Ordinary output artifacts are for supervisor private archival.",
+  "blocker": "",
+  "nextCanonicalItem": "E4 / RECEIVE_ADDRESS_INTEGRITY / preserve receive address during clipboard feedback and report clipboard success only after completion",
+  "nextItemEvidence": "docs/e4-wallet-review/acceptance-review.json",
+  "transitionEvidence": ""
+}

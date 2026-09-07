@@ -29,6 +29,9 @@ function harness() {
     let nextTimer = 0;
     const timers = new Map();
     const requests = [];
+    const signingAttempts = [];
+    const walletRequest = {validUntil: 2000, network: '-239', messages: [
+        {address: 'EQ' + 'A'.repeat(46), amount: '1250000000', payload: 'synthetic-not-a-boc'}]};
     const storageWrites = [];
     const elements = new Map();
     let document;
@@ -75,11 +78,12 @@ function harness() {
         'currency', 'amount', 'address', 'address-msg', 'network', 'pay-method',
         'exchange-result', 'exchange-steps', 'create-order', 'fee-value',
         'tag-group', 'dest_tag', 'no_tag', 'no-tag-label', 'tag-label', 'tag-hint',
-        'exchange-review', 'exchange-review-title', 'exchange-review-summary',
+        'exchange-review', 'exchange-review-title', 'exchange-review-description', 'exchange-review-summary',
         'exchange-review-risk', 'exchange-review-ack', 'exchange-review-confirm',
         'exchange-review-cancel', 'exchange-review-freshness',
         'sell-submit', 'sell-result', 'sell-currency', 'sell-amount', 'sell-method',
         'sell-phone', 'sell-bank', 'sell-name', 'sell-payout', 'sell-fee-note',
+        'w-send-msg', 'w-to', 'w-amount', 'w-comment', 'w-send-go', 'sell-card-pay',
     ];
     for (const id of ids) elements.set(id, new Element(id));
     const el = id => {
@@ -112,6 +116,10 @@ function harness() {
         },
         clearTimeout: id => timers.delete(id),
         tg: {initData: ''},
+        tcUI: {async sendTransaction(request) {
+            signingAttempts.push(JSON.parse(JSON.stringify(request)));
+            throw new Error('Synthetic signing blocked');
+        }},
         window: {__oeOfferings: [
             {code: 'XRP', tag_name: 'destination tag', tag_kind: 'uint32', tag_sep: ':'},
             {code: 'TON', tag_name: 'memo', tag_kind: 'text', tag_sep: '#'},
@@ -123,6 +131,11 @@ function harness() {
         localStorage: {setItem: (...args) => storageWrites.push(args)},
         async fetch(url, options) {
             requests.push({url, method: options.method, body: JSON.parse(options.body)});
+            if (['/api/wallet/transfer-request', '/api/wallet/send-request'].includes(url)) {
+                return {ok: true, json: async () => ({ok: true, sell_id: 42,
+                    amount: 1.25, address: walletRequest.messages[0].address,
+                    marker: 'invoice  42 <b>literal</b>', request: walletRequest})};
+            }
             // Stop after the real writer serializes its payload; this test does
             // not simulate order tracking, payout, or successful settlement.
             return {ok: false, json: async () => ({ok: false, detail: 'Synthetic rejection'})};
@@ -134,6 +147,7 @@ function harness() {
         'exchangeReviewFocusable', 'clearExchangeReviewExpiry', 'updateExchangeReviewConfirm',
         'invalidateExchangeReview', 'closeExchangeReview', 'openExchangeReview',
         'beginBuyOrder', 'submitBuyOrder', 'createSellOrder', 'submitSellOrder',
+        'walletTransfer', 'walletPay', 'walletShorten',
     ];
     const declarations = oneRegion(
         /^        let exchangeReviewCommit = null;[^]*?(?=^        function exchangeReviewFocusable)/m,
@@ -197,7 +211,7 @@ function harness() {
         assert.deepEqual(storageWrites, [], 'reviewing must not persist the destination');
     }
     return {context, el, document, requests, storageWrites, rows, row, acknowledge, confirm,
-        advance, noWrites};
+        advance, noWrites, signingAttempts, walletRequest};
 }
 
 function assertBuyWrite(h, expected) {
@@ -377,7 +391,70 @@ async function reviewBoundary({boundary}) {
     }
 }
 
+async function walletReview({action, boundary}) {
+    const h = harness();
+    const button = action === 'payment' ? h.el('sell-card-pay') : h.el('w-send-go');
+    h.document.activeElement = button;
+    h.el('w-to').value = h.walletRequest.messages[0].address;
+    h.el('w-amount').value = '1.25';
+    h.el('w-comment').value = 'invoice  42 <b>literal</b>';
+    const open = () => action === 'payment'
+        ? h.context.walletPay(42, button) : h.context.walletTransfer();
+    await open();
+    assert.equal(h.el('exchange-review').style.display, 'flex');
+    assert.equal(h.el('exchange-review-confirm').textContent, 'Продолжить в кошельке');
+    const description = h.el('exchange-review-description').textContent;
+    assert.ok(description.includes(action === 'payment' ? 'Заявка уже создана' : 'Это перевод из вашего кошелька'));
+    assert.ok(description.includes('подпись нужно подтвердить отдельно'));
+    assert.ok(!description.includes('Заявка ещё не создана'));
+    const fee = h.row('Сетевая комиссия').value;
+    for (const text of ['отдельно в TON', 'сверх суммы перевода', 'Здесь не рассчитана', 'итоговое списание в кошельке']) {
+        assert.ok(fee.includes(text));
+    }
+    if (action === 'payment') assert.ok(fee.includes('не комиссия обмена'));
+    assert.ok(h.row('Маршрут').value.includes(action === 'payment' ? 'private lane · без KYC' : 'CEX / KYC-аккаунт не используются'));
+    assert.equal(h.row('Получатель').value, h.walletRequest.messages[0].address);
+    const comment = h.row(action === 'payment' ? 'Комментарий к переводу' : 'Комментарий');
+    assert.equal(comment.value, 'invoice  42 <b>literal</b>');
+    assert.ok(comment.rawValue.includes('&lt;b&gt;'));
+    assert.equal(h.el('exchange-review-confirm').disabled, true);
+    await h.el('exchange-review-confirm').fire('click');
+    assert.equal(h.signingAttempts.length, 0);
+    assert.equal(h.requests.length, 1, 'only synthetic preparation before acknowledgement');
+    if (boundary === 'confirm') {
+        // Editing the form after review must not mutate the prepared handoff.
+        h.el('w-amount').value = '99';
+        h.el('w-to').value = 'changed';
+        await h.confirm();
+        await h.el('exchange-review-confirm').fire('click');
+        assert.deepEqual(h.signingAttempts, [h.walletRequest]);
+        assert.equal(h.requests.length, 1, 'rejected signing must never mark payment signed');
+        assert.equal(action === 'payment' ? button.textContent : h.el('w-send-msg').textContent,
+            'Перевод не подтверждён');
+    } else {
+        await h.acknowledge();
+        if (boundary === 'cancel') await h.el('exchange-review-cancel').fire('click');
+        if (boundary === 'escape') await h.document.fire('keydown', {key: 'Escape'});
+        if (boundary === 'expiry') h.advance(120050);
+        await h.el('exchange-review-confirm').fire('click');
+        assert.equal(h.signingAttempts.length, 0);
+        if (boundary !== 'expiry') assert.equal(h.document.activeElement, button);
+    }
+    h.context.closeExchangeReview();
+    h.context.beginBuyOrder();
+    assert.equal(h.el('exchange-review-confirm').textContent, 'Подтвердить и создать');
+    assert.ok(h.el('exchange-review-description').textContent.startsWith('Заявка ещё не создана.'));
+    assert.equal(h.el('exchange-review-ack').checked, false);
+    assert.equal(h.el('exchange-review-confirm').disabled, true);
+    h.context.closeExchangeReview();
+    h.context.createSellOrder();
+    assert.equal(h.el('exchange-review-confirm').textContent, 'Подтвердить и создать');
+    assert.ok(h.el('exchange-review-description').textContent.startsWith('Заявка ещё не создана.'));
+    assert.equal(h.requests.length, 1);
+}
+
 const scenarios = {
+    wallet_review: walletReview,
     buy_snapshot: buySnapshot,
     literal_memo: literalMemo,
     sell_snapshot: sellSnapshot,

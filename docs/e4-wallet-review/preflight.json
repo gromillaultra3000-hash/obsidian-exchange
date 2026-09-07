@@ -1,0 +1,23 @@
+{
+  "recordedAt": "2026-09-07T03:11:58.927300+00:00",
+  "deployedSha256": "dfab2b2dab9b4af57592c2dc39d60e0a63c7ecf310c0251fc47de14fd1f71a6a",
+  "publicGet": 200,
+  "publicMatchesDeployedTemplate": true,
+  "services": {
+    "relay-fastapi.service": {
+      "MainPID": "3877703",
+      "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:55 UTC",
+      "ActiveState": "active"
+    },
+    "exchange-bot.service": {
+      "MainPID": "3877887",
+      "ExecMainStartTimestamp": "Tue 2026-09-01 06:20:00 UTC",
+      "ActiveState": "active"
+    },
+    "nginx.service": {
+      "MainPID": "3877705",
+      "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:56 UTC",
+      "ActiveState": "active"
+    }
+  }
+}

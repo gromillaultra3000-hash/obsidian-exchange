@@ -4,67 +4,41 @@ Updated: 2026-09-07 UTC
 
 ## Current goal and status
 
-- 2026-09-07 owner authorized restoring continuous E0–E5 delivery for 24 hours
-  with time-only iteration count and bounded reversible autodeployment. Broad
-  technical preparation of previously deferred financial features is permitted;
-  trades/transfers remain owner-executed, consumed authority is never replayed.
-  Controller repair passes 113 tests and an actual systemd ten-iteration
-  rehearsal with artifact manifests, one pre-action 503 retry and detached-child
-  cleanup. It adds private artifact accounting, 30-second heartbeat/resource
-  checks, precise status and receipt-bound artifact-only recovery. Evidence:
-  `docs/autopilot-24h-rollout.v1.json`; operator instructions:
-  `docs/ssh-independent-work.md`. Reviewed package/unit are installed with
-  rollback `install-preimage.izqWcO`; exact 33 artifacts and old FAILED receipt
-  reconciled without replay. Production Mini App bytes remain unchanged and
-  GET200/Relay/bot/Nginx health pass. The 24-hour arm/start follows this final
-  clean checkpoint; inspect systemd/status for actual running state.
-  Active product route and exactly next item remain E4 wallet payment/transfer
-  confirmation wording and network-fee disclosure with blocked signing.
+- 2026-09-07 active E4 / EXPLICIT_ACTION_REVIEW wallet wording/fees slice
+  is VERIFIED and deployed under the supervisor's inherited writer lock.
+  Transfer and existing-order payment now have distinct descriptions and a
+  wallet-continuation label, explicit route/custody/KYC and additional TON fee
+  disclosure. Buy/sell copy resets on each opening; signing payloads/guards
+  are unchanged. 62 focused tests and 66 isolated Chrome checks pass at
+  320/390/1280px; eight new tests reject prior HTML. Six synthetic signing
+  attempts reject, no send-signed call occurs, and nine synthetic order writes
+  are blocked. Both independent acceptance and diff/security reviews pass.
+  Reviewed HTML `9fce42eb...f0e8cb97` is live: GET200/POST405/template match,
+  Relay/bot/Nginx active with unchanged process/start identities, no restart.
+  Exact root-only rollback: deployment-preimages/
+  `e4-wallet-review-20260907-1eknswvx/webapp.html`. Evidence:
+  `docs/e4-wallet-review-rollout.v1.json` and `docs/e4-wallet-review/`.
+  E4 remains IN_PROGRESS; no human/Telegram/iOS/WebKit/live-signing acceptance
+  or earlier-gate closure is claimed. Exactly next: E4 / RECEIVE_ADDRESS_INTEGRITY / preserve receive address during clipboard feedback and report clipboard success only after completion.
+  Reviewer reproduced the receive-copy defect: a second immediate tap copies
+  “✓ скопировано” because feedback overwrites the address; rejected clipboard
+  promises also falsely report success. Same-stage authorized scope persists.
 
-- 2026-09-06 owner explicitly enabled autonomous transitions across **E0–E5**,
-  replacing the E4-only runner restriction. The initial E4 browser slice is
-  completed below; subsequent stages require committed transition evidence bound
-  to the master roadmap and assessments of all six gates. Forward acceptance
-  requires earlier gates VERIFIED. A named early blocker permits separately
-  labelled KEYLESS_NONPRODUCTION preparation; that scope persists across
-  same-stage iterations. COMPLETE requires all six gates VERIFIED. Frozen064A,
-  separate credential/money/signing gates and the 8-iteration/12-hour limit
-  remain. Transition tests pass 47/47; two independent reviews pass, including
-  resolved-path self-citation rejection and three-iteration keyless retention.
-  Reviewed controller/prompt/schema/unit installed with a retained preimage.
-  Canonical decision: `docs/ecosystem-master-roadmap.md`; implementation
-  evidence: `docs/autonomous-roadmap-transitions-rollout.v1.json`.
-
-- 2026-09-06 active route **E4 / USABILITY_TEST_MONEY_PATHS**: completed the
-  interrupted synthetic browser slice. Mobile baseline opened 437px down with
-  conditions hidden; product code now resets scroll and focuses the heading,
-  with forward/reverse keyboard containment. 54 focused tests and 33 browser
-  checks pass at 320/390/1280px; nine synthetic writer attempts were blocked,
-  no customer data/signatures/money used. Chrome remains sandboxed as nobody
-  in a private network; harness now verifies stopped unit/empty cgroup and
-  retains files on uncertain cleanup. Evidence/reviews/runtime outcome:
-  `docs/e4-review-browser/` and `docs/e4-review-browser-rollout.v1.json`.
-  Both independent reviews pass. Exact HTML deployed as `dfab2b2d...`; public
-  GET200/POST405/template match and Relay/bot/Nginx health pass. Retained
-  root-owned rollback preimage; no restart. Staged Gitleaks scan passes.
-  The 04:47 drafts are superseded; all unrelated untracked files preserved.
-  E4 remains IN_PROGRESS; human and real Telegram/iOS/WebKit acceptance is
-  unverified. Exactly next: E4 / EXPLICIT_ACTION_REVIEW / wallet-specific
-  transfer/payment description, confirmation label and network-fee disclosure,
-  validated keylessly with signing blocked. Existing wallet reviews wrongly
-  reuse order-creation copy and omit explicit network-fee guidance. Same-stage
-  continuation preserves existing scope; 064A stays frozen.
-
-- 2026-09-06 SSH-independent supervisor installed for that E4 route:
-  `obsidian-roadmap-autopilot.service`, serial Codex `--approve-for-me`, existing
-  sandbox/approval rules retained, no automatic retry/reboot restart, maximum
-  eight iterations/twelve hours. 24 tests and two independent reviews pass;
-  actual PID-1 systemd rehearsals prove sequential completion and cleanup of a
-  detached child with fail-stop before iteration two. Before any interactive
-  edit check/stop the active service: flock does not cover arbitrary editors.
-  Runtime truth: `/var/lib/obsidian-roadmap-autopilot/status.json`. Instructions
-  and evidence: `docs/ssh-independent-work.md` and corresponding rollout JSON.
-  No ongoing activity should be inferred without checking that state.
+- 2026-09-07 owner authorized 24 hours of continuous code-first E0–E5 delivery,
+  no eight-iteration ceiling, and immediate reversible autodeployment after
+  tests, two reviews, rollback preflight and runtime checks. Technical work on
+  formerly deferred financial features is permitted; trades/transfers remain
+  owner-executed and consumed authority/terminal archives cannot be replayed.
+  Stage changes require committed assessments under
+  `docs/autonomous-roadmap-transitions.md`; later preparation under an early
+  blocker remains KEYLESS_NONPRODUCTION with no production authority.
+  The supervisor is active for this run; only its inherited iteration writes.
+  Do not start another runner or change its unit/config/state. Inspect actual
+  `/var/lib/obsidian-roadmap-autopilot/status.json` and systemd for later state.
+  Installation evidence: `docs/autopilot-24h-rollout.v1.json`; operational
+  instructions: `docs/ssh-independent-work.md`. Prior 8-iteration/12-hour and
+  E4-only restrictions are superseded; unrelated untracked owner artifacts
+  remain untouched.
 
 - 2026-08-23 owner selected code-first continuous delivery: bounded reversible
   work proceeds as project code → tests → rehearsal/canary → rollout →

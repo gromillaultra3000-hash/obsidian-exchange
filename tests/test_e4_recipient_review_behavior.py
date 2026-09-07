@@ -102,3 +102,9 @@ def test_unknown_asset_defers_destination_validation_to_server():
 )
 def test_real_review_event_handlers_enforce_acknowledgement_and_freshness(boundary):
     run_case("review_boundary", boundary=boundary)
+
+
+@pytest.mark.parametrize("action", ["transfer", "payment"])
+@pytest.mark.parametrize("boundary", ["confirm", "cancel", "escape", "expiry"])
+def test_wallet_action_copy_fees_blocked_signing_and_exchange_copy_reset(action, boundary):
+    run_case("wallet_review", action=action, boundary=boundary)

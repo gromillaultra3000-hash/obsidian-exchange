@@ -1,0 +1,6 @@
+{
+  "result": "PASS",
+  "method": "fsynced temporary file and atomic replace; exact preimage restore",
+  "productionTouched": false,
+  "cleanupVerified": true
+}

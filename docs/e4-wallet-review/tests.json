@@ -1,0 +1,17 @@
+{
+  "recordedAt": "2026-09-07T03:13:51.090149+00:00",
+  "focused": {
+    "result": "PASS",
+    "count": 62,
+    "log": "output/autopilot/run-20260907T030723-1/focused-tests.log"
+  },
+  "baseline": {
+    "result": "EXPECTED_FAIL",
+    "count": 8,
+    "reason": "new action-specific wallet copy/fee tests reject prior HTML",
+    "sourceSha256": "dfab2b2dab9b4af57592c2dc39d60e0a63c7ecf310c0251fc47de14fd1f71a6a"
+  },
+  "javascriptSyntax": "PASS: all nonempty inline scripts compile via Node vm.Script",
+  "nodeVersion": "v22.23.2",
+  "pytestVersion": "8.3.4"
+}

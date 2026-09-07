@@ -1806,11 +1806,15 @@
                 say('Проверьте условия перед подписью в кошельке.');
                 openExchangeReview({
                     title: 'Отправить ' + d.amount + ' TON',
+                    description: 'Это перевод из вашего кошелька, а не заявка на обмен. Следующий шаг откроет кошелёк: подпись нужно подтвердить отдельно в нём.',
+                    confirmLabel: 'Продолжить в кошельке',
                     rows: [
                         {label: 'Исполнитель', value: 'Ваш подключённый TON-кошелёк'},
+                        {label: 'Маршрут', value: 'Прямой перевод в сети TON · обмен и CEX / KYC-аккаунт не используются'},
                         {label: 'Custody', value: 'Ключи остаются только в вашем кошельке'},
                         {label: 'Получатель', value: d.address || '—'},
                         {label: 'Сумма и сеть', value: d.amount + ' TON · сеть TON'},
+                        {label: 'Сетевая комиссия', value: 'Оплачивается отдельно в TON, сверх суммы перевода. Здесь не рассчитана. Проверьте оценку комиссии и итоговое списание в кошельке перед подписью.'},
                         {label: 'Комментарий', value: comment || 'Нет'}
                     ],
                     risk: 'После подписи в кошельке перевод в сети TON нельзя отменить. Проверьте адрес, сумму и комментарий в окне кошелька.',
@@ -2108,16 +2112,19 @@
             exchangeReviewRestoreFocus = null;
             if (restore && document.contains(restore) && !restore.disabled) restore.focus();
         }
-        function openExchangeReview({title, rows, risk, onConfirm}) {
+        function openExchangeReview({title, description = 'Заявка ещё не создана. Ничего не списывается до следующего подтверждения.', confirmLabel = 'Подтвердить и создать', rows, risk, onConfirm}) {
             const modal = document.getElementById('exchange-review');
             const heading = document.getElementById('exchange-review-title');
+            const descriptionBox = document.getElementById('exchange-review-description');
             const summary = document.getElementById('exchange-review-summary');
             const riskBox = document.getElementById('exchange-review-risk');
             const ack = document.getElementById('exchange-review-ack');
             const confirm = document.getElementById('exchange-review-confirm');
             const freshness = document.getElementById('exchange-review-freshness');
-            if (!modal || !heading || !summary || !riskBox || !ack || !confirm || !freshness) return;
+            if (!modal || !heading || !descriptionBox || !summary || !riskBox || !ack || !confirm || !freshness) return;
             heading.textContent = title;
+            descriptionBox.textContent = description;
+            confirm.textContent = confirmLabel;
             summary.innerHTML = rows.map(row => '<div style="padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07)">'
                 + '<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">' + esc(row.label) + '</div>'
                 + '<div style="font-size:13px;margin-top:3px;line-height:1.4;white-space:pre-wrap;overflow-wrap:anywhere">' + esc(row.value) + '</div></div>').join('');
@@ -2294,11 +2301,15 @@
                 say('Проверьте условия перед подписью в кошельке.');
                 openExchangeReview({
                     title: 'Оплатить заявку #' + d.sell_id + ' из кошелька',
+                    description: 'Заявка уже создана. Вы проверяете её оплату из своего кошелька. Следующий шаг откроет кошелёк: подпись нужно подтвердить отдельно в нём.',
+                    confirmLabel: 'Продолжить в кошельке',
                     rows: [
                         {label: 'Исполнитель', value: 'Ваш подключённый TON-кошелёк'},
-                        {label: 'Custody', value: 'Ключи остаются только в вашем кошельке'},
+                        {label: 'Маршрут', value: 'Оплата заявки ObsidianExchange · private lane · без KYC'},
+                        {label: 'Custody', value: 'Ключи остаются только в вашем кошельке. Монеты отправляются на адрес заявки ObsidianExchange'},
                         {label: 'Получатель', value: d.address || '—'},
                         {label: 'Сумма и сеть', value: d.amount + ' TON · сеть TON'},
+                        {label: 'Сетевая комиссия', value: 'Оплачивается отдельно в TON, сверх суммы перевода; это не комиссия обмена. Здесь не рассчитана. Проверьте оценку комиссии и итоговое списание в кошельке перед подписью.'},
                         {label: 'Комментарий к переводу', value: d.marker || '—'}
                     ],
                     risk: 'После подписи перевод в сети TON нельзя отменить. Заявка будет считаться оплаченной только после подтверждения в сети.',
