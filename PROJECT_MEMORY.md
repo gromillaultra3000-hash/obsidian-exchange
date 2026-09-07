@@ -13,24 +13,13 @@ Updated: 2026-09-07 UTC
   cleanup. It adds private artifact accounting, 30-second heartbeat/resource
   checks, precise status and receipt-bound artifact-only recovery. Evidence:
   `docs/autopilot-24h-rollout.v1.json`; operator instructions:
-  `docs/ssh-independent-work.md`. Installation/recovery/24-hour launch pending
-  at this implementation checkpoint; inspect actual service/status for truth.
+  `docs/ssh-independent-work.md`. Reviewed package/unit are installed with
+  rollback `install-preimage.izqWcO`; exact 33 artifacts and old FAILED receipt
+  reconciled without replay. Production Mini App bytes remain unchanged and
+  GET200/Relay/bot/Nginx health pass. The 24-hour arm/start follows this final
+  clean checkpoint; inspect systemd/status for actual running state.
   Active product route and exactly next item remain E4 wallet payment/transfer
   confirmation wording and network-fee disclosure with blocked signing.
-
-- 2026-09-07 owner-requested runtime audit: the 12-hour allowance did not
-  produce 12 hours of autonomous work. Latest systemd run lasted 2026-09-06
-  04:58:06–05:07:09 UTC, completed one E4 iteration (`fb2fcd2`), then stopped
-  `FAILED/UNCOMMITTED_NEW_FILES` before iteration two: 33 new browser artifacts
-  under `output/playwright/` were outside Git. `Restart=no`, MainPID=0;
-  status/receipt remain under `/var/lib/obsidian-roadmap-autopilot`.
-  The committed Mini App fix is deployed: source/runtime SHA-256 match
-  `dfab2b2d...1f71a6a`; fresh `/webapp` GET200 and Relay/bot/Nginx active.
-  Tracked checkout was clean at audit. No completed product change from this
-  run awaits rollout. Runner artifact handling/reconciliation remains open;
-  no restart or deployment was performed by this audit. Active route remains
-  E4; next product item is wallet payment/transfer confirmation wording and
-  network-fee disclosure with blocked-signing browser validation.
 
 - 2026-09-06 owner explicitly enabled autonomous transitions across **E0–E5**,
   replacing the E4-only runner restriction. The initial E4 browser slice is

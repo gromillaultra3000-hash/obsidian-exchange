@@ -1,0 +1,26 @@
+[
+  {
+    "source": "scripts/obsidian_roadmap_autopilot.py",
+    "target": "/usr/local/lib/obsidian-roadmap-autopilot/obsidian_roadmap_autopilot.py",
+    "sha256": "460e0dcc9259df4d087ce93ee21595726aa9b4efa64c48aaf195cdb39c619ec4",
+    "mode": "0o644"
+  },
+  {
+    "source": "deploy/obsidian-roadmap-autopilot/iteration-prompt.md",
+    "target": "/usr/local/lib/obsidian-roadmap-autopilot/iteration-prompt.md",
+    "sha256": "0ca984704cb9cf5f8093deb0a0ee6145ea76f07d1d4e8182557067ff39b84c54",
+    "mode": "0o644"
+  },
+  {
+    "source": "deploy/obsidian-roadmap-autopilot/iteration.schema.json",
+    "target": "/usr/local/lib/obsidian-roadmap-autopilot/iteration.schema.json",
+    "sha256": "6eec2c6d7952d38989ae47c5e08df1c4c3d94db1ae7d5c6e31f8214ba180b19f",
+    "mode": "0o644"
+  },
+  {
+    "source": "deploy/systemd/obsidian-roadmap-autopilot.service",
+    "target": "/etc/systemd/system/obsidian-roadmap-autopilot.service",
+    "sha256": "096b20335285646ffe106b26ac62c0ab89b42d3dbad2fd3e41620a23025a92c6",
+    "mode": "0o644"
+  }
+]

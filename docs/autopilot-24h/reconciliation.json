@@ -1,0 +1,15 @@
+{
+  "status": "RECONCILED",
+  "recorded_at": "2026-09-07T03:06:09.100658+00:00",
+  "previous_status_sha256": "129c66a1a292cbd4705907ad69343b9f2f6619a55eef11d726acdd9e5da1eecc",
+  "previous_receipt_sha256": "a0caded48d8c3170c6d6fdd399de308a55195dee4c49d2fab6689c4311a4070e",
+  "accepted_commit": "fb2fcd2a49677038bb13d235fed5c97c290871c6",
+  "head": "cba4609eb13a7f9a1486e04c907f9b560268bbbc",
+  "next_step": "E4 / EXPLICIT_ACTION_REVIEW / wallet-specific payment and transfer wording plus network-fee disclosure, validated keylessly with signing blocked.",
+  "scheduled_stage": "E4",
+  "continuation_scope": "CURRENT_AUTHORIZED_SCOPE",
+  "artifact_count": 33,
+  "runtime_sha256": "dfab2b2dab9b4af57592c2dc39d60e0a63c7ecf310c0251fc47de14fd1f71a6a",
+  "replayed": false,
+  "archive": "/var/lib/obsidian-roadmap-autopilot/reconciled-artifacts-20260907T030608"
+}

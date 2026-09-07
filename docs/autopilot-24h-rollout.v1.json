@@ -1,8 +1,8 @@
 {
   "schemaVersion": "autopilot-24h-rollout.v1",
-  "recordedAt": "2026-09-07T03:05:00.369785+00:00",
+  "recordedAt": "2026-09-07T03:06:40.320378+00:00",
   "route": "E4 / operational prerequisite / restore continuous E0-E5 delivery",
-  "status": "IN_PROGRESS",
+  "status": "VERIFIED",
   "ownerDecision": "2026-09-07: 24 hours; time-only iteration count; reversible autodeployment; broad technical financial-feature preparation",
   "tests": {
     "focused": "113 passed",
@@ -29,8 +29,31 @@
     "Polling resource guards are not hard filesystem quotas",
     "Activation after actual crash/reboot still needs reconciliation"
   ],
-  "installation": "PENDING",
-  "reconciliation": "PENDING",
-  "startup": "PENDING",
-  "nextCanonicalItem": "E4 / EXPLICIT_ACTION_REVIEW / wallet payment/transfer wording and network-fee disclosure with blocked-signing browser validation"
+  "installation": {
+    "status": "VERIFIED",
+    "evidence": "docs/autopilot-24h/installed.json",
+    "rollbackPreimage": "/var/lib/obsidian-roadmap-autopilot/install-preimage.izqWcO",
+    "systemdRuntimeMax": "24 hours + 2 minutes stop grace",
+    "restart": "no"
+  },
+  "reconciliation": {
+    "status": "RECONCILED",
+    "evidence": "docs/autopilot-24h/reconciliation.json",
+    "artifacts": 33,
+    "replayed": false
+  },
+  "startup": {
+    "authorizedHours": 24,
+    "maxIterations": 0,
+    "startsAfterFinalCleanCommit": true,
+    "liveSource": "/var/lib/obsidian-roadmap-autopilot/status.json"
+  },
+  "nextCanonicalItem": "E4 / EXPLICIT_ACTION_REVIEW / wallet payment/transfer wording and network-fee disclosure with blocked-signing browser validation",
+  "productionHealth": {
+    "webappGet": 200,
+    "relay": "active",
+    "bot": "active",
+    "nginx": "active",
+    "productBytesUnchanged": true
+  }
 }
