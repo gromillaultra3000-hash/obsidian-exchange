@@ -37,6 +37,8 @@ async function main() {
         let holdReceive = false;
         let receiveRequested;
         const pendingReceiveRoutes = [];
+        let orderRequested;
+        const pendingOrderRoutes = [];
         await context.addInitScript(() => {
             window.Telegram = {WebApp: {initData: '', initDataUnsafe: {},
                 expand() {}, ready() {}, onEvent() {},
@@ -45,6 +47,11 @@ async function main() {
         await context.route('**/*', async route => {
             const req = route.request();
             const url = new URL(req.url());
+            if (url.origin === origin && req.method() === 'GET' && url.pathname.startsWith('/api/order/synthetic-')) {
+                pendingOrderRoutes.push(route);
+                if (orderRequested) orderRequested();
+                return;
+            }
             if (holdReceive && url.origin === origin && req.method() === 'GET'
                     && url.pathname === '/api/wallet/receive') {
                 pendingReceiveRoutes.push(route);
@@ -473,6 +480,127 @@ async function main() {
         assert.equal(await receiveAddress.textContent(), '');
         assert.equal(await copyButton.isDisabled(), true);
         report.checks.push(`${viewport.width}: reordered receive response cannot replace new address; wallet change invalidates pending receive`);
+
+        // Fresh payment instructions must never inherit another order's data.
+        await page.clock.pauseAt(new Date((await page.evaluate(() => Date.now())) + 1000));
+        await page.locator('#tab-exchange').click();
+        await page.locator('#deal-side [data-side="buy"]').click();
+        await page.evaluate(() => {
+            window.__paymentLinks = [];
+            Telegram.WebApp.openLink = url => window.__paymentLinks.push(url);
+            window.__paymentJsonDone = 0;
+            window.__paymentAborted = 0;
+            const originalFetch = window.fetch;
+            window.fetch = async (...args) => {
+                let response;
+                try { response = await originalFetch(...args); }
+                catch (error) {
+                    if (String(args[0]).startsWith('/api/order/synthetic-') && error.name === 'AbortError') window.__paymentAborted++;
+                    throw error;
+                }
+                if (String(args[0]).startsWith('/api/order/synthetic-')) {
+                    const originalJson = response.json.bind(response);
+                    response.json = async () => {
+                        const data = await originalJson();
+                        window.__paymentJsonDone++;
+                        return data;
+                    };
+                }
+                return response;
+            };
+        });
+        const paymentQr = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=';
+        async function startPayment(id, image, amount, requisites, url = 'https://payment.invalid/' + id) {
+            const requested = new Promise(resolve => {orderRequested = resolve;});
+            await page.evaluate(args => startOrderTracking(...args), [id, url, 'TON', image, amount, requisites]);
+            await requested;
+            orderRequested = null;
+            return pendingOrderRoutes.length - 1;
+        }
+        async function paymentReply(index, data) {
+            const before = await page.evaluate(() => window.__paymentJsonDone);
+            await pendingOrderRoutes[index].fulfill({contentType: 'application/json', body: JSON.stringify(data)});
+            await page.waitForFunction(count => window.__paymentJsonDone > count, before);
+        }
+        async function freshPayment(id) {
+            assert.equal(await page.locator('#pay-card-title').textContent(), 'Заявка #' + id);
+            assert.equal(await page.locator('#pay-qr-wrap').isVisible(), false);
+            assert.equal(await page.locator('#pay-qr').getAttribute('src'), null);
+            assert.equal(await page.locator('#pay-amount-line').textContent(), '');
+            assert.equal(await page.locator('#pay-timer').textContent(), '15:00');
+            assert.equal(await page.locator('#pay-open-btn').isEnabled(), true);
+            assert.equal(await page.locator('#pay-open-btn').isVisible(), true);
+            assert.equal(await page.locator('#pay-open-btn').textContent(), '💳 Оплатить');
+            assert.equal(await page.locator('#pay-check-btn').textContent(), '🔄 Проверить статус');
+            assert.equal(await page.locator('#exchange-steps').isVisible(), true);
+            assert.ok((await page.locator('#exchange-steps').textContent()).includes('Ожидание оплаты'));
+            assert.ok((await page.locator('#pay-req').textContent()).includes('+70000000002'));
+            assert.ok(!(await page.locator('#pay-req').textContent()).includes('+70000000001'));
+            assert.match(await page.locator('#pay-req').textContent(), /2\s000/);
+        }
+        const firstOrder = await startPayment('synthetic-qr-a', paymentQr, 1000, {phone: '+70000000001'});
+        await page.evaluate(() => {
+            window.__oldPaymentOpen = document.getElementById('pay-open-btn').onclick;
+            window.__oldPaymentCheck = document.getElementById('pay-check-btn').onclick;
+        });
+        assert.equal(await page.locator('#pay-qr-wrap').isVisible(), true);
+        const secondOrder = await startPayment('synthetic-text-b', null, 2000, {phone: '+70000000002'});
+        await freshPayment('synthetic-text-b');
+        await page.locator('#pay-card').scrollIntoViewIfNeeded();
+        assert.equal(await page.locator('#pay-card').evaluate(el => el.scrollWidth <= el.clientWidth), true);
+        await page.screenshot({path: path.join(outputDir, `${viewport.width}-payment-text-fresh.png`)});
+        await paymentReply(firstOrder, {status: 'sent', tx_url: 'https://explorer.invalid/old'});
+        await freshPayment('synthetic-text-b');
+        const requestsBefore = pendingOrderRoutes.length;
+        await page.evaluate(() => {window.__oldPaymentOpen(); window.__oldPaymentCheck();});
+        assert.equal(pendingOrderRoutes.length, requestsBefore);
+        assert.deepEqual(await page.evaluate(() => window.__paymentLinks), []);
+        await page.locator('#pay-open-btn').click();
+        assert.deepEqual(await page.evaluate(() => window.__paymentLinks), ['https://payment.invalid/synthetic-text-b']);
+        await paymentReply(secondOrder, {status: 'paid'});
+        assert.equal(await page.locator('#pay-open-btn').isVisible(), false);
+        const thirdOrder = await startPayment('synthetic-text-c', null, 2000, {phone: '+70000000002'});
+        await freshPayment('synthetic-text-c');
+        report.checks.push(`${viewport.width}: QR-to-text clears QR/amount; obsolete status and captured actions ignored; paid-to-new restores controls`);
+
+        await paymentReply(thirdOrder, {status: 'cancelled'});
+        const fourthOrder = await startPayment('synthetic-link-d', null, 2000, {payment_link: 'https://payment.invalid/link-d'});
+        assert.equal(await page.locator('#pay-open-btn').isVisible(), true);
+        assert.ok((await page.locator('#pay-open-btn').textContent()).includes('страницу'));
+        await paymentReply(fourthOrder, {status: 'pending', receipt: 'sent'});
+        const fifthOrder = await startPayment('synthetic-qr-e', paymentQr, null, null);
+        assert.equal(await page.locator('#pay-qr-wrap').isVisible(), true);
+        assert.equal(await page.locator('#pay-amount-line').textContent(), '');
+        assert.equal(await page.locator('#pay-req').textContent(), '');
+        assert.ok((await page.locator('#pay-open-btn').textContent()).includes('банка'));
+        await paymentReply(fifthOrder, {status: 'expired'});
+        assert.equal(await page.locator('#pay-open-btn').isVisible(), false);
+        const sixthOrder = await startPayment('synthetic-text-f', null, 2000, {phone: '+70000000002'});
+        await freshPayment('synthetic-text-f');
+        await paymentReply(sixthOrder, {status: 'pending'});
+        report.checks.push(`${viewport.width}: cancelled/receipt/expired-to-new restores instructions; link/QR labels and missing amount are isolated`);
+        const emptyOrder = await startPayment('synthetic-empty-g', null, null, null, null);
+        assert.equal(await page.locator('#pay-open-btn').isVisible(), false);
+        assert.equal(await page.locator('#pay-open-btn').isDisabled(), true);
+        assert.equal(await page.locator('#pay-req').textContent(), '');
+        assert.equal(await page.locator('#pay-qr').getAttribute('src'), null);
+        await paymentReply(emptyOrder, {status: 'cancelled'});
+        report.checks.push(`${viewport.width}: absent payment destination clears prior data and exposes no payment action`);
+        const abortsBefore = await page.evaluate(() => window.__paymentAborted);
+        const timeoutOrder = await startPayment('synthetic-timeout-h', null, 2000, {phone: '+70000000002'});
+        await page.clock.runFor(10001);
+        await page.waitForFunction(count => window.__paymentAborted > count, abortsBefore);
+        // The interval may start a fresh read at the same 10 s boundary.
+        if (pendingOrderRoutes.length > timeoutOrder + 1) {
+            await paymentReply(pendingOrderRoutes.length - 1, {status: 'pending'});
+        }
+        const requestedAgain = new Promise(resolve => {orderRequested = resolve;});
+        await page.locator('#pay-check-btn').click();
+        await requestedAgain;
+        orderRequested = null;
+        await paymentReply(pendingOrderRoutes.length - 1, {status: 'paid'});
+        assert.ok((await page.locator('#pay-card-title').textContent()).includes('оплачена'));
+        report.checks.push(`${viewport.width}: native fetch aborts stalled status request; manual check recovers to paid`);
         await context.close();
         }
         assert.equal(report.writerAttempts.length, 9);

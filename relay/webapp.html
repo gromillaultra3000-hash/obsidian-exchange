@@ -3223,7 +3223,7 @@
         })();
 
         // --- Отслеживание оплаты заявки внутри Mini App ---
-        let _orderPoll = null, _orderTimer = null;
+        let _orderPoll = null, _orderTimer = null, _orderGeneration = 0;
         function stopOrderTracking() {
             if (_orderPoll) { clearInterval(_orderPoll); _orderPoll = null; }
             if (_orderTimer) { clearInterval(_orderTimer); _orderTimer = null; }
@@ -3236,6 +3236,8 @@
         // его отсутствие, поэтому источник ровно один и он на сервере.
         function startOrderTracking(orderId, payUrl, currency, qrImage, payAmount, requisites) {
             stopOrderTracking();
+            const generation = ++_orderGeneration;
+            const isCurrent = () => generation === _orderGeneration;
             const card = document.getElementById('pay-card');
             const title = document.getElementById('pay-card-title');
             const statusEl = document.getElementById('pay-card-status');
@@ -3244,7 +3246,39 @@
             const checkBtn = document.getElementById('pay-check-btn');
             const steps = document.getElementById('exchange-steps');
             const qrWrap = document.getElementById('pay-qr-wrap');
-            card.style.display = 'block';
+            const qr = document.getElementById('pay-qr');
+            const amountLine = document.getElementById('pay-amount-line');
+            const reqEl = document.getElementById('pay-req');
+            const payLink = (requisites && requisites.payment_link) || '';
+            let paymentAvailable = !!(payLink || payUrl);
+            const hidePaymentInstructions = () => {
+                qrWrap.style.display = 'none';
+                qr.removeAttribute('src');
+                amountLine.textContent = '';
+                if (reqEl) { reqEl.style.display = 'none'; reqEl.textContent = ''; }
+                paymentAvailable = false;
+                openBtn.style.display = 'none';
+                openBtn.disabled = true;
+            };
+            // Reset all order-owned DOM before exposing the fresh instructions.
+            card.style.display = 'none';
+            qrWrap.style.display = 'none';
+            qr.removeAttribute('src');
+            amountLine.textContent = '';
+            if (reqEl) { reqEl.style.display = 'none'; reqEl.textContent = ''; }
+            openBtn.onclick = null;
+            openBtn.textContent = '💳 Оплатить';
+            openBtn.style.display = paymentAvailable ? '' : 'none';
+            openBtn.disabled = !paymentAvailable;
+            checkBtn.onclick = null;
+            checkBtn.textContent = '🔄 Проверить статус';
+            checkBtn.style.display = '';
+            checkBtn.disabled = false;
+            timerEl.textContent = '15:00';
+            if (steps) {
+                steps.style.display = 'flex';
+                steps.innerHTML = '<div class="ex-step done">✓ Заявка создана</div><div class="ex-step active">⏳ Ожидание оплаты</div><div class="ex-step">📤 Выплата крипты</div>';
+            }
             title.textContent = `Заявка #${orderId}`;
             // Показ QR СБП прямо в приложении, если провайдер вернул payload
             if (qrImage) {
@@ -3258,8 +3292,6 @@
                 statusEl.textContent = 'Курс зафиксирован на 15 минут. Переведите точную сумму по реквизитам:';
             }
             // Текстовые реквизиты прямо в приложении (телефон/карта/банк/получатель)
-            const reqEl = document.getElementById('pay-req');
-            const payLink = (requisites && requisites.payment_link) || '';
             if (reqEl) {
                 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
                 const row = (lbl, val, strong) => `<div style="display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.05)"><span style="color:#8b8b93;font-size:12px">${lbl}</span><span style="font-weight:${strong?700:600};text-align:right${strong?';color:#4ade80':''}">${val}</span></div>`;
@@ -3285,6 +3317,7 @@
                 }
             }
             const openPay = () => {
+                if (!isCurrent() || !paymentAvailable) return;
                 const url = payLink || payUrl;
                 if (url) { tg.openLink ? tg.openLink(url) : (window.location.href = url); }
             };
@@ -3303,6 +3336,7 @@
             let left = 15 * 60;
             timerEl.style.color = '#c48cff';
             _orderTimer = setInterval(() => {
+                if (!isCurrent()) return;
                 left--;
                 const m = String(Math.floor(left / 60)).padStart(2, '0');
                 const s = String(left % 60).padStart(2, '0');
@@ -3312,9 +3346,7 @@
                     // Таймер гасим, но поллинг статуса ещё живёт: оплата «на флажке» отобразится
                     if (_orderTimer) { clearInterval(_orderTimer); _orderTimer = null; }
                     timerEl.textContent = '00:00';
-                    if (qrWrap) qrWrap.style.display = 'none';
-                    const _rq = document.getElementById('pay-req'); if (_rq) _rq.style.display = 'none';
-                    openBtn.style.display = 'none';
+                    hidePaymentInstructions();
                     statusEl.innerHTML = _receipt === 'sent'
                         ? '🧾 Чек получен — проверяем платёж. Заявка не отменена, крипта уйдёт после подтверждения.'
                         : _receipt
@@ -3325,6 +3357,7 @@
 
             let _verifShown = false, _receiptShown = false;
             const applyStatus = (st, txid, verification, txUrl, receipt, delayed, dead) => {
+                if (!isCurrent()) return;
                 if (receipt) _receipt = receipt;
                 // Исход, объявленный СЕРВЕРОМ, старше чека: заявку с дошедшим
                 // чеком Слой 0 сам не истекает, значит терминальный статус —
@@ -3333,9 +3366,7 @@
                 // тоже нельзя: единственный честный выход — к человеку.
                 if (_receipt && (st === 'expired' || st === 'failed' || st === 'cancelled')) {
                     stopOrderTracking();
-                    if (qrWrap) qrWrap.style.display = 'none';
-                    const _rq0 = document.getElementById('pay-req'); if (_rq0) _rq0.style.display = 'none';
-                    openBtn.style.display = 'none';
+                    hidePaymentInstructions();
                     timerEl.textContent = '🧾';
                     title.textContent = `Заявка #${orderId} — закрыта`;
                     statusEl.innerHTML = '🧾 Заявка закрыта, но ваш чек у нас. <b>Повторно не переводите и новую заявку не создавайте</b> — напишите в поддержку, разберём вручную.';
@@ -3352,9 +3383,7 @@
                 // Сделка закрыта у провайдера, а заявка ещё «ждёт оплаты»:
                 // реквизиты на экране ведут туда, где перевод уже не ждут.
                 if (dead && st === 'pending' && !_receipt) {
-                    if (qrWrap) qrWrap.style.display = 'none';
-                    const _rqd = document.getElementById('pay-req'); if (_rqd) _rqd.style.display = 'none';
-                    openBtn.style.display = 'none';
+                    hidePaymentInstructions();
                     timerEl.textContent = '—';
                     title.textContent = `Заявка #${orderId} — реквизиты не действуют`;
                     statusEl.innerHTML = '⚠️ Платёжная сессия закрыта партнёром. <b>Если вы уже перевели деньги — повторно не переводите</b>, пришлите чек в чат. Если ещё нет — создайте новую заявку.';
@@ -3365,9 +3394,7 @@
                     // узнать его страница может единственным способом — спрашивая.
                     if (!_receiptShown) {
                         _receiptShown = true;
-                        if (qrWrap) qrWrap.style.display = 'none';
-                        const _rq = document.getElementById('pay-req'); if (_rq) _rq.style.display = 'none';
-                        openBtn.style.display = 'none';
+                        hidePaymentInstructions();
                         timerEl.textContent = '🧾';
                         title.textContent = `Заявка #${orderId} — на проверке`;
                         statusEl.innerHTML = '🧾 Чек получен — проверяем платёж. Заявка не отменена; крипта уйдёт на ваш адрес после подтверждения. Обычно до 30 минут.';
@@ -3381,23 +3408,20 @@
                 // которая звала платить по закрытой заявке.
                 if (st === 'expired' || st === 'failed' || st === 'cancelled') {
                     stopOrderTracking();
-                    if (qrWrap) qrWrap.style.display = 'none';
-                    const _rq = document.getElementById('pay-req'); if (_rq) _rq.style.display = 'none';
+                    hidePaymentInstructions();
                     timerEl.textContent = '—';
                     title.textContent = st === 'cancelled'
                         ? `Заявка #${orderId} — отменена` : `Заявка #${orderId} — истекла`;
                     statusEl.innerHTML = st === 'cancelled'
                         ? '🚫 Заявка отменена. Средства по этим реквизитам не переводите.'
                         : '⌛ Заявка истекла. Средства не переводите — создайте новую заявку с актуальным курсом.';
-                    openBtn.style.display = 'none';
                     if (steps) steps.style.display = 'none';
                     loadHistory();
                     return;
                 }
                 if (st === 'paid' || st === 'sent') {
                     stopOrderTracking();
-                    if (qrWrap) qrWrap.style.display = 'none';
-                    const _rq = document.getElementById('pay-req'); if (_rq) _rq.style.display = 'none';
+                    hidePaymentInstructions();
                     timerEl.textContent = st === 'sent' ? '🚀' : '✅';
                     title.textContent = st === 'sent' ? `Заявка #${orderId} — выплачена` : `Заявка #${orderId} — оплачена`;
                     const _tu = (st === 'sent') ? (txUrl || null) : null;
@@ -3413,7 +3437,6 @@
                         : (delayed
                             ? `⏳ Оплата получена и подтверждена. Отправку ${currency} задерживает ручная проверка — заявкой занимается сотрудник. Повторно платить не нужно, номер транзакции придёт в чат.`
                             : `✅ Оплата получена! Готовим выплату ${currency}. Уведомим в чате.`);
-                    openBtn.style.display = 'none';
                     checkBtn.textContent = '🔄 Обновить';
                     if (steps) steps.innerHTML = st === 'sent'
                         ? '<div class="ex-step done">✓ Заявка создана</div><div class="ex-step done">✓ Оплачено</div><div class="ex-step done">✓ Крипта отправлена</div>'
@@ -3422,13 +3445,22 @@
                     loadHistory();
                 }
             };
+            let polling = false;
             const poll = async () => {
+                if (!isCurrent() || polling) return;
+                polling = true;
+                const controller = new AbortController();
+                const deadline = setTimeout(() => controller.abort(), 10000);
                 try {
-                    const r = await fetch(`/api/order/${orderId}`, { headers: { 'X-Telegram-Init-Data': tg.initData || '' } });
-                    if (r.ok) { const d = await r.json(); applyStatus(d.status, d.txid, d.verification, d.tx_url, d.receipt, d.delayed, d.dead); }
-                } catch (e) {}
+                    const r = await fetch(`/api/order/${orderId}`, { signal: controller.signal, cache: 'no-store', headers: { 'X-Telegram-Init-Data': tg.initData || '' } });
+                    if (r.ok) {
+                        const d = await r.json();
+                        if (!controller.signal.aborted) applyStatus(d.status, d.txid, d.verification, d.tx_url, d.receipt, d.delayed, d.dead);
+                    }
+                } catch (e) {} finally { clearTimeout(deadline); polling = false; }
             };
             checkBtn.onclick = poll;
+            card.style.display = 'block';
             _orderPoll = setInterval(poll, 5000);
             poll();
             // Авто-прыжок наружу только если показать внутри нечего (нет ни реквизитов, ни QR, ни ссылки)

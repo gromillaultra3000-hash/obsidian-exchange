@@ -1,0 +1,92 @@
+{
+  "schemaVersion": "e4-payment-instruction-security-review.v1",
+  "reviewedAt": "2026-09-07T03:39:12.592684+00:00",
+  "reviewer": {
+    "identity": "Codex independent diff/security agent /root/diff_security_review",
+    "independentOfImplementation": true,
+    "modelBuild": "Exact model build is not exposed by the runtime; no exact version claimed",
+    "skill": "/root/.codex/skills/security-best-practices/SKILL.md",
+    "reference": "/root/.codex/skills/security-best-practices/references/javascript-general-web-frontend-security.md"
+  },
+  "route": "E4 / PAYMENT_INSTRUCTION_ISOLATION / fresh payment instructions and stale-callback isolation",
+  "scope": [
+    "relay/webapp.html tracking-function diff, relevant callers and DOM",
+    "Executable synthetic regression harness and pytest completion validation",
+    "Final isolated browser evidence pending"
+  ],
+  "inputsSha256": {
+    "relay/webapp.html": "6bdad471edcedf7b21d28373cdd564268d50f62b16385bac9905215ad4df2db8",
+    "tests/e4_payment_instruction_behavior.cjs": "f820cd4ff51b57c40e3eda47cabcf9423ef2afce2379364eab58d31b6a8af0ef",
+    "tests/test_e4_payment_instruction_behavior.py": "b425ababa71e51d8f977214303553bd011509d2bb5dd9c8a0bf2ea2ef218b3ea",
+    "tests/e4_review_browser.cjs": "b949722f388693c933564e75dac80ba5fcc256f533465d4bc3a6f49e7f523c2e",
+    "output/autopilot/run-20260907T033330-3/security-hung-poll.cjs": "bbb9e26bb5b0c6b069d368e07b12a9f2ed9de8c2f216d0628c042ee5c48745c7"
+  },
+  "inputRevisionNote": "Draft hashes only; main implementation is changing to fix E4-PAY-SEC-001. Final review will bind final bytes.",
+  "baseCommit": "1cbfe1f4ccea89703120fc000592cae03f5101da",
+  "capabilityMatrix": {
+    "independentDiffSecurityReview": "Performed by this agent",
+    "focusedVMTests": "Performed locally with synthetic DOM, GETs and timers",
+    "liveBrowser": "Main agent will execute isolated browser; reviewer will inspect exact evidence",
+    "securitySkill": "Vanilla JavaScript frontend reference applied",
+    "productionMoneyCustomerCredentials": "Outside reviewer scope"
+  },
+  "writerBoundary": {
+    "autopilotServiceObserved": "active",
+    "authorization": "Review child of parent iteration under inherited writer lock; parent authorized report and temporary repro only",
+    "implementationMutatedByReviewer": false,
+    "gitOrRuntimeMutatedByReviewer": false
+  },
+  "tools": {
+    "node": "v22.23.2",
+    "python": "3.12.3",
+    "pytest": "8.3.4 via /opt/lumi/venv/bin/python",
+    "git": "2.43.0"
+  },
+  "independentVerification": [
+    {
+      "check": "PYTHONDONTWRITEBYTECODE=1 /opt/lumi/venv/bin/python -m pytest -q -p no:cacheprovider tests/test_e4_payment_instruction_behavior.py",
+      "result": "PASS",
+      "passed": 19,
+      "failed": 0
+    },
+    {
+      "check": "git diff --check -- relay/webapp.html",
+      "result": "PASS"
+    },
+    {
+      "check": "node output/autopilot/run-20260907T033330-3/security-hung-poll.cjs relay/webapp.html",
+      "result": "REGRESSION_REPRODUCED",
+      "initialRequests": 1,
+      "attemptedScheduledChecks": 12,
+      "attemptedManualChecks": 1,
+      "finalRequests": 1
+    }
+  ],
+  "findings": [
+    {
+      "id": "E4-PAY-SEC-001",
+      "ruleId": "MEGA_PROMPT_14_BOUNDED_READ_TIMEOUT",
+      "severity": "Medium",
+      "priority": "P2",
+      "location": {
+        "path": "relay/webapp.html",
+        "function": "startOrderTracking.poll",
+        "line": 3448
+      },
+      "evidence": "polling = true precedes awaited fetch/body; all subsequent poll callbacks return while polling is true; no deadline exists. Synthetic unresolved request blocks 12 scheduled checks and one manual check.",
+      "impact": "A stalled read can prevent payment state from refreshing throughout the view lifetime while the local payment countdown continues.",
+      "fix": "Bound fetch and body read with a request deadline; abort the read, release polling, reject aborted/obsolete completions, retain later automatic/manual read availability.",
+      "disposition": "ACCEPTED_FIX_IN_PROGRESS",
+      "parentAcknowledgement": "Parent accepted before any browser run or deployment and is adding a 10-second deadline plus VM/browser recovery cases."
+    }
+  ],
+  "newSecuritySinks": "No new dynamic HTML, script evaluation, URL source, authentication change or write endpoint was introduced in the reviewed diff; generation token is only UI isolation, not backend authority.",
+  "result": "IN_PROGRESS",
+  "conclusion": "Final PASS withheld for accepted hung-read regression and final browser/test input binding.",
+  "limits": [
+    "Bounded diff review, not a whole-application security audit or E4 gate closure.",
+    "Existing inline requisites clipboard rendering has separate issues independently reported by acceptance reviewer; unchanged in this diff and not claimed safe.",
+    "No production deployment, money movement, external account or customer-data access performed by reviewer.",
+    "Browser validation has not yet been supplied for the corrected candidate."
+  ]
+}
