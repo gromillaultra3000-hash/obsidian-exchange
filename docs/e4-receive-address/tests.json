@@ -1,0 +1,17 @@
+{
+  "recordedAt": "2026-09-07T03:27:11.958653+00:00",
+  "result": "PASS",
+  "focusedPassed": 76,
+  "command": "/opt/lumi/venv/bin/python -m pytest -q tests/test_e4_receive_copy_behavior.py tests/test_e4_review_browser_runner.py tests/test_e4_exchange_review_ui.py tests/test_e4_recipient_review_behavior.py tests/test_e4_responsive_navigation.py tests/test_e4_miniapp_browser_shell.py",
+  "regressionScenarios": 14,
+  "baselineFailures": 11,
+  "baselineScope": "Initial 11 clipboard tests against previous HTML; receive-generation cases added afterward. Most fail behavioral assertions; rerender lacks the new reset helper and haptic_throw also checks the new boolean return contract.",
+  "syntax": "PASS: all inline scripts compiled with Node vm.Script; node --check browser runner",
+  "inputSha256": {
+    "relay/webapp.html": "00c4d36887262876e2bd698a2748e8d8efe8dc0dc9ff79b9fad904cd621d5906",
+    "tests/e4_receive_copy_behavior.cjs": "aa70b64ca2fc205303d220c10203fb6b459d8f7b495cdbf4909b044ee98c71e8",
+    "tests/test_e4_receive_copy_behavior.py": "bb2738ab5c0a41f496db0dfecdf73918094199b7f2cdff4cb359c414a5bdbb5b",
+    "tests/e4_review_browser.cjs": "7f8e036151f67f66190fddb8a790a47fbc5a3762b88bd69a30a03f6d209e1778"
+  },
+  "completionMarker": "Each Node case must emit its exact scenario/PASS JSON; exit 0 without completed async case is rejected."
+}

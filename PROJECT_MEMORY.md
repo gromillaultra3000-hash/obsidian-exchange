@@ -4,25 +4,27 @@ Updated: 2026-09-07 UTC
 
 ## Current goal and status
 
-- 2026-09-07 active E4 / EXPLICIT_ACTION_REVIEW wallet wording/fees slice
-  is VERIFIED and deployed under the supervisor's inherited writer lock.
-  Transfer and existing-order payment now have distinct descriptions and a
-  wallet-continuation label, explicit route/custody/KYC and additional TON fee
-  disclosure. Buy/sell copy resets on each opening; signing payloads/guards
-  are unchanged. 62 focused tests and 66 isolated Chrome checks pass at
-  320/390/1280px; eight new tests reject prior HTML. Six synthetic signing
-  attempts reject, no send-signed call occurs, and nine synthetic order writes
-  are blocked. Both independent acceptance and diff/security reviews pass.
-  Reviewed HTML `9fce42eb...f0e8cb97` is live: GET200/POST405/template match,
-  Relay/bot/Nginx active with unchanged process/start identities, no restart.
-  Exact root-only rollback: deployment-preimages/
-  `e4-wallet-review-20260907-1eknswvx/webapp.html`. Evidence:
-  `docs/e4-wallet-review-rollout.v1.json` and `docs/e4-wallet-review/`.
-  E4 remains IN_PROGRESS; no human/Telegram/iOS/WebKit/live-signing acceptance
-  or earlier-gate closure is claimed. Exactly next: E4 / RECEIVE_ADDRESS_INTEGRITY / preserve receive address during clipboard feedback and report clipboard success only after completion.
-  Reviewer reproduced the receive-copy defect: a second immediate tap copies
-  “✓ скопировано” because feedback overwrites the address; rejected clipboard
-  promises also falsely report success. Same-stage authorized scope persists.
+- 2026-09-07 active E4 / RECEIVE_ADDRESS_INTEGRITY slice is VERIFIED and
+  deployed under the supervisor's inherited writer lock. Receive-copy status
+  is separate from its stable address/QR/button; success/haptics await clipboard
+  completion and rejection is explicit. Repeated taps and stale callbacks cannot
+  overwrite current feedback. Loading clears old receive data, disables copy,
+  and invalidates responses across close/send/reopen/wallet identity changes.
+  76 focused tests and 84 isolated Chrome checks pass at 320/390/1280px,
+  including actual browser clipboard reads, rejection, request reordering and
+  wallet-change cases. Both independent reviews PASS after fixing the loading
+  race and requiring exact async test-completion markers. No money/key/SDK
+  changes; six synthetic signing attempts reject and nine order writes are blocked.
+  HTML `00c4d368...621d5906` is live: GET200/POST405/template match; Relay/bot/
+  Nginx active with unchanged PID/start identities, no restart. Exact rollback:
+  deployment-preimages/`e4-receive-address-20260907-2r2p9zr3/webapp.html`.
+  Evidence: `docs/e4-receive-address-rollout.v1.json` and its evidence directory.
+  E4 remains IN_PROGRESS; no human/Telegram/iOS/WebKit/QR-decoding/live-signing
+  acceptance or earlier-gate closure claimed. Exactly next: E4 /
+  PAYMENT_INSTRUCTION_ISOLATION / clear prior order QR and action state before
+  displaying fresh payment instructions. Reviewer reproduced old order QR and
+  1000 RUB amount persisting into a new text-only 2000 RUB order. Same-stage
+  CURRENT_AUTHORIZED_SCOPE persists; no transition assessment is required.
 
 - 2026-09-07 owner authorized 24 hours of continuous code-first E0–E5 delivery,
   no eight-iteration ceiling, and immediate reversible autodeployment after

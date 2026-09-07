@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "e4-receive-address-post-deploy-review.v1",
+  "reviewedAt": "2026-09-07T03:32:01.611957+00:00",
+  "reviewer": "/root/acceptance_review",
+  "reviewType": "Independent read-only consistency review of checked-in candidate deployment/status evidence; no live tools",
+  "verdict": "PASS",
+  "blockingFindings": [],
+  "inputSha256": {
+    "relay/webapp.html": "00c4d36887262876e2bd698a2748e8d8efe8dc0dc9ff79b9fad904cd621d5906",
+    "docs/e4-receive-address-rollout.v1.json": "115ac1cde183113cdf4cb4d4f61a97c17da5bd1fce1dc2d3da370b731a99ec2b",
+    "docs/e4-receive-address/runtime.json": "806c47d4037efa6d13de00a21d8160276de9fe75558c49c3a099a860d0d10a8d",
+    "docs/e4-receive-address/preflight.json": "36df00be0e747e4e6edf94ab84e009f6f7ec266acb5dc9dd7bac1f8396f96665",
+    "docs/e4-receive-address/rollback-rehearsal.json": "db9c6a2d84331732dbddbc16626bac8cce31d287c559953033ab120138977ce2",
+    "docs/e4-receive-address/acceptance-review.json": "0f6e437aec938e265af40ad6b8c2d4add67b55ca9faccd86379ca9295fd0d2eb",
+    "docs/e4-receive-address/security-review.json": "6b22df93dd9a34f631a94f8d228c8e2e137f86bb8cddd4f8bd7f9833ca3ea716",
+    "docs/e4-receive-address/tests.json": "1d1a561eaf5866d2cd573dce4341dadaf858eb86a6034d2f35448a0ee7cb6a6e",
+    "docs/e4-receive-address/report.json": "e0fb11d30c07387e980b6855b9d860305a416c89f56bf5ebddba309f5d9ab4da",
+    "docs/e4-receive-address/isolation.json": "b850802183d230c370c081223771419ffce628cf070b823ea5e6a2a571bd280a",
+    "docs/e4-receive-address/gitleaks-report.json": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+    "docs/e4-receive-address/next-prerequisite.json": "435f2252e757914149d773f798ff97c9588cd7a02d5e6174ee23a6f47ac74e74",
+    "docs/CURRENT_ROUTE.md": "fae2aa2eedfe471c94d641cc43d69fdff75e3d10c9f5bb99957937dbfae82182",
+    "PROJECT_MEMORY.md": "b19a8145abe43302480f7b7a2a13a4bf261787189f94f1c6332d475e8afd75e2",
+    "docs/ecosystem-master-roadmap.md": "900db38dff20aac6e852ff3bf033d0186eb4ee465930cc95b7f5b877d1e19e27"
+  },
+  "checks": [
+    "Production-source SHA-256 agrees across local implementation, runtime, rollout, browser and focused-test evidence.",
+    "Predeployment source equals retained rollback preimage hash; rollback rehearsal is explicitly nonproduction and runtime rollback was not executed.",
+    "Runtime evidence reports GET 200, POST 405 and exact rendered-template match; active Relay/bot/Nginx PID/start identities agree with preflight.",
+    "Both passing review output digests match actual files; every acceptance input hash matches current source/test evidence.",
+    "76 focused tests, 84 isolated browser checks, zero browser errors, stopped browser unit and empty cgroup are consistent.",
+    "Secret-scan report is empty; no new credential, custody, financial writer or actual signing is claimed.",
+    "Current route, compact memory and canonical E4 note distinguish VERIFIED bounded slice from IN_PROGRESS E4 and unverified earlier gates.",
+    "Exactly one same-stage next item is recorded consistently: PAYMENT_INSTRUCTION_ISOLATION, backed by independently reproduced prior-order QR and amount retention.",
+    "Minor memory wording changed to synthetic signing attempts, accurately avoiding a claim of signature generation."
+  ],
+  "nextCanonicalItem": "E4 / PAYMENT_INSTRUCTION_ISOLATION / clear prior order QR and action state before displaying fresh payment instructions",
+  "stageTransition": false,
+  "scope": "CURRENT_AUTHORIZED_SCOPE",
+  "limits": [
+    "This reviewer read evidence files and local source metadata only; production observations were collected by the main agent.",
+    "Commit/push and final Git cleanliness checks remain main-agent responsibilities after this review.",
+    "This review does not close E4, earlier gates, human/platform usability, QR decoding or live signing acceptance."
+  ],
+  "reviewerSubprocessesComplete": true
+}

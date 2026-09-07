@@ -726,6 +726,12 @@ Gate E3: повтор/рестарт/таймаут не создаёт втор
 Gate E4: пользователь до подтверждения понимает исполнителя, custody, KYC,
 комиссии и необратимость; опасные действия нельзя выполнить случайным тапом.
 
+2026-09-07: bounded receive-address integrity slice VERIFIED and deployed.
+Separate clipboard feedback, awaited completion and invalidated stale receive
+responses pass 76 focused tests, 84 isolated Chrome checks and both reviews.
+Evidence: `docs/e4-receive-address-rollout.v1.json`. E4 remains IN_PROGRESS;
+earlier gates and human/platform acceptance are not closed by this slice.
+
 ### E5 — нативный некастодиальный кошелёк
 
 E0.4 inventory evidence (2026-08-18): the checkout has a Rust/UniFFI Bitcoin

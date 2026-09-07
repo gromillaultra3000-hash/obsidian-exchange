@@ -1,0 +1,17 @@
+{
+  "schema": "e4-receive-independent-acceptance.v1",
+  "observedAt": "2026-09-07T03:25:46.665Z",
+  "runtime": "v22.23.2",
+  "sourceSha256": "00c4d36887262876e2bd698a2748e8d8efe8dc0dc9ff79b9fad904cd621d5906",
+  "result": "PASS",
+  "checks": 6,
+  "observations": [
+    "Actual receive handler copies literal full address twice; address never becomes feedback; superseded completion has no success/haptic.",
+    "New copy clears prior reset timer; rejection replaces success with failure and preserves address.",
+    "Explicit receive status reset suppresses late success and restores original empty status.",
+    "Missing clipboard API reports failure without unhandled rejection or haptic.",
+    "Empty source is never written to clipboard and cannot report success.",
+    "A late completion cannot overwrite externally rerendered status text."
+  ],
+  "boundary": "Production functions and receive event handler extracted verbatim; clipboard promises, DOM and timers are synthetic; no network, wallet or customer access."
+}

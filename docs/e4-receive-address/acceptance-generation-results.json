@@ -1,0 +1,16 @@
+{
+  "schema": "e4-receive-generation-independent-acceptance.v1",
+  "observedAt": "2026-09-07T03:26:09.425Z",
+  "runtime": "v22.23.2",
+  "sourceSha256": "00c4d36887262876e2bd698a2748e8d8efe8dc0dc9ff79b9fad904cd621d5906",
+  "result": "PASS",
+  "checks": 5,
+  "observations": [
+    "Opening receive clears previous address/QR and disables copy while loading.",
+    "Receive request bypasses caches.",
+    "A closed-and-reopened receive ignores old late response after newer success.",
+    "Fetch rejection hides cleared receive data and keeps copying disabled.",
+    "HTTP failure and blank address cannot become copyable receive data."
+  ],
+  "boundary": "Extracted actual receive/reset functions in Node VM; deferred synthetic fetch responses and inert DOM; no network access."
+}

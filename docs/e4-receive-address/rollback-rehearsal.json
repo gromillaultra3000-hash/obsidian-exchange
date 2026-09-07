@@ -1,0 +1,8 @@
+{
+  "result": "PASS",
+  "method": "fsynced temporary file and atomic replacement; exact public HTML preimage restored",
+  "beforeSha256": "9fce42ebde7efc0463aace1ae0b27ac7aca9f66b33ba0ba250b11216f0e8cb97",
+  "afterSha256": "00c4d36887262876e2bd698a2748e8d8efe8dc0dc9ff79b9fad904cd621d5906",
+  "productionTouched": false,
+  "cleanupVerified": true
+}

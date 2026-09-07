@@ -34,6 +34,9 @@ async function main() {
                                 {width: 1280, height: 800}]) {
         const context = await browser.newContext({viewport,
             serviceWorkers: 'block', locale: 'ru-RU'});
+        let holdReceive = false;
+        let receiveRequested;
+        const pendingReceiveRoutes = [];
         await context.addInitScript(() => {
             window.Telegram = {WebApp: {initData: '', initDataUnsafe: {},
                 expand() {}, ready() {}, onEvent() {},
@@ -42,6 +45,12 @@ async function main() {
         await context.route('**/*', async route => {
             const req = route.request();
             const url = new URL(req.url());
+            if (holdReceive && url.origin === origin && req.method() === 'GET'
+                    && url.pathname === '/api/wallet/receive') {
+                pendingReceiveRoutes.push(route);
+                receiveRequested();
+                return;
+            }
             if (url.origin === origin && req.method() === 'POST'
                     && ['/api/wallet/transfer-request', '/api/wallet/send-request'].includes(url.pathname)) {
                 report.walletPreparations.push({path: url.pathname, payload: req.postDataJSON()});
@@ -61,6 +70,8 @@ async function main() {
             const fixtures = {
                 '/api/wallet/links': {wallets: [{chain: 'TON', address: walletAddress, balance: null}]},
                 '/api/wallet/history': {status: 'OK', items: []},
+                '/api/wallet/receive': {ok: true, address: walletAddress,
+                    qr_image: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII='},
                 '/api/wallet/dues': {dues: [{sell_id: 42, amount: 1.25, currency: 'TON', marker: 'invoice-42'}]},
                 '/api/rates': {BTC: 5000000, TON: 200, offerings: [
                     {code: 'BTC', networks: [{code: 'MAINNET', label: 'Bitcoin'}]},
@@ -326,6 +337,142 @@ async function main() {
             await cancel.click();
         }
         report.checks.push(`${viewport.width}: wallet-to-buy/sell restores order description, label and unchecked acknowledgement`);
+
+        await page.locator('#tab-wallet').click();
+        await page.locator('#w-act-recv').click();
+        const receiveAddress = page.locator('#w-recv-addr');
+        const copyButton = page.locator('#w-copy');
+        const copyStatus = page.locator('#w-copy-status');
+        await page.waitForFunction(expected => document.getElementById('w-recv-addr').textContent === expected, walletAddress);
+        const qrSource = await page.locator('#w-qr').getAttribute('src');
+        await page.evaluate(() => {
+            window.__clipboardWrites = [];
+            window.__clipboardPending = [];
+            window.__copyHaptics = [];
+            Telegram.WebApp.HapticFeedback = {impactOccurred: kind => window.__copyHaptics.push(kind)};
+            Object.defineProperty(navigator, 'clipboard', {configurable: true, value: {
+                writeText(value) {
+                    window.__clipboardWrites.push(value);
+                    return new Promise((resolve, reject) => window.__clipboardPending.push({resolve, reject}));
+                },
+            }});
+        });
+        const finishCopy = async (index, success = true) => page.evaluate(({index, success}) => {
+            const task = window.__clipboardPending[index];
+            if (success) task.resolve(); else task.reject(new Error('synthetic clipboard denial'));
+        }, {index, success});
+        async function receiveUnchanged() {
+            assert.equal(await receiveAddress.textContent(), walletAddress);
+            assert.equal((await copyButton.textContent()).trim(), 'Скопировать адрес');
+            assert.equal(await page.locator('#w-qr').getAttribute('src'), qrSource);
+        }
+        assert.equal(await copyStatus.getAttribute('role'), 'status');
+        // Native button semantics: keyboard activation uses the actual listener.
+        await copyButton.focus();
+        await page.keyboard.press('Enter');
+        await receiveUnchanged();
+        assert.equal(await copyStatus.textContent(), 'Копируем…');
+        assert.deepEqual(await page.evaluate(() => window.__copyHaptics), []);
+        await copyButton.click();
+        await finishCopy(0);
+        assert.equal(await copyStatus.textContent(), 'Копируем…');
+        await finishCopy(1);
+        assert.equal(await copyStatus.textContent(), '✓ скопировано');
+        await copyButton.click();
+        await finishCopy(2);
+        await receiveUnchanged();
+        assert.deepEqual(await page.evaluate(() => window.__clipboardWrites), Array(3).fill(walletAddress));
+        await page.clock.fastForward(1300);
+        assert.equal(await copyStatus.textContent(), '');
+        report.checks.push(`${viewport.width}: receive address/QR survive pending, repeated and completed copies; truthful delayed success`);
+
+        await copyButton.click();
+        const hapticsBeforeFailure = await page.evaluate(() => window.__copyHaptics.length);
+        await finishCopy(3, false);
+        assert.ok((await copyStatus.textContent()).includes('Не удалось скопировать'));
+        assert.equal(await page.evaluate(() => window.__copyHaptics.length), hapticsBeforeFailure);
+        await receiveUnchanged();
+        await copyButton.scrollIntoViewIfNeeded();
+        await page.screenshot({path: path.join(outputDir, `${viewport.width}-receive-copy-failure.png`)});
+        await copyButton.click();
+        await finishCopy(4);
+        assert.equal(await copyStatus.textContent(), '✓ скопировано');
+        await receiveUnchanged();
+        report.checks.push(`${viewport.width}: clipboard rejection shows retry feedback without haptic; explicit retry succeeds`);
+
+        await copyButton.click();
+        await page.locator('#w-act-recv').click();
+        assert.equal(await copyStatus.textContent(), '');
+        const hapticsBeforeClose = await page.evaluate(() => window.__copyHaptics.length);
+        await finishCopy(5);
+        assert.equal(await copyStatus.textContent(), '');
+        assert.equal(await page.evaluate(() => window.__copyHaptics.length), hapticsBeforeClose);
+        await page.locator('#w-act-recv').click();
+        await page.waitForFunction(() => !document.getElementById('w-copy').disabled);
+        await receiveUnchanged();
+        await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', {configurable: true, value: undefined}));
+        await copyButton.click();
+        assert.ok((await copyStatus.textContent()).includes('Не удалось скопировать'));
+        await receiveUnchanged();
+        report.checks.push(`${viewport.width}: closed receive view ignores late completion; missing clipboard reports failure`);
+
+        // Exercise actual headless Chrome clipboard, isolated to this fresh
+        // unprivileged context, in addition to deterministic async fault cases.
+        await page.evaluate(() => {delete navigator.clipboard;});
+        await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+        await copyButton.click();
+        await page.waitForFunction(() => document.getElementById('w-copy-status').textContent === '✓ скопировано');
+        assert.equal(await page.evaluate(() => navigator.clipboard.readText()), walletAddress);
+        await copyButton.click();
+        assert.equal(await page.evaluate(() => navigator.clipboard.readText()), walletAddress);
+        await receiveUnchanged();
+        assert.equal(await receiveAddress.evaluate(el => el.scrollWidth <= el.clientWidth), true);
+        await page.screenshot({path: path.join(outputDir, `${viewport.width}-receive-copy-success.png`)});
+        report.checks.push(`${viewport.width}: real Chrome clipboard contains exact address after two taps; address wraps without clipping`);
+
+        holdReceive = true;
+        async function openHeldReceive() {
+            const requested = new Promise(resolve => {receiveRequested = resolve;});
+            await page.locator('#w-act-recv').click();
+            await requested;
+            assert.equal(await copyButton.isDisabled(), true);
+            assert.equal(await receiveAddress.textContent(), '');
+            assert.equal(await page.locator('#w-qr').getAttribute('src'), null);
+        }
+        async function fulfillReceive(index, address) {
+            const response = page.waitForResponse(r => r.url().endsWith('/api/wallet/receive'));
+            await pendingReceiveRoutes[index].fulfill({contentType: 'application/json',
+                body: JSON.stringify({ok: true, address})});
+            await (await response).finished();
+            // Let the fetch JSON continuation settle before inspecting the DOM.
+            await page.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)));
+        }
+        await page.locator('#w-act-recv').click(); // close populated panel
+        await openHeldReceive();
+        await page.locator('#w-act-send').click();
+        await fulfillReceive(0, walletAddress);
+        assert.equal(await page.locator('#w-recv').isVisible(), false);
+        assert.equal(await receiveAddress.textContent(), '');
+        assert.equal(await copyButton.isDisabled(), true);
+        report.checks.push(`${viewport.width}: receive loading clears prior address/QR and disables copy; send ignores late response`);
+        await openHeldReceive();
+        await page.locator('#w-act-recv').click();
+        await openHeldReceive();
+        const newAddress = 'EQ' + 'B'.repeat(46);
+        await fulfillReceive(2, newAddress);
+        await fulfillReceive(1, walletAddress);
+        assert.equal(await receiveAddress.textContent(), newAddress);
+        assert.equal(await copyButton.isEnabled(), true);
+        await copyButton.click();
+        assert.equal(await page.evaluate(() => navigator.clipboard.readText()), newAddress);
+        await page.locator('#w-act-recv').click();
+        await openHeldReceive();
+        await page.evaluate(address => walletRender([{chain: 'TON', address, balance: null}]), newAddress);
+        await fulfillReceive(3, walletAddress);
+        assert.equal(await page.locator('#w-recv').isVisible(), false);
+        assert.equal(await receiveAddress.textContent(), '');
+        assert.equal(await copyButton.isDisabled(), true);
+        report.checks.push(`${viewport.width}: reordered receive response cannot replace new address; wallet change invalidates pending receive`);
         await context.close();
         }
         assert.equal(report.writerAttempts.length, 9);

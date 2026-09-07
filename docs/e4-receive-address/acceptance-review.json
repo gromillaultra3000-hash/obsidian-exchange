@@ -1,0 +1,88 @@
+{
+  "schemaVersion": "e4-receive-address-acceptance-review.v1",
+  "reviewedAt": "2026-09-07T03:28:38.397866+00:00",
+  "activeRoute": "E4 / RECEIVE_ADDRESS_INTEGRITY / preserve receive address during clipboard feedback and report clipboard success only after completion",
+  "reviewer": {
+    "identity": "/root/acceptance_review",
+    "role": "independent context-aware acceptance reviewer",
+    "modelVersion": "not exposed by runtime; inherited parent model",
+    "tools": {
+      "node": "v22.23.2",
+      "playwright": "1.62.0",
+      "chromium": "152.0.7977.64"
+    }
+  },
+  "context": [
+    "AGENTS.md",
+    "docs/MEGA_PROMPT.md",
+    "PROJECT_MEMORY.md compact status",
+    "docs/CURRENT_ROUTE.md",
+    "docs/ecosystem-master-roadmap.md E4 gate"
+  ],
+  "inputSha256": {
+    "relay/webapp.html": "00c4d36887262876e2bd698a2748e8d8efe8dc0dc9ff79b9fad904cd621d5906",
+    "tests/e4_receive_copy_behavior.cjs": "aa70b64ca2fc205303d220c10203fb6b459d8f7b495cdbf4909b044ee98c71e8",
+    "tests/test_e4_receive_copy_behavior.py": "bb2738ab5c0a41f496db0dfecdf73918094199b7f2cdff4cb359c414a5bdbb5b",
+    "tests/e4_review_browser.cjs": "7f8e036151f67f66190fddb8a790a47fbc5a3762b88bd69a30a03f6d209e1778",
+    "docs/e4-receive-address/tests.json": "1d1a561eaf5866d2cd573dce4341dadaf858eb86a6034d2f35448a0ee7cb6a6e"
+  },
+  "verdict": "PASS",
+  "blockingFindings": [],
+  "acceptance": {
+    "observedBehavior": [
+      "Receive address and QR remain unchanged through pending, repeated, completed and rejected copies.",
+      "Receive button label remains stable and role=status announces feedback separately.",
+      "Success and haptic follow clipboard completion; rejected or missing clipboard shows a generic retry message.",
+      "Obsolete promise completions and timers cannot overwrite newer feedback or rerendered wallet labels.",
+      "Receive loading clears old address and QR and disables copying; close, send or wallet change invalidates pending receive responses.",
+      "Shared wallet-card and proof copy labels recover to their original text."
+    ],
+    "independentReviewerReplay": {
+      "result": "PASS",
+      "checks": 11,
+      "clipboardEvidence": "docs/e4-receive-address/acceptance-independent-results.json",
+      "receiveGenerationEvidence": "docs/e4-receive-address/acceptance-generation-results.json",
+      "method": "Reviewer independently executed extracted actual production functions and receive event handler with deferred synthetic clipboard/fetch promises and inert DOM/timers."
+    },
+    "focusedTests": {
+      "result": "PASS",
+      "passed": 76,
+      "reviewerAction": "Read complete passing output and reviewed production-function extraction tests; did not rerun parent suite.",
+      "reportPath": "docs/e4-receive-address/tests.json",
+      "completionMarkerReview": "Reviewed follow-up test fix requiring exact JSON scenario/PASS stdout from each subprocess; zero exit without async completion is rejected. Inspected refreshed 76 passing tests in tests-final.txt (5.54s)."
+    },
+    "baselineTests": {
+      "reportedResult": "Initial 11 failed against prior HTML",
+      "interpretation": "Confirms prior-source rejection; rerender requires a new helper and haptic_throw asserts a new boolean return contract, so these are not all independent behavioral regressions. Pending/repeated receive copies and shared-label scenarios exercise actual faulty behavior. Three receive-generation cases were added afterward.",
+      "reportPath": "output/autopilot/run-20260907T031901-2/baseline-tests.txt"
+    },
+    "browser": {
+      "result": "PASS",
+      "checks": 84,
+      "widths": [
+        320,
+        390,
+        1280
+      ],
+      "pageErrors": 0,
+      "realClipboardVerified": true,
+      "syntheticSigningAttemptsRejected": 6,
+      "syntheticOrderWritesBlocked": 9,
+      "reviewerAction": "Reviewed final browser harness diff and complete report; visually inspected final 320px failure and 1280px success screenshots. Failure text and address are readable at 320px. Some success screenshot crops omit the status row; success is established by DOM and clipboard assertions.",
+      "reportPath": "docs/e4-receive-address/report.json"
+    }
+  },
+  "nextCanonicalItem": "E4 / PAYMENT_INSTRUCTION_ISOLATION / clear prior order QR and action state before displaying fresh payment instructions",
+  "nextItemEvidence": {
+    "path": "docs/e4-receive-address/next-prerequisite.json",
+    "finding": "Existing startOrderTracking retains order A QR and 1000 RUB amount when order B is opened with text-only requisites and 2000 RUB; reproduced independently using extracted production functions with synthetic DOM/network.",
+    "disposition": "Pre-existing adjacent E4 payment-instruction issue; accepted by main agent as exactly next bounded canonical item, not included in receive-copy change."
+  },
+  "limitations": [
+    "Browser fixtures are synthetic and isolated; blank QR is a deliberate fixture, not a QR-decoding test.",
+    "No live wallet, signing, payment, provider, customer or credential access by this reviewer.",
+    "No human comprehension or real Telegram/iOS/WebKit acceptance claimed.",
+    "Acceptance verdict covers this bounded slice; E4 and earlier gates remain unverified.",
+    "Rollout/runtime verification belongs to main-agent evidence, not this predeployment review."
+  ]
+}

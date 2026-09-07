@@ -1,0 +1,23 @@
+{
+  "schema": "e4-next-prerequisite-observation.v1",
+  "observedAt": "2026-09-07T03:20:49.286Z",
+  "sourcePath": "relay/webapp.html",
+  "sourceSha256": "9fce42ebde7efc0463aace1ae0b27ac7aca9f66b33ba0ba250b11216f0e8cb97",
+  "method": "Extract actual startOrderTracking and stopOrderTracking into Node VM; inert DOM/timers and synthetic read-only fetch.",
+  "first": {
+    "qrVisible": "block",
+    "qrSource": "data:image/png;base64,c3ludGhldGljLXFyLUE="
+  },
+  "second": {
+    "qrVisible": "block",
+    "qrStillMatchesPrevious": true,
+    "amountLabel": "К оплате: <strong>1 000 ₽</strong>",
+    "orderTitle": "Заявка #synthetic-order-b",
+    "requestCount": 2
+  },
+  "confirmed": true,
+  "nextCanonicalItem": "E4 / PAYMENT_INSTRUCTION_ISOLATION / clear prior order QR and action state before displaying fresh payment instructions",
+  "limitations": [
+    "No browser, live API, provider, customer or credential access; this is deterministic production-function replay only."
+  ]
+}

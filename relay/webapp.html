@@ -695,9 +695,11 @@
             <div id="w-recv" style="display:none;margin-bottom:12px;padding:12px;text-align:center;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px">
               <img id="w-qr" alt="QR адреса" style="width:180px;height:180px;border-radius:12px;background:#fff;padding:6px">
               <div id="w-recv-addr" style="font-family:monospace;font-size:12px;word-break:break-all;margin-top:8px"></div>
-              <button type="button" id="w-copy"
+              <button type="button" id="w-copy" disabled
                       style="margin-top:8px;background:none;border:1px solid rgba(255,255,255,.14);color:var(--muted);border-radius:10px;padding:7px 14px;font-size:12px;cursor:pointer">
                 Скопировать адрес</button>
+              <div id="w-copy-status" role="status" aria-live="polite" aria-atomic="true"
+                   style="font-size:12px;color:var(--muted);margin-top:8px"></div>
             </div>
 
             <!-- Заявки обменника, ждущие перевода: это и есть интеграция —
@@ -1692,6 +1694,8 @@
         let walletChain = 'TON';
 
         function walletRender(list) {
+            resetWalletCopy(document.getElementById('w-address'));
+            resetWalletCopy(document.getElementById('w-copy-status'));
             const empty = document.getElementById('w-empty');
             const main = document.getElementById('w-main');
             const hint = document.getElementById('wallet-hint');
@@ -1702,6 +1706,7 @@
             // BTC/LTC-связей карточка досталась бы сети, у которой ни отправки,
             // ни отключения нет.
             const w = (list || []).find(x => x.chain === 'TON') || (list || [])[0] || null;
+            if (!w || w.address !== walletAddress || w.chain !== walletChain) resetWalletReceive();
             walletChain = w ? w.chain : 'TON';
             walletAddress = w ? w.address : '';
             if (hint) hint.style.display = w ? 'block' : 'none';
@@ -1757,14 +1762,62 @@
             }
         }
 
-        function walletCopy(text, el) {
+        const walletCopyStates = new WeakMap();
+        function resetWalletCopy(el) {
+            if (!el) return;
+            const state = walletCopyStates.get(el);
+            if (!state) return;
+            clearTimeout(state.timer);
+            if (el.textContent === state.feedback) el.textContent = state.original;
+            walletCopyStates.delete(el);
+        }
+
+        async function walletCopy(text, el) {
+            if (!el) return false;
+            const previous = walletCopyStates.get(el);
+            const state = {original: previous ? previous.original : el.textContent,
+                feedback: 'Копируем…', timer: null};
+            if (previous) clearTimeout(previous.timer);
+            walletCopyStates.set(el, state);
+            el.textContent = state.feedback;
+            const current = () => walletCopyStates.get(el) === state
+                && el.textContent === state.feedback;
             try {
-                navigator.clipboard.writeText(text);
-                const was = el.textContent;
-                el.textContent = '✓ скопировано';
-                setTimeout(() => { el.textContent = was; }, 1200);
-                if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
-            } catch (e) {}
+                if (typeof text !== 'string' || !text.trim()) throw new Error('empty copy');
+                await navigator.clipboard.writeText(text);
+            } catch (_) {
+                if (current()) {
+                    state.feedback = 'Не удалось скопировать. Попробуйте ещё раз.';
+                    el.textContent = state.feedback;
+                }
+                return false;
+            }
+            if (current()) {
+                state.feedback = '✓ скопировано';
+                el.textContent = state.feedback;
+                state.timer = setTimeout(() => resetWalletCopy(el), 1200);
+                try {
+                    if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+                } catch (_) {}
+            }
+            return true;
+        }
+
+        let walletReceiveGeneration = 0;
+        function resetWalletReceive() {
+            ++walletReceiveGeneration;
+            resetWalletCopy(document.getElementById('w-copy-status'));
+            const status = document.getElementById('w-copy-status');
+            const box = document.getElementById('w-recv');
+            const addr = document.getElementById('w-recv-addr');
+            const copy = document.getElementById('w-copy');
+            const img = document.getElementById('w-qr');
+            if (status) status.textContent = '';
+            if (box) box.style.display = 'none';
+            if (addr) addr.textContent = '';
+            if (copy) copy.disabled = true;
+            if (img) { img.removeAttribute('src'); img.style.display = 'none'; }
+            return walletReceiveGeneration;
         }
 
         async function walletReceive() {
@@ -1772,18 +1825,29 @@
             const send = document.getElementById('w-send');
             if (send) send.style.display = 'none';
             if (!box) return;
-            if (box.style.display === 'block') { box.style.display = 'none'; return; }
+            const wasOpen = box.style.display === 'block';
+            const generation = resetWalletReceive();
+            if (wasOpen) return;
             box.style.display = 'block';
+            document.getElementById('w-copy-status').textContent = 'Получаем адрес…';
             try {
                 const r = await fetch('/api/wallet/receive', {
+                    cache: 'no-store',
                     headers: { 'X-Telegram-Init-Data': tg.initData || '' } });
                 const d = await r.json().catch(() => ({}));
-                if (!d.ok) { box.style.display = 'none'; return; }
+                if (generation !== walletReceiveGeneration) return;
+                if (!r.ok || !d.ok || typeof d.address !== 'string' || !d.address.trim()) {
+                    resetWalletReceive(); return;
+                }
                 document.getElementById('w-recv-addr').textContent = d.address;
                 const img = document.getElementById('w-qr');
                 if (d.qr_image) { img.src = d.qr_image; img.style.display = 'inline-block'; }
                 else { img.style.display = 'none'; }
-            } catch (e) { box.style.display = 'none'; }
+                document.getElementById('w-copy-status').textContent = '';
+                document.getElementById('w-copy').disabled = false;
+            } catch (e) {
+                if (generation === walletReceiveGeneration) resetWalletReceive();
+            }
         }
 
         async function walletTransfer() {
@@ -2989,6 +3053,7 @@
             on('w-connect', () => tcConnect());
             on('w-act-recv', walletReceive);
             on('w-act-send', () => {
+                resetWalletReceive();
                 const s = document.getElementById('w-send');
                 const rv = document.getElementById('w-recv');
                 if (rv) rv.style.display = 'none';
@@ -3007,7 +3072,8 @@
             on('wallet-goto', () => switchTab('wallet'));
             on('w-copy', () => {
                 const el = document.getElementById('w-recv-addr');
-                if (el) walletCopy(el.textContent, el);
+                const status = document.getElementById('w-copy-status');
+                if (el && status) walletCopy(el.textContent, status);
             });
         })();
 

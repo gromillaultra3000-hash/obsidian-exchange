@@ -11,7 +11,7 @@ non-custodial wallet whose keys never reach the server.
 
 ## Active route
 
-`E4 / EXPLICIT_ACTION_REVIEW / wallet payment and transfer review`
+`E4 / RECEIVE_ADDRESS_INTEGRITY / stable receive address and truthful clipboard feedback`
 
 Owner decision 2026-09-07: restore autonomous code-first E0–E5 delivery for
 24 hours, without the former eight-iteration ceiling, with immediate reversible
@@ -34,36 +34,40 @@ preparation, never a false gate closure or live authority. The supervisor binds
 the next stage and carries its scope across iterations. The old eight-iteration/
 twelve-hour allowance is superseded by the 2026-09-07 decision above.
 
-Current execution checkpoint (2026-09-07): wallet transfer and existing-order
-payment reviews are verified and deployed. They now identify the correct action,
-use “Продолжить в кошельке”, explain separate signature approval, show
-route/KYC/custody and disclose the additional TON network fee without inventing
-an estimate. Payment distinguishes network fees from exchange fees. Buy/sell
-openings restore their original create-order wording and unchecked acknowledgement.
+Current execution checkpoint (2026-09-07): receive address integrity is
+verified and deployed. Clipboard feedback has its own accessible status region;
+the full address, QR and copy-button label remain stable. Success and optional
+haptics follow actual clipboard completion. Missing/rejected clipboard reports
+failure, repeated taps preserve the address, and obsolete completions/timers
+cannot overwrite newer feedback or rerendered wallet labels.
 
-62 focused tests pass; eight new wallet scenarios reject the previous HTML.
-66 isolated Chrome checks pass across 320/390/1280px, including visible fee
-rows, literal recipient/memo, cancellation, Escape, expiry and unchanged prepared
-handoff. All six synthetic signing attempts reject; no send-signed request or
-real wallet signature occurs. All nine synthetic order writes are blocked.
-Both independent reviews pass. Exact HTML SHA-256 `9fce42eb...f0e8cb97` is live:
-public GET 200, POST 405, rendered template match, Relay/bot/Nginx active with
-unchanged PID/start identities. Root-only rollback preimage is retained; no
-service restart occurred. Evidence: `docs/e4-wallet-review-rollout.v1.json`
-and `docs/e4-wallet-review/`.
+Receive loading now clears old address/QR data and disables copying. Closing,
+switching to send, reopening or changing wallet identity invalidates pending
+responses. Only a successful current response with a nonempty address enables
+copying; the existing receive API remains read-only and uses no-store fetch.
 
-Exactly next: `E4 / RECEIVE_ADDRESS_INTEGRITY / preserve receive address during clipboard feedback and report clipboard success only after completion`.
-Independent acceptance review reproduced two immediate receive-copy taps
-copying the address then “✓ скопировано”: the feedback temporarily overwrites
-the address source. Clipboard rejection also currently reports success before
-the promise resolves. This is a concrete remaining E4 receive/send usability
-defect, separate from the completed review/portfolio verticals.
+76 focused tests and 84 isolated Chrome checks pass at 320/390/1280px, including
+real browser clipboard contents, injected promise failures, reordered receive
+responses and wallet-change invalidation. Both independent reviews pass; the
+loading race and test completion-marker finding were fixed before deployment.
+Reviewed HTML SHA-256 `00c4d368...621d5906` is live: GET200/POST405/template match,
+Relay/bot/Nginx active with unchanged PID/start identities, no service restart.
+Exact root-only rollback preimage:
+`/var/lib/obsidian-exchange/deployment-preimages/e4-receive-address-20260907-2r2p9zr3/webapp.html`.
+Evidence: `docs/e4-receive-address-rollout.v1.json` and
+`docs/e4-receive-address/`.
+
+Exactly next: `E4 / PAYMENT_INSTRUCTION_ISOLATION / clear prior order QR and action state before displaying fresh payment instructions`.
+Independent acceptance review reproduced existing `startOrderTracking` retaining
+order A's QR and 1000 RUB amount when order B opens with text-only requisites
+and 2000 RUB. This is a concrete remaining E4 payment-instruction defect;
+evidence: `docs/e4-receive-address/next-prerequisite.json`.
 
 No stage transition occurred; CURRENT_AUTHORIZED_SCOPE persists. E4 remains
 IN_PROGRESS. Automated Chrome evidence does not establish human comprehension,
-real Telegram/iOS/WebKit behavior or live wallet signing. Earlier mandatory
-gates remain unverified; consumed 064A authority and terminal archives are
-unchanged. This next item requires only keyless clipboard tests and reversible UI.
+real Telegram/iOS/WebKit behavior, QR decoding or live wallet signing. Earlier
+mandatory gates remain unverified; consumed 064A authority and terminal archives
+are unchanged. The next item needs keyless order-state tests and reversible UI.
 
 SSH-independent execution is an operational prerequisite for this same route,
 documented in `docs/ssh-independent-work.md` and

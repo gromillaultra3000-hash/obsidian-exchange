@@ -1,0 +1,133 @@
+{
+  "schemaVersion": "e4-receive-address-rollout.v1",
+  "recordedAt": "2026-09-07T03:30:50.230912+00:00",
+  "stage": "E4",
+  "gateCriterion": "RECEIVE_ADDRESS_INTEGRITY / receive-send usability and accurate action feedback",
+  "status": "IN_PROGRESS",
+  "sliceStatus": "VERIFIED",
+  "scope": "CURRENT_AUTHORIZED_SCOPE",
+  "accountableOwner": "project owner; executed by Codex /root under inherited supervisor writer lock",
+  "baselineCommit": "d650b8d4abe8ee0b48235c71770f6536b9cb73be",
+  "implementationSha256": "00c4d36887262876e2bd698a2748e8d8efe8dc0dc9ff79b9fad904cd621d5906",
+  "surfaceMatrix": {
+    "miniApp": "REQUIRED: receive address, QR loading and clipboard feedback; shared copy helper",
+    "publicSite": "READ_ONLY: public /webapp template and method check",
+    "telegramBot": "READ_ONLY: service health, no messaging",
+    "backend": "N/A: existing read-only receive endpoint unchanged",
+    "walletSigning": "N/A: signing payloads and writers unchanged",
+    "native": "N/A: no key or bridge change",
+    "admin": "N/A: unchanged"
+  },
+  "trustAndMoneyImpact": {
+    "moneyWritersChanged": false,
+    "custodyChanged": false,
+    "credentialsChanged": false,
+    "realSignaturesOrMoney": false,
+    "064ATouched": false
+  },
+  "implementation": "Separate live status from stable receive address/button. Await clipboard completion and gate feedback/timers by operation identity. Explicit failure on missing/rejected clipboard. Clear prior receive data and disable copy during no-store loading; reject stale responses after close, send, reopen or wallet identity change.",
+  "capabilities": {
+    "implementation": "Codex /root",
+    "acceptanceReview": "/root/acceptance_review",
+    "independentDiffSecurityReview": "/root/diff_security_review",
+    "skills": [
+      "playwright via existing isolated repository harness",
+      "security-best-practices by independent reviewer"
+    ],
+    "tools": [
+      "pytest 8.3.4",
+      "Node v22.23.2",
+      "playwright-core 1.62.0",
+      "Chrome 152.0.7977.64",
+      "Gitleaks 8.30.0",
+      "Git",
+      "systemd"
+    ],
+    "externalPluginsResearchOrNewDependencies": "none needed"
+  },
+  "tests": {
+    "focusedPassed": 76,
+    "browserChecksPassed": 84,
+    "newBehaviorScenarios": 14,
+    "browserWidths": [
+      320,
+      390,
+      1280
+    ],
+    "realBrowserClipboard": true,
+    "syntheticSigningAttemptsRejected": 6,
+    "syntheticOrderWritesBlocked": 9,
+    "sendSignedRequests": 0,
+    "pageErrors": 0,
+    "syntax": "PASS",
+    "report": "docs/e4-receive-address/tests.json",
+    "browserReport": "docs/e4-receive-address/report.json",
+    "isolation": "docs/e4-receive-address/isolation.json",
+    "secretScan": "PASS: predeployment staged scope, redacted, no new allowlist",
+    "secretScanReport": "docs/e4-receive-address/gitleaks-report.json"
+  },
+  "reviews": {
+    "acceptance": "docs/e4-receive-address/acceptance-review.json",
+    "independentDiffSecurity": "docs/e4-receive-address/security-review.json",
+    "acceptanceResult": "PASS",
+    "independentDiffSecurityResult": "PASS",
+    "outputSha256": {
+      "acceptance-review.json": "0f6e437aec938e265af40ad6b8c2d4add67b55ca9faccd86379ca9295fd0d2eb",
+      "security-review.json": "6b22df93dd9a34f631a94f8d228c8e2e137f86bb8cddd4f8bd7f9833ca3ea716"
+    }
+  },
+  "negativeFindings": [
+    "Original clipboard suite rejected previous HTML in 11 cases; structural/new-return-contract caveats recorded in tests.json.",
+    "First candidate passed 78 browser checks but independent security review reproduced pre-existing receive-loading race; fixed and final 84 checks passed.",
+    "Reviewer found exit-code-only Node wrapper could accept unresolved async cases; wrapper now requires exact completion JSON and 76 focused tests were rerun successfully.",
+    "Sandbox prevented initial system-bus inspection; normal require_escalated path succeeded without approval rejection or bypass."
+  ],
+  "limits": [
+    "Automated Chrome and synthetic fault injection only; human comprehension, Telegram/iOS/WebKit and live wallet signing remain unverified.",
+    "Synthetic QR fixture verifies source stability, not QR decoding.",
+    "Earlier mandatory gates and E4 as a whole remain unverified.",
+    "Pre-existing payment QR/amount state leakage remains exactly next bounded E4 prerequisite, independently reproduced in next-prerequisite.json."
+  ],
+  "preflight": "docs/e4-receive-address/preflight.json",
+  "rollbackRehearsal": "docs/e4-receive-address/rollback-rehearsal.json",
+  "productionStatus": "VERIFIED: reviewed HTML deployed; public GET200/POST405/template match; Relay/bot/Nginx active with unchanged PID/start identities; no restart",
+  "blocker": "",
+  "dataRetention": "Evidence includes public code metadata and invented fixtures only. Engineering evidence retained by owner; disposable browser profiles removed after stopped-unit and empty-cgroup verification. Supervisor privately archives ordinary synthetic output artifacts.",
+  "nextCanonicalItem": "E4 / PAYMENT_INSTRUCTION_ISOLATION / clear prior order QR and action state before displaying fresh payment instructions",
+  "nextItemEvidence": "docs/e4-receive-address/next-prerequisite.json",
+  "transitionEvidence": "",
+  "rollout": {
+    "recordedAt": "2026-09-07T03:30:11.763181+00:00",
+    "status": "VERIFIED",
+    "target": "/opt/obsidian-exchange/relay/webapp.html",
+    "previousSha256": "9fce42ebde7efc0463aace1ae0b27ac7aca9f66b33ba0ba250b11216f0e8cb97",
+    "deployedSha256": "00c4d36887262876e2bd698a2748e8d8efe8dc0dc9ff79b9fad904cd621d5906",
+    "rollbackPreimage": "/var/lib/obsidian-exchange/deployment-preimages/e4-receive-address-20260907-2r2p9zr3/webapp.html",
+    "rollbackPreimageSha256": "9fce42ebde7efc0463aace1ae0b27ac7aca9f66b33ba0ba250b11216f0e8cb97",
+    "method": "hash-bound fsynced atomic replacement; no restart",
+    "rollback": "Verify current NEW hash and retained OLD preimage, restore by fsynced atomic replacement, then verify public template and service identities",
+    "rollbackExecuted": false,
+    "publicGet": 200,
+    "publicPost": 405,
+    "publicMatchesDeployedTemplate": true,
+    "publicBodySha256": "ec6683d92028adeb6250b45e9401203cce0a4f26dc81e4538ded9499ddbb5c94",
+    "services": {
+      "relay-fastapi.service": {
+        "MainPID": "3877703",
+        "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:55 UTC",
+        "ActiveState": "active"
+      },
+      "exchange-bot.service": {
+        "MainPID": "3877887",
+        "ExecMainStartTimestamp": "Tue 2026-09-01 06:20:00 UTC",
+        "ActiveState": "active"
+      },
+      "nginx.service": {
+        "MainPID": "3877705",
+        "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:56 UTC",
+        "ActiveState": "active"
+      }
+    },
+    "serviceIdentityUnchanged": true
+  }
+}

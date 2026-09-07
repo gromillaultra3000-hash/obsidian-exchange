@@ -1,0 +1,122 @@
+{
+  "schemaVersion": "e4-receive-address-security-review.v1",
+  "reviewedAtUtc": "2026-09-07T03:29:18.004197+00:00",
+  "route": "E4 / RECEIVE_ADDRESS_INTEGRITY",
+  "reviewer": {
+    "identity": "/root/diff_security_review",
+    "kind": "Independent context-poor diff/security reviewer",
+    "implementationAuthor": false,
+    "modelIdentifier": null,
+    "modelIdentifierLimit": "Exact runtime model identifier was not exposed to this reviewer.",
+    "toolsObserved": {
+      "node": "v22.23.2",
+      "python": "3.12.3",
+      "git": "2.43.0"
+    },
+    "skill": "/root/.codex/skills/security-best-practices/SKILL.md",
+    "skillReference": "/root/.codex/skills/security-best-practices/references/javascript-general-web-frontend-security.md"
+  },
+  "baseCommit": "d650b8d4abe8ee0b48235c71770f6536b9cb73be",
+  "scope": {
+    "paths": [
+      "relay/webapp.html",
+      "tests/e4_receive_copy_behavior.cjs",
+      "tests/test_e4_receive_copy_behavior.py",
+      "tests/e4_review_browser.cjs"
+    ],
+    "basis": "Diff since HEAD plus complete new test files and directly relevant shared-helper callers.",
+    "focus": [
+      "clipboard completion/errors",
+      "receive address and DOM integrity",
+      "async response invalidation",
+      "shared clipboard callers",
+      "test isolation and completion evidence"
+    ],
+    "writes": [
+      "docs/e4-receive-address/security-review.json"
+    ],
+    "productionActions": false,
+    "customerOrSecretFilesAccessed": false
+  },
+  "inputHashes": {
+    "relay/webapp.html": "00c4d36887262876e2bd698a2748e8d8efe8dc0dc9ff79b9fad904cd621d5906",
+    "tests/e4_receive_copy_behavior.cjs": "aa70b64ca2fc205303d220c10203fb6b459d8f7b495cdbf4909b044ee98c71e8",
+    "tests/test_e4_receive_copy_behavior.py": "bb2738ab5c0a41f496db0dfecdf73918094199b7f2cdff4cb359c414a5bdbb5b",
+    "tests/e4_review_browser.cjs": "7f8e036151f67f66190fddb8a790a47fbc5a3762b88bd69a30a03f6d209e1778"
+  },
+  "verdict": "PASS",
+  "summary": "No unresolved blocking finding in the final bounded diff. Two review findings were corrected before this verdict.",
+  "findings": [
+    {
+      "id": "SEC-001",
+      "severity": "Medium",
+      "category": "Receive address integrity and async state",
+      "title": "Reopening Receive allowed copying a prior response while a fresh address was loading",
+      "location": "relay/webapp.html:1807 resetWalletReceive; relay/webapp.html:1823 walletReceive; relay/webapp.html:1709 walletRender; relay/webapp.html:3056 send listener",
+      "originalEvidence": "Independent synthetic deferred-fetch execution of actual HEAD walletReceive and receive-copy listener copied prior address A, then displayed response B. The first candidate reproduced the same mismatch beside completed clipboard feedback.",
+      "firstCandidateSha256": "3609e6f9f2634bed2c51c2288d8e7b6fa5906915c12703699bb3b87cb3ac58bd",
+      "impact": "A user could paste the previous receive address while the panel displayed a newer address and completed-copy feedback.",
+      "disposition": "FIXED",
+      "resolution": "Opening clears previous address and QR and disables copying. A generation token invalidates responses on close, send navigation and wallet identity changes. HTTP failure or invalid/empty address stays source-free and disabled. Clipboard feedback is invalidated together with receive state.",
+      "verification": "Final source review plus independent VM execution of actual walletRender, walletReceive, reset helpers, receive listener and send listener passed. Browser and regression additions exercise reordered responses and loading state."
+    },
+    {
+      "id": "SEC-002",
+      "severity": "Low",
+      "category": "Test evidence integrity",
+      "title": "The Python wrapper accepted Node exit zero without confirming scenario completion",
+      "location": "tests/test_e4_receive_copy_behavior.py:26",
+      "originalEvidence": "The wrapper originally asserted only returncode == 0. An intermediate independent review harness demonstrated a Node process exiting zero with an unresolved Promise and no completion output.",
+      "impact": "A future test or implementation regression that leaves a deferred request unresolved could produce a false green result.",
+      "disposition": "FIXED",
+      "resolution": "The wrapper now parses stdout and requires the exact scenario and PASS result object in addition to successful exit.",
+      "verification": "Final wrapper bytes inspected; JSON parse and equality assertion are present. The implementation agent reports all 76 focused tests passed after the correction."
+    }
+  ],
+  "securityObservations": [
+    "Receive feedback uses a distinct live-status element; the receive address and QR are not used as feedback targets.",
+    "Clipboard success and optional haptic occur only after writeText resolves. Rejection, missing API, synchronous error and empty text fail with a generic message.",
+    "Per-element operation identity prevents older copy completion or failure from replacing a newer copy state; repeat copies retain the original feedback label.",
+    "The shortened-address caller uses the captured wallet address and the ownership-proof caller reads textarea value. Neither copies its feedback label.",
+    "New UI content uses textContent and explicit DOM queries. No new executable HTML sink, third-party dependency, secret storage or money writer is introduced.",
+    "The browser runner serves synthetic fixtures at e4.invalid, retains deny-by-default routing, blocks service workers and requires non-root sandboxed Chrome. Held receive requests are fulfilled locally and do not continue to a network destination."
+  ],
+  "independentVerification": {
+    "result": "PASS",
+    "behavioralRuntime": "Node VM with synthetic DOM, clipboard, timers, formatting and fetch boundaries; production functions and listeners extracted from exact final HTML.",
+    "checks": [
+      "Loading clears previous address and QR; simulated native disabled-copy activation cannot write.",
+      "Actual receive listener preserves source address and ignores stale clipboard completion.",
+      "Actual walletRender identity change invalidates source and pending clipboard feedback.",
+      "Actual send listener invalidates a pending receive response.",
+      "Late failure from an older receive cannot erase a newer valid response.",
+      "HTTP failure and empty or malformed address remain disabled and source-free."
+    ],
+    "otherChecks": [
+      "node --check passed for both scoped CJS runners.",
+      "Python AST parse passed for the scoped pytest wrapper.",
+      "git diff --check passed for the tracked scoped changes.",
+      "All four file hashes revalidated immediately before writing this report."
+    ],
+    "earlierCandidateChecks": "Independent shared-element checks also verified actual shortened-address rerender/listener replacement, cross-element success/failure isolation and generic diagnostics. Shared clipboard implementation is unchanged in the final candidate."
+  },
+  "implementationAgentReportedVerification": {
+    "focusedTests": {
+      "passed": 76,
+      "clipboardReceiveScenarios": 14
+    },
+    "browserChecks": {
+      "passed": 84
+    },
+    "attribution": "Reported by /root; reviewer did not run the browser or full focused suite. Canonical test/browser evidence is owned by the implementation agent."
+  },
+  "limits": [
+    "This is a bounded source and test review, not a repository-wide security audit or E4 gate closure.",
+    "No production deployment, runtime health, customer data, credentials, wallet signing, transaction or network workload was performed by this reviewer.",
+    "The initial local systemctl status check was denied by the sandbox. Writer ownership and browser network-namespace isolation are supervisor responsibilities; this review does not independently attest host runtime state.",
+    "Independent behavioral checks use synthetic browser boundaries. Actual clipboard/platform behavior, Telegram, WebKit, iOS and human usability are not established by this reviewer.",
+    "Backend address ownership, address checksum semantics, QR payload correctness, API authorization and unrelated payment instructions are outside this diff review.",
+    "No external research or scanners were claimed; applicable local security guidance and direct source/behavior evidence were used."
+  ],
+  "unresolvedFindings": []
+}

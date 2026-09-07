@@ -1,0 +1,34 @@
+{
+  "recordedAt": "2026-09-07T03:30:11.763181+00:00",
+  "status": "VERIFIED",
+  "target": "/opt/obsidian-exchange/relay/webapp.html",
+  "previousSha256": "9fce42ebde7efc0463aace1ae0b27ac7aca9f66b33ba0ba250b11216f0e8cb97",
+  "deployedSha256": "00c4d36887262876e2bd698a2748e8d8efe8dc0dc9ff79b9fad904cd621d5906",
+  "rollbackPreimage": "/var/lib/obsidian-exchange/deployment-preimages/e4-receive-address-20260907-2r2p9zr3/webapp.html",
+  "rollbackPreimageSha256": "9fce42ebde7efc0463aace1ae0b27ac7aca9f66b33ba0ba250b11216f0e8cb97",
+  "method": "hash-bound fsynced atomic replacement; no restart",
+  "rollback": "Verify current NEW hash and retained OLD preimage, restore by fsynced atomic replacement, then verify public template and service identities",
+  "rollbackExecuted": false,
+  "publicGet": 200,
+  "publicPost": 405,
+  "publicMatchesDeployedTemplate": true,
+  "publicBodySha256": "ec6683d92028adeb6250b45e9401203cce0a4f26dc81e4538ded9499ddbb5c94",
+  "services": {
+    "relay-fastapi.service": {
+      "MainPID": "3877703",
+      "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:55 UTC",
+      "ActiveState": "active"
+    },
+    "exchange-bot.service": {
+      "MainPID": "3877887",
+      "ExecMainStartTimestamp": "Tue 2026-09-01 06:20:00 UTC",
+      "ActiveState": "active"
+    },
+    "nginx.service": {
+      "MainPID": "3877705",
+      "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:56 UTC",
+      "ActiveState": "active"
+    }
+  },
+  "serviceIdentityUnchanged": true
+}
