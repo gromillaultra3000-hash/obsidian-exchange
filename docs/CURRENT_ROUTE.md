@@ -11,20 +11,15 @@ non-custodial wallet whose keys never reach the server.
 
 ## Active route
 
-`E4 / PAYMENT_INSTRUCTION_ISOLATION / finish interrupted payment-instruction isolation in the autonomous runner`
+`E4 / PAYMENT_REQUISITES_COPY_INTEGRITY / preserve requisites and report copy success only after clipboard completion, with explicit failure and stale-feedback isolation`
 
-Recovery checkpoint (2026-09-07): the third autonomous iteration stopped on an
-explicit Codex usage-limit response before its receipt or deployment. The pending
-HTML and tests are retained as IN_PROGRESS; production still matches the accepted
-receive-address release `00c4d368...621d5906`. A fresh read-only Codex access probe
-returned `AUTOPILOT_ACCESS_READY`. The owner explicitly requested continuation
-inside the autopilot. Recovery preserves the original 2026-09-08 03:07:16 UTC
-deadline, two accepted iterations, E4 scope and the same unfinished item.
-The worker must finish final independent reviews and deployment evidence; the
-checkpoint is not a product acceptance. The recovery controller is installed
-after 146 passing tests and two independent reviews; its exact runtime
-reconciliation and launch follow the clean checkpoint commit. See
-`docs/autopilot-usage-limit/` and the live status path below.
+The interrupted PAYMENT_INSTRUCTION_ISOLATION checkpoint is now VERIFIED and
+deployed (2026-09-07 04:45 UTC). Its existing implementation commit
+`bd70fab554096cf1949c606d0b7fa86dca561a50` was resumed after inspected recovery;
+no unrelated product change was manufactured. Fresh tests and both reviews
+passed before one reversible atomic HTML rollout. The supervisor
+retains its sole-writer lock and owns any following iteration.
+Evidence: `docs/e4-payment-instruction-rollout.v1.json`.
 
 Owner decision 2026-09-07: restore autonomous code-first E0–E5 delivery for
 24 hours, without the former eight-iteration ceiling, with immediate reversible
@@ -47,40 +42,34 @@ preparation, never a false gate closure or live authority. The supervisor binds
 the next stage and carries its scope across iterations. The old eight-iteration/
 twelve-hour allowance is superseded by the 2026-09-07 decision above.
 
-Last accepted product checkpoint (2026-09-07): receive address integrity is
-verified and deployed. Clipboard feedback has its own accessible status region;
-the full address, QR and copy-button label remain stable. Success and optional
-haptics follow actual clipboard completion. Missing/rejected clipboard reports
-failure, repeated taps preserve the address, and obsolete completions/timers
-cannot overwrite newer feedback or rerendered wallet labels.
+Last accepted product checkpoint (2026-09-07): payment-instruction isolation is
+verified and deployed. Fresh orders clear the previous QR source, amount,
+requisites and action state before display. Generation guards reject obsolete
+status/body/timer/captured actions, including same-ID reopening. Status reads
+are serialized, no-store and bounded by a 10-second fetch/body abort deadline.
+Terminal instructions clear their data and revoke the payment action.
 
-Receive loading now clears old address/QR data and disables copying. Closing,
-switching to send, reopening or changing wallet identity invalidates pending
-responses. Only a successful current response with a nonempty address enables
-copying; the existing receive API remains read-only and uses no-store fetch.
+97 focused tests and 96 isolated Chrome checks pass at 320/390/1280px. Both
+independent reviews pass, including the prior hung-read finding's resolution.
+Nine synthetic order writes were blocked and six synthetic signing attempts
+rejected; no real money, keys, credentials or messages were involved. Browser
+unit cleanup is verified. Reviewed HTML `6bdad471...df2db8` is live:
+GET200/POST405/exact rendered-template match, Relay/bot/Nginx active with
+unchanged PID/start identities and no restart. Exact root-only rollback:
+`/var/lib/obsidian-exchange/deployment-preimages/e4-payment-isolation-20260907-ane0f9p2/webapp.html`.
 
-76 focused tests and 84 isolated Chrome checks pass at 320/390/1280px, including
-real browser clipboard contents, injected promise failures, reordered receive
-responses and wallet-change invalidation. Both independent reviews pass; the
-loading race and test completion-marker finding were fixed before deployment.
-Reviewed HTML SHA-256 `00c4d368...621d5906` is live: GET200/POST405/template match,
-Relay/bot/Nginx active with unchanged PID/start identities, no service restart.
-Exact root-only rollback preimage:
-`/var/lib/obsidian-exchange/deployment-preimages/e4-receive-address-20260907-2r2p9zr3/webapp.html`.
-Evidence: `docs/e4-receive-address-rollout.v1.json` and
-`docs/e4-receive-address/`.
-
-Exactly next: `E4 / PAYMENT_INSTRUCTION_ISOLATION / clear prior order QR and action state before displaying fresh payment instructions`.
-Independent acceptance review reproduced existing `startOrderTracking` retaining
-order A's QR and 1000 RUB amount when order B opens with text-only requisites
-and 2000 RUB. This is a concrete remaining E4 payment-instruction defect;
-evidence: `docs/e4-receive-address/next-prerequisite.json`.
+Exactly next: `E4 / PAYMENT_REQUISITES_COPY_INTEGRITY / preserve requisites and report copy success only after clipboard completion, with explicit failure and stale-feedback isolation`.
+The acceptance reviewer reproduced the unchanged payment-requisites handler
+showing ✓ while clipboard copying is pending or rejected, risking use of old
+clipboard contents. Evidence: `docs/e4-payment-instruction/next-prerequisite.json`.
+This is a remaining monetary-path usability prerequisite, not replay of the
+completed receive-address vertical or payment-state reset.
 
 No stage transition occurred; CURRENT_AUTHORIZED_SCOPE persists. E4 remains
 IN_PROGRESS. Automated Chrome evidence does not establish human comprehension,
-real Telegram/iOS/WebKit behavior, QR decoding or live wallet signing. Earlier
-mandatory gates remain unverified; consumed 064A authority and terminal archives
-are unchanged. The next item needs keyless order-state tests and reversible UI.
+real Telegram/iOS/WebKit, QR decoding, native streaming-body timeout or live
+wallet signing acceptance. Earlier mandatory gates remain unverified;
+consumed 064A authority and terminal archives are unchanged.
 
 SSH-independent execution is an operational prerequisite for this same route,
 documented in `docs/ssh-independent-work.md` and

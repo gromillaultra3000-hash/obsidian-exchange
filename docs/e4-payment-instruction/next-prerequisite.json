@@ -1,0 +1,73 @@
+{
+  "schemaVersion": "e4-payment-requisites-next-prerequisite.v1",
+  "recordedAt": "2026-09-07T04:43:06.953060+00:00",
+  "reviewer": "Codex context-aware acceptance reviewer /root/payment_acceptance",
+  "nextCanonicalItem": "E4 / PAYMENT_REQUISITES_COPY_INTEGRITY / preserve requisites and report copy success only after clipboard completion, with explicit failure and stale-feedback isolation",
+  "canonicalCriterion": "E4: accessibility, localization, responsive UI and usability tests for monetary paths; users understand the action outcome",
+  "status": "REPRODUCED_REMAINING_PREREQUISITE",
+  "location": {
+    "path": "relay/webapp.html",
+    "line": 3305,
+    "function": "startOrderTracking, pay-req inline copy handler"
+  },
+  "observedBehavior": "The requisites copy button changes to ✓ immediately after invoking navigator.clipboard.writeText; a pending or rejected clipboard promise still shows ✓.",
+  "impact": "A user can believe payment requisites were copied when the clipboard has not accepted them, and may paste previous clipboard contents into the payment destination field.",
+  "reproduction": {
+    "tool": "Node v22.23.2 VM with shipped startOrderTracking functions and synthetic DOM/clipboard promises",
+    "source": "Synthetic +70000000002 only; no actual clipboard or production/customer access",
+    "steps": [
+      "Render order A QR/1000 RUB then order B text-only requisites/2000 RUB",
+      "Extract the rendered requisites button onclick handler",
+      "Invoke it with writeText returning an unresolved Promise; label is already ✓",
+      "Invoke it with writeText returning a rejected Promise; label is still ✓"
+    ],
+    "results": [
+      {
+        "result": "REPRODUCED",
+        "sourcePath": "relay/webapp.html",
+        "instructionIsolation": {
+          "qrVisible": "none",
+          "qrSourceRetained": false,
+          "amountLine": ""
+        },
+        "nextPrerequisite": "E4 / PAYMENT_REQUISITES_COPY_INTEGRITY",
+        "copyPendingLabel": "✓",
+        "copyRejectedLabel": "✓",
+        "actualClipboardUsed": false,
+        "productionAccess": false,
+        "syntheticDetail": "+70000000002"
+      },
+      {
+        "result": "REPRODUCED",
+        "sourcePath": "output/autopilot/run-20260907T044025-3/acceptance/baseline-webapp.html",
+        "instructionIsolation": {
+          "qrVisible": "block",
+          "qrSourceRetained": true,
+          "amountLine": "К оплате: <strong>1 000 ₽</strong>"
+        },
+        "nextPrerequisite": "E4 / PAYMENT_REQUISITES_COPY_INTEGRITY",
+        "copyPendingLabel": "✓",
+        "copyRejectedLabel": "✓",
+        "actualClipboardUsed": false,
+        "productionAccess": false,
+        "syntheticDetail": "+70000000002"
+      }
+    ]
+  },
+  "preexistingOnProductBase": true,
+  "currentSliceDisposition": "Out of payment-instruction reset scope; accepted as exactly next bounded canonical E4 item, not silently fixed or claimed complete.",
+  "boundedImplementation": "Keep the destination value stable; use an event listener and separate accessible status; await actual clipboard completion and show explicit failure; prevent obsolete completion from changing a newer order copy state.",
+  "moneyBoundary": "UI-only reversible implementation and keyless synthetic/browser tests; no trade, payment, transfer or signing execution is needed.",
+  "evidence": {
+    "artifact": "output/autopilot/run-20260907T044025-3/acceptance/requisites-copy-repro.json",
+    "script": "output/autopilot/run-20260907T044025-3/acceptance/requisites-copy-repro.cjs",
+    "scriptSha256": "51bf64de87351092c2e390c3f594dc904173a3f9e01e842b53aa63978ec8ed4b",
+    "sourceSha256": "6bdad471edcedf7b21d28373cdd564268d50f62b16385bac9905215ad4df2db8",
+    "baseCommit": "1cbfe1f4ccea89703120fc000592cae03f5101da",
+    "baseSourceSha256": "00c4d36887262876e2bd698a2748e8d8efe8dc0dc9ff79b9fad904cd621d5906"
+  },
+  "limitations": [
+    "Synthetic reproduction of handler behavior; real browser clipboard copying and failure UI belong to the next implementation acceptance.",
+    "This item does not close the full E4 gate or advance any other canonical stage."
+  ]
+}

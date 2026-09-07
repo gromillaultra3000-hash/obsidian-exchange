@@ -1,67 +1,146 @@
 {
   "schemaVersion": "e4-payment-instruction-security-review.v1",
-  "reviewedAt": "2026-09-07T03:39:12.592684+00:00",
+  "reviewedAt": "2026-09-07T04:44:54.052353+00:00",
   "reviewer": {
-    "identity": "Codex independent diff/security agent /root/diff_security_review",
+    "identity": "Codex independent context-poor diff/security agent /root/payment_diff_security",
     "independentOfImplementation": true,
     "modelBuild": "Exact model build is not exposed by the runtime; no exact version claimed",
     "skill": "/root/.codex/skills/security-best-practices/SKILL.md",
     "reference": "/root/.codex/skills/security-best-practices/references/javascript-general-web-frontend-security.md"
   },
-  "route": "E4 / PAYMENT_INSTRUCTION_ISOLATION / fresh payment instructions and stale-callback isolation",
+  "route": "E4 / PAYMENT_INSTRUCTION_ISOLATION / final payment DOM, callback and read-timeout isolation review",
   "scope": [
-    "relay/webapp.html tracking-function diff, relevant callers and DOM",
-    "Executable synthetic regression harness and pytest completion validation",
-    "Final isolated browser evidence pending"
+    "relay/webapp.html",
+    "tests/e4_payment_instruction_behavior.cjs",
+    "tests/test_e4_payment_instruction_behavior.py",
+    "tests/e4_review_browser.cjs"
   ],
+  "baseCommit": "1cbfe1f4ccea89703120fc000592cae03f5101da",
+  "productCheckpoint": "bd70fab554096cf1949c606d0b7fa86dca561a50",
+  "reviewedHead": "8da2d1326c320b64bb96d8cfa3ab0ea1dd122d67",
   "inputsSha256": {
     "relay/webapp.html": "6bdad471edcedf7b21d28373cdd564268d50f62b16385bac9905215ad4df2db8",
     "tests/e4_payment_instruction_behavior.cjs": "f820cd4ff51b57c40e3eda47cabcf9423ef2afce2379364eab58d31b6a8af0ef",
     "tests/test_e4_payment_instruction_behavior.py": "b425ababa71e51d8f977214303553bd011509d2bb5dd9c8a0bf2ea2ef218b3ea",
-    "tests/e4_review_browser.cjs": "b949722f388693c933564e75dac80ba5fcc256f533465d4bc3a6f49e7f523c2e",
-    "output/autopilot/run-20260907T033330-3/security-hung-poll.cjs": "bbb9e26bb5b0c6b069d368e07b12a9f2ed9de8c2f216d0628c042ee5c48745c7"
+    "tests/e4_review_browser.cjs": "2c1a43dac9686eb62d66298612bd5747e9eb732687d0ada4cfd7a355db77bc2f"
   },
-  "inputRevisionNote": "Draft hashes only; main implementation is changing to fix E4-PAY-SEC-001. Final review will bind final bytes.",
-  "baseCommit": "1cbfe1f4ccea89703120fc000592cae03f5101da",
+  "baseInputsSha256": {
+    "relay/webapp.html": "00c4d36887262876e2bd698a2748e8d8efe8dc0dc9ff79b9fad904cd621d5906",
+    "tests/e4_payment_instruction_behavior.cjs": null,
+    "tests/test_e4_payment_instruction_behavior.py": null,
+    "tests/e4_review_browser.cjs": "7f8e036151f67f66190fddb8a790a47fbc5a3762b88bd69a30a03f6d209e1778"
+  },
+  "scopedDiffSha256": "b8567ffbf64e867debe0314613a4c4244ad539873a328b7e71cf78e8dbc6c16b",
+  "inputRevisionNote": "Exact four product/test files reviewed against the named base; report/docs commits do not change the reviewed product bytes. Prior draft wording was stale; its HTML hash already named the timeout-fixed candidate.",
   "capabilityMatrix": {
-    "independentDiffSecurityReview": "Performed by this agent",
-    "focusedVMTests": "Performed locally with synthetic DOM, GETs and timers",
-    "liveBrowser": "Main agent will execute isolated browser; reviewer will inspect exact evidence",
-    "securitySkill": "Vanilla JavaScript frontend reference applied",
+    "independentDiffSecurityReview": "Performed by this independent reviewer",
+    "focusedVMTests": "21 payment scenarios executed locally with synthetic DOM, GETs and timers",
+    "adversarialSyntheticChecks": "Four additional grouped checks, 12 synthetic GETs; fixture scaffolding reused from shipped harness, added reviewer assertions",
+    "liveBrowser": "Parent completed the fresh isolated run serially; reviewer inspected exact report, isolation receipt, synthetic deny/reject runner and input hashes; browser not run by reviewer.",
+    "securitySkill": "Vanilla JavaScript frontend guidance applied; Python file is a test adapter, not a backend change",
     "productionMoneyCustomerCredentials": "Outside reviewer scope"
   },
   "writerBoundary": {
-    "autopilotServiceObserved": "active",
-    "authorization": "Review child of parent iteration under inherited writer lock; parent authorized report and temporary repro only",
+    "authorization": "Review child of sole-writer autonomous parent iteration under inherited writer lock; only requested report and bounded synthetic output files written",
+    "serviceState": "Not queried by reviewer, per parent scope; sole-writer supervision supplied by parent",
     "implementationMutatedByReviewer": false,
-    "gitOrRuntimeMutatedByReviewer": false
+    "gitOrRuntimeMutatedByReviewer": false,
+    "projectMemoryUpdate": "Delegated to parent; reviewer write scope is this report and output/autopilot/run-20260907T044025-3/security/"
+  },
+  "contextSha256": {
+    "/root/docs/MEGA_PROMPT.md": "d159a3f71ea21c57a4d73ea675f1c5ded76ea504b8c3f186ba166ed9218cfc80",
+    "/root/.codex/skills/security-best-practices/SKILL.md": "7b3dae1ffc5434d890f3c65c8f552af52d0307fab3b35dec13013c9ca3844c4f",
+    "/root/.codex/skills/security-best-practices/references/javascript-general-web-frontend-security.md": "3a7bc7b3f6e7ff043db9dbaa8933894d7a19d987d0607e4ddae5d70184a63d63"
   },
   "tools": {
     "node": "v22.23.2",
     "python": "3.12.3",
     "pytest": "8.3.4 via /opt/lumi/venv/bin/python",
-    "git": "2.43.0"
+    "git": "2.43.0",
+    "parentBrowser": "152.0.7977.64",
+    "parentPlaywright": "1.62.0"
   },
   "independentVerification": [
     {
       "check": "PYTHONDONTWRITEBYTECODE=1 /opt/lumi/venv/bin/python -m pytest -q -p no:cacheprovider tests/test_e4_payment_instruction_behavior.py",
       "result": "PASS",
-      "passed": 19,
-      "failed": 0
+      "passed": 21,
+      "failed": 0,
+      "elapsedSeconds": 3.81
     },
     {
-      "check": "git diff --check -- relay/webapp.html",
+      "check": "git diff --check 1cbfe1f4ccea89703120fc000592cae03f5101da HEAD -- relay/webapp.html tests/e4_payment_instruction_behavior.cjs tests/test_e4_payment_instruction_behavior.py tests/e4_review_browser.cjs",
       "result": "PASS"
     },
     {
-      "check": "node output/autopilot/run-20260907T033330-3/security-hung-poll.cjs relay/webapp.html",
-      "result": "REGRESSION_REPRODUCED",
-      "initialRequests": 1,
-      "attemptedScheduledChecks": 12,
-      "attemptedManualChecks": 1,
-      "finalRequests": 1
+      "check": "node output/autopilot/run-20260907T044025-3/security/extra-checks.cjs relay/webapp.html",
+      "result": "PASS",
+      "runnerPath": "output/autopilot/run-20260907T044025-3/security/extra-checks.cjs",
+      "runnerSha256": "dc583eb5b4bc4888bab2a37b06ae868252b09d46ac083ada16fd0cb110a6ee3a",
+      "resultPath": "output/autopilot/run-20260907T044025-3/security/extra-results.json",
+      "resultSha256": "ee76cd081bb20b714eb51a90c61990d6ff1c7a805da065e2685d8d83eb788745",
+      "checks": [
+        "obsolete timeout cannot release current-view polling lock or reopen stale payment",
+        "non-200 and malformed JSON release lock; pending JSON prevents overlapping scheduled/manual requests",
+        "aborted body fulfillment is ignored and subsequent read remains available",
+        "paid/sent/expired/failed/cancelled/receipt/dead clear QR source, amount and requisites and revoke captured payment action"
+      ]
     }
   ],
+  "parentVerification": {
+    "focusedSuite": {
+      "result": "PASS",
+      "passed": 97,
+      "failed": 0,
+      "elapsedSeconds": 9.2,
+      "path": "output/autopilot/run-20260907T044025-3/tests.txt",
+      "sha256": "f09f75a26d4ee9e515c8cc51e339586246984703ad83b0bd382d000f3587e03c",
+      "provenance": "Parent executed; reviewer inspected raw output and parent confirmed unchanged product hashes",
+      "recordedAt": "2026-09-07T04:43:42.748430+00:00",
+      "metadataPath": "docs/e4-payment-instruction/tests.json",
+      "metadataSha256": "dda5b5534717f3dc3be43e8fe523a188f862d44ae2af915693e4e6e81e6aae55"
+    },
+    "freshBrowser": {
+      "result": "PASS",
+      "path": "output/playwright/run-20260907T044025-3/payment-final/report.json",
+      "sha256": "eb910e7b88d1d76e8b8fe1c3749cf1adff88fc234bb6a808a253925a69eb9401",
+      "durableCopy": "docs/e4-payment-instruction/report.json",
+      "isolationPath": "output/playwright/run-20260907T044025-3/payment-final/isolation.json",
+      "isolationSha256": "cf5cde95edd425532f921da11405df1dfdbee1d97d2d98cf5d2bb7ba2edde043",
+      "durableIsolationCopy": "docs/e4-payment-instruction/isolation.json",
+      "unit": "e4-review-browser-da6e931c35c24ed498a5bcae3c20010c",
+      "unitStopped": true,
+      "processExitCode": 0,
+      "cgroupEmpty": true,
+      "mainPid": 0,
+      "sourceSha256": "6bdad471edcedf7b21d28373cdd564268d50f62b16385bac9905215ad4df2db8",
+      "runnerSha256": "2c1a43dac9686eb62d66298612bd5747e9eb732687d0ada4cfd7a355db77bc2f",
+      "checks": 96,
+      "viewportWidths": [
+        320,
+        390,
+        1280
+      ],
+      "pageErrors": [],
+      "syntheticWritesBlocked": 9,
+      "syntheticSigningAttemptsRejected": 6,
+      "paymentChecks": [
+        "320: QR-to-text clears QR/amount; obsolete status and captured actions ignored; paid-to-new restores controls",
+        "320: cancelled/receipt/expired-to-new restores instructions; link/QR labels and missing amount are isolated",
+        "320: absent payment destination clears prior data and exposes no payment action",
+        "320: native fetch aborts stalled status request; manual check recovers to paid",
+        "390: QR-to-text clears QR/amount; obsolete status and captured actions ignored; paid-to-new restores controls",
+        "390: cancelled/receipt/expired-to-new restores instructions; link/QR labels and missing amount are isolated",
+        "390: absent payment destination clears prior data and exposes no payment action",
+        "390: native fetch aborts stalled status request; manual check recovers to paid",
+        "1280: QR-to-text clears QR/amount; obsolete status and captured actions ignored; paid-to-new restores controls",
+        "1280: cancelled/receipt/expired-to-new restores instructions; link/QR labels and missing amount are isolated",
+        "1280: absent payment destination clears prior data and exposes no payment action",
+        "1280: native fetch aborts stalled status request; manual check recovers to paid"
+      ],
+      "provenance": "Parent confirmed completion for run-20260907T044025-3; reviewer verified new isolation unit and raw fresh-output/durable-copy hash equality. Browser report bytes are deterministic and match previous run; freshness is supplied by the distinct run path, isolation unit and parent execution confirmation."
+    }
+  },
   "findings": [
     {
       "id": "E4-PAY-SEC-001",
@@ -73,20 +152,57 @@
         "function": "startOrderTracking.poll",
         "line": 3448
       },
-      "evidence": "polling = true precedes awaited fetch/body; all subsequent poll callbacks return while polling is true; no deadline exists. Synthetic unresolved request blocks 12 scheduled checks and one manual check.",
-      "impact": "A stalled read can prevent payment state from refreshing throughout the view lifetime while the local payment countdown continues.",
-      "fix": "Bound fetch and body read with a request deadline; abort the read, release polling, reject aborted/obsolete completions, retain later automatic/manual read availability.",
-      "disposition": "ACCEPTED_FIX_IN_PROGRESS",
-      "parentAcknowledgement": "Parent accepted before any browser run or deployment and is adding a 10-second deadline plus VM/browser recovery cases."
+      "evidence": "Prior independent reviewer reproduced an intermediate polling-lock implementation with no deadline: one stalled fetch prevented subsequent automatic/manual status reads. Current lines 3452-3460 create one AbortController, keep the 10000 ms deadline through r.json(), reject aborted completion and always clear the deadline/release the per-view lock in finally.",
+      "impact": "A stalled status read could leave payment state unrefreshed while the local countdown continued.",
+      "fix": "Bound fetch and body read with a request deadline, abort stalled reads, release polling after settlement and reject aborted/obsolete completion.",
+      "mitigation": "Per-view generation and polling guards; GET-only no-store retries do not submit or retry money actions.",
+      "falsePositiveNotes": "Finding refers to the prior intermediate implementation; current candidate is fixed. Native body-abort behavior is not independently tested by the VM mock.",
+      "disposition": "RESOLVED_IN_REVIEWED_CODE",
+      "resolutionEvidence": [
+        "21 payment VM scenarios including poll_timeout and body_timeout pass",
+        "Reviewer adversarial pending-body, late-abort and obsolete-view checks pass",
+        "Fresh isolated Chrome native-fetch deadline/recovery passes at all three viewport widths"
+      ],
+      "freshNativeFetchEvidence": "Fresh isolated Chrome report passes native stalled-fetch abort and manual recovery to paid at 320/390/1280 widths; source and runner hashes match reviewed candidate."
     }
   ],
-  "newSecuritySinks": "No new dynamic HTML, script evaluation, URL source, authentication change or write endpoint was introduced in the reviewed diff; generation token is only UI isolation, not backend authority.",
-  "result": "IN_PROGRESS",
-  "conclusion": "Final PASS withheld for accepted hung-read regression and final browser/test input binding.",
+  "newFindings": [],
+  "reviewObservations": [
+    {
+      "location": "relay/webapp.html:3238",
+      "conclusion": "Each start increments generation, including same-id reopening. Old poll, body completion, captured open/check functions and timer callbacks cannot apply to a fresh view."
+    },
+    {
+      "location": "relay/webapp.html:3254",
+      "conclusion": "Clearing removes QR src, amount text and requisites contents and disables payment action. Reset runs while card is hidden; new title, instructions, controls, timer and steps are installed before card is revealed."
+    },
+    {
+      "location": "relay/webapp.html:3448",
+      "conclusion": "Polling lock is local to a view. Automatic/manual triggers cannot overlap within that view, including during JSON consumption. Obsolete request settlement cannot unlock the current view."
+    },
+    {
+      "location": "relay/webapp.html:3455",
+      "conclusion": "Status remains the existing authenticated GET with no-store and a 10-second abort deadline. The diff adds no write endpoint, credential source, money authority or automatic financial retry."
+    },
+    {
+      "location": "tests/test_e4_payment_instruction_behavior.py:23",
+      "conclusion": "Subprocess return code and exact scenario/PASS JSON are both required, preventing unresolved async Node exits from being counted as success."
+    },
+    {
+      "location": "tests/e4_review_browser.cjs:50",
+      "conclusion": "New route interception holds only same-origin synthetic order GETs. Existing deny-by-default routing, non-root sandbox and simulated/rejected writer/signing boundaries are retained."
+    }
+  ],
+  "newSecuritySinks": "No new untrusted-data HTML sink, executable string handler, script loader, storage operation, URL source, auth relaxation or writer introduced. Added steps.innerHTML is a fixed literal. Existing navigation and requisite/tx-link rendering sinks are unchanged and are not certified safe.",
+  "codeReviewVerdict": "PASS",
+  "result": "PASS",
+  "conclusion": "PASS for this bounded diff/security gate: previous P2 hung-read finding resolved; no new blocking finding. Exact-source 21 payment VM tests, four additional adversarial check groups, parent 97 focused tests and fresh 96-check isolated Chrome evidence pass. Production rollout and whole-stage acceptance remain parent responsibilities.",
   "limits": [
-    "Bounded diff review, not a whole-application security audit or E4 gate closure.",
-    "Existing inline requisites clipboard rendering has separate issues independently reported by acceptance reviewer; unchanged in this diff and not claimed safe.",
-    "No production deployment, money movement, external account or customer-data access performed by reviewer.",
-    "Browser validation has not yet been supplied for the corrected candidate."
+    "Bounded four-file diff review, not a whole-application security audit, full E4 closure or production deployment approval.",
+    "Existing inline requisites clipboard rendering and transaction-link/navigation sinks are outside this change; no new claim of safety for those unchanged paths.",
+    "VM tests use synthetic DOM/timers/fetch; the body-timeout mock explicitly implements signal rejection. Native browser streaming-body timeout and Telegram/iOS/WebKit behavior are not established by those mocks.",
+    "One in-flight GET is enforced per displayed view. An obsolete view read may remain until it completes or reaches its deadline; it cannot update the current view.",
+    "No backend contract, CSP/edge configuration, SDK, dependency/license audit, customer data, wallet key, credentials, production money action or runtime mutation reviewed or performed.",
+    "Browser evidence was executed by parent and inspected by reviewer; screenshots were not visually reviewed here. Native streaming-body timeout, real Telegram, iOS/WebKit, live signing and human comprehension remain unverified."
   ]
 }

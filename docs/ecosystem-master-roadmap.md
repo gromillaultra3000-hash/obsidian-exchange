@@ -732,6 +732,16 @@ responses pass 76 focused tests, 84 isolated Chrome checks and both reviews.
 Evidence: `docs/e4-receive-address-rollout.v1.json`. E4 remains IN_PROGRESS;
 earlier gates and human/platform acceptance are not closed by this slice.
 
+2026-09-07: bounded payment-instruction isolation slice VERIFIED and deployed
+from the inspected interrupted checkpoint. Prior QR/amount/requisites/action
+state clears before fresh instructions; obsolete callbacks are isolated and
+status GETs have a bounded abort deadline. Fresh 97 focused tests, 96 isolated
+Chrome checks and both independent reviews pass. Evidence:
+`docs/e4-payment-instruction-rollout.v1.json`. E4 stays IN_PROGRESS; exactly
+next is PAYMENT_REQUISITES_COPY_INTEGRITY, independently reproduced in
+`docs/e4-payment-instruction/next-prerequisite.json`. No stage transition or
+earlier-gate closure is claimed.
+
 ### E5 — нативный некастодиальный кошелёк
 
 E0.4 inventory evidence (2026-08-18): the checkout has a Rust/UniFFI Bitcoin

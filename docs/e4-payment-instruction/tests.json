@@ -1,5 +1,5 @@
 {
-  "recordedAt": "2026-09-07T03:44:18.282058+00:00",
+  "recordedAt": "2026-09-07T04:43:42.748430+00:00",
   "result": "PASS",
   "focusedPassed": 97,
   "regressionScenarios": 21,
@@ -7,12 +7,15 @@
   "baselineFailures": 17,
   "baselinePassed": 2,
   "baselineScope": "First 19 scenarios before implementation; two timeout scenarios added after independent security finding.",
-  "syntax": "PASS:2 inline scripts compiled; Node --check on both behavior and browser runners",
+  "syntax": "PASS:2 inline scripts compiled; Node --check on behavior and browser runners",
   "completionMarker": "Each Node case must emit exact scenario/PASS JSON.",
   "inputSha256": {
     "relay/webapp.html": "6bdad471edcedf7b21d28373cdd564268d50f62b16385bac9905215ad4df2db8",
     "tests/e4_payment_instruction_behavior.cjs": "f820cd4ff51b57c40e3eda47cabcf9423ef2afce2379364eab58d31b6a8af0ef",
     "tests/test_e4_payment_instruction_behavior.py": "b425ababa71e51d8f977214303553bd011509d2bb5dd9c8a0bf2ea2ef218b3ea",
     "tests/e4_review_browser.cjs": "2c1a43dac9686eb62d66298612bd5747e9eb732687d0ada4cfd7a355db77bc2f"
-  }
+  },
+  "resumedIteration": "run-20260907T044025-3",
+  "durationSeconds": 9.2,
+  "stdoutSha256": "f09f75a26d4ee9e515c8cc51e339586246984703ad83b0bd382d000f3587e03c"
 }

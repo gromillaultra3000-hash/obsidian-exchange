@@ -1,0 +1,151 @@
+{
+  "schemaVersion": "e4-payment-instruction-rollout.v1",
+  "recordedAt": "2026-09-07T04:46:42.687316+00:00",
+  "stage": "E4",
+  "gateCriterion": "PAYMENT_INSTRUCTION_ISOLATION / accurate payment instructions and action usability",
+  "status": "IN_PROGRESS",
+  "sliceStatus": "VERIFIED",
+  "scope": "CURRENT_AUTHORIZED_SCOPE",
+  "accountableOwner": "Project owner; explicit 2026-09-07 autonomous delivery authorization; executed by Codex /root under inherited supervisor writer lock",
+  "originalProductBase": "1cbfe1f4ccea89703120fc000592cae03f5101da",
+  "implementationCommit": "bd70fab554096cf1949c606d0b7fa86dca561a50",
+  "resumedFromCommit": "8da2d1326c320b64bb96d8cfa3ab0ea1dd122d67",
+  "recoveryEvidence": "docs/autopilot-usage-limit/recovery.json",
+  "implementationSha256": "6bdad471edcedf7b21d28373cdd564268d50f62b16385bac9905215ad4df2db8",
+  "resumption": "Existing interrupted code and tests were inspected and accepted without manufacturing another implementation change. This completion commit records final tests/reviews, deployment and route status for the ancestral product checkpoint.",
+  "implementation": "Clear prior order QR source, amount, requisites and action handlers/state before displaying a fresh order. Generation guards isolate stale status/body/timer/captured actions even on same-ID reopen. Serialize status GETs with no-store and a 10-second fetch/body abort deadline; clear terminal instructions and revoke payment action.",
+  "surfaceMatrix": {
+    "miniApp": "REQUIRED: payment card/order-state isolation in shared /webapp HTML",
+    "publicWebapp": "READ_ONLY: public GET/POST method and exact rendered-template verification",
+    "telegramBot": "READ_ONLY: service identity/health; no messages sent",
+    "backend": "READ_ONLY: existing GET status contract; no backend or database change",
+    "walletSigning": "N/A: no signing/request/writer change",
+    "native": "N/A: no native bridge, key or custody change",
+    "admin": "N/A: unchanged"
+  },
+  "trustAndMoneyImpact": {
+    "moneyWritersChanged": false,
+    "custodyChanged": false,
+    "credentialsChanged": false,
+    "customerDataAccessed": false,
+    "realSignaturesOrMoney": false,
+    "064ATouched": false,
+    "externalMessagesSent": false
+  },
+  "capabilities": {
+    "implementation": "Retained checkpoint inspected by /root",
+    "acceptanceReview": "/root/payment_acceptance",
+    "independentDiffSecurityReview": "/root/payment_diff_security",
+    "skills": [
+      "playwright via existing isolated repository harness",
+      "security-best-practices by independent reviewer"
+    ],
+    "tools": [
+      "pytest 8.3.4",
+      "Node v22.23.2",
+      "playwright-core 1.62.0",
+      "Chrome 152.0.7977.64",
+      "Gitleaks 8.30.0",
+      "Git 2.43.0",
+      "systemd"
+    ],
+    "externalPluginsResearchOrNewDependencies": "None needed"
+  },
+  "tests": {
+    "focusedPassed": 97,
+    "paymentBehaviorScenarios": 21,
+    "browserChecksPassed": 96,
+    "browserWidths": [
+      320,
+      390,
+      1280
+    ],
+    "syntheticSigningAttemptsRejected": 6,
+    "syntheticOrderWritesBlocked": 9,
+    "fixtureWalletPreparations": 24,
+    "pageErrors": 0,
+    "syntax": "PASS: two inline scripts and both Node runners",
+    "report": "docs/e4-payment-instruction/tests.json",
+    "browserReport": "docs/e4-payment-instruction/report.json",
+    "isolation": "docs/e4-payment-instruction/isolation.json",
+    "browserArtifactRoot": "output/playwright/run-20260907T044025-3/payment-final",
+    "secretScan": "PASS: redacted scoped product/test/evidence diff; no new allowlist",
+    "secretScanReport": "docs/e4-payment-instruction/gitleaks-report.json"
+  },
+  "reviews": {
+    "acceptance": "docs/e4-payment-instruction/acceptance-review.json",
+    "independentDiffSecurity": "docs/e4-payment-instruction/security-review.json",
+    "acceptanceResult": "PASS",
+    "independentDiffSecurityResult": "PASS",
+    "outputSha256": {
+      "acceptance-review.json": "284cd8f1aa3f744682d2b625ec324aead7cff7d7be03976bde7ef8a131dabdbe",
+      "security-review.json": "2302a7d1a8a7cd1f6d35b9439dd567587b9eb3d443dfab230874f7af2c658951"
+    }
+  },
+  "negativeFindings": [
+    "Interrupted checkpoint was not accepted or deployed; stale draft security wording was replaced only after fresh review.",
+    "Prior intermediate polling lock had no deadline (E4-PAY-SEC-001). Retained candidate includes the fix; 21 behavior scenarios, independent adversarial checks and fresh native-browser fetch-abort recovery verify it.",
+    "Independent reproduction confirms original baseline retains old QR and 1000 RUB after new 2000 RUB text-only instructions; candidate clears them.",
+    "Independent acceptance reproduced unchanged requisites clipboard false-success while pending/rejected; recorded as exactly next bounded E4 item.",
+    "Initial read-only system-bus access was denied by sandbox; normal require_escalated inspection succeeded, without approval rejection or policy bypass."
+  ],
+  "limits": [
+    "Automated Chrome/synthetic evidence only; human comprehension, actual Telegram/iOS/WebKit, QR decoding, native streaming-body timeout and live payment/signing acceptance remain unverified.",
+    "The VM body-timeout test explicitly implements abort rejection; native browser check verifies stalled fetch abort and recovery.",
+    "E4 remains IN_PROGRESS; earlier mandatory gates remain unverified and consumed authority/terminal archives unchanged.",
+    "Existing inline requisites and transaction-link/navigation sinks are not certified safe by this bounded diff review."
+  ],
+  "runContext": "docs/e4-payment-instruction/run-context.json",
+  "preflight": "docs/e4-payment-instruction/preflight.json",
+  "rollbackRehearsal": "docs/e4-payment-instruction/rollback-rehearsal.json",
+  "rollout": {
+    "recordedAt": "2026-09-07T04:45:43.808151+00:00",
+    "state": "VERIFIED",
+    "target": "/opt/obsidian-exchange/relay/webapp.html",
+    "previousSha256": "00c4d36887262876e2bd698a2748e8d8efe8dc0dc9ff79b9fad904cd621d5906",
+    "deployedSha256": "6bdad471edcedf7b21d28373cdd564268d50f62b16385bac9905215ad4df2db8",
+    "rollbackPreimage": "/var/lib/obsidian-exchange/deployment-preimages/e4-payment-isolation-20260907-ane0f9p2/webapp.html",
+    "rollbackPreimageSha256": "00c4d36887262876e2bd698a2748e8d8efe8dc0dc9ff79b9fad904cd621d5906",
+    "method": "hash-bound fsynced atomic replacement; no restart",
+    "rollbackExecuted": false,
+    "publicGet": 200,
+    "publicPost": 405,
+    "publicMatchesDeployedTemplate": true,
+    "publicBodySha256": "e9238ae3789d46e82586e30ab8de7c2976a0137a315bbaac308822547efa0e04",
+    "url": "https://obsidian-exchange.org/webapp",
+    "services": {
+      "relay-fastapi.service": {
+        "MainPID": "3877703",
+        "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:55 UTC",
+        "ActiveState": "active"
+      },
+      "exchange-bot.service": {
+        "MainPID": "3877887",
+        "ExecMainStartTimestamp": "Tue 2026-09-01 06:20:00 UTC",
+        "ActiveState": "active"
+      },
+      "nginx.service": {
+        "MainPID": "3877705",
+        "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:56 UTC",
+        "ActiveState": "active"
+      }
+    },
+    "serviceIdentityUnchanged": true
+  },
+  "rollback": "Verify retained OLD preimage and current NEW target hashes, restore with the rehearsed fsynced atomic replacement, then recheck public rendered bytes and service identities. Recipe: output/autopilot/run-20260907T044025-3/rollout.py rollback; do not blindly retry any uncertain deployment.",
+  "deploymentRecipeSha256": "b8015db57d8b71e2214b5a99054b2709b6569e92fc224698cc79bda65d61d7a1",
+  "productionStatus": "VERIFIED: candidate HTML served publicly; GET200/POST405/template match; Relay/bot/Nginx active with unchanged PID/start identities and no restart",
+  "dataRetention": "Public code metadata and invented fixtures only. Browser profile/stage removed after stopped-unit and empty-cgroup verification; supervisor privately archives synthetic ordinary artifacts. Owner controls checked-in engineering evidence retention; no secrets/customer datasets.",
+  "nextCanonicalItem": "E4 / PAYMENT_REQUISITES_COPY_INTEGRITY / preserve requisites and report copy success only after clipboard completion, with explicit failure and stale-feedback isolation",
+  "nextItemEvidence": "docs/e4-payment-instruction/next-prerequisite.json",
+  "transitionEvidence": "",
+  "blocker": "",
+  "runtimeVerification": "docs/e4-payment-instruction/runtime-verification.json",
+  "finalEvidenceConsistencyReview": {
+    "reviewer": "/root/payment_acceptance",
+    "result": "PASS",
+    "scope": "rollout/deployment evidence, CURRENT_ROUTE, compact PROJECT_MEMORY and canonical E4 gate note",
+    "conclusion": "One verified atomic replacement, exact hash and rollback, passing evidence, unchanged services; same-stage next item; no full-gate overclaim",
+    "filesMutatedByReviewer": false
+  }
+}

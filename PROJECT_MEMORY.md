@@ -4,44 +4,26 @@ Updated: 2026-09-07 UTC
 
 ## Current goal and status
 
-- 2026-09-07 owner clarified continuation must run in the SSH-independent
-  autopilot. Its third iteration failed on an explicit Codex usage-limit response
-  before receipt/deployment; a fresh read-only access probe now passes.
-  Active item is E4 / PAYMENT_INSTRUCTION_ISOLATION, retained as IN_PROGRESS
-  in a checkpoint with 97 focused tests passing. Existing browser evidence and
-  draft review remain subject to the worker's final two reviews and rollout.
-  Production still has the accepted receive-address HTML `00c4d368...621d5906`.
-  Recovery controller is installed after 146 passing tests and both independent
-  reviews. It validates the old failure/runtime, preserves the checkpoint baseline
-  for exactly one completion, and restores ordinary code-first checks afterward.
-  Rollback: `/var/lib/obsidian-roadmap-autopilot/install-preimage.pPHuoU`.
-  Launch is prepared with original deadline 2026-09-08 03:07:16 UTC,
-  two accepted iterations and unchanged E4 scope. Exact status must be read from
-  systemd and `/var/lib/obsidian-roadmap-autopilot/status.json`; no second writer.
-  Recovery evidence: `docs/autopilot-usage-limit/`. Exactly next: finish this
-  payment-instruction item in the autonomous runner.
-
-- 2026-09-07 active E4 / RECEIVE_ADDRESS_INTEGRITY slice is VERIFIED and
-  deployed under the supervisor's inherited writer lock. Receive-copy status
-  is separate from its stable address/QR/button; success/haptics await clipboard
-  completion and rejection is explicit. Repeated taps and stale callbacks cannot
-  overwrite current feedback. Loading clears old receive data, disables copy,
-  and invalidates responses across close/send/reopen/wallet identity changes.
-  76 focused tests and 84 isolated Chrome checks pass at 320/390/1280px,
-  including actual browser clipboard reads, rejection, request reordering and
-  wallet-change cases. Both independent reviews PASS after fixing the loading
-  race and requiring exact async test-completion markers. No money/key/SDK
-  changes; six synthetic signing attempts reject and nine order writes are blocked.
-  HTML `00c4d368...621d5906` is live: GET200/POST405/template match; Relay/bot/
-  Nginx active with unchanged PID/start identities, no restart. Exact rollback:
-  deployment-preimages/`e4-receive-address-20260907-2r2p9zr3/webapp.html`.
-  Evidence: `docs/e4-receive-address-rollout.v1.json` and its evidence directory.
-  E4 remains IN_PROGRESS; no human/Telegram/iOS/WebKit/QR-decoding/live-signing
-  acceptance or earlier-gate closure claimed. Exactly next: E4 /
-  PAYMENT_INSTRUCTION_ISOLATION / clear prior order QR and action state before
-  displaying fresh payment instructions. Reviewer reproduced old order QR and
-  1000 RUB amount persisting into a new text-only 2000 RUB order. Same-stage
-  CURRENT_AUTHORIZED_SCOPE persists; no transition assessment is required.
+- 2026-09-07 E4 / PAYMENT_INSTRUCTION_ISOLATION is VERIFIED and deployed.
+  The autonomous runner resumed the inspected interrupted `bd70fab` checkpoint
+  after usage-limit recovery; no extra implementation change was manufactured.
+  New orders clear prior QR/src/amount/requisites/actions; generation guards
+  reject obsolete callbacks and captured actions. Serialized no-store status
+  GETs have a 10-second fetch/body abort deadline; terminal instructions clear.
+  Fresh 97 focused tests and 96 isolated Chrome checks pass at 320/390/1280px,
+  both independent reviews PASS, and the previous hung-read P2 is resolved.
+  Nine synthetic writes blocked, six synthetic signing attempts rejected;
+  no real money/keys/credentials/customer reads/messages/064A activity.
+  HTML `6bdad471...df2db8` is live: GET200/POST405/rendered-template match;
+  Relay/bot/Nginx retain active unchanged PID/start identities, no restart.
+  Exact rollback: deployment-preimages/`e4-payment-isolation-20260907-ane0f9p2/webapp.html`.
+  Evidence: `docs/e4-payment-instruction-rollout.v1.json` and its directory.
+  Supervisor retains the sole-writer lock; inspect live status before takeover.
+  E4 stays IN_PROGRESS; earlier gates and human/Telegram/iOS/WebKit/native-body/
+  QR-decoding/live-signing acceptance are not closed. Exactly next:
+  `E4 / PAYMENT_REQUISITES_COPY_INTEGRITY / preserve requisites and report copy success only after clipboard completion, with explicit failure and stale-feedback isolation`.
+  Reproduced unchanged false-success on pending/rejected requisites clipboard
+  operations is documented in `docs/e4-payment-instruction/next-prerequisite.json`.
 
 - 2026-09-07 owner authorized 24 hours of continuous code-first E0–E5 delivery,
   no eight-iteration ceiling, and immediate reversible autodeployment after

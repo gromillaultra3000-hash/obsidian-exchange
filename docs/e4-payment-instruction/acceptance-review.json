@@ -1,0 +1,178 @@
+{
+  "schemaVersion": "e4-payment-instruction-acceptance-review.v1",
+  "reviewedAt": "2026-09-07T04:45:09.174852+00:00",
+  "reviewer": {
+    "identity": "Codex context-aware acceptance subagent /root/payment_acceptance",
+    "independentOfImplementation": true,
+    "modelBuild": "Exact model build/version not exposed in this runtime; no exact model version claimed",
+    "role": "Final context-aware acceptance of the interrupted product checkpoint"
+  },
+  "activeRoute": "E4 / PAYMENT_INSTRUCTION_ISOLATION / clear prior order QR and action state before displaying fresh payment instructions",
+  "scope": "CURRENT_AUTHORIZED_SCOPE; single resumed slice, no stage change",
+  "baseCommit": "1cbfe1f4ccea89703120fc000592cae03f5101da",
+  "candidateImplementationCommit": "bd70fab554096cf1949c606d0b7fa86dca561a50",
+  "observedHead": "8da2d1326c320b64bb96d8cfa3ab0ea1dd122d67",
+  "productDiffSha256": "6537d9a4c0864cb5b6ba537758af3baf3ca0b8460e34f3b1be30b4d224c9d7fb",
+  "contextRead": [
+    "AGENTS.md full",
+    "docs/MEGA_PROMPT.md full",
+    "PROJECT_MEMORY.md compact status",
+    "docs/CURRENT_ROUTE.md active checkpoint and route",
+    "docs/ecosystem-master-roadmap.md E4 gate lines 718-734",
+    "Product diff against supplied base; current startOrderTracking DOM, callers and behavior/browser tests",
+    "Interrupted draft evidence and fresh parent tests/browser/preflight/rollback evidence"
+  ],
+  "capabilities": {
+    "contextAwareReview": "Performed independently by this reviewer",
+    "syntheticRegression": "Node VM and Python pytest locally",
+    "isolatedRealBrowser": "Parent ran serial workload; reviewer read final exact-byte report, isolation and 320/390 screenshots",
+    "runtimeDeployment": "Parent-only; reviewer read secret-free preflight and rollback rehearsal evidence",
+    "externalResearch": "Not needed for this bounded repo-specific acceptance",
+    "implementationOrGitMutationByReviewer": false
+  },
+  "writerBoundary": {
+    "reviewerSystemctlProbe": "Sandbox returned Failed to connect to bus: Operation not permitted; no escalation or runtime mutation by reviewer",
+    "parentObservedViaNormalEscalation": "Supervisor RUNNING, PID 1324835, iteration3 run-20260907T044025-3, CURRENT_AUTHORIZED_SCOPE E4",
+    "authorization": "Review child of the supervisor sole-writer iteration; wrote only review/next evidence and unique-root synthetic artifacts"
+  },
+  "tools": {
+    "node": "v22.23.2",
+    "python": "3.12.3",
+    "pytest": "8.3.4 via /opt/lumi/venv/bin/python",
+    "git": "2.43.0",
+    "browserEvidence": "Chrome 152.0.7977.64 with playwright-core 1.62.0"
+  },
+  "independentChecks": [
+    {
+      "check": "PYTHONDONTWRITEBYTECODE=1 /opt/lumi/venv/bin/python -m pytest -q -p no:cacheprovider tests/test_e4_payment_instruction_behavior.py",
+      "result": "PASS",
+      "passed": 21,
+      "failed": 0,
+      "durationSeconds": 2.45
+    },
+    {
+      "check": "git diff --check -- relay/webapp.html tests/e4_payment_instruction_behavior.cjs tests/test_e4_payment_instruction_behavior.py tests/e4_review_browser.cjs",
+      "result": "PASS"
+    },
+    {
+      "check": "Independent synthetic A QR/1000 RUB to B text-only/2000 RUB reproduction on supplied base and candidate",
+      "result": "RED_BASE_GREEN_CANDIDATE",
+      "base": {
+        "qrVisible": true,
+        "oldQrSourceRetained": true,
+        "oldAmountRetained": "1000 RUB"
+      },
+      "candidate": {
+        "qrVisible": false,
+        "oldQrSourceRetained": false,
+        "amountLine": ""
+      },
+      "artifact": "output/autopilot/run-20260907T044025-3/acceptance/requisites-copy-repro.json"
+    }
+  ],
+  "acceptanceCriteria": [
+    {
+      "criterion": "Reset all order-owned instructions before displaying a new order",
+      "result": "PASS",
+      "evidence": "Synchronous hidden-card reset clears QR src/wrapper, amount/requisites, handlers, button display/disabled/text, timer and steps. VM and browser verify A→B text-only, QR/no amount, link/QR and empty destination."
+    },
+    {
+      "criterion": "Restore fresh action state after paid/sent/expired/cancelled/receipt/dead/timer states",
+      "result": "PASS",
+      "evidence": "21-case VM suite covers terminal-state→new transitions; browser checks paid/cancelled/receipt/expired→new across 320/390/1280px."
+    },
+    {
+      "criterion": "Obsolete work cannot alter a newer order, including same identifier reopened",
+      "result": "PASS",
+      "evidence": "New generation guards open/check/timer/applyStatus; VM covers late response, late JSON, same ID reopen and captured handlers; browser confirms obsolete status and captured actions do not alter current card or navigate."
+    },
+    {
+      "criterion": "Status polling is bounded and manual checks recover after read failures",
+      "result": "PASS",
+      "evidence": "Per-view serialization, 10-second AbortController deadline through body read, aborted result rejection, no-store fetch, finally releases lock; VM fetch/body timeout and failure recovery plus native-browser abort/manual paid transition pass."
+    },
+    {
+      "criterion": "Terminal instructions cannot still open payment through a captured handler",
+      "result": "PASS",
+      "evidence": "hidePaymentInstructions clears displayed data, disables/hides open action and sets paymentAvailable=false; VM terminal_open passes."
+    },
+    {
+      "criterion": "Money/key/credential writer authority remains unchanged",
+      "result": "PASS",
+      "evidence": "Diff changes only payment display and GET status polling; browser isolates all traffic, blocks nine synthetic writer calls and rejects six unusable synthetic signing attempts; no real payment or signing executed."
+    },
+    {
+      "criterion": "Responsive payment card remains readable",
+      "result": "PASS_WITH_STATED_LIMITS",
+      "evidence": "Browser no-overflow assertion at 320/390/1280; reviewer inspected fresh 320/390 screenshots showing only B amount/requisites, 15:00 timer and current actions. Synthetic writer-blocked banner is deliberate harness output."
+    }
+  ],
+  "freshParentEvidence": {
+    "focusedTests": 97,
+    "browserChecks": 96,
+    "viewports": [
+      320,
+      390,
+      1280
+    ],
+    "pageErrors": 0,
+    "syntheticWriterAttemptsBlocked": 9,
+    "syntheticSigningAttemptsRejected": 6,
+    "fixtureWalletPreparations": 24,
+    "browserSourceMatchesReviewedBytes": true,
+    "browserRunnerMatchesReviewedBytes": true,
+    "isolatedUnitStopped": true,
+    "mainPID": 0,
+    "cgroupEmpty": true,
+    "processExitCode": 0,
+    "rollbackRehearsal": "PASS exact OLD→NEW→OLD fsynced atomic replacement, production untouched",
+    "preflight": "GET200/POST405/public template match; Relay/bot/Nginx active with unchanged process identity"
+  },
+  "findings": [
+    {
+      "id": "E4-PAY-ACC-001",
+      "severity": "Medium",
+      "scope": "Pre-existing next E4 prerequisite",
+      "finding": "Payment requisites copy control displays success while clipboard promise remains pending or rejects. Reproduced unchanged on baseline and candidate.",
+      "disposition": "NOT_INTRODUCED_BY_SLICE; recorded as exactly next bounded E4 prerequisite",
+      "evidence": "docs/e4-payment-instruction/next-prerequisite.json"
+    }
+  ],
+  "blockingFindings": [],
+  "knownPriorFindingDisposition": {
+    "id": "E4-PAY-SEC-001",
+    "state": "FIXED_IN_CURRENT_BYTES",
+    "evidence": "The interrupted security draft identified unbounded polling. Current 10-second fetch/body abort and independent VM/browser recovery checks pass; separate final security reviewer owns its final verdict."
+  },
+  "surfaceMatrix": {
+    "MiniApp": "REQUIRED: changed payment instruction UI; tested using shipped HTML with synthetic fixtures",
+    "BotLinkedWebapp": "REQUIRED: same /webapp template; fresh preflight confirms runtime template path",
+    "PublicSite": "N/A: no new or changed public site flow",
+    "Backend": "READ_ONLY: existing GET status contract; no writer/DB changes",
+    "Native": "N/A: no native/custody/key changes",
+    "OperatorAdmin": "N/A: no operator flow change"
+  },
+  "productionStatusAtReview": "NOT_DEPLOYED; fresh preflight still serves accepted receive-address HTML 00c4d36887262876e2bd698a2748e8d8efe8dc0dc9ff79b9fad904cd621d5906. Parent must deploy and verify runtime separately.",
+  "result": "PASS",
+  "decision": "Current bounded payment-instruction isolation acceptance passes; ready for parent controlled reversible static-template rollout after the other mandatory review gate.",
+  "nextCanonicalItem": "E4 / PAYMENT_REQUISITES_COPY_INTEGRITY / preserve requisites and report copy success only after clipboard completion, with explicit failure and stale-feedback isolation",
+  "limits": [
+    "This review is pre-deployment acceptance and does not claim runtime rollout occurred.",
+    "Automated Chrome tests do not establish human comprehension, real Telegram/iOS/WebKit behavior, QR decoding or live payment/signing acceptance.",
+    "No full E4 or earlier canonical gate closure; consumed 064A authority is not changed or replayed.",
+    "No customer data, secrets, credentials, live money or external messages were accessed."
+  ],
+  "inputsSha256": {
+    "relay/webapp.html": "6bdad471edcedf7b21d28373cdd564268d50f62b16385bac9905215ad4df2db8",
+    "tests/e4_payment_instruction_behavior.cjs": "f820cd4ff51b57c40e3eda47cabcf9423ef2afce2379364eab58d31b6a8af0ef",
+    "tests/test_e4_payment_instruction_behavior.py": "b425ababa71e51d8f977214303553bd011509d2bb5dd9c8a0bf2ea2ef218b3ea",
+    "tests/e4_review_browser.cjs": "2c1a43dac9686eb62d66298612bd5747e9eb732687d0ada4cfd7a355db77bc2f",
+    "tests/test_e4_review_browser_runner.py": "10e63f75d216cd5a11a4c6c883db7d15a134d00088a3f6a41b8deb80b375a98b",
+    "docs/e4-payment-instruction/report.json": "eb910e7b88d1d76e8b8fe1c3749cf1adff88fc234bb6a808a253925a69eb9401",
+    "docs/e4-payment-instruction/isolation.json": "cf5cde95edd425532f921da11405df1dfdbee1d97d2d98cf5d2bb7ba2edde043",
+    "docs/e4-payment-instruction/tests.json": "dda5b5534717f3dc3be43e8fe523a188f862d44ae2af915693e4e6e81e6aae55",
+    "docs/e4-payment-instruction/preflight.json": "8b97f1aac4d346d0c67d142e481858152b203def9a99c5b13cd98effdfd72286",
+    "docs/e4-payment-instruction/rollback-rehearsal.json": "c8afaee74e03b40040af983dc170f9bfdeb8f0b16cba06fae3cf57692543f9d2",
+    "docs/e4-payment-instruction/next-prerequisite.json": "1e3546fe7a5b10b850bb610c6dc2ac0929d22577942f7a3788b9187cf88fda2a"
+  }
+}

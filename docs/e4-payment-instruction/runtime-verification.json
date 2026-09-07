@@ -1,7 +1,10 @@
 {
-  "recordedAt": "2026-09-07T04:42:14.244386+00:00",
-  "deployedSha256": "00c4d36887262876e2bd698a2748e8d8efe8dc0dc9ff79b9fad904cd621d5906",
-  "candidateSha256": "6bdad471edcedf7b21d28373cdd564268d50f62b16385bac9905215ad4df2db8",
+  "recordedAt": "2026-09-07T04:47:28.750490+00:00",
+  "result": "PASS",
+  "readOnly": true,
+  "targetSha256": "6bdad471edcedf7b21d28373cdd564268d50f62b16385bac9905215ad4df2db8",
+  "rollbackPreimageSha256": "00c4d36887262876e2bd698a2748e8d8efe8dc0dc9ff79b9fad904cd621d5906",
+  "rootOnlyRollbackVerified": true,
   "services": {
     "relay-fastapi.service": {
       "MainPID": "3877703",
@@ -19,9 +22,10 @@
       "ActiveState": "active"
     }
   },
+  "serviceIdentityUnchanged": true,
   "publicGet": 200,
   "publicPost": 405,
   "publicMatchesDeployedTemplate": true,
-  "publicBodySha256": "ec6683d92028adeb6250b45e9401203cce0a4f26dc81e4538ded9499ddbb5c94",
+  "publicBodySha256": "e9238ae3789d46e82586e30ab8de7c2976a0137a315bbaac308822547efa0e04",
   "url": "https://obsidian-exchange.org/webapp"
 }

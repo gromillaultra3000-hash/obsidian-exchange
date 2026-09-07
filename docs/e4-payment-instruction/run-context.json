@@ -1,0 +1,23 @@
+{
+  "status": "RUNNING",
+  "scheduled_stage": "E4",
+  "continuation_scope": "CURRENT_AUTHORIZED_SCOPE",
+  "iteration": 3,
+  "run_dir": "/var/lib/obsidian-roadmap-autopilot/run-20260907T044025-3",
+  "accepted_iterations": 2,
+  "last_accepted_commit": "1cbfe1f4ccea89703120fc000592cae03f5101da",
+  "before": "8da2d1326c320b64bb96d8cfa3ab0ea1dd122d67",
+  "recovery_before": "1cbfe1f4ccea89703120fc000592cae03f5101da",
+  "recordedAt": "2026-09-07T04:44:36.290129+00:00",
+  "supervisorReadOnly": true,
+  "writer": "Inherited supervisor sole-writer iteration; no supervisor mutation",
+  "originalProductBase": "1cbfe1f4ccea89703120fc000592cae03f5101da",
+  "productCheckpoint": "bd70fab554096cf1949c606d0b7fa86dca561a50",
+  "sessionStartCommit": "8da2d1326c320b64bb96d8cfa3ab0ea1dd122d67",
+  "charterSha256": "d159a3f71ea21c57a4d73ea675f1c5ded76ea504b8c3f186ba166ed9218cfc80",
+  "supervisorService": {
+    "MainPID": "1324835",
+    "ExecMainStartTimestampMonotonic": "1961513676192",
+    "ActiveState": "active"
+  }
+}
