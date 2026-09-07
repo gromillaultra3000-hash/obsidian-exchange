@@ -1,6 +1,6 @@
 # Current canonical route
 
-Updated: 2026-09-06 UTC
+Updated: 2026-09-07 UTC
 
 ## Product objective
 
@@ -13,6 +13,17 @@ non-custodial wallet whose keys never reach the server.
 
 `E4 / explicit action review / no-money browser usability`
 
+Owner decision 2026-09-07: restore autonomous code-first E0–E5 delivery for
+24 hours, without the former eight-iteration ceiling, with immediate reversible
+autodeployment after tests, two reviews, rollback preflight and runtime checks.
+This covers product code, UI, backend, native, tests and operations, not only
+integrations. The supplemental owner authorization allows technical preparation
+of formerly deferred financial features, including 064A diagnosis; consumed
+authority remains unusable and terminal archives remain immutable. The runner
+does not execute financial trades/transfers; it prepares them for owner execution.
+The master-roadmap decision dated 2026-09-07 supersedes older blanket scope
+prohibitions below. Missing actual credentials/authority still require evidence.
+
 Owner decision 2026-09-06: automatic continuation now covers E0–E5, replacing
 the former E4-only supervisor restriction. The initial E4 browser slice is
 completed below; subsequent canonical prerequisites are selected using
@@ -20,8 +31,8 @@ completed below; subsequent canonical prerequisites are selected using
 master roadmap. Actual forward acceptance requires earlier gates VERIFIED;
 named early blockers permit separately labelled KEYLESS_NONPRODUCTION
 preparation, never a false gate closure or live authority. The supervisor binds
-the next stage and carries its scope across iterations. Limits remain eight
-iterations/twelve hours; 064A stays frozen.
+the next stage and carries its scope across iterations. The old eight-iteration/
+twelve-hour allowance is superseded by the 2026-09-07 decision above.
 
 Current execution checkpoint (2026-09-06): the interrupted no-money browser
 slice is verified and deployed. Real sandboxed Chrome reproduced a 437px opening
@@ -44,9 +55,8 @@ The shared modal currently says an order is not yet created and uses a create
 label even for an existing-order payment or wallet signature handoff; those
 two wallet reviews also omit explicit network-fee guidance. This is a remaining
 E4 gate defect, not a repeat of the completed portfolio/exchange vertical.
-No stage transition occurred; CURRENT_AUTHORIZED_SCOPE persists. No new
-credential, real wallet connection, signature, money/trade or 064A authority
-is granted by this next item.
+No stage transition occurred; CURRENT_AUTHORIZED_SCOPE persists. This next
+item requires no real wallet connection, signature, credential or money action.
 
 SSH-independent execution is an operational prerequisite for this same route,
 documented in `docs/ssh-independent-work.md` and
@@ -56,8 +66,8 @@ existing approval review and stop on a concrete blocker. Current runtime status
 is `/var/lib/obsidian-roadmap-autopilot/status.json`, not an assumption from this
 document. The older sections below are historical evidence.
 
-Frozen prerequisite route: `E0 → E0.3 → B5.3 → 064A`. No fresh request,
-signature, credential or launch is authorized by this continuation.
+Earlier prerequisite route: `E0 → E0.3 → B5.3 → 064A`; technical diagnosis and
+preparation follow the 2026-09-07 decision, while consumed authority stays closed.
 
 ### Owner reprioritization — 2026-08-26
 

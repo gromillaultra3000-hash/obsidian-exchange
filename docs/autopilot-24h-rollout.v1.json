@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "autopilot-24h-rollout.v1",
+  "recordedAt": "2026-09-07T03:05:00.369785+00:00",
+  "route": "E4 / operational prerequisite / restore continuous E0-E5 delivery",
+  "status": "IN_PROGRESS",
+  "ownerDecision": "2026-09-07: 24 hours; time-only iteration count; reversible autodeployment; broad technical financial-feature preparation",
+  "tests": {
+    "focused": "113 passed",
+    "systemd": "10 iterations, 9 product commits, 10 artifact manifests, one proven pre-action 503 retry; detached child fail-stop and cgroup cleanup",
+    "stagedSecretScan": "Gitleaks: no leaks, 86.79 KB staged diff"
+  },
+  "sourceSha256": {
+    "scripts/obsidian_roadmap_autopilot.py": "460e0dcc9259df4d087ce93ee21595726aa9b4efa64c48aaf195cdb39c619ec4",
+    "tests/test_obsidian_roadmap_autopilot.py": "e44d0af86d686a74a281fbae164c8f92e7c028cd75088f9e4af067f8eb90f3c0",
+    "deploy/obsidian-roadmap-autopilot/iteration-prompt.md": "0ca984704cb9cf5f8093deb0a0ee6145ea76f07d1d4e8182557067ff39b84c54",
+    "deploy/systemd/obsidian-roadmap-autopilot.service": "096b20335285646ffe106b26ac62c0ab89b42d3dbad2fd3e41620a23025a92c6"
+  },
+  "reviews": [
+    "docs/autopilot-24h/acceptance-review.json",
+    "docs/autopilot-24h/diff-review.json"
+  ],
+  "runtimeRehearsal": [
+    "docs/autopilot-24h/systemd-success.json",
+    "docs/autopilot-24h/systemd-detached.json"
+  ],
+  "limits": [
+    "No autonomous financial trading or transfers; prepare for owner execution",
+    "No retry after any agent item/tool or uncertain external effect",
+    "Polling resource guards are not hard filesystem quotas",
+    "Activation after actual crash/reboot still needs reconciliation"
+  ],
+  "installation": "PENDING",
+  "reconciliation": "PENDING",
+  "startup": "PENDING",
+  "nextCanonicalItem": "E4 / EXPLICIT_ACTION_REVIEW / wallet payment/transfer wording and network-fee disclosure with blocked-signing browser validation"
+}

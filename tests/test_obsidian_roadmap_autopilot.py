@@ -419,3 +419,658 @@ def test_browser_prerequisite_does_not_require_cosmetic_ui_change(environment):
     git(environment.repo, 'add', 'scripts/run_e4_review_browser.py')
     git(environment.repo, 'commit', '-qm', 'browser prerequisite')
     assert runner.validate_receipt(receipt(environment.repo), environment.repo, before) == 'VERIFIED_NEXT'
+
+
+def test_account_artifacts_preserves_sources_and_excludes_existing_owner_files(environment, monkeypatch):
+    import os
+
+    repo = environment.repo
+    owner_file = repo / 'owner-file'
+    owner_file.write_text('owner data must not be inspected or copied')
+    existing_report = repo / 'output/playwright/previous.json'
+    existing_report.parent.mkdir(parents=True)
+    existing_report.write_text('previous report must not be inspected or copied')
+    baseline = runner.untracked(repo)
+    report = repo / 'output/playwright/nested/result.json'
+    report.parent.mkdir()
+    report.write_bytes(b'{"passed":true}\n')
+    screenshot = repo / 'output/playwright/screen.png'
+    screenshot.write_bytes(b'\x89PNG\r\nfixture')
+    run_dir = environment.state / 'run-artifacts'
+    run_dir.mkdir(parents=True, mode=0o700)
+
+    original_path_open, original_os_open = Path.open, os.open
+    excluded = {owner_file, existing_report}
+
+    def guarded_path_open(path, *args, **kwargs):
+        assert path not in excluded, 'artifact accounting read an existing owner file'
+        return original_path_open(path, *args, **kwargs)
+
+    def guarded_os_open(path, *args, **kwargs):
+        assert Path(path) not in excluded, 'artifact accounting opened an existing owner file'
+        return original_os_open(path, *args, **kwargs)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(Path, 'open', guarded_path_open)
+        patch.setattr(os, 'open', guarded_os_open)
+        manifest = runner.account_artifacts(repo, baseline, run_dir)
+
+    expected = {
+        str(path.relative_to(repo)): {
+            'size': path.stat().st_size,
+            'sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
+        }
+        for path in (report, screenshot)
+    }
+    assert manifest['file_count'] == 2
+    assert manifest['total_bytes'] == sum(item['size'] for item in expected.values())
+    assert {entry['path'] for entry in manifest['files']} == set(expected)
+    for entry in manifest['files']:
+        assert entry['size'] == expected[entry['path']]['size']
+        assert entry['sha256'] == expected[entry['path']]['sha256']
+    manifest_path = run_dir / 'artifacts.json'
+    assert json.loads(manifest_path.read_text()) == manifest
+    assert manifest_path.stat().st_mode & 0o777 == 0o600
+    blobs = [path for path in (run_dir / 'artifact-blobs').rglob('*') if path.is_file()]
+    assert {hashlib.sha256(path.read_bytes()).hexdigest() for path in blobs} == {
+        item['sha256'] for item in expected.values()
+    }
+    assert all(path.stat().st_mode & 0o777 == 0o600 for path in blobs)
+    assert owner_file.read_text() == 'owner data must not be inspected or copied'
+    assert existing_report.read_text() == 'previous report must not be inspected or copied'
+    assert report.read_bytes() == b'{"passed":true}\n'
+    assert screenshot.read_bytes() == b'\x89PNG\r\nfixture'
+    assert set(runner.untracked(repo)) == set(baseline) | set(expected)
+
+
+@pytest.mark.parametrize('name', [
+    'relay/new_source.py',
+    'output/playwright/accidental-source.py',
+    'output/playwright/request.env',
+    'output/other/report.json',
+])
+def test_account_artifacts_rejects_new_source_and_unknown_outputs(environment, name):
+    path = environment.repo / name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text('must remain visible for inspection')
+    run_dir = environment.state / 'run-artifacts'
+    run_dir.mkdir(parents=True)
+    with pytest.raises(ValueError, match='UNCOMMITTED_NEW_FILES'):
+        runner.account_artifacts(environment.repo, [], run_dir)
+    assert path.read_text() == 'must remain visible for inspection'
+
+
+@pytest.mark.parametrize('hazard', ['symlink', 'parent_symlink', 'hardlink', 'fifo'])
+def test_account_artifacts_rejects_links_and_special_files(environment, monkeypatch, hazard):
+    import os
+
+    report = environment.repo / 'output/playwright/report.json'
+    report.parent.mkdir(parents=True)
+    private = environment.package / 'private.json'
+    private.write_text('outside artifact scope')
+    if hazard == 'symlink':
+        report.symlink_to(private)
+    elif hazard == 'parent_symlink':
+        linked = report.parent / 'linked'
+        linked.symlink_to(environment.package, target_is_directory=True)
+        report = linked / 'private.json'
+        monkeypatch.setattr(runner, 'untracked', lambda repo: ['output/playwright/linked/private.json'])
+    elif hazard == 'hardlink':
+        os.link(private, report)
+    else:
+        os.mkfifo(report)
+    run_dir = environment.state / 'run-artifacts'
+    run_dir.mkdir(parents=True)
+    with pytest.raises(ValueError, match='UNSAFE_ARTIFACT'):
+        if hazard == 'fifo':
+            # Git omits FIFOs; the artifact reader must still reject one if a
+            # regular file becomes a FIFO between enumeration and opening.
+            runner.artifact_bytes(environment.repo, 'output/playwright/report.json')
+        else:
+            runner.account_artifacts(environment.repo, [], run_dir)
+    assert private.read_text() == 'outside artifact scope'
+    assert report.exists()
+
+
+@pytest.mark.parametrize('name,reason', [
+    ('/output/playwright/report.json', 'UNCOMMITTED_NEW_FILES'),
+    ('output/playwright/../../../outside.json', 'UNSAFE_ARTIFACT'),
+])
+def test_account_artifacts_rejects_unsafe_paths_before_reading(environment, monkeypatch, name, reason):
+    monkeypatch.setattr(runner, 'untracked', lambda repo: [name])
+    run_dir = environment.state / 'run-artifacts'
+    run_dir.mkdir(parents=True)
+    with pytest.raises(ValueError, match=reason):
+        runner.account_artifacts(environment.repo, [], run_dir)
+
+
+@pytest.mark.parametrize('limit,maximum,contents', [
+    ('ARTIFACT_MAX_FILE_BYTES', 8, [b'x' * 9]),
+    ('ARTIFACT_MAX_BYTES', 9, [b'x' * 5, b'y' * 5]),
+    ('ARTIFACT_MAX_FILES', 2, [b'x', b'y', b'z']),
+])
+def test_account_artifacts_enforces_storage_limits(environment, monkeypatch, limit, maximum, contents):
+    monkeypatch.setattr(runner, limit, maximum)
+    output = environment.repo / 'output/playwright'
+    output.mkdir(parents=True)
+    for index, content in enumerate(contents):
+        (output / f'report-{index}.json').write_bytes(content)
+    run_dir = environment.state / 'run-artifacts'
+    run_dir.mkdir(parents=True)
+    with pytest.raises(ValueError, match='ARTIFACT_LIMIT_EXCEEDED'):
+        runner.account_artifacts(environment.repo, [], run_dir)
+    assert [(output / f'report-{index}.json').read_bytes() for index in range(len(contents))] == contents
+
+
+def test_cli_accepts_a_24_hour_run_without_an_iteration_limit(environment, monkeypatch):
+    captured = []
+    monkeypatch.setattr(runner, 'arm', captured.append)
+    monkeypatch.setattr(sys, 'argv', ['obsidian-roadmap-autopilot', 'arm', '--hours', '24', '--max-iterations', '0'])
+    assert runner.main() == 0
+    assert len(captured) == 1
+    assert captured[0].hours == 24
+    assert captured[0].max_iterations == 0
+
+
+def test_arm_preserves_authorized_next_item_and_keyless_start_scope(environment):
+    import time
+
+    started = time.time()
+    runner.arm(SimpleNamespace(max_iterations=0, hours=24, start_stage='E5',
+                               next_step='E5 / bounded keyless fixture',
+                               start_scope='KEYLESS_NONPRODUCTION'))
+    armed = json.loads((environment.state / 'armed.json').read_text())
+    assert started + 24 * 3600 <= armed['deadline'] <= time.time() + 24 * 3600
+    assert armed['max_iterations'] == 0
+    assert armed['next_step'] == 'E5 / bounded keyless fixture'
+    assert armed['continuation_scope'] == 'KEYLESS_NONPRODUCTION'
+
+
+def test_time_bounded_run_continues_past_eight_iterations_with_artifacts_and_live_heartbeat(environment, monkeypatch):
+    worker = environment.package / 'long_run_worker.py'
+    result = receipt(environment.repo)
+    prompt_path = environment.package / 'iteration-prompt.md'
+    prompt_path.write_text(prompt_path.read_text() + '\nfixture-input-delivery:4e724756\n')
+    worker.write_text('''import json, os, pathlib, subprocess, sys, time
+prompt = sys.stdin.read()
+assert prompt.count('fixture-input-delivery:4e724756') == 1, 'prompt stdin was duplicated'
+assert 'Accepted next item: E4 / browser usability' in prompt
+receipt_path = pathlib.Path(sys.argv[1])
+status_path = pathlib.Path(sys.argv[2])
+result = json.loads(sys.argv[3])
+initial = json.loads(status_path.read_text())
+iteration = initial['iteration']
+print('fake worker heartbeat probe', flush=True)
+heartbeat_seen = False
+deadline = time.monotonic() + 5
+while time.monotonic() < deadline:
+    state = json.loads(status_path.read_text())
+    if (state.get('heartbeat_at') != initial.get('heartbeat_at')
+            and state.get('child_pid') == os.getpid()
+            and state.get('log_bytes', 0) >= len('fake worker heartbeat probe\\n')
+            and 0 < state.get('remaining_seconds', 0) <= 24 * 3600):
+        heartbeat_seen = True
+        break
+    time.sleep(0.01)
+assert heartbeat_seen, 'durable heartbeat did not show running child and log growth'
+output = pathlib.Path('output/playwright')
+output.mkdir(parents=True, exist_ok=True)
+(output / ('report-%02d.json' % iteration)).write_text(json.dumps({'iteration':iteration,'heartbeat_seen':True}))
+if iteration == 10:
+    result.update(status='BLOCKED', blocker='observed fixture needs owner input')
+else:
+    pathlib.Path('relay/webapp.html').write_text('verified implementation %d' % iteration)
+    subprocess.run(['git', 'add', 'relay/webapp.html'], check=True)
+    subprocess.run(['git', 'commit', '-qm', 'bounded verified fixture %d' % iteration], check=True)
+result['commit'] = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+receipt_path.write_text(json.dumps(result))
+''')
+    monkeypatch.setattr(runner, 'HEARTBEAT_SECONDS', 0.05)
+    monkeypatch.setattr(runner, 'codex_command', lambda package, output:
+                        [sys.executable, str(worker), str(output),
+                         str(environment.state / 'status.json'), json.dumps(result)])
+    runner.arm(SimpleNamespace(max_iterations=0, hours=24, start_stage='E4',
+                               next_step='E4 / browser usability',
+                               start_scope='CURRENT_AUTHORIZED_SCOPE'))
+    assert runner.run() == 0
+    state = json.loads((environment.state / 'status.json').read_text())
+    assert state['status'] == 'BLOCKED'
+    assert state['reason'] == 'observed fixture needs owner input'
+    assert state['iteration'] == 10
+    assert state['last_accepted_commit'] == git(environment.repo, 'rev-parse', 'HEAD')
+    assert (environment.repo / 'relay/webapp.html').read_text() == 'verified implementation 9'
+    runs = list(environment.state.glob('run-*'))
+    assert len(runs) == 10
+    artifact_names = set()
+    for run_dir in runs:
+        manifest = json.loads((run_dir / 'artifacts.json').read_text())
+        assert manifest['file_count'] == 1
+        artifact_names.update(entry['path'] for entry in manifest['files'])
+    assert artifact_names == {f'output/playwright/report-{index:02d}.json' for index in range(1, 11)}
+    assert all(json.loads((environment.repo / name).read_text())['heartbeat_seen'] for name in artifact_names)
+
+
+def startup_log(path, message='HTTP 503 service unavailable', extra_events=()):
+    events = [
+        {'type': 'thread.started', 'thread_id': 'synthetic-thread'},
+        {'type': 'turn.started'},
+        *extra_events,
+        {'type': 'error', 'message': message},
+        {'type': 'turn.failed', 'error': {'message': message}},
+    ]
+    path.write_text(''.join(json.dumps(event) + '\n' for event in events))
+
+
+@pytest.mark.parametrize('message', [
+    'HTTP 429 rate limit reached',
+    'HTTP 503 service unavailable',
+    'upstream connection timed out',
+])
+def test_safe_startup_retry_accepts_only_transient_failure_without_agent_items(environment, message):
+    (environment.repo / 'owner-file').write_text('pre-existing file')
+    baseline = runner.untracked(environment.repo)
+    before = git(environment.repo, 'rev-parse', 'HEAD')
+    log_path = environment.package / 'startup.log'
+    startup_log(log_path, message)
+    assert runner.safe_startup_retry(log_path, environment.repo, before, baseline) is True
+    assert (environment.repo / 'owner-file').read_text() == 'pre-existing file'
+
+
+@pytest.mark.parametrize('event', [
+    {'type': 'item.started', 'item': {'type': 'command_execution', 'command': 'synthetic command'}},
+    {'type': 'item.completed', 'item': {'type': 'agent_message', 'text': 'synthetic response'}},
+    {'type': 'tool.started', 'tool': 'synthetic_tool'},
+    {'type': 'turn.completed'},
+    {'message': 'missing type'},
+    ['not', 'an', 'event'],
+    None,
+])
+def test_safe_startup_retry_rejects_items_tools_and_nonstartup_streams(environment, event):
+    before = git(environment.repo, 'rev-parse', 'HEAD')
+    log_path = environment.package / 'startup.log'
+    startup_log(log_path, extra_events=(event,))
+    assert runner.safe_startup_retry(log_path, environment.repo, before, []) is False
+
+
+@pytest.mark.parametrize('message', [
+    'HTTP 401 authentication failed',
+    'HTTP 403 forbidden',
+    'permission denied',
+    'temporary permission denied',
+    'HTTP 401 authentication failed after upstream HTTP 503',
+])
+def test_safe_startup_retry_rejects_authentication_and_permission_failures(environment, message):
+    log_path = environment.package / 'startup.log'
+    startup_log(log_path, message)
+    before = git(environment.repo, 'rev-parse', 'HEAD')
+    assert runner.safe_startup_retry(log_path, environment.repo, before, []) is False
+
+
+@pytest.mark.parametrize('defect', ['malformed', 'empty', 'oversize', 'head', 'dirty', 'new_file', 'removed_file'])
+def test_safe_startup_retry_rejects_uncertain_logs_and_checkout_changes(environment, defect):
+    owner_file = environment.repo / 'owner-file'
+    owner_file.write_text('pre-existing file')
+    baseline = runner.untracked(environment.repo)
+    before = git(environment.repo, 'rev-parse', 'HEAD')
+    log_path = environment.package / 'startup.log'
+    startup_log(log_path)
+    if defect == 'malformed':
+        log_path.write_text(log_path.read_text() + 'non-JSON stderr mixed into stream\n')
+    elif defect == 'empty':
+        log_path.write_text('')
+    elif defect == 'oversize':
+        log_path.write_text(log_path.read_text() + ' ' * (2 * 1024 * 1024))
+    elif defect == 'head':
+        advance(environment.repo)
+    elif defect == 'dirty':
+        (environment.repo / 'relay/webapp.html').write_text('uncommitted change')
+    elif defect == 'new_file':
+        (environment.repo / 'new-source.py').write_text('new work')
+    else:
+        owner_file.unlink()
+    assert runner.safe_startup_retry(log_path, environment.repo, before, baseline) is False
+
+
+@pytest.mark.parametrize('suffix', ['.xml', '.csv', '.sarif'])
+def test_account_artifacts_retains_nonbrowser_tool_reports(environment, suffix):
+    output = environment.repo / 'output/autopilot/run-fixture'
+    output.mkdir(parents=True)
+    report = output / ('tool-report' + suffix)
+    report.write_bytes(b'synthetic nonbrowser report\n')
+    run_dir = environment.state / 'run-artifacts'
+    run_dir.mkdir(parents=True)
+    manifest = runner.account_artifacts(environment.repo, [], run_dir)
+    assert manifest['file_count'] == 1
+    entry = manifest['files'][0]
+    assert entry['path'] == str(report.relative_to(environment.repo))
+    assert entry['sha256'] == hashlib.sha256(report.read_bytes()).hexdigest()
+    assert entry['size'] == report.stat().st_size
+    assert (run_dir / 'artifact-blobs' / entry['sha256']).read_bytes() == report.read_bytes()
+
+
+def test_autopilot_tool_report_root_does_not_hide_source_files(environment):
+    source = environment.repo / 'output/autopilot/uncommitted.py'
+    source.parent.mkdir(parents=True)
+    source.write_text('source must be reviewed and committed')
+    run_dir = environment.state / 'run-artifacts'
+    run_dir.mkdir(parents=True)
+    with pytest.raises(ValueError, match='UNCOMMITTED_NEW_FILES'):
+        runner.account_artifacts(environment.repo, [], run_dir)
+    assert source.read_text() == 'source must be reviewed and committed'
+
+
+@pytest.mark.parametrize('first_attempt_effect', ['none', 'receipt', 'source'])
+def test_real_child_startup_retry_is_same_iteration_and_never_replays_observed_effects(environment, monkeypatch, first_attempt_effect):
+    worker = environment.package / 'retry_worker.py'
+    counter = environment.package / 'attempt-count'
+    result = receipt(environment.repo)
+    before = git(environment.repo, 'rev-parse', 'HEAD')
+    worker.write_text('''import json, pathlib, subprocess, sys
+sys.stdin.read()
+receipt_path = pathlib.Path(sys.argv[1])
+counter = pathlib.Path(sys.argv[2])
+effect = sys.argv[3]
+result = json.loads(sys.argv[4])
+attempt = int(counter.read_text()) + 1 if counter.exists() else 1
+counter.write_text(str(attempt))
+print(json.dumps({'type':'thread.started', 'thread_id':'synthetic-thread'}))
+print(json.dumps({'type':'turn.started'}))
+if attempt == 1:
+    print(json.dumps({'type':'error', 'message':'HTTP 503 service unavailable'}))
+    print(json.dumps({'type':'turn.failed', 'error':{'message':'HTTP 503 service unavailable'}}))
+    if effect == 'receipt':
+        result.update(status='BLOCKED', blocker='receipt already records observed effects')
+        receipt_path.write_text(json.dumps(result))
+    if effect == 'source':
+        pathlib.Path('relay/uncommitted_source.py').write_text('uncommitted work')
+    sys.exit(1)
+pathlib.Path('relay/webapp.html').write_text('one verified implementation')
+subprocess.run(['git', 'add', 'relay/webapp.html'], check=True)
+subprocess.run(['git', 'commit', '-qm', 'one verified implementation'], check=True)
+result['commit'] = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+receipt_path.write_text(json.dumps(result))
+''')
+    monkeypatch.setattr(runner, 'STARTUP_RETRY_DELAYS', (0.01,))
+    monkeypatch.setattr(runner, 'HEARTBEAT_SECONDS', 0.005)
+    monkeypatch.setattr(runner, 'codex_command', lambda package, output:
+                        [sys.executable, str(worker), str(output), str(counter),
+                         first_attempt_effect, json.dumps(result)])
+    runner.arm(SimpleNamespace(max_iterations=1, hours=1))
+    exit_code = runner.run()
+    state = json.loads((environment.state / 'status.json').read_text())
+    runs = list(environment.state.glob('run-*'))
+    assert len(runs) == 1
+    assert state['iteration'] == 1
+    if first_attempt_effect == 'none':
+        assert exit_code == 0
+        assert state['status'] == 'LIMIT_REACHED'
+        assert counter.read_text() == '2'
+        assert state['startup_attempt'] == 2
+        assert state['accepted_iterations'] == 1
+        assert state['last_accepted_commit'] == git(environment.repo, 'rev-parse', 'HEAD')
+        assert git(environment.repo, 'rev-list', '--count', before + '..HEAD') == '1'
+        assert (environment.repo / 'relay/webapp.html').read_text() == 'one verified implementation'
+        proof = json.loads((runs[0] / 'startup-retry-1.json').read_text())
+        assert proof['reason'] == 'TRANSIENT_ENGINE_FAILURE_BEFORE_AGENT_ITEMS'
+        assert proof['log_sha256'] == hashlib.sha256((runs[0] / 'codex.log').read_bytes()).hexdigest()
+    else:
+        assert exit_code == 1
+        assert state['status'] == 'FAILED'
+        assert state['reason'] == 'CODEX_EXIT_1'
+        assert counter.read_text() == '1'
+        assert git(environment.repo, 'rev-parse', 'HEAD') == before
+        assert (environment.repo / 'relay/webapp.html').read_text() == 'baseline'
+        assert not (runs[0] / 'startup-retry-1.json').exists()
+
+
+def test_startup_retry_backoff_at_deadline_never_launches_a_second_child(environment, monkeypatch):
+    import time
+
+    worker = environment.package / 'deadline_retry_worker.py'
+    worker.write_text('''import json, sys
+sys.stdin.read()
+print(json.dumps({'type':'thread.started', 'thread_id':'synthetic-thread'}))
+print(json.dumps({'type':'turn.started'}))
+print(json.dumps({'type':'error', 'message':'HTTP 503 service unavailable'}))
+sys.exit(1)
+''')
+    launches = []
+
+    def command(package, output):
+        launches.append(str(output))
+        return [sys.executable, str(worker)]
+
+    monkeypatch.setattr(runner, 'codex_command', command)
+    monkeypatch.setattr(runner, 'STARTUP_RETRY_DELAYS', (2,))
+    monkeypatch.setattr(runner, 'HEARTBEAT_SECONDS', 0.01)
+    arm()
+    armed_path = environment.state / 'armed.json'
+    armed = json.loads(armed_path.read_text())
+    armed['deadline'] = time.time() + 0.5
+    runner.atomic_json(armed_path, armed)
+    assert runner.run() == 1
+    state = json.loads((environment.state / 'status.json').read_text())
+    assert state['status'] == 'INTERRUPTED'
+    assert state['iteration'] == 1
+    assert len(launches) == 1
+    run_dir = Path(state['run_dir'])
+    assert (run_dir / 'startup-retry-1.json').exists()
+    assert (environment.repo / 'relay/webapp.html').read_text() == 'baseline'
+
+
+def test_artifact_archive_directory_symlink_is_rejected_before_external_write(environment):
+    report = environment.repo / 'output/playwright/report.json'
+    report.parent.mkdir(parents=True)
+    report.write_bytes(b'synthetic report')
+    run_dir = environment.state / 'run-artifacts'
+    run_dir.mkdir(parents=True)
+    outside_archive = environment.package / 'outside-archive'
+    outside_archive.mkdir()
+    (run_dir / 'artifact-blobs').symlink_to(outside_archive, target_is_directory=True)
+    with pytest.raises(ValueError, match='UNSAFE_ARTIFACT_ARCHIVE'):
+        runner.account_artifacts(environment.repo, [], run_dir)
+    assert list(outside_archive.iterdir()) == []
+    assert report.read_bytes() == b'synthetic report'
+
+
+@pytest.mark.parametrize('hazard', ['symlink', 'fifo', 'hardlink', 'oversized', 'directory', 'public_mode'])
+def test_artifact_archive_rejects_unsafe_existing_digest_without_reading_it(environment, monkeypatch, hazard):
+    import os
+
+    report = environment.repo / 'output/playwright/report.json'
+    report.parent.mkdir(parents=True)
+    report.write_bytes(b'report')
+    run_dir = environment.state / 'run-artifacts'
+    blobs = run_dir / 'artifact-blobs'
+    blobs.mkdir(parents=True)
+    digest = hashlib.sha256(report.read_bytes()).hexdigest()
+    target = blobs / digest
+    private = environment.package / 'private-data'
+    private.write_bytes(b'secret')
+    private.chmod(0o600)
+    if hazard == 'symlink':
+        target.symlink_to(private)
+    elif hazard == 'fifo':
+        os.mkfifo(target, mode=0o600)
+    elif hazard == 'hardlink':
+        os.link(private, target)
+    elif hazard == 'directory':
+        target.mkdir()
+    elif hazard == 'public_mode':
+        target.write_bytes(b'secret')
+        target.chmod(0o644)
+    else:
+        target.write_bytes(b'x' * 1024)
+        target.chmod(0o600)
+    unsafe_stat = target.stat()
+    unsafe_inode = (unsafe_stat.st_dev, unsafe_stat.st_ino)
+    original_fdopen = os.fdopen
+
+    class GuardedStream:
+        def __init__(self, stream):
+            self.stream = stream
+
+        def __enter__(self):
+            self.stream.__enter__()
+            return self
+
+        def __exit__(self, *args):
+            return self.stream.__exit__(*args)
+
+        def __getattr__(self, name):
+            return getattr(self.stream, name)
+
+        def read(self, *args, **kwargs):
+            info = os.fstat(self.stream.fileno())
+            assert (info.st_dev, info.st_ino) != unsafe_inode, 'unsafe archive inode was read'
+            return self.stream.read(*args, **kwargs)
+
+    monkeypatch.setattr(os, 'fdopen', lambda *args, **kwargs: GuardedStream(original_fdopen(*args, **kwargs)))
+    with pytest.raises(ValueError, match='UNSAFE_ARTIFACT_ARCHIVE'):
+        runner.account_artifacts(environment.repo, [], run_dir)
+    assert not (run_dir / 'artifacts.json').exists()
+    assert private.read_bytes() == b'secret'
+    assert report.read_bytes() == b'report'
+
+
+def reconciliation_fixture(environment, monkeypatch, scope='CURRENT_AUTHORIZED_SCOPE', runtime_matches=True):
+    arm()
+    before = git(environment.repo, 'rev-parse', 'HEAD')
+    source = environment.repo / 'relay/webapp.html'
+    source.write_bytes(b'verified deployed fixture')
+    runtime_path = Path('/opt/obsidian-exchange/relay/webapp.html')
+    evidence = {'target': str(runtime_path), 'deployedSha256': hashlib.sha256(source.read_bytes()).hexdigest()}
+    (environment.repo / 'docs/evidence.json').write_text(json.dumps(evidence))
+    git(environment.repo, 'add', 'relay/webapp.html', 'docs/evidence.json')
+    git(environment.repo, 'commit', '-qm', 'verified deployed fixture')
+    original = receipt(environment.repo)
+    report = environment.repo / 'output/playwright/rollout.json'
+    report.parent.mkdir(parents=True)
+    report.write_text('{"synthetic":true}')
+    run_dir = environment.state / 'run-failed'
+    run_dir.mkdir()
+    runner.atomic_json(run_dir / 'receipt.json', original)
+    old = json.loads((environment.state / 'armed.json').read_text())
+    old.update(status='FAILED', reason='UNCOMMITTED_NEW_FILES', before=before,
+               run_dir=str(run_dir), scheduled_stage='E4', continuation_scope=scope)
+    runner.atomic_json(environment.state / 'status.json', old)
+    original_read_bytes = Path.read_bytes
+    original_is_symlink = Path.is_symlink
+
+    def isolated_runtime_read(path):
+        if path == runtime_path:
+            return original_read_bytes(source) if runtime_matches else b'different deployed bytes'
+        return original_read_bytes(path)
+
+    monkeypatch.setattr(Path, 'read_bytes', isolated_runtime_read)
+    monkeypatch.setattr(Path, 'is_symlink', lambda path:
+                        False if path == runtime_path else original_is_symlink(path))
+    monkeypatch.setattr(runner, 'codex_command', lambda *args: pytest.fail('recovery replayed agent work'))
+    return SimpleNamespace(original=original, old=old, report=report)
+
+
+@pytest.mark.parametrize('scope', ['CURRENT_AUTHORIZED_SCOPE', 'KEYLESS_NONPRODUCTION'])
+def test_reconcile_verified_artifact_failure_without_replay_preserves_scope(environment, monkeypatch, scope):
+    fixture = reconciliation_fixture(environment, monkeypatch, scope=scope)
+    before_recovery = git(environment.repo, 'rev-parse', 'HEAD')
+    runner.reconcile_artifacts('docs/evidence.json')
+    state = json.loads((environment.state / 'status.json').read_text())
+    assert state['status'] == 'RECONCILED'
+    assert state['replayed'] is False
+    assert state['continuation_scope'] == scope
+    assert state['accepted_commit'] == fixture.original['commit']
+    assert state['next_step'] == fixture.original['next_step']
+    assert state['artifact_count'] == 1
+    assert git(environment.repo, 'rev-parse', 'HEAD') == before_recovery
+    archive = Path(state['archive'])
+    assert json.loads((archive / 'status.json').read_text()) == fixture.old
+    assert json.loads((archive / 'receipt.json').read_text()) == fixture.original
+    assert json.loads((archive / 'reconciliation.json').read_text()) == state
+    assert fixture.report.read_text() == '{"synthetic":true}'
+
+
+def test_reconcile_runtime_mismatch_preserves_failed_status_and_never_replays(environment, monkeypatch):
+    fixture = reconciliation_fixture(environment, monkeypatch, runtime_matches=False)
+    with pytest.raises(ValueError, match='RUNTIME_RECONCILIATION_FAILED'):
+        runner.reconcile_artifacts('docs/evidence.json')
+    assert json.loads((environment.state / 'status.json').read_text()) == fixture.old
+    assert not list(environment.state.glob('reconciled-artifacts-*'))
+    assert fixture.report.exists()
+
+
+def test_reconcile_retains_keyless_scope_across_stage_transition(environment, monkeypatch):
+    fixture = reconciliation_fixture(environment, monkeypatch, scope='KEYLESS_NONPRODUCTION')
+    fixture.original['next_step'] = 'E5 / bounded fixture'
+    attach_transition(environment.repo, fixture.original, transition(environment.repo))
+    runner.atomic_json(Path(fixture.old['run_dir']) / 'receipt.json', fixture.original)
+    runner.reconcile_artifacts('docs/evidence.json')
+    state = json.loads((environment.state / 'status.json').read_text())
+    assert state['status'] == 'RECONCILED'
+    assert state['scheduled_stage'] == 'E5'
+    assert state['continuation_scope'] == 'KEYLESS_NONPRODUCTION'
+    assert state['replayed'] is False
+
+
+@pytest.mark.parametrize('hazard', ['stdout', 'fast_stdout', 'stderr', 'combined_logs', 'state_disk', 'repo_disk'])
+def test_running_child_resource_failure_stops_without_replaying_effects(environment, monkeypatch, hazard):
+    import os
+
+    worker = environment.package / 'resource_worker.py'
+    started = environment.package / 'child-started'
+    worker.write_text('''import os, pathlib, sys, time
+sys.stdin.read()
+pathlib.Path(sys.argv[1]).write_text(str(os.getpid()))
+hazard = sys.argv[2]
+if hazard in ('stdout', 'fast_stdout'):
+    print('x' * 120, flush=True)
+elif hazard == 'stderr':
+    print('x' * 120, file=sys.stderr, flush=True)
+elif hazard == 'combined_logs':
+    print('x' * 60, flush=True)
+    print('y' * 60, file=sys.stderr, flush=True)
+if hazard == 'fast_stdout':
+    sys.exit(0)
+time.sleep(60)
+''')
+    launches = []
+
+    def command(package, output):
+        launches.append(str(output))
+        return [sys.executable, str(worker), str(started), hazard]
+
+    original_disk_usage = shutil.disk_usage
+
+    def disk_usage(path):
+        failing_path = environment.state if hazard == 'state_disk' else environment.repo
+        if hazard.endswith('_disk') and Path(path) == failing_path and started.exists():
+            return SimpleNamespace(free=0)
+        return original_disk_usage(path)
+
+    monkeypatch.setattr(runner, 'codex_command', command)
+    monkeypatch.setattr(runner, 'HEARTBEAT_SECONDS', 0.01)
+    monkeypatch.setattr(runner, 'MAX_CHILD_LOG_BYTES', 100)
+    monkeypatch.setattr(shutil, 'disk_usage', disk_usage)
+    arm()
+    assert runner.run() == 1
+    state = json.loads((environment.state / 'status.json').read_text())
+    assert state['status'] == 'FAILED'
+    assert state['reason'] == ('INSUFFICIENT_DISK_SPACE' if hazard.endswith('_disk') else 'LOG_SIZE_LIMIT_EXCEEDED')
+    assert state['iteration'] == 1
+    assert state['child_pid'] == 0
+    assert len(launches) == 1
+    assert started.exists()
+    with pytest.raises(ProcessLookupError):
+        os.kill(int(started.read_text()), 0)
+    assert (environment.repo / 'relay/webapp.html').read_text() == 'baseline'
+    assert not list(environment.state.glob('run-*/startup-retry-*.json'))
+
+
+@pytest.mark.parametrize('name', ['deploy/tool.py', 'scripts/prereq.py'])
+def test_operational_prerequisite_code_counts_as_verified_progress(environment, name):
+    before = git(environment.repo, 'rev-parse', 'HEAD')
+    prerequisite = environment.repo / name
+    prerequisite.parent.mkdir(parents=True)
+    prerequisite.write_text('def preflight():\n    return "synthetic verified operational fixture"\n')
+    git(environment.repo, 'add', name)
+    git(environment.repo, 'commit', '-qm', 'verified operational prerequisite')
+    assert runner.validate_receipt(receipt(environment.repo), environment.repo, before) == 'VERIFIED_NEXT'

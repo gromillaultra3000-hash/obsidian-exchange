@@ -1,0 +1,109 @@
+{
+  "schemaVersion": "autopilot-independent-diff-review.v1",
+  "recordedAt": "2026-09-07T03:04:24.056904+00:00",
+  "reviewer": {
+    "identity": "/root/autopilot_diff_review",
+    "role": "independent diff and reliability reviewer",
+    "independentOfImplementation": true
+  },
+  "status": "PASS",
+  "disposition": "No unresolved actionable finding in the reviewed diff.",
+  "baseCommit": "fb2fcd2a49677038bb13d235fed5c97c290871c6",
+  "inputSha256": {
+    "scripts/obsidian_roadmap_autopilot.py": "460e0dcc9259df4d087ce93ee21595726aa9b4efa64c48aaf195cdb39c619ec4",
+    "tests/test_obsidian_roadmap_autopilot.py": "e44d0af86d686a74a281fbae164c8f92e7c028cd75088f9e4af067f8eb90f3c0",
+    "deploy/systemd/obsidian-roadmap-autopilot.service": "096b20335285646ffe106b26ac62c0ab89b42d3dbad2fd3e41620a23025a92c6",
+    "deploy/obsidian-roadmap-autopilot/iteration-prompt.md": "0ca984704cb9cf5f8093deb0a0ee6145ea76f07d1d4e8182557067ff39b84c54"
+  },
+  "scope": [
+    "artifact source and private archive path/type/link/race safety",
+    "heartbeat, child exit, resource guards and writer exclusivity",
+    "24-hour time budget without an implicit iteration ceiling",
+    "startup retries before any observed agent item, tool, receipt or checkout change",
+    "narrow artifact-failure reconciliation without replay or scope widening",
+    "authorization boundaries in the iteration prompt",
+    "meaningful focused regression coverage"
+  ],
+  "resolvedFindings": [
+    {
+      "id": "DIFF-01",
+      "severity": "medium",
+      "finding": "Retry backoff could reach the authorized deadline and still start a fresh child.",
+      "resolution": "Deadline checks now precede the attempt and Popen; real-child regression requires one launch and interrupted final state.",
+      "disposition": "RESOLVED"
+    },
+    {
+      "id": "DIFF-02",
+      "severity": "medium",
+      "finding": "A preexisting artifact-blobs symlink redirected writes outside the private archive; existing blobs lacked bounded type and link checks.",
+      "resolution": "Directory and blob operations use nofollow and directory descriptors, exclusive creation, nonblocking reads, regular-file/single-link/exact-size/private-mode checks; unsafe inputs fail before reading.",
+      "disposition": "RESOLVED"
+    },
+    {
+      "id": "DIFF-03",
+      "severity": "medium",
+      "finding": "Reconciliation could replace a prior KEYLESS_NONPRODUCTION scope with EXISTING_AUTHORITY from a stage transition.",
+      "resolution": "The previous keyless scope dominates every recovery transition; a committed stage-transition regression covers the case.",
+      "disposition": "RESOLVED"
+    },
+    {
+      "id": "DIFF-04",
+      "severity": "medium",
+      "finding": "Long children had no periodic disk or combined stdout/stderr guard, and the first guard revision missed fast child output growth.",
+      "resolution": "Snapshots check both repository and state filesystem reserve and combined log size during execution and after communicate returns; failed guards stop the child without a retry.",
+      "disposition": "RESOLVED"
+    },
+    {
+      "id": "DIFF-05",
+      "severity": "test-gap",
+      "finding": "New recovery and archive destination failure paths initially lacked durable regression coverage.",
+      "resolution": "Focused regressions now cover archive hazards, deadline backoff, recovery without replay, runtime mismatch, keyless persistence and resource failure cleanup.",
+      "disposition": "RESOLVED"
+    }
+  ],
+  "independentVerification": {
+    "archiveProbes": {
+      "passed": 8,
+      "cases": [
+        "archive-directory symlink rejected without external write",
+        "blob symlink rejected",
+        "blob hardlink rejected",
+        "blob FIFO rejected without blocking",
+        "blob directory rejected",
+        "oversized blob rejected",
+        "public-mode blob rejected",
+        "ordinary private archive accepted"
+      ]
+    },
+    "realChildProbes": {
+      "passed": 3,
+      "cases": [
+        "fast oversized stdout fails after child exit",
+        "ordinary child exit accepted",
+        "disk reserve drop during execution fails"
+      ]
+    },
+    "gitDiffCheck": "PASS for all four reviewed paths",
+    "focusedSuite": {
+      "result": "113 passed in 16.67 seconds",
+      "executedBy": "/root/artifact_regressions",
+      "verificationSource": "Direct final test-agent message; suite was not rerun by this reviewer.",
+      "testsSha256": "e44d0af86d686a74a281fbae164c8f92e7c028cd75088f9e4af067f8eb90f3c0"
+    }
+  },
+  "acceptedProperties": [
+    "The child inherits the shared writer lock; remaining POSIX-group or dedicated-systemd-cgroup descendants prevent another iteration.",
+    "No implicit eight-iteration cap remains; the default zero iteration limit is bounded by the 24-hour deadline and systemd stop grace.",
+    "Startup retry rejects unknown, malformed or agent/tool event streams, authorization failures, existing receipts, changed tracked checkout, changed HEAD and changed untracked path lists.",
+    "Recovery accepts only the named artifact-only failure, preserves original receipt/archive evidence, verifies current Mini App bytes and never launches an agent or redeploys.",
+    "Operational scripts and deploy changes can satisfy progress; documentation-only changes under docs/ remain rejected.",
+    "The prompt preserves approval controls, explicit no-autonomous-trade/transfer restrictions, immutable consumed or expired cryptographic authority, required rollback and keyless nonproduction boundaries."
+  ],
+  "limitations": [
+    "This is a source and isolated-probe review; live installation, runtime reconciliation and the final 24-hour service start require separate operator runtime receipts.",
+    "Disk and log guards are polled at the heartbeat and child completion; they are not filesystem quotas and cannot prevent every burst of writes between checks.",
+    "Receipt checks verify structure, committed evidence bindings and lifecycle constraints; substantive product acceptance still depends on the required independent reviews and runtime evidence."
+  ],
+  "secretsRead": false,
+  "productionModified": false
+}
