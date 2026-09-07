@@ -1011,6 +1011,285 @@ def test_reconcile_retains_keyless_scope_across_stage_transition(environment, mo
     assert state['replayed'] is False
 
 
+def usage_limit_fixture(environment, monkeypatch, scope='CURRENT_AUTHORIZED_SCOPE', max_iterations=0):
+    runner.arm(SimpleNamespace(max_iterations=max_iterations, hours=24))
+    before = git(environment.repo, 'rev-parse', 'HEAD')
+    run_dir = environment.state / 'run-quota-3'
+    run_dir.mkdir()
+    log_path = run_dir / 'codex.log'
+    log_path.write_text(json.dumps({'type': 'item.completed', 'item': {'type': 'command_execution'}})
+                        + '\n' + json.dumps({'type': 'turn.failed', 'error': {
+                            'message': "You've hit your usage limit. Try again later."}}) + '\n')
+    old = json.loads((environment.state / 'armed.json').read_text())
+    old.update(status='FAILED', reason='CODEX_EXIT_1', child_pid=0, before=before,
+               run_dir=str(run_dir), log_path=str(log_path), accepted_iterations=2,
+               next_step='E4 / PAYMENT_INSTRUCTION_ISOLATION / finish interrupted work',
+               scheduled_stage='E4', continuation_scope=scope, last_accepted_commit=before)
+    runner.atomic_json(environment.state / 'status.json', old)
+    (environment.repo / 'relay/webapp.html').write_text('unfinished candidate')
+    services = {unit: {'ActiveState': 'active', 'MainPID': str(100 + index),
+                       'ExecMainStartTimestampMonotonic': str(10000 + index)}
+                for index, unit in enumerate(runner.RECOVERY_SERVICES)}
+    evidence = {
+        'schemaVersion': 'autopilot-usage-limit-recovery.v1',
+        'restartAuthorization': 'OWNER_REQUEST_2026_09_07', 'productStatus': 'IN_PROGRESS',
+        'previousStatusSha256': hashlib.sha256((environment.state / 'status.json').read_bytes()).hexdigest(),
+        'failureLogSha256': hashlib.sha256(log_path.read_bytes()).hexdigest(), 'beforeCommit': before,
+        'candidateSha256': hashlib.sha256(b'unfinished candidate').hexdigest(),
+        'target': str(runner.RECOVERY_TARGET), 'deployedSha256': hashlib.sha256(b'baseline').hexdigest(),
+        'services': services,
+    }
+    evidence_path = environment.repo / 'docs/recovery.json'
+    evidence_path.write_text(json.dumps(evidence))
+    git(environment.repo, 'add', 'relay/webapp.html', 'docs/recovery.json')
+    git(environment.repo, 'commit', '-qm', 'checkpoint unfinished candidate with recovery evidence')
+    original_read = runner.ordinary_bytes
+    monkeypatch.setattr(runner, 'ordinary_bytes', lambda path, *args:
+                        b'baseline' if path == runner.RECOVERY_TARGET else original_read(path, *args))
+    monkeypatch.setattr(runner, 'recovery_service_stopped', lambda: None)
+    monkeypatch.setattr(runner, 'service_identity', lambda unit: dict(services[unit]))
+    monkeypatch.setattr(runner, 'codex_command', lambda *args: pytest.fail('recovery launched a child'))
+    return SimpleNamespace(old=old, run_dir=run_dir, log=log_path, evidence=evidence,
+                           evidence_path=evidence_path, services=services)
+
+
+@pytest.mark.parametrize('scope', ['CURRENT_AUTHORIZED_SCOPE', 'KEYLESS_NONPRODUCTION'])
+def test_usage_recovery_preserves_incomplete_work_and_original_budget(environment, monkeypatch, scope):
+    fixture = usage_limit_fixture(environment, monkeypatch, scope)
+    previous = (environment.state / 'status.json').read_bytes()
+    armed = (environment.state / 'armed.json').read_bytes()
+    original_log = fixture.log.read_bytes()
+    runner.reconcile_usage_limit('docs/recovery.json')
+    state = json.loads((environment.state / 'status.json').read_text())
+    assert state['status'] == 'RECONCILED'
+    assert state['product_status'] == 'IN_PROGRESS'
+    assert state['replayed'] is False
+    assert state['recovery_evidence'] == 'docs/recovery.json'
+    assert not (fixture.run_dir / 'receipt.json').exists()
+    archive = Path(state['archive'])
+    assert (archive / 'status.json').read_bytes() == previous
+    assert (archive / 'armed.json').read_bytes() == armed
+    assert (archive / 'runtime-evidence.json').read_bytes() == fixture.evidence_path.read_bytes()
+    assert fixture.log.read_bytes() == original_log
+    assert list(fixture.run_dir.iterdir()) == [fixture.log]
+    assert 'receipt' not in state and 'accepted_commit' not in state
+    runner.arm(SimpleNamespace(max_iterations=0, hours=24))
+    armed = json.loads((environment.state / 'armed.json').read_text())
+    for key in ('deadline', 'max_iterations', 'duration_hours', 'accepted_iterations',
+                'next_step', 'continuation_scope', 'last_accepted_commit'):
+        assert armed[key] == fixture.old[key]
+
+
+@pytest.mark.parametrize('second_product_change', [False, True])
+def test_usage_recovery_accepts_checkpoint_completion_once_then_requires_new_code(
+        environment, monkeypatch, second_product_change):
+    fixture = usage_limit_fixture(environment, monkeypatch)
+    runner.reconcile_usage_limit('docs/recovery.json')
+    runner.arm(SimpleNamespace(max_iterations=0, hours=24))
+    checkpoint = git(environment.repo, 'rev-parse', 'HEAD')
+    worker = environment.package / 'recovered_worker.py'
+    counter = environment.package / 'recovered_worker_count'
+    result = receipt(environment.repo)
+    worker.write_text('''import json, pathlib, subprocess, sys
+prompt = sys.stdin.read()
+output, counter = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
+iteration = int(counter.read_text()) + 1 if counter.exists() else 1
+counter.write_text(str(iteration))
+(output.parent / 'received-prompt.txt').write_text(prompt)
+receipt = json.loads(sys.argv[3])
+if iteration <= 2:
+    pathlib.Path('docs/evidence.json').write_text(json.dumps({'completedIteration': iteration}))
+    paths = ['docs/evidence.json']
+    if iteration == 2 and sys.argv[4] == 'True':
+        pathlib.Path('relay/webapp.html').write_text('next bounded product implementation')
+        paths.append('relay/webapp.html')
+    subprocess.run(['git', 'add', *paths], check=True)
+    subprocess.run(['git', 'commit', '-qm', 'finish recovered evidence' if iteration == 1 else 'next slice'], check=True)
+else:
+    receipt['status'] = 'BLOCKED'
+    receipt['blocker'] = 'synthetic stop after verifying subsequent code-first iteration'
+receipt['commit'] = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+output.write_text(json.dumps(receipt))
+''')
+    monkeypatch.setattr(runner, 'codex_command', lambda package, output: [
+        sys.executable, str(worker), str(output), str(counter), json.dumps(result),
+        str(second_product_change)])
+    original_validate = runner.validate_receipt
+    validations = []
+
+    def capture_validation(received, repo, before, expected_stage):
+        validations.append((before, received['commit']))
+        return original_validate(received, repo, before, expected_stage)
+
+    monkeypatch.setattr(runner, 'validate_receipt', capture_validation)
+    assert runner.run() == (0 if second_product_change else 1)
+    state = json.loads((environment.state / 'status.json').read_text())
+    assert validations[0][0] == fixture.old['before']
+    assert validations[0][0] != checkpoint
+    assert validations[1][0] == validations[0][1]
+    assert state['deadline'] == fixture.old['deadline']
+    assert state['max_iterations'] == fixture.old['max_iterations']
+    assert state['duration_hours'] == fixture.old['duration_hours']
+    assert state['scheduled_stage'] == fixture.old['scheduled_stage']
+    assert state['continuation_scope'] == fixture.old['continuation_scope']
+    assert state['accepted_iterations'] == (4 if second_product_change else 3)
+    assert state['status'] == ('BLOCKED' if second_product_change else 'FAILED')
+    assert not any(key in state for key in (
+        'recovery_kind', 'recovery_before', 'recovery_evidence', 'recovery_evidence_sha256',
+        'product_status', 'archive'))
+    if not second_product_change:
+        assert state['reason'] == 'NO_PRODUCT_CODE_PROGRESS'
+    first_run = next(path for path in environment.state.glob('run-*-3') if path != fixture.run_dir)
+    prompt = (first_run / 'received-prompt.txt').read_text()
+    assert 'docs/recovery.json' in prompt
+    assert fixture.old['before'] in prompt
+
+
+def test_usage_recovery_retains_iteration_limit_then_allows_fresh_explicit_arm(environment, monkeypatch):
+    fixture = usage_limit_fixture(environment, monkeypatch, max_iterations=3)
+    runner.reconcile_usage_limit('docs/recovery.json')
+    runner.arm(SimpleNamespace(max_iterations=3, hours=24))
+    worker = environment.package / 'finish_recovered_worker.py'
+    result = receipt(environment.repo)
+    worker.write_text('''import json, pathlib, subprocess, sys
+sys.stdin.read()
+pathlib.Path('docs/evidence.json').write_text('{"recoveredCompletion":true}')
+subprocess.run(['git', 'add', 'docs/evidence.json'], check=True)
+subprocess.run(['git', 'commit', '-qm', 'complete recovered validation and rollout'], check=True)
+receipt = json.loads(sys.argv[2])
+receipt['commit'] = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+pathlib.Path(sys.argv[1]).write_text(json.dumps(receipt))
+''')
+    monkeypatch.setattr(runner, 'codex_command', lambda package, output:
+                        [sys.executable, str(worker), str(output), json.dumps(result)])
+    assert runner.run() == 0
+    state = json.loads((environment.state / 'status.json').read_text())
+    assert state['status'] == 'LIMIT_REACHED'
+    assert state['reason'] == 'explicit iteration limit'
+    assert state['iteration'] == state['accepted_iterations'] == 3
+    assert state['deadline'] == fixture.old['deadline']
+    assert 'recovery_kind' not in state and 'recovery_before' not in state
+    assert len(list(environment.state.glob('run-*'))) == 2
+    monkeypatch.setattr(runner.time, 'time', lambda: fixture.old['deadline'] + 10)
+    runner.arm(SimpleNamespace(max_iterations=1, hours=1))
+    armed = json.loads((environment.state / 'armed.json').read_text())
+    assert armed['status'] == 'ARMED'
+    assert armed['accepted_iterations'] == 0
+    assert armed['max_iterations'] == 1 and armed['duration_hours'] == 1
+    assert armed['deadline'] > fixture.old['deadline']
+    assert 'recovery_kind' not in armed and 'recovery_before' not in armed
+
+
+@pytest.mark.parametrize('mutation,reason', [
+    ('wrong_cause', 'NOT_A_USAGE_LIMIT_FAILURE'),
+    ('child_present', 'NOT_A_USAGE_LIMIT_FAILURE'),
+    ('receipt', 'FAILED_ITERATION_HAS_RECEIPT'),
+    ('log_symlink', 'UNSAFE_RECOVERY_RUN_PATH'),
+    ('run_escape', 'UNSAFE_RECOVERY_RUN_PATH'),
+    ('log_nonterminal', 'NO_TERMINAL_USAGE_LIMIT_FAILURE'),
+    ('log_wrong_cause', 'NO_TERMINAL_USAGE_LIMIT_FAILURE'),
+    ('dirty', 'TRACKED_CHECKOUT_DIRTY'),
+    ('wrong_product_path', 'RECOVERY_PRODUCT_SCOPE_CHANGED'),
+    ('deployed_candidate', 'USAGE_LIMIT_RUNTIME_RECONCILIATION_FAILED'),
+    ('service_restart', 'RECOVERY_SERVICE_IDENTITY_DRIFT'),
+    ('service_inactive', 'RECOVERY_SERVICE_IDENTITY_DRIFT'),
+    ('expired', 'ORIGINAL_RUN_DEADLINE_EXPIRED_OR_CHANGED'),
+])
+def test_usage_recovery_rejects_uncertain_effects_without_state_change(environment, monkeypatch, mutation, reason):
+    fixture = usage_limit_fixture(environment, monkeypatch)
+    if mutation in ('wrong_cause', 'child_present', 'run_escape', 'expired'):
+        key, value = {
+            'wrong_cause': ('reason', 'CODEX_EXIT_2'), 'child_present': ('child_pid', 123),
+            'run_escape': ('run_dir', str(environment.repo)), 'expired': ('deadline', 0),
+        }[mutation]
+        fixture.old[key] = value
+        runner.atomic_json(environment.state / 'status.json', fixture.old)
+    elif mutation == 'receipt':
+        (fixture.run_dir / 'receipt.json').write_text('{}')
+    elif mutation == 'log_symlink':
+        fixture.log.unlink()
+        fixture.log.symlink_to(fixture.evidence_path)
+    elif mutation == 'log_nonterminal':
+        with fixture.log.open('a') as stream:
+            stream.write('{"type":"turn.started"}\n')
+    elif mutation == 'log_wrong_cause':
+        fixture.log.write_text('{"type":"turn.failed","error":{"message":"approval required"}}\n')
+    elif mutation == 'dirty':
+        (environment.repo / 'relay/webapp.html').write_text('uncommitted')
+    elif mutation == 'wrong_product_path':
+        (environment.repo / 'relay/server.py').write_text('new unrelated code')
+        git(environment.repo, 'add', 'relay/server.py')
+        git(environment.repo, 'commit', '-qm', 'outside recovery scope')
+    elif mutation == 'deployed_candidate':
+        original_read = runner.ordinary_bytes
+        monkeypatch.setattr(runner, 'ordinary_bytes', lambda path, *args:
+                            b'unfinished candidate' if path == runner.RECOVERY_TARGET else original_read(path, *args))
+    elif mutation.startswith('service_'):
+        key, value = ('MainPID', '999') if mutation == 'service_restart' else ('ActiveState', 'inactive')
+        fixture.services[runner.RECOVERY_SERVICES[0]][key] = value
+    before = (environment.state / 'status.json').read_bytes()
+    with pytest.raises(ValueError, match=reason):
+        runner.reconcile_usage_limit('docs/recovery.json')
+    assert (environment.state / 'status.json').read_bytes() == before
+    assert not list(environment.state.glob('reconciled-usage-limit-*'))
+
+
+@pytest.mark.parametrize('key', ['restartAuthorization', 'productStatus', 'previousStatusSha256',
+                               'failureLogSha256', 'beforeCommit', 'candidateSha256', 'deployedSha256'])
+def test_usage_recovery_requires_committed_bound_evidence(environment, monkeypatch, key):
+    fixture = usage_limit_fixture(environment, monkeypatch)
+    del fixture.evidence[key]
+    fixture.evidence_path.write_text(json.dumps(fixture.evidence))
+    git(environment.repo, 'add', 'docs/recovery.json')
+    git(environment.repo, 'commit', '-qm', 'incomplete evidence fixture')
+    before = (environment.state / 'status.json').read_bytes()
+    with pytest.raises(ValueError, match='USAGE_LIMIT_RUNTIME_RECONCILIATION_FAILED'):
+        runner.reconcile_usage_limit('docs/recovery.json')
+    assert (environment.state / 'status.json').read_bytes() == before
+
+
+@pytest.mark.parametrize('mutation', ['expired', 'new_head', 'new_next', 'new_budget'])
+def test_usage_recovery_arm_cannot_extend_or_change_reconciled_run(environment, monkeypatch, mutation):
+    fixture = usage_limit_fixture(environment, monkeypatch)
+    runner.reconcile_usage_limit('docs/recovery.json')
+    args = SimpleNamespace(max_iterations=0, hours=24)
+    if mutation == 'expired':
+        monkeypatch.setattr(runner.time, 'time', lambda: fixture.old['deadline'] + 1)
+    elif mutation == 'new_head':
+        advance(environment.repo)
+    elif mutation == 'new_next':
+        args.next_step = 'E4 / something else'
+    else:
+        args.hours = 1
+    before = (environment.state / 'status.json').read_bytes()
+    with pytest.raises(ValueError, match='ORIGINAL_RUN_DEADLINE|RECOVERY_ARM_MUST_PRESERVE'):
+        runner.arm(args)
+    assert (environment.state / 'status.json').read_bytes() == before
+
+
+def test_usage_recovery_archive_failure_does_not_publish_reconciled(environment, monkeypatch):
+    usage_limit_fixture(environment, monkeypatch)
+    before = (environment.state / 'status.json').read_bytes()
+    original_atomic = runner.atomic_json
+
+    def fail_archive(path, value):
+        if path.name == 'reconciliation.json':
+            raise OSError('simulated disk failure')
+        original_atomic(path, value)
+
+    monkeypatch.setattr(runner, 'atomic_json', fail_archive)
+    with pytest.raises(OSError, match='simulated disk failure'):
+        runner.reconcile_usage_limit('docs/recovery.json')
+    assert (environment.state / 'status.json').read_bytes() == before
+
+
+@pytest.mark.parametrize('state,pid', [('active', '123'), ('activating', '0'), ('failed', '123')])
+def test_usage_recovery_requires_stopped_systemd_service(monkeypatch, state, pid):
+    monkeypatch.setattr(runner, 'service_identity', lambda unit: {'ActiveState': state, 'MainPID': pid})
+    with pytest.raises(ValueError, match='AUTOPILOT_SERVICE_NOT_STOPPED'):
+        runner.recovery_service_stopped()
+
+
 @pytest.mark.parametrize('hazard', ['stdout', 'fast_stdout', 'stderr', 'combined_logs', 'state_disk', 'repo_disk'])
 def test_running_child_resource_failure_stops_without_replaying_effects(environment, monkeypatch, hazard):
     import os

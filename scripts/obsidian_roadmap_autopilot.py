@@ -46,6 +46,8 @@ MAX_CHILD_LOG_BYTES = 128 * 1024 * 1024
 STARTUP_RETRY_DELAYS = (30, 120, 300)
 ARTIFACT_SUFFIXES = {'.json', '.png', '.jpg', '.jpeg', '.webp', '.txt', '.log', '.html', '.zip', '.xml', '.csv', '.sarif'}
 ARTIFACT_ROOTS = (('output', 'playwright'), ('output', 'autopilot'))
+RECOVERY_SERVICES = ('relay-fastapi.service', 'exchange-bot.service', 'nginx.service')
+RECOVERY_TARGET = Path('/opt/obsidian-exchange/relay/webapp.html')
 
 
 def now():
@@ -301,6 +303,151 @@ def reconcile_artifacts(runtime_evidence):
         print(json.dumps(report, ensure_ascii=False, indent=2))
 
 
+def service_identity(unit):
+    output = subprocess.check_output([
+        'systemctl', 'show', unit, '--property=ActiveState', '--property=MainPID',
+        '--property=ExecMainStartTimestampMonotonic',
+    ], text=True, timeout=30)
+    return dict(line.split('=', 1) for line in output.splitlines() if '=' in line)
+
+
+def recovery_service_stopped():
+    identity = service_identity('obsidian-roadmap-autopilot.service')
+    if identity.get('ActiveState') not in ('inactive', 'failed') or identity.get('MainPID') != '0':
+        raise ValueError('AUTOPILOT_SERVICE_NOT_STOPPED')
+    group = Path('/sys/fs/cgroup/system.slice/obsidian-roadmap-autopilot.service')
+    for path in group.glob('**/cgroup.procs'):
+        if path.read_text().strip():
+            raise ValueError('AUTOPILOT_CGROUP_NOT_EMPTY')
+
+
+def ordinary_bytes(path, limit=MAX_CHILD_LOG_BYTES):
+    """Bounded stable regular-file read; do not follow a final link or FIFO."""
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(fd, 'rb') as stream:
+        before = os.fstat(stream.fileno())
+        if not stat.S_ISREG(before.st_mode) or before.st_nlink != 1 or before.st_size > limit:
+            raise ValueError('UNSAFE_RECOVERY_FILE')
+        data = stream.read(limit + 1)
+        after = os.fstat(stream.fileno())
+        if (len(data) != before.st_size or len(data) > limit
+                or (before.st_mtime_ns, before.st_ctime_ns) != (after.st_mtime_ns, after.st_ctime_ns)):
+            raise ValueError('RECOVERY_FILE_CHANGED_DURING_READ')
+        return data
+
+
+def committed_bytes(repo, revision, name):
+    return subprocess.check_output(['git', '-C', str(repo), 'show', f'{revision}:{name}'], timeout=30)
+
+
+def reconcile_usage_limit(runtime_evidence):
+    """Checkpoint an inspected, undeployed Mini App iteration after quota failure.
+
+    This explicitly authorized recovery never accepts unfinished product work,
+    replays a child, changes the time budget, or edits the original run artifacts.
+    """
+    with writer_lock(STATE):
+        recovery_service_stopped()
+        previous = ordinary_bytes(STATE / 'status.json')
+        armed_bytes = ordinary_bytes(STATE / 'armed.json')
+        old, armed = json.loads(previous), json.loads(armed_bytes)
+        if (old.get('status') != 'FAILED' or old.get('reason') != 'CODEX_EXIT_1'
+                or old.get('child_pid') != 0):
+            raise ValueError('NOT_A_USAGE_LIMIT_FAILURE')
+        head = clean_checkout(REPO)
+        before = old.get('before', '')
+        if not re.fullmatch(r'[0-9a-f]{40}', before):
+            raise ValueError('INVALID_RECOVERY_BASE')
+        git(REPO, 'merge-base', '--is-ancestor', before, head)
+        allowed = ('relay/webapp.html', 'scripts/obsidian_roadmap_autopilot.py', 'PROJECT_MEMORY.md')
+        changed = git(REPO, 'diff', '--name-only', before, head).splitlines()
+        if any(name not in allowed and not name.startswith(('tests/', 'docs/')) for name in changed):
+            raise ValueError('RECOVERY_PRODUCT_SCOPE_CHANGED')
+        run_dir = Path(old.get('run_dir', ''))
+        log_path = Path(old.get('log_path', ''))
+        if (not run_dir.is_absolute() or run_dir.is_symlink()
+                or run_dir.parent != STATE or run_dir.resolve().parent != STATE.resolve()
+                or not re.fullmatch(r'run-[A-Za-z0-9-]+', run_dir.name)
+                or log_path.parent != run_dir or log_path.is_symlink()
+                or not re.fullmatch(r'codex(?:-retry-[1-3])?\.log', log_path.name)):
+            raise ValueError('UNSAFE_RECOVERY_RUN_PATH')
+        receipt_path = run_dir / 'receipt.json'
+        if receipt_path.exists() or receipt_path.is_symlink():
+            raise ValueError('FAILED_ITERATION_HAS_RECEIPT')
+        log_bytes = ordinary_bytes(log_path)
+        events = [json.loads(line) for line in log_bytes.splitlines() if line.strip()]
+        terminal = events[-1] if events else {}
+        error = terminal.get('error', {}) if isinstance(terminal, dict) else {}
+        message = error.get('message', '') if isinstance(error, dict) else ''
+        if (not isinstance(terminal, dict) or terminal.get('type') != 'turn.failed' or not isinstance(message, str)
+                or not re.match(r"You've hit your usage limit\.", message)):
+            raise ValueError('NO_TERMINAL_USAGE_LIMIT_FAILURE')
+        deadline = old.get('deadline')
+        if (type(deadline) not in (int, float) or deadline != armed.get('deadline')
+                or not time.time() < deadline):
+            raise ValueError('ORIGINAL_RUN_DEADLINE_EXPIRED_OR_CHANGED')
+        for key in ('max_iterations', 'duration_hours'):
+            if old.get(key) != armed.get(key):
+                raise ValueError('ORIGINAL_RUN_BUDGET_CHANGED')
+        if (type(old.get('accepted_iterations')) is not int or old['accepted_iterations'] < 0
+                or stage_of(old.get('next_step', '')) != old.get('scheduled_stage')
+                or old.get('continuation_scope') not in ('CURRENT_AUTHORIZED_SCOPE', 'KEYLESS_NONPRODUCTION')):
+            raise ValueError('INVALID_RECOVERY_CONTINUATION')
+        evidence_bytes = ordinary_bytes(checked_evidence(REPO, runtime_evidence))
+        if evidence_bytes != committed_bytes(REPO, head, runtime_evidence):
+            raise ValueError('RECOVERY_EVIDENCE_NOT_COMMITTED')
+        observation = json.loads(evidence_bytes)
+        candidate = ordinary_bytes(REPO / 'relay/webapp.html')
+        deployed = ordinary_bytes(RECOVERY_TARGET)
+        expected = {
+            'schemaVersion': 'autopilot-usage-limit-recovery.v1',
+            'restartAuthorization': 'OWNER_REQUEST_2026_09_07', 'productStatus': 'IN_PROGRESS',
+            'previousStatusSha256': hashlib.sha256(previous).hexdigest(),
+            'failureLogSha256': hashlib.sha256(log_bytes).hexdigest(), 'beforeCommit': before,
+            'candidateSha256': hashlib.sha256(candidate).hexdigest(),
+            'target': str(RECOVERY_TARGET), 'deployedSha256': hashlib.sha256(deployed).hexdigest(),
+        }
+        if (any(observation.get(key) != value for key, value in expected.items())
+                or deployed != committed_bytes(REPO, before, 'relay/webapp.html')
+                or candidate != committed_bytes(REPO, head, 'relay/webapp.html')):
+            raise ValueError('USAGE_LIMIT_RUNTIME_RECONCILIATION_FAILED')
+        identities = {unit: service_identity(unit) for unit in RECOVERY_SERVICES}
+        if (observation.get('services') != identities
+                or any(value.get('ActiveState') != 'active'
+                       or not re.fullmatch(r'[1-9][0-9]*', value.get('MainPID', ''))
+                       or not re.fullmatch(r'[1-9][0-9]*', value.get('ExecMainStartTimestampMonotonic', ''))
+                       for value in identities.values())):
+            raise ValueError('RECOVERY_SERVICE_IDENTITY_DRIFT')
+        # Recheck before publishing; the failed status remains intact if any preflight fails.
+        recovery_service_stopped()
+        if ordinary_bytes(STATE / 'status.json') != previous or clean_checkout(REPO) != head:
+            raise ValueError('RECOVERY_STATE_CHANGED')
+        archive = Path(tempfile.mkdtemp(prefix='reconciled-usage-limit-', dir=STATE))
+        for name, data in (('status.json', previous), ('armed.json', armed_bytes),
+                           ('runtime-evidence.json', evidence_bytes)):
+            with (archive / name).open('xb') as stream:
+                os.chmod(archive / name, 0o600)
+                stream.write(data)
+                stream.flush()
+                os.fsync(stream.fileno())
+        report = {key: old[key] for key in (
+            'next_step', 'scheduled_stage', 'continuation_scope', 'deadline',
+            'max_iterations', 'duration_hours', 'accepted_iterations')}
+        if old.get('last_accepted_commit'):
+            report['last_accepted_commit'] = old['last_accepted_commit']
+        report.update(status='RECONCILED', recovery_kind='USAGE_LIMIT', product_status='IN_PROGRESS',
+                      recorded_at=now(), previous_status_sha256=expected['previousStatusSha256'],
+                      failure_log_sha256=expected['failureLogSha256'], before=before, head=head,
+                      recovery_before=before,
+                      run_dir=str(run_dir), log_path=str(log_path), child_pid=0,
+                      recovery_evidence=runtime_evidence,
+                      recovery_evidence_sha256=hashlib.sha256(evidence_bytes).hexdigest(),
+                      runtime_sha256=expected['deployedSha256'], replayed=False, archive=str(archive))
+        atomic_json(archive / 'reconciliation.json', report)
+        atomic_json(STATE / 'status.json', report)
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+
+
 def package_digest(package):
     digest = hashlib.sha256()
     for name in ('obsidian_roadmap_autopilot.py', 'iteration-prompt.md',
@@ -522,6 +669,21 @@ def arm(args):
             'duration_hours': args.hours,
             'accepted_iterations': 0,
         }
+        if (old.get('recovery_kind') == 'USAGE_LIMIT'
+                and old.get('status') in ('RECONCILED', 'ARMED')):
+            if (receipt['head'] != old['head'] or start_stage != old['scheduled_stage']
+                    or next_step != old['next_step'] or scope != old['continuation_scope']
+                    or args.max_iterations != old['max_iterations']
+                    or args.hours != old['duration_hours']):
+                raise ValueError('RECOVERY_ARM_MUST_PRESERVE_CONTINUATION')
+            if time.time() >= old['deadline']:
+                raise ValueError('ORIGINAL_RUN_DEADLINE_EXPIRED_OR_CHANGED')
+            for key in ('deadline', 'accepted_iterations', 'last_accepted_commit',
+                        'recovery_kind', 'recovery_evidence', 'recovery_evidence_sha256',
+                        'product_status', 'archive', 'recovery_before'):
+                if key in old:
+                    receipt[key] = old[key]
+            receipt['scheduled_stage'] = old['scheduled_stage']
         atomic_json(STATE / 'armed.json', receipt)
         atomic_json(status_file, receipt)
         print('ARMED: start obsidian-roadmap-autopilot.service after interactive edits finish')
@@ -539,6 +701,7 @@ def run():
         expected_stage = request.get('start_stage', 'E4')
         continuation_scope = request.get('continuation_scope', 'CURRENT_AUTHORIZED_SCOPE')
         known_untracked = list(request['untracked'])
+        recovery_before = request.get('recovery_before')
 
         def stop(signum, frame):
             raise InterruptedError('SERVICE_STOPPED')
@@ -554,7 +717,7 @@ def run():
                 raise ValueError('PACKAGE_CHANGED_AFTER_ARM')
             if request['untracked'] != untracked(REPO):
                 raise ValueError('UNTRACKED_CHANGED_AFTER_ARM')
-            index = 0
+            index = request.get('accepted_iterations', 0)
             while not request['max_iterations'] or index < request['max_iterations']:
                 remaining = request['deadline'] - time.time()
                 if remaining <= 0:
@@ -582,6 +745,12 @@ def run():
                            'Allow time to verify deployment, commit evidence and return the receipt before that deadline.\n')
                 if state.get('next_step'):
                     prompt += 'Accepted next item: ' + state['next_step'] + '\n'
+                if recovery_before:
+                    prompt += (f'Resume the inspected unfinished product checkpoint. Original product base: {recovery_before}. '
+                               f'Committed reconciliation evidence: {request["recovery_evidence"]}. '
+                               'The pending product was not deployed or accepted. Inspect its existing code, tests and '
+                               'draft reviews; finish final reviews, rollout and runtime evidence. Do not invent another '
+                               'code change merely because the interrupted implementation is already committed.\n')
                 for attempt in range(len(STARTUP_RETRY_DELAYS) + 1):
                     if time.time() >= request['deadline']:
                         raise InterruptedError('DEADLINE_BEFORE_CHILD_START')
@@ -612,7 +781,7 @@ def run():
                         'delay_seconds': STARTUP_RETRY_DELAYS[attempt]})
                     retry_wait(STARTUP_RETRY_DELAYS[attempt], state, request['deadline'])
                 receipt = json.loads(output.read_text())
-                result = validate_receipt(receipt, REPO, before, expected_stage)
+                result = validate_receipt(receipt, REPO, recovery_before or before, expected_stage)
                 state.update(candidate_receipt=str(output), candidate_commit=receipt['commit'])
                 if request['package_digest'] != package_digest(PACKAGE):
                     raise ValueError('SUPERVISOR_PACKAGE_CHANGED')
@@ -626,6 +795,11 @@ def run():
                 else:
                     state.update(last_accepted_commit=receipt['commit'],
                                  accepted_iterations=state.get('accepted_iterations', 0) + 1)
+                    # The checkpoint baseline applies to one recovered completion only.
+                    recovery_before = None
+                    for key in ('recovery_kind', 'recovery_before', 'recovery_evidence',
+                                'recovery_evidence_sha256', 'product_status', 'archive'):
+                        state.pop(key, None)
                 atomic_json(STATE / 'status.json', state)
                 print(f'{now()} iteration {index}: {result}', flush=True)
                 if result != 'VERIFIED_NEXT':
@@ -674,6 +848,8 @@ def main():
     status_parser.add_argument('--summary', action='store_true')
     reconciliation = commands.add_parser('reconcile-artifacts')
     reconciliation.add_argument('--runtime-evidence', required=True)
+    usage_reconciliation = commands.add_parser('reconcile-usage-limit')
+    usage_reconciliation.add_argument('--runtime-evidence', required=True)
     args = parser.parse_args()
     if args.command == 'arm':
         arm(args)
@@ -681,6 +857,8 @@ def main():
         return run()
     elif args.command == 'reconcile-artifacts':
         reconcile_artifacts(args.runtime_evidence)
+    elif args.command == 'reconcile-usage-limit':
+        reconcile_usage_limit(args.runtime_evidence)
     else:
         path = STATE / 'status.json'
         state = json.loads(path.read_text()) if path.exists() else {'status': 'NOT_INSTALLED'}

@@ -1,0 +1,138 @@
+{
+  "schemaVersion": "autopilot-independent-diff-review.v1",
+  "recordedAt": "2026-09-07T04:38:43.051134+00:00",
+  "reviewer": {
+    "identity": "/root/recovery_diff",
+    "role": "independent context-poor diff reviewer",
+    "implementationAuthor": false,
+    "modelVersion": "Inherited Codex agent; exact model identifier not exposed to reviewer",
+    "toolVersions": {
+      "python": "3.12.3",
+      "interpreter": "/opt/lumi/venv/bin/python"
+    }
+  },
+  "activeRoute": "E4 / PAYMENT_INSTRUCTION_ISOLATION / recover interrupted authorized runner while preserving unfinished UI",
+  "scope": {
+    "baseCommit": "1cbfe1f4ccea89703120fc000592cae03f5101da",
+    "filesSha256": {
+      "scripts/obsidian_roadmap_autopilot.py": "7dadf710e9292639b22126a3681590165645643e21462baf9c1e45a706893015",
+      "tests/test_obsidian_roadmap_autopilot.py": "b00cc9f2849e7b49334731755757e90272eb0ddc67632626530b10ed2731f1c9"
+    },
+    "diffSha256": "c6191390aeeaf790eaddd254bda5ddb266cb29ea9da1b0f838a78c35dde3b985",
+    "focus": [
+      "recovery state transitions",
+      "fail-closed path and file handling",
+      "writer lock and process quiescence",
+      "deadline and iteration budget preservation",
+      "one-use checkpoint validation baseline"
+    ],
+    "sourceGitOrRuntimeMutationsByReviewer": false,
+    "runtimeReconciliationAndRestartOwner": "/root"
+  },
+  "findings": [
+    {
+      "id": "DIFF-RECOVERY-001",
+      "severity": "P2",
+      "title": "Recovered-run marker persisted into later authorized runs",
+      "description": "The initial arm implementation applied the recovered deadline and budget whenever recovery_kind survived in state, including a terminal LIMIT_REACHED run. A later explicitly authorized run could then be refused by the expired original deadline or mismatched budget.",
+      "disposition": "RESOLVED",
+      "resolution": "Recovery-only arm restrictions now apply to RECONCILED or ARMED status. The first accepted recovered completion clears all consumed recovery metadata and the recovery_before validation baseline.",
+      "verification": [
+        "test_usage_recovery_retains_iteration_limit_then_allows_fresh_explicit_arm",
+        "test_usage_recovery_accepts_checkpoint_completion_once_then_requires_new_code[False]",
+        "test_usage_recovery_accepts_checkpoint_completion_once_then_requires_new_code[True]",
+        "Independent temporary-repository probe: expire a reconciled/armed run before any child, observe LIMIT_REACHED, then explicitly arm a different one-hour/two-iteration budget; new deadline and zero accepted count verified."
+      ]
+    }
+  ],
+  "testEvidence": [
+    {
+      "owner": "/root/recovery_diff",
+      "command": "/opt/lumi/venv/bin/python -B -m pytest -q -p no:cacheprovider tests/test_obsidian_roadmap_autopilot.py -k usage_recovery",
+      "result": "PASS",
+      "passed": 33,
+      "deselected": 113,
+      "seconds": 13.65,
+      "scope": "final exact file hashes"
+    },
+    {
+      "owner": "/root/recovery_diff",
+      "check": "Independent ordinary_bytes adversarial file probes",
+      "result": "PASS",
+      "passed": 6,
+      "cases": [
+        "ordinary file accepted",
+        "final symlink rejected",
+        "hardlink rejected",
+        "FIFO rejected without blocking",
+        "directory rejected",
+        "oversized file rejected"
+      ]
+    },
+    {
+      "owner": "/root/recovery_diff",
+      "check": "Independent cgroup probes using a temporary directory",
+      "result": "PASS",
+      "passed": 3,
+      "cases": [
+        "root cgroup process rejected",
+        "nested cgroup process rejected",
+        "empty stopped cgroup accepted"
+      ]
+    },
+    {
+      "owner": "/root/recovery_diff",
+      "check": "Independent expired-recovered-run fresh-arm probe",
+      "result": "PASS"
+    },
+    {
+      "owner": "/root/recovery_diff",
+      "command": "git diff --check -- scripts/obsidian_roadmap_autopilot.py tests/test_obsidian_roadmap_autopilot.py",
+      "result": "PASS"
+    },
+    {
+      "owner": "/root/recovery_diff",
+      "check": "Initial complete suite before review fixes",
+      "result": "PASS",
+      "passed": 143,
+      "seconds": 27.88,
+      "controllerSha256": "923b8b4e6be6a76e7b378b288a1ec85591d61e432cae2b2bc72329739903fcd6",
+      "testsSha256": "8cf6dd0b7140891dad3fd0812e6c735d852cbf56ee863cfb6ed1dae97586c802"
+    },
+    {
+      "owner": "/root/recovery_diff",
+      "check": "Redundant complete suite started before final test edits",
+      "result": "INTERRUPTED_REDUNDANT_PREFINAL_RUN",
+      "sessionId": 84267,
+      "exitCode": 130,
+      "note": "Stopped only this reviewer-owned isolated test session after progress stalled; no failing assertion observed. Not counted as a passing final check."
+    },
+    {
+      "owner": "/root",
+      "check": "Final complete suite",
+      "result": "PASS",
+      "passed": 146,
+      "seconds": 36.87,
+      "attribution": "Result and exact matching file hashes supplied by main agent; not represented as reviewer execution."
+    },
+    {
+      "owner": "independent acceptance reviewer",
+      "check": "Final complete suite",
+      "result": "PASS",
+      "passed": 146,
+      "seconds": 38.92,
+      "attribution": "Independent acceptance result relayed by main agent; not represented as reviewer execution."
+    }
+  ],
+  "assessment": {
+    "status": "PASS",
+    "unresolvedFindings": [],
+    "checkpointBaselineReview": "Original product base is bound during reconciliation and used for only the first resumed receipt. The actual checkpoint HEAD remains the startup and retry guard. Subsequent receipts require new product-code progress.",
+    "recoverySafetyReview": "Recovery requires the writer lock, stopped/empty supervisor cgroup, exact terminal usage-limit evidence, no receipt, committed bounded checkpoint scope, unchanged deployed HTML and active service identities, preserved deadline/scope/count, and archived original state before publication.",
+    "limitations": [
+      "This is a bounded controller/test diff review, not acceptance of unfinished UI or deployment.",
+      "Production side-effect inspection, runtime evidence freshness and service restart verification remain with the main agent."
+    ],
+    "disposition": "Approve the reviewed controller/test changes for the main agent to install and perform the already authorized recovery after its runtime checks."
+  }
+}

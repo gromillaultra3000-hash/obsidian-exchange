@@ -1,0 +1,69 @@
+{
+  "schemaVersion": "autopilot-usage-limit-recovery.v1",
+  "recordedAt": "2026-09-07T04:36:47.495153+00:00",
+  "restartAuthorization": "OWNER_REQUEST_2026_09_07",
+  "productStatus": "IN_PROGRESS",
+  "previousStatusSha256": "b555c4376f36fa1176132a276f570cdc7ab64b7f370fc306717dc650d40eb427",
+  "failureLogSha256": "965638f15837986a2eb315c70b627e63db5222b346aef78cc3eeae0c17aae8de",
+  "beforeCommit": "1cbfe1f4ccea89703120fc000592cae03f5101da",
+  "candidateSha256": "6bdad471edcedf7b21d28373cdd564268d50f62b16385bac9905215ad4df2db8",
+  "target": "/opt/obsidian-exchange/relay/webapp.html",
+  "deployedSha256": "00c4d36887262876e2bd698a2748e8d8efe8dc0dc9ff79b9fad904cd621d5906",
+  "services": {
+    "relay-fastapi.service": {
+      "MainPID": "3877703",
+      "ExecMainStartTimestampMonotonic": "1449084511095",
+      "ActiveState": "active"
+    },
+    "exchange-bot.service": {
+      "MainPID": "3877887",
+      "ExecMainStartTimestampMonotonic": "1449089061348",
+      "ActiveState": "active"
+    },
+    "nginx.service": {
+      "MainPID": "3877705",
+      "ExecMainStartTimestampMonotonic": "1449084696284",
+      "ActiveState": "active"
+    }
+  },
+  "codexAccessProbe": {
+    "result": "AUTOPILOT_ACCESS_READY",
+    "exitCode": 0,
+    "toolCalls": 0,
+    "ephemeral": true,
+    "sandbox": "read-only"
+  },
+  "deadlineUtc": "2026-09-08T03:07:16.583870+00:00",
+  "acceptedIterations": 2,
+  "pendingProduct": "E4 / PAYMENT_INSTRUCTION_ISOLATION",
+  "pendingProductTests": {
+    "passed": 97,
+    "finalReviews": "PENDING_AUTOPILOT_COMPLETION"
+  },
+  "productionMutated": false,
+  "financialActions": false,
+  "surfaceMatrix": {
+    "supervisor": {
+      "status": "OPERATOR_ONLY",
+      "reason": "Explicit inspected recovery, installation and single writer start"
+    },
+    "miniApp": {
+      "status": "READ_ONLY",
+      "reason": "Compare deployed bytes; unfinished candidate checkpoint is not deployed by recovery"
+    },
+    "bot": {
+      "status": "READ_ONLY",
+      "reason": "Service identity and health only"
+    },
+    "nginx": {
+      "status": "READ_ONLY",
+      "reason": "Service identity and health only"
+    },
+    "moneyWriters": {
+      "status": "N/A",
+      "reason": "No trades, transfers, database/customer reads or financial authority operations"
+    }
+  },
+  "accountableOwner": "Project owner, explicit autonomous continuation request 2026-09-07",
+  "officialCliDocumentation": "https://learn.chatgpt.com/docs/non-interactive-mode"
+}

@@ -1,0 +1,79 @@
+{
+  "schemaVersion": "independent-acceptance-review.v1",
+  "recordedAt": "2026-09-07T04:37:50.973496+00:00",
+  "reviewer": {
+    "identity": "/root/recovery_acceptance",
+    "role": "context-aware independent acceptance reviewer",
+    "tool": "Codex delegated agent",
+    "modelVersion": "not exposed in session metadata",
+    "independence": "Did not author controller code; authored three requested lifecycle regression cases after reporting reproduced findings. Separate diff/security review must cover those tests."
+  },
+  "activeRoute": "E4 / PAYMENT_INSTRUCTION_ISOLATION / restore the stopped autopilot while checkpointing unfinished product as IN_PROGRESS",
+  "inputSha256": {
+    "scripts/obsidian_roadmap_autopilot.py": "7dadf710e9292639b22126a3681590165645643e21462baf9c1e45a706893015",
+    "tests/test_obsidian_roadmap_autopilot.py": "b00cc9f2849e7b49334731755757e90272eb0ddc67632626530b10ed2731f1c9"
+  },
+  "verdict": "PASS",
+  "scope": "Usage-limit recovery controller, bounded evidence binding, undeployed product checkpoint, original scope/budget preservation, reconcile/arm/run lifecycle; not product acceptance or deployment authorization beyond existing owner request.",
+  "findings": [
+    {
+      "id": "ACCEPTANCE-1",
+      "severity": "P1",
+      "summary": "Checkpoint completion was rejected as NO_PRODUCT_CODE_PROGRESS because the recovered worker used checkpoint HEAD as its progress base.",
+      "disposition": "FIXED",
+      "evidence": "Isolated pre-fix reproduction returned NO_PRODUCT_CODE_PROGRESS. Latest controller carries recovery_before through reconcile/arm and applies it exactly once. Real worker regressions accept docs-only finalization of existing product code and reject a later docs-only iteration."
+    },
+    {
+      "id": "ACCEPTANCE-2",
+      "severity": "P2",
+      "summary": "A persistent recovery_kind marker would prevent a later separately authorized fresh run after the original deadline.",
+      "disposition": "FIXED",
+      "evidence": "Recovery preservation applies only to RECONCILED/ARMED states and active markers clear on the first accepted completion. Finite-budget lifecycle regression reaches original max_iterations=3 after one resumed completion and accepts a fresh explicit arm after the old deadline."
+    }
+  ],
+  "checks": [
+    {
+      "command": "/opt/lumi/venv/bin/python -B -m pytest -q -p no:cacheprovider tests/test_obsidian_roadmap_autopilot.py",
+      "result": "146 passed in 38.92s",
+      "runtime": "Python 3.12.3; pytest 8.3.4"
+    },
+    {
+      "command": "/opt/lumi/venv/bin/python -B -m pytest -q -p no:cacheprovider tests/test_obsidian_roadmap_autopilot.py -k usage_recovery",
+      "result": "33 passed, 113 deselected in 6.79s"
+    },
+    {
+      "command": "git diff --check -- scripts/obsidian_roadmap_autopilot.py tests/test_obsidian_roadmap_autopilot.py",
+      "result": "PASS; no whitespace errors"
+    },
+    {
+      "command": "systemctl show obsidian-roadmap-autopilot.service --property=ActiveState --property=MainPID --property=ExecMainStartTimestampMonotonic",
+      "result": "failed; MainPID=0; ExecMainStartTimestampMonotonic=1955931873348"
+    },
+    {
+      "command": "Bounded read of selected status fields and final JSONL event only",
+      "result": "FAILED/CODEX_EXIT_1; child_pid=0; accepted_iterations=2; E4/CURRENT_AUTHORIZED_SCOPE; terminal turn.failed contains exact usage-limit cause; receipt absent"
+    },
+    {
+      "command": "Hash local candidate, deployed webapp and git before:webapp without printing content",
+      "result": "Deployed bytes equal original pre-failure commit and differ from pending candidate"
+    },
+    {
+      "command": "systemctl show relay-fastapi.service, exchange-bot.service, nginx.service (separate read-only calls)",
+      "result": "All active; PID/start identities observed as 3877703/1449084511095, 3877887/1449089061348, 3877705/1449084696284"
+    }
+  ],
+  "runtimeObservation": {
+    "beforeCommit": "1cbfe1f4ccea89703120fc000592cae03f5101da",
+    "deployedSha256": "00c4d36887262876e2bd698a2748e8d8efe8dc0dc9ff79b9fad904cd621d5906",
+    "candidateSha256": "6bdad471edcedf7b21d28373cdd564268d50f62b16385bac9905215ad4df2db8",
+    "pendingProductStatus": "IN_PROGRESS",
+    "deployedPendingProduct": false,
+    "deployedOrAcceptedByReviewer": false
+  },
+  "limitations": [
+    "This review does not accept unfinished payment UI or claim its end-to-end usability.",
+    "Initial system/root/relay Python environments lacked pytest; existing /opt/lumi/venv supplied the test environment.",
+    "A nested sandboxed systemctl read was denied; the required read-only calls succeeded using approved escalation.",
+    "No production state, service lifecycle, credentials or Git mutations were performed by this reviewer."
+  ]
+}

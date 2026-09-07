@@ -4,6 +4,23 @@ Updated: 2026-09-07 UTC
 
 ## Current goal and status
 
+- 2026-09-07 owner clarified continuation must run in the SSH-independent
+  autopilot. Its third iteration failed on an explicit Codex usage-limit response
+  before receipt/deployment; a fresh read-only access probe now passes.
+  Active item is E4 / PAYMENT_INSTRUCTION_ISOLATION, retained as IN_PROGRESS
+  in a checkpoint with 97 focused tests passing. Existing browser evidence and
+  draft review remain subject to the worker's final two reviews and rollout.
+  Production still has the accepted receive-address HTML `00c4d368...621d5906`.
+  Recovery controller is installed after 146 passing tests and both independent
+  reviews. It validates the old failure/runtime, preserves the checkpoint baseline
+  for exactly one completion, and restores ordinary code-first checks afterward.
+  Rollback: `/var/lib/obsidian-roadmap-autopilot/install-preimage.pPHuoU`.
+  Launch is prepared with original deadline 2026-09-08 03:07:16 UTC,
+  two accepted iterations and unchanged E4 scope. Exact status must be read from
+  systemd and `/var/lib/obsidian-roadmap-autopilot/status.json`; no second writer.
+  Recovery evidence: `docs/autopilot-usage-limit/`. Exactly next: finish this
+  payment-instruction item in the autonomous runner.
+
 - 2026-09-07 active E4 / RECEIVE_ADDRESS_INTEGRITY slice is VERIFIED and
   deployed under the supervisor's inherited writer lock. Receive-copy status
   is separate from its stable address/QR/button; success/haptics await clipboard
@@ -34,7 +51,7 @@ Updated: 2026-09-07 UTC
   Stage changes require committed assessments under
   `docs/autonomous-roadmap-transitions.md`; later preparation under an early
   blocker remains KEYLESS_NONPRODUCTION with no production authority.
-  The supervisor is active for this run; only its inherited iteration writes.
+  The supervisor's latest runtime must be checked; only its inherited iteration writes when active.
   Do not start another runner or change its unit/config/state. Inspect actual
   `/var/lib/obsidian-roadmap-autopilot/status.json` and systemd for later state.
   Installation evidence: `docs/autopilot-24h-rollout.v1.json`; operational

@@ -11,7 +11,20 @@ non-custodial wallet whose keys never reach the server.
 
 ## Active route
 
-`E4 / RECEIVE_ADDRESS_INTEGRITY / stable receive address and truthful clipboard feedback`
+`E4 / PAYMENT_INSTRUCTION_ISOLATION / finish interrupted payment-instruction isolation in the autonomous runner`
+
+Recovery checkpoint (2026-09-07): the third autonomous iteration stopped on an
+explicit Codex usage-limit response before its receipt or deployment. The pending
+HTML and tests are retained as IN_PROGRESS; production still matches the accepted
+receive-address release `00c4d368...621d5906`. A fresh read-only Codex access probe
+returned `AUTOPILOT_ACCESS_READY`. The owner explicitly requested continuation
+inside the autopilot. Recovery preserves the original 2026-09-08 03:07:16 UTC
+deadline, two accepted iterations, E4 scope and the same unfinished item.
+The worker must finish final independent reviews and deployment evidence; the
+checkpoint is not a product acceptance. The recovery controller is installed
+after 146 passing tests and two independent reviews; its exact runtime
+reconciliation and launch follow the clean checkpoint commit. See
+`docs/autopilot-usage-limit/` and the live status path below.
 
 Owner decision 2026-09-07: restore autonomous code-first E0–E5 delivery for
 24 hours, without the former eight-iteration ceiling, with immediate reversible
@@ -34,7 +47,7 @@ preparation, never a false gate closure or live authority. The supervisor binds
 the next stage and carries its scope across iterations. The old eight-iteration/
 twelve-hour allowance is superseded by the 2026-09-07 decision above.
 
-Current execution checkpoint (2026-09-07): receive address integrity is
+Last accepted product checkpoint (2026-09-07): receive address integrity is
 verified and deployed. Clipboard feedback has its own accessible status region;
 the full address, QR and copy-button label remain stable. Success and optional
 haptics follow actual clipboard completion. Missing/rejected clipboard reports

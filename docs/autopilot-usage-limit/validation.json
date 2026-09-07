@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "autopilot-usage-limit-validation.v1",
+  "recordedAt": "2026-09-07T04:38:00.714611+00:00",
+  "result": "PASS",
+  "controllerTests": {
+    "passed": 146,
+    "failed": 0,
+    "seconds": 36.87,
+    "command": "/opt/lumi/venv/bin/python -m pytest -q -p no:cacheprovider tests/test_obsidian_roadmap_autopilot.py"
+  },
+  "pendingProductTests": {
+    "passed": 97,
+    "failed": 0,
+    "finalProductAcceptance": false
+  },
+  "coverage": [
+    "Only terminal usage-limit failures without receipt are recoverable",
+    "Stable regular files and exact committed runtime evidence",
+    "Original deadline, scope, accepted count and next item preserved",
+    "First recovered completion validates checkpointed product once",
+    "Later docs-only progress is rejected",
+    "Fresh explicit arm after completed recovery uses new budget",
+    "Archive or preflight failure preserves failed status"
+  ],
+  "sourceSha256": {
+    "scripts/obsidian_roadmap_autopilot.py": "7dadf710e9292639b22126a3681590165645643e21462baf9c1e45a706893015",
+    "tests/test_obsidian_roadmap_autopilot.py": "b00cc9f2849e7b49334731755757e90272eb0ddc67632626530b10ed2731f1c9"
+  },
+  "limits": [
+    "Mocked control plane with real isolated Git repositories and child processes; host runtime checked separately",
+    "Unfinished product checkpoint has no final product acceptance or deployment claim"
+  ],
+  "pendingCheckpointCommit": "bd70fab",
+  "capabilityMatrix": {
+    "implementation": "Primary agent, existing controller correction",
+    "acceptance": "Independent /root/recovery_acceptance, real isolated child-process lifecycle tests",
+    "diffReview": "Independent /root/recovery_diff",
+    "runtime": "Host systemctl identities and exact deployed/source byte comparison",
+    "codexDocs": "OpenAI Docs skill, local CLI help and fetched official non-interactive mode documentation",
+    "browser": "Existing browser evidence retained for worker final product acceptance; no new browser run claimed",
+    "secretScan": "Gitleaks8.30.0 scoped diff scan"
+  }
+}
