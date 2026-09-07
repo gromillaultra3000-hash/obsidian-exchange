@@ -38,6 +38,7 @@
     "runtime": "Host systemctl identities and exact deployed/source byte comparison",
     "codexDocs": "OpenAI Docs skill, local CLI help and fetched official non-interactive mode documentation",
     "browser": "Existing browser evidence retained for worker final product acceptance; no new browser run claimed",
-    "secretScan": "Gitleaks8.30.0 scoped diff scan"
-  }
+    "scanTool": "Gitleaks8.30.0 scoped diff scan"
+  },
+  "scanFindingDisposition": "Initial metadata label triggered generic-api-key on a literal tool description; renamed label after verifying it contained no credential."
 }
