@@ -94,7 +94,15 @@
     "nativeChromeCases": 16,
     "independentReviews": 2,
     "opsCases": 11,
-    "secretScan": "gitleaks8.30.0 explicit candidate/staged diff; zero without suppression"
+    "scanner": {
+      "tool": "gitleaks",
+      "version": "8.30.0",
+      "scope": "current final evidence file; prior candidate source and staged implementation",
+      "findings": 0,
+      "suppression": false,
+      "metadataCorrection": "The initial final-evidence prose value was misclassified by generic-api-key. It contained only scanner version/scope/results. Replaced with structured fields; no actual credential was present. The removal diff still flags the deleted prose; current file scans clean.",
+      "deletedMetadataDiffFinding": 1
+    }
   },
   "rollback": {
     "backup": "/var/lib/obsidian-exchange/deployment-preimages/e4-wallet-reentry-31122f2-20260908",
