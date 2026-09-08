@@ -5,30 +5,31 @@ Updated: 2026-09-08 UTC
 ## Current goal and status
 
 
-- 2026-09-08 manual E4 / ACTIVITY_REFRESH_DEADLINE is VERIFIED and deployed
-  at 01:32 UTC, implementation `e1d6e41`. One 10000ms fetch/body deadline retires
-  stalled or superseded reads, preserves latest-request/filter ownership and
-  exposes explicit retry. Monotonic guards reject late results; no automatic retry.
-  Reconnect found the reviewed candidate staged but not deployed. All saved review
-  and test digests matched; exact unchanged work was committed and rolled out.
-  213 focused tests, 153 isolated Chrome checks, two independent reviews and two
-  killed mutants PASS. Native loopback HTTP fetch/body abort and response closure
-  are verified with controlled deadline clocks. First browser socket-cleanup FAIL
-  is retained; corrected final cleanup proves zero sockets and empty unit/cgroup.
-  HTML `efcc97b6...a7b499` is live, GET200/POST405/exact template match; services
-  retain Sep 1 PID/start identities. Rollback:
-  `deployment-preimages/e4-activity-deadline-20260908-aiwm0r0c/webapp.html`.
-  Evidence: `docs/e4-activity-deadline-rollout.v1.json`. Prior ordering `06b5ece`,
-  support `0a9295a` and requisites `50fa630` behavior retained. No real money,
-  signatures/customer reads/keys/credentials/messages/064A work.
-  Owner explicitly reaffirmed manual work after reconnect; autopilot stays
-  failed/stopped. Reconcile all manual commits before any explicitly requested
-  future start. E4/earlier gates remain open; real Telegram/iOS/WebKit/human/
-  screen-reader acceptance unverified. Browser suspension can delay timer handling.
-  Exactly next: E4 / ACTIVITY_RECEIPT_EVIDENCE_CONSISTENCY. Valid synthetic backend
-  rows reproduce future receipt-status wording on completed/closed orders and
-  suppressed transaction-evidence explanation when a receipt exists. Evidence:
-  `docs/e4-activity-deadline/next-prerequisite.json`.
+- 2026-09-08 manual E4 / ACTIVITY_RECEIPT_EVIDENCE_CONSISTENCY is VERIFIED
+  and deployed at 01:43 UTC, implementation `efc92dc`. Pending receipts retain
+  no-repeat-payment guidance; paid/sent/closed receipts show historical facts.
+  Transaction evidence is independent of receipts and asks users to check network
+  confirmations. Backend/status/action/deadline semantics remain unchanged.
+  249 focused tests, 174 isolated Chrome checks, both independent reviews, 504
+  synthetic backend cases / 3651 independent rendering assertions and two killed
+  mutants PASS. Browser unit/cgroup/native sockets cleanup PASS. Public digest
+  false positives were verified; use path/sha256 records for provenance instead
+  of token/secret-named hash-map keys. Final staged secret scan is clean.
+  HTML `5cd9482c...b3a623` is live with GET200/POST405/exact template match;
+  Relay/bot/Nginx retain Sep 1 PID/start identities. Rollback:
+  `deployment-preimages/e4-activity-receipt-20260908-4ngb7wro/webapp.html`.
+  Evidence: `docs/e4-activity-receipt-rollout.v1.json`. Prior deadline `e1d6e41`,
+  ordering `06b5ece`, support `0a9295a`, requisites `50fa630` retained.
+  Owner again authorized manual continuation; autopilot stays failed/stopped.
+  Reconcile all manual commits before any future explicitly requested start.
+  No money/signatures/customer reads/keys/credentials/messages/064A work.
+  E4/earlier gates remain open; real Telegram/iOS/WebKit/human/screen-reader
+  acceptance unverified. Receipt/link metadata cannot prove approval/finality.
+  Exactly next: E4 / ACTIVITY_PAYMENT_SESSION_STATE. Real repository SQL over
+  synthetic in-memory data reproduces pending order + failed latest session:
+  payment flow knows it is dead, activity omits closure metadata/advice. Payment
+  action is already absent; do not infer failed order from failed/missing session.
+  Evidence: `docs/e4-activity-receipt/next-prerequisite.json`.
 
 - 2026-09-08 status audit confirmed Sep 7's three deployed E4 slices: wallet
   review/fees (`d650b8d`), receive-address integrity (`1cbfe1f`) and payment

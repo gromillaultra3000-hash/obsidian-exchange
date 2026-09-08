@@ -1,0 +1,233 @@
+{
+  "schemaVersion": "e4-activity-receipt-rollout.v1",
+  "recordedAt": "2026-09-08T01:44:23.265661+00:00",
+  "activeRoute": "E4 / ACTIVITY_RECEIPT_EVIDENCE_CONSISTENCY",
+  "canonicalCriterion": "E4 unified notification/evidence/support centre; lifecycle-consistent evidence and clear monetary status",
+  "sliceStatus": "VERIFIED",
+  "stageStatus": "IN_PROGRESS",
+  "productionStatus": "VERIFIED",
+  "implementationCommit": "efc92dc2c81497302bb82034e018fba5a6f009bc",
+  "accountableOwner": "Project owner; explicit manual continuation approval 2026-09-08; implementation Codex /root",
+  "resultingBehavior": [
+    "Pending receipts keep explicit no-repeat-payment guidance; only sent metadata says forwarded for review.",
+    "Non-pending receipts show historical file/forwarding facts, without future promises or verification/refund claims.",
+    "Existing sent+tx_url condition independently shows transaction explanation and action; network confirmations are left for the explorer.",
+    "Status labels, action visibility, backend serialization and request ownership/deadline behavior remain unchanged."
+  ],
+  "surfaceMatrix": {
+    "MiniApp": "REQUIRED: activity receipt and transaction evidence wording",
+    "site": "READ_ONLY: public /webapp entry serves same HTML",
+    "TelegramBot": "READ_ONLY: current fixed support link unchanged",
+    "API": "READ_ONLY: existing history serialization unchanged; synthetic tests only",
+    "admin": "N/A: no operator change",
+    "nativeWallet": "N/A: no signing or custody change",
+    "KAIROS_LUMI": "N/A"
+  },
+  "verification": {
+    "focusedTests": 249,
+    "newBackendSerializationRenderingCases": 36,
+    "isolatedBrowserChecks": 174,
+    "newBrowserChecks": 21,
+    "viewports": [
+      320,
+      390,
+      1280
+    ],
+    "independentBackendCases": 504,
+    "independentRendererAssertions": 3651,
+    "reviews": {
+      "contextAwareAcceptance": "PASS",
+      "independentDiffSecurity": "PASS"
+    },
+    "mutantsKilled": [
+      "receipt_without_lifecycle",
+      "receipt_hides_transaction"
+    ],
+    "inlineJavascriptSyntax": "PASS",
+    "gitleaksVersion": "8.30.0",
+    "finalStagedFindings": 0,
+    "browserErrors": 0,
+    "browserUnitStopped": true,
+    "browserCgroupEmpty": true,
+    "nativeDeadlineCleanupRetained": true
+  },
+  "deployment": {
+    "recordedAt": "2026-09-08T01:43:38.919326+00:00",
+    "state": "VERIFIED",
+    "target": "/opt/obsidian-exchange/relay/webapp.html",
+    "previousSha256": "efcc97b6e41f8972b39163a876196f45fd8c5562dad23b5769634aac8ba7b499",
+    "deployedSha256": "5cd9482c174fec4288ace306e0ead463534933fc6b594d7497d88ec5ccb3a623",
+    "rollbackPreimage": "/var/lib/obsidian-exchange/deployment-preimages/e4-activity-receipt-20260908-4ngb7wro/webapp.html",
+    "rollbackPreimageSha256": "efcc97b6e41f8972b39163a876196f45fd8c5562dad23b5769634aac8ba7b499",
+    "method": "hash-bound fsynced atomic replacement; no restart",
+    "rollbackExecuted": false,
+    "publicGet": 200,
+    "publicPost": 405,
+    "publicMatchesDeployedTemplate": true,
+    "publicBodySha256": "06d96fb0f20af099ceb06260f5229811b4544a3fa315ce38bef295cd902a5b75",
+    "url": "https://obsidian-exchange.org/webapp",
+    "services": {
+      "relay-fastapi.service": {
+        "MainPID": "3877703",
+        "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:55 UTC",
+        "ActiveState": "active"
+      },
+      "exchange-bot.service": {
+        "MainPID": "3877887",
+        "ExecMainStartTimestamp": "Tue 2026-09-01 06:20:00 UTC",
+        "ActiveState": "active"
+      },
+      "nginx.service": {
+        "MainPID": "3877705",
+        "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:56 UTC",
+        "ActiveState": "active"
+      }
+    },
+    "serviceIdentityUnchanged": true
+  },
+  "rollback": {
+    "preimage": "/var/lib/obsidian-exchange/deployment-preimages/e4-activity-receipt-20260908-4ngb7wro/webapp.html",
+    "expectedLiveSha256": "5cd9482c174fec4288ace306e0ead463534933fc6b594d7497d88ec5ccb3a623",
+    "restoreSha256": "efcc97b6e41f8972b39163a876196f45fd8c5562dad23b5769634aac8ba7b499",
+    "rehearsal": "PASS",
+    "command": "python3 /root/deploy/e4_activity_receipt_rollout.py rollback",
+    "recovery": "After interruption inspect output/manual/e4-activity-receipt-20260908/deployment-state.json, target hash, exact preimage and public/services state. Never rerun deploy blindly; rollback only from candidate hash."
+  },
+  "trustCustodySecretsMoney": "No new credentials, signatures, customer reads, messages, money action or 064A authority; receipt and normalized transaction metadata remain existing read-only facts",
+  "limitations": [
+    "Synthetic backend rows do not measure actual customer incidence or understanding.",
+    "Real Telegram/iOS/WebKit, human comprehension and actual screen-reader announcements remain unverified.",
+    "Receipt sent means recorded forwarding, not approval; order sent and an explorer URL do not establish network confirmations.",
+    "Only this bounded E4 slice is accepted; E4 and earlier gates remain open."
+  ],
+  "negativeEvidence": [
+    "Baseline old HTML fails 23 of 36 new behavior cases; independent old-source receipt/transaction defects reproduced over 18 valid API shapes.",
+    "Both deliberately broken receipt-lifecycle and transaction-suppression mutants fail meaningful assertions.",
+    "Final staged scanning twice flagged public artifact/source hashes used as token/secret-named map keys. Independent reviewer verified exact checksum values; explicit path/sha256 records preserve provenance without suppression or waiver. Final directory and staged scans are clean."
+  ],
+  "autopilot": {
+    "state": "failed",
+    "MainPID": 0,
+    "reason": "UNCOMMITTED_NEW_FILES",
+    "action": "Leave stopped by current owner instruction; no state/config/unit change"
+  },
+  "nextCanonicalItem": "E4 / ACTIVITY_PAYMENT_SESSION_STATE / expose closed payment-session state truthfully in activity",
+  "artifacts": [
+    {
+      "path": "docs/e4-activity-receipt/320-activity-receipt-cancelled.png",
+      "sha256": "a46529b6197cfb97d148fba7d10333722f0b33c88c5ad2cf32cff2d1b88f3860"
+    },
+    {
+      "path": "docs/e4-activity-receipt/320-activity-receipt-pending.png",
+      "sha256": "a830f724807530df99f020a593be12dd79745b27c9a99d53ea97dca1f7bc383b"
+    },
+    {
+      "path": "docs/e4-activity-receipt/320-activity-receipt-sent.png",
+      "sha256": "baeb01aa795559c24bb7eadb93a870bfbe3f735bdefe640eb0bfa2b5eced29b0"
+    },
+    {
+      "path": "docs/e4-activity-receipt/390-activity-receipt-sent.png",
+      "sha256": "e5525e4d0e7827237bdb4ac093379a0c70d97640d27731d8392c4e3b2c6485be"
+    },
+    {
+      "path": "docs/e4-activity-receipt/acceptance-baseline.json",
+      "sha256": "73616675883cbdfbdf499e66c73e808f4ea8a40c03c4837f819cfb495b95698a"
+    },
+    {
+      "path": "docs/e4-activity-receipt/acceptance-review.json",
+      "sha256": "26d3959759e071390aed9dbb272a618e1deb8b972d5ee03ceefbe8b9e5d1d48f"
+    },
+    {
+      "path": "docs/e4-activity-receipt/baseline.json",
+      "sha256": "eed07cd89ce0284a7dbd83a2c97df6372bc11d969452eb64258f6edaab101026"
+    },
+    {
+      "path": "docs/e4-activity-receipt/deployment.json",
+      "sha256": "71ccc4ccd37d38f72a5554c88c68fc35da9b3fc80f8da6795828b2f3686c8726"
+    },
+    {
+      "path": "docs/e4-activity-receipt/gitleaks-report.json",
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "path": "docs/e4-activity-receipt/isolation.json",
+      "sha256": "89654e1fc66e5c14176adda14c90defeecdea470d27641dc294c26d2906b22da"
+    },
+    {
+      "path": "docs/e4-activity-receipt/mutations.json",
+      "sha256": "fc2d2ea4efc41312ca787bd6f84c261264fe29493faa8a60169e484a1350bea9"
+    },
+    {
+      "path": "docs/e4-activity-receipt/next-prerequisite-backend.json",
+      "sha256": "b40bb7af8cbedafcb6a6a8310bbe572d4172bd2540669fc00cbd368a528f81ae"
+    },
+    {
+      "path": "docs/e4-activity-receipt/next-prerequisite-backend.py",
+      "sha256": "3e8f8f67752769621c490d367f4900f2c4c3d64bbcfc42bf425f3c230ad11bb9"
+    },
+    {
+      "path": "docs/e4-activity-receipt/next-prerequisite.cjs",
+      "sha256": "68b4302fa5fdbdc36d13d627194609f59f4f7eb69b104e1952a2704d2c7fba66"
+    },
+    {
+      "path": "docs/e4-activity-receipt/next-prerequisite.json",
+      "sha256": "d8354c0db618ae798005cf50add548fe8db06d3f152b59d441db7c616b1b4d4a"
+    },
+    {
+      "path": "docs/e4-activity-receipt/preflight.json",
+      "sha256": "354fe1b096373c33c4c3395aa3c4d2294a5e6fd79fab959fca5269f26256a886"
+    },
+    {
+      "path": "docs/e4-activity-receipt/report.json",
+      "sha256": "9cc7213b31fee108e8c59d73961bfb8cd92b2abfc52379977fec2053f19f0852"
+    },
+    {
+      "path": "docs/e4-activity-receipt/rollback-rehearsal.json",
+      "sha256": "60633be202d33ec5341a1e20288d5b2409d5b1e82ef0230675eec9f831888cb9"
+    },
+    {
+      "path": "docs/e4-activity-receipt/run-context.json",
+      "sha256": "704a44b007e186a55a95004d90c0d43a06198087bb08dabba870f9a3b62c1fb4"
+    },
+    {
+      "path": "docs/e4-activity-receipt/security-baseline-red.json",
+      "sha256": "860bf6d98c005c4916a4ee2b58f9d1be05a641ada5c584573a3308acee0a916b"
+    },
+    {
+      "path": "docs/e4-activity-receipt/security-baseline-red.log",
+      "sha256": "d3fc0fa1ef001008c37b84a83363937e695e1dfe002d4c0f20866f18b6b54e1e"
+    },
+    {
+      "path": "docs/e4-activity-receipt/security-probe-result.json",
+      "sha256": "3086cf0b2590549ff1e65b4fa2949cf9c587b39e684ec11a5dd0a95757796adb"
+    },
+    {
+      "path": "docs/e4-activity-receipt/security-probe.py",
+      "sha256": "91cae4a387136e5ae4cc3af437350b9de30ba161c501e88fee2b43862aded423"
+    },
+    {
+      "path": "docs/e4-activity-receipt/security-review.json",
+      "sha256": "93da8f417d4b4bcd576a4b7faee847968f506923f6087bd8fba5d562d0c7a0a3"
+    },
+    {
+      "path": "docs/e4-activity-receipt/security-review.md",
+      "sha256": "3707d167924e1844ca7a2237bf31894d5e222f164cab9c1342b0a0b66a0ad861"
+    },
+    {
+      "path": "docs/e4-activity-receipt/security-secret-scan-disposition.json",
+      "sha256": "73933dcffa9685054056a22d8437d9f163d945a380e450bbfdbe25131846368e"
+    },
+    {
+      "path": "docs/e4-activity-receipt/security-secret-scan-finding-2.json",
+      "sha256": "ac8b5b62794102858934dd01bf611387ee644f4ecba72c51db9ad845a293d4e5"
+    },
+    {
+      "path": "docs/e4-activity-receipt/security-secret-scan-finding.json",
+      "sha256": "b83d625cbc6305075ed703a6d2027e010db2d6a74979e97f31588ddbeb164b6d"
+    },
+    {
+      "path": "docs/e4-activity-receipt/tests.json",
+      "sha256": "e9944e68eeff519fc3742a850a25137ccef6d08e1526374d1a7b44a8969a1765"
+    }
+  ]
+}

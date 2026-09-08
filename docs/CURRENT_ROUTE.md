@@ -11,58 +11,55 @@ non-custodial wallet whose keys never reach the server.
 
 ## Active route
 
-`E4 / ACTIVITY_RECEIPT_EVIDENCE_CONSISTENCY / make receipt wording and transaction evidence consistent with completed and closed order states`
+`E4 / ACTIVITY_PAYMENT_SESSION_STATE / expose closed payment-session state truthfully in activity`
 
 Owner decision 2026-09-08: continue code-first implementation and reversible
-deployment manually. Leave autopilot stopped until the owner requests bedtime
-work. Actual state is failed / MainPID zero / UNCOMMITTED_NEW_FILES since Sep 7.
-Before any future start, reconcile its stale third-deployment receipt and all
-subsequent manual commits; do not replay its next_step or consumed authority.
-No supervisor state, configuration or unit was changed by these manual slices.
+deployment manually. Autopilot remains stopped by explicit owner instruction:
+failed / MainPID zero / UNCOMMITTED_NEW_FILES since Sep 7. Before any later
+explicitly requested start, reconcile its stale third-deployment receipt and
+all subsequent manual commits. Do not replay its next_step or consumed authority.
+No supervisor configuration, state or unit was changed by these manual slices.
 
-ACTIVITY_REFRESH_DEADLINE is VERIFIED and deployed at 2026-09-08 01:32 UTC,
-implementation `e1d6e41`. One 10000ms deadline spans fetch and JSON-body reading;
-timeout retires the read and exposes existing unavailable/retry feedback. New
-invocations cancel older work, and elapsed-time guards reject expired results
-even when timer delivery is delayed. Current request/filter ownership remains
-intact. No automatic retry is added.
+ACTIVITY_RECEIPT_EVIDENCE_CONSISTENCY is VERIFIED and deployed at 2026-09-08
+01:43 UTC, implementation `efc92dc`. Pending receipts retain no-repeat-payment
+advice; paid/sent/closed orders show historical file/forwarding facts without
+future review promises. Available sent-order transaction evidence displays
+independently of receipts and directs users to check network confirmations.
+Status labels, action visibility, backend and refresh/deadline behavior remain
+unchanged.
 
-213 focused tests, 153 isolated Chrome checks at 320/390/1280px and both
-independent reviews pass on exact matching files. Independent probes and two
-killed mutants cover ignored abort and delayed timer delivery. Genuine native
-HTTP fetch/body cancellation and server response closure pass inside private
-loopback; deadline advancement uses controlled clocks. The first browser cleanup
-failure is retained, its socket-close synchronization corrected, and the final
-run verifies zero sockets plus inactive/collected unit and empty cgroup.
-Real Telegram/iOS/WebKit, human comprehension and screen-reader acceptance remain
-unverified; browser suspension can delay visible handling of the deadline.
+249 focused tests and 174 isolated Chrome checks at 320/390/1280px pass,
+including 36 actual API-serialization/rendering combinations and 21 new browser
+checks. Both independent reviews pass; 504 independent synthetic backend cases,
+3651 rendering assertions and two killed mutants support acceptance. Browser
+unit is collected/inactive with MainPID zero, empty cgroup and zero native sockets.
+Public source/artifact digest scanner false positives were independently verified
+and provenance reformatted without suppression; final staged scan has zero findings.
+Real Telegram/iOS/WebKit, screen-reader and human comprehension acceptance remain
+unverified. Receipt forwarding and an explorer link do not establish approval
+or network confirmation.
 
-The connection interrupted work before deployment. Resume verified all saved
-review/test inputs and raw test output, then committed and deployed the unchanged
-candidate. HTML `efcc97b6...a7b499` is live with GET200/POST405/exact template match.
-Relay/bot/Nginx retain active Sep 1 PID/start identities; no restart.
-Rollback: `/var/lib/obsidian-exchange/deployment-preimages/e4-activity-deadline-20260908-aiwm0r0c/webapp.html`.
-Evidence: `docs/e4-activity-deadline-rollout.v1.json` and its directory.
-No real money/signatures/customer reads/keys/credentials/messages/064A work.
-Prior response ordering (`06b5ece`), support (`0a9295a`) and payment-requisites
-(`50fa630`) behavior is retained. The owner again explicitly requested manual
-work and no autopilot after reconnecting.
+HTML `5cd9482c...b3a623` is live with GET200/POST405/exact rendered-template match.
+Relay/bot/Nginx retain Sep 1 PID/start identities; no restart.
+Rollback: `/var/lib/obsidian-exchange/deployment-preimages/e4-activity-receipt-20260908-4ngb7wro/webapp.html`.
+Evidence: `docs/e4-activity-receipt-rollout.v1.json` and its directory.
+No customer reads, messages, credentials, signatures, money action or 064A work.
+Prior activity deadline `e1d6e41`, ordering `06b5ece`, support `0a9295a` and
+requisites `50fa630` behavior is retained.
 
-Exactly next: `E4 / ACTIVITY_RECEIPT_EVIDENCE_CONSISTENCY`.
-Actual API serialization over synthetic rows and exact UI rendering reproduce
-future receipt-status promises on completed/closed orders, and a receipt branch
-suppresses the explicit transaction-evidence explanation. Make receipt copy
-lifecycle-aware and show transaction evidence independently. Evidence:
-`docs/e4-activity-deadline/next-prerequisite.json`. This is a content inconsistency;
-no real customer incidence or backend status corruption is claimed.
+Exactly next: `E4 / ACTIVITY_PAYMENT_SESSION_STATE`.
+Actual repository SQL over an in-memory synthetic DB plus exact API/render code
+reproduces a pending order with a failed latest payment session. Payment flow
+recognizes it as dead; activity omits that metadata and says waiting for payment
+without explaining the missing payment action. Expose owner-scoped session state,
+preserve receipt/order precedence and explain closure without treating absent
+metadata or a failed session as proof of failed payment/order. Evidence:
+`docs/e4-activity-receipt/next-prerequisite.json`.
 
 E4 stays IN_PROGRESS; no stage transition or earlier gate closure occurred.
-The 2026-09-07 authorization for code-first E0–E5 work and reversible rollouts
-remains subject to tests, two reviews, rollback and runtime checks. Technical
-financial preparation is allowed; actual trades/transfers remain owner-executed.
-Later-stage preparation under an earlier blocker remains KEYLESS_NONPRODUCTION.
-Earlier E0/E0.3/B5.3/064A terminal evidence and consumed authority stay closed;
-no new credential, signature or live authority is inferred from this work.
+Technical financial preparation remains permitted; actual trades/transfers stay
+owner-executed. Earlier E0/E0.3/B5.3/064A terminal evidence and consumed authority
+remain closed; this slice supplies no new live authority.
 
 ### Owner reprioritization — 2026-08-26
 

@@ -791,6 +791,20 @@ orders retain future receipt copy, and receipt metadata suppresses the explicit
 transaction-evidence explanation. No stage transition or earlier gate closure;
 autopilot remains stopped by the owner's reaffirmed instruction.
 
+2026-09-08: manual ACTIVITY_RECEIPT_EVIDENCE_CONSISTENCY is VERIFIED and
+production-deployed at 01:43 UTC (`efc92dc`). Receipt facts follow lifecycle;
+completed/closed orders no longer promise future receipt review. Available
+transaction evidence is independent of receipt metadata and asks users to verify
+network confirmations. 249 focused tests, 174 isolated Chrome checks and both
+independent reviews pass, with 504 synthetic backend cases, 3651 independent
+render assertions and two killed mutants. Public GET200/POST405/exact template
+match and unchanged service identities verify rollout. Evidence:
+`docs/e4-activity-receipt-rollout.v1.json`. E4 remains IN_PROGRESS; exactly next
+is ACTIVITY_PAYMENT_SESSION_STATE, reproduced from real repository SQL/API/render
+code over an in-memory synthetic DB: failed latest payment session is omitted
+from activity, leaving waiting-for-payment wording without closure advice.
+No earlier gate closure or new money authority; autopilot stays stopped.
+
 ### E5 — нативный некастодиальный кошелёк
 
 E0.4 inventory evidence (2026-08-18): the checkout has a Rust/UniFFI Bitcoin
