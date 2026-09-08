@@ -1,0 +1,27 @@
+{
+  "recordedAt": "2026-09-08T01:18:17.018237+00:00",
+  "deployedSha256": "6842d35ccb8d7bbbf2cac709cbc02c64d47bff527a5acda9699c4897d8b1da05",
+  "candidateSha256": "efcc97b6e41f8972b39163a876196f45fd8c5562dad23b5769634aac8ba7b499",
+  "services": {
+    "relay-fastapi.service": {
+      "MainPID": "3877703",
+      "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:55 UTC",
+      "ActiveState": "active"
+    },
+    "exchange-bot.service": {
+      "MainPID": "3877887",
+      "ExecMainStartTimestamp": "Tue 2026-09-01 06:20:00 UTC",
+      "ActiveState": "active"
+    },
+    "nginx.service": {
+      "MainPID": "3877705",
+      "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:56 UTC",
+      "ActiveState": "active"
+    }
+  },
+  "publicGet": 200,
+  "publicPost": 405,
+  "publicMatchesDeployedTemplate": true,
+  "publicBodySha256": "7ef7dc9490b9f15377ad5450fe55c271714f52927734d03f5da4cb16ca4775e3",
+  "url": "https://obsidian-exchange.org/webapp"
+}

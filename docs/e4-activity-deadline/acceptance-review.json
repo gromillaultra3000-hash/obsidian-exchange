@@ -1,0 +1,121 @@
+{
+  "schemaVersion": "e4-activity-deadline-acceptance-review.v1",
+  "recordedAt": "2026-09-08T01:25:04.679832+00:00",
+  "reviewer": {
+    "identity": "Codex independent context-aware acceptance subagent /root/support_acceptance",
+    "role": "Acceptance reviewer separate from product implementation/deployment and security reviewer",
+    "toolsActuallyUsed": [
+      "functions.exec / exec_command: source/contract inspection, Node VM baseline, Python AST-isolated backend serialization, exact rendering probe and SHA-256 verification",
+      "Playwright skill retained; authored bounded CJS browser checks and owned socket-cleanup correction; primary executed both isolated runs",
+      "view_image: inspected final 320px native-body timeout and recovered activity screenshots"
+    ],
+    "edits": "Browser runner and own acceptance/next-prerequisite artifacts only; no product, production, service, database, customer or messaging mutations"
+  },
+  "route": "E4 / ACTIVITY_REFRESH_DEADLINE",
+  "result": "PASS",
+  "inputsSha256": {
+    "relay/webapp.html": "efcc97b6e41f8972b39163a876196f45fd8c5562dad23b5769634aac8ba7b499",
+    "tests/e4_review_browser.cjs": "aaa54e2889a45a1759c1411a99142c886f004d73d147a0b2f0a2ef44195e6927",
+    "tests/e4_activity_deadline_behavior.cjs": "48b85b7701ede6142e232be00abd0b930c6b54cdcc87feceffdb12dbff20b56f",
+    "tests/e4_activity_refresh_behavior.cjs": "84544256bfc5aef1f2cd7af768f6217d55771be92621ad9572426195ef29696b",
+    "deploy/e4_activity_deadline_rollout.py": "db2570b4e5ad1d9e2897aeb3a119c19ad46380ec392dc245a1070eb4981c52f3",
+    "tests/test_e4_activity_deadline_behavior.py": "8ebeccfd0937ba08752dcbc996f886a4be6cdaf1e429e3885b8f142cab33ca37",
+    "tests/test_e4_activity_refresh_behavior.py": "ab3798379d4c445ebec27306829c6781e372886bef65de7522fad7c1619e298b",
+    "tests/test_e4_order_support_behavior.py": "b5e5f3b53b484a85c0ece511e96925b5b42d9de94fc62004107922c82c40b988",
+    "tests/test_e4_activity_notifications.py": "8b3be137d6d64f17e1d12aaa203e80bc856abe83e6cc19d7253c83e0b7f6c908",
+    "tests/test_e4_public_support_path.py": "04f36a7270fce9aaa3281ae35f8b093ed40aa841a4053b375c26525b19491769",
+    "tests/test_unified_portfolio_ui.py": "250796a1f514cba3ae701b5f14d45420cf22124bebb43c7dd4c0810c64c7fb54",
+    "tests/test_e4_payment_requisites_copy_behavior.py": "3b0e45d530c32e872ac54222120544e4bd63467cf1e33373d44105b7b8230a3a",
+    "tests/test_e4_payment_instruction_behavior.py": "b425ababa71e51d8f977214303553bd011509d2bb5dd9c8a0bf2ea2ef218b3ea",
+    "tests/test_e4_receive_copy_behavior.py": "bb2738ab5c0a41f496db0dfecdf73918094199b7f2cdff4cb359c414a5bdbb5b",
+    "tests/test_e4_review_browser_runner.py": "10e63f75d216cd5a11a4c6c883db7d15a134d00088a3f6a41b8deb80b375a98b",
+    "tests/test_e4_exchange_review_ui.py": "15da942a4d78a3d1271d04ba642c857d4408e27ede66ea58441710e347325c36",
+    "tests/test_e4_recipient_review_behavior.py": "0dba9cc3e4b4a490b8d88705434968a53b487698a444aa1b512326bd238d5ccf",
+    "tests/test_e4_responsive_navigation.py": "5758be025dd2f1e318c304ee4d771d70dc7ad2fda5506077958098dfe493292d",
+    "tests/test_e4_miniapp_browser_shell.py": "f1266129d2f2c84e9fd7c5847bba0a1b5f0ff27d0e7695249e6554202e6312fd",
+    "scripts/run_e4_review_browser.py": "6f4c9bf3020ae80b323655333a1eb3697eca4d44672ef6d28c679749136c412b",
+    "docs/e4-activity-deadline/report.json": "c0a007ee03f794a308b51056f33171c7ac58147722d1260ecaa42c7874946879",
+    "docs/e4-activity-deadline/isolation.json": "a091fec693be6364fb8b3f9468fcbcddbc85b1157473cba9854de691b1b55b36",
+    "docs/e4-activity-deadline/tests.json": "a4f9a6105e4b1b48e65e0361eca3609fd58d448641219081274c31710385e2b8",
+    "docs/e4-activity-deadline/preflight.json": "b5256f60129db8db0294f600bb34913b3dadaa7177c6b23139f6ceb43d630b03",
+    "docs/e4-activity-deadline/rollback-rehearsal.json": "b790269c98ddaef02753031de1fb949f137d19d5a3dd2d9dc4d278e018e4fcdf",
+    "docs/e4-activity-deadline/mutations.json": "45237294cc4d20802e489817f9706ef77eeefa278ac83b634c0c2a136eeeecb0",
+    "docs/e4-activity-deadline/browser-attempts.json": "7a284a60fae687e8d2b5129b130fdef296ffe507d7e96f79299a83bd0f428a34",
+    "docs/e4-activity-deadline/browser-attempt-1.json": "9ccb808765afd08e3b880e02d80fc794fda82b04bf9601a5342482a983309884",
+    "docs/e4-activity-deadline/browser-attempt-1-isolation.json": "fe1cc6e5638d4652033fc988fdc74c1efe1598e9c79129d2ac013092f6cf2e7d",
+    "docs/e4-activity-deadline/acceptance-baseline.cjs": "76de30254a4e25f88a554495483b81c1f3e9ea2a7542fbd7d593072ebfd8f159",
+    "docs/e4-activity-deadline/acceptance-baseline.json": "351d6202b9485e190948569e6bc21d60ef612a588c7862a0c514bf185199cd8c",
+    "docs/e4-activity-deadline/next-prerequisite.cjs": "710cbc452441d2efb46f783c869c336984d6367b41507f2ad498c70ff19dd238",
+    "docs/e4-activity-deadline/next-prerequisite.json": "6d78d4708e38bc42a9df1b136121f4e8c3a87b954c85cdf0550d13c46a019925",
+    "docs/e4-activity-deadline/next-prerequisite-backend.py": "93797a1dca8f2992cabf4016c187f7a1b80b83e4dee46d175c64f2ec8d251aa8",
+    "docs/e4-activity-deadline/next-prerequisite-backend.json": "e98bc5bd3bafe9513ccca69436f4ec55838e069af93a8e7f4a9701c8a8591b19",
+    "docs/e4-activity-deadline/320-native-body-deadline.png": "7f3947115f5cd7c1a81695adb9d4fbf63426ee5f8dd2c070eb9eed050ea7fd30",
+    "docs/e4-activity-deadline/320-activity-deadline-recovered.png": "a0b2cd44ed695b3f01e99d26cda180cbda444f8f2515ddd1ba6e4608c9b08a4e",
+    "relay-fastapi/main.py": "e36eede7efcf0a48657ff07fa805e57dbbb516c66a16a5696855f9bca978d1ca",
+    "relay/core/txid.py": "726b98d97696578b0883f5a14eca119f9bc4ce0fd92f409617edf1190129f824"
+  },
+  "baseline": {
+    "evidence": "docs/e4-activity-deadline/acceptance-baseline.json",
+    "sourceSha256": "6842d35ccb8d7bbbf2cac709cbc02c64d47bff527a5acda9699c4897d8b1da05",
+    "observed": "Original latest fetch or JSON-body stall leaves loading/aria-busy; no scheduled timeout/abort signal exists. Explicit successful retry recovers. The baseline 30sec scheduler horizon was simulated."
+  },
+  "acceptanceResults": [
+    "One 10000ms deadline spans fetch and JSON parsing and independently settles UI failure even when a synthetic reader ignores native abort. Timeout exposes retry state without stale order actions or an automatic retry.",
+    "Fresh invocation retires the prior request/timer. Latest ownership and per-request finally prevent retired completion, timer or cleanup from erasing current state or cancelling a newer read.",
+    "Monotonic expiry is checked before JSON parsing and after full read; retired late headers do not start body parsing. Focused boundary tests and removed-guard mutants verify late completions cannot win delayed timer scheduling.",
+    "Previous response-order/filter/copy/support browser checks remain valid; explicit retry restores selected-filter evidence and usable support.",
+    "Genuine HTTP fetch stall at private loopback raises native AbortError and closes the server response without server end.",
+    "Genuine native Response.json consumes an unfinished HTTP JSON stream: headers release after simulated6000ms, then another4001ms triggers the original total deadline, native body AbortError and server close. Explicit retry succeeds.",
+    "A native superseded HTTP read is aborted, its server response closes, and advancing its old deadline cannot remove new success. Final live cancel handle is null.",
+    "Reviewed 320px timeout and recovery images show readable failure/retry wording, no stale action rows during failure, persistent general support and restored completed evidence after retry."
+  ],
+  "verification": {
+    "focusedTests": 213,
+    "newDeadlineVMScenarios": 25,
+    "focusedResult": "PASS",
+    "mutationResult": "abort-only and removed-elapsed-guard mutants killed",
+    "browserChecks": 153,
+    "newDeadlineBrowserChecks": 9,
+    "browserWidths": [
+      320,
+      390,
+      1280
+    ],
+    "nativeTransportViewport": 320,
+    "browserResult": "PASS",
+    "pageErrors": [],
+    "nativeTransport": "Exact source via HTTP bound only to ephemeral127.0.0.1 inside the same nobody/PrivateNetwork unit; route allowlist permits only GET /webapp and /api/history there; all external requests denied.",
+    "timing": "Browser fastForward simulates deadline advancement; fetch/Response.json/AbortController and server-side response-close events are genuine native I/O observations, not mocked cancellation.",
+    "finalCleanup": {
+      "serverClosed": true,
+      "socketsRemaining": 0,
+      "individualSocketCloseEventsAwaited": true
+    },
+    "outerIsolation": "Chromium sandbox, nobody, PrivateNetwork, protected home; unit collected/inactive/MainPID0/cgroupEmpty",
+    "unchangedBudgets": "Default motion,5000ms action and cleanup bounds,120sec unit cap; no force clicks or timeout relaxation.",
+    "rollback": "Disposable fsynced atomic original→candidate→exact original rehearsal passes.",
+    "preflight": "Original template GET200/POST405 with exact render match; active Relay/bot/Nginx Sep1 identities retained before deployment."
+  },
+  "failedFirstAttempt": {
+    "evidence": "docs/e4-activity-deadline/browser-attempt-1.json",
+    "resultRetained": "FAIL",
+    "observed": "All153 functional/native checks completed, then cleanup observed serverClosed=true while one tracked socket close event remained pending. Outer unit cleanup independently reported MainPID0 and empty cgroup.",
+    "correction": "Register each owned socket close listener before destroy; await all socket close events and server close under the existing5sec bound, then assert Set size0. Product was unchanged.",
+    "finalEvidence": "Fresh complete run passes153 checks, serverClosed=true,socketsRemaining0,individualSocketCloseEventsAwaited=true and outer isolation cleanup. Earlier failure is not reclassified as PASS."
+  },
+  "findings": [],
+  "nextPrerequisite": {
+    "item": "E4 / ACTIVITY_RECEIPT_EVIDENCE_CONSISTENCY / make receipt wording and transaction evidence consistent with completed and closed order states",
+    "evidence": "docs/e4-activity-deadline/next-prerequisite.json",
+    "contractEvidence": "AST-extracted actual api_history serialization with fake repository rows preserves receipt metadata for sent/cancelled orders; exact rendering reproduces lifecycle-independent future receipt wording and suppressed transaction-evidence explanation.",
+    "disposition": "One separately bounded E4 content/evidence slice; no further timeout variants or next implementation added here. Raw client link interpolation did not establish production injection reachability given normalized backend URLs and generated tokens."
+  },
+  "limitations": [
+    "Controlled clocks do not prove ten seconds of real network wall time or timing under suspended/throttled browser execution; late results are rejected when sampled monotonic time expires.",
+    "Native streaming-body cancellation is verified in isolated Chrome HTTP loopback only; real provider/TLS/network conditions, Telegram/iOS/WebKit, human comprehension and screen-reader announcements remain unverified.",
+    "Synthetic noncooperative promises may continue internally after UI retirement, but cannot publish stale UI. No new backend writer, retry loop, wallet/signature authority or money action is introduced.",
+    "Next receipt/evidence inconsistency is a valid-response content issue; past-tense receipt submission can remain historically true. No real customer incidence or misunderstanding was measured.",
+    "This PASS covers the bounded reversible HTML slice, not E4 closure or earlier-gate advancement. Production replacement and runtime verification remain primary-agent work."
+  ],
+  "evidenceEncoding": "Backend source metadata uses explicit path/sha256 records; generic token-related filenames are not interpreted as credential keys. Backend evidence remains digest-bound; no scanner suppression or waiver was added."
+}

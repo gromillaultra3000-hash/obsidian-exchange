@@ -10,6 +10,7 @@ const elements = new Map(['history-list', 'history-summary', 'history-load-statu
         querySelectorAll() {return [];}, setAttribute(k, v) {this.attributes[k] = v;}}]));
 const requests = [];
 const ctx = vm.createContext({
+    AbortController, performance: {now: () => 0}, setTimeout: () => 1, clearTimeout() {},
     document: {getElementById: id => elements.get(id), querySelectorAll: () => []},
     fetch: (url, options) => new Promise((resolve, reject) => requests.push({url, options, resolve, reject})),
     tg: {initData: ''}, userId: 'synthetic-user', location: {origin: 'https://activity.invalid'},

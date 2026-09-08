@@ -1,0 +1,35 @@
+{
+  "recordedAt": "2026-09-08T01:20:59.331871+00:00",
+  "attempts": [
+    {
+      "result": "FAIL",
+      "sourceSha256": "efcc97b6e41f8972b39163a876196f45fd8c5562dad23b5769634aac8ba7b499",
+      "runnerSha256": "1b8e12574b590e5a0d05c07a7de6d69984cbdfcfde0d97977907a3cc52bf4bd5",
+      "functionalChecksReached": 153,
+      "failure": "Expected values to be strictly equal:\n\n1 !== 0\n",
+      "stage": "native HTTP test-server cleanup",
+      "observation": {
+        "serverClosed": true,
+        "socketsRemaining": 1
+      },
+      "unitStopped": true,
+      "cgroupEmpty": true,
+      "disposition": "Retain failed receipt. Await each owned socket close event and server close before asserting cleanup; do not change product or relax budgets/assertions."
+    },
+    {
+      "result": "PASS",
+      "recordedAt": "2026-09-08T01:23:33.281042+00:00",
+      "sourceSha256": "efcc97b6e41f8972b39163a876196f45fd8c5562dad23b5769634aac8ba7b499",
+      "runnerSha256": "aaa54e2889a45a1759c1411a99142c886f004d73d147a0b2f0a2ef44195e6927",
+      "checks": 153,
+      "cleanup": {
+        "serverClosed": true,
+        "socketsRemaining": 0,
+        "individualSocketCloseEventsAwaited": true
+      },
+      "unitStopped": true,
+      "cgroupEmpty": true,
+      "evidence": "docs/e4-activity-deadline/report.json"
+    }
+  ]
+}

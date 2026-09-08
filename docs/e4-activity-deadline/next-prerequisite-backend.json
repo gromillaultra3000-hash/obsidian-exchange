@@ -1,0 +1,91 @@
+{
+  "method": "AST-extracted api_history function only; fake verified identity/repository rows/receipt IDs/delays; pure core.txid module computes actual canonical explorer URLs. No app import, database, account or real API access.",
+  "backendFunctionLines": [
+    3005,
+    3030
+  ],
+  "inputs": [
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "e36eede7efcf0a48657ff07fa805e57dbbb516c66a16a5696855f9bca978d1ca"
+    },
+    {
+      "path": "relay/core/txid.py",
+      "sha256": "726b98d97696578b0883f5a14eca119f9bc4ce0fd92f409617edf1190129f824"
+    },
+    {
+      "path": "relay/utils/tokens.py",
+      "sha256": "66154208ce8958a35135551bcf2663474732158a4128d86dbd9ee9ca3bde4a28"
+    }
+  ],
+  "results": [
+    {
+      "case": "pending-receipt-sent",
+      "apiResponse": [
+        {
+          "order_id": 42,
+          "amount": 2000,
+          "currency": "TON",
+          "status": "pending",
+          "created": "2026-09-08 00:00",
+          "session_token": "synthetic_urlsafe_session",
+          "txid": "",
+          "receipt": "sent",
+          "delayed": false,
+          "tx_url": ""
+        }
+      ]
+    },
+    {
+      "case": "sent-receipt-sent",
+      "apiResponse": [
+        {
+          "order_id": 42,
+          "amount": 2000,
+          "currency": "TON",
+          "status": "sent",
+          "created": "2026-09-08 00:00",
+          "session_token": "synthetic_urlsafe_session",
+          "txid": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "receipt": "sent",
+          "delayed": false,
+          "tx_url": "https://tonviewer.com/transaction/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ]
+    },
+    {
+      "case": "sent-receipt-stored",
+      "apiResponse": [
+        {
+          "order_id": 42,
+          "amount": 2000,
+          "currency": "TON",
+          "status": "sent",
+          "created": "2026-09-08 00:00",
+          "session_token": "synthetic_urlsafe_session",
+          "txid": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "receipt": "stored",
+          "delayed": false,
+          "tx_url": "https://tonviewer.com/transaction/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ]
+    },
+    {
+      "case": "cancelled-receipt-stored",
+      "apiResponse": [
+        {
+          "order_id": 42,
+          "amount": 2000,
+          "currency": "TON",
+          "status": "cancelled",
+          "created": "2026-09-08 00:00",
+          "session_token": "synthetic_urlsafe_session",
+          "txid": "",
+          "receipt": "stored",
+          "delayed": false,
+          "tx_url": ""
+        }
+      ]
+    }
+  ]
+}

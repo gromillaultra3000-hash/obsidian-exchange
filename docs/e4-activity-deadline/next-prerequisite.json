@@ -1,0 +1,93 @@
+{
+  "schemaVersion": "e4-activity-receipt-evidence-next-prerequisite.v1",
+  "recordedAt": "2026-09-08T01:24:52.583Z",
+  "reviewer": "Codex independent context-aware acceptance /root/support_acceptance",
+  "nextCanonicalItem": "E4 / ACTIVITY_RECEIPT_EVIDENCE_CONSISTENCY / make receipt wording and transaction evidence consistent with completed and closed order states",
+  "canonicalCriterion": "E4 unified notification/evidence/support centre and understandable status on monetary paths",
+  "result": "REPRODUCED_REMAINING_PREREQUISITE",
+  "sourcePath": "/root/relay/webapp.html",
+  "sourceSha256": "efcc97b6e41f8972b39163a876196f45fd8c5562dad23b5769634aac8ba7b499",
+  "method": "AST-extracted real API serialization over synthetic repository rows, then exact shipped rendering helpers in Node VM. No real user/account/database/API access and no action/navigation/message execution.",
+  "backendContract": {
+    "inputs": [
+      {
+        "path": "relay-fastapi/main.py",
+        "sha256": "e36eede7efcf0a48657ff07fa805e57dbbb516c66a16a5696855f9bca978d1ca"
+      },
+      {
+        "path": "relay/core/txid.py",
+        "sha256": "726b98d97696578b0883f5a14eca119f9bc4ce0fd92f409617edf1190129f824"
+      },
+      {
+        "path": "relay/utils/tokens.py",
+        "sha256": "66154208ce8958a35135551bcf2663474732158a4128d86dbd9ee9ca3bde4a28"
+      }
+    ],
+    "function": "relay-fastapi/main.py api_history",
+    "lines": [
+      3005,
+      3030
+    ],
+    "receiptSemantics": "receipt is sent or stored whenever a persisted receipt exists, independently of order status. Completed and closed orders may legitimately retain it.",
+    "linkBoundary": "tx_url is constructed by core.txid.explorer_url from normalized hashes and fixed HTTPS explorers; new session tokens use secrets.token_urlsafe(24). Raw client interpolation alone did not establish production injection reachability."
+  },
+  "observedBehavior": "Receipt wording is chosen before and independently of final order status. Completed orders with stored receipts still promise that a receipt status will appear; cancelled orders can show the same future-oriented promise. A sent order with a sent receipt shows receipt-submission wording and a transaction action, while the dedicated transaction-evidence explanation is suppressed by the receipt branch.",
+  "reproduction": [
+    {
+      "case": "pending-receipt-sent",
+      "status": "pending",
+      "receipt": "sent",
+      "backendTxUrl": "",
+      "visibleReceiptEvidence": "🧾 Чек передан на проверку. Не оплачивайте повторно.",
+      "showsCompletedStatus": false,
+      "showsClosedStatus": false,
+      "transactionActionPresent": false,
+      "transactionEvidenceExplanationPresent": false,
+      "promisesFutureReceiptStatus": false
+    },
+    {
+      "case": "sent-receipt-sent",
+      "status": "sent",
+      "receipt": "sent",
+      "backendTxUrl": "https://tonviewer.com/transaction/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "visibleReceiptEvidence": "🧾 Чек передан на проверку. Не оплачивайте повторно.",
+      "showsCompletedStatus": true,
+      "showsClosedStatus": false,
+      "transactionActionPresent": true,
+      "transactionEvidenceExplanationPresent": false,
+      "promisesFutureReceiptStatus": false
+    },
+    {
+      "case": "sent-receipt-stored",
+      "status": "sent",
+      "receipt": "stored",
+      "backendTxUrl": "https://tonviewer.com/transaction/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "visibleReceiptEvidence": "🧾 Файл чека получен. Его статус появится здесь.",
+      "showsCompletedStatus": true,
+      "showsClosedStatus": false,
+      "transactionActionPresent": true,
+      "transactionEvidenceExplanationPresent": false,
+      "promisesFutureReceiptStatus": true
+    },
+    {
+      "case": "cancelled-receipt-stored",
+      "status": "cancelled",
+      "receipt": "stored",
+      "backendTxUrl": "",
+      "visibleReceiptEvidence": "🧾 Файл чека получен. Его статус появится здесь.",
+      "showsCompletedStatus": false,
+      "showsClosedStatus": true,
+      "transactionActionPresent": false,
+      "transactionEvidenceExplanationPresent": false,
+      "promisesFutureReceiptStatus": true
+    }
+  ],
+  "impact": "The activity centre mixes historical receipt facts/future receipt promises with an already final order outcome, making the evidence timeline less clear.",
+  "boundedImplementation": "Render receipt wording by lifecycle state, distinguish historical file/receipt facts from current review, retain explicit available transaction evidence independently of receipt metadata, and verify pending/paid/completed/closed cases with valid synthetic backend response shapes.",
+  "currentSliceDisposition": "Observed separately; not implemented during ACTIVITY_REFRESH_DEADLINE. No further timeout variants proposed.",
+  "limitations": [
+    "This is a reproduced UI/content inconsistency with legitimate backend response shapes, not a claim that backend status or transaction links are forged.",
+    "The past-tense phrase Чек передан на проверку can remain historically true; the precise issue is missing lifecycle context, persistent future-oriented wording and suppressed explicit transaction evidence explanation.",
+    "No real customer incidence or human misunderstanding was measured, and no E4 gate closure or earlier-stage advance is implied."
+  ]
+}

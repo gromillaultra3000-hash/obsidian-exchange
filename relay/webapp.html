@@ -3516,6 +3516,7 @@
         let historyFilter = 'all';
         let historyRequestSequence = 0;
         let historyLoadState = 'idle';
+        let historyReadCancel = null;
         function historyStatus(o) {
             const onReview = o.status === 'pending' && o.receipt === 'sent';
             const hasFile = o.status === 'pending' && !!o.receipt;
@@ -3685,26 +3686,51 @@
             const list = document.getElementById('history-list');
             if (!list) return;
             const request = ++historyRequestSequence;
+            if (historyReadCancel) historyReadCancel();
             historyLoadState = 'loading';
             historyOrders = [];
             renderHistoryOrders();
             const activity = document.getElementById('ecosystem-activity-status');
             if (activity) activity.textContent = 'Обновляем статусы заявок…';
+            let deadline;
+            let cancel;
             try {
-                const res = await fetch(`/api/history?user_id=${userId}`, { cache: 'no-store', headers: { 'X-Telegram-Init-Data': tg.initData || '' } });
-                const orders = res.ok ? await res.json().catch(() => null) : null;
+                const controller = new AbortController();
+                const expiresAt = performance.now() + 10000;
+                const stopped = new Promise((_, reject) => {
+                    cancel = () => {
+                        clearTimeout(deadline);
+                        reject(new Error('history read retired'));
+                        controller.abort();
+                    };
+                    deadline = setTimeout(cancel, 10000);
+                });
+                historyReadCancel = cancel;
+                const read = (async () => {
+                    const res = await fetch(`/api/history?user_id=${userId}`, { signal: controller.signal,
+                        cache: 'no-store', headers: { 'X-Telegram-Init-Data': tg.initData || '' } });
+                    if (controller.signal.aborted || performance.now() >= expiresAt) throw new Error('history read retired');
+                    return res.ok ? await res.json() : null;
+                })();
+                // The deadline also settles the UI if a body reader ignores abort.
+                const orders = await Promise.race([read, stopped]);
                 if (request !== historyRequestSequence) return;
+                if (controller.signal.aborted || performance.now() >= expiresAt) throw new Error('history deadline');
                 if (!Array.isArray(orders)) throw new Error('history unavailable');
                 historyOrders = orders;
                 historyLoadState = 'ready';
                 renderEcosystemActivity(orders);
                 renderHistoryOrders();
             } catch(e) {
+                if (cancel) cancel();
                 if (request !== historyRequestSequence) return;
                 historyOrders = [];
                 historyLoadState = 'error';
                 renderEcosystemActivity(null);
                 renderHistoryOrders();
+            } finally {
+                clearTimeout(deadline);
+                if (historyReadCancel === cancel) historyReadCancel = null;
             }
         }
         (function wireHistoryControls() {

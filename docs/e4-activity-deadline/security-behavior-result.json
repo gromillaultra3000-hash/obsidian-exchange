@@ -1,0 +1,111 @@
+{
+  "reviewer": "/root/support_security",
+  "result": "PASS",
+  "scenarios": [
+    {
+      "scenario": "fetch_stall",
+      "result": "PASS"
+    },
+    {
+      "scenario": "body_stall",
+      "result": "PASS"
+    },
+    {
+      "scenario": "body_budget",
+      "result": "PASS"
+    },
+    {
+      "scenario": "late_fetch_success",
+      "result": "PASS"
+    },
+    {
+      "scenario": "late_fetch_failure",
+      "result": "PASS"
+    },
+    {
+      "scenario": "late_body_success",
+      "result": "PASS"
+    },
+    {
+      "scenario": "late_body_failure",
+      "result": "PASS"
+    },
+    {
+      "scenario": "retry_success",
+      "result": "PASS"
+    },
+    {
+      "scenario": "retry_failure",
+      "result": "PASS"
+    },
+    {
+      "scenario": "overview_retry",
+      "result": "PASS"
+    },
+    {
+      "scenario": "supersede_fetch",
+      "result": "PASS"
+    },
+    {
+      "scenario": "supersede_body",
+      "result": "PASS"
+    },
+    {
+      "scenario": "old_timer",
+      "result": "PASS"
+    },
+    {
+      "scenario": "old_finally",
+      "result": "PASS"
+    },
+    {
+      "scenario": "success_before",
+      "result": "PASS"
+    },
+    {
+      "scenario": "success_at",
+      "result": "PASS"
+    },
+    {
+      "scenario": "success_after",
+      "result": "PASS"
+    },
+    {
+      "scenario": "body_after",
+      "result": "PASS"
+    },
+    {
+      "scenario": "cleared_success_timer",
+      "result": "PASS"
+    },
+    {
+      "scenario": "network_error",
+      "result": "PASS"
+    },
+    {
+      "scenario": "http_error",
+      "result": "PASS"
+    },
+    {
+      "scenario": "json_error",
+      "result": "PASS"
+    },
+    {
+      "scenario": "missing_abort",
+      "result": "PASS"
+    },
+    {
+      "scenario": "retired_headers",
+      "result": "PASS"
+    },
+    {
+      "scenario": "expired_headers",
+      "result": "PASS"
+    }
+  ],
+  "inputSha256": {
+    "relay/webapp.html": "efcc97b6e41f8972b39163a876196f45fd8c5562dad23b5769634aac8ba7b499",
+    "tests/e4_activity_deadline_behavior.cjs": "48b85b7701ede6142e232be00abd0b930c6b54cdcc87feceffdb12dbff20b56f",
+    "tests/test_e4_activity_deadline_behavior.py": "8ebeccfd0937ba08752dcbc996f886a4be6cdaf1e429e3885b8f142cab33ca37"
+  }
+}

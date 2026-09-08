@@ -7,6 +7,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const http = require('node:http');
 const {chromium} = require('playwright-core');
 const [sourcePath, outputDir] = process.argv.slice(2);
 const source = fs.readFileSync(sourcePath, 'utf8');
@@ -23,6 +24,180 @@ const walletMemo = 'invoice  42 <b>literal</b>';
 const walletRequest = {validUntil: 2000, network: '-239', messages: [
     {address: walletAddress, amount: '1250000000', payload: 'synthetic-not-a-boc'}]};
 fs.mkdirSync(outputDir, {recursive: true});
+
+
+// Genuine HTTP fetch/JSON streams stay inside this unit's private loopback.
+// No host listener, external connection, TLS key, or application API is used.
+async function nativeActivityDeadlineChecks(browser) {
+    const sockets = new Set(), requests = [];
+    let mode = 'ready', onRequest;
+    const nativeOrder = {order_id: 'synthetic-native-42', currency: 'TON', amount: 2000,
+        status: 'sent', created: '2026-09-08', tx_url: 'https://explorer.invalid/synthetic-native'};
+    const server = http.createServer((req, res) => {
+        const url = new URL(req.url, 'http://127.0.0.1');
+        if (req.method !== 'GET') {res.writeHead(405); res.end(); return;}
+        if (url.pathname === '/webapp') {
+            res.writeHead(200, {'Content-Type': 'text/html; charset=utf-8'}); res.end(source); return;
+        }
+        if (url.pathname !== '/api/history') {res.writeHead(404); res.end(); return;}
+        let closed;
+        const entry = {mode, headersFlushed: false, closed: false, ended: false, response: res,
+            closedPromise: new Promise(resolve => {closed = resolve;})};
+        requests.push(entry);
+        res.on('close', () => {entry.closed = true; entry.ended = res.writableEnded; closed();});
+        if (mode === 'ready') {
+            res.writeHead(200, {'Content-Type': 'application/json', 'Cache-Control': 'no-store'});
+            entry.headersFlushed = true; res.end(JSON.stringify([nativeOrder]));
+        }
+        if (onRequest) onRequest(entry);
+    });
+    server.on('connection', socket => {sockets.add(socket); socket.on('close', () => sockets.delete(socket));});
+    await new Promise((resolve, reject) => {server.once('error', reject); server.listen(0, '127.0.0.1', resolve);});
+    const nativeOrigin = 'http://127.0.0.1:' + server.address().port;
+    let context, page;
+    report.nativeActivityDeadline = {transport: 'HTTP on ephemeral 127.0.0.1 inside PrivateNetwork unit',
+        timing: 'Playwright clock fastForward; genuine native fetch, Response.json and AbortController',
+        externalRequestsAllowed: false, cases: []};
+    async function awaitClosed(entry) {
+        let timeout;
+        try {
+            await Promise.race([entry.closedPromise, new Promise((_, reject) => {
+                timeout = setTimeout(() => reject(new Error('native response did not close')), 5000);
+            })]);
+        } finally {clearTimeout(timeout);}
+        assert.equal(entry.closed, true);
+        assert.equal(entry.ended, false, 'stalled stream must close by cancellation, without server end');
+    }
+    try {
+        context = await browser.newContext({viewport: {width: 320, height: 568}, serviceWorkers: 'block', locale: 'ru-RU'});
+        await context.addInitScript(() => {
+            window.Telegram = {WebApp: {initData: '', initDataUnsafe: {}, expand() {}, ready() {}, onEvent() {},
+                setHeaderColor() {}, setBackgroundColor() {}, setBottomBarColor() {}}};
+            window.__nativeActivity = {signals: [], headers: 0, bodies: 0, fetchAborts: 0, bodyAborts: 0};
+            const nativeFetch = window.fetch.bind(window);
+            window.fetch = async (...args) => {
+                if (!String(args[0]).startsWith('/api/history?')) return nativeFetch(...args);
+                const observations = window.__nativeActivity;
+                observations.signals.push(args[1]?.signal);
+                let response;
+                try {response = await nativeFetch(...args); observations.headers++;}
+                catch (error) {if (error.name === 'AbortError') observations.fetchAborts++; throw error;}
+                const nativeJson = response.json.bind(response);
+                response.json = async () => {
+                    observations.bodies++;
+                    try {return await nativeJson();}
+                    catch (error) {if (error.name === 'AbortError') observations.bodyAborts++; throw error;}
+                };
+                return response;
+            };
+        });
+        await context.route('**/*', async route => {
+            const request = route.request(), url = new URL(request.url());
+            if (url.origin === nativeOrigin && request.method() === 'GET'
+                && ['/webapp', '/api/history'].includes(url.pathname)) return route.continue();
+            report.blockedRequests.push(url.origin + url.pathname);
+            return route.abort('blockedbyclient');
+        });
+        page = await context.newPage();
+        page.on('pageerror', error => report.pageErrors.push(error.message));
+        page.setDefaultTimeout(5000);
+        await page.clock.install();
+        await page.goto(nativeOrigin + '/webapp', {waitUntil: 'load'});
+        await page.locator('#tab-history').click();
+        const ready = () => page.waitForFunction(() => document.getElementById('history-load-status').textContent === 'Активность обновлена.');
+        await ready();
+        async function start(nextMode) {
+            mode = nextMode;
+            const arrived = new Promise(resolve => {onRequest = resolve;});
+            await page.locator('#history-refresh').click();
+            const entry = await arrived; onRequest = null; return entry;
+        }
+        async function failed() {
+            await page.waitForFunction(() => document.getElementById('history-load-status').textContent.includes('Не удалось'));
+            assert.equal(await page.locator('#history-list').getAttribute('aria-busy'), 'false');
+            assert.equal(await page.locator('#history-list .btn-pay').count(), 0);
+            assert.ok((await page.locator('#history-list').textContent()).includes('История сейчас недоступна'));
+        }
+        const fetchEntry = await start('hold-headers');
+        const fetchCount = requests.length;
+        const fetchSignal = await page.evaluate(() => window.__nativeActivity.signals.length - 1);
+        const abortsBefore = await page.evaluate(() => window.__nativeActivity.fetchAborts);
+        await page.clock.fastForward(10001);
+        await failed();
+        await page.waitForFunction(n => window.__nativeActivity.fetchAborts > n, abortsBefore);
+        await awaitClosed(fetchEntry);
+        assert.equal(await page.evaluate(i => window.__nativeActivity.signals[i].aborted, fetchSignal), true);
+        assert.equal(requests.length, fetchCount);
+        await start('ready'); await ready();
+        report.nativeActivityDeadline.cases.push({case: 'headers-stall', deadlineAdvancedMs: 10001,
+            nativeFetchAbort: true, serverClosedWithoutEnd: true, noAutomaticRetry: true, explicitRetryRecovered: true});
+        report.checks.push('native loopback: simulated 10s deadline aborts genuine stalled HTTP fetch, closes server response and preserves explicit retry');
+
+        const bodyEntry = await start('hold-body');
+        const bodySignal = await page.evaluate(() => window.__nativeActivity.signals.length - 1);
+        const bodiesBefore = await page.evaluate(() => window.__nativeActivity.bodies);
+        await page.clock.fastForward(6000);
+        assert.equal(await page.locator('#history-list').getAttribute('aria-busy'), 'true');
+        bodyEntry.response.writeHead(200, {'Content-Type': 'application/json', 'Cache-Control': 'no-store'});
+        bodyEntry.headersFlushed = true; bodyEntry.response.write('[');
+        await page.waitForFunction(n => window.__nativeActivity.bodies > n, bodiesBefore);
+        const bodyAbortsBefore = await page.evaluate(() => window.__nativeActivity.bodyAborts);
+        const bodyRequestCount = requests.length;
+        await page.clock.fastForward(4001);
+        await failed();
+        await page.waitForFunction(n => window.__nativeActivity.bodyAborts > n, bodyAbortsBefore);
+        await awaitClosed(bodyEntry);
+        assert.equal(await page.evaluate(i => window.__nativeActivity.signals[i].aborted, bodySignal), true);
+        assert.equal(requests.length, bodyRequestCount);
+        await page.locator('#history-load-status').scrollIntoViewIfNeeded();
+        await page.screenshot({path: path.join(outputDir, '320-native-body-deadline.png')});
+        await start('ready'); await ready();
+        report.nativeActivityDeadline.cases.push({case: 'incomplete-json-stream', headersAdvancedMs: 6000,
+            bodyAdvancedMs: 4001, nativeJsonAbort: true, serverClosedWithoutEnd: true,
+            noAutomaticRetry: true, explicitRetryRecovered: true});
+        report.checks.push('native loopback: one simulated 10s budget spans 6s headers plus stalled native JSON stream; abort closes body and explicit retry recovers');
+
+        const retired = await start('hold-headers');
+        const retiredSignal = await page.evaluate(() => window.__nativeActivity.signals.length - 1);
+        await start('ready'); await ready();
+        await awaitClosed(retired);
+        assert.equal(await page.evaluate(i => window.__nativeActivity.signals[i].aborted, retiredSignal), true);
+        const requestCount = requests.length;
+        await page.clock.fastForward(10001);
+        await ready();
+        assert.equal(requests.length, requestCount);
+        assert.equal(await page.evaluate(() => historyReadCancel), null);
+        report.nativeActivityDeadline.cases.push({case: 'superseded-native-fetch', previousSignalAborted: true,
+            serverClosedWithoutEnd: true, retiredDeadlineCannotEraseSuccess: true, liveCancelHandleCleared: true});
+        report.checks.push('native loopback: explicit replacement aborts old HTTP read, closes its response and retires its timer without erasing new success');
+    } catch (error) {
+        if (page && !page.isClosed()) await page.screenshot({path: path.join(outputDir, 'native-deadline-failure.png')}).catch(() => {});
+        throw error;
+    } finally {
+        try {if (context) await context.close();}
+        finally {
+            // server.close may notify before a socket's close event. Register
+            // each close observer before destroy, then require both boundaries.
+            const closingSockets = [...sockets];
+            const socketClosures = closingSockets.map(socket => new Promise(resolve => socket.once('close', resolve)));
+            const serverClosed = new Promise(resolve => server.close(resolve));
+            for (const socket of closingSockets) socket.destroy();
+            let cleanupTimeout;
+            try {
+                await Promise.race([Promise.all([serverClosed, ...socketClosures]), new Promise((_, reject) => {
+                    cleanupTimeout = setTimeout(() => reject(new Error('native loopback cleanup did not finish')), 5000);
+                })]);
+            } finally {
+                clearTimeout(cleanupTimeout);
+                report.nativeActivityDeadline.cleanup = {serverClosed: !server.listening, socketsRemaining: sockets.size,
+                    individualSocketCloseEventsAwaited: true};
+                report.nativeActivityDeadline.requests = requests.map(({mode, headersFlushed, closed, ended}) => ({mode, headersFlushed, closed, ended}));
+            }
+            assert.equal(server.listening, false);
+            assert.equal(sockets.size, 0);
+        }
+    }
+}
 
 async function main() {
     assert.notEqual(process.getuid(), 0, 'browser must run as non-root');
@@ -913,11 +1088,19 @@ async function main() {
         holdHistory = true;
         await page.evaluate(() => {
             window.__historyBodyCompletions = 0;
+            window.__historyHeaders = 0;
             window.__historyFetchFailures = 0;
             window.__historyBodies = [];
+            window.__historySignals = [];
             const fetchBeforeHistory = window.fetch;
             window.fetch = async (...args) => {
                 const isHistory = String(args[0]).startsWith('/api/history?');
+                // These synthetic race cases intentionally ignore native abort;
+                // separate loopback checks below retain genuine cancellation.
+                if (isHistory) {
+                    window.__historySignals.push(args[1]?.signal);
+                    args[1] = {...args[1], signal: undefined};
+                }
                 let response;
                 try {response = await fetchBeforeHistory(...args);}
                 catch (error) {
@@ -925,6 +1108,7 @@ async function main() {
                     throw error;
                 }
                 if (!isHistory) return response;
+                window.__historyHeaders++;
                 const json = response.json.bind(response);
                 response.json = async () => {
                     try {
@@ -951,13 +1135,18 @@ async function main() {
             historyRequested = null;
             return pendingHistoryRoutes.length - 1;
         }
-        async function replyActivity(index, orders, holdBody = false) {
+        async function replyActivity(index, orders, holdBody = false, retiredHeaders = false) {
             const before = await page.evaluate(() => window.__historyBodyCompletions);
+            const headersBefore = await page.evaluate(() => window.__historyHeaders);
             const bodiesBefore = await page.evaluate(() => window.__historyBodies.length);
             await pendingHistoryRoutes[index].fulfill({contentType: 'application/json',
                 headers: holdBody ? {'X-Synthetic-History-Body': 'hold'} : {}, body: JSON.stringify(orders)});
             if (holdBody) await page.waitForFunction(n => window.__historyBodies.length > n, bodiesBefore);
-            else await page.waitForFunction(n => window.__historyBodyCompletions > n, before);
+            else if (retiredHeaders) {
+                await page.waitForFunction(n => window.__historyHeaders > n, headersBefore);
+                assert.equal(await page.evaluate(() => window.__historyBodyCompletions), before,
+                    'retired response headers must not start JSON parsing');
+            } else await page.waitForFunction(n => window.__historyBodyCompletions > n, before);
         }
         async function freshActivity() {
             assert.equal(await activityList.getAttribute('aria-busy'), 'false');
@@ -975,7 +1164,7 @@ async function main() {
         const overviewNewer = await beginActivity('#tab-ecosystem');
         await replyActivity(overviewNewer, [freshActivityOrder]);
         await freshActivity();
-        await replyActivity(historyOlder, [oldActivityOrder]);
+        await replyActivity(historyOlder, [oldActivityOrder], false, true);
         await freshActivity();
         const overviewOlder = await beginActivity('#tab-ecosystem');
         const historyNewer = await beginActivity('#tab-history');
@@ -1044,8 +1233,43 @@ async function main() {
         await orderSupport.scrollIntoViewIfNeeded();
         await page.screenshot({path: path.join(outputDir, `${viewport.width}-activity-recovered.png`)});
         report.checks.push(`${viewport.width}: empty success is distinct from failure; explicit retry honors the selected filter and restores current evidence plus keyboard support without overflow`);
+        // A timer must settle the UI even when the synthetic reader ignores
+        // AbortSignal. Clock advancement is simulated; native I/O is separate.
+        for (const bodyStall of [false, true]) {
+            const stalled = await beginActivity();
+            let bodyIndex;
+            if (bodyStall) {
+                await replyActivity(stalled, [oldActivityOrder], true);
+                bodyIndex = await page.evaluate(() => window.__historyBodies.length - 1);
+            }
+            const signalIndex = await page.evaluate(() => window.__historySignals.length - 1);
+            const requestCount = pendingHistoryRoutes.length;
+            await page.clock.fastForward(10001);
+            assert.equal(await activityList.getAttribute('aria-busy'), 'false');
+            assert.ok((await activityStatus.textContent()).includes('Не удалось'));
+            assert.ok((await activityList.textContent()).includes('История сейчас недоступна'));
+            assert.equal(await page.evaluate(i => window.__historySignals[i].aborted, signalIndex), true);
+            assert.equal(pendingHistoryRoutes.length, requestCount, 'timeout must not auto-retry');
+            await page.locator('[data-history-filter="pending"]').click();
+            assert.ok((await activityList.textContent()).includes('История сейчас недоступна'));
+            assert.equal(await activityList.locator('.btn-pay').count(), 0);
+            const retry = await beginActivity();
+            await page.locator('[data-history-filter="sent"]').click();
+            await replyActivity(retry, [freshActivityOrder]);
+            await freshActivity();
+            if (bodyStall) {
+                const before = await page.evaluate(() => window.__historyBodyCompletions);
+                await page.evaluate(i => window.__historyBodies[i].resolve(), bodyIndex);
+                await page.waitForFunction(n => window.__historyBodyCompletions > n, before);
+            } else await replyActivity(stalled, [oldActivityOrder], false, true);
+            await freshActivity();
+            report.checks.push(`${viewport.width}: simulated 10s deadline settles abort-ignoring ${bodyStall ? 'JSON body' : 'fetch'}; no automatic retry, filters retain error, explicit retry owns late completion`);
+        }
+        await orderSupport.scrollIntoViewIfNeeded();
+        await page.screenshot({path: path.join(outputDir, `${viewport.width}-activity-deadline-recovered.png`)});
         await context.close();
         }
+        await nativeActivityDeadlineChecks(browser);
         assert.equal(report.writerAttempts.length, 9);
         assert.equal(report.walletPreparations.length, 24);
         assert.equal(report.signingAttempts.length, 6);

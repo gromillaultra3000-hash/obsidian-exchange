@@ -1,0 +1,47 @@
+{
+  "recordedAt": "2026-09-08T01:19:49.528389+00:00",
+  "route": "E4 / ACTIVITY_REFRESH_DEADLINE",
+  "canonicalCriterion": "E4 unified notification/evidence/support centre; bounded truthful status and explicit retry",
+  "accountableOwner": "Project owner; manual continuation 2026-09-08; implementation Codex /root",
+  "baselineCommit": "d29ce2b6d5960ad14e94aaf29c788a1fcda31f3e",
+  "charterSha256": "d159a3f71ea21c57a4d73ea675f1c5ded76ea504b8c3f186ba166ed9218cfc80",
+  "charterUnchangedFromPriorIteration": true,
+  "capabilities": {
+    "implementation": "Codex primary; only product editor",
+    "acceptance": "Independent /root/support_acceptance; authored browser checks, baseline and next-prerequisite reproductions",
+    "security": "Independent context-poor /root/support_security; resource/deadline/API and runner whitelist review",
+    "browser": "Playwright skill; existing nobody/PrivateNetwork/ProtectHome Chrome runner; synthetic abort-ignoring faults plus a temporary loopback-only native HTTP server",
+    "ops": "Hash-bound atomic HTML replacement, rehearsal, public route and service identity checks",
+    "secrets": "Gitleaks staged scope",
+    "research": "Not needed for this repository-specific UI slice; no external component added"
+  },
+  "surfaceMatrix": {
+    "MiniApp": "REQUIRED: bounded shared overview/history read with retained retry/filter behavior",
+    "site": "READ_ONLY: existing /webapp GET; no separate site behavior change",
+    "TelegramBot": "READ_ONLY: unchanged fixed support entry, no automatic messages",
+    "API": "READ_ONLY: existing no-store owner-scoped history GET; synthetic native loopback tests only, public HTML health in production",
+    "admin": "N/A: no operator change",
+    "nativeWallet": "N/A: no custody or signing",
+    "KAIROS_LUMI": "N/A"
+  },
+  "autopilot": {
+    "state": "failed",
+    "MainPID": 0,
+    "reason": "UNCOMMITTED_NEW_FILES",
+    "action": "Leave stopped; no state or config change"
+  },
+  "custodySecretsMoneyWriters": "No changes, credentials, customer reads, messages, signing or money operations; 064A closed authority retained",
+  "boundedDecisions": [
+    "Use one 10000ms deadline across fetch and response-body read, with own Promise.race so an abort-ignoring body cannot hold the UI pending.",
+    "Abort and settle a prior read before the next invocation; clear its timer and only its own cancel handle. Preserve latest-request ownership.",
+    "Check monotonic expiry and abort both before body parsing and before accepting its result; refuse expired results even when timer delivery is delayed.",
+    "Failure uses existing accessible unavailable/retry state; no automatic retry or money navigation.",
+    "Retain synthetic ignored-abort race cases and independently verify native HTTP fetch/JSON abort and server-side closure inside a private loopback namespace."
+  ],
+  "limitations": [
+    "Browser timer delivery depends on JavaScript scheduling. The elapsed-time guards also reject late completions; no background-suspension wall-time guarantee is claimed.",
+    "Browser test clock advances are controlled/simulated; transport, native fetch/Response.json/AbortController and server response closure are genuine isolated HTTP behavior.",
+    "Real Telegram/iOS/WebKit, human comprehension and actual screen-reader announcements remain unverified.",
+    "No server-side revision/cross-session freshness or backend money-execution acceptance is implied."
+  ]
+}

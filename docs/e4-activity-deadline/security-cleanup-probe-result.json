@@ -1,0 +1,10 @@
+{
+  "result": "PASS",
+  "reviewer": "/root/support_security",
+  "runnerSha256": "aaa54e2889a45a1759c1411a99142c886f004d73d147a0b2f0a2ef44195e6927",
+  "checks": [
+    "server_close_before_socket_events_waits_for_all_sockets",
+    "missing_socket_close_times_out_without_false_pass"
+  ],
+  "scope": "Exact cleanup block under synthetic EventEmitter socket/server stubs; no server/network created."
+}

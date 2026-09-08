@@ -1,0 +1,168 @@
+{
+  "schemaVersion": "e4-activity-deadline-independent-security-review.v1",
+  "recordedAt": "2026-09-08T01:26:05.425215+00:00",
+  "route": "E4 / ACTIVITY_REFRESH_DEADLINE",
+  "result": "PASS",
+  "reviewer": {
+    "identity": "Codex independent subagent /root/support_security",
+    "role": "context-poor diff/security reviewer",
+    "model": "inherited parent model; exact model revision is not exposed",
+    "productEditor": false,
+    "reviewBase": "d29ce2b6d5960ad14e94aaf29c788a1fcda31f3e"
+  },
+  "tools": {
+    "node": "v22.22.3",
+    "browser": "152.0.7977.64",
+    "playwright": "1.62.0",
+    "skill": "/root/.codex/skills/security-best-practices/SKILL.md",
+    "skillGuidance": "javascript-general-web-frontend-security.md"
+  },
+  "scope": [
+    "Shipped history read deadline, cancellation ownership, monotonic acceptance guards and cleanup",
+    "New deadline VM scenarios and updated ordering harness",
+    "Browser synthetic abort-ignoring timing checks plus native loopback HTTP stream/server cleanup",
+    "Exact isolated browser launcher, deployment recipe and final test/browser/preflight/rollback evidence"
+  ],
+  "inputsSha256": {
+    "relay/webapp.html": "efcc97b6e41f8972b39163a876196f45fd8c5562dad23b5769634aac8ba7b499",
+    "tests/e4_review_browser.cjs": "aaa54e2889a45a1759c1411a99142c886f004d73d147a0b2f0a2ef44195e6927",
+    "tests/e4_activity_deadline_behavior.cjs": "48b85b7701ede6142e232be00abd0b930c6b54cdcc87feceffdb12dbff20b56f",
+    "tests/e4_activity_refresh_behavior.cjs": "84544256bfc5aef1f2cd7af768f6217d55771be92621ad9572426195ef29696b",
+    "deploy/e4_activity_deadline_rollout.py": "db2570b4e5ad1d9e2897aeb3a119c19ad46380ec392dc245a1070eb4981c52f3",
+    "tests/test_e4_activity_deadline_behavior.py": "8ebeccfd0937ba08752dcbc996f886a4be6cdaf1e429e3885b8f142cab33ca37",
+    "tests/test_e4_activity_refresh_behavior.py": "ab3798379d4c445ebec27306829c6781e372886bef65de7522fad7c1619e298b",
+    "tests/test_e4_order_support_behavior.py": "b5e5f3b53b484a85c0ece511e96925b5b42d9de94fc62004107922c82c40b988",
+    "tests/test_e4_activity_notifications.py": "8b3be137d6d64f17e1d12aaa203e80bc856abe83e6cc19d7253c83e0b7f6c908",
+    "tests/test_e4_public_support_path.py": "04f36a7270fce9aaa3281ae35f8b093ed40aa841a4053b375c26525b19491769",
+    "tests/test_unified_portfolio_ui.py": "250796a1f514cba3ae701b5f14d45420cf22124bebb43c7dd4c0810c64c7fb54",
+    "tests/test_e4_payment_requisites_copy_behavior.py": "3b0e45d530c32e872ac54222120544e4bd63467cf1e33373d44105b7b8230a3a",
+    "tests/test_e4_payment_instruction_behavior.py": "b425ababa71e51d8f977214303553bd011509d2bb5dd9c8a0bf2ea2ef218b3ea",
+    "tests/test_e4_receive_copy_behavior.py": "bb2738ab5c0a41f496db0dfecdf73918094199b7f2cdff4cb359c414a5bdbb5b",
+    "tests/test_e4_review_browser_runner.py": "10e63f75d216cd5a11a4c6c883db7d15a134d00088a3f6a41b8deb80b375a98b",
+    "tests/test_e4_exchange_review_ui.py": "15da942a4d78a3d1271d04ba642c857d4408e27ede66ea58441710e347325c36",
+    "tests/test_e4_recipient_review_behavior.py": "0dba9cc3e4b4a490b8d88705434968a53b487698a444aa1b512326bd238d5ccf",
+    "tests/test_e4_responsive_navigation.py": "5758be025dd2f1e318c304ee4d771d70dc7ad2fda5506077958098dfe493292d",
+    "tests/test_e4_miniapp_browser_shell.py": "f1266129d2f2c84e9fd7c5847bba0a1b5f0ff27d0e7695249e6554202e6312fd",
+    "scripts/run_e4_review_browser.py": "6f4c9bf3020ae80b323655333a1eb3697eca4d44672ef6d28c679749136c412b"
+  },
+  "findings": [],
+  "addressedFindings": [
+    {
+      "id": "SECURITY-RESOURCE-01",
+      "severity": "Low",
+      "issue": "An abort-ignoring retired fetch could deliver headers and start unnecessary JSON parsing after the outer read had settled.",
+      "disposition": "Accepted and fixed by primary editor. Aborted/monotonic guard after fetch prevents parsing retired or expired headers; independent probe verifies bodyCalls zero."
+    },
+    {
+      "id": "REVIEW-HARNESS-02",
+      "severity": "Verification issue",
+      "issue": "Old browser reply helper awaited JSON completion even for retired headers that final product correctly declines to parse.",
+      "disposition": "Fixed by acceptance reviewer. Exact frozen helper observes header completion and separately asserts no JSON body completion for retired headers."
+    },
+    {
+      "id": "REVIEW-CLEANUP-03",
+      "severity": "Verification issue",
+      "issue": "First browser attempt reached all 153 checks but server.close returned before one tracked socket close event; zero-socket cleanup assertion failed.",
+      "disposition": "FAIL receipt retained. Acceptance reviewer registers close listeners before destroy and awaits server plus every owned socket close under unchanged five-second limit. Independent synthetic ordering/timeout checks pass, and fresh full run reports server closed, zero sockets and isolated-unit cleanup."
+    },
+    {
+      "id": "REVIEW-SCAN-04",
+      "severity": "False-positive scanner metadata match",
+      "issue": "Generic API-key rule matched public source hashes when token-named source paths were used as JSON map keys in two next-prerequisite receipts.",
+      "disposition": "Independently verified the value as the tracked source file SHA-256. Provenance was restructured into path/sha256 objects and regenerated without suppression; primary final Gitleaks report has zero findings. Original redacted matches and classification remain retained."
+    }
+  ],
+  "verification": {
+    "independentDeadlineProbe": "PASS; 19 grouped checks: fetch/body stalls with honored/ignored abort, one 9000+1000ms budget, missing APIs, completions at 9999/10000/10001ms with timer delivery withheld, stale success/rejection, cancel-handle identity, and 100 supersessions retaining one timer/live signal then clearing all application handles.",
+    "independentUnhandledRejections": 0,
+    "directBehaviorHarness": "PASS; all 25 new deadline scenarios independently executed through Node.",
+    "baseline": "Pinned d29ce2b HTML 6842d35c... reproduces fetch and JSON-body reads still loading after a simulated 30-second scheduler horizon.",
+    "baselineProbeTargetNote": "An initial baseline-mode run observed the already-changing candidate rather than legacy behavior. The immutable baseline rerun above corrected the probe target; it was not a candidate regression.",
+    "mutations": "Reviewed both retained killed mutations: abort-only cannot settle an abort-ignoring fetch, and removing elapsed-time checks accepts an expired result.",
+    "focusedTests": "213 PASS; current 19 receipt inputs and raw stdout digest independently verified. Full suite execution performed by primary agent.",
+    "browser": "153 PASS; final product and runner hashes match, pageErrors empty. Run performed by primary/acceptance workflow.",
+    "nativeIO": "Three genuine native cases pass inside PrivateNetwork loopback: stalled headers, incomplete JSON stream after 6000ms controlled header delay plus 4001ms body delay, and superseded fetch. Signals abort, server responses close without server end, explicit retries recover, and no automatic retries occur.",
+    "nativeCleanup": "Final serverClosed true, socketsRemaining zero, all individual socket close events awaited; independent stub probe verifies early server callback cannot pass and missing socket close triggers bounded failure.",
+    "screenshotsInspected": [
+      "320-native-body-deadline.png",
+      "390-activity-deadline-recovered.png"
+    ],
+    "isolation": "Final unit inactive/collected, MainPID zero, empty cgroup, process exit zero; nobody, Chromium sandbox, PrivateNetwork and ProtectHome enforced by reviewed launcher.",
+    "preflightAndRollback": "Reviewed matching OLD6842d35c/NEWefcc97b6 hashes, public GET200/POST405/exact rendered template and unchanged active service identities; same fsynced atomic replacement rollback rehearsal returns exact OLD with no production touch.",
+    "diffCheck": "PASS",
+    "secretScan": {
+      "result": "PASS",
+      "scanner": "Gitleaks 8.30 per primary run",
+      "finalReport": "output/manual/e4-activity-deadline-20260908/final-gitleaks.json",
+      "findings": 0,
+      "verifiedPublicSourceDigest": {
+        "path": "relay/utils/tokens.py",
+        "sha256": "66154208ce8958a35135551bcf2663474732158a4128d86dbd9ee9ca3bde4a28"
+      },
+      "reviewMethod": "Read final empty report, independently recomputed source digest and verified both regenerated path/sha256 provenance entries; scanner execution performed by primary agent."
+    }
+  },
+  "browserAttemptDisposition": [
+    {
+      "attempt": 1,
+      "result": "FAIL",
+      "runnerSha256": "1b8e12574b590e5a0d05c07a7de6d69984cbdfcfde0d97977907a3cc52bf4bd5",
+      "functionalChecksReached": 153,
+      "pageErrors": 0,
+      "cleanup": {
+        "serverClosed": true,
+        "socketsRemaining": 1
+      },
+      "isolatedUnitCleanupVerified": true,
+      "disposition": "Retained as failed verification; no product rollout justified by this attempt."
+    },
+    {
+      "attempt": 2,
+      "result": "PASS",
+      "runnerSha256": "aaa54e2889a45a1759c1411a99142c886f004d73d147a0b2f0a2ef44195e6927",
+      "checks": 153,
+      "cleanup": {
+        "serverClosed": true,
+        "socketsRemaining": 0,
+        "individualSocketCloseEventsAwaited": true
+      },
+      "isolatedUnitCleanupVerified": true,
+      "disposition": "Fresh verification after explicit close-event synchronization; assertions and budgets remain intact."
+    }
+  ],
+  "securityAssessment": [
+    "The independent stopped promise settles the application read when a transport/body reader ignores abort; native AbortController cancels compliant fetch and JSON streams. One monotonic budget spans headers and body.",
+    "Monotonic guards before JSON parsing and before result acceptance reject expired data even if timeout callback delivery is delayed. Superseded requests abort and settle without replacing current loading/error/ready state.",
+    "Finally clears only its own cancellation handle and deadline. Late fulfillment/rejection cannot create stale UI or unhandled promise rejection, and explicit retry gets a fresh controller and deadline.",
+    "Native test server binds ephemeral 127.0.0.1 inside the existing private network unit and serves only fixed GET /webapp and synthetic GET /api/history. Browser continuation additionally requires exact local origin, GET and one of those two paths; every other request aborts. No host/application/customer endpoint is permitted.",
+    "Native server cleanup awaits every tracked socket and server closure under a fixed limit, while supervisor cleanup independently reaps the entire unit. Test dependency addition is Node built-in http only.",
+    "Deployment remains one exact-hash HTML replacement with retained fsynced preimage and atomic rollback, inactive/failed autopilot/MainPID-zero guard and unchanged service identities; no service/database writer expansion."
+  ],
+  "limitations": [
+    "Deadline tests use controlled monotonic/browser clocks; genuine native I/O cancellation is proven, but ten seconds of real elapsed network time is not claimed.",
+    "A suspended or blocked JavaScript event loop can delay visible timeout handling. Once execution resumes, expired results are rejected; this is not a hard real-time guarantee.",
+    "Application timers/cancel ownership/outer promises are bounded; arbitrary third-party promises that ignore abort cannot be forced to release their internal resources. Native tested streams do close.",
+    "This bounded diff review does not certify the entire existing application, complete malformed-row/action-URL schema validation, or close E4/earlier gates.",
+    "No real customer API/data, support message, money, signing, credentials, production or 064A action was performed by this reviewer. Real Telegram/iOS/WebKit, human comprehension and screen-reader announcements remain unverified.",
+    "Predeployment review; actual rollout/runtime verification remains primary-agent responsibility."
+  ],
+  "evidenceSha256": {
+    "docs/e4-activity-deadline/security-probe.cjs": "f7b8fd4efa3b4fa40cd0146ad40241d0376937694a7c9ff2fd5c74d412c9855e",
+    "docs/e4-activity-deadline/security-probe-result.json": "4e90bdce8856a555c0a02676d46bc88d894e18da3755f8c71081f3dcf92d8f41",
+    "docs/e4-activity-deadline/security-baseline-result.json": "d6b639cf17554c384c8e974a3aa73244cbbb57f4315b4918beee2534a3a817d0",
+    "docs/e4-activity-deadline/security-behavior-result.json": "74c5fe670b48678082c47c9c8714deda7d5166ac493ccc575854c1264143d3ba",
+    "docs/e4-activity-deadline/security-cleanup-probe-result.json": "f76d9862a135f9b2425a99834d446020ee07995c0ba5f8471fa42f2e01858ac6",
+    "docs/e4-activity-deadline/tests.json": "a4f9a6105e4b1b48e65e0361eca3609fd58d448641219081274c31710385e2b8",
+    "docs/e4-activity-deadline/report.json": "c0a007ee03f794a308b51056f33171c7ac58147722d1260ecaa42c7874946879",
+    "docs/e4-activity-deadline/isolation.json": "a091fec693be6364fb8b3f9468fcbcddbc85b1157473cba9854de691b1b55b36",
+    "docs/e4-activity-deadline/preflight.json": "b5256f60129db8db0294f600bb34913b3dadaa7177c6b23139f6ceb43d630b03",
+    "docs/e4-activity-deadline/rollback-rehearsal.json": "b790269c98ddaef02753031de1fb949f137d19d5a3dd2d9dc4d278e018e4fcdf",
+    "docs/e4-activity-deadline/mutations.json": "45237294cc4d20802e489817f9706ef77eeefa278ac83b634c0c2a136eeeecb0",
+    "docs/e4-activity-deadline/browser-attempts.json": "7a284a60fae687e8d2b5129b130fdef296ffe507d7e96f79299a83bd0f428a34",
+    "docs/e4-activity-deadline/browser-attempt-1.json": "9ccb808765afd08e3b880e02d80fc794fda82b04bf9601a5342482a983309884",
+    "docs/e4-activity-deadline/browser-attempt-1-isolation.json": "fe1cc6e5638d4652033fc988fdc74c1efe1598e9c79129d2ac013092f6cf2e7d",
+    "docs/e4-activity-deadline/secret-scan-disposition.json": "bee8630b9cb6a881f786ed850dad868b83f34b00834e2b96bf7395dd9674adbb",
+    "docs/e4-activity-deadline/secret-scan-metadata-findings.json": "e0762faf2b652bcffb5824a975716589e00433f368c03313c4962bfd26115e24",
+    "output/manual/e4-activity-deadline-20260908/final-gitleaks.json": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+  }
+}

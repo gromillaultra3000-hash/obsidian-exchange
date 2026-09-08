@@ -1,0 +1,29 @@
+{
+  "reviewer": "/root/support_security",
+  "node": "v22.22.3",
+  "result": "PASS",
+  "sourceSha256": "efcc97b6e41f8972b39163a876196f45fd8c5562dad23b5769634aac8ba7b499",
+  "checks": [
+    "fetch_deadline_abort_ignored_late_reject_and_retry",
+    "body_deadline_abort_ignored_late_reject_and_retry",
+    "fetch_deadline_abort_honored_late_reject_and_retry",
+    "body_deadline_abort_honored_late_reject_and_retry",
+    "fetch_9000ms_plus_body_1000ms_share_one_total_deadline",
+    "missing_AbortController_fails_closed_without_timer_retention",
+    "missing_performance_fails_closed_without_timer_retention",
+    "missing_fetch_fails_closed_without_timer_retention",
+    "fetch_completion_at_9999_without_timer_delivery",
+    "body_completion_at_9999_without_timer_delivery",
+    "fetch_completion_at_10000_without_timer_delivery",
+    "body_completion_at_10000_without_timer_delivery",
+    "fetch_completion_at_10001_without_timer_delivery",
+    "body_completion_at_10001_without_timer_delivery",
+    "superseded_fetch_success_settles_without_stale_ui_or_cancel_handle_loss",
+    "superseded_fetch_reject_settles_without_stale_ui_or_cancel_handle_loss",
+    "superseded_body_success_settles_without_stale_ui_or_cancel_handle_loss",
+    "superseded_body_reject_settles_without_stale_ui_or_cancel_handle_loss",
+    "100_ignored_abort_supersessions_retain_one_timer_one_live_signal_all_outer_reads_settle"
+  ],
+  "unhandledRejections": [],
+  "scope": "Synthetic VM timers/fetch only; no network, customer data, messages, money, service or 064A actions."
+}

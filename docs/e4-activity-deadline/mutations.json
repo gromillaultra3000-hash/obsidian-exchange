@@ -1,0 +1,21 @@
+{
+  "recordedAt": "2026-09-08T01:18:00.217687+00:00",
+  "sourceSha256": "efcc97b6e41f8972b39163a876196f45fd8c5562dad23b5769634aac8ba7b499",
+  "result": "MUTATIONS_KILLED",
+  "runs": [
+    {
+      "mutation": "abort_only",
+      "scenario": "fetch_stall",
+      "exitCode": 1,
+      "mutantSha256": "592c21ed9bae06a717a920d98ae172f4bbe104e5d8f8b34a2ecadef44c59f8ac",
+      "stderr": "AssertionError [ERR_ASSERTION]: deadline must settle even when read ignores abort\n\nfalse !== true\n\n    at main (/root/tests/e4_activity_deadline_behavior.cjs:45:33) {\n  generatedMessage: false,\n  code: 'ERR_ASSERTION',\n  actual: false,\n  expected: true,\n  operator: 'strictEqual',\n  diff: 'simple'\n}\n"
+    },
+    {
+      "mutation": "no_elapsed_guard",
+      "scenario": "success_after",
+      "exitCode": 1,
+      "mutantSha256": "ebb9fc8e5874b74ea6bbb4b426b71979767dfad4f741ed4496fe588c9ce053c7",
+      "stderr": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n'ready' !== 'error'\n\n    at failed (/root/tests/e4_activity_deadline_behavior.cjs:35:26)\n    at main (/root/tests/e4_activity_deadline_behavior.cjs:81:15) {\n  generatedMessage: true,\n  code: 'ERR_ASSERTION',\n  actual: 'ready',\n  expected: 'error',\n  operator: 'strictEqual',\n  diff: 'simple'\n}\n"
+    }
+  ]
+}

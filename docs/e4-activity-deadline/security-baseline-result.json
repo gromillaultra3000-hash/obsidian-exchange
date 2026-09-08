@@ -1,0 +1,8 @@
+{
+  "result": "BASELINE_DEFECT_REPRODUCED",
+  "checks": [
+    "fetch_still_loading_after_simulated_30_seconds",
+    "body_still_loading_after_simulated_30_seconds"
+  ],
+  "sourceSha256": "6842d35ccb8d7bbbf2cac709cbc02c64d47bff527a5acda9699c4897d8b1da05"
+}

@@ -1,0 +1,19 @@
+{
+  "recordedAt": "2026-09-08T01:31:48.653810+00:00",
+  "result": "PASS",
+  "reason": "Resume interrupted manual slice; code and review inputs unchanged",
+  "reviewAndTestDigestChecks": {
+    "tests.json:inputSha256": 19,
+    "acceptance-review.json:inputsSha256": 39,
+    "security-review.json:inputsSha256": 20,
+    "security-review.json:evidenceSha256": 17
+  },
+  "rawTestOutputDigestMatches": true,
+  "stagedFiles": 35,
+  "stagedEqualsWorktree": true,
+  "stagedGitleaksFindings": 0,
+  "autopilotOwnerInstruction": "Leave stopped; explicit current user instruction",
+  "productTestsRerun": false,
+  "browserRerun": false,
+  "reviewReuse": "Existing independent PASS reviews apply to unchanged exact source and evidence; no new reviews claimed"
+}
