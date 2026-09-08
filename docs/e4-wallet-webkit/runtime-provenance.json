@@ -1,0 +1,450 @@
+{
+  "schema_version": 1,
+  "observed_at": "2026-09-08T22:54:21.044268+00:00",
+  "scope": "E4 WALLET_HANDOFF_WEBKIT_ACCEPTANCE, isolated dependency staging only",
+  "host_packages_installed": false,
+  "apt_update_run": false,
+  "browser_launched_by_this_task": false,
+  "runtime_root": "/tmp/e4-webkit-runtime",
+  "browser_root": "/tmp/e4-webkit-runtime/browsers",
+  "library_path": "/tmp/e4-webkit-runtime/deps/usr/lib/x86_64-linux-gnu",
+  "package_count": 18,
+  "packages": [
+    {
+      "name": "libabsl20220623t64",
+      "version": "20220623.1-3.1ubuntu3.2",
+      "architecture": "amd64",
+      "deb": "/tmp/e4-webkit-runtime/debs/libabsl20220623t64_20220623.1-3.1ubuntu3.2_amd64.deb",
+      "sha256": "dec97687bc3bc4edbd1c26bc9182f7584e3ff1c36a9bb7ce80211951e5a5893d",
+      "apt_metadata_sha256_match": true,
+      "ubuntu_archive_url": "http://archive.ubuntu.com/ubuntu/pool/main/a/abseil/libabsl20220623t64_20220623.1-3.1ubuntu3.2_amd64.deb",
+      "apt_policy": "libabsl20220623t64:\n  Installed: (none)\n  Candidate: 20220623.1-3.1ubuntu3.2\n  Version table:\n     20220623.1-3.1ubuntu3.2 500\n        500 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 Packages\n        500 http://security.ubuntu.com/ubuntu noble-security/main amd64 Packages\n     20220623.1-3.1ubuntu3 500\n        500 http://archive.ubuntu.com/ubuntu noble/main amd64 Packages\n",
+      "license_file": "/tmp/e4-webkit-runtime/deps/usr/share/doc/libabsl20220623t64/copyright",
+      "license_sha256": "99befb809ebab87d8e4bdd686788f50cc2eb01705d8744bd7e740f73f931e501",
+      "declared_dependencies": "libc6 (>= 2.38), libgcc-s1 (>= 3.0), libstdc++6 (>= 11)"
+    },
+    {
+      "name": "libavif16",
+      "version": "1.0.4-1ubuntu3",
+      "architecture": "amd64",
+      "deb": "/tmp/e4-webkit-runtime/debs/libavif16_1.0.4-1ubuntu3_amd64.deb",
+      "sha256": "b295a9954a4b756af05ff381d9808f3c0c582a111b7e4c7678cfe13de9ae8818",
+      "apt_metadata_sha256_match": true,
+      "ubuntu_archive_url": "http://archive.ubuntu.com/ubuntu/pool/universe/liba/libavif/libavif16_1.0.4-1ubuntu3_amd64.deb",
+      "apt_policy": "libavif16:\n  Installed: (none)\n  Candidate: 1.0.4-1ubuntu3\n  Version table:\n     1.0.4-1ubuntu3 500\n        500 http://archive.ubuntu.com/ubuntu noble/universe amd64 Packages\n",
+      "license_file": "/tmp/e4-webkit-runtime/deps/usr/share/doc/libavif16/copyright",
+      "license_sha256": "712d29faa2c0f02b88f571bc4520ebd1ee93facdfafe0a62f86460cb54b36775",
+      "declared_dependencies": "libaom3 (>= 3.2.0), libc6 (>= 2.34), libdav1d7 (>= 0.1.0), libgav1-1 (>= 0.18.0), librav1e0 (>= 0.5.1), libsharpyuv0 (>= 1.3.2), libsvtav1enc1d1 (>= 1.7.0+dfsg), libyuv0 (>= 0.0~git20221206)"
+    },
+    {
+      "name": "libcairo-script-interpreter2",
+      "version": "1.18.0-3build1",
+      "architecture": "amd64",
+      "deb": "/tmp/e4-webkit-runtime/debs/libcairo-script-interpreter2_1.18.0-3build1_amd64.deb",
+      "sha256": "e104466e7d816672a711db42746af528d210197231f12e3c712c06ac9a79b214",
+      "apt_metadata_sha256_match": true,
+      "ubuntu_archive_url": "http://archive.ubuntu.com/ubuntu/pool/main/c/cairo/libcairo-script-interpreter2_1.18.0-3build1_amd64.deb",
+      "apt_policy": "libcairo-script-interpreter2:\n  Installed: (none)\n  Candidate: 1.18.0-3build1\n  Version table:\n     1.18.0-3build1 500\n        500 http://archive.ubuntu.com/ubuntu noble/main amd64 Packages\n",
+      "license_file": "/tmp/e4-webkit-runtime/deps/usr/share/doc/libcairo-script-interpreter2/copyright",
+      "license_sha256": "408fb9e704e875cd42d432e7c9b3b378f568e3c89db2b5c5ef3d11c025319574",
+      "declared_dependencies": "libc6 (>= 2.29), libcairo2 (= 1.18.0-3build1), libfontconfig1 (>= 2.12.6), libfreetype6 (>= 2.2.1), liblzo2-2 (>= 2.02), zlib1g (>= 1:1.1.4)"
+    },
+    {
+      "name": "libenchant-2-2",
+      "version": "2.3.3-2build2",
+      "architecture": "amd64",
+      "deb": "/tmp/e4-webkit-runtime/debs/libenchant-2-2_2.3.3-2build2_amd64.deb",
+      "sha256": "4faecb5cee57ff00649b3ea4d83c072d9da2670797b7d2854708ff60cef17426",
+      "apt_metadata_sha256_match": true,
+      "ubuntu_archive_url": "http://archive.ubuntu.com/ubuntu/pool/main/e/enchant-2/libenchant-2-2_2.3.3-2build2_amd64.deb",
+      "apt_policy": "libenchant-2-2:\n  Installed: (none)\n  Candidate: 2.3.3-2build2\n  Version table:\n     2.3.3-2build2 500\n        500 http://archive.ubuntu.com/ubuntu noble/main amd64 Packages\n",
+      "license_file": "/tmp/e4-webkit-runtime/deps/usr/share/doc/libenchant-2-2/copyright",
+      "license_sha256": "1eb67527e9f1250178522b816961cd7ce09042f38697b60c1865132abdcecb1a",
+      "declared_dependencies": "hunspell-en-us | hunspell-dictionary | myspell-dictionary | aspell-dictionary | ispell-dictionary, libaspell15 (>= 0.60.8.1), libc6 (>= 2.33), libgcc-s1 (>= 3.3.1), libglib2.0-0t64 (>= 2.28.0), libhunspell-1.7-0, libstdc++6 (>= 5.2), zlib1g (>= 1:1.1.4)"
+    },
+    {
+      "name": "libevent-2.1-7t64",
+      "version": "2.1.12-stable-9ubuntu2.1",
+      "architecture": "amd64",
+      "deb": "/tmp/e4-webkit-runtime/debs/libevent-2.1-7t64_2.1.12-stable-9ubuntu2.1_amd64.deb",
+      "sha256": "0267a54c9c5678c1ef509e87344b5182b46b93b71b48d12e0132a5f2116d8f1f",
+      "apt_metadata_sha256_match": true,
+      "ubuntu_archive_url": "http://archive.ubuntu.com/ubuntu/pool/main/libe/libevent/libevent-2.1-7t64_2.1.12-stable-9ubuntu2.1_amd64.deb",
+      "apt_policy": "libevent-2.1-7t64:\n  Installed: (none)\n  Candidate: 2.1.12-stable-9ubuntu2.1\n  Version table:\n     2.1.12-stable-9ubuntu2.1 500\n        500 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 Packages\n        500 http://security.ubuntu.com/ubuntu noble-security/main amd64 Packages\n     2.1.12-stable-9ubuntu2 500\n        500 http://archive.ubuntu.com/ubuntu noble/main amd64 Packages\n",
+      "license_file": "/tmp/e4-webkit-runtime/deps/usr/share/doc/libevent-2.1-7t64/copyright",
+      "license_sha256": "d32d223a2f96bb222faa1f6d2b4573b512465b2b234f56e040a4d7daab060d69",
+      "declared_dependencies": "libc6 (>= 2.38)"
+    },
+    {
+      "name": "libgav1-1",
+      "version": "0.18.0-1build3",
+      "architecture": "amd64",
+      "deb": "/tmp/e4-webkit-runtime/debs/libgav1-1_0.18.0-1build3_amd64.deb",
+      "sha256": "428f353f449e6b15cdcf5823215416e36adcfba75fe9f0fedc1cd132d68e6b3f",
+      "apt_metadata_sha256_match": true,
+      "ubuntu_archive_url": "http://archive.ubuntu.com/ubuntu/pool/universe/libg/libgav1/libgav1-1_0.18.0-1build3_amd64.deb",
+      "apt_policy": "libgav1-1:\n  Installed: (none)\n  Candidate: 0.18.0-1build3\n  Version table:\n     0.18.0-1build3 500\n        500 http://archive.ubuntu.com/ubuntu noble/universe amd64 Packages\n",
+      "license_file": "/tmp/e4-webkit-runtime/deps/usr/share/doc/libgav1-1/copyright",
+      "license_sha256": "f59fe0f4c6233d87249d96e147cae7330c97f1a99275c23dfb4b999f9fcf234a",
+      "declared_dependencies": "libabsl20220623t64 (>= 0~20220623.0-1), libc6 (>= 2.34), libgcc-s1 (>= 3.3.1), libstdc++6 (>= 12)"
+    },
+    {
+      "name": "libgraphene-1.0-0",
+      "version": "1.10.8-3build2",
+      "architecture": "amd64",
+      "deb": "/tmp/e4-webkit-runtime/debs/libgraphene-1.0-0_1.10.8-3build2_amd64.deb",
+      "sha256": "5276c4173bff30bd2a368cce30639227089512aad85fc4af87c284456bafe8ff",
+      "apt_metadata_sha256_match": true,
+      "ubuntu_archive_url": "http://archive.ubuntu.com/ubuntu/pool/main/g/graphene/libgraphene-1.0-0_1.10.8-3build2_amd64.deb",
+      "apt_policy": "libgraphene-1.0-0:\n  Installed: (none)\n  Candidate: 1.10.8-3build2\n  Version table:\n     1.10.8-3build2 500\n        500 http://archive.ubuntu.com/ubuntu noble/main amd64 Packages\n",
+      "license_file": "/tmp/e4-webkit-runtime/deps/usr/share/doc/libgraphene-1.0-0/copyright",
+      "license_sha256": "59477df6c16df1f26679ea572b611be5c87c81e8842409086b38f8a0e7ff6743",
+      "declared_dependencies": "libc6 (>= 2.4), libglib2.0-0 (>= 2.14.0)"
+    },
+    {
+      "name": "libgstreamer-gl1.0-0",
+      "version": "1.24.2-1ubuntu0.4",
+      "architecture": "amd64",
+      "deb": "/tmp/e4-webkit-runtime/debs/libgstreamer-gl1.0-0_1.24.2-1ubuntu0.4_amd64.deb",
+      "sha256": "95200fbc93b7e88ccb451d7546cbf824189d9cefac0c9053be0246b9d0db8449",
+      "apt_metadata_sha256_match": true,
+      "ubuntu_archive_url": "http://archive.ubuntu.com/ubuntu/pool/main/g/gst-plugins-base1.0/libgstreamer-gl1.0-0_1.24.2-1ubuntu0.4_amd64.deb",
+      "apt_policy": "libgstreamer-gl1.0-0:\n  Installed: (none)\n  Candidate: 1.24.2-1ubuntu0.4\n  Version table:\n     1.24.2-1ubuntu0.4 500\n        500 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 Packages\n        500 http://security.ubuntu.com/ubuntu noble-security/main amd64 Packages\n     1.24.2-1 500\n        500 http://archive.ubuntu.com/ubuntu noble/main amd64 Packages\n",
+      "license_file": "/tmp/e4-webkit-runtime/deps/usr/share/doc/libgstreamer-gl1.0-0/copyright",
+      "license_sha256": "1562456a438eb6d92bd04548bc136c5459edc486eea33230470a2ca13c18a9ed",
+      "declared_dependencies": "libc6 (>= 2.14), libdrm2 (>= 2.4.55), libegl1, libgbm1 (>= 8.1~0), libgl1, libglib2.0-0t64 (>= 2.79.0), libgstreamer-plugins-base1.0-0 (>= 1.23.1), libgstreamer1.0-0 (>= 1.24.0), libgudev-1.0-0 (>= 165), libwayland-client0 (>= 1.20.0), libwayland-cursor0 (>= 1.11), libwayland-egl1 (>= 1.15.0), libx11-6, libx11-xcb1 (>= 2:1.8.7), libxcb1"
+    },
+    {
+      "name": "libgstreamer-plugins-bad1.0-0",
+      "version": "1.24.2-1ubuntu4",
+      "architecture": "amd64",
+      "deb": "/tmp/e4-webkit-runtime/debs/libgstreamer-plugins-bad1.0-0_1.24.2-1ubuntu4_amd64.deb",
+      "sha256": "6e8da41c0cbb2070f3477cf02360c2ce2eb55e825ba09e12b4270b3254e04f45",
+      "apt_metadata_sha256_match": true,
+      "ubuntu_archive_url": "http://archive.ubuntu.com/ubuntu/pool/universe/g/gst-plugins-bad1.0/libgstreamer-plugins-bad1.0-0_1.24.2-1ubuntu4_amd64.deb",
+      "apt_policy": "libgstreamer-plugins-bad1.0-0:\n  Installed: (none)\n  Candidate: 1.24.2-1ubuntu4\n  Version table:\n     1.24.2-1ubuntu4 500\n        500 http://archive.ubuntu.com/ubuntu noble/universe amd64 Packages\n",
+      "license_file": "/tmp/e4-webkit-runtime/deps/usr/share/doc/libgstreamer-plugins-bad1.0-0/copyright",
+      "license_sha256": "ad85da1e2e8b58b746a1aee2aebad4b86364e7e3cc4d251725f6dcf6e1b1c77c",
+      "declared_dependencies": "libc6 (>= 2.38), libdrm2 (>= 2.4.98), libgcc-s1 (>= 3.3.1), libglib2.0-0t64 (>= 2.79.0), libgstreamer-gl1.0-0 (>= 1.24.0), libgstreamer-plugins-base1.0-0 (>= 1.24.0), libgstreamer1.0-0 (>= 1.24.0), libnice10 (>= 0.1.21), libstdc++6 (>= 5.2), libva-drm2 (>= 1.8), libva2 (>= 2.10.0), libvulkan1 (>= 1.3.204.0), libwayland-client0 (>= 1.20.0), libxcb1, libxkbcommon-x11-0 (>= 0.5.0), libxkbcommon0 (>= 0.5.0)"
+    },
+    {
+      "name": "libgstreamer-plugins-base1.0-0",
+      "version": "1.24.2-1ubuntu0.4",
+      "architecture": "amd64",
+      "deb": "/tmp/e4-webkit-runtime/debs/libgstreamer-plugins-base1.0-0_1.24.2-1ubuntu0.4_amd64.deb",
+      "sha256": "508f0a23fab878be69390cd3f5d94024541875dc7034b64becb1c72241508afc",
+      "apt_metadata_sha256_match": true,
+      "ubuntu_archive_url": "http://archive.ubuntu.com/ubuntu/pool/main/g/gst-plugins-base1.0/libgstreamer-plugins-base1.0-0_1.24.2-1ubuntu0.4_amd64.deb",
+      "apt_policy": "libgstreamer-plugins-base1.0-0:\n  Installed: (none)\n  Candidate: 1.24.2-1ubuntu0.4\n  Version table:\n     1.24.2-1ubuntu0.4 500\n        500 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 Packages\n        500 http://security.ubuntu.com/ubuntu noble-security/main amd64 Packages\n     1.24.2-1 500\n        500 http://archive.ubuntu.com/ubuntu noble/main amd64 Packages\n",
+      "license_file": "/tmp/e4-webkit-runtime/deps/usr/share/doc/libgstreamer-plugins-base1.0-0/copyright",
+      "license_sha256": "1562456a438eb6d92bd04548bc136c5459edc486eea33230470a2ca13c18a9ed",
+      "declared_dependencies": "libc6 (>= 2.33), libdrm2 (>= 2.4.74), libglib2.0-0t64 (>= 2.79.0), libgstreamer1.0-0 (>= 1.24.0), liborc-0.4-0t64 (>= 1:0.4.34), zlib1g (>= 1:1.1.4), iso-codes"
+    },
+    {
+      "name": "libgtk-4-1",
+      "version": "4.14.5+ds-0ubuntu0.10",
+      "architecture": "amd64",
+      "deb": "/tmp/e4-webkit-runtime/debs/libgtk-4-1_4.14.5+ds-0ubuntu0.10_amd64.deb",
+      "sha256": "2361861e33d34a26f3d6c4906935fd9e6241eb44ff30564cb493b5671111a24f",
+      "apt_metadata_sha256_match": true,
+      "ubuntu_archive_url": "http://archive.ubuntu.com/ubuntu/pool/main/g/gtk4/libgtk-4-1_4.14.5+ds-0ubuntu0.10_amd64.deb",
+      "apt_policy": "libgtk-4-1:\n  Installed: (none)\n  Candidate: 4.14.5+ds-0ubuntu0.10\n  Version table:\n     4.14.5+ds-0ubuntu0.10 500\n        500 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 Packages\n     4.14.2+ds-1ubuntu1 500\n        500 http://archive.ubuntu.com/ubuntu noble/main amd64 Packages\n",
+      "license_file": "/tmp/e4-webkit-runtime/deps/usr/share/doc/libgtk-4-1/copyright",
+      "license_sha256": "80dbd8f96d34cfa5ca516b5b07914355b5d923bb601bcc977a16bccfa0ab6232",
+      "declared_dependencies": "adwaita-icon-theme, hicolor-icon-theme, shared-mime-info, libc6 (>= 2.38), libcairo-gobject2 (>= 1.10.0), libcairo-script-interpreter2 (>= 1.10.0), libcairo2 (>= 1.15.10), libcolord2 (>= 0.1.10), libcups2t64 (>= 1.7.0), libepoxy0 (>= 1.4.3), libfontconfig1 (>= 2.12.6), libfribidi0 (>= 0.19.2), libgdk-pixbuf-2.0-0 (>= 2.30.1), libglib2.0-0t64 (>= 2.79.0), libgraphene-1.0-0 (>= 1.10.0), libharfbuzz0b (>= 5.1.0), libjpeg8 (>= 8c), libpango-1.0-0 (>= 1.52.0), libpangocairo-1.0-0 (>= 1.52.0), libpangoft2-1.0-0 (>= 1.52.0), libpng16-16t64 (>= 1.6.2), libtiff6 (>= 4.0.3), libvulkan1 (>= 1.2.131.2), libwayland-client0 (>= 1.21.0), libwayland-egl1 (>= 1.21.0), libx11-6 (>= 2:1.4.99.1), libxcursor1 (>> 1.1.2), libxdamage1 (>= 1:1.1), libxext6, libxfixes3, libxi6 (>= 2:1.2.99.4), libxinerama1 (>= 2:1.1.4), libxkbcommon0 (>= 0.5.0), libxrandr2 (>= 2:1.5.0), libgles2, libgtk-4-common (>= 4.14.5+ds-0ubuntu0.10)"
+    },
+    {
+      "name": "libharfbuzz-icu0",
+      "version": "8.3.0-2build2",
+      "architecture": "amd64",
+      "deb": "/tmp/e4-webkit-runtime/debs/libharfbuzz-icu0_8.3.0-2build2_amd64.deb",
+      "sha256": "9098670758e60b190d7edf367ad57e954bfc1b2a616def3f4e281062e036a843",
+      "apt_metadata_sha256_match": true,
+      "ubuntu_archive_url": "http://archive.ubuntu.com/ubuntu/pool/main/h/harfbuzz/libharfbuzz-icu0_8.3.0-2build2_amd64.deb",
+      "apt_policy": "libharfbuzz-icu0:\n  Installed: (none)\n  Candidate: 8.3.0-2build2\n  Version table:\n     8.3.0-2build2 500\n        500 http://archive.ubuntu.com/ubuntu noble/main amd64 Packages\n",
+      "license_file": "/tmp/e4-webkit-runtime/deps/usr/share/doc/libharfbuzz-icu0/copyright",
+      "license_sha256": "6ffcef5a169fca847bc886b052bbe9a478754850621d8661ae4ea424b7eeb26e",
+      "declared_dependencies": "libc6 (>= 2.4), libharfbuzz0b (>= 0.9.4), libicu74 (>= 74.1-1~)"
+    },
+    {
+      "name": "libhyphen0",
+      "version": "2.8.8-7build3",
+      "architecture": "amd64",
+      "deb": "/tmp/e4-webkit-runtime/debs/libhyphen0_2.8.8-7build3_amd64.deb",
+      "sha256": "b508d3a5da168ddb2ae6e79ea0521ba64cd121285db0ece438d0bd56ba628556",
+      "apt_metadata_sha256_match": true,
+      "ubuntu_archive_url": "http://archive.ubuntu.com/ubuntu/pool/main/h/hyphen/libhyphen0_2.8.8-7build3_amd64.deb",
+      "apt_policy": "libhyphen0:\n  Installed: (none)\n  Candidate: 2.8.8-7build3\n  Version table:\n     2.8.8-7build3 500\n        500 http://archive.ubuntu.com/ubuntu noble/main amd64 Packages\n",
+      "license_file": "/tmp/e4-webkit-runtime/deps/usr/share/doc/libhyphen0/copyright",
+      "license_sha256": "3419e19f01880c9b319a6e80d89b5975185706a2b568aa634eb0efd6bde0856e",
+      "declared_dependencies": "libc6 (>= 2.14)"
+    },
+    {
+      "name": "libmanette-0.2-0",
+      "version": "0.2.7-1build2",
+      "architecture": "amd64",
+      "deb": "/tmp/e4-webkit-runtime/debs/libmanette-0.2-0_0.2.7-1build2_amd64.deb",
+      "sha256": "8fbb67e94abf563c01398ad7458df1a6824f19a0b4337f67d61c0889771805db",
+      "apt_metadata_sha256_match": true,
+      "ubuntu_archive_url": "http://archive.ubuntu.com/ubuntu/pool/main/libm/libmanette/libmanette-0.2-0_0.2.7-1build2_amd64.deb",
+      "apt_policy": "libmanette-0.2-0:\n  Installed: (none)\n  Candidate: 0.2.7-1build2\n  Version table:\n     0.2.7-1build2 500\n        500 http://archive.ubuntu.com/ubuntu noble/main amd64 Packages\n",
+      "license_file": "/tmp/e4-webkit-runtime/deps/usr/share/doc/libmanette-0.2-0/copyright",
+      "license_sha256": "f1bf59338bd942d3c75ae49968a0115e5f0bc98359476dbb579f0cd232cd6459",
+      "declared_dependencies": "libc6 (>= 2.4), libevdev2 (>= 1.4.5), libglib2.0-0t64 (>= 2.79.0), libgudev-1.0-0 (>= 146)"
+    },
+    {
+      "name": "liborc-0.4-0t64",
+      "version": "1:0.4.38-1ubuntu0.1",
+      "architecture": "amd64",
+      "deb": "/tmp/e4-webkit-runtime/debs/liborc-0.4-0t64_1%3a0.4.38-1ubuntu0.1_amd64.deb",
+      "sha256": "a546ca6e237748693596ba469e84a2e0581bc39113abc62b718931df00a4c682",
+      "apt_metadata_sha256_match": true,
+      "ubuntu_archive_url": "http://archive.ubuntu.com/ubuntu/pool/main/o/orc/liborc-0.4-0t64_0.4.38-1ubuntu0.1_amd64.deb",
+      "apt_policy": "liborc-0.4-0t64:\n  Installed: (none)\n  Candidate: 1:0.4.38-1ubuntu0.1\n  Version table:\n     1:0.4.38-1ubuntu0.1 500\n        500 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 Packages\n        500 http://security.ubuntu.com/ubuntu noble-security/main amd64 Packages\n     1:0.4.38-1build1 500\n        500 http://archive.ubuntu.com/ubuntu noble/main amd64 Packages\n",
+      "license_file": "/tmp/e4-webkit-runtime/deps/usr/share/doc/liborc-0.4-0t64/copyright",
+      "license_sha256": "3601f6d868864e700ffd87005f75c813a8652db0563f32dc3891f8c3e77ac4ca",
+      "declared_dependencies": "libc6 (>= 2.38)"
+    },
+    {
+      "name": "libsecret-1-0",
+      "version": "0.21.4-1build3",
+      "architecture": "amd64",
+      "deb": "/tmp/e4-webkit-runtime/debs/libsecret-1-0_0.21.4-1build3_amd64.deb",
+      "sha256": "7d7263ffc92c33042328f99c93433a846e8d9e549876dab18ba18606e6541ecd",
+      "apt_metadata_sha256_match": true,
+      "ubuntu_archive_url": "http://archive.ubuntu.com/ubuntu/pool/main/libs/libsecret/libsecret-1-0_0.21.4-1build3_amd64.deb",
+      "apt_policy": "libsecret-1-0:\n  Installed: (none)\n  Candidate: 0.21.4-1build3\n  Version table:\n     0.21.4-1build3 500\n        500 http://archive.ubuntu.com/ubuntu noble/main amd64 Packages\n",
+      "license_file": "/tmp/e4-webkit-runtime/deps/usr/share/doc/libsecret-1-0/copyright",
+      "license_sha256": "97852db18d3685e2f694adc44414bdbff697d2ead28dffedfa27ade41f862f99",
+      "declared_dependencies": "libc6 (>= 2.14), libgcrypt20 (>= 1.10.0), libglib2.0-0t64 (>= 2.79.0), libsecret-common"
+    },
+    {
+      "name": "libwayland-server0",
+      "version": "1.22.0-2.1build1",
+      "architecture": "amd64",
+      "deb": "/tmp/e4-webkit-runtime/debs/libwayland-server0_1.22.0-2.1build1_amd64.deb",
+      "sha256": "edbfa4b6857691ae922cc768a753fab230eee9e956aa2ce4f2eaa8d9ad777dca",
+      "apt_metadata_sha256_match": true,
+      "ubuntu_archive_url": "http://archive.ubuntu.com/ubuntu/pool/main/w/wayland/libwayland-server0_1.22.0-2.1build1_amd64.deb",
+      "apt_policy": "libwayland-server0:\n  Installed: (none)\n  Candidate: 1.22.0-2.1build1\n  Version table:\n     1.22.0-2.1build1 500\n        500 http://archive.ubuntu.com/ubuntu noble/main amd64 Packages\n",
+      "license_file": "/tmp/e4-webkit-runtime/deps/usr/share/doc/libwayland-server0/copyright",
+      "license_sha256": "736bf54141fa9808939ffff2691b817888ea53197484c2099e8d03b954b83e3b",
+      "declared_dependencies": "libc6 (>= 2.38), libffi8 (>= 3.4)"
+    },
+    {
+      "name": "libyuv0",
+      "version": "0.0~git202401110.af6ac82-1",
+      "architecture": "amd64",
+      "deb": "/tmp/e4-webkit-runtime/debs/libyuv0_0.0~git202401110.af6ac82-1_amd64.deb",
+      "sha256": "88bd472e50a7e45469e31f8e0ba232b4d8ed30322f5badb285c58cc1ba0d2176",
+      "apt_metadata_sha256_match": true,
+      "ubuntu_archive_url": "http://archive.ubuntu.com/ubuntu/pool/universe/liby/libyuv/libyuv0_0.0~git202401110.af6ac82-1_amd64.deb",
+      "apt_policy": "libyuv0:\n  Installed: (none)\n  Candidate: 0.0~git202401110.af6ac82-1\n  Version table:\n     0.0~git202401110.af6ac82-1 500\n        500 http://archive.ubuntu.com/ubuntu noble/universe amd64 Packages\n",
+      "license_file": "/tmp/e4-webkit-runtime/deps/usr/share/doc/libyuv0/copyright",
+      "license_sha256": "55b6dd1060bb758a1bd19a9b60f975dc223975c4941bb16dfd080e978ab90bcb",
+      "declared_dependencies": "libc6 (>= 2.14), libgcc-s1 (>= 3.0), libjpeg8 (>= 8c), libstdc++6 (>= 5)"
+    }
+  ],
+  "ubuntu_signature_verification": [
+    {
+      "file": "/var/lib/apt/lists/archive.ubuntu.com_ubuntu_dists_noble_InRelease",
+      "sha256": "cdb2f31d809f589719a53c6ad15f255b27569c4059542ada282aaa21b8e164b0",
+      "gpgv_exit": 0,
+      "verification": "gpgv: Signature made Thu Apr 25 15:11:21 2024 UTC\ngpgv:                using RSA key F6ECB3762474EDA9D21B7022871920D1991BC93C\ngpgv: Good signature from \"Ubuntu Archive Automatic Signing Key (2018) <ftpmaster@ubuntu.com>\"\n"
+    },
+    {
+      "file": "/var/lib/apt/lists/archive.ubuntu.com_ubuntu_dists_noble-updates_InRelease",
+      "sha256": "adfb4dabbc495e94768ef4d6b65322f6b3c527ce114388d165329bfd3b40ebf8",
+      "gpgv_exit": 0,
+      "verification": "gpgv: Signature made Tue Sep  8 07:59:59 2026 UTC\ngpgv:                using RSA key F6ECB3762474EDA9D21B7022871920D1991BC93C\ngpgv: Good signature from \"Ubuntu Archive Automatic Signing Key (2018) <ftpmaster@ubuntu.com>\"\n"
+    },
+    {
+      "file": "/var/lib/apt/lists/security.ubuntu.com_ubuntu_dists_noble-security_InRelease",
+      "sha256": "16a68cc84c709f7c88300d6ffa5b75b95a1f09093f935f9cfe75ec47e88aa119",
+      "gpgv_exit": 0,
+      "verification": "gpgv: Signature made Tue Sep  8 00:01:11 2026 UTC\ngpgv:                using RSA key F6ECB3762474EDA9D21B7022871920D1991BC93C\ngpgv: Good signature from \"Ubuntu Archive Automatic Signing Key (2018) <ftpmaster@ubuntu.com>\"\n"
+    }
+  ],
+  "download_validation": "apt-get download from existing signed Ubuntu Noble indexes; every deb SHA256 independently matched apt-cache metadata; no unauthenticated or allow-insecure options. No index freshness claim beyond current cached metadata.",
+  "browser": {
+    "revision": "2336",
+    "original_cache": "/root/.cache/ms-playwright/webkit-2336",
+    "staged_path": "/tmp/e4-webkit-runtime/browsers/webkit-2336",
+    "only_modified_files": [
+      "minibrowser-gtk/MiniBrowser",
+      "minibrowser-wpe/MiniBrowser"
+    ],
+    "wrapper_patches": [
+      {
+        "path": "/tmp/e4-webkit-runtime/browsers/webkit-2336/minibrowser-wpe/MiniBrowser",
+        "before_sha256": "990aafd77eb05fb166c0ab5ae9765d1e6ea728e1643f3d61773cb19be869e277",
+        "after_sha256": "6119a0e600b5b26ab1b0b367bcd3e3444bca18cfd3c925b013bb1c57e74c86ef",
+        "original_line": "export LD_LIBRARY_PATH=\"${MYDIR}/lib:${MYDIR}/sys/lib\"",
+        "replacement_line": "export LD_LIBRARY_PATH=\"${MYDIR}/lib:${MYDIR}/sys/lib:${LD_LIBRARY_PATH}\""
+      },
+      {
+        "path": "/tmp/e4-webkit-runtime/browsers/webkit-2336/minibrowser-gtk/MiniBrowser",
+        "before_sha256": "98384046ffbca250cfb254be6849210749f6455b0a5f18ebae022daf6bd39382",
+        "after_sha256": "5566f55b88e38dff046ad2ce89916e7b51cc9d5246c4b07bd9559cbb25ba976c",
+        "original_line": "export LD_LIBRARY_PATH=\"${MYDIR}/lib:${MYDIR}/sys/lib\"",
+        "replacement_line": "export LD_LIBRARY_PATH=\"${MYDIR}/lib:${MYDIR}/sys/lib:${LD_LIBRARY_PATH}\""
+      }
+    ],
+    "binary_modifications": false,
+    "readme_files": [
+      "/tmp/e4-webkit-runtime/browsers/webkit-2336/minibrowser-wpe/README.txt",
+      "/tmp/e4-webkit-runtime/browsers/webkit-2336/minibrowser-gtk/README.txt"
+    ],
+    "license_note": "No standalone LICENSE/COPYING file appears in the downloaded browser bundle. Upstream browser and Playwright license/provenance review belongs to parent task; Ubuntu package copyright files recorded individually."
+  },
+  "ldd": [
+    {
+      "path": "/tmp/e4-webkit-runtime/browsers/webkit-2336/minibrowser-wpe/bin/WPENetworkProcess",
+      "returncode": 0,
+      "missing": []
+    },
+    {
+      "path": "/tmp/e4-webkit-runtime/browsers/webkit-2336/minibrowser-wpe/bin/WPEGPUProcess",
+      "returncode": 0,
+      "missing": []
+    },
+    {
+      "path": "/tmp/e4-webkit-runtime/browsers/webkit-2336/minibrowser-wpe/bin/WPEWebProcess",
+      "returncode": 0,
+      "missing": []
+    },
+    {
+      "path": "/tmp/e4-webkit-runtime/browsers/webkit-2336/minibrowser-wpe/bin/MiniBrowser",
+      "returncode": 0,
+      "missing": []
+    },
+    {
+      "path": "/tmp/e4-webkit-runtime/browsers/webkit-2336/minibrowser-wpe/lib/libWPEInjectedBundle.so",
+      "returncode": 0,
+      "missing": []
+    },
+    {
+      "path": "/tmp/e4-webkit-runtime/browsers/webkit-2336/minibrowser-wpe/lib/libWPEBackend-fdo-1.0.so.1.9.5",
+      "returncode": 0,
+      "missing": []
+    },
+    {
+      "path": "/tmp/e4-webkit-runtime/browsers/webkit-2336/minibrowser-wpe/lib/libWPEWebKit-2.0.so.1.10.2",
+      "returncode": 0,
+      "missing": []
+    },
+    {
+      "path": "/tmp/e4-webkit-runtime/browsers/webkit-2336/minibrowser-wpe/lib/libwpe-1.0.so.1.9.3",
+      "returncode": 0,
+      "missing": []
+    },
+    {
+      "path": "/tmp/e4-webkit-runtime/browsers/webkit-2336/minibrowser-wpe/sys/lib/libbacktrace.so.0.0.0",
+      "returncode": 0,
+      "missing": []
+    },
+    {
+      "path": "/tmp/e4-webkit-runtime/browsers/webkit-2336/minibrowser-wpe/sys/lib/libjxl.so.0.8.2",
+      "returncode": 0,
+      "missing": []
+    },
+    {
+      "path": "/tmp/e4-webkit-runtime/browsers/webkit-2336/minibrowser-wpe/sys/lib/libbrotlidec.so.1.0.7",
+      "returncode": 0,
+      "missing": []
+    },
+    {
+      "path": "/tmp/e4-webkit-runtime/browsers/webkit-2336/minibrowser-wpe/sys/lib/libsoup-3.0.so.0.7.4",
+      "returncode": 0,
+      "missing": []
+    },
+    {
+      "path": "/tmp/e4-webkit-runtime/browsers/webkit-2336/minibrowser-wpe/sys/lib/libbrotlienc.so.1.0.7",
+      "returncode": 0,
+      "missing": []
+    },
+    {
+      "path": "/tmp/e4-webkit-runtime/browsers/webkit-2336/minibrowser-wpe/sys/lib/libbrotlicommon.so.1.0.7",
+      "returncode": 0,
+      "missing": []
+    },
+    {
+      "path": "/tmp/e4-webkit-runtime/browsers/webkit-2336/minibrowser-gtk/bin/WebKitWebProcess",
+      "returncode": 0,
+      "missing": []
+    },
+    {
+      "path": "/tmp/e4-webkit-runtime/browsers/webkit-2336/minibrowser-gtk/bin/WebKitNetworkProcess",
+      "returncode": 0,
+      "missing": []
+    },
+    {
+      "path": "/tmp/e4-webkit-runtime/browsers/webkit-2336/minibrowser-gtk/bin/MiniBrowser",
+      "returncode": 0,
+      "missing": []
+    },
+    {
+      "path": "/tmp/e4-webkit-runtime/browsers/webkit-2336/minibrowser-gtk/bin/WebKitGPUProcess",
+      "returncode": 0,
+      "missing": []
+    },
+    {
+      "path": "/tmp/e4-webkit-runtime/browsers/webkit-2336/minibrowser-gtk/lib/libwebkitgtkinjectedbundle.so",
+      "returncode": 0,
+      "missing": []
+    },
+    {
+      "path": "/tmp/e4-webkit-runtime/browsers/webkit-2336/minibrowser-gtk/lib/libjavascriptcoregtk-6.0.so.1.8.3",
+      "returncode": 0,
+      "missing": []
+    },
+    {
+      "path": "/tmp/e4-webkit-runtime/browsers/webkit-2336/minibrowser-gtk/lib/libwebkitgtk-6.0.so.4.18.0",
+      "returncode": 0,
+      "missing": []
+    },
+    {
+      "path": "/tmp/e4-webkit-runtime/browsers/webkit-2336/minibrowser-gtk/sys/lib/libbacktrace.so.0.0.0",
+      "returncode": 0,
+      "missing": []
+    },
+    {
+      "path": "/tmp/e4-webkit-runtime/browsers/webkit-2336/minibrowser-gtk/sys/lib/libjxl.so.0.8.2",
+      "returncode": 0,
+      "missing": []
+    },
+    {
+      "path": "/tmp/e4-webkit-runtime/browsers/webkit-2336/minibrowser-gtk/sys/lib/libbrotlidec.so.1.0.7",
+      "returncode": 0,
+      "missing": []
+    },
+    {
+      "path": "/tmp/e4-webkit-runtime/browsers/webkit-2336/minibrowser-gtk/sys/lib/libsoup-3.0.so.0.7.4",
+      "returncode": 0,
+      "missing": []
+    },
+    {
+      "path": "/tmp/e4-webkit-runtime/browsers/webkit-2336/minibrowser-gtk/sys/lib/libbrotlienc.so.1.0.7",
+      "returncode": 0,
+      "missing": []
+    },
+    {
+      "path": "/tmp/e4-webkit-runtime/browsers/webkit-2336/minibrowser-gtk/sys/lib/libbrotlicommon.so.1.0.7",
+      "returncode": 0,
+      "missing": []
+    }
+  ],
+  "missing_libraries": [],
+  "extracted_library_symlinks": "All resolve within the staged usr/lib/x86_64-linux-gnu tree",
+  "limitations": [
+    "Dynamic runtime/browser acceptance is performed separately by the isolated supervisor; ldd does not prove successful rendering.",
+    "Some libraries resolve from already-installed host Ubuntu runtime paths; no host package mutations performed."
+  ],
+  "dpkg_status_observation": {
+    "sha256_after_staging": "22de8eae62e15142bc32866be4420a4adddfcf40c6b52fb4ba83ba9a67cbc129",
+    "mtime_utc": "2026-09-06T06:58:28.631204+00:00",
+    "size": 1151195,
+    "before_hash_captured": false,
+    "claim": "No apt install/update/dpkg install commands executed; only apt-get download and dpkg-deb -x. A before/after equality proof was not captured."
+  }
+}

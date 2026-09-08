@@ -1,0 +1,28 @@
+{
+  "recordedAt": "2026-09-08T22:58:02.320643+00:00",
+  "result": "PASS",
+  "route": "E4 / WALLET_HANDOFF_WEBKIT_ACCEPTANCE / Linux WebKit",
+  "sourceSha256": "ee01d3f55a2f97c3f957e9166a02f79cd247f7d924316c666d6d94a754bfe7e3",
+  "newLauncherTests": 11,
+  "nativeWebKitCases": 26,
+  "runtime": {
+    "playwright-core": "1.62.0",
+    "webkit": "26.5",
+    "revision": "2336",
+    "os": "Ubuntu24.04",
+    "dependencies": "18 official Ubuntu packages extracted; no host installation"
+  },
+  "productChanges": false,
+  "productionReconcile": "PASS exact current template,55 dependencies and4service identities unchanged/no restart",
+  "priorAppRegressionEvidence": "255 tests passed in prior source-identical cross-tab delivery; not rerun because product code unchanged",
+  "negativeResults": [
+    "Browser download and npm audit initially denied sandbox DNS; approved host invocations succeeded.",
+    "Runtime initially lacked libraries; isolated extracted packages + two documented staged wrapper changes resolved loading.",
+    "First4s actionability timeout; full suite passes with8s per-action limit. Exact cause unproven; no forced clicks or CSS/clock bypass."
+  ],
+  "limits": [
+    "Linux WebKit evidence only; no real Safari/iOS/Telegram or actual SDK/money acceptance",
+    "Engine-native sandbox NOT_ATTESTED, OS isolation verified",
+    "Npm audit zero covers JavaScript dependency; no blanket engine/system CVE clearance"
+  ]
+}

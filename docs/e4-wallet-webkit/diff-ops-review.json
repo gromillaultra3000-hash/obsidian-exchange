@@ -1,0 +1,71 @@
+{
+  "reviewer": "agent /root/diff_ops",
+  "reviewed_at": "2026-09-08T22:57:31.208762+00:00",
+  "route": "E4 WALLET_HANDOFF_WEBKIT_ACCEPTANCE",
+  "verdict": "PASS",
+  "review_independence": {
+    "launcher": "Authored and tested by /root/diff_ops; full independent launcher plus timeout-branch review by primary /root reported PASS.",
+    "runtime_provenance": "Independently reviewed by /root/diff_ops; dependencies prepared by /root/implement.",
+    "browser_acceptance": "Separate /root/acceptance owns behavior/rendering verdict; ops verifies receipt bindings and cleanup."
+  },
+  "inputs": {
+    "scripts/run_e4_webkit_browser.py": "315b7dc1fec72e989ff765b8dc138e58adffb0371a7a88ff82d704aecffeb5e0",
+    "tests/test_e4_webkit_browser_runner.py": "d6f0a3ba47fe6389fd12dd3a21de47c5acd5f6a02bbcd0a778276865b2a5c2a7",
+    "tests/e4_wallet_webkit_browser.cjs": "0b2b7857e28e8c9ef65d06b4d3c3de5d221266645b5f2935b8d6d6148b85d9d2",
+    "docs/e4-wallet-webkit/contract.md": "08263074966ce57f3d9abcdf96aa11a9c2154ae6c0dddd86d3d439c129452a15",
+    "docs/e4-wallet-webkit/runtime-provenance.json": "184e37cdb9dab042e385a402d37afc39c8d51f6232b8be997f5c7af32113b013",
+    "relay/webapp.html": "ee01d3f55a2f97c3f957e9166a02f79cd247f7d924316c666d6d94a754bfe7e3",
+    "docs/e4-wallet-webkit/browser-report.json": "079f37d76ac6d7a4ee3bb5989cf681bafac75e36ad2c955720dba49e62bfdfa3",
+    "docs/e4-wallet-webkit/browser-isolation.json": "5b3bb241baefe9e6f874b7a0eed3875e2aa2f598592c9c0cb9a327489832882b",
+    "docs/e4-wallet-webkit/acceptance-review.json": "cb75f1a5714c1cf938e1c2bef978ed319d770b413b226dc668745b0a765e9c14"
+  },
+  "author_launcher_tests": {
+    "command": "/opt/lumi/venv/bin/python -m pytest -q tests/test_e4_webkit_browser_runner.py",
+    "result": "11 passed in 0.11s",
+    "production_mutation": false,
+    "cases": [
+      "reject failed/empty/live stop observation",
+      "reject detached child cgroup",
+      "accept collected stopped unit",
+      "retain disposable stage on uncertain cleanup",
+      "runtime file digest drift and escape-symlink rejection",
+      "exact WebKit command/isolation/receipt fields and successful cleanup",
+      "timeout code124 nonPASS receipt after verified stop/cleanup"
+    ]
+  },
+  "runtime_review": {
+    "result": "PASS",
+    "deb_and_license_digests_verified": 18,
+    "wrapper_patches": "Both staged GTK/WPE wrappers differ by exactly one LD_LIBRARY_PATH append; reverse replacement reproduces recorded before SHA256. No sandbox-disabling flag introduced.",
+    "host_packages_installed": false,
+    "native_engine": "WebKit26.5",
+    "engineSandbox": "NOT_ATTESTED",
+    "runtimeTreeSha256": "18547c5c122fceb00166804d882b0b5b633f8a3004c6776ca10bb7948ccfccec",
+    "libraryTreeSha256": "50a485f12b048a5808021f7a6309f4e9e8afd36977810a39cc21bc69ead3e987",
+    "playwrightTreeSha256": "e07b46153502331ba981c438715140b57ec7f2222fd963109553050cc021d1a4"
+  },
+  "observed_run": {
+    "result": "PASS",
+    "checks": 26,
+    "processExitCode": 0,
+    "sourceSha256": "ee01d3f55a2f97c3f957e9166a02f79cd247f7d924316c666d6d94a754bfe7e3",
+    "runnerSha256": "0b2b7857e28e8c9ef65d06b4d3c3de5d221266645b5f2935b8d6d6148b85d9d2",
+    "unit": "e4-webkit-browser-ba247ee8a8a14645a564c11fa7698107",
+    "stopObservation": {
+      "MainPID": "0",
+      "LoadState": "not-found",
+      "ActiveState": "inactive",
+      "cgroupEmpty": true
+    },
+    "isolation": "nobody; PrivateNetwork; ProtectHome; NoNewPrivileges; read-only runtime/library bindings; exact content digests before/after.",
+    "prior_attempt": "Attempt1 failed first visible tab actionability at4s with no page error. Cleanup verified. Diagnostic2 uses8s and passes26 without forced click; cause is not independently proven by ops."
+  },
+  "findings": [],
+  "limitations": [
+    "Linux Playwright WebKit is not real Safari/iPhone/Telegram webview acceptance; UserAgent string does not prove Apple hardware/OS.",
+    "Engine-native sandbox NOT_ATTESTED; only stated systemd restrictions and cleanup attested.",
+    "Runtime hashes bind file content and links, not complete ownership/mode/immutable release semantics.",
+    "Deb/license hashes and reported apt source metadata are provenance, not proof of absence of browser or distro CVEs. Some libraries use pre-existing host Ubuntu dependencies.",
+    "No real SDK signature/money/provider request/customer read, no product HTML change or empty production rollout."
+  ]
+}

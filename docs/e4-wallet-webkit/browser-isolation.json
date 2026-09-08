@@ -1,0 +1,26 @@
+{
+  "user": "nobody",
+  "engine": "webkit",
+  "engineSandbox": "NOT_ATTESTED",
+  "privateNetwork": true,
+  "noNewPrivileges": true,
+  "runtimeReadOnly": true,
+  "runtimePath": "/tmp/e4-webkit-runtime/browsers",
+  "runtimeTreeSha256": "18547c5c122fceb00166804d882b0b5b633f8a3004c6776ca10bb7948ccfccec",
+  "libraryPath": "/tmp/e4-webkit-runtime/deps/usr/lib/x86_64-linux-gnu",
+  "libraryTreeSha256": "50a485f12b048a5808021f7a6309f4e9e8afd36977810a39cc21bc69ead3e987",
+  "playwrightTreeSha256": "e07b46153502331ba981c438715140b57ec7f2222fd963109553050cc021d1a4",
+  "launcherSha256": "315b7dc1fec72e989ff765b8dc138e58adffb0371a7a88ff82d704aecffeb5e0",
+  "protectHome": true,
+  "unit": "e4-webkit-browser-ba247ee8a8a14645a564c11fa7698107",
+  "unitStopped": true,
+  "stopObservation": {
+    "MainPID": "0",
+    "LoadState": "not-found",
+    "ActiveState": "inactive",
+    "cgroupEmpty": true
+  },
+  "sourceSha256": "ee01d3f55a2f97c3f957e9166a02f79cd247f7d924316c666d6d94a754bfe7e3",
+  "runnerSha256": "0b2b7857e28e8c9ef65d06b4d3c3de5d221266645b5f2935b8d6d6148b85d9d2",
+  "processExitCode": 0
+}

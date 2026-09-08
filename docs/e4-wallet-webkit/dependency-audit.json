@@ -1,0 +1,23 @@
+{
+  "observedAt": "2026-09-08T22:56:11.915892+00:00",
+  "tool": "npm audit --package-lock-only --json",
+  "registry": "https://registry.npmjs.org",
+  "result": "PASS",
+  "dependencies": {
+    "playwright-core": "1.62.0"
+  },
+  "vulnerabilities": {
+    "info": 0,
+    "low": 0,
+    "moderate": 0,
+    "high": 0,
+    "critical": 0,
+    "total": 0
+  },
+  "packageLockSha256": "27ec36f244bf56ddfb238877995190c01ce7e39f2aa172be8fdd55f73f694eb0",
+  "limits": [
+    "Npm audit covers JavaScript dependency only; no claim of full browser engine or Ubuntu CVE clearance.",
+    "Runtime loads only project HTML and inert fixtures in private network; no public web content."
+  ],
+  "negativeResult": "Initial sandbox DNS denied; approved host query succeeded."
+}

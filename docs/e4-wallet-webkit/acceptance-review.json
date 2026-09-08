@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/acceptance independent context-aware acceptance agent",
+  "timestamp": "2026-09-08T22:57:13.561635+00:00",
+  "route": "E4/WALLET_HANDOFF_WEBKIT_ACCEPTANCE",
+  "result": "PASS",
+  "sourceSha256": "ee01d3f55a2f97c3f957e9166a02f79cd247f7d924316c666d6d94a754bfe7e3",
+  "runnerSha256": "0b2b7857e28e8c9ef65d06b4d3c3de5d221266645b5f2935b8d6d6148b85d9d2",
+  "browserReportSha256": "079f37d76ac6d7a4ee3bb5989cf681bafac75e36ad2c955720dba49e62bfdfa3",
+  "isolationSha256": "5b3bb241baefe9e6f874b7a0eed3875e2aa2f598592c9c0cb9a327489832882b",
+  "scope": [
+    "Exact deployed public HTML; wallet transfer/payment review and native same-origin cross-tab coordination",
+    "Preserved26 cross-tab scenarios from Chrome suite; independent real Linux WebKit26.5 execution using playwright-core1.62.0",
+    "Faults injected only in explicit unsupported/lock/storage and delayed-callback cases; native locks/localStorage unmodified in normal concurrency cases"
+  ],
+  "engine": {
+    "name": "Linux Playwright WebKit",
+    "version": "26.5",
+    "revision": "2336",
+    "notEquivalentTo": "real iOS, Safari, Telegram webview or human acceptance",
+    "sandbox": "NOT_ATTESTED"
+  },
+  "isolation": {
+    "user": "nobody",
+    "privateNetwork": true,
+    "protectHome": true,
+    "noNewPrivileges": true,
+    "runtimeReadOnly": true,
+    "runtimeTreeSha256": "18547c5c122fceb00166804d882b0b5b633f8a3004c6776ca10bb7948ccfccec",
+    "libraryTreeSha256": "50a485f12b048a5808021f7a6309f4e9e8afd36977810a39cc21bc69ead3e987",
+    "cleanup": "MainPID0 inactive not-found cgroupEmpty"
+  },
+  "checks": {
+    "browserCases": 26,
+    "widths": [
+      320,
+      390
+    ],
+    "secureContext": true,
+    "nativeWebLocksAvailable": true,
+    "randomUUIDAvailable": true,
+    "simultaneousAcknowledgedReviewsSDKCalls": 1,
+    "pendingSDKBlocksOtherTabClear": true,
+    "holderCloseKeepsEvidence": true,
+    "nativeUnavailableLockHasNoQueueOrAutomaticRetry": true,
+    "settledSuccessAndRejectionRetainEvidence": true,
+    "explicitClearDoesNotSign": true,
+    "sameFieldsReplacementResetsStaleAck": true,
+    "legacyMigrationDoesNotDeleteSession": true,
+    "lateCallbackRechecksIdentityAndReview": true,
+    "capabilityStorageCorruptionFailClosed": true,
+    "reviewAckStartsFalseAndConfirmDisabled": true,
+    "noHorizontalOverflow": true,
+    "pageErrors": 0,
+    "unexpectedWrites": 0
+  },
+  "findings": [],
+  "visualInspection": [
+    "320-transfer-review.png: scrollable review lower portion shows fee/risk, checked acknowledgement, change and continue controls without overflow",
+    "320-payment-review.png: order payment risk/acknowledgement/actions readable and wrapped",
+    "390-other-tab-pending.png: wallet binding, pending-other-tab removal refusal, retention limitation and disabled remove button readable"
+  ],
+  "negativeAttempts": [
+    {
+      "attempt": "output/playwright/e4-wallet-webkit-attempt1",
+      "result": "FAIL first #tab-wallet actionability timeout4000ms, no script errors; screenshot rendered page/tab",
+      "disposition": "Harness bounded action timeout increased to8000ms with failure-only visibility/rAF/rect diagnostics. All26 checks then passed unchanged product; no forced clicks, clock mocks, CSS removal or capability bypass. Exact initial cause not proven; do not claim product defect or background-throttling diagnosis."
+    }
+  ],
+  "limitations": [
+    "No product code changes required by reproduced evidence.",
+    "Linux WebKit uses Safari-like userAgent; this does not establish execution on Safari/iOS.",
+    "Renderer sandbox not attested; OS isolation reported separately.",
+    "Synthetic SDK/API only; no real signatures, customer reads, money operations or production mutation."
+  ]
+}
