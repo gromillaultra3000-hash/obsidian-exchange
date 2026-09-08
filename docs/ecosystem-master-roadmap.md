@@ -923,6 +923,18 @@ guidance with executable evidence before selecting a reproduced code fix. Lock i
 not cross-tab/durable; SDK settlement is not chain settlement. No real signature,
 money result or new authority; full platform/human and earlier gates remain open.
 
+2026-09-08: WALLET_HANDOFF_REENTRY_COVERAGE / OUTCOME_GUIDANCE VERIFIED and
+deployed (`31122f2`). Four wallet-review/failure strings add prior-attempt and
+unknown-outcome verification/no-repeat guidance. Native browser proves page-lock
+reset on reload; real SDK reconnect is synthetic only. 249 tests, 16 Chrome cases,
+11 ops cases and two reviews PASS. HTML-only atomic apply/reconcile, verified
+rollback, 55 unchanged dependencies/processes; no restart. Evidence:
+`docs/e4-wallet-reentry-rollout.v1.json`. E4 remains IN_PROGRESS. Exactly next:
+WALLET_HANDOFF_REENTRY_STATE — minimal same-tab unresolved-attempt evidence,
+explicit reconciliation, bound wallet/network/operation and conservative storage
+failure; no timer clearing or automatic signing. Current copy is not durable or
+cross-tab prevention. No real signature/money outcome; platform/human gates open.
+
 ### E5 — нативный некастодиальный кошелёк
 
 E0.4 inventory evidence (2026-08-18): the checkout has a Rust/UniFFI Bitcoin

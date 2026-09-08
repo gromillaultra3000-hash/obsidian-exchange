@@ -5,30 +5,30 @@ Updated: 2026-09-08 UTC
 ## Current goal and status
 
 
-- 2026-09-08 E4 WALLET_PENDING_HANDOFF_SERIALIZATION is VERIFIED and deployed,
-  implementation `5536973`. Current-document shared guard blocks transfer/payment
-  SDK overlap while unresolved; cancel/expiry/same-document navigation cannot
-  unlock it. SDK resolve/reject/sync throw releases; no automatic retry or timeout
-  unlock. Fresh review required; unchanged d.request, APIs and send-signed outside
-  SDK lock. 42 new tests PASS (baseline 36 FAIL/6 PASS), 199 regressions, 24 native
-  Chrome cases, 11 isolated ops cases and two independent reviews PASS. Gitleaks
-  8.30.0 explicit/staged scans zero without suppression. Browser SDK/API inert,
-  sandbox/private network/cleanup verified. No real signing or money operation.
-  HTML-only atomic apply/reconcile PASS; live 9a2d4a4a...cb69f0b1d. Other 55 files
-  and Relay 3016726/Bot 3877887/Nginx 3877705/PG 3136948 unchanged; no restart.
+- 2026-09-08 E4 WALLET_HANDOFF_REENTRY_COVERAGE / OUTCOME_GUIDANCE VERIFIED
+  and deployed, `31122f2`. Four literals only: reviews warn to check prior attempt
+  in connected wallet history (payment also order status); generic SDK failure
+  says unknown/may sent, verify and do not repeat. No persistent/cross-tab guard
+  or SDK classification; success/requests/locks/acknowledgement unchanged.
+  249 tests PASS including 8 new (baseline 6 FAIL/2 PASS), 16 native Chrome cases,
+  11 isolated ops cases and two independent reviews PASS. Real DOM buttons/reload;
+  first empty-wallet fixture fixed, exact final source/layout PASS. SDK/API inert,
+  sandbox/private network/cleanup verified. Gitleaks8.30.0 explicit/staged zero.
+  HTML-only atomic apply/reconcile PASS, df92e68e...9d0358e9. Other 55 files and
+  Relay 3016726/Bot 3877887/Nginx 3877705/PG 3136948 unchanged; no restart.
   Public200/405/history403/order0+pay0 both404. Rollback:
-  deployment-preimages/e4-wallet-handoff-5536973-20260908.
-  Evidence: docs/e4-wallet-handoff-rollout.v1.json. Exactly next:
-  E4 WALLET_HANDOFF_REENTRY_COVERAGE — test reload/re-entry and ambiguous SDK
-  failure guidance before selecting a reproduced product fix. Lock is per document;
-  rejected SDK promise does not prove absent transfer, resolved promise is not
-  chain settlement. Cross-tab/real SDK reconnect behavior remains unverified.
-  E4/earlier gates and Telegram/iOS/WebKit/assistive/human acceptance open.
-  Prior 82eb191 preparation, 8846bbd order-outcome, 5751b1d expiry, 033c567 receipt,
-  bfa8d9e terminal,25dccdd owner-read fixes stay installed. Stores drift; no
-  wholesale deployment. No customer read/new credential/signature/064A authority.
-  Autopilot failed/MainPID0 by owner direction; reconcile third receipt and all
-  manual commits before any explicitly requested restart.
+  deployment-preimages/e4-wallet-reentry-31122f2-20260908.
+  Evidence: docs/e4-wallet-reentry-rollout.v1.json. Exactly next:
+  E4 WALLET_HANDOFF_REENTRY_STATE — persist minimal unresolved-attempt evidence
+  across same-tab reload with explicit reconciliation, wallet/network/operation
+  binding, conservative storage-failure handling and no timer-based clearing or
+  automatic signing. Decide retention/data minimization; no keys/secrets stored.
+  Current document lock resets on reload (native fixture proves); real SDK
+  reconnect/prior money outcome unverified. E4/earlier/platform/human gates open.
+  Prior 5536973 SDK lock, 82eb191 preparation, 8846bbd order outcome and payment/read
+  fixes retained. No customer read/new credential/signature/064A authority.
+  Stores drift; do not deploy wholesale. Autopilot failed/MainPID0; reconcile
+  third receipt/manual commits before explicitly requested restart.
 
 - 2026-09-08 status audit confirmed Sep 7's three deployed E4 slices: wallet
   review/fees (`d650b8d`), receive-address integrity (`1cbfe1f`) and payment
