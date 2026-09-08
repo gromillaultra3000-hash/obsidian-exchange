@@ -1,0 +1,148 @@
+{
+  "schemaVersion": "e4-activity-deadline-rollout.v1",
+  "recordedAt": "2026-09-08T01:33:20.550090+00:00",
+  "activeRoute": "E4 / ACTIVITY_REFRESH_DEADLINE",
+  "canonicalCriterion": "E4 unified notification/evidence/support centre; bounded truthful status and explicit retry",
+  "sliceStatus": "VERIFIED",
+  "stageStatus": "IN_PROGRESS",
+  "productionStatus": "VERIFIED",
+  "implementationCommit": "e1d6e41fd823bcbad48725449a64bd5f84d04507",
+  "accountableOwner": "Project owner; manual continuation 2026-09-08; implementation Codex /root",
+  "resultingBehavior": [
+    "One 10000ms deadline spans the existing history GET and JSON-body read, exposing unavailable/retry state when the latest read stalls.",
+    "Superseded reads abort and settle; their timer/cancel cleanup cannot retire a newer invocation. Selected-filter and shared overview/history ownership remain intact.",
+    "Elapsed-time guards reject expired headers/results even with delayed timer delivery; no automatic retry is added."
+  ],
+  "surfaceMatrix": {
+    "MiniApp": "REQUIRED: bounded shared overview/history read with retained retry/filter behavior",
+    "site": "READ_ONLY: existing /webapp GET; no separate site behavior change",
+    "TelegramBot": "READ_ONLY: unchanged fixed support entry, no automatic messages",
+    "API": "READ_ONLY: existing no-store owner-scoped history GET; synthetic native loopback tests only, public HTML health in production",
+    "admin": "N/A: no operator change",
+    "nativeWallet": "N/A: no custody or signing",
+    "KAIROS_LUMI": "N/A"
+  },
+  "verification": {
+    "focusedTests": 213,
+    "newVMScenarios": 25,
+    "isolatedBrowserChecks": 153,
+    "newDeadlineBrowserChecks": 9,
+    "viewports": [
+      320,
+      390,
+      1280
+    ],
+    "nativeTransportViewport": 320,
+    "nativeTransport": "Private-loopback HTTP header stall, streaming JSON body stall and supersession abort close native responses; controlled browser clocks advance deadlines.",
+    "reviews": {
+      "contextAwareAcceptance": "PASS",
+      "independentDiffSecurity": "PASS"
+    },
+    "independentProbes": "19 grouped checks, including 100 supersessions; zero unhandled rejections",
+    "mutationChecks": "Abort-only and removed elapsed guards both fail meaningful deadline regressions",
+    "gitleaksVersion": "8.30.0",
+    "resumedStagedSecretsFound": 0,
+    "browserErrors": 0,
+    "browserUnitStopped": true,
+    "browserCgroupEmpty": true,
+    "nativeServerClosed": true,
+    "nativeSocketsRemaining": 0,
+    "resumption": "Saved exact-source tests and two independent reviews reused after all input hashes and raw test-output digest matched; no new test/browser/review run claimed."
+  },
+  "deployment": {
+    "recordedAt": "2026-09-08T01:32:04.049514+00:00",
+    "state": "VERIFIED",
+    "target": "/opt/obsidian-exchange/relay/webapp.html",
+    "previousSha256": "6842d35ccb8d7bbbf2cac709cbc02c64d47bff527a5acda9699c4897d8b1da05",
+    "deployedSha256": "efcc97b6e41f8972b39163a876196f45fd8c5562dad23b5769634aac8ba7b499",
+    "rollbackPreimage": "/var/lib/obsidian-exchange/deployment-preimages/e4-activity-deadline-20260908-aiwm0r0c/webapp.html",
+    "rollbackPreimageSha256": "6842d35ccb8d7bbbf2cac709cbc02c64d47bff527a5acda9699c4897d8b1da05",
+    "method": "hash-bound fsynced atomic replacement; no restart",
+    "rollbackExecuted": false,
+    "publicGet": 200,
+    "publicPost": 405,
+    "publicMatchesDeployedTemplate": true,
+    "publicBodySha256": "723316674d9bb5708793f75e8010044b3645793be151c7f665af04614292ae23",
+    "url": "https://obsidian-exchange.org/webapp",
+    "services": {
+      "relay-fastapi.service": {
+        "MainPID": "3877703",
+        "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:55 UTC",
+        "ActiveState": "active"
+      },
+      "exchange-bot.service": {
+        "MainPID": "3877887",
+        "ExecMainStartTimestamp": "Tue 2026-09-01 06:20:00 UTC",
+        "ActiveState": "active"
+      },
+      "nginx.service": {
+        "MainPID": "3877705",
+        "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:56 UTC",
+        "ActiveState": "active"
+      }
+    },
+    "serviceIdentityUnchanged": true
+  },
+  "rollback": {
+    "preimage": "/var/lib/obsidian-exchange/deployment-preimages/e4-activity-deadline-20260908-aiwm0r0c/webapp.html",
+    "expectedLiveSha256": "efcc97b6e41f8972b39163a876196f45fd8c5562dad23b5769634aac8ba7b499",
+    "restoreSha256": "6842d35ccb8d7bbbf2cac709cbc02c64d47bff527a5acda9699c4897d8b1da05",
+    "rehearsal": "PASS",
+    "command": "python3 /root/deploy/e4_activity_deadline_rollout.py rollback",
+    "recovery": "After interruption inspect output/manual/e4-activity-deadline-20260908/deployment-state.json, target hash, exact preimage and public/services state. Never rerun deploy blindly; rollback only from the candidate hash."
+  },
+  "trustCustodySecretsMoney": "No changes, credentials, customer reads, messages, signing or money operations; 064A closed authority retained",
+  "limitations": [
+    "Browser timer delivery depends on JavaScript scheduling. The elapsed-time guards also reject late completions; no background-suspension wall-time guarantee is claimed.",
+    "Browser test clock advances are controlled/simulated; transport, native fetch/Response.json/AbortController and server response closure are genuine isolated HTTP behavior.",
+    "Real Telegram/iOS/WebKit, human comprehension and actual screen-reader announcements remain unverified.",
+    "No server-side revision/cross-session freshness or backend money-execution acceptance is implied.",
+    "This closes the bounded deadline slice only; E4 and earlier gates remain open."
+  ],
+  "negativeEvidence": [
+    "Original-source fetch/body stalls reproduced with a simulated scheduler; explicit retry can recover.",
+    "First browser run reached all 153 checks but failed owned-socket cleanup. Its FAIL receipt is retained. Corrected close-event synchronization passes a fresh complete run under unchanged limits.",
+    "Two generic-key scanner matches were verified public source digests; provenance was restructured without suppression and final scans are clean.",
+    "Native I/O is real isolated HTTP behavior, but controlled clocks do not establish ten seconds of elapsed production network time or suspension timing."
+  ],
+  "autopilot": {
+    "state": "failed",
+    "MainPID": 0,
+    "reason": "UNCOMMITTED_NEW_FILES",
+    "action": "Leave stopped; no state or config change"
+  },
+  "nextCanonicalItem": "E4 / ACTIVITY_RECEIPT_EVIDENCE_CONSISTENCY / make receipt wording and transaction evidence consistent with completed and closed order states",
+  "artifacts": {
+    "docs/e4-activity-deadline/320-activity-deadline-recovered.png": "a0b2cd44ed695b3f01e99d26cda180cbda444f8f2515ddd1ba6e4608c9b08a4e",
+    "docs/e4-activity-deadline/320-native-body-deadline.png": "7f3947115f5cd7c1a81695adb9d4fbf63426ee5f8dd2c070eb9eed050ea7fd30",
+    "docs/e4-activity-deadline/390-activity-deadline-recovered.png": "a493e1acde023da4f619d4a8dc7d9240f2ed42f812aa77279767cea84f148496",
+    "docs/e4-activity-deadline/acceptance-baseline.cjs": "76de30254a4e25f88a554495483b81c1f3e9ea2a7542fbd7d593072ebfd8f159",
+    "docs/e4-activity-deadline/acceptance-baseline.json": "351d6202b9485e190948569e6bc21d60ef612a588c7862a0c514bf185199cd8c",
+    "docs/e4-activity-deadline/acceptance-review.json": "ca8d2eb02b8ea90c9fe9e5a675da123beaadec4a15d1b2b709bcad1cb60a6df6",
+    "docs/e4-activity-deadline/browser-attempt-1-isolation.json": "fe1cc6e5638d4652033fc988fdc74c1efe1598e9c79129d2ac013092f6cf2e7d",
+    "docs/e4-activity-deadline/browser-attempt-1.json": "9ccb808765afd08e3b880e02d80fc794fda82b04bf9601a5342482a983309884",
+    "docs/e4-activity-deadline/browser-attempts.json": "7a284a60fae687e8d2b5129b130fdef296ffe507d7e96f79299a83bd0f428a34",
+    "docs/e4-activity-deadline/deployment.json": "fed68e08895e41b01d18c9eb1bb2084882f946908479bb5109e867ffc14f94b5",
+    "docs/e4-activity-deadline/gitleaks-report.json": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+    "docs/e4-activity-deadline/isolation.json": "a091fec693be6364fb8b3f9468fcbcddbc85b1157473cba9854de691b1b55b36",
+    "docs/e4-activity-deadline/mutations.json": "45237294cc4d20802e489817f9706ef77eeefa278ac83b634c0c2a136eeeecb0",
+    "docs/e4-activity-deadline/next-prerequisite-backend.json": "e98bc5bd3bafe9513ccca69436f4ec55838e069af93a8e7f4a9701c8a8591b19",
+    "docs/e4-activity-deadline/next-prerequisite-backend.py": "93797a1dca8f2992cabf4016c187f7a1b80b83e4dee46d175c64f2ec8d251aa8",
+    "docs/e4-activity-deadline/next-prerequisite.cjs": "710cbc452441d2efb46f783c869c336984d6367b41507f2ad498c70ff19dd238",
+    "docs/e4-activity-deadline/next-prerequisite.json": "6d78d4708e38bc42a9df1b136121f4e8c3a87b954c85cdf0550d13c46a019925",
+    "docs/e4-activity-deadline/preflight.json": "b5256f60129db8db0294f600bb34913b3dadaa7177c6b23139f6ceb43d630b03",
+    "docs/e4-activity-deadline/report.json": "c0a007ee03f794a308b51056f33171c7ac58147722d1260ecaa42c7874946879",
+    "docs/e4-activity-deadline/resume-verification.json": "9bf6de7095018c4f53c2f8900dfd02dcf645c0561289f9988c8045dcd1c26941",
+    "docs/e4-activity-deadline/rollback-rehearsal.json": "b790269c98ddaef02753031de1fb949f137d19d5a3dd2d9dc4d278e018e4fcdf",
+    "docs/e4-activity-deadline/run-context.json": "03c34e2c6847400e7681c5b2b7927e226e231f6858abc7392ebbf3dafa4a343d",
+    "docs/e4-activity-deadline/secret-scan-disposition.json": "bee8630b9cb6a881f786ed850dad868b83f34b00834e2b96bf7395dd9674adbb",
+    "docs/e4-activity-deadline/secret-scan-metadata-findings.json": "e0762faf2b652bcffb5824a975716589e00433f368c03313c4962bfd26115e24",
+    "docs/e4-activity-deadline/security-baseline-result.json": "d6b639cf17554c384c8e974a3aa73244cbbb57f4315b4918beee2534a3a817d0",
+    "docs/e4-activity-deadline/security-behavior-result.json": "74c5fe670b48678082c47c9c8714deda7d5166ac493ccc575854c1264143d3ba",
+    "docs/e4-activity-deadline/security-cleanup-probe-result.json": "f76d9862a135f9b2425a99834d446020ee07995c0ba5f8471fa42f2e01858ac6",
+    "docs/e4-activity-deadline/security-probe-result.json": "4e90bdce8856a555c0a02676d46bc88d894e18da3755f8c71081f3dcf92d8f41",
+    "docs/e4-activity-deadline/security-probe.cjs": "f7b8fd4efa3b4fa40cd0146ad40241d0376937694a7c9ff2fd5c74d412c9855e",
+    "docs/e4-activity-deadline/security-review.json": "26553c2017fc479f6635da5d76be70bf183824e4e100f5079033deac25d3300f",
+    "docs/e4-activity-deadline/tests.json": "a4f9a6105e4b1b48e65e0361eca3609fd58d448641219081274c31710385e2b8"
+  }
+}

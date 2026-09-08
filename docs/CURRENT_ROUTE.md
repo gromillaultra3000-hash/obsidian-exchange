@@ -11,7 +11,7 @@ non-custodial wallet whose keys never reach the server.
 
 ## Active route
 
-`E4 / ACTIVITY_REFRESH_DEADLINE / bound the latest activity read across fetch and response-body stalls, preserve explicit retry`
+`E4 / ACTIVITY_RECEIPT_EVIDENCE_CONSISTENCY / make receipt wording and transaction evidence consistent with completed and closed order states`
 
 Owner decision 2026-09-08: continue code-first implementation and reversible
 deployment manually. Leave autopilot stopped until the owner requests bedtime
@@ -20,37 +20,41 @@ Before any future start, reconcile its stale third-deployment receipt and all
 subsequent manual commits; do not replay its next_step or consumed authority.
 No supervisor state, configuration or unit was changed by these manual slices.
 
-ACTIVITY_REFRESH_RESPONSE_ORDERING is VERIFIED and deployed at
-2026-09-08 01:12 UTC, implementation `06b5ece`. Overview and history now share
-one request owner and snapshot. Obsolete success/failure, including delayed
-response bodies, cannot replace newer loading/error/ready state. Refresh clears
-old orders/actions/counts; filter changes cannot restore them or turn unavailable
-history into a false empty result. Accessible feedback and aria-busy distinguish
-loading, failure and success; explicit retry honors the current filter.
+ACTIVITY_REFRESH_DEADLINE is VERIFIED and deployed at 2026-09-08 01:32 UTC,
+implementation `e1d6e41`. One 10000ms deadline spans fetch and JSON-body reading;
+timeout retires the read and exposes existing unavailable/retry feedback. New
+invocations cancel older work, and elapsed-time guards reject expired results
+even when timer delivery is delayed. Current request/filter ownership remains
+intact. No automatic retry is added.
 
-188 focused tests, 144 isolated Chrome checks at 320/390/1280px, 288 independently
-probed interleavings plus 18 edge checks, both independent reviews, staged Gitleaks
-and JavaScript syntax pass. Guard-removal mutants fail the new regressions.
-Browser ran without network as nobody; unit collected with MainPID zero and empty
-cgroup. Real Telegram/iOS/WebKit, human comprehension and actual screen-reader
-announcements remain unverified. Request invocation order defines freshness;
-no server revision or cross-session status monotonicity is claimed.
+213 focused tests, 153 isolated Chrome checks at 320/390/1280px and both
+independent reviews pass on exact matching files. Independent probes and two
+killed mutants cover ignored abort and delayed timer delivery. Genuine native
+HTTP fetch/body cancellation and server response closure pass inside private
+loopback; deadline advancement uses controlled clocks. The first browser cleanup
+failure is retained, its socket-close synchronization corrected, and the final
+run verifies zero sockets plus inactive/collected unit and empty cgroup.
+Real Telegram/iOS/WebKit, human comprehension and screen-reader acceptance remain
+unverified; browser suspension can delay visible handling of the deadline.
 
-HTML `6842d35c...b1da05` is live with GET200/POST405/exact rendered-template match.
+The connection interrupted work before deployment. Resume verified all saved
+review/test inputs and raw test output, then committed and deployed the unchanged
+candidate. HTML `efcc97b6...a7b499` is live with GET200/POST405/exact template match.
 Relay/bot/Nginx retain active Sep 1 PID/start identities; no restart.
-Rollback: `/var/lib/obsidian-exchange/deployment-preimages/e4-activity-refresh-20260908-xh2dag2f/webapp.html`.
-Evidence: `docs/e4-activity-refresh-rollout.v1.json` and its directory.
+Rollback: `/var/lib/obsidian-exchange/deployment-preimages/e4-activity-deadline-20260908-aiwm0r0c/webapp.html`.
+Evidence: `docs/e4-activity-deadline-rollout.v1.json` and its directory.
 No real money/signatures/customer reads/keys/credentials/messages/064A work.
-Previous support-independence delivery is retained in `0a9295a`/`73223a2`; the
-previous payment-requisites slice was reconciled and committed as `50fa630`.
+Prior response ordering (`06b5ece`), support (`0a9295a`) and payment-requisites
+(`50fa630`) behavior is retained. The owner again explicitly requested manual
+work and no autopilot after reconnecting.
 
-Exactly next: `E4 / ACTIVITY_REFRESH_DEADLINE`.
-An unresolved latest GET or JSON body has no deadline and leaves the current UI
-loading. Independently reproduced on exact source with an explicitly simulated
-30-second scheduler horizon. A successful explicit retry does recover; this is
-not claimed to be a permanent inability to retry. Bound the complete read and
-preserve the current ownership/filter guarantees. Evidence:
-`docs/e4-activity-refresh/next-prerequisite.json`.
+Exactly next: `E4 / ACTIVITY_RECEIPT_EVIDENCE_CONSISTENCY`.
+Actual API serialization over synthetic rows and exact UI rendering reproduce
+future receipt-status promises on completed/closed orders, and a receipt branch
+suppresses the explicit transaction-evidence explanation. Make receipt copy
+lifecycle-aware and show transaction evidence independently. Evidence:
+`docs/e4-activity-deadline/next-prerequisite.json`. This is a content inconsistency;
+no real customer incidence or backend status corruption is claimed.
 
 E4 stays IN_PROGRESS; no stage transition or earlier gate closure occurred.
 The 2026-09-07 authorization for code-first E0–E5 work and reversible rollouts

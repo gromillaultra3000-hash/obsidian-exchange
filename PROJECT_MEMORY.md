@@ -5,28 +5,30 @@ Updated: 2026-09-08 UTC
 ## Current goal and status
 
 
-- 2026-09-08 manual E4 / ACTIVITY_REFRESH_RESPONSE_ORDERING is VERIFIED
-  and deployed at 01:12 UTC, implementation `06b5ece`. Overview/history share
-  latest-invocation ownership and one snapshot; stale success/failure including
-  delayed bodies cannot overwrite newer state. Refresh clears old actions/counts;
-  filters preserve explicit loading/error/ready state and selected-filter retry.
-  188 focused tests, 144 isolated Chrome checks, independent 288 interleavings
-  plus 18 edge checks, guard-removal mutation checks and two reviews PASS.
-  HTML `6842d35c...b1da05` is live with GET200/POST405/exact rendered-template
-  match. Relay/bot/Nginx retain Sep 1 PID/start identities; no restart. Rollback:
-  `deployment-preimages/e4-activity-refresh-20260908-xh2dag2f/webapp.html`.
-  Evidence: `docs/e4-activity-refresh-rollout.v1.json`. Browser unit/cgroup cleanup
-  PASS; no real money/signatures/customer reads/keys/credentials/messages/064A.
-  Earlier support delivery retained in `0a9295a`/`73223a2`, requisites in `50fa630`.
-  Owner wants manual delivery; autopilot remains failed/stopped until bedtime work
-  is explicitly requested. Reconcile all manual commits before any future start.
-  E4/earlier gates remain open; real Telegram/iOS/WebKit/human/screen-reader
-  acceptance unverified. Freshness follows request start order, not server revision.
-  Exactly next: E4 / ACTIVITY_REFRESH_DEADLINE. Latest GET/body has no deadline;
-  unresolved reads keep loading. Exact-source proof uses a simulated 30-second
-  scheduler horizon; successful explicit retry does recover. Preserve current
-  ownership/filter guarantees while bounding the complete read. Evidence:
-  `docs/e4-activity-refresh/next-prerequisite.json`.
+- 2026-09-08 manual E4 / ACTIVITY_REFRESH_DEADLINE is VERIFIED and deployed
+  at 01:32 UTC, implementation `e1d6e41`. One 10000ms fetch/body deadline retires
+  stalled or superseded reads, preserves latest-request/filter ownership and
+  exposes explicit retry. Monotonic guards reject late results; no automatic retry.
+  Reconnect found the reviewed candidate staged but not deployed. All saved review
+  and test digests matched; exact unchanged work was committed and rolled out.
+  213 focused tests, 153 isolated Chrome checks, two independent reviews and two
+  killed mutants PASS. Native loopback HTTP fetch/body abort and response closure
+  are verified with controlled deadline clocks. First browser socket-cleanup FAIL
+  is retained; corrected final cleanup proves zero sockets and empty unit/cgroup.
+  HTML `efcc97b6...a7b499` is live, GET200/POST405/exact template match; services
+  retain Sep 1 PID/start identities. Rollback:
+  `deployment-preimages/e4-activity-deadline-20260908-aiwm0r0c/webapp.html`.
+  Evidence: `docs/e4-activity-deadline-rollout.v1.json`. Prior ordering `06b5ece`,
+  support `0a9295a` and requisites `50fa630` behavior retained. No real money,
+  signatures/customer reads/keys/credentials/messages/064A work.
+  Owner explicitly reaffirmed manual work after reconnect; autopilot stays
+  failed/stopped. Reconcile all manual commits before any explicitly requested
+  future start. E4/earlier gates remain open; real Telegram/iOS/WebKit/human/
+  screen-reader acceptance unverified. Browser suspension can delay timer handling.
+  Exactly next: E4 / ACTIVITY_RECEIPT_EVIDENCE_CONSISTENCY. Valid synthetic backend
+  rows reproduce future receipt-status wording on completed/closed orders and
+  suppressed transaction-evidence explanation when a receipt exists. Evidence:
+  `docs/e4-activity-deadline/next-prerequisite.json`.
 
 - 2026-09-08 status audit confirmed Sep 7's three deployed E4 slices: wallet
   review/fees (`d650b8d`), receive-address integrity (`1cbfe1f`) and payment

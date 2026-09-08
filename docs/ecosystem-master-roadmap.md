@@ -776,6 +776,21 @@ reproduced on exact source with a simulated scheduler. Latest stalled reads lack
 a deadline; successful explicit retry recovers. No stage transition/earlier-gate
 closure, and autopilot stays stopped.
 
+2026-09-08: manual ACTIVITY_REFRESH_DEADLINE is VERIFIED and production-deployed
+at 01:32 UTC (`e1d6e41`). One 10000ms deadline bounds fetch and response-body
+reading; retired/expired results cannot overwrite current state, and explicit
+retry preserves the selected filter. 213 focused tests, 153 isolated Chrome
+checks, both independent reviews and abort/elapsed-guard mutants pass. Native
+HTTP cancellation is verified inside private loopback with controlled deadline
+clocks. The interrupted staged checkpoint was digest-verified before deployment;
+GET200/POST405/exact template match and unchanged service identities pass.
+Evidence: `docs/e4-activity-deadline-rollout.v1.json`. E4 stays IN_PROGRESS;
+exactly next is ACTIVITY_RECEIPT_EVIDENCE_CONSISTENCY, reproduced using real API
+serialization over synthetic rows plus exact UI rendering. Completed/closed
+orders retain future receipt copy, and receipt metadata suppresses the explicit
+transaction-evidence explanation. No stage transition or earlier gate closure;
+autopilot remains stopped by the owner's reaffirmed instruction.
+
 ### E5 — нативный некастодиальный кошелёк
 
 E0.4 inventory evidence (2026-08-18): the checkout has a Rust/UniFFI Bitcoin
