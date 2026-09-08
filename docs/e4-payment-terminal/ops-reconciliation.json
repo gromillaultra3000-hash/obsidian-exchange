@@ -1,0 +1,104 @@
+{
+  "recordedAt": "2026-09-08T02:38:42.194499+00:00",
+  "result": "OBSERVED_NO_REPLAY",
+  "journalState": "VERIFIED",
+  "files": [
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "a399f55e9efb4e5092a072cf30baf6f2c6791ddbcb5dcdbee210526d8665ffc5"
+    }
+  ],
+  "services": {
+    "relay-fastapi.service": {
+      "MainPID": "2945610",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Tue 2026-09-08 02:38:15 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    },
+    "exchange-bot.service": {
+      "MainPID": "3877887",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Tue 2026-09-01 06:20:00 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    },
+    "nginx.service": {
+      "MainPID": "3877705",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:56 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    },
+    "obsidian-postgres.service": {
+      "MainPID": "3136948",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Mon 2026-08-24 05:08:51 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    }
+  },
+  "autopilot": {
+    "MainPID": "0",
+    "NRestarts": "0",
+    "ExecMainStartTimestamp": "Mon 2026-09-07 04:40:24 UTC",
+    "ActiveState": "failed",
+    "SubState": "failed"
+  },
+  "runtimeMutated": false,
+  "next": "Terminal state verified; no runtime action.",
+  "publicChecks": [
+    {
+      "path": "/webapp",
+      "method": "GET",
+      "status": 200,
+      "authenticated": false,
+      "publicMatchesDeployedTemplate": true,
+      "inputs": [
+        {
+          "path": "https://obsidian-exchange.org/webapp",
+          "sha256": "0944b4ddf679d021e3347a492404824dc7734a2c40c353e3b769c40cbf90dbf4"
+        }
+      ]
+    },
+    {
+      "path": "/webapp",
+      "method": "POST",
+      "status": 405,
+      "authenticated": false
+    },
+    {
+      "path": "/api/history",
+      "method": "GET",
+      "status": 403,
+      "authenticated": false,
+      "customerRowsReturned": 0
+    },
+    {
+      "path": "/api/order/0",
+      "method": "GET",
+      "status": 404,
+      "authenticated": false
+    },
+    {
+      "path": "/pay/0",
+      "method": "GET",
+      "status": 404,
+      "authenticated": false
+    }
+  ],
+  "inputs": [
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "a399f55e9efb4e5092a072cf30baf6f2c6791ddbcb5dcdbee210526d8665ffc5"
+    },
+    {
+      "path": "deploy/e4_payment_terminal_rollout.py",
+      "sha256": "79c14cc464b6d8939e92c751aa15271cc49c1183c5eac515399e8340436116d2"
+    },
+    {
+      "path": "docs/e4-payment-terminal/deployment.json",
+      "sha256": "4f5324a2563a9d9643c084522cfcbd362136478e3e99a1fe57e0abb055ac4e3d"
+    }
+  ]
+}

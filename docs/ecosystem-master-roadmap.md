@@ -835,6 +835,20 @@ exactly next is PAYMENT_STATUS_TERMINAL_REASON_CONSISTENCY: actual DOM calls
 canonical failed/cancelled opaque pages expired, while payment actions stay hidden.
 No earlier gate closure, money authority or 064A reuse; autopilot remains stopped.
 
+2026-09-08: manual PAYMENT_STATUS_TERMINAL_REASON_CONSISTENCY is VERIFIED and
+production-deployed at 02:38 UTC (`bfa8d9e`). Both payment-page forms preserve the
+expired/failed/cancelled reason beside independent receipt facts, ahead of stale
+verification/timer state. No terminal payment/copy/QR controls or false payment
+confirmation. Only pay presentation changed; API/read/auth/redirect boundaries,
+155 other functions and 16 dependencies remain exact. 122 focused tests, 17 ops
+tests, 59 handler/136 security checks, 336 Chrome checks and both reviews PASS.
+Only Relay restarted; public200/405/403/404 checks and retained rollback verified.
+Evidence: `docs/e4-payment-terminal-rollout.v1.json`. E4 remains IN_PROGRESS;
+exactly next is PAYMENT_STATUS_PENDING_RECEIPT_EVIDENCE_CONSISTENCY. Exact API+
+Chrome fixtures show both pending+stored+unavailable page forms omit the received
+file fact while suppressing payment actions. No new money/064A authority or
+prior gate closure; autopilot stays stopped.
+
 ### E5 — нативный некастодиальный кошелёк
 
 E0.4 inventory evidence (2026-08-18): the checkout has a Rust/UniFFI Bitcoin

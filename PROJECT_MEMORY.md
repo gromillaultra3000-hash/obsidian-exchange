@@ -5,36 +5,35 @@ Updated: 2026-09-08 UTC
 ## Current goal and status
 
 
-- 2026-09-08 manual E4 / PAYMENT_STATUS_RUNTIME_READ_CONTRACT is VERIFIED and
-  deployed 02:20 UTC, implementation `25dccdd`. New PaymentStatusReadStore supplies
-  bounded owner-scoped SELECTs using the exact installed order connection policy;
-  UID wins bearer proof, numeric links use the additive HMAC proof helper.
-  Stale/closed/unknown/post-payment sessions cannot invite a transfer; read errors
-  return 503. Receipt state is preserved; provider-field JSON/JS sinks are escaped.
-  Status GET no longer polls providers or triggers payment transitions. Existing
-  callbacks/workers/_mark_order_paid remain AST-identical (152 functions).
-  174 focused tests, 69 exact-handler/194 security checks, 186+92 browser checks,
-  two reviews, 20 ops tests, interrupted-rollout/restart/no-replay/rollback probes,
-  and 26-case exact-live-SQLite/actual-networkless-PG17.11 rehearsals PASS.
-  Container/browser/temp/cgroup cleanup verified; secret scans 0/no suppression.
-  Historical E0 tests have independently triaged stale baseline assertions and
-  archived builder digests; no overall-project test PASS claim or E0 rewrite.
-  Exactly main.py,HTML,adapter,core/order_access.py deployed; all 13 shared runtime
-  dependencies byte-exact. Do not replace checkout order/session/receipt stores
-  wholesale: unrelated undeployed drift remains. Relay 2918390/start02:20:18 UTC,
-  NRestarts 0; Bot 3877887/Nginx 3877705/Postgres 3136948 unchanged. GET200/POST405,
-  history403; proofless api/order/0 and pay/0 now404 vs baseline500.
-  Rollback: deployment-preimages/e4-payment-status-read-20260908-keknzn3g.
-  Evidence: docs/e4-payment-status-read-rollout.v1.json. No real authenticated
-  production/customer reads, money outcome, credential/signature or 064A authority.
-  Routine restart resumes existing background payment/notification workers;
-  zero background effects is not claimed. Autopilot remains failed/MainPID0 by
-  owner's no-autopilot instruction; reconcile all manual commits before later start.
-  Exactly next: E4 / PAYMENT_STATUS_TERMINAL_REASON_CONSISTENCY. Exact API+Chrome
-  fixtures show failed/cancelled opaque pages called expiry (no payment action);
-  fix bounded terminal rendering, preserving receipts and writer boundaries.
-  E4/earlier gates and real Telegram/iOS/WebKit/human/screen-reader acceptance
-  remain open. Prior activity-session slice 7bc1e87 remains deployed.
+- 2026-09-08 manual E4 / PAYMENT_STATUS_TERMINAL_REASON_CONSISTENCY is VERIFIED,
+  deployed 02:38 UTC, implementation `bfa8d9e`. Both payment-page forms retain
+  expired/failed/cancelled reasons beside independent stored/sent receipt facts;
+  terminal outcome wins over stale verification/timer and exposes no pay/copy/QR.
+  122 focused tests, 17 ops tests, 59 exact SQLite/handler checks, 336 isolated Chrome
+  checks, 136 security cases and both reviews PASS. Independent interrupted publish,
+  lost restart acknowledgement, no-replay/reconcile/rollback probes pass; browser
+  and temporary harness cleanup verified. Secret scans 0 without suppression.
+  Only pay changed (155 other functions and API/read/auth/redirect code exact);
+  no repeated PG rehearsal for this presentation-only slice. Only main.py deployed,
+  all 16 dependencies including HTML/payment adapter/proof helper remain byte-exact.
+  Do not replace checkout order/session/receipt stores wholesale: unrelated drift
+  persists. Prior owner-scoped read repair 25dccdd remains deployed; status GET
+  still uses the canonical ledger without provider/payment transitions.
+  Relay 2945610/start 2026-09-08 02:38:15 UTC/NRestarts 0; Bot 3877887/Nginx 3877705/
+  Postgres 3136948 unchanged. Public200/405/history403/order0+pay0 both404.
+  Rollback: deployment-preimages/e4-payment-terminal-20260908-_yr3ap7p.
+  Evidence: docs/e4-payment-terminal-rollout.v1.json. No real authenticated
+  customer read, payment outcome, new money operation/credential/signature/064A
+  authority. Routine restart resumes existing workers; zero background database
+  or notification effects is not claimed. Autopilot stays failed/MainPID0 by
+  owner's instruction; reconcile runner receipts/manual commits before later start.
+  Exactly next: E4 / PAYMENT_STATUS_PENDING_RECEIPT_EVIDENCE_CONSISTENCY.
+  Real Chrome+exact API fixtures show both pending+stored+unavailable page forms
+  omit acknowledgment of the received file while suppressing payment instructions.
+  Add receipt fact without claiming delivery/payment/review or changing outcome.
+  E4 and earlier gates plus Telegram/iOS/WebKit/assistive/human acceptance remain
+  open. Historical E0 snapshot assertions/builders remain separately triaged,
+  not an overall-project test PASS claim; frozen authority artifacts are unchanged.
 
 - 2026-09-08 status audit confirmed Sep 7's three deployed E4 slices: wallet
   review/fees (`d650b8d`), receive-address integrity (`1cbfe1f`) and payment

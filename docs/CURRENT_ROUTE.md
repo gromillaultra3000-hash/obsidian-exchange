@@ -11,60 +11,52 @@ non-custodial wallet whose keys never reach the server.
 
 ## Active route
 
-`E4 / PAYMENT_STATUS_TERMINAL_REASON_CONSISTENCY / distinguish failed and cancelled outcomes from expiry on the payment page`
+`E4 / PAYMENT_STATUS_PENDING_RECEIPT_EVIDENCE_CONSISTENCY / acknowledge a stored receipt when a pending order has unavailable payment instructions`
 
-Owner decision 2026-09-08: continue code-first implementation and reversible
-rollouts manually. Autopilot remains stopped: failed / MainPID zero /
-UNCOMMITTED_NEW_FILES since Sep 7. Before any explicitly requested later start,
-reconcile its stale third-deployment receipt and all subsequent manual commits.
-No supervisor configuration or unit changed in this slice.
+Owner decision 2026-09-08: continue code-first delivery and reversible rollouts
+manually. Autopilot remains failed / MainPID zero / UNCOMMITTED_NEW_FILES since
+Sep 7. Before any explicitly requested later start, reconcile its stale third
+receipt and all subsequent manual commits. No supervisor setting or unit changed.
 
-PAYMENT_STATUS_RUNTIME_READ_CONTRACT is VERIFIED and deployed at 2026-09-08
-02:20 UTC, implementation `25dccdd`. The additive PaymentStatusReadStore uses
-bounded owner-scoped SELECTs through the exact installed order connection
-policy. Verified UID takes precedence over bearer proof; numeric links require
-an order/user/time-bound HMAC proof. Stale, closed, unknown and post-payment
-sessions cannot invite a new transfer; missing reads return 503, never fabricated
-receipt absence. Provider fields are escaped at both executable HTML/JS sinks.
+PAYMENT_STATUS_TERMINAL_REASON_CONSISTENCY is VERIFIED and deployed at
+2026-09-08 02:38 UTC, implementation `bfa8d9e`. Opaque and numeric payment pages
+retain distinct expired, failed and cancelled reasons. Stored/sent receipt facts
+appear independently, without payment confirmation or a promised review/payout.
+Canonical terminal status takes precedence over stale verification and timer
+state; payment/copy/QR controls remain absent. Paid/sent precedence is preserved.
 
-Status GET now reads the canonical ledger without provider polling or payment
-transitions. Restoring the previously missing provider helper would have enabled
-an unreachable writer during this read repair. Existing callbacks, background
-workers and _mark_order_paid remain AST-identical (152 unchanged functions).
-Routine Relay restart resumes those pre-existing workers; no claim that their
-normal database/notification effects are disabled or zero is made.
+122 focused tests, 17 ops tests, 59 exact synthetic SQLite/handler checks,
+336 isolated Chrome checks and both independent reviews PASS. Security covers
+136 cases; independent interruption/reconcile/rollback probes pass. Only pay
+changed: 155 other functions, API/read/auth/redirect code and Python interpolation
+boundaries remain exact. No repeated PostgreSQL rehearsal was required for this
+presentation-only change; no broader database or project test PASS is inferred.
+Final staged and independent secret scans report zero without suppression.
 
-174 focused tests, 69 exact-handler acceptance checks, 194 independent security
-checks, 186 Mini App plus 92 payment-page Chrome checks, and both independent
-reviews PASS. Exact installed SQLite and actual isolated PostgreSQL17.11 each
-pass 26 cases with read-only query sessions and verified cleanup. Recipe tests 20,
-independent interrupted-publication/restart probes, no-replay and exact rollback
-pass. Final staged and independent secret scans report 0 without suppression.
-Historical E0 checks remain non-current: baseline 3 stale assertions, candidate 4
-including the expected removed dynamic-edge inventory, plus an archived builder
-digest mismatch. They are documented, not relabelled PASS; frozen E0 authority
-artifacts were not changed. See ops-historical-check-triage.json.
+Only main.py was published, SHA256 `a399f55e...`; all 16 retained dependencies
+remain byte-exact, including HTML and the installed payment-status adapter/proof
+helper. Shared order/session/receipt checkout drift must not be deployed wholesale.
+Relay PID 2945610, start 2026-09-08 02:38:15 UTC, NRestarts 0. Bot 3877887,
+Nginx 3877705 and PostgreSQL 3136948 identities are unchanged. Public checks:
+/webapp GET200/POST405/exact template, anonymous history403, proofless
+/api/order/0 and /pay/0 both404. Rollback preimage and metadata retained at
+`/var/lib/obsidian-exchange/deployment-preimages/e4-payment-terminal-20260908-_yr3ap7p`.
+Evidence: `docs/e4-payment-terminal-rollout.v1.json` and its directory.
 
-Exactly 4 files were published: main.py, webapp.html, the additive adapter and
-core/order_access.py. All 13 retained runtime dependencies remain byte-exact;
-shared order/session/receipt checkout drift was not deployed. Relay PID 2918390,
-start 2026-09-08 02:20:18 UTC, NRestarts 0. Bot 3877887, Nginx 3877705 and
-PostgreSQL 3136948 identities unchanged. Public /webapp GET200/POST405/exact
-rendered template; anonymous history403. Proofless /api/order/0 and /pay/0 now404
-instead of observed baseline 500, without customer reads or valid credentials.
-Rollback: `/var/lib/obsidian-exchange/deployment-preimages/e4-payment-status-read-20260908-keknzn3g`.
-Evidence: `docs/e4-payment-status-read-rollout.v1.json` and its directory.
+Exactly next: PAYMENT_STATUS_PENDING_RECEIPT_EVIDENCE_CONSISTENCY. Exact API and
+actual Chrome fixtures show pending+stored+unavailable sessions on both payment
+pages omit acknowledgment of the received file, though payment controls stay
+hidden. Add the stored-file fact without claiming partner delivery, confirmed
+payment, a review assignment or changing the canonical outcome. Preserve absent
+and sent receipt distinctions. Evidence:
+`docs/e4-payment-terminal/next-prerequisite.json`.
 
-Exactly next: PAYMENT_STATUS_TERMINAL_REASON_CONSISTENCY. Actual Chrome fixtures
-show canonical failed/cancelled opaque payment pages labelled as time expiry;
-payment actions are suppressed. Numeric fallback already distinguishes these
-outcomes. Change the bounded terminal rendering and focused tests, preserving
-receipt precedence, canonical API state and writer behavior. Evidence:
-`docs/e4-payment-status-read/next-prerequisite.json`.
-
-E4 remains IN_PROGRESS. No earlier gate closure, new money operation or 064A
-authority. Real Telegram/iOS/WebKit, screen-reader and human acceptance remain
-unverified; no actual customer incident or payment outcome is inferred.
+E4 remains IN_PROGRESS; no earlier gate closure or new money/064A authority.
+No real authenticated production request, customer incident or payment outcome
+was observed. Existing callbacks/workers remain unchanged; ordinary Relay restart
+resumes their pre-existing database/notification effects, which are not claimed
+to be zero. Real Telegram/iOS/WebKit, assistive technology and human acceptance
+remain unverified. Prior read-contract implementation 25dccdd stays deployed.
 
 ### Owner reprioritization — 2026-08-26
 
