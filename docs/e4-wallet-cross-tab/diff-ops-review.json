@@ -1,0 +1,60 @@
+{
+  "reviewer": "independent-agent /root/diff_ops",
+  "reviewed_at": "2026-09-08T22:45:25.455392+00:00",
+  "scope": "E4 WALLET_HANDOFF_CROSS_TAB_COORDINATION product diff/coordination/storage safety and HTML-only ops rehearsal",
+  "verdict": "PASS",
+  "inputs": {
+    "relay/webapp.html": "ee01d3f55a2f97c3f957e9166a02f79cd247f7d924316c666d6d94a754bfe7e3",
+    "docs/e4-wallet-cross-tab/rollout.py": "d2097d220500618ae684a46ac7e3eaf3caaa989a6915fed4301c6ce3f3b5fa7d",
+    "docs/e4-wallet-cross-tab/ops-baseline.json": "32fd7be374de51f10126f2e5a43bec6b7c935d433100a17b77476c35eb203d51",
+    "tests/test_e4_wallet_cross_tab_rollout.py": "22a603d4f8025a33868bdf4e08ea388f9bf04a6c36319c3a732b499ef7e79d84",
+    "docs/e4-wallet-cross-tab/contract.md": "dafb221c58c89679c3b15d2b3a34d6ae80dc6c8da3a24f530786dc925b0138d2",
+    "docs/e4-wallet-cross-tab/plan.json": "8d7e19da457d6bb54c939989155f81b8a0fa0ba88aa3293f820370ac697f152c"
+  },
+  "base_commit": "41130fee58629c0dd1f6804a32a947f10af078c4",
+  "diff_sha256": "8a909cd5ce5b677ba28435aa60c1ef50a01f45541567178b15d5cc50cbb531fc",
+  "findings": [
+    {
+      "severity": "P1",
+      "issue": "Intermediate replacement left orphaned finally blocks in both wallet handoffs",
+      "disposition": "FIXED: final helper owns cleanup; both final inline scripts pass node --check."
+    }
+  ],
+  "verified": [
+    "Exact scope: existing notice, helper block, two wiring IIFEs and walletTransfer/walletPay. Scope normalizer reproduces baseline outside those regions.",
+    "Exclusive Web Lock uses ifAvailable with no queue, retry, stealing or timed unlock; callback awaits the complete SDK promise. Durable shared record is written/read back before SDK and never cleared by settlement, page destruction or elapsed time.",
+    "Missing locks/randomUUID, storage get/set/readback/remove faults and malformed versioned record fail closed. UUIDv4 attemptId distinguishes identical successive attempts and prevents stale acknowledgement ABA.",
+    "Removal takes same lock, re-reads exact shared plus legacy bytes and requires unchanged acknowledged snapshot; another pending tab refuses removal with explicit busy feedback. Storage event only refreshes UI.",
+    "Finite unexpired consumed review grant and generation validated before acquisition and rechecked after asynchronous acquisition; beginWalletAttempt revalidates current account/network before publication.",
+    "wireExchangeReview only captures existing deadline before close and passes consumed generation/deadline to commit. Only wallet callbacks consume grant; unrelated callbacks retain existing semantics.",
+    "Legacy migration never removes session evidence and never overwrites shared evidence; conflicts become conservative generic reminder. No private payload, recipient, amount, memo, signature, identity or credential added.",
+    "Retention text states browser/site persistence until explicit removal; no timer, telemetry, new dependency or backend writer.",
+    "All 56 live input hashes verified at read-only prepare; target baseline8b7d1f6b, candidateee01d3f5,55 other dependencies and four service states unchanged; autopilot MainPID0."
+  ],
+  "local_ops_rehearsal": {
+    "result": "18 passed in 0.67s",
+    "command": "/opt/lumi/venv/bin/python -m pytest -q tests/test_e4_wallet_cross_tab_rollout.py",
+    "cases": [
+      "exact apply/reconcile/rollback and metadata",
+      "candidate/live/dependency/scope/backup/metadata drift",
+      "atomic replacement failure",
+      "post-write public failure reconciliation",
+      "corrupted rollback bytes",
+      "missing/duplicate regions and unrelated function drift",
+      "active autopilot and runtime identity drift"
+    ],
+    "limitations": "Only disposable pytest files mutate. Runtime/public calls mocked in rehearsal; host preflight independently read-only."
+  },
+  "read_only_preflight": {
+    "result": "PREPARED",
+    "plan": "docs/e4-wallet-cross-tab/plan.json",
+    "production_mutation": false
+  },
+  "limitations": [
+    "Guarantee covers cooperating upgraded same-origin/browser-partition pages, not already-loaded older HTML, cleared storage, other devices or profiles.",
+    "Multiple historical session-only attempts cannot be globally enumerated; migration publishes at most one shared record and preserves conflicting legacy records per tab. It does not prove their outcomes.",
+    "Explicit user acknowledgement is a reconciliation checkpoint, not chain evidence; no actual SDK reconnect/signature/money/customer read performed.",
+    "Rollback restores previous HTML for future loads and cannot stop wallet requests or replace active JavaScript. Shared record may survive while older code ignores it.",
+    "Separate acceptance reviewer and parent own browser/product regression results; this receipt does not independently attest their outcomes."
+  ]
+}

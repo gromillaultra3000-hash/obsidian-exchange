@@ -42,5 +42,5 @@ def test_signed_marker_pending_is_outside_sdk_lock(replacement):
 
 @pytest.mark.parametrize("action", ["transfer", "payment"])
 @pytest.mark.parametrize("replacement", ["transfer", "payment"])
-def test_late_json_cannot_open_review_during_sdk_handoff(action, replacement):
+def test_stale_callback_cannot_sign_during_fresh_preparation(action, replacement):
     run_case("late_json", action=action, replacement=replacement)

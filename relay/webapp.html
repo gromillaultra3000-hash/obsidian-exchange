@@ -577,7 +577,7 @@
           <p style="font-size:13px">Откройте историю указанного кошелька и, для оплаты, статус заявки. Пока результат неясен, не повторяйте перевод. Ответ кошелька и прошедшее время не подтверждают оплату.</p>
           <label style="display:flex;gap:8px;font-size:13px"><input type="checkbox" id="wallet-attempt-ack">Я проверил историю указанного кошелька и статус заявки, если это оплата, и установил результат. Он больше не является неизвестным.</label>
           <button type="button" id="wallet-attempt-remove" disabled style="margin-top:12px;padding:10px;border-radius:10px">Убрать напоминание после проверки</button>
-          <p style="font-size:12px">Это удалит только локальное напоминание, не подтвердит оплату и не повторит перевод. Оно хранится в этой вкладке до удаления или закрытия вкладки. В другой вкладке или после очистки данных защита не гарантируется.</p>
+          <p style="font-size:12px">Это удалит только напоминание, не подтвердит оплату и не повторит перевод. Оно хранится в этом браузере для этого сайта до явного удаления, в том числе после закрытия вкладок. Обновите все ранее открытые вкладки. В другом браузере, профиле или после очистки данных защита не гарантируется.</p>
         </section>
 
         <div id="exchange-review" role="dialog" aria-modal="true" aria-labelledby="exchange-review-title" aria-describedby="exchange-review-description" tabindex="-1"
@@ -1900,20 +1900,12 @@
                         {label: 'Комментарий', value: comment || 'Нет'}
                     ],
                     risk: 'После подписи в кошельке перевод в сети TON нельзя отменить. Проверьте адрес, сумму и комментарий в окне кошелька. Если вы уже начинали этот перевод или вернулись после перезагрузки, проверьте историю операций в подключённом кошельке. Пока результат предыдущей попытки неясен, не повторяйте перевод.',
-                    onConfirm: async () => {
+                    onConfirm: async grant => {
                         if (walletHandoffPending) { say('Дождитесь ответа кошелька на предыдущий запрос. Не повторяйте перевод.'); return; }
                         if (walletAttemptBlocked(say)) return;
                         try {
                             say('Подтвердите в кошельке: ' + d.amount + ' TON → ' + walletShorten(d.address));
-                            if (!beginWalletAttempt(d, 'transfer', null, say)) return;
-                            walletHandoffPending = true;
-                            renderWalletAttempt();
-                            try {
-                                await tcUI.sendTransaction(d.request);
-                            } finally {
-                                walletHandoffPending = false;
-                                renderWalletAttempt();
-                            }
+                            if (!await runWalletHandoff(d, 'transfer', null, say, grant)) return;
                             say('✅ Подписано. Операция появится в списке, когда её увидит сеть.');
                             if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
                             setTimeout(loadWallets, 4000);
@@ -2164,34 +2156,53 @@
             return sum % 10 === 0;
         }
 
-        // One unresolved handoff per tab. No payload, recipient, amount, memo,
+        // One unresolved handoff across cooperating same-origin tabs. No payload, recipient, amount, memo,
         // Telegram identity, signature or secret is retained; no time-based expiry.
         const walletAttemptStorageKey = 'oe.wallet-attempt.v1';
+        const walletAttemptSharedKey = 'oe.wallet-attempt.shared.v1';
+        const walletAttemptLockName = 'oe.wallet-handoff.v1';
         let walletAttempt = null;
         let walletAttemptStorageFault = false;
+        let walletAttemptBusy = false;
         let walletAttemptObservedRaw;
         function validWalletAttempt(value) {
-            return value && Object.keys(value).sort().join(',') === 'network,operation,orderId,version,wallet'
-                && value.version === 1 && typeof value.wallet === 'string' && /^(-1|0):[0-9a-f]{64}$/.test(value.wallet)
+            return value && ((value.version === 1 && Object.keys(value).sort().join(',') === 'network,operation,orderId,version,wallet')
+                || (value.version === 2 && Object.keys(value).sort().join(',') === 'attemptId,network,operation,orderId,version,wallet'
+                    && typeof value.attemptId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(value.attemptId)))
+                && typeof value.wallet === 'string' && /^(-1|0):[0-9a-f]{64}$/.test(value.wallet)
                 && ['-239', '-3'].includes(value.network)
                 && ((value.operation === 'transfer' && value.orderId === null)
                     || (value.operation === 'payment' && Number.isSafeInteger(value.orderId) && value.orderId > 0));
         }
+        function walletAttemptCapabilities() {
+            return typeof navigator !== 'undefined' && navigator.locks && typeof navigator.locks.request === 'function'
+                && typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function';
+        }
+        function parseWalletAttempt(raw, version) {
+            try {
+                const value = typeof raw === 'string' && raw.length <= 512 ? JSON.parse(raw) : null;
+                return validWalletAttempt(value) && value.version === version ? value : {invalid: true};
+            } catch (_) { return {invalid: true}; }
+        }
         function readWalletAttempt() {
             try {
-                const raw = sessionStorage.getItem(walletAttemptStorageKey);
+                const legacy = sessionStorage.getItem(walletAttemptStorageKey);
+                const shared = localStorage.getItem(walletAttemptSharedKey);
+                const raw = JSON.stringify([legacy, shared]);
                 if (raw !== walletAttemptObservedRaw) {
                     const ack = document.getElementById('wallet-attempt-ack');
                     if (ack) ack.checked = false;
                     walletAttemptObservedRaw = raw;
                 }
-                // An in-memory record must survive unexpected storage deletion.
-                if (raw !== null) {
-                    let parsed;
-                    try { parsed = raw.length <= 512 ? JSON.parse(raw) : null; } catch (_) {}
-                    walletAttempt = validWalletAttempt(parsed) ? parsed : {invalid: true};
+                // Keep a local reminder even if another context removes storage.
+                if (legacy !== null || shared !== null) {
+                    const older = legacy !== null ? parseWalletAttempt(legacy, 1) : null;
+                    const current = shared !== null ? parseWalletAttempt(shared, 2) : null;
+                    walletAttempt = current || older;
+                    if (older && current && (older.invalid || current.invalid
+                        || ['wallet', 'network', 'operation', 'orderId'].some(field => older[field] !== current[field]))) walletAttempt = {invalid: true};
                 }
-                walletAttemptStorageFault = false;
+                walletAttemptStorageFault = !walletAttemptCapabilities();
             } catch (_) { walletAttemptStorageFault = true; }
         }
         function renderWalletAttempt() {
@@ -2202,11 +2213,12 @@
             if (!notice || !details || !ack || !remove) return;
             notice.style.display = walletAttempt || walletAttemptStorageFault ? '' : 'none';
             details.textContent = walletAttemptStorageFault
-                ? 'Хранилище вкладки недоступно. Новый перевод заблокирован. Восстановите доступ к хранилищу и проверьте предыдущие операции.'
+                ? 'Хранилище или безопасная координация вкладок недоступны. Новый перевод заблокирован. Используйте поддерживаемый браузер, восстановите доступ к хранилищу и проверьте предыдущие операции.'
                 : walletAttempt && !walletAttempt.invalid
                     ? 'Кошелёк: ' + walletAttempt.wallet + ' · сеть TON ' + (walletAttempt.network === '-239' ? 'mainnet' : 'testnet')
                         + ' · ' + (walletAttempt.operation === 'payment' ? 'Оплата заявки #' + walletAttempt.orderId : 'Прямой перевод') + '. Исход требует проверки.'
-                    : 'Данные предыдущей попытки повреждены. Проверьте историю всех использованных кошельков и статусы заявок перед удалением напоминания.';
+                    : 'Данные предыдущих попыток повреждены или различаются. Проверьте историю всех использованных кошельков и статусы заявок перед удалением напоминания.';
+            if (walletAttemptBusy) details.textContent += ' В другой вкладке ещё выполняется запрос кошелька. Напоминание не удалено.';
             remove.disabled = !walletAttempt || walletAttemptStorageFault || walletHandoffPending || !ack.checked;
             ack.disabled = walletHandoffPending || walletAttemptStorageFault;
         }
@@ -2248,12 +2260,12 @@
             const value = walletAttemptBinding(data, operation, orderId);
             if (!value) { say('Кошелёк или сеть изменились либо недоступны. Подключите нужный кошелёк и заново проверьте перевод.'); return false; }
             // Persist and read back before invoking the external signing boundary.
-            walletAttempt = value;
+            walletAttempt = {...value, version: 2, attemptId: crypto.randomUUID()};
             try {
-                const encoded = JSON.stringify(value);
-                sessionStorage.setItem(walletAttemptStorageKey, encoded);
-                if (sessionStorage.getItem(walletAttemptStorageKey) !== encoded) throw new Error('storage');
-                walletAttemptObservedRaw = encoded;
+                const encoded = JSON.stringify(walletAttempt);
+                localStorage.setItem(walletAttemptSharedKey, encoded);
+                if (localStorage.getItem(walletAttemptSharedKey) !== encoded) throw new Error('storage');
+                walletAttemptObservedRaw = JSON.stringify([sessionStorage.getItem(walletAttemptStorageKey), encoded]);
             } catch (_) {
                 walletAttemptStorageFault = true;
                 say('Не удалось сохранить напоминание. Запрос в кошелёк не отправлен. Новый перевод заблокирован до проверки хранилища.');
@@ -2263,6 +2275,52 @@
             document.getElementById('wallet-attempt-ack').checked = false;
             renderWalletAttempt();
             return true;
+        }
+        async function runWalletHandoff(data, operation, orderId, say, grant) {
+            if (!grant || !Number.isFinite(grant.expiresAt) || grant.generation !== exchangeReviewPreparationGeneration || Date.now() >= grant.expiresAt
+                || walletHandoffPending || walletAttemptBlocked(say)) return false;
+            let entered = false;
+            walletAttemptBusy = false;
+            walletHandoffPending = true;
+            renderWalletAttempt();
+            try {
+                return await navigator.locks.request(walletAttemptLockName, {mode: 'exclusive', ifAvailable: true}, async lock => {
+                    if (!lock) { walletAttemptBusy = true; say('Другой запрос кошелька ещё выполняется. Проверьте его результат; повтор автоматически не выполняется.'); return false; }
+                    if (grant.generation !== exchangeReviewPreparationGeneration || Date.now() >= grant.expiresAt) {
+                        say('Проверка условий устарела. Откройте её заново.'); return false;
+                    }
+                    if (!beginWalletAttempt(data, operation, orderId, say)) return false;
+                    entered = true;
+                    await tcUI.sendTransaction(data.request);
+                    return true;
+                });
+            } catch (error) {
+                if (entered) throw error;
+                walletAttemptStorageFault = true;
+                say('Безопасная координация вкладок недоступна. Запрос в кошелёк не отправлен.');
+                return false;
+            } finally {
+                walletHandoffPending = false;
+                renderWalletAttempt();
+            }
+        }
+        async function migrateWalletAttempt() {
+            // Legacy evidence is never removed or overwritten by migration.
+            try {
+                const legacy = sessionStorage.getItem(walletAttemptStorageKey);
+                if (legacy === null || !walletAttemptCapabilities()) return;
+                await navigator.locks.request(walletAttemptLockName, {mode: 'exclusive', ifAvailable: true}, lock => {
+                    if (!lock || localStorage.getItem(walletAttemptSharedKey) !== null) return;
+                    const latest = sessionStorage.getItem(walletAttemptStorageKey);
+                    if (latest === null) return;
+                    const older = parseWalletAttempt(latest, 1);
+                    const encoded = JSON.stringify(older.invalid ? {invalid: true} : {...older, version: 2, attemptId: crypto.randomUUID()});
+                    localStorage.setItem(walletAttemptSharedKey, encoded);
+                    if (localStorage.getItem(walletAttemptSharedKey) !== encoded) throw new Error('storage');
+                });
+                readWalletAttempt();
+            } catch (_) { walletAttemptStorageFault = true; }
+            renderWalletAttempt();
         }
 
         let exchangeReviewCommit = null;
@@ -2532,22 +2590,14 @@
                         {label: 'Комментарий к переводу', value: d.marker || '—'}
                     ],
                     risk: 'После подписи перевод в сети TON нельзя отменить. Заявка будет считаться оплаченной только после подтверждения в сети. Если вы уже начинали этот перевод или вернулись после перезагрузки, проверьте историю операций в подключённом кошельке и статус заявки. Пока результат предыдущей попытки неясен, не повторяйте перевод.',
-                    onConfirm: async () => {
+                    onConfirm: async grant => {
                         if (walletHandoffPending) { say('Дождитесь ответа кошелька на предыдущий запрос. Не повторяйте перевод.'); return; }
                         if (walletAttemptBlocked(say)) return;
                         try {
                             say('Подтвердите в кошельке…');
                             // Запрос уходит в кошелёк КАК ПРИШЁЛ: подменять адрес или сумму
                             // на фронте нечем и незачем — подписывать всё равно клиенту.
-                            if (!beginWalletAttempt(d, 'payment', Number(sellId), say)) return;
-                            walletHandoffPending = true;
-                            renderWalletAttempt();
-                            try {
-                                await tcUI.sendTransaction(d.request);
-                            } finally {
-                                walletHandoffPending = false;
-                                renderWalletAttempt();
-                            }
+                            if (!await runWalletHandoff(d, 'payment', Number(sellId), say, grant)) return;
                             // Подпись — не поступление денег: сервер лишь отмечает время,
                             // заявку закроет проверка блокчейна.
                             await fetch('/api/wallet/send-signed', {
@@ -3374,8 +3424,9 @@
                     return;
                 }
                 const commit = exchangeReviewCommit;
+                const expiresAt = exchangeReviewExpiresAt;
                 closeExchangeReview();
-                await commit();
+                await commit({generation: exchangeReviewPreparationGeneration, expiresAt: expiresAt});
             });
             document.addEventListener('keydown', event => {
                 if (event.key === 'Escape' && modal.style.display === 'flex') closeExchangeReview();
@@ -3404,20 +3455,34 @@
             ack.checked = false;
             renderWalletAttempt();
             ack.addEventListener('change', renderWalletAttempt);
-            remove.addEventListener('click', () => {
-                if (walletHandoffPending || !ack.checked) return;
-                readWalletAttempt();
-                if (!walletAttempt || walletAttemptStorageFault || !ack.checked) { renderWalletAttempt(); return; }
+            remove.addEventListener('click', async () => {
+                if (walletHandoffPending || !ack.checked || !walletAttemptCapabilities()) return;
+                const acknowledged = walletAttemptObservedRaw;
+                walletAttemptBusy = false;
                 try {
-                    sessionStorage.removeItem(walletAttemptStorageKey);
-                    if (sessionStorage.getItem(walletAttemptStorageKey) !== null) throw new Error('storage');
-                    walletAttempt = null;
-                    walletAttemptObservedRaw = null;
-                    ack.checked = false;
-                    closeExchangeReview();
+                    await navigator.locks.request(walletAttemptLockName, {mode: 'exclusive', ifAvailable: true}, lock => {
+                        if (!lock) { walletAttemptBusy = true; ack.checked = false; return; }
+                        readWalletAttempt();
+                        if (walletHandoffPending || !walletAttempt || walletAttemptStorageFault || !ack.checked
+                            || acknowledged !== walletAttemptObservedRaw) return;
+                        // Delete only the exact evidence the user saw, under the same
+                        // exclusion as publication and the entire SDK promise.
+                        sessionStorage.removeItem(walletAttemptStorageKey);
+                        if (sessionStorage.getItem(walletAttemptStorageKey) !== null) throw new Error('storage');
+                        localStorage.removeItem(walletAttemptSharedKey);
+                        if (localStorage.getItem(walletAttemptSharedKey) !== null) throw new Error('storage');
+                        walletAttempt = null;
+                        walletAttemptObservedRaw = JSON.stringify([null, null]);
+                        ack.checked = false;
+                        closeExchangeReview();
+                    });
                 } catch (_) { walletAttemptStorageFault = true; }
                 renderWalletAttempt();
             });
+            window.addEventListener('storage', event => {
+                if (event.key === walletAttemptSharedKey || event.key === null) { readWalletAttempt(); renderWalletAttempt(); }
+            });
+            migrateWalletAttempt();
         })();
 
 

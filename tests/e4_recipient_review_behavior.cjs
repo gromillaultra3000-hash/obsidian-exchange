@@ -39,6 +39,13 @@ function harness(options = {}) {
     const walletRequest = {validUntil: 2000, network: '-239', messages: [
         {address: 'EQ' + 'A'.repeat(46), amount: '1250000000', payload: 'synthetic-not-a-boc'}]};
     const storageWrites = [];
+    const localValues = options.localValues || new Map();
+    const localStorage = options.localStorage || {
+        getItem: key => localValues.has(key) ? localValues.get(key) : null,
+        setItem: (key, value) => { storageWrites.push([key, value]); localValues.set(key, String(value)); },
+        removeItem: key => localValues.delete(key),
+    };
+    const locks = options.locks || {async request(name, options, callback) {return callback({name});}};
     const elements = new Map();
     let document;
 
@@ -115,6 +122,8 @@ function harness(options = {}) {
     const context = vm.createContext({
         document,
         atob,
+        navigator: {locks},
+        crypto: require('node:crypto').webcrypto,
         HTMLElement: Element,
         Date: class Clock extends Date { static now() { return now; } },
         setTimeout(callback, delay) {
@@ -128,7 +137,7 @@ function harness(options = {}) {
             signingAttempts.push(JSON.parse(JSON.stringify(request)));
             throw new Error('Synthetic signing blocked');
         }},
-        window: {__oeOfferings: [
+        window: {addEventListener() {}, __oeOfferings: [
             {code: 'XRP', tag_name: 'destination tag', tag_kind: 'uint32', tag_sep: ':'},
             {code: 'TON', tag_name: 'memo', tag_kind: 'text', tag_sep: '#'},
         ]},
@@ -137,7 +146,7 @@ function harness(options = {}) {
             {code: 'card', needs_bank: true, needs_name: true},
         ],
         sessionStorage,
-        localStorage: {setItem: (...args) => storageWrites.push(args)},
+        localStorage,
         async fetch(url, options) {
             requests.push({url, method: options.method, body: JSON.parse(options.body)});
             if (['/api/wallet/transfer-request', '/api/wallet/send-request'].includes(url)) {

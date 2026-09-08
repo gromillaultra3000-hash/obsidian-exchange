@@ -1,0 +1,142 @@
+{
+  "sourceSha256": "ee01d3f55a2f97c3f957e9166a02f79cd247f7d924316c666d6d94a754bfe7e3",
+  "runnerSha256": "7fdfc3ee58d489da7516f486c409966996a40fd4772f8a73c4ba2f6c35180d81",
+  "baseline": false,
+  "playwrightVersion": "1.62.0",
+  "checks": [
+    {
+      "width": 320,
+      "case": "native simultaneous review exclusion; lock-held clear denied; holder close preserves record; account switch blocked; explicit clear never signs",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "case": "native lock unavailable with no record fails without queue or automatic retry on release",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "case": "success retains shared unresolved outcome across tabs",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "case": "reject retains shared unresolved outcome across tabs",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "case": "unsupported prevents SDK handoff",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "case": "request-reject prevents SDK handoff",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "case": "storage-read prevents SDK handoff",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "case": "storage-write prevents SDK handoff",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "case": "corrupt prevents SDK handoff",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "case": "real same-fields replacement resets stale reconciliation acknowledgement with unique attempt ID",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "case": "legacy session evidence migrated without deletion and blocks second tab",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "case": "delayed acquired callback identity change prevents handoff",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "case": "delayed acquired callback review change prevents handoff",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "case": "native simultaneous review exclusion; lock-held clear denied; holder close preserves record; account switch blocked; explicit clear never signs",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "case": "native lock unavailable with no record fails without queue or automatic retry on release",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "case": "success retains shared unresolved outcome across tabs",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "case": "reject retains shared unresolved outcome across tabs",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "case": "unsupported prevents SDK handoff",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "case": "request-reject prevents SDK handoff",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "case": "storage-read prevents SDK handoff",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "case": "storage-write prevents SDK handoff",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "case": "corrupt prevents SDK handoff",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "case": "real same-fields replacement resets stale reconciliation acknowledgement with unique attempt ID",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "case": "legacy session evidence migrated without deletion and blocks second tab",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "case": "delayed acquired callback identity change prevents handoff",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "case": "delayed acquired callback review change prevents handoff",
+      "result": "PASS"
+    }
+  ],
+  "unexpectedWrites": [],
+  "pageErrors": [],
+  "browserVersion": "152.0.7977.64",
+  "result": "PASS"
+}

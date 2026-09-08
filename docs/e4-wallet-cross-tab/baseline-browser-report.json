@@ -1,0 +1,22 @@
+{
+  "sourceSha256": "8b7d1f6b0dbacdb5fd9faec3ae011d6c362c20b5c5bbdc9a657d6345f6ab10b5",
+  "runnerSha256": "774fb9f1ae43f097fc13e870cf5a564bc99afc5388e5d4a87eb1f25f4a9e8d0f",
+  "baseline": true,
+  "playwrightVersion": "1.62.0",
+  "checks": [
+    {
+      "width": 320,
+      "case": "baseline two independent real tabs both entered inert SDK",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "case": "baseline two independent real tabs both entered inert SDK",
+      "result": "PASS"
+    }
+  ],
+  "unexpectedWrites": [],
+  "pageErrors": [],
+  "browserVersion": "152.0.7977.64",
+  "result": "PASS"
+}

@@ -8,7 +8,7 @@ const sourcePath = process.argv[2] || 'relay/webapp.html';
 const source = fs.readFileSync(path.join(__dirname, 'e4_recipient_review_behavior.cjs'), 'utf8');
 const prefix = source.slice(0, source.indexOf('\nfunction assertBuyWrite('));
 const harness = vm.runInThisContext('(function(require,process){' + prefix + '\nreturn harness;})')(require,{argv:['','',sourcePath,'','{}']});
-const key = 'oe.wallet-attempt.v1';
+const key = 'oe.wallet-attempt.shared.v1';
 const raw = '0:' + 'b'.repeat(64);
 function fixture(options) {
  const h = harness(options);
@@ -31,14 +31,16 @@ function friendly(wc = 0, flag = 0x51) {
 (async () => {
  let cases = 0;
  for (const action of ['transfer','payment']) {
-  const values = new Map(); const h = fixture({sessionValues:values});
+  const values = new Map(); const h = fixture({localValues:values});
   const start = x => action === 'payment' ? x.context.walletPay(42,x.el('sell-card-pay')) : x.context.walletTransfer();
   await start(h); await h.confirm(); // synthetic generic failure
   assert.equal(h.signingAttempts.length,1);
   const record = JSON.parse(values.get(key));
-  assert.deepEqual(record,{version:1,wallet:raw,network:'-239',operation:action,orderId:action==='payment'?42:null});
+  assert.match(record.attemptId,/^[0-9a-f-]{36}$/);
+  const {attemptId,...metadata}=record;
+  assert.deepEqual(metadata,{version:2,wallet:raw,network:'-239',operation:action,orderId:action==='payment'?42:null});
   await start(h); assert.equal(h.requests.length,1);
-  const reload = fixture({sessionValues:values});
+  const reload = fixture({localValues:values});
   reload.advance(365*86400000);
   await start(reload); assert.equal(reload.requests.length,0);
   await reload.el('wallet-attempt-remove').fire('click'); assert.ok(values.has(key));
@@ -49,7 +51,7 @@ function friendly(wc = 0, flag = 0x51) {
  }
  // Persistence exists before the SDK is entered, and pending callbacks cannot clear it.
  {
- const values = new Map(); const h=fixture({sessionValues:values}); let reject;
+ const values = new Map(); const h=fixture({localValues:values}); let reject;
  h.context.tcUI.sendTransaction=() => {assert.ok(values.has(key));return new Promise((_,r)=>{reject=r;});};
  await h.context.walletTransfer();const pending=h.confirm();for(let i=0;i<8;i++)await Promise.resolve();
  await clear(h);assert.ok(values.has(key));reject(new Error('unknown'));await pending;
@@ -58,14 +60,14 @@ function friendly(wc = 0, flag = 0x51) {
  // Hostile storage must never reach signing, even with manual event invocation.
  for(const failure of ['read','write','silent_write','remove']) {
  const values=new Map();const storage={getItem(k){if(failure==='read')throw Error('denied');return values.get(k)??null;},setItem(k,v){if(failure==='write')throw Error('quota');if(failure!=='silent_write')values.set(k,v);},removeItem(k){if(failure==='remove')throw Error('denied');values.delete(k);}};
- const h=fixture({sessionStorage:storage});await h.context.walletTransfer();
+ const h=fixture({localStorage:storage});await h.context.walletTransfer();
  if(failure!=='read')await h.confirm();
  if(failure==='remove'){assert.equal(h.signingAttempts.length,1);await clear(h);assert.ok(values.has(key));}
  else assert.equal(h.signingAttempts.length,0);
  await h.context.walletTransfer();assert.equal(h.signingAttempts.length,failure==='remove'?1:0);cases++;
  }
  for(const corrupt of ['{','null','{}',JSON.stringify({version:1,wallet:raw,network:'-239',operation:'transfer',orderId:null,secret:'unexpected'}),'x'.repeat(513)]) {
- const values=new Map([[key,corrupt]]);const h=fixture({sessionValues:values});await h.context.walletTransfer();assert.equal(h.requests.length,0);await clear(h);assert.equal(values.has(key),false);cases++;
+ const values=new Map([[key,corrupt]]);const h=fixture({localValues:values});await h.context.walletTransfer();assert.equal(h.requests.length,0);await clear(h);assert.equal(values.has(key),false);cases++;
  }
  // Friendly account normalization: bounce flags, both alphabets, workchain, CRC.
  {
@@ -86,8 +88,8 @@ function friendly(wc = 0, flag = 0x51) {
  }
  // A previous checkbox cannot acknowledge substituted evidence.
  {
- const record={version:1,wallet:raw,network:'-239',operation:'payment',orderId:42};
- const values=new Map([[key,JSON.stringify(record)]]);const h=fixture({sessionValues:values});
+ const record={version:2,attemptId:'00000000-0000-4000-8000-000000000001',wallet:raw,network:'-239',operation:'payment',orderId:42};
+ const values=new Map([[key,JSON.stringify(record)]]);const h=fixture({localValues:values});
  h.el('wallet-attempt-ack').checked=true;
  values.set(key,JSON.stringify({...record,orderId:43}));
  await h.el('wallet-attempt-remove').fire('click');assert.ok(values.has(key));

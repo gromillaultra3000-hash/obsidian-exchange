@@ -128,14 +128,18 @@ async function lateJson({action, replacement}) {
     const stale = h.reviews[0].onConfirm;
     h.preparation = deferred();
     const next = h.start(replacement); await flush();
-    const first = stale(); await flush();
-    assert.equal(h.signingAttempts.length, 1);
+    await stale();
+    assert.equal(h.signingAttempts.length, 0, 'stale callback has no consumed review grant');
     h.preparation.resolve({ok: true, from_address: '0:' + 'b'.repeat(64), sell_id: 42, amount: 1.25,
         address: h.walletRequest.messages[0].address, request: h.walletRequest});
     await next;
-    assert.equal(h.reviews.length, 1, 'JSON completion while SDK pending cannot open another review');
+    assert.equal(h.reviews.length, 2, 'only fresh preparation may open a review');
+    assert.equal(h.el('exchange-review-ack').checked, false);
+    const first = h.confirm(); await flush();
+    assert.equal(h.signingAttempts.length, 1);
     h.sdk[0].reject(new Error('synthetic cleanup')); await first;
 }
+
 const scenarios = {pending, sync_throw: syncThrow, followup, late_json: lateJson};
 assert.ok(scenarios[scenario]);
 scenarios[scenario](parameters).then(() => console.log('HANDOFF_CASE_COMPLETE'))

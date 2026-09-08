@@ -1,0 +1,51 @@
+{
+  "recordedAt": "2026-09-08T22:46:24.181738+00:00",
+  "result": "PREFLIGHT_PASS",
+  "route": "E4 / WALLET_HANDOFF_CROSS_TAB_COORDINATION",
+  "sourceSha256": "ee01d3f55a2f97c3f957e9166a02f79cd247f7d924316c666d6d94a754bfe7e3",
+  "tests": {
+    "total": 255,
+    "summary": "255 passed in 12.88s",
+    "newCrossTabGroups": 15,
+    "retainedStateGroups": 18,
+    "opsCasesIncluded": 18,
+    "log": "output/manual/e4-wallet-cross-tab-20260908/tests-final.txt"
+  },
+  "browser": {
+    "cases": 26,
+    "widths": [
+      320,
+      390
+    ],
+    "result": "PASS",
+    "actualDOM": true,
+    "nativeWebLocksAndStorage": true,
+    "realSDK": false,
+    "baseline": "Two concurrent inert SDK calls from two acknowledged pages at both widths",
+    "isolationCleanupVerified": true
+  },
+  "reviews": [
+    "acceptance-review.json",
+    "diff-ops-review.json"
+  ],
+  "negativeResults": [
+    {
+      "run": "initial combined regression",
+      "result": "2 failed, 253 passed",
+      "cause": "Two static assertions expected direct SDK call inside each action",
+      "resolution": "Assertions check awaited shared helper and exact request SDK call inside lock; final full suite passes."
+    },
+    {
+      "run": "initial browser candidate",
+      "result": "Draft had orphaned finally syntax",
+      "resolution": "Fixed before final candidate; exact final syntax and26 browser checks pass."
+    }
+  ],
+  "limits": [
+    "Only upgraded same-origin pages in same browser storage partition",
+    "Other devices/old loaded pages/cleared storage not covered",
+    "Historical legacy records preserved but not globally enumerated",
+    "User reconciliation assertion is not blockchain confirmation",
+    "Production application pending; preflight read-only"
+  ]
+}

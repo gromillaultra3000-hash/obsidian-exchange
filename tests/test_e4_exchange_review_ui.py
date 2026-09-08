@@ -80,8 +80,13 @@ def test_wallet_send_uses_the_same_explicit_review_before_wallet_signature():
     assert "Ключи остаются только в вашем кошельке" in transfer
     assert "Получатель" in transfer and "Сумма и сеть" in transfer
     assert "openExchangeReview({" in transfer
-    assert "await tcUI.sendTransaction(d.request);" in transfer
-    assert transfer.index("openExchangeReview({") < transfer.index("await tcUI.sendTransaction(d.request);")
+    handoff = "await runWalletHandoff(d, 'transfer', null, say, grant)"
+    assert handoff in transfer
+    assert transfer.index("openExchangeReview({") < transfer.index(handoff)
+    helper = webapp[webapp.index("async function runWalletHandoff"):
+                    webapp.index("async function migrateWalletAttempt")]
+    assert "await tcUI.sendTransaction(data.request);" in helper
+    assert helper.index("navigator.locks.request") < helper.index("await tcUI.sendTransaction(data.request);")
 
 
 def test_wallet_payment_for_a_sell_order_uses_review_before_wallet_signature():
@@ -93,5 +98,10 @@ def test_wallet_payment_for_a_sell_order_uses_review_before_wallet_signature():
     assert "Комментарий к переводу" in payment
     assert "Заявка будет считаться оплаченной только после подтверждения в сети" in payment
     assert "openExchangeReview({" in payment
-    assert "await tcUI.sendTransaction(d.request);" in payment
-    assert payment.index("openExchangeReview({") < payment.index("await tcUI.sendTransaction(d.request);")
+    handoff = "await runWalletHandoff(d, 'payment', Number(sellId), say, grant)"
+    assert handoff in payment
+    assert payment.index("openExchangeReview({") < payment.index(handoff)
+    helper = webapp[webapp.index("async function runWalletHandoff"):
+                    webapp.index("async function migrateWalletAttempt")]
+    assert "await tcUI.sendTransaction(data.request);" in helper
+    assert helper.index("navigator.locks.request") < helper.index("await tcUI.sendTransaction(data.request);")
