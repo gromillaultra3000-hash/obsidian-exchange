@@ -1,0 +1,132 @@
+{
+  "schemaVersion": "e4-wallet-cross-tab-rollout.v1",
+  "recordedAt": "2026-09-08T22:48:36.900943+00:00",
+  "route": "E4 / WALLET_HANDOFF_CROSS_TAB_COORDINATION",
+  "status": "VERIFIED",
+  "stageStatus": "IN_PROGRESS",
+  "accountableOwner": "Project owner; authorized manual reversible E4 continuation",
+  "implementationCommit": "55808db57233788b5aa3ebe4f5023630e326af59",
+  "production": {
+    "apply": "PASS",
+    "reconcile": "PASS",
+    "target": "/opt/obsidian-exchange/relay/webapp.html",
+    "liveSha256": "ee01d3f55a2f97c3f957e9166a02f79cd247f7d924316c666d6d94a754bfe7e3",
+    "publicSha256": "34addbf753b61d796acd991b052805d49f3738e77c0008b3654553cdfccf758b",
+    "exactPublicTemplate": true,
+    "otherFilesPreserved": 55,
+    "servicesUnchanged": [
+      {
+        "unit": "relay-fastapi.service",
+        "WorkingDirectory": "/opt/obsidian-exchange/relay-fastapi",
+        "FragmentPath": "/etc/systemd/system/relay-fastapi.service",
+        "executable": "/opt/obsidian-exchange/relay-venv/bin/python",
+        "pythonScriptTokens": [
+          "/opt/obsidian-exchange/relay-fastapi/main.py"
+        ],
+        "state": {
+          "MainPID": "3016726",
+          "NRestarts": "0",
+          "ExecMainStartTimestamp": "Tue 2026-09-08 03:26:45 UTC",
+          "ActiveState": "active",
+          "SubState": "running"
+        }
+      },
+      {
+        "unit": "exchange-bot.service",
+        "WorkingDirectory": "/opt/obsidian-exchange/bot",
+        "FragmentPath": "/etc/systemd/system/exchange-bot.service",
+        "executable": "/opt/obsidian-exchange/bot/venv/bin/python3",
+        "pythonScriptTokens": [
+          "/opt/obsidian-exchange/bot/main_bot.py"
+        ],
+        "state": {
+          "MainPID": "3877887",
+          "NRestarts": "0",
+          "ExecMainStartTimestamp": "Tue 2026-09-01 06:20:00 UTC",
+          "ActiveState": "active",
+          "SubState": "running"
+        }
+      },
+      {
+        "unit": "nginx.service",
+        "WorkingDirectory": "",
+        "FragmentPath": "/usr/lib/systemd/system/nginx.service",
+        "executable": "/usr/sbin/nginx",
+        "pythonScriptTokens": [],
+        "state": {
+          "MainPID": "3877705",
+          "NRestarts": "0",
+          "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:56 UTC",
+          "ActiveState": "active",
+          "SubState": "running"
+        }
+      },
+      {
+        "unit": "obsidian-postgres.service",
+        "WorkingDirectory": "/opt/obsidian-exchange",
+        "FragmentPath": "/etc/systemd/system/obsidian-postgres.service",
+        "executable": "/usr/bin/docker",
+        "pythonScriptTokens": [],
+        "state": {
+          "MainPID": "3136948",
+          "NRestarts": "0",
+          "ExecMainStartTimestamp": "Mon 2026-08-24 05:08:51 UTC",
+          "ActiveState": "active",
+          "SubState": "running"
+        }
+      }
+    ],
+    "restart": false,
+    "autopilot": "failed / MainPID0; unchanged",
+    "publicChecks": {
+      "GET /webapp": 200,
+      "POST /webapp": 405,
+      "anonymous GET /api/history": 403,
+      "proofless GET /api/order/0": 404,
+      "proofless GET /pay/0": 404
+    }
+  },
+  "validation": {
+    "pytestTests": 255,
+    "crossTabScenarioGroups": 15,
+    "retainedStateGroups": 18,
+    "nativeChromeCases": 26,
+    "opsCasesIncluded": 18,
+    "independentReviews": 2,
+    "scanner": {
+      "name": "gitleaks",
+      "version": "8.30.0",
+      "scope": "staged implementation/tests/evidence",
+      "findings": 0
+    },
+    "baseline": "2 acknowledged pages both enter inert SDK at320/390; final only one enters"
+  },
+  "rollback": {
+    "backup": "/var/lib/obsidian-exchange/deployment-preimages/e4-wallet-cross-tab-55808db-20260908",
+    "command": "python3 docs/e4-wallet-cross-tab/rollout.py rollback --plan docs/e4-wallet-cross-tab/plan.json --backup /var/lib/obsidian-exchange/deployment-preimages/e4-wallet-cross-tab-55808db-20260908",
+    "verified": "Exact backup digest/metadata before atomic apply plus18 isolated lifecycle/failure tests",
+    "limitation": "Restores old HTML on later loads, cannot cancel requests or change already-open scripts. Older code does not consume the retained shared record."
+  },
+  "limits": [
+    "Only cooperating upgraded pages in same origin/browser storage partition; reload older pages.",
+    "Different devices/profiles and cleared storage are outside guarantee.",
+    "Historical session-only records are preserved, not globally enumerated; migration does not overwrite shared evidence.",
+    "User reconciliation assertion is not blockchain finality; no real SDK/money/provider/customer operation or new authority.",
+    "WebKit/iOS/Telegram/assistive/human acceptance and full E4/earlier gates remain open."
+  ],
+  "nextCanonicalItem": "E4 / WALLET_HANDOFF_WEBKIT_ACCEPTANCE / verify handoff coordination and reconciliation in isolated WebKit with inert SDK and fix reproduced failures",
+  "evidenceSha256": {
+    "browser-report.json": "94943ab3c688dc251fd6328841ca5c9aa0c71a789074f547d75c794c8081f8b9",
+    "validation.json": "8bacf1ef9c2fff847f80c1c5205a48e342a7ee9ed58987da64fdf861164a686c",
+    "baseline-browser-isolation.json": "37d4c565ed1b9bf100c0bed376fc6c2237c902bab73c7de172a6252be0c0a21d",
+    "plan.json": "8d7e19da457d6bb54c939989155f81b8a0fa0ba88aa3293f820370ac697f152c",
+    "ops-baseline.json": "32fd7be374de51f10126f2e5a43bec6b7c935d433100a17b77476c35eb203d51",
+    "contract.md": "dafb221c58c89679c3b15d2b3a34d6ae80dc6c8da3a24f530786dc925b0138d2",
+    "run-browser.py": "c351f57a5cb4b1fd7aac088c11047020206d8c78dd133926af419fe40c81d6bf",
+    "acceptance-review.json": "f2e22c573aac5adf8bbed08d75b3d72cd9d7cbaa9d55278ea326cac391385218",
+    "diff-ops-review.json": "f9a7209b2512f784e0248d6b90f8f8d59ec53e308dbfa1ab28cc9bf3866f7e50",
+    "baseline-browser-report.json": "6148464bef655ceb435a570e72e73de549cbf49e3147b622fca982c14ec1c884",
+    "rollout.py": "d2097d220500618ae684a46ac7e3eaf3caaa989a6915fed4301c6ce3f3b5fa7d",
+    "browser-isolation.json": "b948e31d628fc4ee9f9fb05bf2cd4af40ebc1d1f65e3c5c173f1846b8196c835"
+  }
+}

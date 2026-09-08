@@ -5,28 +5,30 @@ Updated: 2026-09-08 UTC
 ## Current goal and status
 
 
-- 2026-09-08 E4 WALLET_HANDOFF_REENTRY_STATE VERIFIED/deployed, `6d273bc`.
-  Minimal same-tab sessionStorage sender/network/operation/order evidence persists
-  before SDK; retained across reload/settlement/time/account switch until explicit
-  user reconciliation. No automatic retry; faults/corruption block. Friendly/raw
-  sender checksum normalization and payment-response order binding verified.
-  No recipient/amount/payload/signature/Telegram identity/secrets retained.
-  252 tests PASS (18 new state groups, 16 ops cases), 28 isolated Chrome cases,
-  two independent reviews, syntax and staged Gitleaks8.30.0 zero. Review findings
-  (type coercion, stale ack, order mismatch) fixed; initial outdated fixture/
-  expectation failures corrected. Original source fails missing-record regression.
-  HTML-only atomic apply/reconcile PASS, 8b7d1f6b...6ab10b5. Other 55 files and
-  Relay3016726/Bot3877887/Nginx3877705/PG3136948 unchanged; no restart. Public
+- 2026-09-08 E4 WALLET_HANDOFF_CROSS_TAB_COORDINATION VERIFIED/deployed,
+  `55808db`. Exclusive Web Locks ifAvailable protect shared v2 localStorage record
+  publication and whole SDK promise; no queue/retry/expiry. Random attempt ID
+  prevents stale ack deleting identical new attempt. Clear uses same lock and
+  exact shared/legacy snapshot. Async grant rechecks deadline/generation/account.
+  API/storage absence blocks. Legacy session evidence retained/migrated without
+  overwrite. Only public sender/network/op/order/random ID retained until explicit
+  reconciliation/browser clearing; no payload/secrets. Old tabs must reload.
+  255 tests PASS (15 new cross-tab groups, 18 retained state groups, 18 ops), 26
+  native Chrome cases, two reviews, syntax/staged Gitleaks8.30.0 zero. Baseline
+  two actual pages entered SDK; final excludes second and queues no retry.
+  HTML-only atomic apply/reconcile PASS ee01d3f5...4bfe7e3. Other 55 files and
+  Relay3016726/Bot3877887/Nginx3877705/PG3136948 unchanged/no restart. Public
   200/405/history403/order0+pay0 both404. Rollback: deployment-preimages/
-  e4-wallet-reentry-state-6d273bc-20260908. Evidence:
-  docs/e4-wallet-reentry-state-rollout.v1.json. Exactly next: E4
-  WALLET_HANDOFF_CROSS_TAB_COORDINATION — competing tabs, minimal coordination,
-  explicit reconciliation, no automatic retry/time-only unlock. Current guard is
-  same-tab only; clearing/closing/restoration, real SDK/platform/human outcomes
-  remain limited. User assertion is not chain evidence; E4/earlier gates open.
-  Rollback does not cancel money requests and loses new guard on future loads.
-  No real signature/money/customer read/new credential/064A authority. Autopilot
-  failed/MainPID0; no restart. Reconcile third receipt/manual commits before start.
+  e4-wallet-cross-tab-55808db-20260908; old HTML ignores shared evidence and does
+  not cancel money requests or replace old loaded scripts. Evidence:
+  docs/e4-wallet-cross-tab-rollout.v1.json. Exactly next: E4
+  WALLET_HANDOFF_WEBKIT_ACCEPTANCE — real isolated WebKit/locks/storage tests
+  with inert SDK/API and fix reproduced failures. Same browser partition/upgraded
+  pages only; legacy records not globally enumerated; user assertion not chain
+  proof. Other devices/storage clearing/platform/human and E4/earlier gates open.
+  No real signature/money/customer read/credential/064A authority. Autopilot
+  failed/MainPID0; reconcile stale third receipt/manual commits before owner-
+  requested restart. Initial draft syntax and two stale static assertions fixed.
 
 - 2026-09-08 status audit confirmed Sep 7's three deployed E4 slices: wallet
   review/fees (`d650b8d`), receive-address integrity (`1cbfe1f`) and payment

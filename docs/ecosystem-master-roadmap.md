@@ -948,6 +948,20 @@ competing tabs with no automatic retry or time-only release. Same-tab evidence
 and user assertion do not prove chain outcome or cover storage clearing/other
 devices; real SDK/platform/human gates open. No new money/signature/064A authority.
 
+2026-09-08: WALLET_HANDOFF_CROSS_TAB_COORDINATION VERIFIED/deployed (`55808db`).
+Nonqueued exclusive Web Locks protect shared minimal v2 attempt publication and
+SDK lifetime; random ID blocks stale acknowledgement, reconciliation uses same
+lock/exact records, async approval freshness rechecked. Legacy evidence preserved;
+no automatic retry/expiry, unavailable API/storage fails closed. 255 tests (15 new
+cross-tab groups, 18 retained state groups, 18 ops), 26 native Chrome cases and two
+reviews PASS. Baseline two-page overlap reproduced; candidate excludes it. HTML-
+only atomic apply/reconcile with exact rollback; 55 dependencies/four services
+unchanged/no restart. Evidence: `docs/e4-wallet-cross-tab-rollout.v1.json`.
+E4 IN_PROGRESS. Exactly next: WALLET_HANDOFF_WEBKIT_ACCEPTANCE — isolated native
+WebKit browser validation and fixes for reproduced failures. Only upgraded pages
+same browser partition are coordinated; old tabs must reload. Real SDK/money,
+other profiles/devices, cleared storage and human/platform gates remain open.
+
 ### E5 — нативный некастодиальный кошелёк
 
 E0.4 inventory evidence (2026-08-18): the checkout has a Rust/UniFFI Bitcoin

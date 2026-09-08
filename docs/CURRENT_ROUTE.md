@@ -11,42 +11,44 @@ non-custodial wallet whose keys never reach the server.
 
 ## Active route
 
-`E4 / WALLET_HANDOFF_CROSS_TAB_COORDINATION / prevent competing wallet handoffs from separate tabs`
+`E4 / WALLET_HANDOFF_WEBKIT_ACCEPTANCE / verify handoff coordination and reconciliation in isolated WebKit`
 
-2026-09-08: WALLET_HANDOFF_REENTRY_STATE is VERIFIED and deployed, `6d273bc`.
-Before SDK entry a minimal sessionStorage record binds public sender/network/
-operation/order and is read back. Reload, SDK success/rejection, elapsed time and
-wallet switch cannot clear it. Both handoffs stay blocked until explicit user
-reconciliation; clearing never signs or changes payment status. Storage failures
-and malformed evidence fail closed. Friendly server sender/raw SDK compatibility
-uses CRC-checked normalization; identity/network and response order are checked.
-No recipient, amount, payload, signature, Telegram identity or secret is retained.
+2026-09-08: WALLET_HANDOFF_CROSS_TAB_COORDINATION VERIFIED/deployed, `55808db`.
+Exclusive nonqueued Web Locks cover publication/readback of minimal shared v2
+localStorage evidence and the full SDK promise. Record retention survives closing
+all tabs; no expiry/settlement clearing. Random attempt ID prevents identical-record
+stale acknowledgement. Explicit removal uses the same lock and exact observed
+legacy/shared records; active SDK in another page prevents removal. Async grants
+recheck consumed review generation/deadline and wallet/network binding. Unsupported
+capabilities and storage faults block signing. Legacy session evidence is preserved
+and migrated without overwriting shared evidence. No payload/secrets retained.
 
-252 tests PASS (18 new state groups, 16 isolated ops cases included), 28 native
-Chrome scenarios at 320/390, syntax/secret scans and two independent reviews PASS.
-Fixed review findings: wallet type coercion, stale acknowledgement, mismatched
-payment response order. Initial regression fixture/old-expectation failures were
-corrected; full final suite passes. Original source fails new missing-record test.
+255 tests PASS (15 new cross-tab groups, 18 retained state groups, 18 ops cases
+included), 26 real native Chrome scenarios, syntax/staged Gitleaks8.30.0 zero and
+two independent reviews PASS. Baseline native two-page run reproduced two concurrent
+SDK calls at 320/390; candidate permits one. Real lock contention with no record
+refuses without queued callback or automatic signing after release. Initial draft
+syntax and two obsolete static assertions were fixed; final exact source passes.
 
-HTML-only atomic apply/reconcile PASS, live SHA256 `8b7d1f6b...6ab10b5`; exact
-public template. Other 55 files and Relay3016726/Bot3877887/Nginx3877705/PG3136948
-unchanged; no restart. GET200/POST405/history403/order0+pay0 both404. Rollback:
-`/var/lib/obsidian-exchange/deployment-preimages/e4-wallet-reentry-state-6d273bc-20260908`.
-Evidence: `docs/e4-wallet-reentry-state-rollout.v1.json` and task directory.
+HTML-only atomic apply/reconcile PASS; live SHA256 `ee01d3f5...4bfe7e3`. Other 55
+files and Relay3016726/Bot3877887/Nginx3877705/PG3136948 unchanged/no restart.
+Public GET200/POST405/history403/order0+pay0 both404. Rollback:
+`/var/lib/obsidian-exchange/deployment-preimages/e4-wallet-cross-tab-55808db-20260908`.
+Evidence: `docs/e4-wallet-cross-tab-rollout.v1.json` and task directory.
 
-Exactly next: WALLET_HANDOFF_CROSS_TAB_COORDINATION — reproduce competing tabs
-with an inert SDK, then implement bounded coordination preserving unresolved
-outcomes and explicit reconciliation. No automatic retry/signing or timer-only
-unlock. Current protection is same-tab session only; another tab/device, clearing
-storage and real SDK reconnection are outside its guarantee. User acknowledgement
-is not chain evidence. Closing/session restoration follows browser retention.
+Exactly next: WALLET_HANDOFF_WEBKIT_ACCEPTANCE — verify actual browser locks,
+shared storage, review cancellation and reconciliation in isolated WebKit using
+inert SDK/API; fix reproduced failures. Chrome evidence does not prove real
+Telegram/iOS/WebKit/assistive/human acceptance. Feature absence now fails closed.
 
-E4/earlier gates and Telegram/iOS/WebKit/assistive/human acceptance remain open.
-No real signature/money/provider operation, authenticated customer read, credential
-or 064A authority. Do not deploy drifting stores wholesale. Autopilot stays failed/
-MainPID0; reconcile stale third receipt/manual commits before explicitly requested
-restart. A rollback restores prior HTML, not money outcome, and loses the new guard
-on future loads without replacing JavaScript in existing tabs.
+Guarantee requires upgraded same-origin pages in the same storage partition;
+reload older open pages. Other devices/profiles or storage clearing are outside
+scope. Historical session-only records are preserved but not globally enumerated.
+Manual outcome assertion is not chain evidence. Rollback cannot cancel money
+requests or change existing scripts, and older code ignores shared evidence.
+E4/earlier gates remain open. No real signature/money/customer read/new credentials
+or 064A authority. Autopilot remains failed/MainPID0; do not restart without explicit
+owner request and reconciliation of its stale third receipt/manual commits.
 
 ### Owner reprioritization — 2026-08-26
 
