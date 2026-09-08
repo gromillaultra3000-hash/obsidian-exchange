@@ -1,0 +1,141 @@
+{
+  "schemaVersion": "e4-wallet-handoff-rollout.v1",
+  "recordedAt": "2026-09-08T22:10:37.345880+00:00",
+  "accountableOwner": "Project owner, current manual reversible E4 continuation",
+  "route": "E4 / WALLET_PENDING_HANDOFF_SERIALIZATION",
+  "status": "VERIFIED",
+  "stageStatus": "IN_PROGRESS",
+  "implementationCommit": "55369734e4a36a0d587fc1a7c80f07d86e068bd9",
+  "production": {
+    "apply": "PASS",
+    "reconcile": "PASS",
+    "target": "/opt/obsidian-exchange/relay/webapp.html",
+    "liveSha256": "9a2d4a4aa1734a7f4e9928e0e5c2b1a529dc19577d89e84b2fd949fcb69f0b1d",
+    "publicSha256": "4cae3d75d713a8158ae88c5a7fafb667d94a9a3e4729eee93384ed587d9ddcc9",
+    "exactPublicTemplate": true,
+    "otherFilesPreserved": 55,
+    "servicesUnchanged": [
+      {
+        "unit": "relay-fastapi.service",
+        "WorkingDirectory": "/opt/obsidian-exchange/relay-fastapi",
+        "FragmentPath": "/etc/systemd/system/relay-fastapi.service",
+        "executable": "/opt/obsidian-exchange/relay-venv/bin/python",
+        "pythonScriptTokens": [
+          "/opt/obsidian-exchange/relay-fastapi/main.py"
+        ],
+        "state": {
+          "MainPID": "3016726",
+          "NRestarts": "0",
+          "ExecMainStartTimestamp": "Tue 2026-09-08 03:26:45 UTC",
+          "ActiveState": "active",
+          "SubState": "running"
+        }
+      },
+      {
+        "unit": "exchange-bot.service",
+        "WorkingDirectory": "/opt/obsidian-exchange/bot",
+        "FragmentPath": "/etc/systemd/system/exchange-bot.service",
+        "executable": "/opt/obsidian-exchange/bot/venv/bin/python3",
+        "pythonScriptTokens": [
+          "/opt/obsidian-exchange/bot/main_bot.py"
+        ],
+        "state": {
+          "MainPID": "3877887",
+          "NRestarts": "0",
+          "ExecMainStartTimestamp": "Tue 2026-09-01 06:20:00 UTC",
+          "ActiveState": "active",
+          "SubState": "running"
+        }
+      },
+      {
+        "unit": "nginx.service",
+        "WorkingDirectory": "",
+        "FragmentPath": "/usr/lib/systemd/system/nginx.service",
+        "executable": "/usr/sbin/nginx",
+        "pythonScriptTokens": [],
+        "state": {
+          "MainPID": "3877705",
+          "NRestarts": "0",
+          "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:56 UTC",
+          "ActiveState": "active",
+          "SubState": "running"
+        }
+      },
+      {
+        "unit": "obsidian-postgres.service",
+        "WorkingDirectory": "/opt/obsidian-exchange",
+        "FragmentPath": "/etc/systemd/system/obsidian-postgres.service",
+        "executable": "/usr/bin/docker",
+        "pythonScriptTokens": [],
+        "state": {
+          "MainPID": "3136948",
+          "NRestarts": "0",
+          "ExecMainStartTimestamp": "Mon 2026-08-24 05:08:51 UTC",
+          "ActiveState": "active",
+          "SubState": "running"
+        }
+      }
+    ],
+    "restart": false,
+    "autopilot": "failed / MainPID0; unchanged",
+    "publicChecks": {
+      "GET /webapp": 200,
+      "POST /webapp": 405,
+      "anonymous GET /api/history": 403,
+      "proofless GET /api/order/0": 404,
+      "proofless GET /pay/0": 404
+    }
+  },
+  "validation": {
+    "newTests": 42,
+    "baselineFailures": 36,
+    "baselinePasses": 6,
+    "regressionTests": 199,
+    "nativeChromeCases": 24,
+    "independentReviews": 2,
+    "opsCases": 11,
+    "secretScan": "gitleaks 8.30.0 explicit scope + staged diff; zero without suppression"
+  },
+  "rollback": {
+    "backup": "/var/lib/obsidian-exchange/deployment-preimages/e4-wallet-handoff-5536973-20260908",
+    "command": "python3 docs/e4-wallet-handoff/rollout.py rollback --plan docs/e4-wallet-handoff/plan.json --backup /var/lib/obsidian-exchange/deployment-preimages/e4-wallet-handoff-5536973-20260908",
+    "verified": "Independent temporary atomic apply/reconcile/rollback/failure scenarios; production backup hash/metadata checked, no production rollback needed"
+  },
+  "limits": [
+    "Current-document SDK serialization only: no reload or cross-tab durability.",
+    "SDK rejection does not prove no transfer; resolution does not prove chain settlement. No automatic retry.",
+    "No real wallet, signature, provider or money operation, authenticated customer read, new credential or 064A authority.",
+    "Full E4 and earlier gates, Telegram/iOS/WebKit/assistive/human acceptance remain open."
+  ],
+  "nextCanonicalItem": "E4 / WALLET_HANDOFF_REENTRY_COVERAGE / assess reload/re-entry and ambiguous SDK failure guidance before selecting a reproducible code fix",
+  "evidence": [
+    {
+      "path": "docs/e4-wallet-handoff/acceptance-review.json",
+      "sha256": "803f4f8fbf88d8860768b9f4e898dc668d40589195d5d6f5004eb868b6771464"
+    },
+    {
+      "path": "docs/e4-wallet-handoff/diff-ops-review.json",
+      "sha256": "0a19737df2995585e98bb3ccddf1164770ac8cc1f2a4b3a56921d22b8e50f938"
+    },
+    {
+      "path": "docs/e4-wallet-handoff/browser-report.json",
+      "sha256": "f629973dbca3c3dafb04484eac67141b3c0acf36a324c336621e433f2fe6fc29"
+    },
+    {
+      "path": "docs/e4-wallet-handoff/browser-isolation.json",
+      "sha256": "9925fbaca37e8acbec8b8a3045553b52a9c2011590f6063d7962d3cac26ce585"
+    },
+    {
+      "path": "docs/e4-wallet-handoff/validation.json",
+      "sha256": "80687d83c71ac25454cb75c4b6d700239d243eff4573d2ad78ad6f258ccf98d4"
+    },
+    {
+      "path": "docs/e4-wallet-handoff/contract.md",
+      "sha256": "c42780df6fdc58a138732cc94a7605189a122282c2404c183e45a377f7e5f55b"
+    },
+    {
+      "path": "docs/e4-wallet-handoff/plan.json",
+      "sha256": "d772cb18cc84e9fca826d7f44338d8052005bf3308df39e7aa2fc56f24dfed91"
+    }
+  ]
+}

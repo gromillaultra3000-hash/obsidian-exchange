@@ -11,42 +11,41 @@ non-custodial wallet whose keys never reach the server.
 
 ## Active route
 
-`E4 / WALLET_PENDING_HANDOFF_SERIALIZATION / prevent overlapping unresolved wallet SDK handoffs`
+`E4 / WALLET_HANDOFF_REENTRY_COVERAGE / assess reload, re-entry and ambiguous SDK failure guidance`
 
-2026-09-08: WALLET_REVIEW_PREPARATION_CANCELLATION is VERIFIED and deployed,
-implementation `82eb191`. A shared review generation discards late wallet
-preparation success/error responses after cancellation, expiry, a newer wallet
-preparation or a replacement review. New preparation closes the previous review
-and clears its acknowledgement callback. Wallet signing callbacks and API
-payloads remain unchanged; no writer or retry was added.
+2026-09-08: WALLET_PENDING_HANDOFF_SERIALIZATION is VERIFIED and deployed,
+implementation `5536973`. In the current Mini App document, a shared guard blocks
+transfer/payment preparation and SDK dispatch while sendTransaction is unresolved.
+Cancellation, expiry and same-document navigation do not clear it. SDK settlement
+or synchronous throw releases it; no automatic retry, timeout unlock or request
+mutation. Fresh actions still require review/acknowledgement. The existing
+send-signed notification remains outside the SDK lock and cannot clear a new lock.
 
-84 deterministic race tests PASS (baseline 76 FAIL / 8 PASS), 115 regressions,
-48 native Chrome scenarios at 320/390px and both independent reviews PASS.
-Independent diff reviewer also ran 135 focused tests. Gitleaks 8.30.0 reports
-zero findings in explicit scope and staged diff without suppression. Browser
-uses exact page/native DOM/fetch, direct wallet-function entry, inert transport
-and rejecting SDK; private network, sandbox and cleanup verified.
+42 new tests PASS (baseline 36 FAIL/6 PASS), 199 regressions, 24 native Chrome
+cases at 320/390px, 11 isolated ops cases and two independent reviews PASS.
+Gitleaks 8.30.0 explicit/staged scans zero without suppression. Browser uses exact
+HTML/native fetch/review DOM and inert SDK/API boundaries; sandbox, PrivateNetwork
+and cleanup verified. No real wallet or money result is claimed.
 
-Only webapp.html atomically published, SHA256 `0499c7a1...e92af9e7`; exact public
-template verified by apply and reconciliation. Other 55 inventoried files and
-Relay 3016726/Bot 3877887/Nginx 3877705/Postgres 3136948 unchanged; no restart.
-Public GET200/POST405/history403/order0+pay0 both404. Retained rollback preimage:
-`/var/lib/obsidian-exchange/deployment-preimages/e4-wallet-preparation-82eb191-20260908`.
-Evidence: `docs/e4-wallet-preparation-rollout.v1.json` and its task directory.
+HTML-only atomic apply/reconcile PASS, live SHA256 `9a2d4a4a...cb69f0b1d`.
+Other 55 inventoried files and Relay3016726/Bot3877887/Nginx3877705/PG3136948
+unchanged; no restart. Public GET200/POST405/history403/order0+pay0 both404.
+Rollback: `/var/lib/obsidian-exchange/deployment-preimages/e4-wallet-handoff-5536973-20260908`.
+Evidence: `docs/e4-wallet-handoff-rollout.v1.json` and its task directory.
 
-Exactly next: WALLET_PENDING_HANDOFF_SERIALIZATION. Existing independent
-synthetic probes demonstrate a second acknowledged review invoking the wallet
-SDK while its first promise is unresolved. Bound that handoff without claiming
-a signature/transfer occurred or blindly retrying an uncertain outcome. The
-preparation fix does not serialize already confirmed handoffs. Hidden pending
-preparation has no new Escape control; visible review cancellation is covered.
+Exactly next: WALLET_HANDOFF_REENTRY_COVERAGE. The guard is per document and
+resets on reload; cross-tab and re-entry outcome guidance are unverified. SDK
+rejection is not proof no transfer happened, and SDK resolution is not chain
+settlement. Assess these remaining E4 UX claims with isolated executable evidence;
+select a product fix only from a reproduced gap. Do not infer actual wallet SDK
+reconnection, a customer incident or permission for real signing from fixtures.
 
-E4 and earlier gates, real Telegram/iOS/WebKit/assistive/human acceptance remain
-open. No real wallet/money operation, customer authenticated read, new credential,
-signature or 064A authority. Prior order-outcome and payment/read fixes remain
-installed. Do not replace drifting checkout stores wholesale. Autopilot remains
-failed/MainPID0 by owner direction; reconcile stale third receipt and all manual
-commits before any explicitly requested restart.
+E4 and earlier gates, Telegram/iOS/WebKit/assistive/human acceptance remain open.
+No real wallet/money action, customer authenticated read, new credential/signature
+or 064A authority. Prior preparation/order/payment/read fixes remain deployed.
+Do not replace drifting checkout stores wholesale. Autopilot stays failed/MainPID0
+by owner direction; reconcile stale third receipt/manual commits before any
+explicitly requested restart.
 
 ### Owner reprioritization — 2026-08-26
 

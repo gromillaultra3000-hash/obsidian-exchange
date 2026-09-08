@@ -5,29 +5,30 @@ Updated: 2026-09-08 UTC
 ## Current goal and status
 
 
-- 2026-09-08 E4 WALLET_REVIEW_PREPARATION_CANCELLATION is VERIFIED and deployed,
-  implementation `82eb191`. Shared review generation invalidates late wallet
-  preparation success/errors after cancel, expiry, replacement review or newer
-  preparation. Starting preparation closes prior review/acknowledgement. Both
-  signing closures and API payloads unchanged. 84 race tests PASS (baseline 76
-  FAIL/8 PASS), 115 regressions, 48 native Chrome cases and two independent
-  reviews PASS; diff reviewer additionally ran 135 focused tests. Gitleaks 8.30.0
-  explicit/staged scans zero without suppression. Inert SDK/fetch browser uses
-  sandbox/private network with cleanup verified; no real signature or money call.
-  HTML-only atomic rollout + reconciliation PASS, live 0499c7a1...e92af9e7.
-  Other 55 inventoried files and Relay3016726/Bot3877887/Nginx3877705/PG3136948
-  unchanged; no restart. Public200/405/history403/order0+pay0 both404.
-  Rollback: deployment-preimages/e4-wallet-preparation-82eb191-20260908.
-  Evidence: docs/e4-wallet-preparation-rollout.v1.json.
-  Exactly next: E4 WALLET_PENDING_HANDOFF_SERIALIZATION. Existing synthetic
-  deferred SDK probes show a second acknowledged handoff while the first is
-  unresolved. Preparation invalidation does not fix this; avoid blind retry.
-  Hidden pending preparation adds no Escape control. Real Telegram/iOS/WebKit/
-  assistive/human acceptance and earlier gates remain open. No customer read,
-  new credential/signature/064A authority. Prior 8846bbd order-outcome, 5751b1d
-  expiry, 033c567 receipt, bfa8d9e terminal and 25dccdd owner-read fixes stay
-  deployed. Stores drift; do not replace wholesale. Autopilot failed/MainPID0
-  by owner direction; reconcile stale third receipt/manual commits before start.
+- 2026-09-08 E4 WALLET_PENDING_HANDOFF_SERIALIZATION is VERIFIED and deployed,
+  implementation `5536973`. Current-document shared guard blocks transfer/payment
+  SDK overlap while unresolved; cancel/expiry/same-document navigation cannot
+  unlock it. SDK resolve/reject/sync throw releases; no automatic retry or timeout
+  unlock. Fresh review required; unchanged d.request, APIs and send-signed outside
+  SDK lock. 42 new tests PASS (baseline 36 FAIL/6 PASS), 199 regressions, 24 native
+  Chrome cases, 11 isolated ops cases and two independent reviews PASS. Gitleaks
+  8.30.0 explicit/staged scans zero without suppression. Browser SDK/API inert,
+  sandbox/private network/cleanup verified. No real signing or money operation.
+  HTML-only atomic apply/reconcile PASS; live 9a2d4a4a...cb69f0b1d. Other 55 files
+  and Relay 3016726/Bot 3877887/Nginx 3877705/PG 3136948 unchanged; no restart.
+  Public200/405/history403/order0+pay0 both404. Rollback:
+  deployment-preimages/e4-wallet-handoff-5536973-20260908.
+  Evidence: docs/e4-wallet-handoff-rollout.v1.json. Exactly next:
+  E4 WALLET_HANDOFF_REENTRY_COVERAGE — test reload/re-entry and ambiguous SDK
+  failure guidance before selecting a reproduced product fix. Lock is per document;
+  rejected SDK promise does not prove absent transfer, resolved promise is not
+  chain settlement. Cross-tab/real SDK reconnect behavior remains unverified.
+  E4/earlier gates and Telegram/iOS/WebKit/assistive/human acceptance open.
+  Prior 82eb191 preparation, 8846bbd order-outcome, 5751b1d expiry, 033c567 receipt,
+  bfa8d9e terminal,25dccdd owner-read fixes stay installed. Stores drift; no
+  wholesale deployment. No customer read/new credential/signature/064A authority.
+  Autopilot failed/MainPID0 by owner direction; reconcile third receipt and all
+  manual commits before any explicitly requested restart.
 
 - 2026-09-08 status audit confirmed Sep 7's three deployed E4 slices: wallet
   review/fees (`d650b8d`), receive-address integrity (`1cbfe1f`) and payment

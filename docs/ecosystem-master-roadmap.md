@@ -910,6 +910,19 @@ next: WALLET_PENDING_HANDOFF_SERIALIZATION — independently reproduced syntheti
 overlap of two acknowledged unresolved SDK calls remains separately bounded.
 No real wallet/money result or new authority; platform/human acceptance open.
 
+2026-09-08: WALLET_PENDING_HANDOFF_SERIALIZATION is VERIFIED and deployed
+(`5536973`). Shared current-document guard prevents concurrent transfer/payment
+SDK handoffs until the first SDK promise settles; no automatic repeat or timeout
+unlock. Existing request and notification boundaries retained. 42 new tests PASS
+(36 baseline FAIL), 199 regressions, 24 native Chrome cases, 11 ops cases and both
+independent reviews PASS. HTML-only atomic apply/reconcile, verified rollback,
+55 preserved dependencies and unchanged services; no restart. Evidence:
+`docs/e4-wallet-handoff-rollout.v1.json`. E4 remains IN_PROGRESS. Exactly next:
+WALLET_HANDOFF_REENTRY_COVERAGE — assess reload/re-entry and ambiguous SDK error
+guidance with executable evidence before selecting a reproduced code fix. Lock is
+not cross-tab/durable; SDK settlement is not chain settlement. No real signature,
+money result or new authority; full platform/human and earlier gates remain open.
+
 ### E5 — нативный некастодиальный кошелёк
 
 E0.4 inventory evidence (2026-08-18): the checkout has a Rust/UniFFI Bitcoin
