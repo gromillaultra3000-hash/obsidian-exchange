@@ -1,0 +1,20 @@
+{
+  "reviewer": "/root/support_security",
+  "node": "v22.22.3",
+  "source": "/root/relay/webapp.html",
+  "sourceSha256": "e06b85edd00f0a877b8e75b848713e46c0f800ff37809e5cd085bcac63a4f983",
+  "status": "PASS",
+  "checks": [
+    "same_turn_telegram_fixed_no_payload",
+    "same_turn_browser_fixed_no_payload",
+    "absent_honest_failure_support_independent",
+    "no_method_honest_failure_support_independent",
+    "getter_throw_honest_failure_support_independent",
+    "method_throw_honest_failure_support_independent",
+    "rejected_honest_failure_support_independent",
+    "insecure_honest_failure_support_independent",
+    "stalled_serialization_detach_waiting_cleared_no_autocopy_fresh_retry_haptic_throw",
+    "copy_is_literal_local_explicit_and_support_not_opened"
+  ],
+  "scope": "Synthetic VM only; no network, Telegram invocation, database, money, service mutation, or 064A operation."
+}

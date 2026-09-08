@@ -1,0 +1,95 @@
+{
+  "schemaVersion": "e4-activity-refresh-next-prerequisite.v1",
+  "recordedAt": "2026-09-08T01:02:49.614Z",
+  "reviewer": "Codex independent context-aware acceptance /root/support_acceptance",
+  "nextCanonicalItem": "E4 / ACTIVITY_REFRESH_RESPONSE_ORDERING / preserve the newest activity request against obsolete success and failure",
+  "canonicalCriterion": "E4 unified notification/evidence/support centre and accessibility/usability of monetary paths",
+  "status": "REPRODUCED_REMAINING_PREREQUISITE",
+  "sourcePath": "/root/output/manual/e4-order-support-20260908/baseline-webapp.html",
+  "sourceSha256": "f10c4ca6bbe8935822433c300d4286878e1c460255b780ae33dcba16a9e532c8",
+  "location": [
+    "loadHistory",
+    "renderHistoryOrders",
+    "renderEcosystemActivity"
+  ],
+  "method": "Exact shipped history/helper declarations in Node VM; synthetic deferred read-only fetch and DOM. No real navigation, account/customer reads or money actions.",
+  "observedBehavior": "Two overlapping loadHistory calls apply in completion order. An earlier pending snapshot finishing after the newer sent snapshot restores payment action and removes transaction evidence; an earlier failure instead erases the fresh completed history and shows unavailable state.",
+  "reproduction": [
+    {
+      "mode": "older-success",
+      "afterNewer": {
+        "orders": [
+          {
+            "order_id": "synthetic-race-42",
+            "currency": "TON",
+            "amount": 2000,
+            "created": "2026-09-08 00:00",
+            "status": "sent",
+            "tx_url": "https://explorer.invalid/synthetic-42"
+          }
+        ],
+        "activitySummary": "Нет активных заявок. История, доказательства и поддержка — в одном разделе.",
+        "showsPaymentAction": false,
+        "showsTransactionEvidence": true,
+        "showsLoadFailure": false,
+        "summaryDisplay": "grid"
+      },
+      "afterOlder": {
+        "orders": [
+          {
+            "order_id": "synthetic-race-42",
+            "currency": "TON",
+            "amount": 2000,
+            "created": "2026-09-08 00:00",
+            "status": "pending",
+            "session_token": "synthetic-stale-session"
+          }
+        ],
+        "activitySummary": "Требуют внимания: 1 ожидают · 0 в работе. Откройте статусы, доказательства и поддержку.",
+        "showsPaymentAction": true,
+        "showsTransactionEvidence": false,
+        "showsLoadFailure": false,
+        "summaryDisplay": "grid"
+      },
+      "requestCount": 2,
+      "allRequestsReadOnlyNoStore": true
+    },
+    {
+      "mode": "older-failure",
+      "afterNewer": {
+        "orders": [
+          {
+            "order_id": "synthetic-race-42",
+            "currency": "TON",
+            "amount": 2000,
+            "created": "2026-09-08 00:00",
+            "status": "sent",
+            "tx_url": "https://explorer.invalid/synthetic-42"
+          }
+        ],
+        "activitySummary": "Нет активных заявок. История, доказательства и поддержка — в одном разделе.",
+        "showsPaymentAction": false,
+        "showsTransactionEvidence": true,
+        "showsLoadFailure": false,
+        "summaryDisplay": "grid"
+      },
+      "afterOlder": {
+        "orders": [],
+        "activitySummary": "Статусы заявок временно недоступны. Откройте активность, чтобы повторить.",
+        "showsPaymentAction": false,
+        "showsTransactionEvidence": false,
+        "showsLoadFailure": true,
+        "summaryDisplay": "none"
+      },
+      "requestCount": 2,
+      "allRequestsReadOnlyNoStore": true
+    }
+  ],
+  "boundedImplementation": "Give history refresh ownership to its latest invocation; obsolete success/failure must not replace current history, summary, evidence or actions. Verify retry/filter behavior and use only synthetic reads/navigation spies.",
+  "currentSliceDisposition": "Reproduced only; not implemented by ORDER_SUPPORT_CLIPBOARD_INDEPENDENCE.",
+  "limitations": [
+    "Node VM uses synthetic DOM/requests and cannot establish human comprehension or Telegram/iOS/WebKit behavior.",
+    "Does not prove payment execution or a backend status-contract failure. Existing backend authorization is not exercised.",
+    "Does not close E4 or advance earlier gates."
+  ]
+}

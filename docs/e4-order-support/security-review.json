@@ -1,0 +1,93 @@
+{
+  "schemaVersion": "e4-order-support-independent-security-review.v1",
+  "recordedAt": "2026-09-08T01:04:03.560507+00:00",
+  "route": "E4 / ORDER_SUPPORT_CLIPBOARD_INDEPENDENCE",
+  "result": "PASS",
+  "reviewer": {
+    "identity": "Codex independent subagent /root/support_security",
+    "role": "context-poor diff/security reviewer",
+    "model": "inherited parent model; exact model revision is not exposed",
+    "productEditor": false,
+    "reviewBase": "50fa630bf9cb5c9affde42aac0ed28ac5e4c24e8"
+  },
+  "tools": {
+    "node": "v22.22.3",
+    "browser": "152.0.7977.64",
+    "playwright": "1.62.0",
+    "skill": "/root/.codex/skills/security-best-practices/SKILL.md",
+    "skillGuidance": "javascript-general-web-frontend-security.md"
+  },
+  "scope": [
+    "Actual changed support/copy helpers and history controls in relay/webapp.html",
+    "Changed activity and portfolio assertions, new 18-scenario behavior harness, browser additions",
+    "Hash-bound test/browser/isolation/preflight/rollback evidence",
+    "deploy/e4_order_support_rollout.py replacement and rollback writer boundaries"
+  ],
+  "inputsSha256": {
+    "relay/webapp.html": "e06b85edd00f0a877b8e75b848713e46c0f800ff37809e5cd085bcac63a4f983",
+    "tests/e4_review_browser.cjs": "109d9889ef9a337afbc890d42afea1c6c16c102d4ed7c55b3f0a353053584c54",
+    "tests/e4_order_support_behavior.cjs": "19f3fcbcd437b3f175ca42ab75c24206b51e51726de0e58a2fd895043a602a20",
+    "deploy/e4_order_support_rollout.py": "b56855aa34e2da667887f69fe919795c16b238454a304b3631951431215a3aee",
+    "tests/test_e4_order_support_behavior.py": "b5e5f3b53b484a85c0ece511e96925b5b42d9de94fc62004107922c82c40b988",
+    "tests/test_e4_activity_notifications.py": "8b3be137d6d64f17e1d12aaa203e80bc856abe83e6cc19d7253c83e0b7f6c908",
+    "tests/test_e4_public_support_path.py": "04f36a7270fce9aaa3281ae35f8b093ed40aa841a4053b375c26525b19491769",
+    "tests/test_unified_portfolio_ui.py": "250796a1f514cba3ae701b5f14d45420cf22124bebb43c7dd4c0810c64c7fb54",
+    "tests/test_e4_payment_requisites_copy_behavior.py": "3b0e45d530c32e872ac54222120544e4bd63467cf1e33373d44105b7b8230a3a",
+    "tests/test_e4_payment_instruction_behavior.py": "b425ababa71e51d8f977214303553bd011509d2bb5dd9c8a0bf2ea2ef218b3ea",
+    "tests/test_e4_receive_copy_behavior.py": "bb2738ab5c0a41f496db0dfecdf73918094199b7f2cdff4cb359c414a5bdbb5b",
+    "tests/test_e4_review_browser_runner.py": "10e63f75d216cd5a11a4c6c883db7d15a134d00088a3f6a41b8deb80b375a98b",
+    "tests/test_e4_exchange_review_ui.py": "15da942a4d78a3d1271d04ba642c857d4408e27ede66ea58441710e347325c36",
+    "tests/test_e4_recipient_review_behavior.py": "0dba9cc3e4b4a490b8d88705434968a53b487698a444aa1b512326bd238d5ccf",
+    "tests/test_e4_responsive_navigation.py": "5758be025dd2f1e318c304ee4d771d70dc7ad2fda5506077958098dfe493292d",
+    "tests/test_e4_miniapp_browser_shell.py": "f1266129d2f2c84e9fd7c5847bba0a1b5f0ff27d0e7695249e6554202e6312fd"
+  },
+  "findings": [],
+  "addressedFindings": [
+    {
+      "id": "ACCEPTANCE-WAITING-STATUS",
+      "source": "independent acceptance reviewer",
+      "issue": "A live waiting card retained its pending message after the prior copy settled.",
+      "disposition": "Fixed by the product editor; independently verified that only live waiting statuses invite a fresh tap, detached feedback remains unchanged, and no copy is automatically queued."
+    }
+  ],
+  "verification": {
+    "independentVmProbe": "PASS; 10 grouped checks against final shipped helpers, including same-turn fixed/no-payload navigation with throwing clipboard getter, clipboard failures/stall, serialization, detached DOM, literal ID and throwing haptics.",
+    "directBehaviorHarness": "PASS; all 18 parameterized scenarios executed independently through Node.",
+    "staticAssertions": "PASS; 4 ordinary activity/public-support Python assertions run directly via stdlib runpy.",
+    "focusedTests": "166 PASS; verified every input hash and raw stdout digest, not independently rerun in full.",
+    "browser": "132 PASS at 320/390/1280; verified final source and runner digests, no page errors; browser run performed by primary agent.",
+    "screenshotsInspected": [
+      "320-order-copy-failure.png",
+      "390-order-copy-success.png"
+    ],
+    "isolation": "nobody, Chromium sandbox, private network and protected home; final unit inactive/collected, MainPID 0 and empty cgroup.",
+    "preflight": "Reviewed matching OLD/NEW template hashes, active unchanged service identities, GET 200 exact rendered-template match and POST 405.",
+    "rollback": "Reviewed same fsynced replacement rehearsal OLD to NEW to exact OLD, no production touch, temporary cleanup verified.",
+    "diffCheck": "PASS",
+    "initialToolLimitation": "System python3 has no pytest; no dependency installation occurred. Independent checks used Node and stdlib; the primary full test receipt uses /opt/lumi/venv/bin/python."
+  },
+  "securityAssessment": [
+    "Order-support click calls the existing fixed https://t.me/ObsidianSupBot target synchronously. No order ID, text query, clipboard read/write, API call or money action is in that path.",
+    "Optional copy is an explicit separate button; unavailable, insecure, malformed, rejecting or throwing clipboard reports manual-copy guidance without diagnostic leakage or legacy fallback.",
+    "Escaped order IDs remain literal in new attributes and existing captured data; no new string-to-JavaScript sink was introduced.",
+    "Success feedback follows actual browser promise settlement; throwing haptics cannot turn success into failure. Detached DOM receives no late success and pending order-ID writes are serialized.",
+    "The deployment recipe changes only one fixed HTML target, requires exact old/new and gate input hashes, retains fsynced rollback preimage and atomic replacement, and refuses an active autopilot. It does not mutate services or database state."
+  ],
+  "limitations": [
+    "This is a bounded diff review; it does not certify the full existing application or close E4/earlier gates.",
+    "Telegram navigation is a same-turn spy assertion; no real support request/message, customer API/data, money, credentials, signing or 064A operation was performed by this reviewer.",
+    "Actual Telegram, iOS/WebKit, human comprehension and screen-reader announcements remain unverified.",
+    "A submitted native clipboard write is not cancellable; the lock governs order-ID copies only, and a stalled write blocks further order-ID copies while support stays usable. Other application/OS clipboard producers remain outside that lock.",
+    "This is a predeployment review; actual rollout/runtime verification remains the primary agent responsibility."
+  ],
+  "evidenceSha256": {
+    "docs/e4-order-support/security-probe.cjs": "125ebb66d438c710fed477c5bf8b7051f7f927ee1bc0d66af5c43b0584343adb",
+    "docs/e4-order-support/security-probe-result.json": "5ee3bea0e97439f040093df47575365d522f98e799bcc111d8429f8ac57ff8b2",
+    "docs/e4-order-support/security-behavior-result.json": "259cd5f1e9411f235224652ef527fdfbe9bd3946c9cfbbf7c645f357ccd89bc2",
+    "docs/e4-order-support/tests.json": "1e28cb0747557160299840ec27e245ed3f35ba5a57ef4143fcc70b017f332281",
+    "docs/e4-order-support/report.json": "e5b0e5c3029e4adce3ef182cfdb1766a5811f3bb57428400ccf4c30ec77dd3da",
+    "docs/e4-order-support/isolation.json": "fd3f5e93be92808312e02e0484b4c11cf3987b4d853d84b5f2686fb6f077b7fd",
+    "docs/e4-order-support/preflight.json": "d48140a5e1b4fc64ea618cb95977bbacf707ca014256ba203879782ea0cdd099",
+    "docs/e4-order-support/rollback-rehearsal.json": "49605d8fd39b1ea2952771902a15b0524d877287f99c0119cf991b5a547933a6"
+  }
+}

@@ -187,7 +187,7 @@ def test_activity_makes_the_existing_order_number_ready_for_support_copying():
     assert 'data-order-id="${esc(orderId)}"' in webapp
     assert "function copyOrderId" in webapp
     assert "navigator.clipboard" in webapp
-    assert "document.execCommand('copy')" in webapp
+    assert 'class="history-copy-status" role="status"' in webapp
     assert "copyOrderId(button.dataset.orderId, button)" in webapp
     assert "Копировать №" in webapp
 

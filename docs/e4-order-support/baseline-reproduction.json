@@ -1,0 +1,22 @@
+{
+  "recordedAt": "2026-09-08T01:00:00.823756+00:00",
+  "sourceSha256": "f10c4ca6bbe8935822433c300d4286878e1c460255b780ae33dcba16a9e532c8",
+  "result": "BASELINE_DEFECT_REPRODUCED",
+  "checks": [
+    {
+      "scenario": "support_stalled",
+      "exitCode": 1,
+      "stderr": "AssertionError [ERR_ASSERTION]: support must open synchronously\n\n0 !== 1\n\n    at support (/root/tests/e4_order_support_behavior.cjs:39:12)\n    at main (/root/tests/e4_order_support_behavior.cjs:47:9)\n    at Object.<anonymous> (/root/tests/e4_order_support_behavior.cjs:122:1)\n    at Module._compile (node:internal/modules/cjs/loader:1781:14)\n    at Object..js (node:internal/modules/cjs/loader:1913:10)\n    at Module.load (node:internal/modules/cjs/loader:1505:32)\n    at Function._load (node:internal/modules/cjs/loader:1309:12)\n    at wrapModuleLoad (node:internal/modules/cjs/loader:254:19)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)\n    at node:internal/main/run_main_module:36:49 {\n  generatedMessage: false,\n  code: 'ERR_ASSERTION',\n  actual: 0,\n  expected: 1,\n  operator: 'strictEqual',\n  diff: 'simple'\n}\n"
+    },
+    {
+      "scenario": "support_only",
+      "exitCode": 1,
+      "stderr": "AssertionError [ERR_ASSERTION]: support must open synchronously\n\n0 !== 1\n\n    at support (/root/tests/e4_order_support_behavior.cjs:39:12)\n    at main (/root/tests/e4_order_support_behavior.cjs:56:9)\n    at Object.<anonymous> (/root/tests/e4_order_support_behavior.cjs:122:1)\n    at Module._compile (node:internal/modules/cjs/loader:1781:14)\n    at Object..js (node:internal/modules/cjs/loader:1913:10)\n    at Module.load (node:internal/modules/cjs/loader:1505:32)\n    at Function._load (node:internal/modules/cjs/loader:1309:12)\n    at wrapModuleLoad (node:internal/modules/cjs/loader:254:19)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)\n    at node:internal/main/run_main_module:36:49 {\n  generatedMessage: false,\n  code: 'ERR_ASSERTION',\n  actual: 0,\n  expected: 1,\n  operator: 'strictEqual',\n  diff: 'simple'\n}\nevalmachine.<anonymous>:18\n            const field = document.createElement('textarea');\n                                   ^\n\nTypeError: document.createElement is not a function\n    at copyOrderId (evalmachine.<anonymous>:18:36)\n    at Object.openOrderSupport (evalmachine.<anonymous>:31:34)\n    at support (/root/tests/e4_order_support_behavior.cjs:38:9)\n    at main (/root/tests/e4_order_support_behavior.cjs:56:9)\n    at Object.<anonymous> (/root/tests/e4_order_support_behavior.cjs:122:1)\n    at Module._compile (node:internal/modules/cjs/loader:1781:14)\n    at Object..js (node:internal/modules/cjs/loader:1913:10)\n    at Module.load (node:internal/modules/cjs/loader:1505:32)\n    at Function._load (node:internal/modules/cjs/loader:1309:12)\n    at wrapModuleLoad (node:internal/modules/cjs/loader:254:19)\n\nNode.js v22.22.3\n"
+    },
+    {
+      "scenario": "support_browser",
+      "exitCode": 1,
+      "stderr": "AssertionError [ERR_ASSERTION]: support must open synchronously\n\n0 !== 1\n\n    at support (/root/tests/e4_order_support_behavior.cjs:39:12)\n    at main (/root/tests/e4_order_support_behavior.cjs:58:41)\n    at Object.<anonymous> (/root/tests/e4_order_support_behavior.cjs:122:1)\n    at Module._compile (node:internal/modules/cjs/loader:1781:14)\n    at Object..js (node:internal/modules/cjs/loader:1913:10)\n    at Module.load (node:internal/modules/cjs/loader:1505:32)\n    at Function._load (node:internal/modules/cjs/loader:1309:12)\n    at wrapModuleLoad (node:internal/modules/cjs/loader:254:19)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)\n    at node:internal/main/run_main_module:36:49 {\n  generatedMessage: false,\n  code: 'ERR_ASSERTION',\n  actual: 0,\n  expected: 1,\n  operator: 'strictEqual',\n  diff: 'simple'\n}\n"
+    }
+  ]
+}

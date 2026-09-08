@@ -1,0 +1,38 @@
+{
+  "recordedAt": "2026-09-08T01:02:02.749914+00:00",
+  "route": "E4 / ORDER_SUPPORT_CLIPBOARD_INDEPENDENCE",
+  "canonicalCriterion": "Unified notification/evidence/support centre; accessibility and usability of monetary paths",
+  "accountableOwner": "Project owner; manual continuation 2026-09-08; implementation Codex /root",
+  "baselineCommit": "50fa630bf9cb5c9affde42aac0ed28ac5e4c24e8",
+  "charterSha256": "d159a3f71ea21c57a4d73ea675f1c5ded76ea504b8c3f186ba166ed9218cfc80",
+  "capabilities": {
+    "implementation": "Codex primary; only product editor",
+    "acceptance": "Independent /root/support_acceptance; authored browser checks, baseline and next-prerequisite reproductions",
+    "security": "Independent context-poor /root/support_security; diff and adversarial VM checks",
+    "browser": "playwright skill; existing locked playwright-core via disconnected non-root sandboxed Chrome runner",
+    "ops": "Hash-bound atomic HTML replacement, rehearsal, public route and service identity checks",
+    "secrets": "Gitleaks staged scope",
+    "research": "Not needed for this repository-specific UI slice; no external component added"
+  },
+  "surfaceMatrix": {
+    "MiniApp": "REQUIRED: history controls and accessible status",
+    "site": "READ_ONLY: existing /webapp GET; no separate site behavior change",
+    "TelegramBot": "READ_ONLY: unchanged fixed support entry, no automatic messages",
+    "API": "READ_ONLY: synthetic history in browser; public HTML health only in production",
+    "admin": "N/A: no operator change",
+    "nativeWallet": "N/A: no custody or signing",
+    "KAIROS_LUMI": "N/A"
+  },
+  "autopilot": {
+    "state": "failed",
+    "MainPID": 0,
+    "reason": "UNCOMMITTED_NEW_FILES",
+    "action": "Leave stopped; no state or config change"
+  },
+  "custodySecretsMoneyWriters": "No changes, credentials, customer reads, messages, signing or money operations; 064A closed authority retained",
+  "initialLimitations": [
+    "Systemd subprocess access denied by managed sandbox before rehearsal/preflight; rerun via approved escalated commands succeeded.",
+    "Order-ID serialization covers this producer only; payment/receive/other apps clipboard writes are separate.",
+    "Real Telegram/iOS/WebKit and human comprehension acceptance remain unverified."
+  ]
+}

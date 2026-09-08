@@ -20,8 +20,9 @@ def test_activity_order_cards_expose_evidence_and_owner_controlled_support_hando
     assert "Доказательство выдачи — ссылка на транзакцию выше." in history
     assert 'history-support-order' in history
 
-    handoff = WEBAPP[WEBAPP.index("async function openOrderSupport"):
-                     WEBAPP.index("function renderHistoryOrders", WEBAPP.index("async function openOrderSupport"))]
-    assert "await copyOrderId(orderId)" in handoff
+    handoff = WEBAPP[WEBAPP.index("function openOrderSupport"):
+                     WEBAPP.index("function renderHistoryOrders", WEBAPP.index("function openOrderSupport"))]
+    assert "copyOrderId(" not in handoff
+    assert "await " not in handoff
     assert "openSupport();" in handoff
     assert "в бот не передаём" in handoff

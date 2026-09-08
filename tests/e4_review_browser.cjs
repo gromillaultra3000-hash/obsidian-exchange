@@ -44,6 +44,17 @@ async function main() {
             window.Telegram = {WebApp: {initData: '', initDataUnsafe: {},
                 expand() {}, ready() {}, onEvent() {},
                 setHeaderColor() {}, setBackgroundColor() {}, setBottomBarColor() {}}};
+            const addListener = EventTarget.prototype.addEventListener;
+            EventTarget.prototype.addEventListener = function(type, listener, options) {
+                if (type === 'click' && typeof listener === 'function' && listener.name === 'openOrderSupport') {
+                    return addListener.call(this, type, function(event) {
+                        window.__supportTap = true;
+                        try {return listener.call(this, event);}
+                        finally {window.__supportTap = false;}
+                    }, options);
+                }
+                return addListener.call(this, type, listener, options);
+            };
         });
         await context.route('**/*', async route => {
             const req = route.request();
@@ -76,6 +87,8 @@ async function main() {
                 return route.fulfill({contentType: 'text/html', body: source});
             }
             const fixtures = {
+                '/api/history': [{order_id: 'synthetic-42', currency: 'TON', amount: 2000,
+                    status: 'pending', created: '2026-09-08 00:00'}],
                 '/api/wallet/links': {wallets: [{chain: 'TON', address: walletAddress, balance: null}]},
                 '/api/wallet/history': {status: 'OK', items: []},
                 '/api/wallet/receive': {ok: true, address: walletAddress,
@@ -757,6 +770,136 @@ async function main() {
             }
         }
         report.checks.push(`${viewport.width}: real Chrome clipboard preserves spaces, quotes, backticks and script-shaped text for phone/card repeated copies`);
+        // Actual history controls use synthetic navigation spies only. The init
+        // wrapper measures the original listener's stack without replacing it.
+        await page.evaluate(() => {
+            window.__supportOpenings = [];
+            window.__supportTap = false;
+            window.__orderWrites = [];
+            window.__orderPending = [];
+            window.__orderContents = 'previous clipboard value';
+            window.__legacyCopyAttempts = 0;
+            document.execCommand = () => {window.__legacyCopyAttempts++; throw new Error('legacy unavailable');};
+            tg.openTelegramLink = url => window.__supportOpenings.push({kind: 'telegram', url,
+                duringTap: window.__supportTap});
+            window.open = (url, target, features) => {
+                window.__supportOpenings.push({kind: 'window', url, target, features,
+                    duringTap: window.__supportTap});
+                return null;
+            };
+            Object.defineProperty(navigator, 'clipboard', {configurable: true, value: undefined});
+        });
+        await page.locator('#tab-history').click();
+        const orderCopy = page.locator('.history-copy-id').first();
+        const orderSupport = page.locator('.history-support-order').first();
+        const orderFeedback = page.locator('.history-copy-status').first();
+        await orderSupport.waitFor({state: 'visible'});
+        assert.equal(await orderFeedback.getAttribute('role'), 'status');
+        assert.equal(await orderFeedback.getAttribute('aria-live'), 'polite');
+        assert.equal(await orderFeedback.getAttribute('aria-atomic'), 'true');
+        assert.ok((await orderFeedback.textContent()).includes('отправьте в поддержку сами'));
+        async function supportCount(expected) {
+            const openings = await page.evaluate(() => window.__supportOpenings);
+            assert.equal(openings.length, expected);
+            for (const opening of openings) {
+                assert.equal(opening.url, 'https://t.me/ObsidianSupBot');
+                assert.equal(opening.duringTap, true, 'support must open in the synchronous tap turn');
+            }
+            assert.equal(await orderSupport.isEnabled(), true);
+            assert.equal(await orderSupport.textContent(), '💬 Поддержка по заявке');
+        }
+        await orderSupport.click();
+        await orderSupport.focus(); await page.keyboard.press('Enter');
+        await page.keyboard.press('Space');
+        await supportCount(3);
+        assert.deepEqual(await page.evaluate(() => window.__orderWrites), []);
+        assert.equal(await page.locator('#history-list').evaluate(el => el.scrollWidth <= el.clientWidth), true);
+        await orderSupport.scrollIntoViewIfNeeded();
+        await page.screenshot({path: path.join(outputDir, `${viewport.width}-order-support.png`)});
+        report.checks.push(`${viewport.width}: actual support tap/Enter/Space opens synchronously without clipboard or order payload; button remains usable and history fits viewport`);
+
+        await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', {configurable: true, value: {
+            writeText(value) {
+                window.__orderWrites.push(value);
+                return new Promise((resolve, reject) => window.__orderPending.push({
+                    resolve: () => {window.__orderContents = value; resolve();}, reject}));
+            },
+        }}));
+        await orderCopy.focus(); await page.keyboard.press('Enter');
+        assert.equal(await orderCopy.isDisabled(), true);
+        assert.ok((await orderFeedback.textContent()).includes('Копируем номер'));
+        assert.ok(!(await orderFeedback.textContent()).includes('✓'));
+        await orderSupport.click(); await supportCount(4);
+        assert.deepEqual(await page.evaluate(() => window.__orderWrites), ['synthetic-42']);
+        await page.evaluate(() => {
+            window.__oldOrderCopy = document.querySelector('.history-copy-id');
+            historyOrders = [{...historyOrders[0], order_id: 'synthetic-43'}];
+            renderHistoryOrders();
+        });
+        await orderCopy.click();
+        assert.ok((await orderFeedback.textContent()).includes('Предыдущее копирование'));
+        await orderSupport.click(); await supportCount(5);
+        await page.evaluate(() => {
+            window.__oldOrderCopy.dispatchEvent(new Event('click'));
+            window.__orderPending[0].resolve();
+        });
+        assert.deepEqual(await page.evaluate(() => window.__orderWrites), ['synthetic-42']);
+        assert.ok(!(await orderFeedback.textContent()).includes('✓'));
+        assert.ok((await orderFeedback.textContent()).includes('Теперь можно'));
+        assert.ok(!(await orderFeedback.textContent()).includes('ещё выполняется'));
+        assert.equal(await page.evaluate(() => window.__orderContents), 'synthetic-42');
+        await orderCopy.click();
+        assert.deepEqual(await page.evaluate(() => window.__orderWrites), ['synthetic-42', 'synthetic-43']);
+        assert.ok((await orderFeedback.textContent()).includes('Копируем номер'));
+        await page.evaluate(() => window.__orderPending[1].resolve());
+        assert.ok((await orderFeedback.textContent()).includes('✓ Номер скопирован'));
+        assert.equal(await page.evaluate(() => window.__orderContents), 'synthetic-43');
+        assert.equal(await orderCopy.isEnabled(), true);
+        report.checks.push(`${viewport.width}: stalled order copy cannot block support; rerender rejects detached controls and stale success; serialized order-ID writes require a fresh tap`);
+
+        let expectedSupportCount = 5;
+        for (const mode of ['denied', 'throw', 'missing']) {
+            await page.evaluate(mode => Object.defineProperty(navigator, 'clipboard', {configurable: true,
+                value: mode === 'missing' ? undefined : {writeText() {
+                    if (mode === 'throw') throw new Error('synthetic clipboard private diagnostic');
+                    return Promise.reject(new Error('synthetic clipboard private diagnostic'));
+                }}}), mode);
+            const hapticsBefore = await page.evaluate(() => window.__copyHaptics.length);
+            await orderCopy.click();
+            assert.ok((await orderFeedback.textContent()).includes('Не удалось скопировать номер'));
+            assert.ok((await orderFeedback.textContent()).includes('вручную'));
+            assert.ok(!(await orderFeedback.textContent()).includes('private diagnostic'));
+            assert.equal(await orderCopy.isEnabled(), true);
+            assert.equal(await page.evaluate(() => window.__copyHaptics.length), hapticsBefore);
+            await orderSupport.click(); await supportCount(++expectedSupportCount);
+        }
+        assert.equal(await page.evaluate(() => window.__legacyCopyAttempts), 0);
+        assert.equal(await page.locator('#history-list').evaluate(el => el.scrollWidth <= el.clientWidth), true);
+        await page.screenshot({path: path.join(outputDir, `${viewport.width}-order-copy-failure.png`)});
+        report.checks.push(`${viewport.width}: denied/throwing/missing clipboard gives truthful manual-copy feedback without legacy fallback or success haptics; support remains immediately usable`);
+
+        const literalOrderId = `42 ' " <b> & \\`;
+        await page.evaluate(id => {
+            delete navigator.clipboard;
+            historyOrders = [{...historyOrders[0], order_id: id}];
+            renderHistoryOrders();
+        }, literalOrderId);
+        await orderCopy.focus(); await page.keyboard.press('Space');
+        await page.waitForFunction(() => document.querySelector('.history-copy-status').textContent.includes('✓ Номер скопирован'));
+        assert.equal(await page.evaluate(() => navigator.clipboard.readText()), literalOrderId);
+        assert.equal(await page.locator('#history-list .h-title').textContent(), '#' + literalOrderId + ' — TON');
+        assert.equal(await page.locator('#history-list .h-title b').count(), 0);
+        await page.evaluate(() => {delete tg.openTelegramLink;});
+        await orderSupport.click(); await supportCount(++expectedSupportCount);
+        const fallbackOpening = await page.evaluate(() => window.__supportOpenings.at(-1));
+        assert.equal(fallbackOpening.kind, 'window');
+        assert.equal(fallbackOpening.target, '_blank');
+        assert.equal(fallbackOpening.features, 'noopener');
+        assert.equal(await page.evaluate(() => navigator.clipboard.readText()), literalOrderId,
+            'support must not change the clipboard');
+        await orderCopy.scrollIntoViewIfNeeded();
+        await page.screenshot({path: path.join(outputDir, `${viewport.width}-order-copy-success.png`)});
+        report.checks.push(`${viewport.width}: Space retry copies exact literal order ID through native Chrome clipboard; fallback support opens fixed URL synchronously without changing clipboard`);
         await context.close();
         }
         assert.equal(report.writerAttempts.length, 9);

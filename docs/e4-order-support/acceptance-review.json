@@ -1,0 +1,99 @@
+{
+  "schemaVersion": "e4-order-support-acceptance-review.v1",
+  "recordedAt": "2026-09-08T01:03:52.885676+00:00",
+  "reviewer": {
+    "identity": "Codex independent context-aware acceptance subagent /root/support_acceptance",
+    "role": "Acceptance reviewer; separate from product implementation/deployment and the security reviewer",
+    "toolsActuallyUsed": [
+      "functions.exec / exec_command: rg, sed, git diff, Node VM exact-source baseline and history-race reproductions, SHA-256 evidence verification",
+      "Playwright skill read and bounded acceptance checks authored in existing tests/e4_review_browser.cjs; primary agent executed the isolated real Chrome runner",
+      "view_image: inspected 320px success/failure and 390px support screenshots"
+    ],
+    "edits": "Browser acceptance runner and own evidence/review artifacts only; no product or production deployment edits"
+  },
+  "route": "E4 / ORDER_SUPPORT_CLIPBOARD_INDEPENDENCE",
+  "result": "PASS",
+  "inputsSha256": {
+    "relay/webapp.html": "e06b85edd00f0a877b8e75b848713e46c0f800ff37809e5cd085bcac63a4f983",
+    "tests/e4_review_browser.cjs": "109d9889ef9a337afbc890d42afea1c6c16c102d4ed7c55b3f0a353053584c54",
+    "tests/e4_order_support_behavior.cjs": "19f3fcbcd437b3f175ca42ab75c24206b51e51726de0e58a2fd895043a602a20",
+    "deploy/e4_order_support_rollout.py": "b56855aa34e2da667887f69fe919795c16b238454a304b3631951431215a3aee",
+    "tests/test_e4_order_support_behavior.py": "b5e5f3b53b484a85c0ece511e96925b5b42d9de94fc62004107922c82c40b988",
+    "tests/test_e4_activity_notifications.py": "8b3be137d6d64f17e1d12aaa203e80bc856abe83e6cc19d7253c83e0b7f6c908",
+    "tests/test_e4_public_support_path.py": "04f36a7270fce9aaa3281ae35f8b093ed40aa841a4053b375c26525b19491769",
+    "tests/test_unified_portfolio_ui.py": "250796a1f514cba3ae701b5f14d45420cf22124bebb43c7dd4c0810c64c7fb54",
+    "tests/test_e4_payment_requisites_copy_behavior.py": "3b0e45d530c32e872ac54222120544e4bd63467cf1e33373d44105b7b8230a3a",
+    "tests/test_e4_payment_instruction_behavior.py": "b425ababa71e51d8f977214303553bd011509d2bb5dd9c8a0bf2ea2ef218b3ea",
+    "tests/test_e4_receive_copy_behavior.py": "bb2738ab5c0a41f496db0dfecdf73918094199b7f2cdff4cb359c414a5bdbb5b",
+    "tests/test_e4_review_browser_runner.py": "10e63f75d216cd5a11a4c6c883db7d15a134d00088a3f6a41b8deb80b375a98b",
+    "tests/test_e4_exchange_review_ui.py": "15da942a4d78a3d1271d04ba642c857d4408e27ede66ea58441710e347325c36",
+    "tests/test_e4_recipient_review_behavior.py": "0dba9cc3e4b4a490b8d88705434968a53b487698a444aa1b512326bd238d5ccf",
+    "tests/test_e4_responsive_navigation.py": "5758be025dd2f1e318c304ee4d771d70dc7ad2fda5506077958098dfe493292d",
+    "tests/test_e4_miniapp_browser_shell.py": "f1266129d2f2c84e9fd7c5847bba0a1b5f0ff27d0e7695249e6554202e6312fd",
+    "scripts/run_e4_review_browser.py": "6f4c9bf3020ae80b323655333a1eb3697eca4d44672ef6d28c679749136c412b",
+    "docs/e4-order-support/report.json": "e5b0e5c3029e4adce3ef182cfdb1766a5811f3bb57428400ccf4c30ec77dd3da",
+    "docs/e4-order-support/isolation.json": "fd3f5e93be92808312e02e0484b4c11cf3987b4d853d84b5f2686fb6f077b7fd",
+    "docs/e4-order-support/tests.json": "1e28cb0747557160299840ec27e245ed3f35ba5a57ef4143fcc70b017f332281",
+    "docs/e4-order-support/preflight.json": "d48140a5e1b4fc64ea618cb95977bbacf707ca014256ba203879782ea0cdd099",
+    "docs/e4-order-support/rollback-rehearsal.json": "49605d8fd39b1ea2952771902a15b0524d877287f99c0119cf991b5a547933a6",
+    "docs/e4-order-support/acceptance-baseline.json": "fcd80f7e90c1217f514f74f9a7568cbce6f758c33679b2b65fe8adc071d413c3",
+    "docs/e4-order-support/next-prerequisite.json": "adffcb7583cec72e0d4114454431626fb2d7221b234c13e85159c2168ee41fd3",
+    "docs/e4-order-support/next-prerequisite-baseline.json": "982510acfaabcc20a8a9f86043e552153dd3b5bfd731d5ebd9dbdcd7ea36c290",
+    "docs/e4-order-support/320-order-copy-success.png": "7d3d8927f38e4ffd9a8d36842c0f3d5acf93458d7b2ff324664d403cd28f783f",
+    "docs/e4-order-support/320-order-copy-failure.png": "12d41198b5a8e316726752d80352a561a215c619cf43b7fad2b09878f0202af7",
+    "docs/e4-order-support/390-order-support.png": "cb4b33c8d1506ffdd6286ce3e3e9b193c1b4c299c34d4923a679382de334ef49"
+  },
+  "baseline": {
+    "evidence": "docs/e4-order-support/acceptance-baseline.json",
+    "sourceSha256": "f10c4ca6bbe8935822433c300d4286878e1c460255b780ae33dcba16a9e532c8",
+    "independentlyExecuted": true,
+    "observed": [
+      "Pending clipboard left support unopened.",
+      "Clipboard rejection plus throwing legacy fallback rejected the helper and left support unopened.",
+      "Successful copy or fallback-false support opened only after a microtask and permanently disabled the support control."
+    ]
+  },
+  "resolvedFindings": [
+    {
+      "finding": "Current waiting feedback falsely remained pending after a prior order copy settled.",
+      "correction": "Settlement removes waiting markers and changes currently rendered waiting statuses to an explicit fresh-tap instruction. No automatic copy is queued.",
+      "verification": "Final product diff, cross-order VM scenarios and actual browser rerender assertion require Теперь можно and absence of ещё выполняется after settlement."
+    }
+  ],
+  "acceptanceResults": [
+    "Support tap, Enter and Space call the fixed Telegram support URL during the original synchronous event-listener stack, with no order payload and no implicit clipboard write.",
+    "Support remains enabled during stalled copy, after clipboard denial/throw/missing API, and after repeated support actions. Browser fallback retains _blank and noopener.",
+    "Order copying reports pending before settlement, success only after accepted write, and a plain manual-copy fallback after failure; no legacy copy API or failure haptic is invoked.",
+    "Detached old controls cannot copy or alter current success feedback; order-ID clipboard writes serialize until actual settlement and require a fresh tap. Waiting feedback settles truthfully.",
+    "Native isolated Chrome clipboard preserves the exact literal order ID through keyboard copy; support leaves clipboard unchanged. Visible order ID remains literal text.",
+    "Reviewed 320px success/failure and 390px initial-support images show legible order, separate copy/support controls and status with no horizontal clipping."
+  ],
+  "verification": {
+    "focusedTests": 166,
+    "focusedResult": "PASS",
+    "browserChecks": 132,
+    "newSupportBrowserChecks": 12,
+    "browserWidths": [
+      320,
+      390,
+      1280
+    ],
+    "browserResult": "PASS",
+    "pageErrors": [],
+    "isolation": "nobody + Chromium sandbox + private network + protected home; unit collected, MainPID 0, cgroup empty",
+    "motionAndTimeout": "Default motion, existing 5000ms action timeout and 120s unit lifetime retained; no force clicks or timeout relaxation.",
+    "preflight": "Evidence reports deployed original exact template GET 200 / POST 405 and unchanged active Relay/bot/Nginx identities.",
+    "rollbackRehearsal": "Exact fsynced atomic old-to-new-to-old replacement passes in disposable files without production changes."
+  },
+  "nextPrerequisite": {
+    "item": "E4 / ACTIVITY_REFRESH_RESPONSE_ORDERING / preserve the newest activity request against obsolete success and failure",
+    "evidence": "docs/e4-order-support/next-prerequisite.json",
+    "disposition": "Independently reproduced on original and final HTML; deferred to separately bounded next slice. Older history success can restore obsolete payment action; older failure can erase a fresh success."
+  },
+  "limitations": [
+    "Synthetic history/clipboard fault injection and isolated Chrome cannot establish human comprehension, live Telegram/iOS/WebKit acceptance or real support delivery.",
+    "Navigation spies did not open Telegram, send messages or transfer order data; no real money, signing, customer account reads or credentials were used by this review.",
+    "Order-ID serialization covers this copy producer only; payment/wallet/referral and external clipboard producers retain their own behavior. A submitted native write cannot be cancelled and an unresolved write continues to block only subsequent order-ID copies.",
+    "This acceptance supports the bounded reversible HTML slice; it does not close E4 or advance earlier gates. Runtime deployment verification remains the primary agent’s next step."
+  ]
+}

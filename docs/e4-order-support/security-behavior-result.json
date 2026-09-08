@@ -1,0 +1,84 @@
+{
+  "reviewer": "/root/support_security",
+  "result": "PASS",
+  "checks": [
+    {
+      "scenario": "support_stalled",
+      "result": "PASS"
+    },
+    {
+      "scenario": "support_only",
+      "result": "PASS"
+    },
+    {
+      "scenario": "support_browser",
+      "result": "PASS"
+    },
+    {
+      "scenario": "rejection",
+      "result": "PASS"
+    },
+    {
+      "scenario": "unavailable",
+      "result": "PASS"
+    },
+    {
+      "scenario": "insecure",
+      "result": "PASS"
+    },
+    {
+      "scenario": "throw",
+      "result": "PASS"
+    },
+    {
+      "scenario": "getter_throw",
+      "result": "PASS"
+    },
+    {
+      "scenario": "malformed",
+      "result": "PASS"
+    },
+    {
+      "scenario": "haptic_throw",
+      "result": "PASS"
+    },
+    {
+      "scenario": "literal",
+      "result": "PASS"
+    },
+    {
+      "scenario": "duplicate",
+      "result": "PASS"
+    },
+    {
+      "scenario": "cross_order_success",
+      "result": "PASS"
+    },
+    {
+      "scenario": "cross_order_rejection",
+      "result": "PASS"
+    },
+    {
+      "scenario": "stale_success",
+      "result": "PASS"
+    },
+    {
+      "scenario": "stale_rejection",
+      "result": "PASS"
+    },
+    {
+      "scenario": "detached",
+      "result": "PASS"
+    },
+    {
+      "scenario": "empty",
+      "result": "PASS"
+    }
+  ],
+  "runner": "direct node harness; system Python has no pytest",
+  "inputSha256": {
+    "relay/webapp.html": "e06b85edd00f0a877b8e75b848713e46c0f800ff37809e5cd085bcac63a4f983",
+    "tests/e4_order_support_behavior.cjs": "19f3fcbcd437b3f175ca42ab75c24206b51e51726de0e58a2fd895043a602a20",
+    "tests/test_e4_order_support_behavior.py": "b5e5f3b53b484a85c0ece511e96925b5b42d9de94fc62004107922c82c40b988"
+  }
+}

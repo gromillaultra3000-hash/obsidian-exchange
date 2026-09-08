@@ -1,0 +1,75 @@
+{
+  "schemaVersion": "e4-order-support-acceptance-baseline.v1",
+  "recordedAt": "2026-09-08T00:58:13.015Z",
+  "sourcePath": "/root/relay/webapp.html",
+  "sourceSha256": "f10c4ca6bbe8935822433c300d4286878e1c460255b780ae33dcba16a9e532c8",
+  "method": "Exact source declarations executed in Node VM with synthetic clipboard/DOM and navigation spy. No real navigation or data.",
+  "results": [
+    {
+      "mode": "pending",
+      "opensSynchronous": 0,
+      "opensAfterMicrotasks": 0,
+      "clipboardWrites": 1,
+      "selected": 0,
+      "removed": 0,
+      "settled": false,
+      "rejected": false,
+      "button": {
+        "textContent": "💬 Поддержка по заявке",
+        "disabled": false
+      }
+    },
+    {
+      "mode": "reject-throw",
+      "opensSynchronous": 0,
+      "opensAfterMicrotasks": 0,
+      "clipboardWrites": 1,
+      "selected": 1,
+      "removed": 0,
+      "settled": true,
+      "rejected": true,
+      "button": {
+        "textContent": "💬 Поддержка по заявке",
+        "disabled": false
+      }
+    },
+    {
+      "mode": "reject-false",
+      "opensSynchronous": 0,
+      "opensAfterMicrotasks": 1,
+      "clipboardWrites": 1,
+      "selected": 1,
+      "removed": 1,
+      "settled": true,
+      "rejected": false,
+      "button": {
+        "textContent": "Открываем поддержку…",
+        "disabled": true
+      }
+    },
+    {
+      "mode": "success",
+      "opensSynchronous": 0,
+      "opensAfterMicrotasks": 1,
+      "clipboardWrites": 1,
+      "selected": 0,
+      "removed": 0,
+      "settled": true,
+      "rejected": false,
+      "button": {
+        "textContent": "Номер скопирован · открываем…",
+        "disabled": true
+      }
+    }
+  ],
+  "acceptance": [
+    "Support is invoked synchronously from an explicit support tap, exactly once, independently of optional clipboard completion.",
+    "Clipboard denial, stalled completion, legacy false/throw and absent clipboard API never prevent support access.",
+    "Support destination remains fixed https://t.me/ObsidianSupBot, without order ID or personal data in a URL/payload/message.",
+    "Copy feedback claims success only after a successful write; denied/unsupported copy gives an honest accessible failure and retains a retry path.",
+    "No permanently disabled support button or duplicate navigation on clipboard settlement; user can retry support after returning or failed navigation.",
+    "Pending/stale copy completion cannot mutate a different or replaced order UI or overwrite a newer order ID clipboard write.",
+    "Keyboard Enter/Space and ordinary taps work at 320/390/1280px with default motion; order ID remains visible when copying is unavailable.",
+    "No order/payment/transaction/evidence flow or real money authority is added or changed."
+  ]
+}

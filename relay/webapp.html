@@ -3569,44 +3569,46 @@
                 renderEcosystemActivity(Array.isArray(orders) ? orders : null);
             } catch (_) { renderEcosystemActivity(null); }
         }
+        let orderIdCopyPending = false;
         async function copyOrderId(orderId, button) {
+            const list = document.getElementById('history-list');
+            const status = button && button.parentElement?.querySelector('.history-copy-status');
+            const current = () => list && list.contains(button) && status && status.isConnected;
+            if (!current() || button.disabled) return false;
             const value = String(orderId == null ? '' : orderId).trim().slice(0, 128);
             if (!value) return false;
-            const done = () => {
-                if (button) {
-                    button.textContent = '✓ Скопировано';
-                    window.setTimeout(() => { button.textContent = 'Копировать №'; }, 1800);
-                }
-                if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
-            };
-            try {
-                if (navigator.clipboard && window.isSecureContext) {
-                    await navigator.clipboard.writeText(value);
-                    done();
-                    return true;
-                }
-            } catch (_) {}
-            const field = document.createElement('textarea');
-            field.value = value;
-            field.setAttribute('readonly', '');
-            field.style.cssText = 'position:fixed;opacity:0;pointer-events:none';
-            document.body.appendChild(field);
-            field.select();
-            const copied = document.execCommand('copy');
-            field.remove();
-            if (copied) { done(); return true; }
-            else if (button) button.textContent = 'Не удалось скопировать';
-            return false;
-        }
-        async function openOrderSupport(orderId, button) {
-            const copied = await copyOrderId(orderId);
-            if (button) {
-                button.textContent = copied ? 'Номер скопирован · открываем…' : 'Открываем поддержку…';
-                button.disabled = true;
+            if (orderIdCopyPending) {
+                status.dataset.copyWaiting = 'true';
+                status.textContent = 'Предыдущее копирование ещё выполняется. Поддержку можно открыть сейчас.';
+                return false;
             }
-            // Номер остаётся только в локальном clipboard: в бот не передаём
-            // заказ или личные данные автоматически, чтобы пользователь сам
-            // контролировал обращение.
+            orderIdCopyPending = true;
+            button.disabled = true;
+            status.textContent = 'Копируем номер… Поддержку можно открыть сейчас.';
+            try {
+                if (!window.isSecureContext || !navigator.clipboard
+                    || typeof navigator.clipboard.writeText !== 'function') throw new Error('clipboard unavailable');
+                await navigator.clipboard.writeText(value);
+                if (current()) {
+                    status.textContent = '✓ Номер скопирован. Вставьте его в обращение самостоятельно.';
+                    try { if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success'); } catch (_) {}
+                }
+                return true;
+            } catch (_) {
+                if (current()) status.textContent = 'Не удалось скопировать номер. Выделите его вручную или укажите в поддержке.';
+                return false;
+            } finally {
+                orderIdCopyPending = false;
+                if (current()) button.disabled = false;
+                document.getElementById('history-list')?.querySelectorAll('.history-copy-status[data-copy-waiting]').forEach(waiting => {
+                    delete waiting.dataset.copyWaiting;
+                    waiting.textContent = 'Теперь можно скопировать номер. Нажмите «Копировать №».';
+                });
+            }
+        }
+        function openOrderSupport() {
+            // Открываем из самого нажатия. Копирование — отдельное действие;
+            // в бот не передаём заказ или личные данные автоматически.
             openSupport();
         }
         function renderHistoryOrders() {
@@ -3638,14 +3640,14 @@
                         ? '<div class="history-evidence" style="margin-top:8px;font-size:11px;line-height:1.4;color:var(--muted)">🔍 Доказательство выдачи — ссылка на транзакцию выше.</div>'
                         : '');
                 const support = orderId
-                    ? `<button type="button" class="history-support-order" data-order-id="${esc(orderId)}" style="margin:10px 0 0 7px;border:1px solid rgba(159,103,255,.35);background:rgba(159,103,255,.08);color:var(--text);border-radius:9px;padding:6px 9px;font-size:11px;cursor:pointer">💬 Поддержка по заявке</button>`
+                    ? `<button type="button" class="history-support-order" aria-label="Открыть поддержку по заявке ${esc(orderId)}" style="margin:10px 0 0 7px;border:1px solid rgba(159,103,255,.35);background:rgba(159,103,255,.08);color:var(--text);border-radius:9px;padding:6px 9px;font-size:11px;cursor:pointer">💬 Поддержка по заявке</button><div class="history-copy-status" role="status" aria-live="polite" aria-atomic="true" style="margin-top:8px;font-size:11px;line-height:1.45;color:var(--muted)">Номер заявки отправьте в поддержку сами. Для копирования нажмите «Копировать №».</div>`
                     : '';
                 return `<div class="history-item ${state.cls}"><span class="h-icon">${state.emoji}</span><div class="h-title">#${esc(o.order_id)} — ${esc(o.currency)}</div><div class="h-meta">${esc(o.amount)} RUB</div><div class="h-status-row"><small>${esc(o.created)}</small><span class="status">${esc(state.label)}</span></div>${advice}${evidence}${action}${copy}${support}</div>`;
             }).join('');
             list.querySelectorAll('.history-copy-id').forEach(button =>
                 button.addEventListener('click', () => copyOrderId(button.dataset.orderId, button)));
             list.querySelectorAll('.history-support-order').forEach(button =>
-                button.addEventListener('click', () => openOrderSupport(button.dataset.orderId, button)));
+                button.addEventListener('click', openOrderSupport));
         }
         function setHistoryFilter(filter) {
             historyFilter = ['all', 'pending', 'paid', 'sent'].includes(filter) ? filter : 'all';
