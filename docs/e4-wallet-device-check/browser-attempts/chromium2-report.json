@@ -1,0 +1,30 @@
+{
+  "sourceSha256": "066a6e50cff2374b7caa2b14f610e616c2b7c2284a674e93620cb06c6a3a0a59",
+  "runnerSha256": "d18acd3253bb461f2f1d6ae503355c4ef738c0fa6af0a5c71c0597081e4c067c",
+  "assetSha256": {
+    "device-check.css": "475716bb36e1e3a5d920b7c9b327640d7d0e374743ce33e0318b23d95b8d645e",
+    "device-check.js": "9157b481e6b3c55db36b688eece7ebc52bfc471de8f416befd3f7deda7223792",
+    "index.html": "789b1c7408755abb253439833525de680697f032d08b4cfc0c7df2be3c2f4ec1",
+    "manifest.json": "b83b5ba5a6563ba226887ece06ece443c8d3c9dc33544f100dadcbf7bf7731be"
+  },
+  "engine": "chromium",
+  "playwrightVersion": "1.62.0",
+  "checks": [
+    {
+      "width": 320,
+      "case": "build provenance and user-selected environment never claim physical-device verification",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "case": "review cancel never invokes inert SDK",
+      "result": "PASS"
+    }
+  ],
+  "pageErrors": [],
+  "unexpectedRequests": [],
+  "consoleErrors": [],
+  "browserVersion": "152.0.7977.64",
+  "result": "FAIL",
+  "error": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n0 !== 1\n\n    at main (/tmp/e4-review-browser-ryvv7o0l/runner.cjs:31:124)"
+}

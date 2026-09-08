@@ -1,0 +1,50 @@
+{
+  "reviewer": "agent /root/diff_ops",
+  "reviewedAt": "2026-09-08T23:12:07.826267+00:00",
+  "route": "E4 WALLET_HANDOFF_DEVICE_ACCEPTANCE / inert device harness",
+  "verdict": "PASS",
+  "scope": "Independent generation/safety/footer diff review; authored ops tests, with primary independent rollout review. Browser acceptance remains a separate mandatory prerequisite.",
+  "inputs": {
+    "scripts/build_e4_wallet_device_check.py": "a1cb253be7b39958deb86212c8e7ff60698c47154898f0a8fe31fd10efb5d8a8",
+    "preview/e4-visible-portfolio-preview/index.html": "47bc27175bb8aedc29a9ad56ddfad67214c9d7627150734f8a883f32281849c6",
+    "preview/e4-wallet-device-check/device-check.css": "475716bb36e1e3a5d920b7c9b327640d7d0e374743ce33e0318b23d95b8d645e",
+    "preview/e4-wallet-device-check/device-check.js": "9157b481e6b3c55db36b688eece7ebc52bfc471de8f416befd3f7deda7223792",
+    "preview/e4-wallet-device-check/index.html": "789b1c7408755abb253439833525de680697f032d08b4cfc0c7df2be3c2f4ec1",
+    "preview/e4-wallet-device-check/manifest.json": "b83b5ba5a6563ba226887ece06ece443c8d3c9dc33544f100dadcbf7bf7731be",
+    "docs/e4-wallet-device-check/rollout.py": "5cd97324158dfeb936f1d5086b143bdb319029f74dd858aba33a1cea85a43126",
+    "docs/e4-wallet-device-check/ops-baseline.json": "571363dc44350aecdb2603c6cb8aeca3315d3178129c4c3b2054373765947d97",
+    "docs/e4-wallet-device-check/plan.json": "918ca9ece584e272d8772f643ee58bddb6aa21f935259ccfacff078f76bbac20",
+    "docs/e4-wallet-device-check/preflight.json": "8887c0f347d9fcb899512c5d6e7dba3858304de717de8096b0336bae9015b6e9",
+    "docs/e4-wallet-device-check/contract.md": "d42d7f7b23a8f48340eafef6d903d4c37d068303af3968badf5356c55ae13feb",
+    "tests/test_e4_wallet_device_check_rollout.py": "7604bd94e9cf31e524bad46f3fbd5275ccd28717537477aa8c41bb769e0070ea",
+    "tests/test_e4_wallet_device_check.py": "9ac268e0ad824ea4757f9d7d49652c042ead1f53980cf4cb9fca2afa11ca16b0"
+  },
+  "independence": {
+    "product": "Generator/assets authored /root/implement and footer authored /root; independently reviewed /root/diff_ops.",
+    "ops": "Rollout authored /root/diff_ops; independent full review /root PASS;14 isolated ops tests executed."
+  },
+  "verified": [
+    "Generator --check exact; independent reversal of3 namespace literals and3 script style transforms reproduces original extracted region hash; manifest source hash equals actual production relay/webapp.html ee01d3f5.",
+    "Extraction is bounded helpers/review/wiring/esc only; full production app and wallet/order network action functions excluded. Lexical synthetic tcUI stub never imports SDK or sends network requests.",
+    "Three diagnostic storage/lock keys are disjoint from production keys. No broad storage clear or production namespace remains in generated JS.",
+    "Four static assets only; external CSS/JS with strict meta CSP connect-src none, no remote/auth SDK, form, event-handler attributes, dynamic executable loading, provider/API or report upload.",
+    "Reports stay in readonly local textarea/explicit clipboard with manual fallback; no actual wallet sender, Telegram identity/initData, userAgent fingerprint, credentials or money result is collected. Platform selection remains user claim with verified:false.",
+    "Parent root preview footer differs by exactly one reviewed anchor. Removing the exact addition reproduces live old index byte-for-byte.",
+    "Publication clones full old tree into new sibling, adds4files and one index overlay, seals and verifies complete expected tree before atomic pointer replacement. Original historical release never edited.",
+    "56 application file hashes,4 service identities, nginx configuration, all original preview hashes/modes/owners/xattrs and exact current symlink are preflight-bound. No nginx/bot reload or production application HTML change.",
+    "Rollback verifies original and new exact trees then restores saved pointer; failed atomic swap leaves old live. Partial staging explicitly reported INCOMPLETE_OR_DRIFTED, apply replay forbidden. Post-swap public failure supports reconcile then explicit rollback."
+  ],
+  "tests": {
+    "ops": "14 passed in0.19s; disposable temp paths only, runtime/public mocks; guards/fault/recovery exercised.",
+    "generator": "8 passed in0.35s independently run; source/generator/artifact binding, transform reversal, no active/auth surface, dependency injection rejection and tamper refusal.",
+    "preflight": "PREPARED read-only host checks PASS; release not staged or published by this agent."
+  },
+  "findings": [],
+  "browserGate": "Independent Chrome/WebKit acceptance required before publication; initial fixture option/timing and screenshot-CSP errors are not waived by this safety receipt. Acceptance owns corrected exact-byte results.",
+  "limitations": [
+    "Static page tests production-derived logic with declared names/style changes and inert SDK; not full production app or actual signature/reconnect acceptance.",
+    "Actual iOS/Telegram observation remains pending and self-reported; link entry prepares owner testing only.",
+    "Prior preview surface retains its existing behavior; only new device-check page claims no SDK/auth or network API.",
+    "No deployment or commit performed by this reviewer. Runtime rollback cannot undo an already-open diagnostic page but it has no money writer."
+  ]
+}

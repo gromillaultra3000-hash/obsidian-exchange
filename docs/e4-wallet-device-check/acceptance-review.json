@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/acceptance independent context-aware acceptance agent",
+  "timestamp": "2026-09-08T23:13:42.883556+00:00",
+  "route": "E4/WALLET_HANDOFF_DEVICE_ACCEPTANCE",
+  "result": "PASS for inert diagnostic harness; physical-device acceptance remains unverified",
+  "productSourceSha256": "ee01d3f55a2f97c3f957e9166a02f79cd247f7d924316c666d6d94a754bfe7e3",
+  "assetSha256": {
+    "device-check.css": "475716bb36e1e3a5d920b7c9b327640d7d0e374743ce33e0318b23d95b8d645e",
+    "device-check.js": "9157b481e6b3c55db36b688eece7ebc52bfc471de8f416befd3f7deda7223792",
+    "index.html": "789b1c7408755abb253439833525de680697f032d08b4cfc0c7df2be3c2f4ec1",
+    "manifest.json": "b83b5ba5a6563ba226887ece06ece443c8d3c9dc33544f100dadcbf7bf7731be"
+  },
+  "runnerSha256": "d76dc97b427eb8f70596216ef32f12c2a9b6122aa035257c19606eaf031429b7",
+  "browserReportSha256": {
+    "chromium": "adbb62a7f5184fff3390668d73eae551691ab7566171e552b83cda6eac68e083",
+    "webkit": "c0b149eb80d67d53fe519cd0e7821e8b9b136122707240213779e6b181248324"
+  },
+  "scope": [
+    "Four exact static assets served unchanged as GET routes under deployed /preview CSP plus restrictive page meta CSP",
+    "32 browser scenarios total:16 Chromium152.0.7977.64 and16 Linux Playwright WebKit26.5, viewport320/390",
+    "Native Web Locks and local/sessionStorage; production namespaces seeded with sentinel data and production lock held while diagnostic proceeds"
+  ],
+  "checks": {
+    "productionSentinelsUnchanged": true,
+    "productionLockDoesNotBlockIsolatedDiagnostic": true,
+    "reviewCancelNoSDK": true,
+    "reviewFreshAcknowledgementRequired": true,
+    "pendingBlocksRepeat": true,
+    "resolvedAndRejectedOutcomesRetainReminder": true,
+    "reloadPreservesReminderAndResetsDocumentCounters": true,
+    "explicitReconciliationDoesNotSign": true,
+    "twoPagesOneSDK": true,
+    "otherPageCannotRemovePendingAttempt": true,
+    "clipboardDeniedManualFallback": true,
+    "clipboardSuccessMinimalExactReport": true,
+    "environmentDefaultUnknownAndAlwaysUnverified": true,
+    "unsupportedCapabilitiesFailClosed": true,
+    "realWalletAndRealTransferAlwaysFalse": true,
+    "pageErrors": 0,
+    "consoleErrors": 0,
+    "unexpectedRequests": 0,
+    "horizontalOverflow": false
+  },
+  "visualInspection": [
+    "Chromium320 initial failure screenshot: environment selector fits viewport, long explanatory copy wraps",
+    "Chromium320 final review: clear inert wording, acknowledgement and change/start buttons visible without overflow",
+    "WebKit320 review +390 reload notice from exact-asset diagnostic2: readable controls and binding/retention notice; screenshot-only CSP diagnostics accounted below"
+  ],
+  "findings": [],
+  "negativeAttempts": [
+    {
+      "id": "HARNESS-1",
+      "result": "Initial environment option outdated after finalized Mini App/in-app-browser distinction; selection fixture updated."
+    },
+    {
+      "id": "HARNESS-2",
+      "result": "Chrome pending report becomes true before asynchronous native lock callback enters SDK; test now waits actual sdkCalls before asserting entry."
+    },
+    {
+      "id": "HARNESS-3",
+      "result": "WebKit functional16 pass initially accompanied by8 inline stylesheet CSP errors during4 screenshots (header+meta policies). caret:initial did not remove them.",
+      "attribution": {
+        "file": "node_modules/playwright-core/lib/coreBundle.js",
+        "sha256": "3258d1cf334c6afc95f22aa9c292436cb976b391e0437f1359c83b84f0cb9d66",
+        "lines": "21080-21086 inPagePrepareForScreenshots syncAnimations injects style body{};21312 calls WebKit animation synchronization",
+        "observedPhase": "all8 console events only review/notice screenshot phase"
+      },
+      "disposition": "Final WebKit run omits screenshots and strictly asserts zero console/CSP errors. Same assets and native scenarios PASS16. Prior exact-asset screenshots retained separately. No errors filtered, CSP relaxation, product/dependency changes or forced clicks."
+    }
+  ],
+  "limitations": [
+    "No physical iOS, Safari, Telegram Mini App or in-app-browser observation; user-selected environment remains verifiedfalse.",
+    "WebKit engine sandbox NOT_ATTESTED; OS non-root/private-network/ProtectHome/NoNewPrivileges/read-only runtime and verified cleanup reported separately.",
+    "Report clipboard uses controlled resolve/reject promises in browser tests; no actual user clipboard is read.",
+    "Parent owns static deployment and preview footer entry verification; no production mutation by this reviewer."
+  ]
+}

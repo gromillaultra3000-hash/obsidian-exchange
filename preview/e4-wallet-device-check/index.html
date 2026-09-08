@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'none'; img-src 'none'; font-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; form-action 'none'; base-uri 'none'">
+<meta name="referrer" content="no-referrer"><title>Проверка интерфейса кошелька на устройстве</title><link rel="stylesheet" href="device-check.css"><script src="device-check.js" defer></script></head>
+<body><main><h1>Проверка интерфейса на устройстве</h1>
+<p class="device-note">Только имитация. Здесь нет подключения кошелька, Telegram SDK, подписи или перевода денег. Ничего вводить из кошелька не нужно. Отчёт остаётся на устройстве.</p>
+<p>Для проверки Mini App откройте preview кнопкой бота и перейдите к проверке устройства по ссылке внизу. Прямая ссылка может открыться в браузере Telegram и сама по себе не подтверждает запуск Mini App. Выбор ниже — ваше описание среды, а не подтверждение совместимости.</p>
+<label for="device-environment">Где вы открыли страницу?</label><select id="device-environment"><option value="unknown">Не указано</option><option value="telegram-miniapp-ios">Mini App Telegram на iOS</option><option value="telegram-browser-ios">Браузер Telegram на iOS</option><option value="safari-ios">Safari на iOS</option><option value="telegram-miniapp-android">Mini App Telegram на Android</option><option value="telegram-browser-android">Браузер Telegram на Android</option><option value="other">Другой браузер</option></select>
+<ol><li>Начните тест, прочитайте условия и подтвердите имитацию.</li><li>Пока ответ ожидается, попробуйте второй тест или эту же ссылку в другой вкладке: повтор должен блокироваться.</li><li>Выберите тестовый ответ. Перезагрузите страницу: напоминание должно сохраниться.</li><li>После проверки тестового результата подтвердите это в напоминании и удалите его. Никакой новый тест не запускается автоматически.</li></ol>
+<div class="device-controls"><button id="device-transfer" type="button">Тест перевода</button><button id="device-payment" type="button">Тест оплаты</button></div>
+<div id="device-status" role="status" aria-live="polite"></div>
+<div class="device-controls"><button id="device-resolve" type="button" disabled>Ответ: принят</button><button id="device-reject" type="button" disabled>Ответ: неизвестен</button><button id="device-reload" type="button">Перезагрузить</button></div>
+<p>Тексты напоминания ниже взяты из рабочего интерфейса. Здесь «кошелёк» и «заявка» обозначают только тестовые данные.</p>
+<section id="wallet-attempt-notice" aria-label="Проверка предыдущего перевода" class="device-style-1">
+          <strong>Проверьте предыдущий перевод</strong>
+          <div id="wallet-attempt-details" role="status" aria-live="polite" class="device-style-2"></div>
+          <p class="device-style-3">Откройте историю указанного кошелька и, для оплаты, статус заявки. Пока результат неясен, не повторяйте перевод. Ответ кошелька и прошедшее время не подтверждают оплату.</p>
+          <label class="device-style-4"><input type="checkbox" id="wallet-attempt-ack">Я проверил историю указанного кошелька и статус заявки, если это оплата, и установил результат. Он больше не является неизвестным.</label>
+          <button type="button" id="wallet-attempt-remove" disabled class="device-style-5">Убрать напоминание после проверки</button>
+          <p class="device-style-6">Это удалит только напоминание, не подтвердит оплату и не повторит перевод. Оно хранится в этом браузере для этого сайта до явного удаления, в том числе после закрытия вкладок. Обновите все ранее открытые вкладки. В другом браузере, профиле или после очистки данных защита не гарантируется.</p>
+        </section>
+
+        <div id="exchange-review" role="dialog" aria-modal="true" aria-labelledby="exchange-review-title" aria-describedby="exchange-review-description" tabindex="-1"
+             class="device-style-7">
+          <div class="exchange-review-surface device-style-8">
+            <div id="exchange-review-title" role="heading" aria-level="2" tabindex="-1" class="device-style-9">Проверьте условия</div>
+            <div id="exchange-review-description" class="device-style-10">Заявка ещё не создана. Ничего не списывается до следующего подтверждения.</div>
+            <div id="exchange-review-freshness" role="status" aria-live="polite" class="device-style-11"></div>
+            <div id="exchange-review-summary" class="device-style-12"></div>
+            <div id="exchange-review-risk" class="device-style-13"></div>
+            <label class="device-style-14">
+              <input id="exchange-review-ack" type="checkbox" class="device-style-15">
+              <span>Я проверил(а) маршрут, сумму, сеть и реквизиты. Понимаю, что отправленный платёж или перевод в другой сети может быть необратимым.</span>
+            </label>
+            <div class="exchange-review-actions device-style-16">
+              <button type="button" id="exchange-review-cancel" class="btn device-style-17">Изменить</button>
+              <button type="button" id="exchange-review-confirm" class="btn" disabled>Подтвердить и создать</button>
+            </div>
+          </div>
+        </div>
+<h2>Локальный отчёт</h2><p>Счётчики относятся только к текущей загрузке страницы. Отчёт не содержит адреса кошелька, данных Telegram или сведений об устройстве, собранных автоматически. При необходимости отправьте его выбранному вами получателю вручную.</p>
+<label for="device-report">Текст отчёта</label><textarea id="device-report" readonly spellcheck="false"></textarea><div class="device-controls"><button id="device-report-copy" type="button">Скопировать отчёт</button></div><div id="device-copy-status" role="status" aria-live="polite"></div>
+<p>Тестовое напоминание сохраняется для этого сайта до ручного удаления. Его ключи отделены от рабочего приложения. Проверка не подтверждает реальные денежные операции или совместимость другого устройства.</p>
+<noscript>Для локальной проверки нужен JavaScript. Без него тест не запущен.</noscript></main></body></html>

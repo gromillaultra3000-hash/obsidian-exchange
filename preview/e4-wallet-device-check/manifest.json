@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "build": {
+    "id": "9376b40b5e9edb3700593d12e8b6459b467510dbe401eae9877a33e8fefda3f1",
+    "sourceSHA256": "ee01d3f55a2f97c3f957e9166a02f79cd247f7d924316c666d6d94a754bfe7e3",
+    "generatorSHA256": "a1cb253be7b39958deb86212c8e7ff60698c47154898f0a8fe31fd10efb5d8a8"
+  },
+  "source": "relay/webapp.html",
+  "scope": "inert device UI diagnostic; no real SDK, authentication, transfer, network API or report upload",
+  "originalExtractSHA256": "1813f6cd53d8c1d4a2465b88f41e51786f99290e62927c2960540751424c9842",
+  "transformedExtractSHA256": "35881fe0caf4c2c4cd48a99f558cba499971b3cd5b7a12e5ddf729f4a7a0354c",
+  "namespaces": {
+    "oe.wallet-attempt.v1": "oe.device-check.wallet-attempt.v1",
+    "oe.wallet-attempt.shared.v1": "oe.device-check.wallet-attempt.shared.v1",
+    "oe.wallet-handoff.v1": "oe.device-check.wallet-handoff.v1"
+  },
+  "styleExternalization": {
+    "display:none;padding:16px;margin:12px 0;border:1px solid #bd8c55;border-radius:14px;overflow-wrap:anywhere": "device-style-1",
+    "margin:8px 0;font-size:13px": "device-style-2",
+    "font-size:13px": "device-style-3",
+    "display:flex;gap:8px;font-size:13px": "device-style-4",
+    "margin-top:12px;padding:10px;border-radius:10px": "device-style-5",
+    "font-size:12px": "device-style-6",
+    "display:none;position:fixed;inset:0;z-index:1000;padding:20px;background:rgba(3,1,8,.82);align-items:flex-end;justify-content:center": "device-style-7",
+    "width:min(520px,100%);max-height:86vh;overflow:auto;padding:18px;border-radius:22px;background:#140a22;border:1px solid rgba(196,140,255,.45);box-shadow:0 18px 60px rgba(0,0,0,.5)": "device-style-8",
+    "font-size:20px;font-weight:800": "device-style-9",
+    "font-size:12px;color:var(--muted);margin:5px 0 14px;line-height:1.5": "device-style-10",
+    "font-size:11px;color:var(--muted);margin:-7px 0 14px;line-height:1.45": "device-style-11",
+    "display:grid;gap:8px": "device-style-12",
+    "margin-top:12px;padding:10px 12px;border-radius:12px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.24);font-size:12px;line-height:1.5;color:#fde68a": "device-style-13",
+    "display:flex;gap:9px;align-items:flex-start;margin:14px 0;font-size:12px;line-height:1.45": "device-style-14",
+    "width:auto;margin-top:2px": "device-style-15",
+    "display:grid;grid-template-columns:1fr 1.35fr;gap:8px": "device-style-16",
+    "background:rgba(255,255,255,.07)": "device-style-17",
+    "padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07)": "device-style-18",
+    "font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em": "device-style-19",
+    "font-size:13px;margin-top:3px;line-height:1.4;white-space:pre-wrap;overflow-wrap:anywhere": "device-style-20"
+  },
+  "noticeInitialVisibility": "external CSS hides notice until device-ready; production render controls visibility thereafter",
+  "artifacts": {
+    "index.html": "789b1c7408755abb253439833525de680697f032d08b4cfc0c7df2be3c2f4ec1",
+    "device-check.js": "9157b481e6b3c55db36b688eece7ebc52bfc471de8f416befd3f7deda7223792",
+    "device-check.css": "475716bb36e1e3a5d920b7c9b327640d7d0e374743ce33e0318b23d95b8d645e"
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "reviewer": "primary",
+  "date": "2026-09-08",
+  "result": "PASS",
+  "scope": "Independent final review of ops helper plus generator/assets/entry scope",
+  "findings": [
+    "Exact footer anchor is only parent index change; four assets only",
+    "Production namespaces replaced only in extracted helpers; no SDK/network/auth boundary",
+    "Static release preserves old tree, 56 app inputs, nginx configuration and four service identities",
+    "Atomic current pointer update, fsync, drift-rejecting rollback and interrupted staging reconciliation",
+    "Public verification includes directory landing paths and all files",
+    "Manual device environment remains unverified; real iOS observation outstanding"
+  ],
+  "validation": {
+    "focusedPytest": {
+      "passed": 42,
+      "seconds": 0.62
+    },
+    "generatorCheck": "DEVICE_CHECK_BUILD_EXACT",
+    "diffCheck": "PASS",
+    "visual": "320px WebKit review visible and readable; browser acceptance separately required"
+  },
+  "sha256": {
+    "docs/e4-wallet-device-check/rollout.py": "5cd97324158dfeb936f1d5086b143bdb319029f74dd858aba33a1cea85a43126",
+    "scripts/build_e4_wallet_device_check.py": "a1cb253be7b39958deb86212c8e7ff60698c47154898f0a8fe31fd10efb5d8a8",
+    "preview/e4-visible-portfolio-preview/index.html": "47bc27175bb8aedc29a9ad56ddfad67214c9d7627150734f8a883f32281849c6",
+    "preview/e4-wallet-device-check/manifest.json": "b83b5ba5a6563ba226887ece06ece443c8d3c9dc33544f100dadcbf7bf7731be"
+  },
+  "browserHarnessReview": {
+    "result": "PASS",
+    "runnerSha256": "d76dc97b427eb8f70596216ef32f12c2a9b6122aa035257c19606eaf031429b7",
+    "notes": [
+      "Exact asset bytes served under production response CSP plus unchanged strict page meta CSP",
+      "Native storage and lock sentinels verify isolation; explicit unsupported capability block, two-page contention and copy fallback",
+      "WebKit screenshot utility injects inline body{} stylesheet at coreBundle.js21080; final browser gate omits screenshots with zero-console assertion retained; earlier screenshots separately diagnostic",
+      "Async assertions await actual inert SDK invocation, not pending flag preceding lock callback"
+    ]
+  }
+}
