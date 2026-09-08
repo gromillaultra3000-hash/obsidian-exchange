@@ -935,6 +935,19 @@ explicit reconciliation, bound wallet/network/operation and conservative storage
 failure; no timer clearing or automatic signing. Current copy is not durable or
 cross-tab prevention. No real signature/money outcome; platform/human gates open.
 
+2026-09-08: WALLET_HANDOFF_REENTRY_STATE VERIFIED/deployed (`6d273bc`). Minimal
+same-tab unresolved evidence is persisted/read back before SDK and retained across
+reload/settlement/time/account changes until explicit user reconciliation. Faults
+and malformed storage block; sender format/network/order binding verified. No
+payload/secrets stored or automatic repeat. 252 tests (18 new state groups and
+16 ops cases), 28 isolated Chrome checks and two reviews PASS. HTML-only atomic
+apply/reconcile with exact backup; 55 dependencies and four service identities
+unchanged/no restart. Evidence: `docs/e4-wallet-reentry-state-rollout.v1.json`.
+E4 remains IN_PROGRESS. Exactly next: WALLET_HANDOFF_CROSS_TAB_COORDINATION —
+competing tabs with no automatic retry or time-only release. Same-tab evidence
+and user assertion do not prove chain outcome or cover storage clearing/other
+devices; real SDK/platform/human gates open. No new money/signature/064A authority.
+
 ### E5 — нативный некастодиальный кошелёк
 
 E0.4 inventory evidence (2026-08-18): the checkout has a Rust/UniFFI Bitcoin

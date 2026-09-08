@@ -5,30 +5,28 @@ Updated: 2026-09-08 UTC
 ## Current goal and status
 
 
-- 2026-09-08 E4 WALLET_HANDOFF_REENTRY_COVERAGE / OUTCOME_GUIDANCE VERIFIED
-  and deployed, `31122f2`. Four literals only: reviews warn to check prior attempt
-  in connected wallet history (payment also order status); generic SDK failure
-  says unknown/may sent, verify and do not repeat. No persistent/cross-tab guard
-  or SDK classification; success/requests/locks/acknowledgement unchanged.
-  249 tests PASS including 8 new (baseline 6 FAIL/2 PASS), 16 native Chrome cases,
-  11 isolated ops cases and two independent reviews PASS. Real DOM buttons/reload;
-  first empty-wallet fixture fixed, exact final source/layout PASS. SDK/API inert,
-  sandbox/private network/cleanup verified. Gitleaks8.30.0 explicit/staged zero.
-  HTML-only atomic apply/reconcile PASS, df92e68e...9d0358e9. Other 55 files and
-  Relay 3016726/Bot 3877887/Nginx 3877705/PG 3136948 unchanged; no restart.
-  Public200/405/history403/order0+pay0 both404. Rollback:
-  deployment-preimages/e4-wallet-reentry-31122f2-20260908.
-  Evidence: docs/e4-wallet-reentry-rollout.v1.json. Exactly next:
-  E4 WALLET_HANDOFF_REENTRY_STATE — persist minimal unresolved-attempt evidence
-  across same-tab reload with explicit reconciliation, wallet/network/operation
-  binding, conservative storage-failure handling and no timer-based clearing or
-  automatic signing. Decide retention/data minimization; no keys/secrets stored.
-  Current document lock resets on reload (native fixture proves); real SDK
-  reconnect/prior money outcome unverified. E4/earlier/platform/human gates open.
-  Prior 5536973 SDK lock, 82eb191 preparation, 8846bbd order outcome and payment/read
-  fixes retained. No customer read/new credential/signature/064A authority.
-  Stores drift; do not deploy wholesale. Autopilot failed/MainPID0; reconcile
-  third receipt/manual commits before explicitly requested restart.
+- 2026-09-08 E4 WALLET_HANDOFF_REENTRY_STATE VERIFIED/deployed, `6d273bc`.
+  Minimal same-tab sessionStorage sender/network/operation/order evidence persists
+  before SDK; retained across reload/settlement/time/account switch until explicit
+  user reconciliation. No automatic retry; faults/corruption block. Friendly/raw
+  sender checksum normalization and payment-response order binding verified.
+  No recipient/amount/payload/signature/Telegram identity/secrets retained.
+  252 tests PASS (18 new state groups, 16 ops cases), 28 isolated Chrome cases,
+  two independent reviews, syntax and staged Gitleaks8.30.0 zero. Review findings
+  (type coercion, stale ack, order mismatch) fixed; initial outdated fixture/
+  expectation failures corrected. Original source fails missing-record regression.
+  HTML-only atomic apply/reconcile PASS, 8b7d1f6b...6ab10b5. Other 55 files and
+  Relay3016726/Bot3877887/Nginx3877705/PG3136948 unchanged; no restart. Public
+  200/405/history403/order0+pay0 both404. Rollback: deployment-preimages/
+  e4-wallet-reentry-state-6d273bc-20260908. Evidence:
+  docs/e4-wallet-reentry-state-rollout.v1.json. Exactly next: E4
+  WALLET_HANDOFF_CROSS_TAB_COORDINATION — competing tabs, minimal coordination,
+  explicit reconciliation, no automatic retry/time-only unlock. Current guard is
+  same-tab only; clearing/closing/restoration, real SDK/platform/human outcomes
+  remain limited. User assertion is not chain evidence; E4/earlier gates open.
+  Rollback does not cancel money requests and loses new guard on future loads.
+  No real signature/money/customer read/new credential/064A authority. Autopilot
+  failed/MainPID0; no restart. Reconcile third receipt/manual commits before start.
 
 - 2026-09-08 status audit confirmed Sep 7's three deployed E4 slices: wallet
   review/fees (`d650b8d`), receive-address integrity (`1cbfe1f`) and payment

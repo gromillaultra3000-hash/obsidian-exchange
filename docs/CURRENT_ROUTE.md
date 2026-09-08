@@ -11,41 +11,42 @@ non-custodial wallet whose keys never reach the server.
 
 ## Active route
 
-`E4 / WALLET_HANDOFF_REENTRY_STATE / preserve unresolved-attempt evidence across same-tab reload`
+`E4 / WALLET_HANDOFF_CROSS_TAB_COORDINATION / prevent competing wallet handoffs from separate tabs`
 
-2026-09-08: WALLET_HANDOFF_REENTRY_COVERAGE / OUTCOME_GUIDANCE is VERIFIED and
-deployed, implementation `31122f2`. Exactly four product literals changed. Wallet
-transfer/payment reviews now advise checking prior attempts in connected wallet
-history (and sell order status) before proceeding after re-entry. Generic SDK
-failure says outcome unknown/may have been sent and directs verification without
-repeat. Success, requests, locks and acknowledgement semantics remain unchanged.
+2026-09-08: WALLET_HANDOFF_REENTRY_STATE is VERIFIED and deployed, `6d273bc`.
+Before SDK entry a minimal sessionStorage record binds public sender/network/
+operation/order and is read back. Reload, SDK success/rejection, elapsed time and
+wallet switch cannot clear it. Both handoffs stay blocked until explicit user
+reconciliation; clearing never signs or changes payment status. Storage failures
+and malformed evidence fail closed. Friendly server sender/raw SDK compatibility
+uses CRC-checked normalization; identity/network and response order are checked.
+No recipient, amount, payload, signature, Telegram identity or secret is retained.
 
-249 tests PASS including eight new cases (baseline six FAIL/two PASS), 16 native
-Chrome cases at 320/390px, 11 isolated ops cases and both independent reviews PASS.
-Browser used actual Send/payment/review controls and page reload; the first empty
-wallet fixture hid Send and was corrected. Exact final source passes; screenshot
-layout inspected. Gitleaks8.30.0 explicit/staged scans zero without suppression.
-Browser sandbox/private network/cleanup verified; SDK/API entirely inert.
+252 tests PASS (18 new state groups, 16 isolated ops cases included), 28 native
+Chrome scenarios at 320/390, syntax/secret scans and two independent reviews PASS.
+Fixed review findings: wallet type coercion, stale acknowledgement, mismatched
+payment response order. Initial regression fixture/old-expectation failures were
+corrected; full final suite passes. Original source fails new missing-record test.
 
-HTML-only atomic apply/reconcile PASS, SHA256 `df92e68e...9d0358e9`; exact public
-template. Other 55 files and Relay3016726/Bot3877887/Nginx3877705/PG3136948
-unchanged, no restart. GET200/POST405/history403/order0+pay0 both404. Rollback:
-`/var/lib/obsidian-exchange/deployment-preimages/e4-wallet-reentry-31122f2-20260908`.
-Evidence: `docs/e4-wallet-reentry-rollout.v1.json` and its task directory.
+HTML-only atomic apply/reconcile PASS, live SHA256 `8b7d1f6b...6ab10b5`; exact
+public template. Other 55 files and Relay3016726/Bot3877887/Nginx3877705/PG3136948
+unchanged; no restart. GET200/POST405/history403/order0+pay0 both404. Rollback:
+`/var/lib/obsidian-exchange/deployment-preimages/e4-wallet-reentry-state-6d273bc-20260908`.
+Evidence: `docs/e4-wallet-reentry-state-rollout.v1.json` and task directory.
 
-Exactly next: WALLET_HANDOFF_REENTRY_STATE. Browser proves the document lock
-resets on reload. Persist minimal unresolved-attempt evidence for same-tab re-entry,
-with explicit reconciliation and no automatic signing/retry. Bind evidence to
-wallet/network/operation, handle storage failure conservatively, and do not treat
-elapsed time or reload as proof of cancellation. Decide data minimization/retention
-before code. Current guidance is not durable or cross-tab prevention; SDK reconnect
-and actual prior transfer result remain unverified. Do not store keys or secrets.
+Exactly next: WALLET_HANDOFF_CROSS_TAB_COORDINATION — reproduce competing tabs
+with an inert SDK, then implement bounded coordination preserving unresolved
+outcomes and explicit reconciliation. No automatic retry/signing or timer-only
+unlock. Current protection is same-tab session only; another tab/device, clearing
+storage and real SDK reconnection are outside its guarantee. User acknowledgement
+is not chain evidence. Closing/session restoration follows browser retention.
 
-E4 and earlier gates, Telegram/iOS/WebKit/assistive/human acceptance remain open.
-No real signature/money/provider operation, authenticated customer read, new
-credential or 064A authority. Prior fixes remain installed. Do not deploy drifting
-checkout stores wholesale. Autopilot stays failed/MainPID0 by owner direction;
-reconcile stale third receipt/manual commits before an explicitly requested start.
+E4/earlier gates and Telegram/iOS/WebKit/assistive/human acceptance remain open.
+No real signature/money/provider operation, authenticated customer read, credential
+or 064A authority. Do not deploy drifting stores wholesale. Autopilot stays failed/
+MainPID0; reconcile stale third receipt/manual commits before explicitly requested
+restart. A rollback restores prior HTML, not money outcome, and loses the new guard
+on future loads without replacing JavaScript in existing tabs.
 
 ### Owner reprioritization — 2026-08-26
 
