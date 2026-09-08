@@ -1,0 +1,112 @@
+{
+  "schemaVersion": "e4-money-order-outcome-independent-security-probe.v1",
+  "source": {
+    "path": "relay/webapp.html",
+    "sha256": "ec34e0a78b8013e4609ceaf689c733ee2880672e76a6130708ea8f177076b47d"
+  },
+  "inputs": [
+    {
+      "path": "docs/e4-money-flow-coverage/security-order-probe.cjs",
+      "sha256": "e9657eaa5de9711c405f01ea75b94dff11c389e8798d95d8a06fb920cc9f81bd"
+    },
+    {
+      "path": "tests/e4_recipient_review_behavior.cjs",
+      "sha256": "f0ebbc443222066ec7c64b2ba2a6dbb99814ec67cfd0ed1bdec310123a5e40c3"
+    }
+  ],
+  "scenarioBoundary": "The request stub records accepted delivery, then rejects transport or body decoding. No backend, database, customer, provider or real money outcome is inferred.",
+  "productionNetworkDatabaseWalletCalls": 0,
+  "cases": [
+    {
+      "name": "buy:transport-after-accepted-request",
+      "result": "PASS",
+      "visibleText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность»; если статус неясен — обратитесь в поддержку.",
+      "requests": 1,
+      "failures": []
+    },
+    {
+      "name": "buy:unreadable-response",
+      "result": "PASS",
+      "visibleText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность»; если статус неясен — обратитесь в поддержку.",
+      "requests": 1,
+      "failures": []
+    },
+    {
+      "name": "buy:null-response",
+      "result": "PASS",
+      "visibleText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность»; если статус неясен — обратитесь в поддержку.",
+      "requests": 1,
+      "failures": []
+    },
+    {
+      "name": "buy:gateway-error",
+      "result": "PASS",
+      "visibleText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность»; если статус неясен — обратитесь в поддержку.",
+      "requests": 1,
+      "failures": []
+    },
+    {
+      "name": "buy:explicit-rejection-remains-literal",
+      "result": "PASS",
+      "requests": 1,
+      "successHandoffs": 0,
+      "storageWrites": 0,
+      "failures": []
+    },
+    {
+      "name": "buy:confirmed-result-once",
+      "result": "PASS",
+      "requests": 1,
+      "successHandoffs": 1,
+      "storageWrites": 1,
+      "failures": []
+    },
+    {
+      "name": "sell:transport-after-accepted-request",
+      "result": "PASS",
+      "visibleText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность» и список заявок на продажу; если статус неясен — обратитесь в поддержку.",
+      "requests": 1,
+      "failures": []
+    },
+    {
+      "name": "sell:unreadable-response",
+      "result": "PASS",
+      "visibleText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность» и список заявок на продажу; если статус неясен — обратитесь в поддержку.",
+      "requests": 1,
+      "failures": []
+    },
+    {
+      "name": "sell:null-response",
+      "result": "PASS",
+      "visibleText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность» и список заявок на продажу; если статус неясен — обратитесь в поддержку.",
+      "requests": 1,
+      "failures": []
+    },
+    {
+      "name": "sell:gateway-error",
+      "result": "PASS",
+      "visibleText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность» и список заявок на продажу; если статус неясен — обратитесь в поддержку.",
+      "requests": 1,
+      "failures": []
+    },
+    {
+      "name": "sell:explicit-rejection-remains-literal",
+      "result": "PASS",
+      "requests": 1,
+      "successHandoffs": 0,
+      "storageWrites": 0,
+      "failures": []
+    },
+    {
+      "name": "sell:confirmed-result-once",
+      "result": "PASS",
+      "requests": 1,
+      "successHandoffs": 1,
+      "storageWrites": 0,
+      "failures": []
+    }
+  ],
+  "passed": 12,
+  "failed": 0,
+  "result": "PASS"
+}

@@ -1,0 +1,31 @@
+{
+  "recordedAt": "2026-09-08T03:38:57.200125+00:00",
+  "result": "EXPECTED_BASELINE_FAILURE",
+  "baselineCommit": "6daa85de5d69b29f54b178ffd1a140dbdf83cc4e",
+  "baselineSource": {
+    "path": "relay/webapp.html",
+    "sha256": "8347b9df45a27b7077dabae8aa3e68dbfa763f0ed67220a93aca7f58ce11a908"
+  },
+  "failed": 16,
+  "passed": 6,
+  "command": [
+    "/opt/lumi/venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "tests/test_e4_money_flow_outcome.py"
+  ],
+  "meaning": "Exact submit functions with inert accepted-request transport: lost/decode/server/malformed response is not proof that no order exists. Dynamic buy error HTML also fails literal-text checks. No real order/customer/database/provider action.",
+  "inputs": [
+    {
+      "path": "tests/test_e4_money_flow_outcome.py",
+      "sha256": "5313647e342cc1aa6794ff19055d998494d19545c6e473288c377e5ac78f05fb"
+    },
+    {
+      "path": "tests/e4_money_flow_outcome.cjs",
+      "sha256": "449a492ed186b87889e51fae213ee3a0106d20ea064a988c0947e5875aced3d5"
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "recordedAt": "2026-09-08T21:51:16.242770+00:00",
+  "route": "E4 / MONEY_FLOW_ACCEPTANCE_COVERAGE",
+  "result": "PREFLIGHT_PASS",
+  "productSha256": "7a99bd3c75d623f24c3c8807cadeaa5b670258ab3345f713f0136792c77ecac2",
+  "secretScan": {
+    "tool": "gitleaks",
+    "version": "8.30.0",
+    "scope": "explicit candidate files and task evidence directory",
+    "findings": 0,
+    "suppression": false
+  },
+  "negativeResults": [
+    {
+      "run": "output/playwright/e4-money-flow-final-host-20260908",
+      "finding": "320px literal rejection overflows result",
+      "disposition": "Fixed with overflowWrap inside both submit functions"
+    },
+    {
+      "run": "output/playwright/e4-money-flow-verified-20260908",
+      "finding": "success fixture lacked Telegram.openLink, causing real browser fallback navigation into inert response",
+      "disposition": "Harness captures and asserts openLink; product unchanged"
+    }
+  ],
+  "scope": {
+    "MiniApp": "REQUIRED \u2014 two submit functions only",
+    "site": "READ_ONLY \u2014 canonical entry and inert exact handler coverage",
+    "bot": "READ_ONLY \u2014 source and inert exact handler coverage",
+    "payment": "READ_ONLY \u2014 retained main and dependencies",
+    "admin": "N/A \u2014 no admin changes",
+    "native": "N/A \u2014 no key/signing changes"
+  },
+  "focusedTests": 115,
+  "exactHandlerCases": 8,
+  "browserCases": 48,
+  "browserEvidence": "docs/e4-money-flow-coverage/browser-report.json",
+  "browserIsolation": "docs/e4-money-flow-coverage/browser-isolation.json",
+  "reviews": [
+    "docs/e4-money-flow-coverage/final-acceptance-review.json",
+    "docs/e4-money-flow-coverage/final-diff-ops-review.json"
+  ]
+}

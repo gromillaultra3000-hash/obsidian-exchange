@@ -1,0 +1,38 @@
+{
+  "schema": "e4-final-diff-ops-review.v1",
+  "reviewer": "/root/diff_ops",
+  "time": "2026-09-08T21:50:53.011691+00:00",
+  "input_sha256": {
+    "relay/webapp.html": "7a99bd3c75d623f24c3c8807cadeaa5b670258ab3345f713f0136792c77ecac2",
+    "tests/test_e4_exchange_review_ui.py": "c41e9156072d43fdab6cc4acf1d532a2793c31459c1169b7f7331cdbb6e73ef5",
+    "tests/test_e4_money_flow_outcome.py": "3d0117d87a7057e6efe851703a4c583c16ed9a5c4daaeb0956a0c5bf6b99cfb8",
+    "tests/e4_money_flow_outcome.cjs": "449a492ed186b87889e51fae213ee3a0106d20ea064a988c0947e5875aced3d5",
+    "tests/e4_money_flow_outcome_browser.cjs": "8f79d81cdb7a6320a8a641d380463a5856c06cc368fd8ad37dc3aa74dd66587c",
+    "docs/e4-money-flow-coverage/rollout.py": "3802542333401cc7f674be94379ce0ee9c57a4c29e613c7b17c7a8105a11f76e"
+  },
+  "scope": "Independent final source diff, test and rollout review; local temporary apply/reconcile/rollback rehearsal only",
+  "checks": {
+    "bounded_actual_diff": "PASS: only submitBuyOrder/submitSellOrder differ",
+    "out_of_scope_rejected": "PASS",
+    "apply": "PASS: actual atomic replacement/backup, exact bytes and metadata",
+    "reconcile": "PASS: exact candidate verified",
+    "unrelated_drift": "PASS: rollback refuses drift before write",
+    "rollback": "PASS: baseline bytes and metadata restored",
+    "publication_failure": "PASS: post-write failure propagates, candidate remains, verified baseline backup exists; explicit reconcile/rollback required",
+    "publication_failure_recovery": "PASS: explicit reconciliation then rollback succeeds",
+    "pytest": "56 passed in 1.86s before final CSS-only overflow delta: tests/test_e4_money_flow_outcome.py tests/test_e4_exchange_review_ui.py; final runtime/browser validation owned by root",
+    "xss": "PASS: both changed rejection surfaces use textContent; no new untrusted HTML insertion",
+    "unknown_outcomes": "PASS: malformed/unconfirmed/contradictory outcomes use no-repeat guidance; success requires true and positive safe integer id",
+    "browser_runner": "READ ONLY review: fixtures block external requests and unexpected writes, native DOM injection assertions; browser not rerun by this reviewer",
+    "final_overflow_delta": "PASS: only overflowWrap anywhere on error result elements within submit functions; no response classification or markup changes; bounded stripping revalidated",
+    "browser_open_link_delta": "PASS: capture-only Telegram.openLink prevents native navigation while retaining success dispatch; native-page assertions require exactly one synthetic buy success payment link and zero links on sell success or any failure; production openPay code left intact."
+  },
+  "findings": [],
+  "disposition": "APPROVED",
+  "limitations": [
+    "Production was not mutated; systemd runtime and public GET were monkeypatched for isolated rollout recovery tests.",
+    "Publication failure after atomic replacement intentionally requires explicit reconcile or rollback; caller must not report failure as proof candidate was not deployed.",
+    "No backend idempotency introduced; user may manually submit again after warning.",
+    "Isolated apply/reconcile/rollback rehearsal used previous candidate 6f0785bef90b4feca7a16f00789816c3e15d3caa02e5110bfc1bbd9ca3dff1f6; final two overflowWrap assignments reviewed and actual bounded stripping rerun, rollout script unchanged."
+  ]
+}

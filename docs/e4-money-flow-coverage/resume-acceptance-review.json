@@ -1,0 +1,181 @@
+{
+  "schemaVersion": "e4-money-flow-resume-acceptance-review.v1",
+  "recordedAt": "2026-09-08T21:41:26.475870+00:00",
+  "route": "E4 / MONEY_FLOW_ACCEPTANCE_COVERAGE",
+  "result": "PASS_BOUNDED_CANDIDATE",
+  "scope": "Read-only product review; synthetic Node transport only; no production network, database, provider, wallet or deployment actions.",
+  "tests": {
+    "command": "/opt/lumi/venv/bin/python -m pytest -q -p no:cacheprovider tests/test_e4_money_flow_outcome.py tests/test_e4_recipient_review_behavior.py tests/test_e4_exchange_review_ui.py",
+    "result": "101 passed in 4.62s"
+  },
+  "findings": [
+    {
+      "id": "A1",
+      "severity": "medium",
+      "summary": "Response rejection classification is broader than inspected backend contract.",
+      "evidence": "Initial inspected diff classified arbitrary parsed 4xx as rejection. Candidate changed during review; all eight probes in this report executed the corrected classifier and returned unknown. New bounded suite also covers malformed/ambiguous responses.",
+      "recommendation": "Restrict rejection statuses/envelope to observed pre-write backend contract; require meaningful literal reason and no contradictory success/identity fields. Route other 4xx and contradictory envelopes to unknown. Add buy/sell regression cases.",
+      "status": "RESOLVED_IN_REVIEWED_CANDIDATE",
+      "resolution": "Known 400/403/429 require literal detail, false/absent ok and absent order identity. HTTP success ok:false requires expected literal reason and absent identity; contradictory or arbitrary status returns unknown."
+    }
+  ],
+  "cases": [
+    {
+      "input": {
+        "path": "relay/webapp.html",
+        "action": "buy",
+        "status": 408,
+        "response": {
+          "detail": "timeout"
+        }
+      },
+      "visibleText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность»; если статус неясен — обратитесь в поддержку.",
+      "requestCount": 1,
+      "successHandoffs": 0
+    },
+    {
+      "input": {
+        "path": "relay/webapp.html",
+        "action": "buy",
+        "status": 409,
+        "response": {}
+      },
+      "visibleText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность»; если статус неясен — обратитесь в поддержку.",
+      "requestCount": 1,
+      "successHandoffs": 0
+    },
+    {
+      "input": {
+        "path": "relay/webapp.html",
+        "action": "buy",
+        "status": 400,
+        "response": {
+          "ok": true,
+          "order_id": 42,
+          "sell_id": 42
+        }
+      },
+      "visibleText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность»; если статус неясен — обратитесь в поддержку.",
+      "requestCount": 1,
+      "successHandoffs": 0
+    },
+    {
+      "input": {
+        "path": "relay/webapp.html",
+        "action": "buy",
+        "status": 200,
+        "response": {
+          "ok": false,
+          "order_id": 42,
+          "sell_id": 42
+        }
+      },
+      "visibleText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность»; если статус неясен — обратитесь в поддержку.",
+      "requestCount": 1,
+      "successHandoffs": 0
+    },
+    {
+      "input": {
+        "path": "relay/webapp.html",
+        "action": "sell",
+        "status": 408,
+        "response": {
+          "detail": "timeout"
+        }
+      },
+      "visibleText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность» и список заявок на продажу; если статус неясен — обратитесь в поддержку.",
+      "requestCount": 1,
+      "successHandoffs": 0
+    },
+    {
+      "input": {
+        "path": "relay/webapp.html",
+        "action": "sell",
+        "status": 409,
+        "response": {}
+      },
+      "visibleText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность» и список заявок на продажу; если статус неясен — обратитесь в поддержку.",
+      "requestCount": 1,
+      "successHandoffs": 0
+    },
+    {
+      "input": {
+        "path": "relay/webapp.html",
+        "action": "sell",
+        "status": 400,
+        "response": {
+          "ok": true,
+          "order_id": 42,
+          "sell_id": 42
+        }
+      },
+      "visibleText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность» и список заявок на продажу; если статус неясен — обратитесь в поддержку.",
+      "requestCount": 1,
+      "successHandoffs": 0
+    },
+    {
+      "input": {
+        "path": "relay/webapp.html",
+        "action": "sell",
+        "status": 200,
+        "response": {
+          "ok": false,
+          "order_id": 42,
+          "sell_id": 42
+        }
+      },
+      "visibleText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность» и список заявок на продажу; если статус неясен — обратитесь в поддержку.",
+      "requestCount": 1,
+      "successHandoffs": 0
+    }
+  ],
+  "coverageAssessment": {
+    "matrix": "Accurately distinguishes static site/bot claims from inert exact-handler execution and Mini App behavior; no whole-E4 acceptance claim.",
+    "lostResponse": "Reproduced by existing 73 passing tests; inspected buy _order_store.create and sell _sell_store.create run before response, so lost response cannot prove absence. Fault fixtures do not establish actual backend persistence or production incidents.",
+    "browser": "Runner inspected; routes every network request to synthetic/denied transport, native DOM and fetch used. Not independently executed in this review.",
+    "remaining": "Real Telegram, WebKit, accessibility and human comprehension remain open; deferred wallet preparation/signature races remain separate.",
+    "boundary": "Bounded unknown-outcome code fix justified. Corrected classifier closes initial review concern; no remaining blocker observed for this slice. Entire E4 remains open."
+  },
+  "inputs": [
+    {
+      "path": "relay/webapp.html",
+      "sha256": "6f0785bef90b4feca7a16f00789816c3e15d3caa02e5110bfc1bbd9ca3dff1f6"
+    },
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "25624ac7bc9174ac9ec35d90402042c62bd344d6c74c1cf730593017a79ae26f"
+    },
+    {
+      "path": "tests/test_e4_money_flow_outcome.py",
+      "sha256": "3d0117d87a7057e6efe851703a4c583c16ed9a5c4daaeb0956a0c5bf6b99cfb8"
+    },
+    {
+      "path": "tests/e4_money_flow_outcome.cjs",
+      "sha256": "449a492ed186b87889e51fae213ee3a0106d20ea064a988c0947e5875aced3d5"
+    },
+    {
+      "path": "tests/e4_money_flow_outcome_browser.cjs",
+      "sha256": "ac5f1fc33968471daf1f7d16f7a964d82c41851362ab9eefa8e44d010551e186"
+    },
+    {
+      "path": "tests/test_e4_recipient_review_behavior.py",
+      "sha256": "0dba9cc3e4b4a490b8d88705434968a53b487698a444aa1b512326bd238d5ccf"
+    },
+    {
+      "path": "tests/test_e4_exchange_review_ui.py",
+      "sha256": "c41e9156072d43fdab6cc4acf1d532a2793c31459c1169b7f7331cdbb6e73ef5"
+    },
+    {
+      "path": "docs/e4-money-flow-coverage/acceptance-coverage-matrix.json",
+      "sha256": "9e78e0169b09bffebcb8479522ed2c487a1cb9f177cea01daee4bdf4fad5dacf"
+    },
+    {
+      "path": "docs/e4-money-flow-coverage/miniapp-coverage.json",
+      "sha256": "94616fdcaa2f38eb01aa423669f43a858350ea9d1b2c3b34ed5304cbb6c02def"
+    },
+    {
+      "path": "docs/e4-money-flow-coverage/contract.md",
+      "sha256": "74c9ccdd730fead4696962aa3d16df9d85a0a0f3892ac20a75145b844f4132c1"
+    }
+  ]
+}

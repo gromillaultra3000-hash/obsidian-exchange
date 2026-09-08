@@ -1,0 +1,97 @@
+{
+  "schemaVersion": "e4-money-flow-independent-findings.v1",
+  "baselineHead": "6daa85de5d69b29f54b178ffd1a140dbdf83cc4e",
+  "executedProduct": {
+    "path": "relay/webapp.html",
+    "sha256": "8347b9df45a27b7077dabae8aa3e68dbfa763f0ed67220a93aca7f58ce11a908"
+  },
+  "inputs": [
+    {
+      "path": "docs/e4-money-flow-coverage/security-probe.cjs",
+      "sha256": "db407ce60f3d7c9f9e07d8f728c49b1af2d7102ea8403cbe2019748c98f11f92"
+    },
+    {
+      "path": "docs/e4-money-flow-coverage/security-baseline.json",
+      "sha256": "8ca3f050981dc9c4086f4be73ae2fadb865ce16b6aa0da7a178257a8a730d7f4"
+    },
+    {
+      "path": "docs/e4-money-flow-coverage/security-order-probe.cjs",
+      "sha256": "e9657eaa5de9711c405f01ea75b94dff11c389e8798d95d8a06fb920cc9f81bd"
+    },
+    {
+      "path": "docs/e4-money-flow-coverage/security-order-baseline.json",
+      "sha256": "f99eafc9f4d5a5bf5f9bf77e44e637d9315ac329cf3ebdad90841cad7b06aeb7"
+    },
+    {
+      "path": "docs/e4-money-flow-coverage/security-order-probe.json",
+      "sha256": "81bfe84b1517ad2d0df87ec6c34aa315fd8c5b6888af33b9853ada874ebf35f3"
+    },
+    {
+      "path": "docs/e4-money-flow-coverage/security-scope.json",
+      "sha256": "fce786b9f8efd213daa6a269a9f5072adffc7284d1ba568a5441a42de5613834"
+    }
+  ],
+  "findings": [
+    {
+      "id": "E4-ORDER-UNCERTAIN-OUTCOME",
+      "severity": "P2",
+      "status": "RESOLVED_IN_REVIEWED_CANDIDATE",
+      "functions": [
+        "submitBuyOrder",
+        "submitSellOrder"
+      ],
+      "trigger": "An explicitly acknowledged POST reaches a controlled request-acceptance stub, then transport or response decoding fails, or a gateway returns failure.",
+      "observed": "Sell claims the order was not created; malformed buy response recommends trying again; other responses expose technical error text without checking whether an order exists.",
+      "impact": "A response failure cannot establish noncreation; wording can encourage duplicate order attempts. No actual persisted order, customer incident or payment duplication is claimed.",
+      "reproducedScenarios": 8,
+      "requiredBoundary": "Represent unknown outcome neutrally, direct the user to existing order status before another attempt, preserve explicit validation errors and one-request-per-acknowledgement.",
+      "candidateInputs": [
+        {
+          "path": "relay/webapp.html",
+          "sha256": "ec34e0a78b8013e4609ceaf689c733ee2880672e76a6130708ea8f177076b47d"
+        }
+      ]
+    },
+    {
+      "id": "E4-WALLET-STALE-PREPARATION",
+      "severity": "P2",
+      "status": "OPEN_SEPARATE_BOUNDED_ITEM",
+      "functions": [
+        "walletTransfer",
+        "walletPay"
+      ],
+      "trigger": "Start two preparations; resolve newer, cancel its review, then resolve older.",
+      "observed": "The older response opens a new visible review after explicit cancellation. No signature occurs solely from this response.",
+      "impact": "Cancellation does not invalidate pending preparation and the UI resurrects an abandoned operation.",
+      "reproducedScenarios": 2,
+      "requiredBoundary": "Invalidate or serialize preparation across cancellation/supersession; a stale response must not revive abandoned confirmation."
+    },
+    {
+      "id": "E4-WALLET-PENDING-HANDOFF",
+      "severity": "P2",
+      "status": "OPEN_SEPARATE_BOUNDED_ITEM",
+      "functions": [
+        "walletTransfer",
+        "walletPay"
+      ],
+      "trigger": "Confirm one prepared transaction while fake sendTransaction remains unresolved, then open and confirm a second review.",
+      "observed": "The application invokes sendTransaction twice before the first promise settles. Each invocation still required a fresh acknowledgement.",
+      "impact": "The application does not serialize unresolved wallet handoffs. Actual wallet SDK/Telegram behavior and double execution are unverified.",
+      "reproducedScenarios": 2,
+      "requiredBoundary": "Guard unresolved handoffs; preserve explicit cancellation/failure and avoid duplicate UI-triggered calls before wallet outcome is known."
+    }
+  ],
+  "preservedControls": [
+    "Opening review does not create a buy/sell order.",
+    "Unacknowledged or explicitly cancelled wallet review cannot sign.",
+    "Two confirm events on one acknowledged review invoke one wallet handoff.",
+    "Rejected synthetic wallet signature never calls send-signed.",
+    "Existing primitive buy/sell form snapshots and literal memo tests remain applicable."
+  ],
+  "limits": [
+    "All probes are deterministic exact-source function scenarios with inert external boundaries.",
+    "No live wallet, provider, customer request, database, network, message or runtime mutation.",
+    "Synthetic request acceptance demonstrates insufficient response evidence; it does not prove real backend persistence.",
+    "Findings concern these bounded transitions, not full E4 gate closure."
+  ]
+}

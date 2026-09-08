@@ -52,7 +52,7 @@ def test_review_confirmation_expires_and_buy_address_is_not_stored_before_confir
                     webapp.index("function beginBuyOrder", webapp.index("async function submitBuyOrder"))]
     assert "localStorage.setItem('lastAddress_'" not in begin
     assert "localStorage.setItem('lastAddress_' + currency + '_' + network, address)" in submit
-    assert submit.index("if (!res.ok || !data.ok)") < submit.index("localStorage.setItem('lastAddress_' + currency + '_' + network, address)")
+    assert submit.index("if (!res.ok || !data || data.ok !== true)") < submit.index("localStorage.setItem('lastAddress_' + currency + '_' + network, address)")
 
 
 def test_buy_review_is_not_opened_for_a_known_invalid_recipient_format():

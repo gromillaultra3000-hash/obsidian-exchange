@@ -1,0 +1,389 @@
+{
+  "recordedAt": "2026-09-08T03:36:14.644848+00:00",
+  "result": "PASS",
+  "route": "E4 / MONEY_FLOW_ACCEPTANCE_COVERAGE",
+  "inputs": [
+    {
+      "path": "docs/e4-money-flow-coverage/ops-baseline.json",
+      "sha256": "2d04ca6c51ba2cf0049502d51465c4b8ce42561b280b2e34e66fe29e8543cbf0"
+    }
+  ],
+  "surfaces": [
+    {
+      "surface": "Site",
+      "unit": "relay-fastapi.service",
+      "entrypoints": [
+        "GET /",
+        "GET/POST /dashboard/exchange",
+        "GET/POST /dashboard/sell",
+        "GET/POST /dashboard/swap",
+        "GET /dashboard/orders"
+      ],
+      "inputs": [
+        {
+          "path": "relay-fastapi/main.py",
+          "sha256": "25624ac7bc9174ac9ec35d90402042c62bd344d6c74c1cf730593017a79ae26f"
+        },
+        {
+          "path": "relay-fastapi/auth.py",
+          "sha256": "cb0c3831f2d862a5519824b317dd537f7e592fdeb678a7d34a083b26436c9746"
+        },
+        {
+          "path": "relay-fastapi/templates/index.html",
+          "sha256": "bcbf8332ad7bb0418ae66307f66676fb294364e4ba78833c968f32cf65b70720"
+        },
+        {
+          "path": "relay-fastapi/templates/dashboard_exchange.html",
+          "sha256": "5c6c450f1568b717c55e306194108545377cd7e4d837d7e8b152ed3b2071628c"
+        },
+        {
+          "path": "relay-fastapi/templates/dashboard_sell.html",
+          "sha256": "5bc8c50a023842439cf471005136fb5388910cf3025fb9b1fa4e6d4199a62343"
+        },
+        {
+          "path": "relay-fastapi/templates/dashboard_swap.html",
+          "sha256": "afd1c004b3f07aa889a239498b01d89640ffbad15a6fc300f889daa036bd7e18"
+        },
+        {
+          "path": "relay-fastapi/templates/dashboard_orders.html",
+          "sha256": "f468eb03f0590cc9315d4d9f675921174e1733d309ed65334b14b4c6fb1acc12"
+        }
+      ],
+      "sourceFacts": [
+        "Anonymous landing entry links to bot start=app; authenticated users link to /dashboard/exchange.",
+        "Dashboard forms submit to corresponding Relay handlers; order history links to /pay/{session_token} and /swap/{token}.",
+        "Site purchase handler checks web authentication and CSRF before order creation."
+      ]
+    },
+    {
+      "surface": "Bot",
+      "unit": "exchange-bot.service",
+      "entrypoints": [
+        "/start app",
+        "menu_exchange",
+        "menu_sell",
+        "menu_swap",
+        "menu_orders",
+        "paid_{order_id}",
+        "check_{order_id}",
+        "receipt upload"
+      ],
+      "inputs": [
+        {
+          "path": "bot/main_bot.py",
+          "sha256": "92a909790005af1b03839ef52f1089d776b37379e3031e7a9f0624b066eaf028"
+        },
+        {
+          "path": "bot/sell_guard.py",
+          "sha256": "981399455403e38c242c9d81256c8cfd3e8f8405505cce0808c60d374fec56f8"
+        }
+      ],
+      "sourceFacts": [
+        "Unit directly executes /opt/obsidian-exchange/bot/main_bot.py with bot/venv/bin/python3.",
+        "The bot resolves ../relay for shared repository/core imports.",
+        "Menu MiniApp buttons point to /webapp; paid/check callbacks and receipt handlers run in this bot process.",
+        "relay-fastapi/main_bot.py is a tracked duplicate and is not the systemd bot entrypoint."
+      ]
+    },
+    {
+      "surface": "MiniApp",
+      "unit": "relay-fastapi.service",
+      "entrypoints": [
+        "GET /webapp",
+        "POST /api/create_order",
+        "GET /api/order/{order_id}",
+        "GET /api/history",
+        "GET /api/sell/options",
+        "POST /api/sell/create",
+        "POST /api/wallet/send-request",
+        "POST /api/wallet/send-signed",
+        "POST /api/wallet/transfer-request"
+      ],
+      "inputs": [
+        {
+          "path": "relay/webapp.html",
+          "sha256": "8347b9df45a27b7077dabae8aa3e68dbfa763f0ed67220a93aca7f58ce11a908"
+        },
+        {
+          "path": "relay-fastapi/main.py",
+          "sha256": "25624ac7bc9174ac9ec35d90402042c62bd344d6c74c1cf730593017a79ae26f"
+        }
+      ],
+      "sourceFacts": [
+        "GET /webapp opens ../relay/webapp.html on request and substitutes the public bot username.",
+        "Money requests carry X-Telegram-Init-Data; create_order validates it before creation.",
+        "Swap/tools entry buttons hand off to existing bot start=swap/start=tools."
+      ]
+    },
+    {
+      "surface": "Payment and swap status",
+      "unit": "relay-fastapi.service",
+      "entrypoints": [
+        "GET /pay/{token}",
+        "GET /swap/{token}",
+        "GET /api/order/{order_id}"
+      ],
+      "inputs": [
+        {
+          "path": "relay-fastapi/main.py",
+          "sha256": "25624ac7bc9174ac9ec35d90402042c62bd344d6c74c1cf730593017a79ae26f"
+        },
+        {
+          "path": "relay/repositories/payment_status_read_store.py",
+          "sha256": "5cbd26d0335c0cf713aa4be9c87999773bbcc37ab89202a554a4811b6702b6f9"
+        },
+        {
+          "path": "relay/core/order_access.py",
+          "sha256": "15d996a1450ff898ef62b3e43c048069c2c4dc60863399bcba144cfd46c69a0f"
+        }
+      ],
+      "sourceFacts": [
+        "Payment HTML/JavaScript is embedded in main.py; pay token and numeric order links are distinct paths inside the handler.",
+        "Current payment status reader and proof helper are exact live/checkout bytes.",
+        "Current scope inventory does not exercise customer tokens, signed requests or payment callbacks."
+      ]
+    }
+  ],
+  "nginxRouting": {
+    "source": "/etc/nginx/sites-enabled/obsidian-exchange.org",
+    "observedConfigOnly": true,
+    "customerRelayUpstream": "http://127.0.0.1:5001",
+    "locations": [
+      "/webapp",
+      "/api/",
+      "/"
+    ],
+    "previewAlias": "/opt/obsidian-exchange/releases/e4-visible-portfolio-preview/current/",
+    "inferenceLimit": "Read configuration identifies intended routing; no HTTP request or nginx reload was performed."
+  },
+  "driftBoundaries": [
+    {
+      "path": "relay/repositories/order_creation_store.py",
+      "changedDefinitions": [
+        "PostgresOrderCreationStore.recent_duplicate",
+        "SQLiteOrderCreationStore.recent_duplicate"
+      ],
+      "checkoutOnlyDefinitions": [],
+      "liveOnlyDefinitions": [],
+      "decision": "Retain exact live bytes; method-level inspection and exact live dependency rehearsal required if selected for change."
+    },
+    {
+      "path": "relay/repositories/order_read_store.py",
+      "changedDefinitions": [
+        "PostgresOrderReadStore.active_customer_ids",
+        "PostgresOrderReadStore.admin_recent",
+        "PostgresOrderReadStore.customer_history",
+        "PostgresOrderReadStore.customer_orders",
+        "PostgresOrderReadStore.export_recent",
+        "PostgresOrderReadStore.operator_dashboard",
+        "PostgresOrderReadStore.receipt_order_ids",
+        "PostgresOrderReadStore.stuck_pending_ids",
+        "PostgresOrderReadStore.web_customer_orders",
+        "PostgresOrderReadStore.worker_paid_orders",
+        "SQLiteOrderReadStore.active_customer_ids",
+        "SQLiteOrderReadStore.admin_recent",
+        "SQLiteOrderReadStore.customer_history",
+        "SQLiteOrderReadStore.customer_orders",
+        "SQLiteOrderReadStore.export_recent",
+        "SQLiteOrderReadStore.operator_dashboard",
+        "SQLiteOrderReadStore.receipt_order_ids",
+        "SQLiteOrderReadStore.stuck_pending_ids",
+        "SQLiteOrderReadStore.web_customer_orders",
+        "SQLiteOrderReadStore.worker_paid_orders"
+      ],
+      "checkoutOnlyDefinitions": [
+        "PostgresOrderReadStore.authorized_snapshot",
+        "SQLiteOrderReadStore.authorized_snapshot",
+        "_order_authority"
+      ],
+      "liveOnlyDefinitions": [],
+      "decision": "Retain exact live bytes; method-level inspection and exact live dependency rehearsal required if selected for change."
+    },
+    {
+      "path": "relay/repositories/order_lifecycle_store.py",
+      "changedDefinitions": [
+        "PostgresOrderLifecycleStore.fail_session",
+        "SQLiteOrderLifecycleStore.__init__",
+        "SQLiteOrderLifecycleStore.fail_session"
+      ],
+      "checkoutOnlyDefinitions": [],
+      "liveOnlyDefinitions": [],
+      "decision": "Retain exact live bytes; method-level inspection and exact live dependency rehearsal required if selected for change."
+    },
+    {
+      "path": "relay/repositories/payment_transition_store.py",
+      "changedDefinitions": [
+        "PostgresPaymentTransitionStore.claim_notification",
+        "PostgresPaymentTransitionStore.mark_paid",
+        "SQLitePaymentTransitionStore.__init__",
+        "SQLitePaymentTransitionStore.mark_paid"
+      ],
+      "checkoutOnlyDefinitions": [],
+      "liveOnlyDefinitions": [],
+      "decision": "Retain exact live bytes; method-level inspection and exact live dependency rehearsal required if selected for change."
+    },
+    {
+      "path": "relay/repositories/payment_session_store.py",
+      "changedDefinitions": [
+        "PostgresPaymentSessionStore.latest_active_for_order",
+        "PostgresPaymentSessionStore.latest_for_order",
+        "PostgresPaymentSessionStore.pending_vertu",
+        "PostgresPaymentSessionStore.recent_for_order",
+        "SQLitePaymentSessionStore.latest_active_for_order",
+        "SQLitePaymentSessionStore.latest_for_order",
+        "SQLitePaymentSessionStore.pending_vertu",
+        "SQLitePaymentSessionStore.recent_for_order"
+      ],
+      "checkoutOnlyDefinitions": [
+        "PostgresPaymentSessionStore.get_by_token",
+        "PostgresPaymentSessionStore.latest_active_for_authorized_order",
+        "PostgresPaymentSessionStore.latest_for_authorized_order",
+        "PostgresPaymentSessionStore.latest_provider_invoice_for_authorized_order",
+        "SQLitePaymentSessionStore.get_by_token",
+        "SQLitePaymentSessionStore.latest_active_for_authorized_order",
+        "SQLitePaymentSessionStore.latest_for_authorized_order",
+        "SQLitePaymentSessionStore.latest_provider_invoice_for_authorized_order",
+        "_order_authority"
+      ],
+      "liveOnlyDefinitions": [],
+      "decision": "Retain exact live bytes; method-level inspection and exact live dependency rehearsal required if selected for change."
+    },
+    {
+      "path": "relay/repositories/receipt_store.py",
+      "changedDefinitions": [
+        "SQLiteReceiptStore.record"
+      ],
+      "checkoutOnlyDefinitions": [
+        "PostgresReceiptStore.authorized_state",
+        "SQLiteReceiptStore.authorized_state"
+      ],
+      "liveOnlyDefinitions": [],
+      "decision": "Retain exact live bytes; method-level inspection and exact live dependency rehearsal required if selected for change."
+    },
+    {
+      "path": "relay/repositories/sell_order_store.py",
+      "changedDefinitions": [
+        "PostgresSellOrderStore.active_vertu_payouts",
+        "PostgresSellOrderStore.pending_view_for_user",
+        "PostgresSellOrderStore.sells_for_user",
+        "PostgresSellOrderStore.vertu_payout_by_ref",
+        "SQLiteSellOrderStore.active_vertu_payouts",
+        "SQLiteSellOrderStore.pending_view_for_user",
+        "SQLiteSellOrderStore.sells_for_user",
+        "SQLiteSellOrderStore.vertu_payout_by_ref"
+      ],
+      "checkoutOnlyDefinitions": [],
+      "liveOnlyDefinitions": [],
+      "decision": "Retain exact live bytes; method-level inspection and exact live dependency rehearsal required if selected for change."
+    },
+    {
+      "path": "relay/repositories/sell_settlement_store.py",
+      "changedDefinitions": [
+        "PostgresSellSettlementStore.claim_notification",
+        "SQLiteSellSettlementStore.__init__",
+        "SQLiteSellSettlementStore.claim_notification"
+      ],
+      "checkoutOnlyDefinitions": [],
+      "liveOnlyDefinitions": [],
+      "decision": "Retain exact live bytes; method-level inspection and exact live dependency rehearsal required if selected for change."
+    },
+    {
+      "path": "relay/repositories/swap_store.py",
+      "changedDefinitions": [
+        "PostgresSwapStore.get_by_external_id",
+        "PostgresSwapStore.get_by_token",
+        "PostgresSwapStore.swaps_for_web_user",
+        "PostgresSwapStore.unfinished",
+        "SQLiteSwapStore.get_by_external_id",
+        "SQLiteSwapStore.get_by_token",
+        "SQLiteSwapStore.swaps_for_web_user",
+        "SQLiteSwapStore.unfinished"
+      ],
+      "checkoutOnlyDefinitions": [],
+      "liveOnlyDefinitions": [],
+      "decision": "Retain exact live bytes; method-level inspection and exact live dependency rehearsal required if selected for change."
+    },
+    {
+      "path": "relay/repositories/payout_store.py",
+      "changedDefinitions": [
+        "PostgresPayoutStore.referral_review_items",
+        "PostgresPayoutStore.review_items",
+        "SQLiteOrderIntentQueries.ensure_schema",
+        "SQLitePayoutStore.referral_review_items",
+        "SQLitePayoutStore.review_items",
+        "SQLiteReferralIntentQueries.ensure_schema"
+      ],
+      "checkoutOnlyDefinitions": [],
+      "liveOnlyDefinitions": [],
+      "decision": "Retain exact live bytes; method-level inspection and exact live dependency rehearsal required if selected for change."
+    },
+    {
+      "path": "relay/repositories/wallet_store.py",
+      "changedDefinitions": [
+        "SQLiteWalletStore.remember_intent",
+        "SQLiteWalletStore.remember_link"
+      ],
+      "checkoutOnlyDefinitions": [],
+      "liveOnlyDefinitions": [
+        "SQLiteWalletStore._ensure"
+      ],
+      "decision": "Retain exact live bytes; method-level inspection and exact live dependency rehearsal required if selected for change."
+    },
+    {
+      "path": "relay/repositories/bot_notification_store.py",
+      "changedDefinitions": [
+        "SQLiteBotNotificationStore.__init__",
+        "from_environment"
+      ],
+      "checkoutOnlyDefinitions": [
+        "PostgresB53HardenedBotNotificationStore.__init__",
+        "PostgresB53HardenedBotNotificationStore._attest_connection",
+        "PostgresB53HardenedBotNotificationStore._attest_manifest",
+        "PostgresB53HardenedBotNotificationStore._c",
+        "PostgresB53HardenedBotNotificationStore._connect",
+        "PostgresB53HardenedBotNotificationStore._delivery_scalar",
+        "PostgresB53HardenedBotNotificationStore._lane",
+        "PostgresB53HardenedBotNotificationStore._verified",
+        "PostgresB53HardenedBotNotificationStore.claim_notification",
+        "PostgresB53HardenedBotNotificationStore.mark_local_manual",
+        "PostgresB53HardenedBotNotificationStore.mark_notification_manual",
+        "PostgresB53HardenedBotNotificationStore.mark_notification_sent",
+        "PostgresB53HardenedBotNotificationStore.pre_submit",
+        "PostgresB53HardenedBotNotificationStore.preflight",
+        "PostgresB53HardenedBotNotificationStore.queue_due_abandoned",
+        "PostgresB53HardenedBotNotificationStore.queue_due_montera",
+        "PostgresB53HardenedBotNotificationStore.queue_due_payout_delays",
+        "PostgresB53HardenedBotNotificationStore.queue_due_recalls",
+        "PostgresB53HardenedBotNotificationStore.queue_due_winbacks",
+        "PostgresB53HardenedBotNotificationStore.record_delivery_evidence",
+        "PostgresB53HardenedBotNotificationStore.retry_notification",
+        "PostgresB53HardenedBotNotificationStore.retry_notification_pre_submit",
+        "PostgresB5BotNotificationStore._legacy_direct_enqueue_disabled",
+        "PostgresB5BotNotificationStore._scalar",
+        "PostgresB5BotNotificationStore.claim_notification",
+        "PostgresB5BotNotificationStore.mark_notification_sent",
+        "PostgresB5BotNotificationStore.queue_due_abandoned",
+        "PostgresB5BotNotificationStore.queue_due_montera",
+        "PostgresB5BotNotificationStore.queue_due_payout_delays",
+        "PostgresB5BotNotificationStore.queue_due_recalls",
+        "PostgresB5BotNotificationStore.queue_due_winbacks",
+        "PostgresB5BotNotificationStore.retry_notification"
+      ],
+      "liveOnlyDefinitions": [],
+      "decision": "Retain exact live bytes; method-level inspection and exact live dependency rehearsal required if selected for change."
+    }
+  ],
+  "deploymentBoundaries": [
+    "A bounded main.py/API or embedded payment-script change can target only Relay if all shared dependencies stay exact live. Backend behavior changes require actual isolated database/handler rehearsal appropriate to their effects.",
+    "relay/webapp.html is read on request; an HTML-only slice can avoid changing Python modules and bot bytes, subject to exact browser/public-template evidence.",
+    "Site Jinja templates and static files belong to Relay; cache behavior must be established if chosen.",
+    "bot/main_bot.py changes target exchange-bot, not the tracked relay-fastapi/main_bot.py copy. Bot restart affects active polling/FSM/background workers and needs its own bounded recipe.",
+    "Changing a shared relay repository/core/service can affect both Relay and bot; do not infer a Relay-only restart boundary merely from the initiating frontend.",
+    "The twelve observed drifting repository files are preserved baseline, not candidate changes. No recipe or runtime action is authorized by this inventory alone."
+  ],
+  "runtimeMutated": false,
+  "httpRequests": 0,
+  "customerDataRead": false,
+  "databaseRead": false,
+  "recipeCreated": false
+}

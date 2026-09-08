@@ -1,0 +1,49 @@
+{
+  "schema": "e4-independent-diff-review.v1",
+  "reviewer": "diff_review",
+  "time": "2026-09-08T21:41:54.988144+00:00",
+  "input_sha256": {
+    "relay/webapp.html": "6f0785bef90b4feca7a16f00789816c3e15d3caa02e5110bfc1bbd9ca3dff1f6",
+    "tests/test_e4_exchange_review_ui.py": "c41e9156072d43fdab6cc4acf1d532a2793c31459c1169b7f7331cdbb6e73ef5",
+    "tests/test_e4_money_flow_outcome.py": "3d0117d87a7057e6efe851703a4c583c16ed9a5c4daaeb0956a0c5bf6b99cfb8",
+    "tests/e4_money_flow_outcome.cjs": "449a492ed186b87889e51fae213ee3a0106d20ea064a988c0947e5875aced3d5",
+    "tests/e4_money_flow_outcome_browser.cjs": "ac5f1fc33968471daf1f7d16f7a964d82c41851362ab9eefa8e44d010551e186"
+  },
+  "scope": "Unknown buy/sell POST outcomes; error XSS; test assertions; no product edits or deployment",
+  "disposition": "APPROVED",
+  "findings": [
+    {
+      "id": "R1",
+      "severity": "high",
+      "locations": [
+        "relay/webapp.html:2290",
+        "relay/webapp.html:3138"
+      ],
+      "problem": "Every HTTP 4xx is classified as definite rejection although status alone does not establish noncreation. Reproduced 408 {} and contradictory 409 ok:true with valid ids on both buy and sell: UI says rejected with no unknown/no-repeat guidance.",
+      "requested_change": "Treat unproven and contradictory 4xx responses as unknown; retain explicit application rejection only with a sufficiently narrow verified contract. Add regression cases for empty 408 and contradictory 4xx success bodies.",
+      "status": "RESOLVED",
+      "resolution": "Removed blanket 4xx classification. Known current precreation HTTPException statuses 400/403/429 require string detail, no ids, and absent/false ok. Structured 2xx rejection requires action-specific string reason and no ids. Other/contradictory replies stay unknown. Regression tests cover 408/409, empty 400, contradictory 403/429, and invalid success ids."
+    }
+  ],
+  "checks": {
+    "node_direct_probe": "Initial probes reproduced R1; fixed candidate regression tests confirm uncertain classification.",
+    "pytest": "PASS: /opt/lumi/venv/bin/python -m pytest -q tests/test_e4_money_flow_outcome.py tests/test_e4_exchange_review_ui.py; 56 passed in 1.88s",
+    "xss": "Changed server error rendering uses textContent on both surfaces; no introduced HTML interpolation observed",
+    "success": "Strict true and positive safe-integer id guard precedes success handoff; existing success path retained",
+    "writer_changes": "No product changes; only this review artifact written",
+    "backend_contract": "Read api_create_order and api_sell_create in relay-fastapi/main.py; explicit 400/403/429 exceptions occur before create call in current handlers.",
+    "browser_test_review": "Native browser runner now declares 12 modes x 2 actions x 2 widths = 48 checks, including 408/409/contradictory403/empty400; actual execution owned by root."
+  },
+  "limitations": [
+    "Did not run browser; root owns ops/browser validation",
+    "VM element fixture does not model native DOM serialization; browser test provides native XSS assertions",
+    "Only targeted source/diff and backend handler read; no history review"
+  ],
+  "initial_input_sha256": {
+    "relay/webapp.html": "ec34e0a78b8013e4609ceaf689c733ee2880672e76a6130708ea8f177076b47d",
+    "tests/test_e4_exchange_review_ui.py": "c41e9156072d43fdab6cc4acf1d532a2793c31459c1169b7f7331cdbb6e73ef5",
+    "tests/test_e4_money_flow_outcome.py": "5313647e342cc1aa6794ff19055d998494d19545c6e473288c377e5ac78f05fb",
+    "tests/e4_money_flow_outcome.cjs": "449a492ed186b87889e51fae213ee3a0106d20ea064a988c0947e5875aced3d5",
+    "tests/e4_money_flow_outcome_browser.cjs": "41ef225ff648ae18ec6e502c64af0e3ebd5da5c820da07fca1108841293cbdcb"
+  }
+}

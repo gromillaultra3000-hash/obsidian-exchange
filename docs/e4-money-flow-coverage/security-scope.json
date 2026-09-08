@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "e4-money-flow-independent-source-boundary.v1",
+  "result": "PASS",
+  "baselineHead": "6daa85de5d69b29f54b178ffd1a140dbdf83cc4e",
+  "changedFunctions": [
+    "submitBuyOrder",
+    "submitSellOrder"
+  ],
+  "allOtherHtmlAndJavaScriptBytesExact": true,
+  "unchangedMoneyEndpointsPayloadsAuthenticationAndWalletFunctions": true,
+  "inputs": [
+    {
+      "path": "relay/webapp.html",
+      "sha256": "ec34e0a78b8013e4609ceaf689c733ee2880672e76a6130708ea8f177076b47d"
+    },
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "25624ac7bc9174ac9ec35d90402042c62bd344d6c74c1cf730593017a79ae26f"
+    }
+  ]
+}

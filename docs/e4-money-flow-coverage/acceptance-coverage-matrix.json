@@ -1,0 +1,193 @@
+{
+  "schemaVersion": "e4-money-flow-site-bot-coverage-matrix.v1",
+  "result": "BOUNDED_COVERAGE_ASSESSED",
+  "route": "E4 / MONEY_FLOW_ACCEPTANCE_COVERAGE",
+  "canonicalGate": "Before confirmation the user understands executor, custody, KYC, fees and irreversibility; dangerous actions cannot be completed by an accidental tap.",
+  "canonicalSource": "docs/ecosystem-master-roadmap.md: E4 gate section",
+  "deployedSourceIdentity": "Current installed main, bot and five inspected templates match checkout hashes in acceptance-surface-probe.json. No installed source was changed.",
+  "rows": [
+    {
+      "surface": "Public site landing/rates",
+      "source": [
+        "relay-fastapi/templates/index.html",
+        "relay-fastapi/templates/rates.html"
+      ],
+      "entry": "Create-order CTA sends authenticated visitors to /dashboard/exchange and other visitors to Telegram start=app; rates/market links are read-only.",
+      "executor": "ObsidianExchange brand appears; no transaction-specific executor review at this entry.",
+      "custody": "No custody state or wallet custody claim proven by this landing/rates audit.",
+      "kyc": "Landing advertises no KYC; this does not establish provider-specific behavior or verified-lane readiness.",
+      "fees": "Public quote widget is information; final transaction fees must be established downstream.",
+      "irreversibility": "No transaction is submitted by the observed landing/rates entry.",
+      "accidentalTap": "CTA navigates; it is not a transfer or order POST.",
+      "evidence": "Existing E4 site ecosystem tests assert canonical hrefs, offered currencies and bot handoff. They do not establish human understanding."
+    },
+    {
+      "surface": "Authenticated website BUY form",
+      "source": [
+        "relay-fastapi/templates/dashboard_exchange.html",
+        "relay-fastapi/main.py:dashboard_exchange_submit"
+      ],
+      "entry": "One explicit Create order form submission validates session, CSRF, amount, offered direction and destination, then creates order and payment session.",
+      "executor": "Page is within ObsidianExchange; no complete transaction-specific executor review block found in the scoped form.",
+      "custody": "Recipient wallet field and personal-wallet/no-tag choice are present; full before/during/after custody explanation not established.",
+      "kyc": "No transaction-specific KYC row in the scoped form.",
+      "fees": "Dynamic fee/receive display and server-derived commission tiers exist. Bank-fee wording was observed, not independently verified.",
+      "irreversibility": "Network/tag mismatch warnings are present; no comprehensive irreversible-action acknowledgement in the scoped form.",
+      "accidentalTap": "Explicit submit plus CSRF and server destination checks; no additional confirmation dialog. An order/payment intent is not itself a transfer.",
+      "evidence": "New exact handler probes prove unauthenticated, CSRF and invalid-address branches reach no inert effect boundary; valid form reaches order creation before session creation."
+    },
+    {
+      "surface": "Telegram BUY",
+      "source": [
+        "bot/main_bot.py:process_captcha",
+        "bot/main_bot.py:process_saved_address",
+        "bot/main_bot.py:process_address",
+        "bot/main_bot.py:_finalize_order"
+      ],
+      "entry": "Amount/captcha/destination flow; valid typed or saved destination leads to pending order and payment-method choice.",
+      "executor": "Bot branding plus later payment partner selection; no unified executor review in the inspected creation message.",
+      "custody": "Prompt asks where coins should be sent after payment; address/tag warnings distinguish personal wallet and exchange. Full custody lifecycle not established.",
+      "kyc": "No transaction-specific KYC row in the inspected creation card.",
+      "fees": "Created-order card displays actual commission, RUB total and agreed crypto amount before payment method selection.",
+      "irreversibility": "Address-entry prompt warns wrong-network coins are lost; tag handling requires explicit answer. Created-order card omits full destination and network.",
+      "accidentalTap": "Saved-address callback verifies ownership, current validation and direction, then creates pending order. A saved-address tap does not transfer funds.",
+      "evidence": "New exact probes show foreign/stale saved addresses and invalid typed addresses do not reach creation; owned address reaches inert creation with correct user id. Card omission is directly captured, not claimed as a live incident."
+    },
+    {
+      "surface": "Telegram SELL / website SELL",
+      "source": [
+        "bot/main_bot.py:menu_sell",
+        "bot/main_bot.py:process_sell_currency",
+        "bot/main_bot.py:_finish_sell_order",
+        "relay-fastapi/templates/dashboard_sell.html"
+      ],
+      "entry": "Collect crypto amount and RUB recipient; create sell order and display destination/deposit details. Transfer occurs separately in the customer wallet.",
+      "executor": "Bot says send coins to us and receive RUB; final staff copy may describe payment partner. No unified customer executor proof in this scoped audit.",
+      "custody": "Deposit-address workflow is visible; whole custody lifecycle not established by source wording alone.",
+      "kyc": "No dedicated transaction-specific KYC review proved in scoped SELL views.",
+      "fees": "Server-derived sell fee/market/receive values are shown; exact calculation coverage belongs to existing pricing tests, not this audit.",
+      "irreversibility": "Network/comment requirements shown where relevant; comprehension and blockchain-wallet confirmation remain unverified.",
+      "accidentalTap": "Creation and wallet transfer are distinct; this read-only audit did not execute sell/store/payout routines.",
+      "evidence": "Source observation only for these surfaces. No fresh bot SELL/provider/payout execution or blanket gate pass is claimed."
+    },
+    {
+      "surface": "Telegram SWAP / website SWAP",
+      "source": [
+        "bot/main_bot.py:send_swap_menu",
+        "bot/main_bot.py:process_swap_amount",
+        "bot/main_bot.py:process_swap_address",
+        "relay-fastapi/templates/dashboard_swap.html"
+      ],
+      "entry": "Bot shows estimated receive before destination entry, then invokes provider create_swap after validated address; site form submits pair/amount/address.",
+      "executor": "Bot rejection for unsupported tag identifies an external service. General menu does not name the provider in its main quote.",
+      "custody": "Website says no participation of our addresses; this is not independent proof of provider custody or risk.",
+      "kyc": "Bot/site say no KYC; actual external provider policy is outside this code-only audit.",
+      "fees": "Approximate 1% advertised. Bot shows estimate before address. Site text claims final amount before confirmation, but scoped template has no quote output or calculation script; downstream behavior not executed.",
+      "irreversibility": "Tag-losing swap destinations are rejected; whole irreversible-action review not established.",
+      "accidentalTap": "Provider intent creation is distinct from external-wallet transfer. No provider, order or wallet calls were made.",
+      "evidence": "Static source scope only. Missing browser/handler coverage is a gap, not an invented production failure or instruction to widen the current patch."
+    },
+    {
+      "surface": "Telegram DCA / gift",
+      "source": [
+        "bot/main_bot.py:dca_enter_address",
+        "bot/main_bot.py:dca_confirm",
+        "bot/main_bot.py:gift_enter_amount",
+        "bot/main_bot.py:gift_pay"
+      ],
+      "entry": "DCA has schedule/amount/destination summary and Start DCA button; gift has amount/estimate/code summary and Pay gift button.",
+      "executor": "DCA explains that scheduled orders and payment links are generated; gift routes to payment-method choice.",
+      "custody": "No full custody review proved for these optional tool flows.",
+      "kyc": "No transaction-specific KYC explanation proved by the inspected summaries.",
+      "fees": "Estimated crypto shown; explicit fee component is not established by these summaries.",
+      "irreversibility": "Separate transfer remains necessary; wallet signing/irreversible movement not executed in this audit.",
+      "accidentalTap": "Distinct summary confirm callbacks exist; replay/concurrency and human understanding are not established by this source audit.",
+      "evidence": "Observed source only; existing repository-writer tests establish different boundaries and cannot stand in for user-interface acceptance."
+    }
+  ],
+  "existingEvidenceAssessment": [
+    {
+      "path": "tests/test_e4_site_ecosystem_entry.py",
+      "kind": "Source-string assertions for canonical links/offerings; not end-to-end money-flow acceptance."
+    },
+    {
+      "path": "tests/test_e4_bot_ecosystem_entry.py",
+      "kind": "Source-string assertions for bot menu and deep-link routing; not exact callback money-flow execution."
+    },
+    {
+      "path": "tests/test_e4_action_preview.py",
+      "kind": "Pure nonexecuting preview contracts; tests explicitly require confirmationAvailable/actionAllowed false. Cannot establish deployed bot/site integration."
+    },
+    {
+      "path": "tests/test_e4_confirmation_draft.py",
+      "kind": "Pure DRAFT_ONLY, unpersisted and unauthenticated contract; not runtime confirmation proof."
+    },
+    {
+      "path": "docs/e4-recipient-review-rollout.v1.json",
+      "kind": "Mini App deployment evidence; its own surface matrix scopes public site to canonical edge and bot to service health. It does not close site/bot money UX."
+    }
+  ],
+  "addedExecutableCoverage": "Eight exact site/bot entry-handler cases with injected validation/auth and inert capture-only persistence/session/message boundaries. No money side effects.",
+  "strongestCurrentFixAssessment": "Primary Mini App lost-response finding is materially supported: after a POST is sent, missing or invalid response is not proof that no order was created. User messaging must preserve an unknown outcome and avoid automatic resubmission/signing. This is the current bounded code-fix priority; site/bot coverage facts do not widen it.",
+  "remainingRequiredEvidence": [
+    "Cross-surface executor/custody/KYC/fee/irreversibility comprehension before commitment remains incomplete.",
+    "Real Telegram clients, iOS/WebKit and assistive technology are unverified.",
+    "Human usability and accidental-tap comprehension are unverified.",
+    "External-provider/KYC policy and real money behavior are outside this isolated code audit."
+  ],
+  "entireE4GateClosed": false,
+  "inputs": [
+    {
+      "path": "bot/main_bot.py",
+      "sha256": "92a909790005af1b03839ef52f1089d776b37379e3031e7a9f0624b066eaf028"
+    },
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "25624ac7bc9174ac9ec35d90402042c62bd344d6c74c1cf730593017a79ae26f"
+    },
+    {
+      "path": "relay-fastapi/templates/index.html",
+      "sha256": "bcbf8332ad7bb0418ae66307f66676fb294364e4ba78833c968f32cf65b70720"
+    },
+    {
+      "path": "relay-fastapi/templates/rates.html",
+      "sha256": "d7b123ba63672b1db42109ee0dfda30cad6a5406e3c38b946498d041d3111a3c"
+    },
+    {
+      "path": "relay-fastapi/templates/dashboard_exchange.html",
+      "sha256": "5c6c450f1568b717c55e306194108545377cd7e4d837d7e8b152ed3b2071628c"
+    },
+    {
+      "path": "relay-fastapi/templates/dashboard_sell.html",
+      "sha256": "5bc8c50a023842439cf471005136fb5388910cf3025fb9b1fa4e6d4199a62343"
+    },
+    {
+      "path": "relay-fastapi/templates/dashboard_swap.html",
+      "sha256": "afd1c004b3f07aa889a239498b01d89640ffbad15a6fc300f889daa036bd7e18"
+    },
+    {
+      "path": "tests/test_e4_site_ecosystem_entry.py",
+      "sha256": "d2d4c52487faf3cbce82e8f83100e37815c6766720833e61788288454b68a6ff"
+    },
+    {
+      "path": "tests/test_e4_bot_ecosystem_entry.py",
+      "sha256": "12f8d45b6477044af24062926f3ed2e6f7da2a76ad14ba65c0da220cfda9e0d8"
+    },
+    {
+      "path": "tests/test_e4_action_preview.py",
+      "sha256": "1b60bfe7ae1b182f0d2fb6cd42f52cbe7ab12e4cde7be26a5e9f327b44d97a6e"
+    },
+    {
+      "path": "tests/test_e4_confirmation_draft.py",
+      "sha256": "98d6d96da3ccddbe3447da870d4c01460c961ec451d12d74b949a86d8a1f31c8"
+    },
+    {
+      "path": "docs/e4-recipient-review-rollout.v1.json",
+      "sha256": "768e2ef63456b787a29982b31811c8f9dc52c33e8096fd246bd7e6e914754ed6"
+    },
+    {
+      "path": "docs/e4-money-flow-coverage/acceptance-surface-probe.json",
+      "sha256": "6b5884bbb0b2c5e98c42b5d8960f769742a9a301915af79ac0b5c0bc7604c43e"
+    }
+  ]
+}

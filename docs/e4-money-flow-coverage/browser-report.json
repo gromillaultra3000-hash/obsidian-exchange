@@ -1,0 +1,1336 @@
+{
+  "schemaVersion": "e4-money-flow-outcome-browser.v1",
+  "sourceSha256": "7a99bd3c75d623f24c3c8807cadeaa5b670258ab3345f713f0136792c77ecac2",
+  "runnerSha256": "8f79d81cdb7a6320a8a641d380463a5856c06cc368fd8ad37dc3aa74dd66587c",
+  "playwrightVersion": "1.62.0",
+  "checks": [
+    {
+      "width": 320,
+      "action": "buy",
+      "mode": "lost-response",
+      "result": "PASS",
+      "acknowledgementRequired": true,
+      "postCount": 1,
+      "automaticResubmissions": 0,
+      "resultText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность»; если статус неясен — обратитесь в поддержку."
+    },
+    {
+      "width": 320,
+      "action": "buy",
+      "mode": "truncated-json",
+      "result": "PASS",
+      "acknowledgementRequired": true,
+      "postCount": 1,
+      "automaticResubmissions": 0,
+      "resultText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность»; если статус неясен — обратитесь в поддержку."
+    },
+    {
+      "width": 320,
+      "action": "buy",
+      "mode": "null-json",
+      "result": "PASS",
+      "acknowledgementRequired": true,
+      "postCount": 1,
+      "automaticResubmissions": 0,
+      "resultText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность»; если статус неясен — обратитесь в поддержку."
+    },
+    {
+      "width": 320,
+      "action": "buy",
+      "mode": "gateway-502",
+      "result": "PASS",
+      "acknowledgementRequired": true,
+      "postCount": 1,
+      "automaticResubmissions": 0,
+      "resultText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность»; если статус неясен — обратитесь в поддержку."
+    },
+    {
+      "width": 320,
+      "action": "buy",
+      "mode": "malformed-success",
+      "result": "PASS",
+      "acknowledgementRequired": true,
+      "postCount": 1,
+      "automaticResubmissions": 0,
+      "resultText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность»; если статус неясен — обратитесь в поддержку."
+    },
+    {
+      "width": 320,
+      "action": "buy",
+      "mode": "timeout-408",
+      "result": "PASS",
+      "acknowledgementRequired": true,
+      "postCount": 1,
+      "automaticResubmissions": 0,
+      "resultText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность»; если статус неясен — обратитесь в поддержку."
+    },
+    {
+      "width": 320,
+      "action": "buy",
+      "mode": "conflict-409",
+      "result": "PASS",
+      "acknowledgementRequired": true,
+      "postCount": 1,
+      "automaticResubmissions": 0,
+      "resultText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность»; если статус неясен — обратитесь в поддержку."
+    },
+    {
+      "width": 320,
+      "action": "buy",
+      "mode": "contradictory-403",
+      "result": "PASS",
+      "acknowledgementRequired": true,
+      "postCount": 1,
+      "automaticResubmissions": 0,
+      "resultText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность»; если статус неясен — обратитесь в поддержку."
+    },
+    {
+      "width": 320,
+      "action": "buy",
+      "mode": "empty-400",
+      "result": "PASS",
+      "acknowledgementRequired": true,
+      "postCount": 1,
+      "automaticResubmissions": 0,
+      "resultText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность»; если статус неясен — обратитесь в поддержку."
+    },
+    {
+      "width": 320,
+      "action": "buy",
+      "mode": "rejection-400",
+      "result": "PASS",
+      "acknowledgementRequired": true,
+      "postCount": 1,
+      "automaticResubmissions": 0,
+      "resultText": "❌ <img src=x onerror=\"window.__injected=true\"> Synthetic rejection"
+    },
+    {
+      "width": 320,
+      "action": "buy",
+      "mode": "rejection-ok-false",
+      "result": "PASS",
+      "acknowledgementRequired": true,
+      "postCount": 1,
+      "automaticResubmissions": 0,
+      "resultText": "❌ <img src=x onerror=\"window.__injected=true\"> Synthetic rejection"
+    },
+    {
+      "width": 320,
+      "action": "buy",
+      "mode": "success",
+      "result": "PASS",
+      "acknowledgementRequired": true,
+      "postCount": 1,
+      "automaticResubmissions": 0,
+      "resultText": ""
+    },
+    {
+      "width": 320,
+      "action": "sell",
+      "mode": "lost-response",
+      "result": "PASS",
+      "acknowledgementRequired": true,
+      "postCount": 1,
+      "automaticResubmissions": 0,
+      "resultText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность» и список заявок на продажу; если статус неясен — обратитесь в поддержку."
+    },
+    {
+      "width": 320,
+      "action": "sell",
+      "mode": "truncated-json",
+      "result": "PASS",
+      "acknowledgementRequired": true,
+      "postCount": 1,
+      "automaticResubmissions": 0,
+      "resultText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность» и список заявок на продажу; если статус неясен — обратитесь в поддержку."
+    },
+    {
+      "width": 320,
+      "action": "sell",
+      "mode": "null-json",
+      "result": "PASS",
+      "acknowledgementRequired": true,
+      "postCount": 1,
+      "automaticResubmissions": 0,
+      "resultText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность» и список заявок на продажу; если статус неясен — обратитесь в поддержку."
+    },
+    {
+      "width": 320,
+      "action": "sell",
+      "mode": "gateway-502",
+      "result": "PASS",
+      "acknowledgementRequired": true,
+      "postCount": 1,
+      "automaticResubmissions": 0,
+      "resultText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность» и список заявок на продажу; если статус неясен — обратитесь в поддержку."
+    },
+    {
+      "width": 320,
+      "action": "sell",
+      "mode": "malformed-success",
+      "result": "PASS",
+      "acknowledgementRequired": true,
+      "postCount": 1,
+      "automaticResubmissions": 0,
+      "resultText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность» и список заявок на продажу; если статус неясен — обратитесь в поддержку."
+    },
+    {
+      "width": 320,
+      "action": "sell",
+      "mode": "timeout-408",
+      "result": "PASS",
+      "acknowledgementRequired": true,
+      "postCount": 1,
+      "automaticResubmissions": 0,
+      "resultText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность» и список заявок на продажу; если статус неясен — обратитесь в поддержку."
+    },
+    {
+      "width": 320,
+      "action": "sell",
+      "mode": "conflict-409",
+      "result": "PASS",
+      "acknowledgementRequired": true,
+      "postCount": 1,
+      "automaticResubmissions": 0,
+      "resultText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность» и список заявок на продажу; если статус неясен — обратитесь в поддержку."
+    },
+    {
+      "width": 320,
+      "action": "sell",
+      "mode": "contradictory-403",
+      "result": "PASS",
+      "acknowledgementRequired": true,
+      "postCount": 1,
+      "automaticResubmissions": 0,
+      "resultText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность» и список заявок на продажу; если статус неясен — обратитесь в поддержку."
+    },
+    {
+      "width": 320,
+      "action": "sell",
+      "mode": "empty-400",
+      "result": "PASS",
+      "acknowledgementRequired": true,
+      "postCount": 1,
+      "automaticResubmissions": 0,
+      "resultText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность» и список заявок на продажу; если статус неясен — обратитесь в поддержку."
+    },
+    {
+      "width": 320,
+      "action": "sell",
+      "mode": "rejection-400",
+      "result": "PASS",
+      "acknowledgementRequired": true,
+      "postCount": 1,
+      "automaticResubmissions": 0,
+      "resultText": "<img src=x onerror=\"window.__injected=true\"> Synthetic rejection"
+    },
+    {
+      "width": 320,
+      "action": "sell",
+      "mode": "rejection-ok-false",
+      "result": "PASS",
+      "acknowledgementRequired": true,
+      "postCount": 1,
+      "automaticResubmissions": 0,
+      "resultText": "<img src=x onerror=\"window.__injected=true\"> Synthetic rejection"
+    },
+    {
+      "width": 320,
+      "action": "sell",
+      "mode": "success",
+      "result": "PASS",
+      "acknowledgementRequired": true,
+      "postCount": 1,
+      "automaticResubmissions": 0,
+      "resultText": ""
+    },
+    {
+      "width": 390,
+      "action": "buy",
+      "mode": "lost-response",
+      "result": "PASS",
+      "acknowledgementRequired": true,
+      "postCount": 1,
+      "automaticResubmissions": 0,
+      "resultText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность»; если статус неясен — обратитесь в поддержку."
+    },
+    {
+      "width": 390,
+      "action": "buy",
+      "mode": "truncated-json",
+      "result": "PASS",
+      "acknowledgementRequired": true,
+      "postCount": 1,
+      "automaticResubmissions": 0,
+      "resultText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность»; если статус неясен — обратитесь в поддержку."
+    },
+    {
+      "width": 390,
+      "action": "buy",
+      "mode": "null-json",
+      "result": "PASS",
+      "acknowledgementRequired": true,
+      "postCount": 1,
+      "automaticResubmissions": 0,
+      "resultText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность»; если статус неясен — обратитесь в поддержку."
+    },
+    {
+      "width": 390,
+      "action": "buy",
+      "mode": "gateway-502",
+      "result": "PASS",
+      "acknowledgementRequired": true,
+      "postCount": 1,
+      "automaticResubmissions": 0,
+      "resultText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность»; если статус неясен — обратитесь в поддержку."
+    },
+    {
+      "width": 390,
+      "action": "buy",
+      "mode": "malformed-success",
+      "result": "PASS",
+      "acknowledgementRequired": true,
+      "postCount": 1,
+      "automaticResubmissions": 0,
+      "resultText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность»; если статус неясен — обратитесь в поддержку."
+    },
+    {
+      "width": 390,
+      "action": "buy",
+      "mode": "timeout-408",
+      "result": "PASS",
+      "acknowledgementRequired": true,
+      "postCount": 1,
+      "automaticResubmissions": 0,
+      "resultText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность»; если статус неясен — обратитесь в поддержку."
+    },
+    {
+      "width": 390,
+      "action": "buy",
+      "mode": "conflict-409",
+      "result": "PASS",
+      "acknowledgementRequired": true,
+      "postCount": 1,
+      "automaticResubmissions": 0,
+      "resultText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность»; если статус неясен — обратитесь в поддержку."
+    },
+    {
+      "width": 390,
+      "action": "buy",
+      "mode": "contradictory-403",
+      "result": "PASS",
+      "acknowledgementRequired": true,
+      "postCount": 1,
+      "automaticResubmissions": 0,
+      "resultText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность»; если статус неясен — обратитесь в поддержку."
+    },
+    {
+      "width": 390,
+      "action": "buy",
+      "mode": "empty-400",
+      "result": "PASS",
+      "acknowledgementRequired": true,
+      "postCount": 1,
+      "automaticResubmissions": 0,
+      "resultText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность»; если статус неясен — обратитесь в поддержку."
+    },
+    {
+      "width": 390,
+      "action": "buy",
+      "mode": "rejection-400",
+      "result": "PASS",
+      "acknowledgementRequired": true,
+      "postCount": 1,
+      "automaticResubmissions": 0,
+      "resultText": "❌ <img src=x onerror=\"window.__injected=true\"> Synthetic rejection"
+    },
+    {
+      "width": 390,
+      "action": "buy",
+      "mode": "rejection-ok-false",
+      "result": "PASS",
+      "acknowledgementRequired": true,
+      "postCount": 1,
+      "automaticResubmissions": 0,
+      "resultText": "❌ <img src=x onerror=\"window.__injected=true\"> Synthetic rejection"
+    },
+    {
+      "width": 390,
+      "action": "buy",
+      "mode": "success",
+      "result": "PASS",
+      "acknowledgementRequired": true,
+      "postCount": 1,
+      "automaticResubmissions": 0,
+      "resultText": ""
+    },
+    {
+      "width": 390,
+      "action": "sell",
+      "mode": "lost-response",
+      "result": "PASS",
+      "acknowledgementRequired": true,
+      "postCount": 1,
+      "automaticResubmissions": 0,
+      "resultText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность» и список заявок на продажу; если статус неясен — обратитесь в поддержку."
+    },
+    {
+      "width": 390,
+      "action": "sell",
+      "mode": "truncated-json",
+      "result": "PASS",
+      "acknowledgementRequired": true,
+      "postCount": 1,
+      "automaticResubmissions": 0,
+      "resultText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность» и список заявок на продажу; если статус неясен — обратитесь в поддержку."
+    },
+    {
+      "width": 390,
+      "action": "sell",
+      "mode": "null-json",
+      "result": "PASS",
+      "acknowledgementRequired": true,
+      "postCount": 1,
+      "automaticResubmissions": 0,
+      "resultText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность» и список заявок на продажу; если статус неясен — обратитесь в поддержку."
+    },
+    {
+      "width": 390,
+      "action": "sell",
+      "mode": "gateway-502",
+      "result": "PASS",
+      "acknowledgementRequired": true,
+      "postCount": 1,
+      "automaticResubmissions": 0,
+      "resultText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность» и список заявок на продажу; если статус неясен — обратитесь в поддержку."
+    },
+    {
+      "width": 390,
+      "action": "sell",
+      "mode": "malformed-success",
+      "result": "PASS",
+      "acknowledgementRequired": true,
+      "postCount": 1,
+      "automaticResubmissions": 0,
+      "resultText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность» и список заявок на продажу; если статус неясен — обратитесь в поддержку."
+    },
+    {
+      "width": 390,
+      "action": "sell",
+      "mode": "timeout-408",
+      "result": "PASS",
+      "acknowledgementRequired": true,
+      "postCount": 1,
+      "automaticResubmissions": 0,
+      "resultText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность» и список заявок на продажу; если статус неясен — обратитесь в поддержку."
+    },
+    {
+      "width": 390,
+      "action": "sell",
+      "mode": "conflict-409",
+      "result": "PASS",
+      "acknowledgementRequired": true,
+      "postCount": 1,
+      "automaticResubmissions": 0,
+      "resultText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность» и список заявок на продажу; если статус неясен — обратитесь в поддержку."
+    },
+    {
+      "width": 390,
+      "action": "sell",
+      "mode": "contradictory-403",
+      "result": "PASS",
+      "acknowledgementRequired": true,
+      "postCount": 1,
+      "automaticResubmissions": 0,
+      "resultText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность» и список заявок на продажу; если статус неясен — обратитесь в поддержку."
+    },
+    {
+      "width": 390,
+      "action": "sell",
+      "mode": "empty-400",
+      "result": "PASS",
+      "acknowledgementRequired": true,
+      "postCount": 1,
+      "automaticResubmissions": 0,
+      "resultText": "Не удалось подтвердить результат создания заявки. Она могла быть создана. Не отправляйте заявку повторно и не переводите деньги повторно. Проверьте «Активность» и список заявок на продажу; если статус неясен — обратитесь в поддержку."
+    },
+    {
+      "width": 390,
+      "action": "sell",
+      "mode": "rejection-400",
+      "result": "PASS",
+      "acknowledgementRequired": true,
+      "postCount": 1,
+      "automaticResubmissions": 0,
+      "resultText": "<img src=x onerror=\"window.__injected=true\"> Synthetic rejection"
+    },
+    {
+      "width": 390,
+      "action": "sell",
+      "mode": "rejection-ok-false",
+      "result": "PASS",
+      "acknowledgementRequired": true,
+      "postCount": 1,
+      "automaticResubmissions": 0,
+      "resultText": "<img src=x onerror=\"window.__injected=true\"> Synthetic rejection"
+    },
+    {
+      "width": 390,
+      "action": "sell",
+      "mode": "success",
+      "result": "PASS",
+      "acknowledgementRequired": true,
+      "postCount": 1,
+      "automaticResubmissions": 0,
+      "resultText": ""
+    }
+  ],
+  "requests": [
+    {
+      "width": 320,
+      "action": "buy",
+      "mode": "lost-response",
+      "path": "/api/create_order",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 12500,
+        "address": "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+        "network": "MAINNET",
+        "pay_method": "sbp",
+        "dest_tag": "",
+        "no_tag": false
+      }
+    },
+    {
+      "width": 320,
+      "action": "buy",
+      "mode": "truncated-json",
+      "path": "/api/create_order",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 12500,
+        "address": "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+        "network": "MAINNET",
+        "pay_method": "sbp",
+        "dest_tag": "",
+        "no_tag": false
+      }
+    },
+    {
+      "width": 320,
+      "action": "buy",
+      "mode": "null-json",
+      "path": "/api/create_order",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 12500,
+        "address": "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+        "network": "MAINNET",
+        "pay_method": "sbp",
+        "dest_tag": "",
+        "no_tag": false
+      }
+    },
+    {
+      "width": 320,
+      "action": "buy",
+      "mode": "gateway-502",
+      "path": "/api/create_order",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 12500,
+        "address": "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+        "network": "MAINNET",
+        "pay_method": "sbp",
+        "dest_tag": "",
+        "no_tag": false
+      }
+    },
+    {
+      "width": 320,
+      "action": "buy",
+      "mode": "malformed-success",
+      "path": "/api/create_order",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 12500,
+        "address": "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+        "network": "MAINNET",
+        "pay_method": "sbp",
+        "dest_tag": "",
+        "no_tag": false
+      }
+    },
+    {
+      "width": 320,
+      "action": "buy",
+      "mode": "timeout-408",
+      "path": "/api/create_order",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 12500,
+        "address": "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+        "network": "MAINNET",
+        "pay_method": "sbp",
+        "dest_tag": "",
+        "no_tag": false
+      }
+    },
+    {
+      "width": 320,
+      "action": "buy",
+      "mode": "conflict-409",
+      "path": "/api/create_order",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 12500,
+        "address": "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+        "network": "MAINNET",
+        "pay_method": "sbp",
+        "dest_tag": "",
+        "no_tag": false
+      }
+    },
+    {
+      "width": 320,
+      "action": "buy",
+      "mode": "contradictory-403",
+      "path": "/api/create_order",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 12500,
+        "address": "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+        "network": "MAINNET",
+        "pay_method": "sbp",
+        "dest_tag": "",
+        "no_tag": false
+      }
+    },
+    {
+      "width": 320,
+      "action": "buy",
+      "mode": "empty-400",
+      "path": "/api/create_order",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 12500,
+        "address": "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+        "network": "MAINNET",
+        "pay_method": "sbp",
+        "dest_tag": "",
+        "no_tag": false
+      }
+    },
+    {
+      "width": 320,
+      "action": "buy",
+      "mode": "rejection-400",
+      "path": "/api/create_order",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 12500,
+        "address": "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+        "network": "MAINNET",
+        "pay_method": "sbp",
+        "dest_tag": "",
+        "no_tag": false
+      }
+    },
+    {
+      "width": 320,
+      "action": "buy",
+      "mode": "rejection-ok-false",
+      "path": "/api/create_order",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 12500,
+        "address": "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+        "network": "MAINNET",
+        "pay_method": "sbp",
+        "dest_tag": "",
+        "no_tag": false
+      }
+    },
+    {
+      "width": 320,
+      "action": "buy",
+      "mode": "success",
+      "path": "/api/create_order",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 12500,
+        "address": "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+        "network": "MAINNET",
+        "pay_method": "sbp",
+        "dest_tag": "",
+        "no_tag": false
+      }
+    },
+    {
+      "width": 320,
+      "action": "sell",
+      "mode": "lost-response",
+      "path": "/api/sell/create",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 0.01,
+        "phone": "70000000000",
+        "method": "sbp",
+        "bank": "test-bank",
+        "full_name": "Тестовый Получатель"
+      }
+    },
+    {
+      "width": 320,
+      "action": "sell",
+      "mode": "truncated-json",
+      "path": "/api/sell/create",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 0.01,
+        "phone": "70000000000",
+        "method": "sbp",
+        "bank": "test-bank",
+        "full_name": "Тестовый Получатель"
+      }
+    },
+    {
+      "width": 320,
+      "action": "sell",
+      "mode": "null-json",
+      "path": "/api/sell/create",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 0.01,
+        "phone": "70000000000",
+        "method": "sbp",
+        "bank": "test-bank",
+        "full_name": "Тестовый Получатель"
+      }
+    },
+    {
+      "width": 320,
+      "action": "sell",
+      "mode": "gateway-502",
+      "path": "/api/sell/create",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 0.01,
+        "phone": "70000000000",
+        "method": "sbp",
+        "bank": "test-bank",
+        "full_name": "Тестовый Получатель"
+      }
+    },
+    {
+      "width": 320,
+      "action": "sell",
+      "mode": "malformed-success",
+      "path": "/api/sell/create",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 0.01,
+        "phone": "70000000000",
+        "method": "sbp",
+        "bank": "test-bank",
+        "full_name": "Тестовый Получатель"
+      }
+    },
+    {
+      "width": 320,
+      "action": "sell",
+      "mode": "timeout-408",
+      "path": "/api/sell/create",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 0.01,
+        "phone": "70000000000",
+        "method": "sbp",
+        "bank": "test-bank",
+        "full_name": "Тестовый Получатель"
+      }
+    },
+    {
+      "width": 320,
+      "action": "sell",
+      "mode": "conflict-409",
+      "path": "/api/sell/create",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 0.01,
+        "phone": "70000000000",
+        "method": "sbp",
+        "bank": "test-bank",
+        "full_name": "Тестовый Получатель"
+      }
+    },
+    {
+      "width": 320,
+      "action": "sell",
+      "mode": "contradictory-403",
+      "path": "/api/sell/create",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 0.01,
+        "phone": "70000000000",
+        "method": "sbp",
+        "bank": "test-bank",
+        "full_name": "Тестовый Получатель"
+      }
+    },
+    {
+      "width": 320,
+      "action": "sell",
+      "mode": "empty-400",
+      "path": "/api/sell/create",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 0.01,
+        "phone": "70000000000",
+        "method": "sbp",
+        "bank": "test-bank",
+        "full_name": "Тестовый Получатель"
+      }
+    },
+    {
+      "width": 320,
+      "action": "sell",
+      "mode": "rejection-400",
+      "path": "/api/sell/create",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 0.01,
+        "phone": "70000000000",
+        "method": "sbp",
+        "bank": "test-bank",
+        "full_name": "Тестовый Получатель"
+      }
+    },
+    {
+      "width": 320,
+      "action": "sell",
+      "mode": "rejection-ok-false",
+      "path": "/api/sell/create",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 0.01,
+        "phone": "70000000000",
+        "method": "sbp",
+        "bank": "test-bank",
+        "full_name": "Тестовый Получатель"
+      }
+    },
+    {
+      "width": 320,
+      "action": "sell",
+      "mode": "success",
+      "path": "/api/sell/create",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 0.01,
+        "phone": "70000000000",
+        "method": "sbp",
+        "bank": "test-bank",
+        "full_name": "Тестовый Получатель"
+      }
+    },
+    {
+      "width": 390,
+      "action": "buy",
+      "mode": "lost-response",
+      "path": "/api/create_order",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 12500,
+        "address": "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+        "network": "MAINNET",
+        "pay_method": "sbp",
+        "dest_tag": "",
+        "no_tag": false
+      }
+    },
+    {
+      "width": 390,
+      "action": "buy",
+      "mode": "truncated-json",
+      "path": "/api/create_order",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 12500,
+        "address": "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+        "network": "MAINNET",
+        "pay_method": "sbp",
+        "dest_tag": "",
+        "no_tag": false
+      }
+    },
+    {
+      "width": 390,
+      "action": "buy",
+      "mode": "null-json",
+      "path": "/api/create_order",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 12500,
+        "address": "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+        "network": "MAINNET",
+        "pay_method": "sbp",
+        "dest_tag": "",
+        "no_tag": false
+      }
+    },
+    {
+      "width": 390,
+      "action": "buy",
+      "mode": "gateway-502",
+      "path": "/api/create_order",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 12500,
+        "address": "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+        "network": "MAINNET",
+        "pay_method": "sbp",
+        "dest_tag": "",
+        "no_tag": false
+      }
+    },
+    {
+      "width": 390,
+      "action": "buy",
+      "mode": "malformed-success",
+      "path": "/api/create_order",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 12500,
+        "address": "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+        "network": "MAINNET",
+        "pay_method": "sbp",
+        "dest_tag": "",
+        "no_tag": false
+      }
+    },
+    {
+      "width": 390,
+      "action": "buy",
+      "mode": "timeout-408",
+      "path": "/api/create_order",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 12500,
+        "address": "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+        "network": "MAINNET",
+        "pay_method": "sbp",
+        "dest_tag": "",
+        "no_tag": false
+      }
+    },
+    {
+      "width": 390,
+      "action": "buy",
+      "mode": "conflict-409",
+      "path": "/api/create_order",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 12500,
+        "address": "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+        "network": "MAINNET",
+        "pay_method": "sbp",
+        "dest_tag": "",
+        "no_tag": false
+      }
+    },
+    {
+      "width": 390,
+      "action": "buy",
+      "mode": "contradictory-403",
+      "path": "/api/create_order",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 12500,
+        "address": "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+        "network": "MAINNET",
+        "pay_method": "sbp",
+        "dest_tag": "",
+        "no_tag": false
+      }
+    },
+    {
+      "width": 390,
+      "action": "buy",
+      "mode": "empty-400",
+      "path": "/api/create_order",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 12500,
+        "address": "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+        "network": "MAINNET",
+        "pay_method": "sbp",
+        "dest_tag": "",
+        "no_tag": false
+      }
+    },
+    {
+      "width": 390,
+      "action": "buy",
+      "mode": "rejection-400",
+      "path": "/api/create_order",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 12500,
+        "address": "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+        "network": "MAINNET",
+        "pay_method": "sbp",
+        "dest_tag": "",
+        "no_tag": false
+      }
+    },
+    {
+      "width": 390,
+      "action": "buy",
+      "mode": "rejection-ok-false",
+      "path": "/api/create_order",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 12500,
+        "address": "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+        "network": "MAINNET",
+        "pay_method": "sbp",
+        "dest_tag": "",
+        "no_tag": false
+      }
+    },
+    {
+      "width": 390,
+      "action": "buy",
+      "mode": "success",
+      "path": "/api/create_order",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 12500,
+        "address": "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+        "network": "MAINNET",
+        "pay_method": "sbp",
+        "dest_tag": "",
+        "no_tag": false
+      }
+    },
+    {
+      "width": 390,
+      "action": "sell",
+      "mode": "lost-response",
+      "path": "/api/sell/create",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 0.01,
+        "phone": "70000000000",
+        "method": "sbp",
+        "bank": "test-bank",
+        "full_name": "Тестовый Получатель"
+      }
+    },
+    {
+      "width": 390,
+      "action": "sell",
+      "mode": "truncated-json",
+      "path": "/api/sell/create",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 0.01,
+        "phone": "70000000000",
+        "method": "sbp",
+        "bank": "test-bank",
+        "full_name": "Тестовый Получатель"
+      }
+    },
+    {
+      "width": 390,
+      "action": "sell",
+      "mode": "null-json",
+      "path": "/api/sell/create",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 0.01,
+        "phone": "70000000000",
+        "method": "sbp",
+        "bank": "test-bank",
+        "full_name": "Тестовый Получатель"
+      }
+    },
+    {
+      "width": 390,
+      "action": "sell",
+      "mode": "gateway-502",
+      "path": "/api/sell/create",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 0.01,
+        "phone": "70000000000",
+        "method": "sbp",
+        "bank": "test-bank",
+        "full_name": "Тестовый Получатель"
+      }
+    },
+    {
+      "width": 390,
+      "action": "sell",
+      "mode": "malformed-success",
+      "path": "/api/sell/create",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 0.01,
+        "phone": "70000000000",
+        "method": "sbp",
+        "bank": "test-bank",
+        "full_name": "Тестовый Получатель"
+      }
+    },
+    {
+      "width": 390,
+      "action": "sell",
+      "mode": "timeout-408",
+      "path": "/api/sell/create",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 0.01,
+        "phone": "70000000000",
+        "method": "sbp",
+        "bank": "test-bank",
+        "full_name": "Тестовый Получатель"
+      }
+    },
+    {
+      "width": 390,
+      "action": "sell",
+      "mode": "conflict-409",
+      "path": "/api/sell/create",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 0.01,
+        "phone": "70000000000",
+        "method": "sbp",
+        "bank": "test-bank",
+        "full_name": "Тестовый Получатель"
+      }
+    },
+    {
+      "width": 390,
+      "action": "sell",
+      "mode": "contradictory-403",
+      "path": "/api/sell/create",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 0.01,
+        "phone": "70000000000",
+        "method": "sbp",
+        "bank": "test-bank",
+        "full_name": "Тестовый Получатель"
+      }
+    },
+    {
+      "width": 390,
+      "action": "sell",
+      "mode": "empty-400",
+      "path": "/api/sell/create",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 0.01,
+        "phone": "70000000000",
+        "method": "sbp",
+        "bank": "test-bank",
+        "full_name": "Тестовый Получатель"
+      }
+    },
+    {
+      "width": 390,
+      "action": "sell",
+      "mode": "rejection-400",
+      "path": "/api/sell/create",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 0.01,
+        "phone": "70000000000",
+        "method": "sbp",
+        "bank": "test-bank",
+        "full_name": "Тестовый Получатель"
+      }
+    },
+    {
+      "width": 390,
+      "action": "sell",
+      "mode": "rejection-ok-false",
+      "path": "/api/sell/create",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 0.01,
+        "phone": "70000000000",
+        "method": "sbp",
+        "bank": "test-bank",
+        "full_name": "Тестовый Получатель"
+      }
+    },
+    {
+      "width": 390,
+      "action": "sell",
+      "mode": "success",
+      "path": "/api/sell/create",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 0.01,
+        "phone": "70000000000",
+        "method": "sbp",
+        "bank": "test-bank",
+        "full_name": "Тестовый Получатель"
+      }
+    }
+  ],
+  "externalRequestsDenied": [
+    "https://fonts.googleapis.com/css2",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://fonts.googleapis.com/css2",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://fonts.googleapis.com/css2",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://fonts.googleapis.com/css2",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://fonts.googleapis.com/css2",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://fonts.googleapis.com/css2",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://fonts.googleapis.com/css2",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://fonts.googleapis.com/css2",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://fonts.googleapis.com/css2",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://fonts.googleapis.com/css2",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://fonts.googleapis.com/css2",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://fonts.googleapis.com/css2",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://fonts.googleapis.com/css2",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://fonts.googleapis.com/css2",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://fonts.googleapis.com/css2",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://fonts.googleapis.com/css2",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://fonts.googleapis.com/css2",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://fonts.googleapis.com/css2",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://fonts.googleapis.com/css2",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://fonts.googleapis.com/css2",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://fonts.googleapis.com/css2",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://fonts.googleapis.com/css2",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://fonts.googleapis.com/css2",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://fonts.googleapis.com/css2",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://fonts.googleapis.com/css2",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://fonts.googleapis.com/css2",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://fonts.googleapis.com/css2",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://fonts.googleapis.com/css2",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://fonts.googleapis.com/css2",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://fonts.googleapis.com/css2",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://fonts.googleapis.com/css2",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://fonts.googleapis.com/css2",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://fonts.googleapis.com/css2",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://fonts.googleapis.com/css2",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://fonts.googleapis.com/css2",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://fonts.googleapis.com/css2",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://fonts.googleapis.com/css2",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://fonts.googleapis.com/css2",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://fonts.googleapis.com/css2",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://fonts.googleapis.com/css2",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://fonts.googleapis.com/css2",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://fonts.googleapis.com/css2",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://fonts.googleapis.com/css2",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://fonts.googleapis.com/css2",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://fonts.googleapis.com/css2",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://fonts.googleapis.com/css2",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://fonts.googleapis.com/css2",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://fonts.googleapis.com/css2",
+    "https://telegram.org/js/telegram-web-app.js"
+  ],
+  "unexpectedWrites": [],
+  "pageErrors": [],
+  "browserVersion": "152.0.7977.64",
+  "result": "PASS"
+}
