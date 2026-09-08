@@ -1,0 +1,338 @@
+{
+  "recordedAt": "2026-09-08T00:44:02.384816+00:00",
+  "stage": "E4",
+  "reason": "Clean positively identified orphan disposable Playwright daemons to unblock default-motion browser acceptance",
+  "method": "Pinned PID/starttime/cwd/PPID/script + descendant snapshot + pidfd SIGTERM; no file deletion or cgroup-wide signalling",
+  "reviewer": "/root/requisites_diff_review (plan review)",
+  "beforeServices": {
+    "relay-fastapi.service": {
+      "MainPID": "3877703",
+      "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:55 UTC",
+      "ActiveState": "active"
+    },
+    "exchange-bot.service": {
+      "MainPID": "3877887",
+      "ExecMainStartTimestamp": "Tue 2026-09-01 06:20:00 UTC",
+      "ActiveState": "active"
+    },
+    "nginx.service": {
+      "MainPID": "3877705",
+      "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:56 UTC",
+      "ActiveState": "active"
+    },
+    "obsidian-roadmap-autopilot.service": {
+      "MainPID": "0",
+      "ExecMainStartTimestamp": "Mon 2026-09-07 04:40:24 UTC",
+      "ActiveState": "failed"
+    }
+  },
+  "beforeMemory": {
+    "MemTotal": "4009856 kB",
+    "MemAvailable": "412356 kB",
+    "SwapTotal": "1048572 kB",
+    "SwapFree": "64 kB"
+  },
+  "roots": [
+    {
+      "root": {
+        "pid": 2473432,
+        "comm": "node",
+        "state": "S",
+        "ppid": 1,
+        "starttime": 94345359
+      },
+      "cwd": "/tmp/obsidian-playwright-user",
+      "script": "/tmp/obsidian-playwright-user/.npm/_npx/31e32ef8478fbf80/node_modules/playwright-core/lib/entry/cliDaemon.js",
+      "members": [
+        {
+          "pid": 2473432,
+          "comm": "node",
+          "state": "S",
+          "ppid": 1,
+          "starttime": 94345359
+        },
+        {
+          "pid": 2473446,
+          "comm": "chrome",
+          "state": "S",
+          "ppid": 2473432,
+          "starttime": 94345400
+        },
+        {
+          "pid": 2473456,
+          "comm": "chrome",
+          "state": "S",
+          "ppid": 2473446,
+          "starttime": 94345404
+        },
+        {
+          "pid": 2473457,
+          "comm": "chrome",
+          "state": "S",
+          "ppid": 2473446,
+          "starttime": 94345404
+        },
+        {
+          "pid": 2473459,
+          "comm": "chrome",
+          "state": "S",
+          "ppid": 2473457,
+          "starttime": 94345406
+        },
+        {
+          "pid": 2473477,
+          "comm": "chrome",
+          "state": "S",
+          "ppid": 2473456,
+          "starttime": 94345408
+        },
+        {
+          "pid": 2473481,
+          "comm": "chrome",
+          "state": "S",
+          "ppid": 2473446,
+          "starttime": 94345409
+        },
+        {
+          "pid": 2473487,
+          "comm": "chrome",
+          "state": "S",
+          "ppid": 2473459,
+          "starttime": 94345412
+        },
+        {
+          "pid": 2473523,
+          "comm": "chrome",
+          "state": "S",
+          "ppid": 2473459,
+          "starttime": 94345427
+        },
+        {
+          "pid": 2473532,
+          "comm": "chrome",
+          "state": "S",
+          "ppid": 2473459,
+          "starttime": 94345430
+        },
+        {
+          "pid": 2473533,
+          "comm": "chrome",
+          "state": "S",
+          "ppid": 2473459,
+          "starttime": 94345430
+        }
+      ]
+    },
+    {
+      "root": {
+        "pid": 3609288,
+        "comm": "node",
+        "state": "S",
+        "ppid": 1,
+        "starttime": 187005788
+      },
+      "cwd": "/tmp/e4-playwright-relay-svc",
+      "script": "/tmp/e4-playwright-relay-svc/npm-cache/_npx/31e32ef8478fbf80/node_modules/playwright-core/lib/entry/cliDaemon.js",
+      "members": [
+        {
+          "pid": 3609288,
+          "comm": "node",
+          "state": "S",
+          "ppid": 1,
+          "starttime": 187005788
+        },
+        {
+          "pid": 3609302,
+          "comm": "chrome",
+          "state": "S",
+          "ppid": 3609288,
+          "starttime": 187005834
+        },
+        {
+          "pid": 3609312,
+          "comm": "chrome",
+          "state": "S",
+          "ppid": 3609302,
+          "starttime": 187005841
+        },
+        {
+          "pid": 3609313,
+          "comm": "chrome",
+          "state": "S",
+          "ppid": 3609302,
+          "starttime": 187005842
+        },
+        {
+          "pid": 3609315,
+          "comm": "chrome",
+          "state": "S",
+          "ppid": 3609313,
+          "starttime": 187005847
+        },
+        {
+          "pid": 3609337,
+          "comm": "chrome",
+          "state": "S",
+          "ppid": 3609312,
+          "starttime": 187005860
+        },
+        {
+          "pid": 3609339,
+          "comm": "chrome",
+          "state": "S",
+          "ppid": 3609302,
+          "starttime": 187005864
+        },
+        {
+          "pid": 3609348,
+          "comm": "chrome",
+          "state": "S",
+          "ppid": 3609315,
+          "starttime": 187005873
+        },
+        {
+          "pid": 3609371,
+          "comm": "chrome",
+          "state": "S",
+          "ppid": 3609315,
+          "starttime": 187005914
+        },
+        {
+          "pid": 3609377,
+          "comm": "chrome",
+          "state": "S",
+          "ppid": 3609315,
+          "starttime": 187005924
+        },
+        {
+          "pid": 3609378,
+          "comm": "chrome",
+          "state": "S",
+          "ppid": 3609315,
+          "starttime": 187005924
+        }
+      ]
+    },
+    {
+      "root": {
+        "pid": 3699695,
+        "comm": "node",
+        "state": "S",
+        "ppid": 1,
+        "starttime": 187427308
+      },
+      "cwd": "/tmp/e4-recipient-browser-aacc6hqk",
+      "script": "/tmp/obsidian-playwright-user/.npm/_npx/31e32ef8478fbf80/node_modules/playwright-core/lib/entry/cliDaemon.js",
+      "members": [
+        {
+          "pid": 3699695,
+          "comm": "node",
+          "state": "S",
+          "ppid": 1,
+          "starttime": 187427308
+        },
+        {
+          "pid": 3699730,
+          "comm": "chrome",
+          "state": "S",
+          "ppid": 3699695,
+          "starttime": 187427413
+        },
+        {
+          "pid": 3699743,
+          "comm": "chrome",
+          "state": "S",
+          "ppid": 3699730,
+          "starttime": 187427452
+        },
+        {
+          "pid": 3699744,
+          "comm": "chrome",
+          "state": "S",
+          "ppid": 3699730,
+          "starttime": 187427452
+        },
+        {
+          "pid": 3699754,
+          "comm": "chrome",
+          "state": "S",
+          "ppid": 3699744,
+          "starttime": 187427470
+        },
+        {
+          "pid": 3699777,
+          "comm": "chrome",
+          "state": "S",
+          "ppid": 3699743,
+          "starttime": 187427486
+        },
+        {
+          "pid": 3699785,
+          "comm": "chrome",
+          "state": "S",
+          "ppid": 3699730,
+          "starttime": 187427493
+        },
+        {
+          "pid": 3699818,
+          "comm": "chrome",
+          "state": "S",
+          "ppid": 3699754,
+          "starttime": 187427518
+        },
+        {
+          "pid": 3699841,
+          "comm": "chrome",
+          "state": "S",
+          "ppid": 3699754,
+          "starttime": 187427566
+        },
+        {
+          "pid": 3699853,
+          "comm": "chrome",
+          "state": "S",
+          "ppid": 3699754,
+          "starttime": 187427579
+        },
+        {
+          "pid": 3699855,
+          "comm": "chrome",
+          "state": "S",
+          "ppid": 3699754,
+          "starttime": 187427581
+        }
+      ]
+    }
+  ],
+  "liveOriginalProcesses": [],
+  "afterServices": {
+    "relay-fastapi.service": {
+      "MainPID": "3877703",
+      "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:55 UTC",
+      "ActiveState": "active"
+    },
+    "exchange-bot.service": {
+      "MainPID": "3877887",
+      "ExecMainStartTimestamp": "Tue 2026-09-01 06:20:00 UTC",
+      "ActiveState": "active"
+    },
+    "nginx.service": {
+      "MainPID": "3877705",
+      "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:56 UTC",
+      "ActiveState": "active"
+    },
+    "obsidian-roadmap-autopilot.service": {
+      "MainPID": "0",
+      "ExecMainStartTimestamp": "Mon 2026-09-07 04:40:24 UTC",
+      "ActiveState": "failed"
+    }
+  },
+  "afterMemory": {
+    "MemTotal": "4009856 kB",
+    "MemAvailable": "2418348 kB",
+    "SwapTotal": "1048572 kB",
+    "SwapFree": "279888 kB"
+  },
+  "serviceIdentitiesUnchanged": true,
+  "result": "PASS"
+}

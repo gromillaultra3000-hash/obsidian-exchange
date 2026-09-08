@@ -1,0 +1,244 @@
+{
+  "schemaVersion": "e4-payment-requisites-copy-security-review.v1",
+  "reviewer": {
+    "identity": "Codex independent diff/security reviewer /root/requisites_diff_review",
+    "independentOfImplementation": true,
+    "modelBuild": "Runtime does not expose an exact model build; none claimed",
+    "skill": "/root/.codex/skills/security-best-practices/SKILL.md",
+    "reference": "/root/.codex/skills/security-best-practices/references/javascript-general-web-frontend-security.md"
+  },
+  "route": "E4 / PAYMENT_REQUISITES_COPY_INTEGRITY",
+  "baseCommit": "65a219ad3744bb43ce64f4760ed4350139921d0a",
+  "scope": [
+    "relay/webapp.html",
+    "tests/e4_payment_requisites_copy_behavior.cjs",
+    "tests/test_e4_payment_requisites_copy_behavior.py",
+    "tests/e4_payment_instruction_behavior.cjs",
+    "tests/e4_review_browser.cjs",
+    "deploy/e4_payment_requisites_copy_rollout.py"
+  ],
+  "writerBoundary": {
+    "serviceObserved": "failed",
+    "implementationMutatedByReviewer": false,
+    "runtimeMutatedByReviewer": false,
+    "reviewerWrites": "Only security-review.json and scoped security evidence in docs/e4-payment-requisites-copy",
+    "parentAuthorization": "Manual owner-authorized writer; run-context.json records exclusive existing writer.lock and no supervisor mutation."
+  },
+  "capabilityMatrix": {
+    "independentDiffSecurityReview": "Performed",
+    "scopedSecuritySkill": "Vanilla JS guidance; Python deployment recipe reviewed as local ops, not a backend security audit",
+    "focusedTests": "26 executed by reviewer on the final cross-generation serialization candidate",
+    "adversarialChecks": "22 independent assertions plus before/after clipboard ordering probe executed by reviewer",
+    "browser": "Executed by parent/acceptance agent, exact code and evidence inspected by reviewer",
+    "productionExecution": "Not performed by reviewer"
+  },
+  "findings": [
+    {
+      "id": "E4-REQ-SEC-001",
+      "ruleId": "JS-XSS-004",
+      "severity": "High",
+      "priority": "P1",
+      "location": {
+        "path": "relay/webapp.html",
+        "function": "startOrderTracking",
+        "baselineLine": 3305,
+        "candidateLine": 3318
+      },
+      "evidence": "Baseline concatenates provider detail into navigator.clipboard.writeText('...') in inline onclick. Its HTML esc omits apostrophe. Reviewer replay of deployed SHA 6bdad471...df2db8 with synthetic detail `');window.__securitySentinel=true;//` executed a VM sentinel and did not copy the original literal.",
+      "impact": "If a provider response supplies crafted requisites, copying them can execute JavaScript in the Mini App origin; ordinary apostrophes also corrupt the generated handler.",
+      "fix": "Removed executable attribute construction. Detail is assigned with textContent and captured by a function event listener; bank and recipient are escaped only into HTML text contexts.",
+      "falsePositiveNotes": "Provider strings are a trust boundary. XPay adapter forwards address to phone/card_number and the common requisite guard only rejects known test patterns. No claim that arbitrary external users control production provider responses; no production exploit was run.",
+      "disposition": "RESOLVED_IN_REVIEWED_CODE",
+      "resolutionEvidence": [
+        "Reviewer synthetic executable-handler payload now copied literally with no sentinel",
+        "Phone/card literal tests and native browser clipboard evidence",
+        "No dynamic onclick attribute remains on requisites copy"
+      ]
+    },
+    {
+      "id": "E4-REQ-SEC-002",
+      "ruleId": "E4_ACTION_OUTCOME_INTEGRITY",
+      "severity": "Medium",
+      "priority": "P2",
+      "location": {
+        "path": "relay/webapp.html",
+        "function": "startOrderTracking copy listener",
+        "baselineLine": 3305,
+        "candidateLine": 3341
+      },
+      "evidence": "Baseline immediately writes a success tick after starting clipboard.writeText. Prior canonical evidence and current baseline reproduction show pending/rejected writes both display success.",
+      "impact": "A user may paste an older clipboard destination believing the current payment requisites were copied.",
+      "fix": "Await writeText, show pending in a separate accessible status, report rejection/absence/throw explicitly, and retain visible destination and manual-copy option.",
+      "disposition": "RESOLVED_IN_REVIEWED_CODE",
+      "resolutionEvidence": [
+        "26 focused copy tests executed independently",
+        "22 extra adversarial assertions executed independently",
+        "Current-source isolated browser native and controlled clipboard evidence"
+      ]
+    },
+    {
+      "id": "E4-REQ-SEC-003",
+      "ruleId": "E4_PAYMENT_CLIPBOARD_ORDER_INTEGRITY",
+      "severity": "Medium",
+      "priority": "P2",
+      "location": {
+        "path": "relay/webapp.html",
+        "function": "startOrderTracking copy listener/global _requisitesCopyInFlight",
+        "intermediateLine": 3317,
+        "candidateLine": 3323
+      },
+      "evidence": "Intermediate candidate 3f1fb438...82272 serialized only within one order. Independent deferred write-on-resolve probe completed B first (success shown), then A; final modeled clipboard contained recipient A. This is an API-level concurrency counterexample, not proof of Chrome internal write ordering.",
+      "impact": "A previous order could overwrite the clipboard after the current order reported copy success if browser write completions are reordered.",
+      "fix": "Global token serializes application payment-requisites writes across order generations. A new view visibly waits while the previous browser promise is pending. Settlement only enables the latest valid view; a fresh deliberate tap is required and no write is queued automatically.",
+      "disposition": "RESOLVED_IN_REVIEWED_CODE",
+      "resolutionEvidence": [
+        "security-copy-order-results.json: red intermediate candidate and green final candidate with write-on-resolve model",
+        "22 independent extra assertions including old rejection, three generations and terminal waiting views",
+        "Updated focused and browser acceptance results"
+      ]
+    }
+  ],
+  "newFindings": [],
+  "observations": [
+    {
+      "location": "relay/webapp.html:3254",
+      "conclusion": "hidePaymentInstructions revokes instructionsAvailable, disables the captured copy button and clears its status before removing requisites. Paid/sent/cancelled/expired/failed/receipt/dead/local expiry paths all invoke this."
+    },
+    {
+      "location": "relay/webapp.html:3320",
+      "conclusion": "Currentness binds order generation, instruction validity and exact button/status DOM identity. Same-ID reopening changes generation. Old callbacks cannot start writes or affect the new view."
+    },
+    {
+      "location": "relay/webapp.html:3229",
+      "conclusion": "A global _requisitesCopyInFlight token spans all payment-requisites views; hide/stop/reopen never releases it. Actual promise settlement releases the token. Waiting handlers check current generation/DOM ownership and absence of another token before unlocking. No automatically queued copy, stale success haptic or delayed feedback timer is introduced."
+    },
+    {
+      "location": "relay/webapp.html:3308",
+      "conclusion": "Bank and recipient remain escaped in HTML text contexts, with no dynamic handler attribute. The changed destination is textContent. No new storage, remote script, URL destination, credential, auth relaxation or money writer is introduced."
+    },
+    {
+      "location": "tests/test_e4_payment_requisites_copy_behavior.py:28",
+      "conclusion": "Adapter requires successful subprocess exit and exact scenario PASS JSON, so unresolved async exits cannot count as passes."
+    },
+    {
+      "location": "tests/e4_review_browser.cjs:50",
+      "conclusion": "Browser uses the unchanged deny-by-default synthetic route interceptor and unprivileged sandbox; wallet signing is synthetic/rejected and non-GET writers are blocked."
+    },
+    {
+      "location": "deploy/e4_payment_requisites_copy_rollout.py:116",
+      "conclusion": "Deploy requires both PASS reviews bound to current HTML/browser bytes, matching browser and focused-test input hashes, rollback rehearsal, unchanged services and baseline public HTML. It saves/fsyncs exact root-only preimage and atomically replaces the HTML with source/target hashes checked before/after; it does not restart services or modify a database."
+    }
+  ],
+  "limitations": [
+    "Bounded diff/security review, not a complete application security audit, whole E4 acceptance or certification of unchanged inline navigation/transaction-link paths.",
+    "Already submitted Clipboard API writes cannot be cancelled when the displayed order changes. This change prevents overlapping payment-requisites writes from this application; external applications, manual clipboard changes and other unchanged app copy surfaces are not serialized by this token.",
+    "A never-settling native clipboard promise keeps payment-requisites copy pending across subsequent views. The application cannot safely release serialization without proof of settlement; no false success, automatic retry or cancellation claim is made.",
+    "Reviewer synthetic checks reuse acceptance DOM scaffolding and do not implement a native HTML parser. Actual Chromium clipboard/rendering evidence is supplied by the isolated browser run.",
+    "Real Telegram, iOS/WebKit, human comprehension, QR decoding and live signing/payment execution are not established.",
+    "No backend contract, edge CSP/header, dependencies, customer data, credentials, wallet keys, money action or 064A authority was changed or exercised by reviewer.",
+    "Deployment-state JSON uses the existing manual recipe; recovery after process interruption requires inspecting target hash/preimage and is not certified as a general crash-recovery controller."
+  ],
+  "reviewedAt": "2026-09-08 00:51:27 UTC",
+  "inputsSha256": {
+    "relay/webapp.html": "f10c4ca6bbe8935822433c300d4286878e1c460255b780ae33dcba16a9e532c8",
+    "tests/e4_review_browser.cjs": "11348d2353456c0404ad5e44323dc50550886b4682dc119363992c10bf69b96d",
+    "tests/e4_payment_requisites_copy_behavior.cjs": "3ce40d9e74a6ed2819fe543ea85e2ecd810f3a57c764616f5a4d9d27101ec9f5",
+    "tests/test_e4_payment_requisites_copy_behavior.py": "3b0e45d530c32e872ac54222120544e4bd63467cf1e33373d44105b7b8230a3a",
+    "tests/e4_payment_instruction_behavior.cjs": "53d6e55e5d61cc465d8402239e88b1eb0d9b2a12e44309edf7d2c24f002b239a",
+    "deploy/e4_payment_requisites_copy_rollout.py": "b3db3202bcfb6f85765007485fd68af68e82e7280e3e95e5e0fa8eb727850df2"
+  },
+  "scopedDiffSha256": "6013c2e01ee7fb2432f1c67f2ee6c617608f0e72d0e4e5860d4d5e7056cf5d95",
+  "tools": {
+    "node": "v22.22.3",
+    "python": "3.12.3",
+    "pytest": "8.3.4 through /opt/lumi/venv/bin/python",
+    "browser": "152.0.7977.64",
+    "playwright": "1.62.0"
+  },
+  "independentVerification": [
+    {
+      "check": "Focused clipboard tests",
+      "command": "env PYTHONDONTWRITEBYTECODE=1 /opt/lumi/venv/bin/python -m pytest -q -p no:cacheprovider tests/test_e4_payment_requisites_copy_behavior.py",
+      "result": "PASS",
+      "passed": 26,
+      "elapsedSeconds": 1.74
+    },
+    {
+      "check": "Independent stale-callback and waiter adversarial assertions",
+      "command": "node docs/e4-payment-requisites-copy/security-extra-checks.cjs",
+      "result": "PASS",
+      "passed": 22,
+      "artifact": "docs/e4-payment-requisites-copy/security-extra-results-final.json",
+      "sha256": "a94b6284d06dc9b7521260e840c873ea0d4e04ffc808829c489847e4ee21089d"
+    },
+    {
+      "check": "Deferred write-on-resolve ordering counterexample and mitigation",
+      "command": "node docs/e4-payment-requisites-copy/security-copy-order-probe.cjs",
+      "result": "PASS",
+      "artifact": "docs/e4-payment-requisites-copy/security-copy-order-results.json",
+      "sha256": "df401bf306b1d6aa46e85ac162ed93a4fbc5bd058f25ec6bd218c3e29efb2afc",
+      "before": "3f1fb438...82272 allowed B success followed by final clipboard A",
+      "after": "f10c4ca6...32c8 prevents B write until A settles, then fresh user action yields final clipboard B"
+    },
+    {
+      "check": "Exact changed-file hashes, bound focused stdout and raw/durable browser artifact equality",
+      "result": "PASS"
+    },
+    {
+      "check": "git diff HEAD --check over six reviewed code/test/deployment files",
+      "result": "PASS"
+    }
+  ],
+  "parentVerification": {
+    "focused": {
+      "result": "PASS",
+      "passed": 123,
+      "elapsedSeconds": 6.36,
+      "path": "docs/e4-payment-requisites-copy/tests.json",
+      "sha256": "b94fca1008bc43e176066b3711680c2abfba66a2282fcc9b9e565688403e49d1",
+      "stdoutPath": "output/manual/e4-payment-requisites-copy-20260908/tests-serialized.txt",
+      "stdoutSha256": "d2cd6b462dc6f4ff64d0a46b63c63875377c9602b84174e4e86d56b37553f351",
+      "provenance": "Executed by parent; reviewer verified exact input hashes and raw stdout hash."
+    },
+    "browser": {
+      "result": "PASS",
+      "checks": 120,
+      "widths": [
+        320,
+        390,
+        1280
+      ],
+      "motion": "Default; no force clicks, timeout expansion or reduced-motion fixture",
+      "path": "docs/e4-payment-requisites-copy/report.json",
+      "sha256": "374a6ae23b43a816a5f12f22787d305cb7d6b2f277421536a638acbbd6754197",
+      "rawPath": "output/playwright/e4-payment-requisites-copy-20260908-serialized/report.json",
+      "isolationPath": "docs/e4-payment-requisites-copy/isolation.json",
+      "isolationSha256": "951309e86daa686fae9d3de93c8efdc209fdacc557776ab16959efd3598dfb30",
+      "isolationUnit": "e4-review-browser-26df4c2f3dec468a8715dfe6e6657c06",
+      "unitStopped": true,
+      "cgroupEmpty": true,
+      "processExitCode": 0,
+      "syntheticWritesBlocked": 9,
+      "syntheticSigningAttemptsRejected": 6,
+      "pageErrors": [],
+      "provenance": "Executed by parent; reviewer inspected current runner/report and verified raw/durable hashes. Screenshots not visually reviewed by this security reviewer."
+    },
+    "priorAttempts": {
+      "path": "docs/e4-payment-requisites-copy/browser-attempts.json",
+      "sha256": "7cba1c6a94430ec3fbd18371145074e9bd05a034179e9236cfdce02c83b2bdce",
+      "failures": 2,
+      "disposition": "Two real-click failures on different unchanged surfaces retained. Failure-only diagnostics added; host resource recovery performed. Intermediate 117-check PASS remains source-bound to superseded 3f candidate, final serialized candidate has 120-check PASS. Resource exhaustion was observed; exact causation of prior click failures was not proven."
+    }
+  },
+  "runtimeResourceRecovery": {
+    "path": "docs/e4-payment-requisites-copy/runtime-resource-recovery.json",
+    "sha256": "d4bebde352daf83f44abd00332b286b2737f89253ab0148cd32c8a63f00d11c0",
+    "planReview": "Reviewed parent's bounded plan to SIGTERM only pinned old Playwright daemon PID/starttime/cwd/PPID/script trees and snapshot descendants through pidfds; no broad process sweep or profile deletion.",
+    "parentResult": "PASS; 33 original processes no longer live, available RAM 412356 to 2418348 KiB, service and autopilot identities unchanged.",
+    "independentObservation": "Reviewer independently reread all 33 recorded /proc PID/starttime identities after cleanup and found zero original live processes. Fresh systemctl matched relay PID3877703, bot3877887, nginx3877705 and unchanged start times; autopilot failed/MainPID0.",
+    "limitations": "Reviewer did not execute cleanup or inspect its command implementation; reviewed plan and receipt, then independently confirmed process/service postconditions."
+  },
+  "codeReviewVerdict": "PASS",
+  "result": "PASS",
+  "conclusion": "PASS for the bounded code/security and deployment-recipe review. Provider-controlled executable handler, premature copy success, and intermediate cross-generation clipboard overlap are resolved. Exact final candidate passes 26 independently run focused tests, 22 additional assertions, the before/after ordering probe, parent 123 focused tests and 120 isolated Chrome checks. Product rollout/post-deploy verification remain parent responsibilities."
+}

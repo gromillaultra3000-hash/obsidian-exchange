@@ -3224,6 +3224,9 @@
 
         // --- Отслеживание оплаты заявки внутри Mini App ---
         let _orderPoll = null, _orderTimer = null, _orderGeneration = 0;
+        // A submitted clipboard write cannot be cancelled when the order changes.
+        // Keep our own writes serial until the previous browser promise settles.
+        let _requisitesCopyInFlight = null;
         function stopOrderTracking() {
             if (_orderPoll) { clearInterval(_orderPoll); _orderPoll = null; }
             if (_orderTimer) { clearInterval(_orderTimer); _orderTimer = null; }
@@ -3251,7 +3254,12 @@
             const reqEl = document.getElementById('pay-req');
             const payLink = (requisites && requisites.payment_link) || '';
             let paymentAvailable = !!(payLink || payUrl);
+            let instructionsAvailable = true;
+            let requisitesCopyButton = null, requisitesCopyStatus = null;
             const hidePaymentInstructions = () => {
+                instructionsAvailable = false;
+                if (requisitesCopyButton) requisitesCopyButton.disabled = true;
+                if (requisitesCopyStatus) requisitesCopyStatus.textContent = '';
                 qrWrap.style.display = 'none';
                 qr.removeAttribute('src');
                 amountLine.textContent = '';
@@ -3296,15 +3304,50 @@
                 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
                 const row = (lbl, val, strong) => `<div style="display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.05)"><span style="color:#8b8b93;font-size:12px">${lbl}</span><span style="font-weight:${strong?700:600};text-align:right${strong?';color:#4ade80':''}">${val}</span></div>`;
                 if (requisites && (requisites.phone || requisites.card_number)) {
-                    const detail = requisites.phone || requisites.card_number;
+                    const detail = String(requisites.phone || requisites.card_number);
                     const lbl = requisites.phone ? 'Телефон (СБП)' : 'Номер карты';
                     let h = '';
                     if (payAmount) h += row('Сумма — точно', `${Number(payAmount).toLocaleString('ru')} ₽`, true);
                     if (requisites.bank_name) h += row('Банк', esc(requisites.bank_name));
                     if (requisites.recipient) h += row('Получатель', esc(requisites.recipient));
-                    h += `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0 2px"><span style="color:#8b8b93;font-size:12px">${lbl}</span><span><b style="font-size:16px;letter-spacing:.5px">${esc(detail)}</b> <button onclick="navigator.clipboard.writeText('${esc(detail)}');this.textContent='✓'" style="margin-left:6px;padding:3px 9px;font-size:11px;border:1px solid rgba(159,103,255,.35);background:rgba(159,103,255,.12);color:#e9d5ff;border-radius:8px">📋</button></span></div>`;
+                    h += `<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:8px 0 2px"><span style="color:#8b8b93;font-size:12px">${lbl}</span><b id="pay-req-value" style="font-size:16px;letter-spacing:.5px;overflow-wrap:anywhere;min-width:0"></b></div>`;
+                    h += '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px"><button id="pay-req-copy" type="button" aria-label="Скопировать платёжные реквизиты" aria-describedby="pay-req-copy-status" style="min-height:44px;padding:8px 12px;font-size:13px;border:1px solid rgba(159,103,255,.35);background:rgba(159,103,255,.12);color:#e9d5ff;border-radius:8px">Копировать</button><span id="pay-req-copy-status" role="status" aria-live="polite" aria-atomic="true" style="flex:1;min-width:140px;font-size:12px;color:#e2e8f0"></span></div>';
                     reqEl.innerHTML = h;
                     reqEl.style.display = 'block';
+                    document.getElementById('pay-req-value').textContent = detail;
+                    requisitesCopyButton = document.getElementById('pay-req-copy');
+                    requisitesCopyStatus = document.getElementById('pay-req-copy-status');
+                    const copyIsCurrent = () => isCurrent() && instructionsAvailable
+                        && document.getElementById('pay-req-copy') === requisitesCopyButton
+                        && document.getElementById('pay-req-copy-status') === requisitesCopyStatus;
+                    if (_requisitesCopyInFlight) {
+                        requisitesCopyButton.disabled = true;
+                        requisitesCopyStatus.textContent = 'Завершается предыдущее копирование…';
+                        _requisitesCopyInFlight.finished.then(() => {
+                            if (copyIsCurrent() && !_requisitesCopyInFlight) {
+                                requisitesCopyButton.disabled = false;
+                                requisitesCopyStatus.textContent = '';
+                            }
+                        });
+                    }
+                    requisitesCopyButton.addEventListener('click', async () => {
+                        if (!copyIsCurrent() || _requisitesCopyInFlight) return;
+                        let releaseCopy;
+                        const pending = {finished: new Promise(resolve => { releaseCopy = resolve; })};
+                        _requisitesCopyInFlight = pending;
+                        requisitesCopyButton.disabled = true;
+                        requisitesCopyStatus.textContent = 'Копируем…';
+                        try {
+                            await navigator.clipboard.writeText(detail);
+                            if (copyIsCurrent()) requisitesCopyStatus.textContent = '✓ Реквизиты скопированы';
+                        } catch (_) {
+                            if (copyIsCurrent()) requisitesCopyStatus.textContent = 'Не удалось скопировать. Выделите реквизиты и скопируйте вручную.';
+                        } finally {
+                            if (_requisitesCopyInFlight === pending) _requisitesCopyInFlight = null;
+                            releaseCopy();
+                            if (copyIsCurrent()) requisitesCopyButton.disabled = false;
+                        }
+                    });
                 } else if (payLink) {
                     // Ссылочный метод (XPay): клиент платит по защищённой странице банка
                     let h = '';

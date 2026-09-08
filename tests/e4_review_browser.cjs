@@ -29,6 +29,7 @@ async function main() {
     const browser = await chromium.launch({executablePath: '/opt/google/chrome/chrome',
         chromiumSandbox: true, headless: true});
     report.browserVersion = browser.version();
+    let activePage;
     try {
         for (const viewport of [{width: 320, height: 568}, {width: 390, height: 844},
                                 {width: 1280, height: 800}]) {
@@ -100,6 +101,7 @@ async function main() {
             return route.abort('blockedbyclient');
         });
         const page = await context.newPage();
+        activePage = page;
         page.on('pageerror', error => report.pageErrors.push(error.message));
         page.setDefaultTimeout(5000);
         await page.clock.install();
@@ -601,6 +603,160 @@ async function main() {
         await paymentReply(pendingOrderRoutes.length - 1, {status: 'paid'});
         assert.ok((await page.locator('#pay-card-title').textContent()).includes('оплачена'));
         report.checks.push(`${viewport.width}: native fetch aborts stalled status request; manual check recovers to paid`);
+
+        // Payment copy has its own lifetime and feedback. Exercise the actual
+        // listener with delayed/rejected clipboard writes and literal data.
+        const literalRequisites = ' O\'Brien "double" `tick` ${literal} <script>window.__requisitesInjected = 1</script> & 42 ';
+        const requisitesButton = page.locator('#pay-req-copy');
+        const requisitesFeedback = page.locator('#pay-req-copy-status');
+        const requisitesValue = page.locator('#pay-req-value');
+        async function installRequisitesClipboard() {
+            await page.evaluate(() => {
+                window.__requisitesWrites = [];
+                window.__requisitesPending = [];
+                window.__requisitesContents = 'previous clipboard value';
+                window.__requisitesClipboard = {writeText(value) {
+                    window.__requisitesWrites.push(value);
+                    return new Promise((resolve, reject) => window.__requisitesPending.push({
+                        resolve: () => {window.__requisitesContents = value; resolve();}, reject}));
+                }};
+                Object.defineProperty(navigator, 'clipboard', {configurable: true, value: window.__requisitesClipboard});
+            });
+        }
+        async function finishRequisitesCopy(index, success = true) {
+            await page.evaluate(({index, success}) => {
+                const pending = window.__requisitesPending[index];
+                if (success) pending.resolve(); else pending.reject(new Error('synthetic clipboard denial'));
+            }, {index, success});
+        }
+        async function requisitesPreserved(value) {
+            assert.equal(await requisitesValue.textContent(), value);
+            assert.equal(await requisitesButton.textContent(), 'Копировать');
+            assert.equal(await page.locator('#pay-req script').count(), 0);
+            assert.equal(await page.evaluate(() => window.__requisitesInjected), undefined);
+            assert.equal(await page.locator('#pay-card').evaluate(el => el.scrollWidth <= el.clientWidth), true);
+        }
+        await startPayment('synthetic-copy-literal', null, 2000, {phone: literalRequisites,
+            bank_name: 'Synthetic bank', recipient: 'Synthetic recipient'});
+        assert.equal(await requisitesButton.getAttribute('type'), 'button');
+        assert.equal(await requisitesButton.getAttribute('onclick'), null);
+        assert.equal(await requisitesButton.getAttribute('aria-describedby'), 'pay-req-copy-status');
+        assert.equal(await requisitesFeedback.getAttribute('role'), 'status');
+        assert.equal(await requisitesFeedback.getAttribute('aria-live'), 'polite');
+        assert.equal(await requisitesFeedback.getAttribute('aria-atomic'), 'true');
+        await installRequisitesClipboard();
+        await requisitesButton.focus();
+        await page.keyboard.press('Enter');
+        assert.equal(await requisitesFeedback.textContent(), 'Копируем…');
+        assert.equal(await requisitesButton.isDisabled(), true);
+        await requisitesButton.evaluate(el => el.dispatchEvent(new Event('click')));
+        assert.deepEqual(await page.evaluate(() => window.__requisitesWrites), [literalRequisites]);
+        await requisitesPreserved(literalRequisites);
+        await finishRequisitesCopy(0);
+        assert.equal(await requisitesFeedback.textContent(), '✓ Реквизиты скопированы');
+        assert.equal(await requisitesButton.isEnabled(), true);
+        await requisitesPreserved(literalRequisites);
+        await page.screenshot({path: path.join(outputDir, `${viewport.width}-payment-copy-success.png`)});
+        report.checks.push(`${viewport.width}: literal requisites remain text; keyboard copy awaits completion; duplicate dispatch is inert; accessible separate status fits viewport`);
+
+        await requisitesButton.click();
+        const copyHapticsBeforeFailure = await page.evaluate(() => window.__copyHaptics.length);
+        await finishRequisitesCopy(1, false);
+        assert.ok((await requisitesFeedback.textContent()).includes('Не удалось скопировать'));
+        assert.ok((await requisitesFeedback.textContent()).includes('вручную'));
+        assert.equal(await page.evaluate(() => window.__copyHaptics.length), copyHapticsBeforeFailure);
+        await requisitesPreserved(literalRequisites);
+        await page.screenshot({path: path.join(outputDir, `${viewport.width}-payment-copy-failure.png`)});
+        await requisitesButton.click(); await finishRequisitesCopy(2);
+        assert.equal(await requisitesFeedback.textContent(), '✓ Реквизиты скопированы');
+        await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', {configurable: true, value: undefined}));
+        await requisitesButton.click();
+        assert.ok((await requisitesFeedback.textContent()).includes('Не удалось скопировать'));
+        assert.equal(await requisitesButton.isEnabled(), true);
+        await requisitesPreserved(literalRequisites);
+        report.checks.push(`${viewport.width}: rejected and unavailable clipboard give manual-copy feedback; retry recovers with exact preserved requisites`);
+
+        await installRequisitesClipboard();
+        for (const mode of ['new-order', 'same-id', 'empty-reset']) {
+            const id = 'synthetic-copy-' + mode;
+            await startPayment(id, null, 2000, {phone: '+70000000003'});
+            await requisitesButton.click();
+            const pendingIndex = await page.evaluate(() => window.__requisitesPending.length - 1);
+            await page.evaluate(() => {window.__oldRequisitesButton = document.getElementById('pay-req-copy');});
+            await startPayment(mode === 'same-id' ? id : id + '-next', null, 3000,
+                mode === 'empty-reset' ? null : {card_number: '4111 1111 1111 1111'});
+            const writesBefore = await page.evaluate(() => window.__requisitesWrites.length);
+            await page.evaluate(() => window.__oldRequisitesButton.dispatchEvent(new Event('click')));
+            assert.equal(await page.evaluate(() => window.__requisitesWrites.length), writesBefore);
+            if (mode !== 'empty-reset') {
+                assert.equal(await requisitesButton.isDisabled(), true);
+                assert.equal(await requisitesFeedback.textContent(), 'Завершается предыдущее копирование…');
+                await requisitesButton.evaluate(el => el.dispatchEvent(new Event('click')));
+                assert.equal(await page.evaluate(() => window.__requisitesWrites.length), writesBefore,
+                    'current view must not overlap a previous native clipboard write');
+                await requisitesPreserved('4111 1111 1111 1111');
+                if (viewport.width === 320 && mode === 'new-order') {
+                    await requisitesButton.scrollIntoViewIfNeeded();
+                    await page.screenshot({path: path.join(outputDir, '320-payment-copy-waiting.png')});
+                }
+            }
+            await finishRequisitesCopy(pendingIndex, mode !== 'same-id');
+            if (mode === 'empty-reset') {
+                assert.equal(await requisitesFeedback.count(), 0);
+                assert.equal(await page.locator('#pay-req').textContent(), '');
+            } else {
+                assert.equal(await requisitesFeedback.textContent(), '');
+                await requisitesPreserved('4111 1111 1111 1111');
+                assert.equal(await requisitesButton.isEnabled(), true);
+                assert.equal(await page.evaluate(() => window.__requisitesWrites.length), writesBefore,
+                    'old completion must not enqueue an automatic new copy');
+                await requisitesButton.click();
+                await finishRequisitesCopy(pendingIndex + 1);
+                assert.equal(await page.evaluate(() => window.__requisitesContents), '4111 1111 1111 1111');
+                assert.equal(await requisitesFeedback.textContent(), '✓ Реквизиты скопированы');
+            }
+            report.checks.push(`${viewport.width}: ${mode} invalidates stale feedback and serializes native writes until explicit current-view copy`);
+        }
+        await startPayment('synthetic-copy-waiting-a', null, 2000, {phone: 'value-A'});
+        await requisitesButton.click();
+        const waitingIndex = await page.evaluate(() => window.__requisitesPending.length - 1);
+        const waitingOrder = await startPayment('synthetic-copy-waiting-b', null, 2000, {phone: 'value-B'});
+        assert.equal(await requisitesButton.isDisabled(), true);
+        await paymentReply(waitingOrder, {status: 'paid'});
+        await finishRequisitesCopy(waitingIndex);
+        assert.equal(await requisitesFeedback.count(), 0);
+        assert.equal(await page.locator('#pay-req').textContent(), '');
+        report.checks.push(`${viewport.width}: terminal state during prior clipboard wait cannot revive the new view's copy controls`);
+        for (const terminal of ['paid', 'sent', 'cancelled', 'expired', 'failed', 'receipt', 'dead']) {
+            const order = await startPayment('synthetic-copy-terminal-' + terminal, null, 2000, {phone: '+70000000004'});
+            await requisitesButton.click();
+            const pendingIndex = await page.evaluate(() => window.__requisitesPending.length - 1);
+            await page.evaluate(() => {window.__oldRequisitesButton = document.getElementById('pay-req-copy');});
+            await paymentReply(order, {status: ['receipt', 'dead'].includes(terminal) ? 'pending' : terminal,
+                receipt: terminal === 'receipt' ? 'sent' : '', dead: terminal === 'dead'});
+            const writesBefore = await page.evaluate(() => window.__requisitesWrites.length);
+            await page.evaluate(() => window.__oldRequisitesButton.dispatchEvent(new Event('click')));
+            await finishRequisitesCopy(pendingIndex);
+            assert.equal(await page.evaluate(() => window.__requisitesWrites.length), writesBefore);
+            assert.equal(await requisitesFeedback.count(), 0);
+            assert.equal(await page.locator('#pay-req').textContent(), '');
+            assert.equal(await page.locator('#pay-req').isVisible(), false);
+        }
+        report.checks.push(`${viewport.width}: paid/sent/cancelled/expired/failed/receipt/dead transitions discard pending copy and stale controls`);
+
+        // Restore the isolated browser's real clipboard to verify byte-for-byte
+        // values across both supported text-requisites paths after repeated taps.
+        await page.evaluate(() => {delete navigator.clipboard;});
+        for (const kind of ['phone', 'card_number']) {
+            await startPayment('synthetic-copy-native-' + kind, null, 2000, {[kind]: literalRequisites});
+            for (let attempt = 0; attempt < 2; attempt++) {
+                await requisitesButton.click();
+                await page.waitForFunction(() => document.getElementById('pay-req-copy-status').textContent === '✓ Реквизиты скопированы');
+                assert.equal(await page.evaluate(() => navigator.clipboard.readText()), literalRequisites);
+                await requisitesPreserved(literalRequisites);
+            }
+        }
+        report.checks.push(`${viewport.width}: real Chrome clipboard preserves spaces, quotes, backticks and script-shaped text for phone/card repeated copies`);
         await context.close();
         }
         assert.equal(report.writerAttempts.length, 9);
@@ -608,6 +764,26 @@ async function main() {
         assert.equal(report.signingAttempts.length, 6);
         assert.deepEqual(report.pageErrors, []);
         report.result = 'PASS';
+    } catch (error) {
+        // Keep evidence from real actionability failures before closing Chrome;
+        // never compensate for a failed interaction with force or longer waits.
+        if (activePage && !activePage.isClosed()) {
+            report.failureDom = await activePage.evaluate(() => ({
+                focused: document.activeElement?.id,
+                elements: ['exchange-review', 'exchange-review-ack', 'exchange-review-confirm', 'pay-req-copy']
+                    .map(id => {
+                        const el = document.getElementById(id);
+                        if (!el) return {id, absent: true};
+                        const rect = el.getBoundingClientRect();
+                        const style = getComputedStyle(el);
+                        return {id, text: el.textContent, disabled: el.disabled, checked: el.checked,
+                            display: style.display, visibility: style.visibility,
+                            bounds: {x: rect.x, y: rect.y, width: rect.width, height: rect.height}};
+                    }),
+            })).catch(() => ({unavailable: true}));
+            await activePage.screenshot({path: path.join(outputDir, 'failure.png')}).catch(() => {});
+        }
+        throw error;
     } finally {
         await browser.close();
     }

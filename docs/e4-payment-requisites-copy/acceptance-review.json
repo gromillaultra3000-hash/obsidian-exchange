@@ -1,0 +1,239 @@
+{
+  "schemaVersion": "e4-payment-requisites-copy-acceptance-review.v1",
+  "reviewedAt": "2026-09-08T00:51:06.720659+00:00",
+  "reviewer": {
+    "identity": "Codex context-aware acceptance subagent /root/requisites_acceptance",
+    "role": "Independent acceptance of product implementation; author of regression tests and failure diagnostics",
+    "independentOfProductImplementation": true,
+    "productImplementationAuthored": false,
+    "testImplementationAuthored": true,
+    "modelBuild": "Exact model build/version not exposed; no version claim"
+  },
+  "activeRoute": "E4 / PAYMENT_REQUISITES_COPY_INTEGRITY / preserve requisites and truthful clipboard outcome with stale-feedback isolation",
+  "contextRead": [
+    "AGENTS.md session instructions",
+    "docs/MEGA_PROMPT.md",
+    "PROJECT_MEMORY.md compact status",
+    "docs/CURRENT_ROUTE.md active route",
+    "docs/ecosystem-master-roadmap.md E4 gate",
+    "Actual tracking/copy/support functions, tests and browser runner",
+    "Final focused/browser/isolation/preflight/rollback/resource-recovery evidence"
+  ],
+  "inputsSha256": {
+    "relay/webapp.html": "f10c4ca6bbe8935822433c300d4286878e1c460255b780ae33dcba16a9e532c8",
+    "tests/e4_review_browser.cjs": "11348d2353456c0404ad5e44323dc50550886b4682dc119363992c10bf69b96d",
+    "tests/e4_payment_requisites_copy_behavior.cjs": "3ce40d9e74a6ed2819fe543ea85e2ecd810f3a57c764616f5a4d9d27101ec9f5",
+    "tests/test_e4_payment_requisites_copy_behavior.py": "3b0e45d530c32e872ac54222120544e4bd63467cf1e33373d44105b7b8230a3a",
+    "tests/e4_payment_instruction_behavior.cjs": "53d6e55e5d61cc465d8402239e88b1eb0d9b2a12e44309edf7d2c24f002b239a",
+    "scripts/run_e4_review_browser.py": "6f4c9bf3020ae80b323655333a1eb3697eca4d44672ef6d28c679749136c412b",
+    "deploy/e4_payment_requisites_copy_rollout.py": "b3db3202bcfb6f85765007485fd68af68e82e7280e3e95e5e0fa8eb727850df2",
+    "docs/e4-payment-requisites-copy/baseline-reproduction.json": "3a5f5f64797a4e5b6fc86c76e725c729c0219802f4dc063c53c26317e321deef",
+    "docs/e4-payment-requisites-copy/tests.json": "b94fca1008bc43e176066b3711680c2abfba66a2282fcc9b9e565688403e49d1",
+    "docs/e4-payment-requisites-copy/report.json": "374a6ae23b43a816a5f12f22787d305cb7d6b2f277421536a638acbbd6754197",
+    "docs/e4-payment-requisites-copy/isolation.json": "951309e86daa686fae9d3de93c8efdc209fdacc557776ab16959efd3598dfb30",
+    "docs/e4-payment-requisites-copy/preflight.json": "71bdfb4b8e481177aac6a0ee71a08d488fe08a7e57004a78621cfa09503df960",
+    "docs/e4-payment-requisites-copy/rollback-rehearsal.json": "0b235e10a4c9fb4028cd4e35b28a94b8e9e9efd76844742cb311b79286c2694e",
+    "docs/e4-payment-requisites-copy/runtime-resource-recovery.json": "d4bebde352daf83f44abd00332b286b2737f89253ab0148cd32c8a63f00d11c0",
+    "docs/e4-payment-requisites-copy/next-prerequisite.json": "47b3550952a787de57dcfb8f27134db5d6ac6cb5c2b12cab7e4201c4642836c0",
+    "docs/e4-payment-requisites-copy/320-payment-copy-waiting.png": "8adcdafa500dd1e3227d21417b2f4a44d732c67eb076545560ffe710d324a432"
+  },
+  "capabilities": {
+    "sourceReview": "Independent product diff and caller/lifetime review",
+    "faultInjection": "Shipped functions in Node VM with deferred/rejected clipboard and synthetic status replies",
+    "browser": "Root ran isolated default-motion browser; reviewer authored new checks and independently read final report/isolation plus 320 waiting and previous same-layout success/failure screenshots.",
+    "deployment": "Root-only; reviewer read preflight/rollback evidence; no production mutation by reviewer",
+    "externalResearch": "Not needed for this bounded repository-specific change",
+    "skill": "playwright; established disconnected non-root runner retained"
+  },
+  "writerBoundary": {
+    "observedAutopilot": "failed; no restart or reconfiguration by reviewer",
+    "authorization": "Current owner manual continuation and bounded test/review delegation",
+    "reviewerWrites": "Only test harness/wrapper/browser additions and assigned evidence files"
+  },
+  "independentChecks": [
+    {
+      "check": "/opt/lumi/venv/bin/python -m pytest -q tests/test_e4_payment_requisites_copy_behavior.py tests/test_e4_payment_instruction_behavior.py",
+      "result": "PASS",
+      "passed": 47,
+      "durationSeconds": 2.63
+    },
+    {
+      "check": "Baseline actual inline handler replay",
+      "result": "BASELINE_DEFECT_REPRODUCED",
+      "observed": [
+        "Premature success during unresolved clipboard Promise",
+        "Success retained after clipboard rejection",
+        "Literal apostrophe causes generated handler SyntaxError"
+      ],
+      "evidence": "docs/e4-payment-requisites-copy/baseline-reproduction.json"
+    },
+    {
+      "check": "Disposable candidate mutation removing await from clipboard write",
+      "result": "MUTATION_KILLED",
+      "scenario": "pending_success",
+      "evidence": "docs/e4-payment-requisites-copy/baseline-reproduction.json"
+    },
+    {
+      "check": "node --check tests/e4_review_browser.cjs and targeted git diff --check",
+      "result": "PASS"
+    },
+    {
+      "check": "Write-on-completion clipboard model and cross_order_success regression against pre-serialization/final source",
+      "result": "RED_INTERMEDIATE_GREEN_FINAL",
+      "evidence": "docs/e4-payment-requisites-copy/baseline-reproduction.json",
+      "observed": "Intermediate B success was followed by stale A clipboard contents; final source prevents B submission until A settles and requires fresh user action."
+    }
+  ],
+  "acceptanceCriteria": [
+    {
+      "criterion": "Requisites and copy-button label remain stable; pending is not success",
+      "result": "PASS",
+      "evidence": "26 new VM scenarios; real browser pending, native keyboard activation and exact value checks across 320/390/1280."
+    },
+    {
+      "criterion": "Success follows fulfilled clipboard write; rejection/missing API/synchronous failure offers manual-copy feedback and retry",
+      "result": "PASS",
+      "evidence": "Controlled Promise cases, missing API in Chrome, synchronous throw in VM; native Chrome clipboard reads exact literal value for phone and card"
+    },
+    {
+      "criterion": "Duplicate actions while pending cannot create additional copies",
+      "result": "PASS",
+      "evidence": "Button disabled and duplicate dispatched click returns without a second write; retry after settlement copies same value"
+    },
+    {
+      "criterion": "Prior own requisites writes cannot overwrite a newer successful copy by completing out of order",
+      "result": "PASS",
+      "evidence": "Shared in-flight token survives order replacement/terminal states until actual browser Promise settles. Write-on-completion VM and Chrome fixtures prove B is disabled with honest waiting feedback, no overlapping/auto-queued write occurs, and explicit B tap after old success/rejection yields exact B contents. Waiting reset/terminal/third-generation tests pass."
+    },
+    {
+      "criterion": "New order, same-ID reopening, cleared instructions and terminal states reject stale completions/old controls",
+      "result": "PASS",
+      "evidence": "Generation, instructionsAvailable and current DOM identity guards; VM includes detached same-ID DOM/timer; Chrome includes new/same-ID/empty plus paid/sent/cancelled/expired/failed/receipt/dead"
+    },
+    {
+      "criterion": "Requisites are literal data rather than executable handler source",
+      "result": "PASS",
+      "evidence": "textContent assignment and closure capture; apostrophe/double quote/backtick/template/script-shaped strings and whitespace copied byte-for-byte for both phone/card; browser reports no injected script nodes or page errors"
+    },
+    {
+      "criterion": "Accessible separate outcome fits mobile layouts",
+      "result": "PASS_WITH_STATED_LIMITS",
+      "evidence": "Native button, aria-describedby and role=status/aria-live=polite/aria-atomic=true; keyboard and no-overflow assertions; independent 320-success/390-failure screenshot inspection"
+    },
+    {
+      "criterion": "No new money/signing/network-writer authority",
+      "result": "PASS",
+      "evidence": "Product diff changes only local requisites rendering/copy; browser traffic fixture-only, nine synthetic writes blocked and six unusable signing attempts rejected"
+    }
+  ],
+  "finalParentEvidence": {
+    "focusedTests": 123,
+    "focusedDurationSeconds": 6.08,
+    "browserChecks": 120,
+    "viewports": [
+      320,
+      390,
+      1280
+    ],
+    "motionPreference": "Default, unchanged",
+    "pageErrors": 0,
+    "syntheticWriterAttemptsBlocked": 9,
+    "walletPreparations": 24,
+    "syntheticSigningAttemptsRejected": 6,
+    "browserSourceAndRunnerMatchReviewedInputs": true,
+    "isolatedUnitStopped": true,
+    "cgroupEmpty": true,
+    "browserExitCode": 0,
+    "rollbackRehearsal": "PASS exact fsynced OLD to NEW to OLD; production untouched",
+    "preflight": "GET200/POST405/exact current deployed template; Relay/bot/Nginx active",
+    "browserArtifacts": "output/playwright/e4-payment-requisites-copy-20260908-serialized"
+  },
+  "failedAttemptsPreserved": [
+    {
+      "path": "output/playwright/e4-payment-requisites-copy-20260908-final/report.json",
+      "failure": "Unchanged wallet review checkbox action timed out before new requisites tests",
+      "pageErrors": 0,
+      "cleanup": "Verified stopped and empty cgroup"
+    },
+    {
+      "path": "output/playwright/e4-payment-requisites-copy-20260908-diagnostic2/report.json",
+      "failure": "Different unchanged create-order click timed out after visible/enabled/stable and scroll checks; failure screenshot/DOM retained",
+      "pageErrors": 0,
+      "cleanup": "Verified stopped and empty cgroup"
+    },
+    {
+      "path": "output/playwright/e4-payment-requisites-copy-20260908-diagnostic",
+      "failure": "Reviewer sandbox chown returned EINVAL before browser launch; no browser acceptance attempted"
+    }
+  ],
+  "environmentRecovery": {
+    "evidence": "docs/e4-payment-requisites-copy/runtime-resource-recovery.json",
+    "observed": "33 positively identified orphan disposable Node/Chrome processes exited; available memory 412356 to 2418348 KiB; production/autopilot service identities unchanged",
+    "disposition": "Full focused/default-motion browser run then passed without product, timing threshold, forced-click or motion-fixture changes",
+    "causationLimit": "Evidence is consistent with host resource pressure contributing to initial timeouts; it does not prove the sole cause of each timeout."
+  },
+  "findings": [
+    {
+      "id": "E4-COPY-ACC-NEXT-001",
+      "severity": "Medium",
+      "scope": "Pre-existing next E4 support prerequisite",
+      "finding": "openOrderSupport waits on clipboard copying; stalled copy prevents support opening, and rejected copy plus throwing legacy fallback rejects before openSupport",
+      "disposition": "Out of this bounded requisites-copy scope; exact next canonical item, independently reproduced on unchanged baseline helpers",
+      "evidence": "docs/e4-payment-requisites-copy/next-prerequisite.json"
+    }
+  ],
+  "blockingFindings": [],
+  "surfaceMatrix": {
+    "MiniApp": "REQUIRED: changed requisites copy UI; shipped HTML replayed in isolated Chrome",
+    "BotLinkedWebapp": "REQUIRED: same /webapp template; preflight binds production template",
+    "Backend": "READ_ONLY: existing status GETs; no contract/writer change",
+    "PublicSite": "N/A: no changed public-site action",
+    "OperatorAdmin": "N/A",
+    "Native": "N/A: no key/custody/signing change"
+  },
+  "productionStatusAtReview": "NOT_DEPLOYED_BY_REVIEWER; preflight serves baseline 6bdad471...; parent controls final reversible rollout/runtime verification",
+  "result": "PASS",
+  "decision": "Final serialized payment-requisites copy acceptance passes; ready for parent reversible rollout after the other mandatory review and exact-byte preflight.",
+  "nextCanonicalItem": "E4 / ORDER_SUPPORT_CLIPBOARD_INDEPENDENCE / open order support despite clipboard denial, failure or stalled completion, with truthful copy feedback",
+  "gateStatus": "E4 IN_PROGRESS; earlier gates not closed and no stage transition claimed",
+  "limits": [
+    "Automated Chromium and source replay do not establish real Telegram/iOS/WebKit or human comprehension acceptance.",
+    "No live signing, payment, transfer, provider action, customer data or external message was used.",
+    "An already submitted browser clipboard operation cannot be cancelled by a later order switch; shared serialization prevents a subsequent requisites copy from overlapping it. External applications and unrelated clipboard writers are outside this slice.",
+    "A never-settling clipboard Promise keeps subsequent requisites copy buttons disabled with explicit previous-copy waiting feedback. Destination text remains available for manual selection; no timeout releases the shared token or creates overlapping writes.",
+    "This is pre-deployment acceptance, not a claim that production rollout occurred."
+  ],
+  "tools": {
+    "vmNode": "v22.22.3",
+    "browserNode": "v22.23.2",
+    "pytest": "8.3.4",
+    "playwrightCore": "1.62.0",
+    "chrome": "152.0.7977.64"
+  },
+  "resolvedFindings": [
+    {
+      "id": "E4-COPY-ACC-001",
+      "finding": "Legacy copy showed success while pending/rejected.",
+      "state": "FIXED",
+      "evidence": "Awaited completion, separate failure feedback, baseline replay and mutation-killed pending_success regression."
+    },
+    {
+      "id": "E4-COPY-ACC-002",
+      "severity": "High",
+      "finding": "Intermediate per-view lock permitted cross-order native clipboard completion overwrite after newer success.",
+      "state": "FIXED_BEFORE_DEPLOYMENT",
+      "evidence": "Shared lock retained until real settlement; write-on-resolve red/green,26VMcases and120browserchecks cover ordering and waiting lifetimes."
+    },
+    {
+      "id": "E4-COPY-ACC-003",
+      "finding": "Legacy requisites were interpolated into executable inline handler source; literal apostrophe broke syntax.",
+      "state": "FIXED",
+      "evidence": "Closure capture, textContent assignment and native listener; literal phone/card quote/backtick/script-shaped values remain exact; no executable generated handler."
+    }
+  ],
+  "reviewHistory": {
+    "intermediateApproval": "Withdrawn before deployment after root raised cross-order clipboard-content ordering; both independent reviewers reproduced the issue.",
+    "intermediateSourceSha256": "3f1fb438f7c48524216cbfce01c3b4b01a9f7d42aee13fcfad520cba76b82272",
+    "resolution": "Reviewed final shared serialization source after new source/behavior/browser evidence; no intermediate candidate deployment accepted."
+  }
+}

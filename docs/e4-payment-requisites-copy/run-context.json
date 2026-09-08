@@ -1,0 +1,22 @@
+{
+  "recordedAt": "2026-09-08T00:34:57.698653+00:00",
+  "stage": "E4",
+  "activeRoute": "PAYMENT_REQUISITES_COPY_INTEGRITY",
+  "writer": "Manual owner-authorized interactive turn with exclusive existing writer.lock held",
+  "ownerDecision": "2026-09-08 continue manually and deploy; defer autopilot until owner goes to sleep",
+  "supervisorState": "failed",
+  "supervisorMainPID": 0,
+  "supervisorControlGroup": "",
+  "supervisorMutated": false,
+  "baselineCommit": "65a219ad3744bb43ce64f4760ed4350139921d0a",
+  "baselineHtmlSha256": "6bdad471edcedf7b21d28373cdd564268d50f62b16385bac9905215ad4df2db8",
+  "charterSha256": "d159a3f71ea21c57a4d73ea675f1c5ded76ea504b8c3f186ba166ed9218cfc80",
+  "trustAndMoneyImpact": {
+    "writersChanged": false,
+    "realMoney": false,
+    "keysOrCredentials": false,
+    "customerData": false,
+    "externalMessages": false,
+    "064A": false
+  }
+}

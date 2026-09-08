@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "e4-payment-requisites-copy-security-extra-checks.v1",
+  "recordedAt": "2026-09-08T00:49:35.928Z",
+  "result": "PASS",
+  "reviewer": "/root/requisites_diff_review",
+  "sourcePath": "/root/relay/webapp.html",
+  "sourceSha256": "f10c4ca6bbe8935822433c300d4286878e1c460255b780ae33dcba16a9e532c8",
+  "runnerSha256": "d9af2bcbb24a11b1798e6c719b3a684f8074087a398a71dd357ef8d68c3cd9b6",
+  "scaffoldPath": "/root/tests/e4_payment_requisites_copy_behavior.cjs",
+  "scaffoldSha256": "3ce40d9e74a6ed2819fe543ea85e2ecd810f3a57c764616f5a4d9d27101ec9f5",
+  "nodeVersion": "v22.22.3",
+  "checks": [
+    "terminal paid: fulfilled stale write has no feedback or new invocation",
+    "terminal paid: rejected stale write has no feedback or new invocation",
+    "terminal sent: fulfilled stale write has no feedback or new invocation",
+    "terminal sent: rejected stale write has no feedback or new invocation",
+    "terminal failed: fulfilled stale write has no feedback or new invocation",
+    "terminal failed: rejected stale write has no feedback or new invocation",
+    "terminal cancelled: fulfilled stale write has no feedback or new invocation",
+    "terminal cancelled: rejected stale write has no feedback or new invocation",
+    "terminal expired: fulfilled stale write has no feedback or new invocation",
+    "terminal expired: rejected stale write has no feedback or new invocation",
+    "terminal receipt: fulfilled stale write has no feedback or new invocation",
+    "terminal receipt: rejected stale write has no feedback or new invocation",
+    "terminal dead: fulfilled stale write has no feedback or new invocation",
+    "terminal dead: rejected stale write has no feedback or new invocation",
+    "terminal timer: fulfilled stale write has no feedback or new invocation",
+    "terminal timer: rejected stale write has no feedback or new invocation",
+    "same-ID global serialization: old success releases current button without success or automatic fresh write",
+    "same-ID global serialization: old failure releases current button without success or automatic fresh write",
+    "three generations: only current waiter unlocks; no stale waiter starts a write",
+    "terminal current waiter stays revoked when older global clipboard token releases",
+    "synchronous provider diagnostics remain private and button unlocks",
+    "prior executable-handler payload copies literally; bank/recipient markup stays escaped"
+  ],
+  "actualClipboardUsed": false,
+  "networkUsed": false,
+  "productionMutated": false,
+  "limitations": [
+    "Synthetic DOM scaffold, not a native HTML parser or browser clipboard.",
+    "Scaffolding supplied by acceptance agent; assertions supplied independently by reviewer."
+  ]
+}

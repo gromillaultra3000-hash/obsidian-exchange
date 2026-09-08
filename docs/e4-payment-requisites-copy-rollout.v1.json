@@ -1,0 +1,154 @@
+{
+  "schemaVersion": "e4-payment-requisites-copy-rollout.v1",
+  "recordedAt": "2026-09-08T00:52:52.893130+00:00",
+  "stage": "E4",
+  "gateCriterion": "PAYMENT_REQUISITES_COPY_INTEGRITY / truthful copy results and destination preservation across order lifetimes",
+  "status": "IN_PROGRESS",
+  "sliceStatus": "VERIFIED",
+  "scope": "CURRENT_AUTHORIZED_SCOPE",
+  "accountableOwner": "Project owner; explicit 2026-09-08 manual delivery/deployment instruction; Codex /root implementation and rollout",
+  "baselineCommit": "65a219ad3744bb43ce64f4760ed4350139921d0a",
+  "implementationSha256": "f10c4ca6bbe8935822433c300d4286878e1c460255b780ae33dcba16a9e532c8",
+  "implementation": "Literal requisites text and captured event listener replace executable inline interpolation. Separate accessible status awaits clipboard success, catches rejection/missing API and preserves the value. A global in-flight token serializes this UI’s clipboard writes across order generations; a new view waits for actual settlement and requires a fresh tap. Generation, instruction validity and DOM identity guards suppress obsolete results/actions.",
+  "surfaceMatrix": {
+    "miniApp": "REQUIRED: payment requisites, clipboard result and lifetime isolation",
+    "publicWebapp": "READ_ONLY: public template and method checks",
+    "backend": "READ_ONLY: existing status GET contract unchanged",
+    "telegramBot": "READ_ONLY: runtime identity; no messages",
+    "walletSigning": "N/A: no signing/writer changes",
+    "native": "N/A: no keys/bridge changes",
+    "admin": "N/A: unchanged",
+    "operations": "OPERATOR_ONLY: verified old disposable browser cleanup and bounded HTML replacement"
+  },
+  "trustAndMoneyImpact": {
+    "moneyWritersChanged": false,
+    "custodyChanged": false,
+    "keysOrCredentialsChanged": false,
+    "realMoneyOrSignatures": false,
+    "customerDataAccessed": false,
+    "externalMessagesSent": false,
+    "064ATouched": false
+  },
+  "capabilities": {
+    "implementation": "Codex /root",
+    "acceptanceReview": "/root/requisites_acceptance",
+    "independentDiffSecurityReview": "/root/requisites_diff_review",
+    "skills": [
+      "playwright via existing isolated repository harness",
+      "security-best-practices by independent reviewer"
+    ],
+    "browser": {
+      "playwright": "1.62.0",
+      "chrome": "152.0.7977.64"
+    },
+    "tools": [
+      "pytest",
+      "Node",
+      "Gitleaks 8.30.0",
+      "Git",
+      "systemd",
+      "pidfd identity-bound cleanup"
+    ],
+    "externalResearchPluginsOrNewDependencies": "None required",
+    "toolVersions": {
+      "nodeFocused": "22.22.3",
+      "pytest": "8.3.4",
+      "git": "2.43.0",
+      "gitleaks": "8.30.0"
+    }
+  },
+  "tests": {
+    "focusedPassed": 123,
+    "newCopyScenarios": 26,
+    "browserChecksPassed": 120,
+    "browserWidths": [
+      320,
+      390,
+      1280
+    ],
+    "realBrowserClipboard": true,
+    "syntheticOrderWritesBlocked": 9,
+    "syntheticSigningAttemptsRejected": 6,
+    "pageErrors": 0,
+    "report": "docs/e4-payment-requisites-copy/tests.json",
+    "browserReport": "docs/e4-payment-requisites-copy/report.json",
+    "isolation": "docs/e4-payment-requisites-copy/isolation.json",
+    "secretScan": "PASS: redacted explicit staged scope, no new allowlist",
+    "secretScanReport": "docs/e4-payment-requisites-copy/gitleaks-report.json"
+  },
+  "reviews": {
+    "acceptance": "docs/e4-payment-requisites-copy/acceptance-review.json",
+    "independentDiffSecurity": "docs/e4-payment-requisites-copy/security-review.json",
+    "acceptanceResult": "PASS",
+    "independentDiffSecurityResult": "PASS",
+    "outputSha256": {
+      "acceptance-review.json": "4c7416ec17851e9a843537b7ac35b9d8340f3ee605f2285c3dd217d6b7d9a053",
+      "security-review.json": "f6db7d302ec31b86fdb3774a6023ab0c4dd4898f1d25136107113d696bc87aba"
+    }
+  },
+  "negativeFindings": [
+    "Baseline prematurely reports success for pending/rejected copying and interpolates provider-controlled values into executable inline JavaScript; independent source and mutation probes reproduce both.",
+    "Intermediate candidate isolated feedback but allowed competing native writes across order generations; honest write-on-resolve probes reproduced older A overwriting clipboard after B success. Final global token prevents overlapping UI writes.",
+    "Two initial real-browser action timeouts occurred in distinct unchanged paths before new copy cases. Exact causation is not proven; failed reports retained. After pinned cleanup of 33 orphan Playwright processes and resource recovery, default-motion browser passed; no timeout/force/fixture weakening."
+  ],
+  "runtimeResourceRecovery": "docs/e4-payment-requisites-copy/runtime-resource-recovery.json",
+  "browserAttemptHistory": "docs/e4-payment-requisites-copy/browser-attempts.json",
+  "preflight": "docs/e4-payment-requisites-copy/preflight.json",
+  "rollbackRehearsal": "docs/e4-payment-requisites-copy/rollback-rehearsal.json",
+  "deploymentRecipe": "deploy/e4_payment_requisites_copy_rollout.py",
+  "deploymentRecipeSha256": "b3db3202bcfb6f85765007485fd68af68e82e7280e3e95e5e0fa8eb727850df2",
+  "productionStatus": "VERIFIED: exact reviewed HTML served; GET200/POST405/rendered-template match; Relay/bot/Nginx retain active unchanged identities; no restart",
+  "limits": [
+    "Automated isolated Chrome only; human/Telegram/iOS/WebKit/native and live signing acceptance remain unverified.",
+    "An already submitted browser clipboard write cannot be cancelled. The token serializes this UI’s own writes only; external apps or other clipboard producers remain outside its control.",
+    "A never-settling original clipboard promise keeps subsequent requisites copies disabled with explicit waiting status; no ambiguous retry.",
+    "E4 remains IN_PROGRESS and earlier gates remain open; no stage transition."
+  ],
+  "dataRetention": "Evidence contains public code metadata and invented fixtures only. Disposable final browser unit/profile cleanup verified; older identified profiles retained after stopping their pinned orphan processes. Existing owner artifacts untouched.",
+  "supervisor": "Left failed/stopped unchanged per owner; no recovery/restart/reconfiguration",
+  "nextCanonicalItem": "E4 / ORDER_SUPPORT_CLIPBOARD_INDEPENDENCE / open order support despite clipboard denial, failure or stalled completion, with truthful copy feedback",
+  "transitionEvidence": "",
+  "blocker": "",
+  "rollout": {
+    "recordedAt": "2026-09-08T00:51:54.193315+00:00",
+    "state": "VERIFIED",
+    "target": "/opt/obsidian-exchange/relay/webapp.html",
+    "previousSha256": "6bdad471edcedf7b21d28373cdd564268d50f62b16385bac9905215ad4df2db8",
+    "deployedSha256": "f10c4ca6bbe8935822433c300d4286878e1c460255b780ae33dcba16a9e532c8",
+    "rollbackPreimage": "/var/lib/obsidian-exchange/deployment-preimages/e4-payment-requisites-copy-20260908-zdcv4k88/webapp.html",
+    "rollbackPreimageSha256": "6bdad471edcedf7b21d28373cdd564268d50f62b16385bac9905215ad4df2db8",
+    "method": "hash-bound fsynced atomic replacement; no restart",
+    "rollbackExecuted": false,
+    "publicGet": 200,
+    "publicPost": 405,
+    "publicMatchesDeployedTemplate": true,
+    "publicBodySha256": "1a3906a27fbd8b41567ef2fdfb2dbdd891b876d3e90d266bfe1599da41531a7b",
+    "url": "https://obsidian-exchange.org/webapp",
+    "services": {
+      "relay-fastapi.service": {
+        "MainPID": "3877703",
+        "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:55 UTC",
+        "ActiveState": "active"
+      },
+      "exchange-bot.service": {
+        "MainPID": "3877887",
+        "ExecMainStartTimestamp": "Tue 2026-09-01 06:20:00 UTC",
+        "ActiveState": "active"
+      },
+      "nginx.service": {
+        "MainPID": "3877705",
+        "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:56 UTC",
+        "ActiveState": "active"
+      }
+    },
+    "serviceIdentityUnchanged": true
+  },
+  "rollback": "Verify pinned current and retained previous hashes, then use deploy/e4_payment_requisites_copy_rollout.py rollback and verify public bytes/service identities; never blindly repeat an uncertain deployment.",
+  "finalEvidenceConsistencyReview": {
+    "reviewer": "/root/requisites_acceptance",
+    "result": "PASS",
+    "scope": "Final rollout/deployment, exact review digests, CURRENT_ROUTE, compact PROJECT_MEMORY and canonical E4 note",
+    "independentRuntimeObservation": "Production HTML hash matches f10c4ca6...e532c8; Relay/bot/Nginx active and autopilot failed",
+    "filesMutatedByReviewer": false
+  }
+}

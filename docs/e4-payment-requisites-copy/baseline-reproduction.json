@@ -1,0 +1,72 @@
+{
+  "schemaVersion": "e4-payment-requisites-copy-baseline.v1",
+  "recordedAt": "2026-09-08T00:37:32Z",
+  "reviewer": "Codex acceptance subagent /root/requisites_acceptance",
+  "result": "BASELINE_DEFECT_REPRODUCED",
+  "source": {
+    "path": "/tmp/e4-requisites-baseline.html",
+    "origin": "git show HEAD:relay/webapp.html before candidate implementation",
+    "baseCommit": "65a219ad3744bb43ce64f4760ed4350139921d0a",
+    "sha256": "6bdad471edcedf7b21d28373cdd564268d50f62b16385bac9905215ad4df2db8"
+  },
+  "command": "node tests/e4_payment_requisites_copy_behavior.cjs /tmp/e4-requisites-baseline.html baseline_observed",
+  "observations": [
+    {
+      "case": "pending",
+      "prematureSuccess": true
+    },
+    {
+      "case": "rejected",
+      "prematureSuccess": true
+    },
+    {
+      "case": "literal_apostrophe",
+      "handlerSyntaxError": true
+    }
+  ],
+  "scope": "Shipped startOrderTracking functions and their generated inline onclick handler executed in Node VM with synthetic DOM and controlled clipboard promises.",
+  "syntheticValues": [
+    "+7 000 000-00-01",
+    "O'Brien 42"
+  ],
+  "candidateMutationCheck": {
+    "result": "MUTATION_KILLED",
+    "scenario": "pending_success",
+    "change": "Remove await from navigator.clipboard.writeText(detail) in a disposable candidate copy.",
+    "mutatedSourceSha256": "2a10e949037f37fc5b65d7fdcf9ff5155b70a2c1fc8bc4ec8feab962b3c12a5f",
+    "observedReturnCode": 1,
+    "failure": "Success appeared while clipboard promise was pending.",
+    "cleanup": "Disposable TemporaryDirectory removed; product bytes unchanged.",
+    "candidateInputSha256": "3f1fb438f7c48524216cbfce01c3b4b01a9f7d42aee13fcfad520cba76b82272"
+  },
+  "limits": [
+    "This is deterministic source execution, not a real browser result.",
+    "No production traffic, customer data, keys, financial writes or real clipboard used."
+  ],
+  "updatedAt": "2026-09-08T00:49:12.931452+00:00",
+  "crossOrderCompletionReproduction": {
+    "finding": "E4-COPY-ACC-002",
+    "result": "REPRODUCED_AND_REGRESSION_RED_THEN_GREEN",
+    "preSerializationSourceSha256": "3f1fb438f7c48524216cbfce01c3b4b01a9f7d42aee13fcfad520cba76b82272",
+    "preSerializationSourcePath": "/tmp/e4-requisites-before-serialization.html",
+    "correctedSourceSha256": "f10c4ca6bbe8935822433c300d4286878e1c460255b780ae33dcba16a9e532c8",
+    "model": "Deferred clipboard operations update synthetic clipboard contents on completion, independently of promise invocation order.",
+    "afterB": {
+      "nativeClipboard": "value-B",
+      "feedback": "✓ Реквизиты скопированы",
+      "displayed": "value-B"
+    },
+    "afterLateA": {
+      "nativeClipboard": "value-A",
+      "feedback": "✓ Реквизиты скопированы",
+      "displayed": "value-B"
+    },
+    "regressionCommand": "node tests/e4_payment_requisites_copy_behavior.cjs SOURCE cross_order_success",
+    "preSerializationRegression": {
+      "exitCode": 1,
+      "failure": "new view must wait for the previous native write; false !== true"
+    },
+    "correctedRegression": "PASS; six new cases cover old success/rejection, same ID, waiting reset, terminal transition and newer generation.",
+    "disposition": "Product now retains a shared in-flight token until actual prior write settles; fresh view waits visibly and requires a fresh user tap afterward."
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "recordedAt": "2026-09-08T00:49:09.293952+00:00",
+  "result": "PASS",
+  "focusedPassed": 123,
+  "newBehaviorScenarios": 26,
+  "durationSeconds": 6.36,
+  "command": "/opt/lumi/venv/bin/python -m pytest -q tests/test_e4_payment_requisites_copy_behavior.py tests/test_e4_payment_instruction_behavior.py tests/test_e4_receive_copy_behavior.py tests/test_e4_review_browser_runner.py tests/test_e4_exchange_review_ui.py tests/test_e4_recipient_review_behavior.py tests/test_e4_responsive_navigation.py tests/test_e4_miniapp_browser_shell.py",
+  "stdoutSha256": "d2cd6b462dc6f4ff64d0a46b63c63875377c9602b84174e4e86d56b37553f351",
+  "inputSha256": {
+    "relay/webapp.html": "f10c4ca6bbe8935822433c300d4286878e1c460255b780ae33dcba16a9e532c8",
+    "tests/e4_review_browser.cjs": "11348d2353456c0404ad5e44323dc50550886b4682dc119363992c10bf69b96d",
+    "tests/e4_payment_requisites_copy_behavior.cjs": "3ce40d9e74a6ed2819fe543ea85e2ecd810f3a57c764616f5a4d9d27101ec9f5",
+    "tests/test_e4_payment_requisites_copy_behavior.py": "3b0e45d530c32e872ac54222120544e4bd63467cf1e33373d44105b7b8230a3a",
+    "tests/e4_payment_instruction_behavior.cjs": "53d6e55e5d61cc465d8402239e88b1eb0d9b2a12e44309edf7d2c24f002b239a",
+    "deploy/e4_payment_requisites_copy_rollout.py": "b3db3202bcfb6f85765007485fd68af68e82e7280e3e95e5e0fa8eb727850df2"
+  },
+  "limits": "Focused UI regressions; no live signing or payment execution."
+}

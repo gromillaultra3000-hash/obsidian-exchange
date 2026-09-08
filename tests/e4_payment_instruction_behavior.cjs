@@ -8,10 +8,11 @@ const source = fs.readFileSync(sourcePath, 'utf8');
 const elements = new Map();
 const ids = ['pay-card', 'pay-card-title', 'pay-card-status', 'pay-timer',
     'pay-open-btn', 'pay-check-btn', 'exchange-steps', 'pay-qr-wrap',
-    'pay-qr', 'pay-amount-line', 'pay-req'];
+    'pay-qr', 'pay-amount-line', 'pay-req', 'pay-req-value', 'pay-req-copy', 'pay-req-copy-status'];
 for (const id of ids) {
     let contents = '';
     elements.set(id, {style: {}, disabled: false,
+        addEventListener() {},
         get textContent() {return contents;}, set textContent(v) {contents = v;},
         get innerHTML() {return contents;}, set innerHTML(v) {contents = v;},
         removeAttribute(name) {delete this[name];}});

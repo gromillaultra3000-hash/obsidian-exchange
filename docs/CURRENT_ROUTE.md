@@ -1,6 +1,6 @@
 # Current canonical route
 
-Updated: 2026-09-07 UTC
+Updated: 2026-09-08 UTC
 
 ## Product objective
 
@@ -11,76 +11,65 @@ non-custodial wallet whose keys never reach the server.
 
 ## Active route
 
-`E4 / PAYMENT_REQUISITES_COPY_INTEGRITY / preserve requisites and report copy success only after clipboard completion, with explicit failure and stale-feedback isolation`
+`E4 / ORDER_SUPPORT_CLIPBOARD_INDEPENDENCE / open order support despite clipboard denial, failure or stalled completion, with truthful copy feedback`
 
-The interrupted PAYMENT_INSTRUCTION_ISOLATION checkpoint is now VERIFIED and
-deployed (2026-09-07 04:45 UTC). Its existing implementation commit
-`bd70fab554096cf1949c606d0b7fa86dca561a50` was resumed after inspected recovery;
-no unrelated product change was manufactured. Fresh tests and both reviews
-passed before one reversible atomic HTML rollout. The supervisor
-retains its sole-writer lock and owns any following iteration.
-Evidence: `docs/e4-payment-instruction-rollout.v1.json`.
+Owner decision 2026-09-08: continue code-first implementation and reversible
+deployment manually. Leave the autopilot stopped; recovery/restart is deferred
+until the owner requests bedtime work. Its actual state remains failed since
+2026-09-07 04:48:08 UTC (`UNCOMMITTED_NEW_FILES`), MainPID zero. The supervisor
+accepted only two iterations before its third already deployed slice failed
+artifact accounting. Manual changes must be reconciled before a future start;
+do not replay the old receipt or assume its next_step matches this route.
+No supervisor unit/config/state was changed in this manual iteration.
 
-Owner decision 2026-09-07: restore autonomous code-first E0–E5 delivery for
-24 hours, without the former eight-iteration ceiling, with immediate reversible
-autodeployment after tests, two reviews, rollback preflight and runtime checks.
-This covers product code, UI, backend, native, tests and operations, not only
-integrations. The supplemental owner authorization allows technical preparation
-of formerly deferred financial features, including 064A diagnosis; consumed
-authority remains unusable and terminal archives remain immutable. The runner
-does not execute financial trades/transfers; it prepares them for owner execution.
-The master-roadmap decision dated 2026-09-07 supersedes older blanket scope
-prohibitions below. Missing actual credentials/authority still require evidence.
+PAYMENT_REQUISITES_COPY_INTEGRITY is VERIFIED and deployed at
+2026-09-08 00:51 UTC. Requisites remain literal visible text; captured listeners
+replace executable inline interpolation. A separate accessible status reports
+success only after the browser accepts the copy, and reports failure explicitly.
+One global pending token prevents a previous order's late clipboard write from
+overtaking a new order's copy. New instructions wait for actual settlement and
+require a fresh user tap; no copy is automatically queued. Generation, instruction
+validity and DOM identity guards reject obsolete feedback and actions.
 
-Owner decision 2026-09-06: automatic continuation now covers E0–E5, replacing
-the former E4-only supervisor restriction. The initial E4 browser slice is
-completed below; subsequent canonical prerequisites are selected using
-`docs/autonomous-roadmap-transitions.md` and the matching decision in the
-master roadmap. Actual forward acceptance requires earlier gates VERIFIED;
-named early blockers permit separately labelled KEYLESS_NONPRODUCTION
-preparation, never a false gate closure or live authority. The supervisor binds
-the next stage and carries its scope across iterations. The old eight-iteration/
-twelve-hour allowance is superseded by the 2026-09-07 decision above.
+123 focused tests, 120 isolated default-motion Chrome checks at 320/390/1280px,
+and both independent reviews pass. These include an honest write-on-completion
+regression for cross-order overwrite. Earlier two browser action timeouts were
+retained; positively identified orphan Playwright trees were stopped through
+pinned pidfds, recovering about 2 GiB available RAM. Final units/cgroups were
+cleaned. No force clicks, timeout relaxation or reduced-motion fixture was used.
 
-Last accepted product checkpoint (2026-09-07): payment-instruction isolation is
-verified and deployed. Fresh orders clear the previous QR source, amount,
-requisites and action state before display. Generation guards reject obsolete
-status/body/timer/captured actions, including same-ID reopening. Status reads
-are serialized, no-store and bounded by a 10-second fetch/body abort deadline.
-Terminal instructions clear their data and revoke the payment action.
+HTML `f10c4ca6...e532c8` is live: GET200/POST405/exact rendered-template match;
+Relay/bot/Nginx remain active with unchanged Sep 1 PID/start identities.
+Exact rollback: `/var/lib/obsidian-exchange/deployment-preimages/e4-payment-requisites-copy-20260908-zdcv4k88/webapp.html`.
+Evidence: `docs/e4-payment-requisites-copy-rollout.v1.json` and its directory.
+No real money/signatures/customer reads/keys/credentials/messages/064A work.
 
-97 focused tests and 96 isolated Chrome checks pass at 320/390/1280px. Both
-independent reviews pass, including the prior hung-read finding's resolution.
-Nine synthetic order writes were blocked and six synthetic signing attempts
-rejected; no real money, keys, credentials or messages were involved. Browser
-unit cleanup is verified. Reviewed HTML `6bdad471...df2db8` is live:
-GET200/POST405/exact rendered-template match, Relay/bot/Nginx active with
-unchanged PID/start identities and no restart. Exact root-only rollback:
-`/var/lib/obsidian-exchange/deployment-preimages/e4-payment-isolation-20260907-ane0f9p2/webapp.html`.
+Exactly next: `E4 / ORDER_SUPPORT_CLIPBOARD_INDEPENDENCE`.
+Independent execution of the current copyOrderId/openOrderSupport helpers proves
+that stalled clipboard completion prevents support from opening; clipboard denial
+plus a throwing legacy fallback rejects the support action. The next slice makes
+support access independent of optional copying and keeps copy feedback truthful.
+Evidence: `docs/e4-payment-requisites-copy/next-prerequisite.json`.
 
-Exactly next: `E4 / PAYMENT_REQUISITES_COPY_INTEGRITY / preserve requisites and report copy success only after clipboard completion, with explicit failure and stale-feedback isolation`.
-The acceptance reviewer reproduced the unchanged payment-requisites handler
-showing ✓ while clipboard copying is pending or rejected, risking use of old
-clipboard contents. Evidence: `docs/e4-payment-instruction/next-prerequisite.json`.
-This is a remaining monetary-path usability prerequisite, not replay of the
-completed receive-address vertical or payment-state reset.
+E4 remains IN_PROGRESS; no stage transition or earlier gate closure occurred.
+Chrome evidence does not establish human comprehension, real Telegram/iOS/WebKit,
+QR decoding, native streaming-body timeout or live signing acceptance. A submitted
+browser clipboard write cannot be cancelled; serialization controls only this
+UI's writes, not external apps or other clipboard producers. A stalled original
+write keeps subsequent copies disabled with explicit waiting status.
 
-No stage transition occurred; CURRENT_AUTHORIZED_SCOPE persists. E4 remains
-IN_PROGRESS. Automated Chrome evidence does not establish human comprehension,
-real Telegram/iOS/WebKit, QR decoding, native streaming-body timeout or live
-wallet signing acceptance. Earlier mandatory gates remain unverified;
-consumed 064A authority and terminal archives are unchanged.
+The 2026-09-07 owner authorization for code-first E0–E5 work and reversible
+rollouts remains subject to tests, two reviews, rollback and runtime checks.
+Technical financial preparation is allowed; actual trades/transfers remain owner
+executed, consumed authority remains unusable and terminal archives are immutable.
+Later-stage preparation under an earlier blocker remains KEYLESS_NONPRODUCTION;
+no credential, signature, custody or live authority is inferred from that scope.
+The manual decision above controls execution mode now. Before further edits,
+inspect actual systemd/status as described in `docs/ssh-independent-work.md`.
 
-SSH-independent execution is an operational prerequisite for this same route,
-documented in `docs/ssh-independent-work.md` and
-`docs/ssh-independent-work-rollout.v1.json`. Before interactive edits, check
-the runner; an active runner is the sole writer. Its iterations preserve the
-existing approval review and stop on a concrete blocker. Current runtime status
-is `/var/lib/obsidian-roadmap-autopilot/status.json`, not an assumption from this
-document. The older sections below are historical evidence.
-
-Earlier prerequisite route: `E0 → E0.3 → B5.3 → 064A`; technical diagnosis and
-preparation follow the 2026-09-07 decision, while consumed authority stays closed.
+Earlier prerequisite route: `E0 → E0.3 → B5.3 → 064A`; technical diagnosis follows
+the 2026-09-07 decision while consumed authority stays closed. Older sections
+below are retained as historical evidence.
 
 ### Owner reprioritization — 2026-08-26
 

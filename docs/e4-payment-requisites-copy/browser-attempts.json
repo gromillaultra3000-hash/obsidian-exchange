@@ -1,0 +1,50 @@
+{
+  "recordedAt": "2026-09-08T00:45:19.363129+00:00",
+  "attempts": [
+    {
+      "path": "output/playwright/e4-payment-requisites-copy-20260908-final",
+      "result": "FAIL",
+      "failure": "locator.check: Timeout 5000ms exceeded.\nCall log:\n  - waiting for locator('#exchange-review-ack')\n    - locator resolved to <input type=\"checkbox\" id=\"exchange-review-ack\"/>\n",
+      "checksPassedBeforeFailure": 13,
+      "sourceSha256": "3f1fb438f7c48524216cbfce01c3b4b01a9f7d42aee13fcfad520cba76b82272",
+      "runnerSha256": "44d4f5cf23d0c14fe042e86a6e7877b79299d693de80bdec00422219e2147ea0",
+      "reportSha256": "85a838de456ce3b9356bfaa4c7fa5dc5b24f7e53f3298dbf03486b4c4aab3d83",
+      "unitStopped": true,
+      "cgroupEmpty": true
+    },
+    {
+      "path": "output/playwright/e4-payment-requisites-copy-20260908-diagnostic2",
+      "result": "FAIL",
+      "failure": "locator.click: Timeout 5000ms exceeded.\nCall log:\n  - waiting for locator('#create-order')\n    - locator resolved to <button id=\"create-order\" class=\"btn btn-breathe\">\ud83d\ude80 \u0421\u043e\u0437\u0434\u0430\u0442\u044c \u0437\u0430\u044f\u0432\u043a\u0443</button>\n  - attempting click action\n    - waiting for element to be visible, enabled and stable\n    - element is visible, enabled and stable\n    - scrolling into view if needed\n    - done scrolling\n",
+      "checksPassedBeforeFailure": 21,
+      "sourceSha256": "3f1fb438f7c48524216cbfce01c3b4b01a9f7d42aee13fcfad520cba76b82272",
+      "runnerSha256": "ee30f43e025f590182d9d9e34797e32f7bcbc47386fc1b5f149c15ef1df9a083",
+      "reportSha256": "15cdc9efc443cdf9a499afaf0934fbd91cc1df8b282ffcda3d186b56df84e8db",
+      "unitStopped": true,
+      "cgroupEmpty": true
+    },
+    {
+      "path": "output/playwright/e4-payment-requisites-copy-20260908-verified",
+      "result": "PASS",
+      "checksPassed": 117,
+      "sourceSha256": "3f1fb438f7c48524216cbfce01c3b4b01a9f7d42aee13fcfad520cba76b82272",
+      "runnerSha256": "ee30f43e025f590182d9d9e34797e32f7bcbc47386fc1b5f149c15ef1df9a083",
+      "reportSha256": "8841589f46fd37f075536adaa03849fa66414da4307d731502efe2a108c02a42",
+      "unitStopped": true,
+      "cgroupEmpty": true
+    },
+    {
+      "path": "output/playwright/e4-payment-requisites-copy-20260908-serialized",
+      "result": "PASS",
+      "checksPassed": 120,
+      "sourceSha256": "f10c4ca6bbe8935822433c300d4286878e1c460255b780ae33dcba16a9e532c8",
+      "runnerSha256": "11348d2353456c0404ad5e44323dc50550886b4682dc119363992c10bf69b96d",
+      "reportSha256": "374a6ae23b43a816a5f12f22787d305cb7d6b2f277421536a638acbbd6754197",
+      "unitStopped": true,
+      "cgroupEmpty": true
+    }
+  ],
+  "observedEnvironment": "Host available RAM about400MiB, swap full and three older orphan Playwright trees remained. Their pinned cleanup recovered about2GiB available RAM. The two failed real clicks occurred in different unchanged paths before new requisites cases. Exact causation is not proven.",
+  "harnessChange": "Failure-only DOM/screenshot diagnostics; no timeout/force/reduced-motion change.",
+  "recoveryEvidence": "docs/e4-payment-requisites-copy/runtime-resource-recovery.json"
+}

@@ -1,0 +1,915 @@
+{
+  "schemaVersion": "e4-review-browser.v1",
+  "sourceSha256": "f10c4ca6bbe8935822433c300d4286878e1c460255b780ae33dcba16a9e532c8",
+  "runnerSha256": "11348d2353456c0404ad5e44323dc50550886b4682dc119363992c10bf69b96d",
+  "playwrightVersion": "1.62.0",
+  "checks": [
+    "320: buy opens at conditions without overflow",
+    "320: reopen opens at conditions without overflow",
+    "320: keyboard containment, Enter inert, Escape/cancel restore focus",
+    "320: after-expiry opens at conditions without overflow",
+    "320: expiry blocks confirmation and reopening resets acknowledgement",
+    "320: acknowledged buy reaches only blocked synthetic writer",
+    "320: memo spaces/markup remain literal text",
+    "320: sell-sbp opens at conditions without overflow",
+    "320: sbp recipient review/cancel and one blocked confirmed writer",
+    "320: sell-card opens at conditions without overflow",
+    "320: card recipient review/cancel and one blocked confirmed writer",
+    "320: wallet-transfer opens at conditions without overflow",
+    "320: wallet transfer network fee visible without clipping",
+    "320: wallet-transfer-fresh opens at conditions without overflow",
+    "320: wallet transfer copy/fees/literal recipient and memo verified",
+    "320: wallet transfer cancel/Escape/expiry block handoff; fresh acknowledgement reaches rejecting stub once",
+    "320: wallet-payment opens at conditions without overflow",
+    "320: wallet payment network fee visible without clipping",
+    "320: wallet-payment-fresh opens at conditions without overflow",
+    "320: wallet payment copy/fees/literal recipient and memo verified",
+    "320: wallet payment cancel/Escape/expiry block handoff; fresh acknowledgement reaches rejecting stub once",
+    "320: wallet-to-buy/sell restores order description, label and unchecked acknowledgement",
+    "320: receive address/QR survive pending, repeated and completed copies; truthful delayed success",
+    "320: clipboard rejection shows retry feedback without haptic; explicit retry succeeds",
+    "320: closed receive view ignores late completion; missing clipboard reports failure",
+    "320: real Chrome clipboard contains exact address after two taps; address wraps without clipping",
+    "320: receive loading clears prior address/QR and disables copy; send ignores late response",
+    "320: reordered receive response cannot replace new address; wallet change invalidates pending receive",
+    "320: QR-to-text clears QR/amount; obsolete status and captured actions ignored; paid-to-new restores controls",
+    "320: cancelled/receipt/expired-to-new restores instructions; link/QR labels and missing amount are isolated",
+    "320: absent payment destination clears prior data and exposes no payment action",
+    "320: native fetch aborts stalled status request; manual check recovers to paid",
+    "320: literal requisites remain text; keyboard copy awaits completion; duplicate dispatch is inert; accessible separate status fits viewport",
+    "320: rejected and unavailable clipboard give manual-copy feedback; retry recovers with exact preserved requisites",
+    "320: new-order invalidates stale feedback and serializes native writes until explicit current-view copy",
+    "320: same-id invalidates stale feedback and serializes native writes until explicit current-view copy",
+    "320: empty-reset invalidates stale feedback and serializes native writes until explicit current-view copy",
+    "320: terminal state during prior clipboard wait cannot revive the new view's copy controls",
+    "320: paid/sent/cancelled/expired/failed/receipt/dead transitions discard pending copy and stale controls",
+    "320: real Chrome clipboard preserves spaces, quotes, backticks and script-shaped text for phone/card repeated copies",
+    "390: buy opens at conditions without overflow",
+    "390: reopen opens at conditions without overflow",
+    "390: keyboard containment, Enter inert, Escape/cancel restore focus",
+    "390: after-expiry opens at conditions without overflow",
+    "390: expiry blocks confirmation and reopening resets acknowledgement",
+    "390: acknowledged buy reaches only blocked synthetic writer",
+    "390: memo spaces/markup remain literal text",
+    "390: sell-sbp opens at conditions without overflow",
+    "390: sbp recipient review/cancel and one blocked confirmed writer",
+    "390: sell-card opens at conditions without overflow",
+    "390: card recipient review/cancel and one blocked confirmed writer",
+    "390: wallet-transfer opens at conditions without overflow",
+    "390: wallet transfer network fee visible without clipping",
+    "390: wallet-transfer-fresh opens at conditions without overflow",
+    "390: wallet transfer copy/fees/literal recipient and memo verified",
+    "390: wallet transfer cancel/Escape/expiry block handoff; fresh acknowledgement reaches rejecting stub once",
+    "390: wallet-payment opens at conditions without overflow",
+    "390: wallet payment network fee visible without clipping",
+    "390: wallet-payment-fresh opens at conditions without overflow",
+    "390: wallet payment copy/fees/literal recipient and memo verified",
+    "390: wallet payment cancel/Escape/expiry block handoff; fresh acknowledgement reaches rejecting stub once",
+    "390: wallet-to-buy/sell restores order description, label and unchecked acknowledgement",
+    "390: receive address/QR survive pending, repeated and completed copies; truthful delayed success",
+    "390: clipboard rejection shows retry feedback without haptic; explicit retry succeeds",
+    "390: closed receive view ignores late completion; missing clipboard reports failure",
+    "390: real Chrome clipboard contains exact address after two taps; address wraps without clipping",
+    "390: receive loading clears prior address/QR and disables copy; send ignores late response",
+    "390: reordered receive response cannot replace new address; wallet change invalidates pending receive",
+    "390: QR-to-text clears QR/amount; obsolete status and captured actions ignored; paid-to-new restores controls",
+    "390: cancelled/receipt/expired-to-new restores instructions; link/QR labels and missing amount are isolated",
+    "390: absent payment destination clears prior data and exposes no payment action",
+    "390: native fetch aborts stalled status request; manual check recovers to paid",
+    "390: literal requisites remain text; keyboard copy awaits completion; duplicate dispatch is inert; accessible separate status fits viewport",
+    "390: rejected and unavailable clipboard give manual-copy feedback; retry recovers with exact preserved requisites",
+    "390: new-order invalidates stale feedback and serializes native writes until explicit current-view copy",
+    "390: same-id invalidates stale feedback and serializes native writes until explicit current-view copy",
+    "390: empty-reset invalidates stale feedback and serializes native writes until explicit current-view copy",
+    "390: terminal state during prior clipboard wait cannot revive the new view's copy controls",
+    "390: paid/sent/cancelled/expired/failed/receipt/dead transitions discard pending copy and stale controls",
+    "390: real Chrome clipboard preserves spaces, quotes, backticks and script-shaped text for phone/card repeated copies",
+    "1280: buy opens at conditions without overflow",
+    "1280: reopen opens at conditions without overflow",
+    "1280: keyboard containment, Enter inert, Escape/cancel restore focus",
+    "1280: after-expiry opens at conditions without overflow",
+    "1280: expiry blocks confirmation and reopening resets acknowledgement",
+    "1280: acknowledged buy reaches only blocked synthetic writer",
+    "1280: memo spaces/markup remain literal text",
+    "1280: sell-sbp opens at conditions without overflow",
+    "1280: sbp recipient review/cancel and one blocked confirmed writer",
+    "1280: sell-card opens at conditions without overflow",
+    "1280: card recipient review/cancel and one blocked confirmed writer",
+    "1280: wallet-transfer opens at conditions without overflow",
+    "1280: wallet transfer network fee visible without clipping",
+    "1280: wallet-transfer-fresh opens at conditions without overflow",
+    "1280: wallet transfer copy/fees/literal recipient and memo verified",
+    "1280: wallet transfer cancel/Escape/expiry block handoff; fresh acknowledgement reaches rejecting stub once",
+    "1280: wallet-payment opens at conditions without overflow",
+    "1280: wallet payment network fee visible without clipping",
+    "1280: wallet-payment-fresh opens at conditions without overflow",
+    "1280: wallet payment copy/fees/literal recipient and memo verified",
+    "1280: wallet payment cancel/Escape/expiry block handoff; fresh acknowledgement reaches rejecting stub once",
+    "1280: wallet-to-buy/sell restores order description, label and unchecked acknowledgement",
+    "1280: receive address/QR survive pending, repeated and completed copies; truthful delayed success",
+    "1280: clipboard rejection shows retry feedback without haptic; explicit retry succeeds",
+    "1280: closed receive view ignores late completion; missing clipboard reports failure",
+    "1280: real Chrome clipboard contains exact address after two taps; address wraps without clipping",
+    "1280: receive loading clears prior address/QR and disables copy; send ignores late response",
+    "1280: reordered receive response cannot replace new address; wallet change invalidates pending receive",
+    "1280: QR-to-text clears QR/amount; obsolete status and captured actions ignored; paid-to-new restores controls",
+    "1280: cancelled/receipt/expired-to-new restores instructions; link/QR labels and missing amount are isolated",
+    "1280: absent payment destination clears prior data and exposes no payment action",
+    "1280: native fetch aborts stalled status request; manual check recovers to paid",
+    "1280: literal requisites remain text; keyboard copy awaits completion; duplicate dispatch is inert; accessible separate status fits viewport",
+    "1280: rejected and unavailable clipboard give manual-copy feedback; retry recovers with exact preserved requisites",
+    "1280: new-order invalidates stale feedback and serializes native writes until explicit current-view copy",
+    "1280: same-id invalidates stale feedback and serializes native writes until explicit current-view copy",
+    "1280: empty-reset invalidates stale feedback and serializes native writes until explicit current-view copy",
+    "1280: terminal state during prior clipboard wait cannot revive the new view's copy controls",
+    "1280: paid/sent/cancelled/expired/failed/receipt/dead transitions discard pending copy and stale controls",
+    "1280: real Chrome clipboard preserves spaces, quotes, backticks and script-shaped text for phone/card repeated copies"
+  ],
+  "openings": [
+    {
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "label": "buy",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 278,
+      "scrollWidth": 278
+    },
+    {
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "label": "reopen",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 278,
+      "scrollWidth": 278
+    },
+    {
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "label": "after-expiry",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 278,
+      "scrollWidth": 278
+    },
+    {
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "label": "sell-sbp",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 278,
+      "scrollWidth": 278
+    },
+    {
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "label": "sell-card",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 278,
+      "scrollWidth": 278
+    },
+    {
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "label": "wallet-transfer",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 278,
+      "scrollWidth": 278
+    },
+    {
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "label": "wallet-transfer-fresh",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 278,
+      "scrollWidth": 278
+    },
+    {
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "label": "wallet-payment",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 278,
+      "scrollWidth": 278
+    },
+    {
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "label": "wallet-payment-fresh",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 278,
+      "scrollWidth": 278
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "label": "buy",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 348,
+      "scrollWidth": 348
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "label": "reopen",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 348,
+      "scrollWidth": 348
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "label": "after-expiry",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 348,
+      "scrollWidth": 348
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "label": "sell-sbp",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 348,
+      "scrollWidth": 348
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "label": "sell-card",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 348,
+      "scrollWidth": 348
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "label": "wallet-transfer",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 348,
+      "scrollWidth": 348
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "label": "wallet-transfer-fresh",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 348,
+      "scrollWidth": 348
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "label": "wallet-payment",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 348,
+      "scrollWidth": 348
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "label": "wallet-payment-fresh",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 348,
+      "scrollWidth": 348
+    },
+    {
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "label": "buy",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 518,
+      "scrollWidth": 518
+    },
+    {
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "label": "reopen",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 518,
+      "scrollWidth": 518
+    },
+    {
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "label": "after-expiry",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 518,
+      "scrollWidth": 518
+    },
+    {
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "label": "sell-sbp",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 518,
+      "scrollWidth": 518
+    },
+    {
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "label": "sell-card",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 518,
+      "scrollWidth": 518
+    },
+    {
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "label": "wallet-transfer",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 518,
+      "scrollWidth": 518
+    },
+    {
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "label": "wallet-transfer-fresh",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 518,
+      "scrollWidth": 518
+    },
+    {
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "label": "wallet-payment",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 518,
+      "scrollWidth": 518
+    },
+    {
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "label": "wallet-payment-fresh",
+      "scrollTop": 0,
+      "focused": "exchange-review-title",
+      "titleVisible": true,
+      "clientWidth": 518,
+      "scrollWidth": 518
+    }
+  ],
+  "writerAttempts": [
+    {
+      "path": "/api/create_order",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 12500,
+        "address": "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+        "network": "MAINNET",
+        "pay_method": "sbp",
+        "dest_tag": "",
+        "no_tag": false
+      }
+    },
+    {
+      "path": "/api/sell/create",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 0.01,
+        "phone": "70000000000",
+        "method": "sbp",
+        "bank": "test-bank",
+        "full_name": "Тестовый Получатель"
+      }
+    },
+    {
+      "path": "/api/sell/create",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 0.01,
+        "phone": "4111111111111111",
+        "method": "card",
+        "bank": "test-bank",
+        "full_name": "Тестовый Получатель"
+      }
+    },
+    {
+      "path": "/api/create_order",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 12500,
+        "address": "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+        "network": "MAINNET",
+        "pay_method": "sbp",
+        "dest_tag": "",
+        "no_tag": false
+      }
+    },
+    {
+      "path": "/api/sell/create",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 0.01,
+        "phone": "70000000000",
+        "method": "sbp",
+        "bank": "test-bank",
+        "full_name": "Тестовый Получатель"
+      }
+    },
+    {
+      "path": "/api/sell/create",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 0.01,
+        "phone": "4111111111111111",
+        "method": "card",
+        "bank": "test-bank",
+        "full_name": "Тестовый Получатель"
+      }
+    },
+    {
+      "path": "/api/create_order",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 12500,
+        "address": "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+        "network": "MAINNET",
+        "pay_method": "sbp",
+        "dest_tag": "",
+        "no_tag": false
+      }
+    },
+    {
+      "path": "/api/sell/create",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 0.01,
+        "phone": "70000000000",
+        "method": "sbp",
+        "bank": "test-bank",
+        "full_name": "Тестовый Получатель"
+      }
+    },
+    {
+      "path": "/api/sell/create",
+      "method": "POST",
+      "payload": {
+        "currency": "BTC",
+        "amount": 0.01,
+        "phone": "4111111111111111",
+        "method": "card",
+        "bank": "test-bank",
+        "full_name": "Тестовый Получатель"
+      }
+    }
+  ],
+  "walletPreparations": [
+    {
+      "path": "/api/wallet/transfer-request",
+      "payload": {
+        "to": "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "amount": "1.25",
+        "comment": "invoice  42 <b>literal</b>"
+      }
+    },
+    {
+      "path": "/api/wallet/transfer-request",
+      "payload": {
+        "to": "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "amount": "1.25",
+        "comment": "invoice  42 <b>literal</b>"
+      }
+    },
+    {
+      "path": "/api/wallet/transfer-request",
+      "payload": {
+        "to": "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "amount": "1.25",
+        "comment": "invoice  42 <b>literal</b>"
+      }
+    },
+    {
+      "path": "/api/wallet/transfer-request",
+      "payload": {
+        "to": "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "amount": "1.25",
+        "comment": "invoice  42 <b>literal</b>"
+      }
+    },
+    {
+      "path": "/api/wallet/send-request",
+      "payload": {
+        "sell_id": 42
+      }
+    },
+    {
+      "path": "/api/wallet/send-request",
+      "payload": {
+        "sell_id": 42
+      }
+    },
+    {
+      "path": "/api/wallet/send-request",
+      "payload": {
+        "sell_id": 42
+      }
+    },
+    {
+      "path": "/api/wallet/send-request",
+      "payload": {
+        "sell_id": 42
+      }
+    },
+    {
+      "path": "/api/wallet/transfer-request",
+      "payload": {
+        "to": "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "amount": "1.25",
+        "comment": "invoice  42 <b>literal</b>"
+      }
+    },
+    {
+      "path": "/api/wallet/transfer-request",
+      "payload": {
+        "to": "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "amount": "1.25",
+        "comment": "invoice  42 <b>literal</b>"
+      }
+    },
+    {
+      "path": "/api/wallet/transfer-request",
+      "payload": {
+        "to": "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "amount": "1.25",
+        "comment": "invoice  42 <b>literal</b>"
+      }
+    },
+    {
+      "path": "/api/wallet/transfer-request",
+      "payload": {
+        "to": "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "amount": "1.25",
+        "comment": "invoice  42 <b>literal</b>"
+      }
+    },
+    {
+      "path": "/api/wallet/send-request",
+      "payload": {
+        "sell_id": 42
+      }
+    },
+    {
+      "path": "/api/wallet/send-request",
+      "payload": {
+        "sell_id": 42
+      }
+    },
+    {
+      "path": "/api/wallet/send-request",
+      "payload": {
+        "sell_id": 42
+      }
+    },
+    {
+      "path": "/api/wallet/send-request",
+      "payload": {
+        "sell_id": 42
+      }
+    },
+    {
+      "path": "/api/wallet/transfer-request",
+      "payload": {
+        "to": "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "amount": "1.25",
+        "comment": "invoice  42 <b>literal</b>"
+      }
+    },
+    {
+      "path": "/api/wallet/transfer-request",
+      "payload": {
+        "to": "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "amount": "1.25",
+        "comment": "invoice  42 <b>literal</b>"
+      }
+    },
+    {
+      "path": "/api/wallet/transfer-request",
+      "payload": {
+        "to": "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "amount": "1.25",
+        "comment": "invoice  42 <b>literal</b>"
+      }
+    },
+    {
+      "path": "/api/wallet/transfer-request",
+      "payload": {
+        "to": "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "amount": "1.25",
+        "comment": "invoice  42 <b>literal</b>"
+      }
+    },
+    {
+      "path": "/api/wallet/send-request",
+      "payload": {
+        "sell_id": 42
+      }
+    },
+    {
+      "path": "/api/wallet/send-request",
+      "payload": {
+        "sell_id": 42
+      }
+    },
+    {
+      "path": "/api/wallet/send-request",
+      "payload": {
+        "sell_id": 42
+      }
+    },
+    {
+      "path": "/api/wallet/send-request",
+      "payload": {
+        "sell_id": 42
+      }
+    }
+  ],
+  "signingAttempts": [
+    {
+      "validUntil": 2000,
+      "network": "-239",
+      "messages": [
+        {
+          "address": "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+          "amount": "1250000000",
+          "payload": "synthetic-not-a-boc"
+        }
+      ]
+    },
+    {
+      "validUntil": 2000,
+      "network": "-239",
+      "messages": [
+        {
+          "address": "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+          "amount": "1250000000",
+          "payload": "synthetic-not-a-boc"
+        }
+      ]
+    },
+    {
+      "validUntil": 2000,
+      "network": "-239",
+      "messages": [
+        {
+          "address": "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+          "amount": "1250000000",
+          "payload": "synthetic-not-a-boc"
+        }
+      ]
+    },
+    {
+      "validUntil": 2000,
+      "network": "-239",
+      "messages": [
+        {
+          "address": "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+          "amount": "1250000000",
+          "payload": "synthetic-not-a-boc"
+        }
+      ]
+    },
+    {
+      "validUntil": 2000,
+      "network": "-239",
+      "messages": [
+        {
+          "address": "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+          "amount": "1250000000",
+          "payload": "synthetic-not-a-boc"
+        }
+      ]
+    },
+    {
+      "validUntil": 2000,
+      "network": "-239",
+      "messages": [
+        {
+          "address": "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+          "amount": "1250000000",
+          "payload": "synthetic-not-a-boc"
+        }
+      ]
+    }
+  ],
+  "blockedRequests": [
+    "https://fonts.googleapis.com/css2",
+    "https://e4.invalid/static/img/v5/gem.png",
+    "https://e4.invalid/static/img/v5/btc.png",
+    "https://e4.invalid/static/img/v5/ltc.png",
+    "https://e4.invalid/static/img/v5/usdt.png",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://e4.invalid/static/js/chart-4.4.7.umd.min.js",
+    "https://e4.invalid/static/js/tonconnect-ui-3.0.0.min.js",
+    "https://e4.invalid/api/market/history",
+    "https://e4.invalid/api/system-status",
+    "https://e4.invalid/api/reserves",
+    "https://e4.invalid/api/system-status",
+    "https://e4.invalid/api/wallet/portfolio",
+    "https://e4.invalid/api/history",
+    "https://e4.invalid/api/history",
+    "https://e4.invalid/api/system-status",
+    "https://e4.invalid/api/reserves",
+    "https://e4.invalid/api/wallet/portfolio",
+    "https://e4.invalid/api/wallet/cex-sources",
+    "https://e4.invalid/api/wallet/cex-events",
+    "https://e4.invalid/api/wallet/addresses",
+    "https://e4.invalid/api/system-status",
+    "https://e4.invalid/api/reserves",
+    "https://e4.invalid/api/system-status",
+    "https://e4.invalid/api/reserves",
+    "https://e4.invalid/api/wallet/portfolio",
+    "https://e4.invalid/api/wallet/cex-sources",
+    "https://e4.invalid/api/wallet/cex-events",
+    "https://e4.invalid/api/wallet/addresses",
+    "https://e4.invalid/api/history",
+    "https://e4.invalid/api/history",
+    "https://e4.invalid/api/history",
+    "https://e4.invalid/api/history",
+    "https://e4.invalid/api/history",
+    "https://e4.invalid/api/history",
+    "https://fonts.googleapis.com/css2",
+    "https://e4.invalid/static/img/v5/gem.png",
+    "https://e4.invalid/static/img/v5/btc.png",
+    "https://e4.invalid/static/img/v5/ltc.png",
+    "https://e4.invalid/static/img/v5/usdt.png",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://e4.invalid/static/js/chart-4.4.7.umd.min.js",
+    "https://e4.invalid/static/js/tonconnect-ui-3.0.0.min.js",
+    "https://e4.invalid/api/market/history",
+    "https://e4.invalid/api/system-status",
+    "https://e4.invalid/api/reserves",
+    "https://e4.invalid/api/system-status",
+    "https://e4.invalid/api/wallet/portfolio",
+    "https://e4.invalid/api/history",
+    "https://e4.invalid/api/history",
+    "https://e4.invalid/api/system-status",
+    "https://e4.invalid/api/reserves",
+    "https://e4.invalid/api/wallet/portfolio",
+    "https://e4.invalid/api/wallet/cex-sources",
+    "https://e4.invalid/api/wallet/cex-events",
+    "https://e4.invalid/api/wallet/addresses",
+    "https://e4.invalid/api/system-status",
+    "https://e4.invalid/api/reserves",
+    "https://e4.invalid/api/system-status",
+    "https://e4.invalid/api/reserves",
+    "https://e4.invalid/api/wallet/portfolio",
+    "https://e4.invalid/api/wallet/cex-sources",
+    "https://e4.invalid/api/wallet/cex-events",
+    "https://e4.invalid/api/wallet/addresses",
+    "https://e4.invalid/api/history",
+    "https://e4.invalid/api/history",
+    "https://e4.invalid/api/history",
+    "https://e4.invalid/api/history",
+    "https://e4.invalid/api/history",
+    "https://e4.invalid/api/history",
+    "https://fonts.googleapis.com/css2",
+    "https://e4.invalid/static/img/v5/gem.png",
+    "https://e4.invalid/static/img/v5/btc.png",
+    "https://e4.invalid/static/img/v5/ltc.png",
+    "https://e4.invalid/static/img/v5/usdt.png",
+    "https://telegram.org/js/telegram-web-app.js",
+    "https://e4.invalid/static/js/chart-4.4.7.umd.min.js",
+    "https://e4.invalid/static/js/tonconnect-ui-3.0.0.min.js",
+    "https://e4.invalid/api/market/history",
+    "https://e4.invalid/api/system-status",
+    "https://e4.invalid/api/reserves",
+    "https://e4.invalid/api/system-status",
+    "https://e4.invalid/api/wallet/portfolio",
+    "https://e4.invalid/api/history",
+    "https://e4.invalid/api/history",
+    "https://e4.invalid/api/system-status",
+    "https://e4.invalid/api/reserves",
+    "https://e4.invalid/api/wallet/portfolio",
+    "https://e4.invalid/api/wallet/cex-sources",
+    "https://e4.invalid/api/wallet/cex-events",
+    "https://e4.invalid/api/wallet/addresses",
+    "https://e4.invalid/api/system-status",
+    "https://e4.invalid/api/reserves",
+    "https://e4.invalid/api/system-status",
+    "https://e4.invalid/api/reserves",
+    "https://e4.invalid/api/wallet/portfolio",
+    "https://e4.invalid/api/wallet/cex-sources",
+    "https://e4.invalid/api/wallet/cex-events",
+    "https://e4.invalid/api/wallet/addresses",
+    "https://e4.invalid/api/history",
+    "https://e4.invalid/api/history",
+    "https://e4.invalid/api/history",
+    "https://e4.invalid/api/history",
+    "https://e4.invalid/api/history",
+    "https://e4.invalid/api/history"
+  ],
+  "pageErrors": [],
+  "browserVersion": "152.0.7977.64",
+  "result": "PASS"
+}

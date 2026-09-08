@@ -1,29 +1,48 @@
 # Project memory
 
-Updated: 2026-09-07 UTC
+Updated: 2026-09-08 UTC
 
 ## Current goal and status
 
-- 2026-09-07 E4 / PAYMENT_INSTRUCTION_ISOLATION is VERIFIED and deployed.
-  The autonomous runner resumed the inspected interrupted `bd70fab` checkpoint
-  after usage-limit recovery; no extra implementation change was manufactured.
-  New orders clear prior QR/src/amount/requisites/actions; generation guards
-  reject obsolete callbacks and captured actions. Serialized no-store status
-  GETs have a 10-second fetch/body abort deadline; terminal instructions clear.
-  Fresh 97 focused tests and 96 isolated Chrome checks pass at 320/390/1280px,
-  both independent reviews PASS, and the previous hung-read P2 is resolved.
-  Nine synthetic writes blocked, six synthetic signing attempts rejected;
-  no real money/keys/credentials/customer reads/messages/064A activity.
-  HTML `6bdad471...df2db8` is live: GET200/POST405/rendered-template match;
-  Relay/bot/Nginx retain active unchanged PID/start identities, no restart.
-  Exact rollback: deployment-preimages/`e4-payment-isolation-20260907-ane0f9p2/webapp.html`.
-  Evidence: `docs/e4-payment-instruction-rollout.v1.json` and its directory.
-  Supervisor retains the sole-writer lock; inspect live status before takeover.
-  E4 stays IN_PROGRESS; earlier gates and human/Telegram/iOS/WebKit/native-body/
-  QR-decoding/live-signing acceptance are not closed. Exactly next:
-  `E4 / PAYMENT_REQUISITES_COPY_INTEGRITY / preserve requisites and report copy success only after clipboard completion, with explicit failure and stale-feedback isolation`.
-  Reproduced unchanged false-success on pending/rejected requisites clipboard
-  operations is documented in `docs/e4-payment-instruction/next-prerequisite.json`.
+
+- 2026-09-08 owner chose manual code-first implementation and deployment;
+  leave autopilot stopped until the owner requests bedtime work. Manual
+  E4 / PAYMENT_REQUISITES_COPY_INTEGRITY is VERIFIED and deployed at 00:51 UTC.
+  Literal DOM text/listeners remove the inline-JS data sink; copy success waits
+  for browser completion and errors are explicit. A global pending token
+  serializes this UI's writes across orders, with no auto-enqueue; stale
+  feedback/actions are invalidated. This also fixes independently reproduced
+  old-order overwrite after a newer order's apparent copy success.
+  Final 123 focused tests, 120 default-motion isolated Chrome checks at three
+  widths and both independent reviews PASS. HTML `f10c4ca6...e532c8` is live;
+  GET200/POST405/rendered-template match and Relay/bot/Nginx retain Sep 1
+  PID/start identities. No restart, real money/signatures/customer reads,
+  keys/credentials/messages or 064A activity. Rollback:
+  deployment-preimages/`e4-payment-requisites-copy-20260908-zdcv4k88/webapp.html`.
+  Evidence: `docs/e4-payment-requisites-copy-rollout.v1.json` and its directory.
+  Two earlier browser click timeouts are retained; exact cause is not proven.
+  Identified orphan Playwright trees from Aug 26/Sep 6 (33 pinned processes)
+  were gracefully stopped via pidfds, profiles retained and service identities
+  unchanged, recovering about 2 GiB available RAM. Final browser cleanup PASS.
+  E4 and earlier gates remain open; human/Telegram/iOS/WebKit/live signing are
+  unverified. Clipboard cancellation/external clipboard producers are outside
+  this UI; a stalled original write keeps new copies disabled with visible status.
+  Exactly next: `E4 / ORDER_SUPPORT_CLIPBOARD_INDEPENDENCE / open order support
+  despite clipboard denial, failure or stalled completion, with truthful copy
+  feedback`. Current helpers reproduce support failing to open on pending
+  clipboard or rejection plus throwing fallback; see next-prerequisite.json.
+
+- 2026-09-08 status audit confirmed Sep 7's three deployed E4 slices: wallet
+  review/fees (`d650b8d`), receive-address integrity (`1cbfe1f`) and payment
+  instruction isolation (`bd70fab` implementation, `65a219a` rollout evidence).
+  Autopilot remains FAILED/UNCOMMITTED_NEW_FILES since Sep 7 04:48:08 UTC,
+  MainPID zero. Two `.cjs` files and rollout.py among 57 new output artifacts
+  were outside its allowlist. Its accepted_iterations=2/last `1cbfe1f` omit
+  the already deployed third receipt. The prior quota failure was recovered;
+  it is not the current stop reason. Original deadline Sep 8 03:07:16 UTC.
+  This manual slice did not recover, restart or reconfigure the supervisor.
+  Before any later start, reconcile both the third deployment and subsequent
+  manual commits; never blindly replay the stale next_step/receipt.
 
 - 2026-09-07 owner authorized 24 hours of continuous code-first E0–E5 delivery,
   no eight-iteration ceiling, and immediate reversible autodeployment after
@@ -34,7 +53,7 @@ Updated: 2026-09-07 UTC
   `docs/autonomous-roadmap-transitions.md`; later preparation under an early
   blocker remains KEYLESS_NONPRODUCTION with no production authority.
   The supervisor's latest runtime must be checked; only its inherited iteration writes when active.
-  Do not start another runner or change its unit/config/state. Inspect actual
+  Reconcile the observed failure before a recovery/start. Inspect actual
   `/var/lib/obsidian-roadmap-autopilot/status.json` and systemd for later state.
   Installation evidence: `docs/autopilot-24h-rollout.v1.json`; operational
   instructions: `docs/ssh-independent-work.md`. Prior 8-iteration/12-hour and

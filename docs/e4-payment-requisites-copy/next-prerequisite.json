@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "e4-order-support-next-prerequisite.v1",
+  "recordedAt": "2026-09-08T00:37:32Z",
+  "reviewer": "Codex context-aware acceptance subagent /root/requisites_acceptance",
+  "nextCanonicalItem": "E4 / ORDER_SUPPORT_CLIPBOARD_INDEPENDENCE / open order support despite clipboard denial, failure or stalled completion, with truthful copy feedback",
+  "canonicalCriterion": "E4 unified notification/evidence/support centre and accessibility/usability of monetary paths.",
+  "status": "REPRODUCED_REMAINING_PREREQUISITE",
+  "location": {
+    "path": "relay/webapp.html",
+    "functions": [
+      "copyOrderId",
+      "openOrderSupport"
+    ]
+  },
+  "observedBehavior": "openOrderSupport awaits copyOrderId before calling openSupport. An unresolved Clipboard Promise leaves support unopened with unchanged button state. If writeText rejects and the legacy document.execCommand fallback throws, the support Promise rejects and openSupport is never called.",
+  "impact": "A user seeking help with an order can lose access to its support action because optional local clipboard copying is unavailable or stalled.",
+  "reproduction": {
+    "tool": "Node VM; exact shipped helper functions, synthetic DOM/clipboard and openSupport spy",
+    "sourceSha256": "f10c4ca6bbe8935822433c300d4286878e1c460255b780ae33dcba16a9e532c8",
+    "pendingClipboard": {
+      "supportOpens": 0,
+      "button": {
+        "textContent": "💬 Поддержка по заявке",
+        "disabled": false
+      }
+    },
+    "rejectedClipboardAndThrowingFallback": {
+      "supportOpens": 0,
+      "promiseRejected": true,
+      "button": {
+        "textContent": "💬 Поддержка по заявке",
+        "disabled": false
+      }
+    },
+    "steps": [
+      "Extract exact copyOrderId and openOrderSupport declarations from shipped HTML.",
+      "Provide navigator.clipboard.writeText returning an unresolved Promise, window.isSecureContext=true and a spy openSupport.",
+      "Invoke openOrderSupport with synthetic-42; after a microtask, supportOpens=0 and no pending feedback is shown.",
+      "Change writeText to reject and document.execCommand to throw an unsupported-copy error.",
+      "Invoke openOrderSupport again; its Promise rejects and supportOpens remains zero."
+    ],
+    "finalSourceBinding": "Re-executed the exact shipped helper declarations against final serialized-copy HTML."
+  },
+  "preexistingOnProductBase": true,
+  "currentSliceDisposition": "Not modified in payment-requisites copy slice; proposed exactly next canonical E4 usability prerequisite.",
+  "boundedImplementation": "Make support opening independent of optional clipboard completion, contain clipboard/fallback failures and show honest copy state while preserving explicit user initiation and no automatic order-data sharing.",
+  "moneyBoundary": "Reversible client UI only; tests use synthetic order IDs and stub external navigation. No message, payment, transfer or signing execution is needed.",
+  "limitations": [
+    "Synthetic fault-injection reproduction; no real Telegram/iOS/WebKit support navigation was attempted.",
+    "Does not close E4 or advance an earlier gate."
+  ],
+  "reproducedAt": "2026-09-08T00:49:39.655Z"
+}

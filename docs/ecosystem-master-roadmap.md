@@ -742,6 +742,17 @@ next is PAYMENT_REQUISITES_COPY_INTEGRITY, independently reproduced in
 `docs/e4-payment-instruction/next-prerequisite.json`. No stage transition or
 earlier-gate closure is claimed.
 
+2026-09-08: manual PAYMENT_REQUISITES_COPY_INTEGRITY is VERIFIED and deployed.
+Literal requisites/listeners replace executable inline interpolation; accessible
+copy status awaits actual completion. Global serialization prevents older-order
+clipboard writes overtaking a newer copy; stale feedback/actions are invalidated.
+123 focused tests, 120 isolated default-motion Chrome checks and both independent
+reviews pass. Evidence: `docs/e4-payment-requisites-copy-rollout.v1.json`.
+E4 remains IN_PROGRESS; exactly next is ORDER_SUPPORT_CLIPBOARD_INDEPENDENCE,
+reproduced from the current helpers in the slice's next-prerequisite.json.
+Owner requests manual work for now; autopilot stays stopped until bedtime work
+is explicitly requested. No stage transition or earlier-gate closure is claimed.
+
 ### E5 — нативный некастодиальный кошелёк
 
 E0.4 inventory evidence (2026-08-18): the checkout has a Rust/UniFFI Bitcoin

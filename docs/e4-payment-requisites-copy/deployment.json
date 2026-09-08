@@ -1,0 +1,34 @@
+{
+  "recordedAt": "2026-09-08T00:51:54.193315+00:00",
+  "state": "VERIFIED",
+  "target": "/opt/obsidian-exchange/relay/webapp.html",
+  "previousSha256": "6bdad471edcedf7b21d28373cdd564268d50f62b16385bac9905215ad4df2db8",
+  "deployedSha256": "f10c4ca6bbe8935822433c300d4286878e1c460255b780ae33dcba16a9e532c8",
+  "rollbackPreimage": "/var/lib/obsidian-exchange/deployment-preimages/e4-payment-requisites-copy-20260908-zdcv4k88/webapp.html",
+  "rollbackPreimageSha256": "6bdad471edcedf7b21d28373cdd564268d50f62b16385bac9905215ad4df2db8",
+  "method": "hash-bound fsynced atomic replacement; no restart",
+  "rollbackExecuted": false,
+  "publicGet": 200,
+  "publicPost": 405,
+  "publicMatchesDeployedTemplate": true,
+  "publicBodySha256": "1a3906a27fbd8b41567ef2fdfb2dbdd891b876d3e90d266bfe1599da41531a7b",
+  "url": "https://obsidian-exchange.org/webapp",
+  "services": {
+    "relay-fastapi.service": {
+      "MainPID": "3877703",
+      "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:55 UTC",
+      "ActiveState": "active"
+    },
+    "exchange-bot.service": {
+      "MainPID": "3877887",
+      "ExecMainStartTimestamp": "Tue 2026-09-01 06:20:00 UTC",
+      "ActiveState": "active"
+    },
+    "nginx.service": {
+      "MainPID": "3877705",
+      "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:56 UTC",
+      "ActiveState": "active"
+    }
+  },
+  "serviceIdentityUnchanged": true
+}

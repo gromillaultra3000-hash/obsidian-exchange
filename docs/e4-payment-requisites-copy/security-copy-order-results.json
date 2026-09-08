@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "e4-payment-requisites-copy-order-probe.v1",
+  "recordedAt": "2026-09-08T00:48:24.045Z",
+  "reviewer": "/root/requisites_diff_review",
+  "model": "Clipboard data changes immediately before the write promise resolves; resolution order is controlled by the adversarial test.",
+  "before": {
+    "result": "OUT_OF_ORDER_CLIPBOARD_RISK_REPRODUCED",
+    "sourceSha256": "3f1fb438f7c48524216cbfce01c3b4b01a9f7d42aee13fcfad520cba76b82272",
+    "runnerSha256": "50fdf4cd58fa7453a65f7ae3e34378f53702a8488d91e4f3beb2687f169608f7",
+    "clipboardContents": "recipient A",
+    "writes": [
+      "recipient A",
+      "recipient B"
+    ],
+    "successFeedbackBeforeLateOld": true,
+    "actualClipboardUsed": false,
+    "networkUsed": false,
+    "limitation": "Deferred write-on-resolve counterexample, not proof that current Chrome internally settles writes out of order."
+  },
+  "after": {
+    "result": "CROSS_GENERATION_SERIALIZATION_VERIFIED",
+    "sourceSha256": "f10c4ca6bbe8935822433c300d4286878e1c460255b780ae33dcba16a9e532c8",
+    "runnerSha256": "50fdf4cd58fa7453a65f7ae3e34378f53702a8488d91e4f3beb2687f169608f7",
+    "clipboardContents": "recipient B",
+    "writes": [
+      "recipient A",
+      "recipient B"
+    ],
+    "successFeedbackBeforeLateOld": false,
+    "actualClipboardUsed": false,
+    "networkUsed": false,
+    "limitation": "Deferred write-on-resolve counterexample, not proof that current Chrome internally settles writes out of order."
+  },
+  "productionMutated": false
+}
