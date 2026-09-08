@@ -11,43 +11,46 @@ non-custodial wallet whose keys never reach the server.
 
 ## Active route
 
-`E4 / ACTIVITY_REFRESH_RESPONSE_ORDERING / preserve the newest activity request against obsolete success and failure`
+`E4 / ACTIVITY_REFRESH_DEADLINE / bound the latest activity read across fetch and response-body stalls, preserve explicit retry`
 
 Owner decision 2026-09-08: continue code-first implementation and reversible
 deployment manually. Leave autopilot stopped until the owner requests bedtime
 work. Actual state is failed / MainPID zero / UNCOMMITTED_NEW_FILES since Sep 7.
 Before any future start, reconcile its stale third-deployment receipt and all
-subsequent manual commits; do not replay its next_step or old authority.
+subsequent manual commits; do not replay its next_step or consumed authority.
 No supervisor state, configuration or unit was changed by these manual slices.
 
-ORDER_SUPPORT_CLIPBOARD_INDEPENDENCE is VERIFIED and deployed at
-2026-09-08 01:04 UTC, implementation `0a9295a`. Support opens synchronously from
-its own click or keyboard activation, with a fixed URL and no order payload.
-Copying the number is separate, with accessible success/failure feedback and
-serialization of order-ID writes. Detached feedback is discarded; live waiting
-messages become fresh-tap instructions after actual settlement, without queuing.
+ACTIVITY_REFRESH_RESPONSE_ORDERING is VERIFIED and deployed at
+2026-09-08 01:12 UTC, implementation `06b5ece`. Overview and history now share
+one request owner and snapshot. Obsolete success/failure, including delayed
+response bodies, cannot replace newer loading/error/ready state. Refresh clears
+old orders/actions/counts; filter changes cannot restore them or turn unavailable
+history into a false empty result. Accessible feedback and aria-busy distinguish
+loading, failure and success; explicit retry honors the current filter.
 
-166 focused tests, 132 isolated Chrome checks at 320/390/1280px, both independent
-reviews, staged Gitleaks and JavaScript syntax pass. Browser ran without network
-as nobody; its unit was collected with MainPID zero and an empty cgroup. Real
-Telegram/iOS/WebKit, human comprehension and screen-reader announcements remain
-unverified. The order-ID lock does not cover other UI/OS clipboard producers;
-a stalled native write keeps further order-ID copies waiting but support usable.
+188 focused tests, 144 isolated Chrome checks at 320/390/1280px, 288 independently
+probed interleavings plus 18 edge checks, both independent reviews, staged Gitleaks
+and JavaScript syntax pass. Guard-removal mutants fail the new regressions.
+Browser ran without network as nobody; unit collected with MainPID zero and empty
+cgroup. Real Telegram/iOS/WebKit, human comprehension and actual screen-reader
+announcements remain unverified. Request invocation order defines freshness;
+no server revision or cross-session status monotonicity is claimed.
 
-HTML `e06b85ed...a4f983` is live, with GET200/POST405/exact template rendering.
-Relay/bot/Nginx retain their active Sep 1 PID/start identities; no restart.
-Rollback: `/var/lib/obsidian-exchange/deployment-preimages/e4-order-support-20260908-qiedmiia/webapp.html`.
-Evidence: `docs/e4-order-support-rollout.v1.json` and its directory.
+HTML `6842d35c...b1da05` is live with GET200/POST405/exact rendered-template match.
+Relay/bot/Nginx retain active Sep 1 PID/start identities; no restart.
+Rollback: `/var/lib/obsidian-exchange/deployment-preimages/e4-activity-refresh-20260908-xh2dag2f/webapp.html`.
+Evidence: `docs/e4-activity-refresh-rollout.v1.json` and its directory.
 No real money/signatures/customer reads/keys/credentials/messages/064A work.
-The previous deployed payment-requisites slice and its evidence are now committed
-as `50fa630`; its runtime was reconciled before the new implementation.
+Previous support-independence delivery is retained in `0a9295a`/`73223a2`; the
+previous payment-requisites slice was reconciled and committed as `50fa630`.
 
-Exactly next: `E4 / ACTIVITY_REFRESH_RESPONSE_ORDERING`.
-Independent exact-helper execution reproduces an older pending history response
-replacing a newer completed one, restoring a payment action and removing evidence;
-an older failure instead erases fresh history. This was reproduced against both
-prior and current HTML. Evidence: `docs/e4-order-support/next-prerequisite.json`.
-This observation concerns UI state; no backend execution was exercised.
+Exactly next: `E4 / ACTIVITY_REFRESH_DEADLINE`.
+An unresolved latest GET or JSON body has no deadline and leaves the current UI
+loading. Independently reproduced on exact source with an explicitly simulated
+30-second scheduler horizon. A successful explicit retry does recover; this is
+not claimed to be a permanent inability to retry. Bound the complete read and
+preserve the current ownership/filter guarantees. Evidence:
+`docs/e4-activity-refresh/next-prerequisite.json`.
 
 E4 stays IN_PROGRESS; no stage transition or earlier gate closure occurred.
 The 2026-09-07 authorization for code-first E0–E5 work and reversible rollouts

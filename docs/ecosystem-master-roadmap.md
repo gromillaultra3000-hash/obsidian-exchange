@@ -764,6 +764,18 @@ ACTIVITY_REFRESH_RESPONSE_ORDERING, independently reproduced against original
 and current HTML: an obsolete success/failure can overwrite newer activity state.
 No stage transition or earlier gate closure; autopilot remains stopped.
 
+2026-09-08: manual ACTIVITY_REFRESH_RESPONSE_ORDERING is VERIFIED and
+production-deployed at 01:12 UTC (`06b5ece`). Overview/history share one latest
+request owner; stale successes/failures and delayed bodies cannot overwrite current
+state. Filters preserve loading/error/ready and cannot resurrect old payment UI.
+188 focused tests, 144 isolated Chrome checks, 288 independent interleavings plus
+18 edge checks and two reviews pass; GET200/POST405/template equality and unchanged
+service identities verify rollout. Evidence: `docs/e4-activity-refresh-rollout.v1.json`.
+E4 remains IN_PROGRESS; exactly next is ACTIVITY_REFRESH_DEADLINE, independently
+reproduced on exact source with a simulated scheduler. Latest stalled reads lack
+a deadline; successful explicit retry recovers. No stage transition/earlier-gate
+closure, and autopilot stays stopped.
+
 ### E5 — нативный некастодиальный кошелёк
 
 E0.4 inventory evidence (2026-08-18): the checkout has a Rust/UniFFI Bitcoin

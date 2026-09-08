@@ -5,28 +5,28 @@ Updated: 2026-09-08 UTC
 ## Current goal and status
 
 
-- 2026-09-08 manual E4 / ORDER_SUPPORT_CLIPBOARD_INDEPENDENCE is VERIFIED
-  and deployed at 01:04 UTC, implementation `0a9295a`. Support opens directly
-  from tap/keyboard without clipboard dependency or automatic order payload.
-  Optional number copying has accessible truthful status, serialized order-ID
-  writes and stale-DOM guards. Live waiters receive a fresh-tap prompt when the
-  previous copy settles; no automatic queue. 166 focused tests, 132 isolated
-  Chrome checks and two independent reviews PASS. HTML `e06b85ed...a4f983` is
-  live with GET200/POST405/exact rendered-template match. Relay/bot/Nginx retain
-  Sep 1 PID/start identities; no restart. Rollback preimage:
-  `deployment-preimages/e4-order-support-20260908-qiedmiia/webapp.html`.
-  Evidence: `docs/e4-order-support-rollout.v1.json`. Browser unit/cgroup cleanup
+- 2026-09-08 manual E4 / ACTIVITY_REFRESH_RESPONSE_ORDERING is VERIFIED
+  and deployed at 01:12 UTC, implementation `06b5ece`. Overview/history share
+  latest-invocation ownership and one snapshot; stale success/failure including
+  delayed bodies cannot overwrite newer state. Refresh clears old actions/counts;
+  filters preserve explicit loading/error/ready state and selected-filter retry.
+  188 focused tests, 144 isolated Chrome checks, independent 288 interleavings
+  plus 18 edge checks, guard-removal mutation checks and two reviews PASS.
+  HTML `6842d35c...b1da05` is live with GET200/POST405/exact rendered-template
+  match. Relay/bot/Nginx retain Sep 1 PID/start identities; no restart. Rollback:
+  `deployment-preimages/e4-activity-refresh-20260908-xh2dag2f/webapp.html`.
+  Evidence: `docs/e4-activity-refresh-rollout.v1.json`. Browser unit/cgroup cleanup
   PASS; no real money/signatures/customer reads/keys/credentials/messages/064A.
-  Earlier deployed payment-requisites work reconciled and committed as `50fa630`.
-  Owner wants manual delivery; autopilot stays failed/stopped until bedtime work
+  Earlier support delivery retained in `0a9295a`/`73223a2`, requisites in `50fa630`.
+  Owner wants manual delivery; autopilot remains failed/stopped until bedtime work
   is explicitly requested. Reconcile all manual commits before any future start.
   E4/earlier gates remain open; real Telegram/iOS/WebKit/human/screen-reader
-  acceptance unverified. Order-ID lock covers only its own clipboard producer;
-  stalled copy does not prevent support but keeps subsequent order copies waiting.
-  Exactly next: E4 / ACTIVITY_REFRESH_RESPONSE_ORDERING. Independent old/new-source
-  reproduction proves an earlier pending reply can overwrite newer completed
-  history and restore payment UI, while earlier failure erases fresh history.
-  See `docs/e4-order-support/next-prerequisite.json`; backend execution untested.
+  acceptance unverified. Freshness follows request start order, not server revision.
+  Exactly next: E4 / ACTIVITY_REFRESH_DEADLINE. Latest GET/body has no deadline;
+  unresolved reads keep loading. Exact-source proof uses a simulated 30-second
+  scheduler horizon; successful explicit retry does recover. Preserve current
+  ownership/filter guarantees while bounding the complete read. Evidence:
+  `docs/e4-activity-refresh/next-prerequisite.json`.
 
 - 2026-09-08 status audit confirmed Sep 7's three deployed E4 slices: wallet
   review/fees (`d650b8d`), receive-address integrity (`1cbfe1f`) and payment

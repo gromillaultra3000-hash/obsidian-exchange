@@ -1,0 +1,137 @@
+{
+  "schemaVersion": "e4-activity-refresh-rollout.v1",
+  "recordedAt": "2026-09-08T01:12:57.752366+00:00",
+  "activeRoute": "E4 / ACTIVITY_REFRESH_RESPONSE_ORDERING",
+  "canonicalCriterion": "E4 unified notification/evidence/support centre; truthful status and usability of monetary paths",
+  "sliceStatus": "VERIFIED",
+  "stageStatus": "IN_PROGRESS",
+  "productionStatus": "VERIFIED",
+  "implementationCommit": "06b5eceaff886cb47b918d914ca61b6e6441380d",
+  "accountableOwner": "Project owner; manual continuation 2026-09-08; implementation Codex /root",
+  "resultingBehavior": [
+    "Overview and history share one request owner and snapshot. Older success/failure, including delayed JSON bodies, cannot overwrite the latest request state.",
+    "Refresh clears old orders/actions/counts. Loading, failure and successful empty history remain distinct through filter changes.",
+    "Accessible loading/error/ready status and aria-busy reflect the latest invocation. Explicit retry honors the selected filter and restores evidence/support."
+  ],
+  "surfaceMatrix": {
+    "MiniApp": "REQUIRED: history and overview use one freshest snapshot, filters preserve loading/error state",
+    "site": "READ_ONLY: existing /webapp GET; no separate site behavior change",
+    "TelegramBot": "READ_ONLY: unchanged fixed support entry, no automatic messages",
+    "API": "READ_ONLY: same owner-scoped no-store history GET; synthetic browser fixtures, production public HTML checks only",
+    "admin": "N/A: no operator change",
+    "nativeWallet": "N/A: no custody or signing",
+    "KAIROS_LUMI": "N/A"
+  },
+  "verification": {
+    "focusedTests": 188,
+    "newVMScenarios": 22,
+    "independentInterleavings": 288,
+    "independentEdgeChecks": 18,
+    "isolatedBrowserChecks": 144,
+    "newGroupedBrowserChecks": 12,
+    "viewports": [
+      320,
+      390,
+      1280
+    ],
+    "reviews": {
+      "contextAwareAcceptance": "PASS",
+      "independentDiffSecurity": "PASS"
+    },
+    "mutationChecks": "Parent latest-success and independent schedule probe reject removal of both ownership guards",
+    "gitleaksVersion": "8.30.0",
+    "stagedSecretsFound": 0,
+    "inlineJavascriptSyntax": "PASS",
+    "browserErrors": 0,
+    "browserUnitStopped": true,
+    "browserCgroupEmpty": true
+  },
+  "deployment": {
+    "recordedAt": "2026-09-08T01:12:11.716867+00:00",
+    "state": "VERIFIED",
+    "target": "/opt/obsidian-exchange/relay/webapp.html",
+    "previousSha256": "e06b85edd00f0a877b8e75b848713e46c0f800ff37809e5cd085bcac63a4f983",
+    "deployedSha256": "6842d35ccb8d7bbbf2cac709cbc02c64d47bff527a5acda9699c4897d8b1da05",
+    "rollbackPreimage": "/var/lib/obsidian-exchange/deployment-preimages/e4-activity-refresh-20260908-xh2dag2f/webapp.html",
+    "rollbackPreimageSha256": "e06b85edd00f0a877b8e75b848713e46c0f800ff37809e5cd085bcac63a4f983",
+    "method": "hash-bound fsynced atomic replacement; no restart",
+    "rollbackExecuted": false,
+    "publicGet": 200,
+    "publicPost": 405,
+    "publicMatchesDeployedTemplate": true,
+    "publicBodySha256": "7ef7dc9490b9f15377ad5450fe55c271714f52927734d03f5da4cb16ca4775e3",
+    "url": "https://obsidian-exchange.org/webapp",
+    "services": {
+      "relay-fastapi.service": {
+        "MainPID": "3877703",
+        "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:55 UTC",
+        "ActiveState": "active"
+      },
+      "exchange-bot.service": {
+        "MainPID": "3877887",
+        "ExecMainStartTimestamp": "Tue 2026-09-01 06:20:00 UTC",
+        "ActiveState": "active"
+      },
+      "nginx.service": {
+        "MainPID": "3877705",
+        "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:56 UTC",
+        "ActiveState": "active"
+      }
+    },
+    "serviceIdentityUnchanged": true
+  },
+  "rollback": {
+    "preimage": "/var/lib/obsidian-exchange/deployment-preimages/e4-activity-refresh-20260908-xh2dag2f/webapp.html",
+    "expectedLiveSha256": "6842d35ccb8d7bbbf2cac709cbc02c64d47bff527a5acda9699c4897d8b1da05",
+    "restoreSha256": "e06b85edd00f0a877b8e75b848713e46c0f800ff37809e5cd085bcac63a4f983",
+    "rehearsal": "PASS",
+    "command": "python3 /root/deploy/e4_activity_refresh_rollout.py rollback",
+    "recovery": "After interruption inspect deployment-state.json, target hash, exact preimage and public/services state. Never rerun deploy blindly; rollback only from the candidate hash."
+  },
+  "trustCustodySecretsMoney": "No changes, credentials, customer reads, messages, signing or money operations; 064A closed authority retained",
+  "limitations": [
+    "Request start order governs freshness; no server revision/cross-session guarantee is implied.",
+    "Latest pending GET/body remains loading until settlement; bounded deadline is not implemented here.",
+    "Real Telegram/iOS/WebKit, actual screen-reader announcements and human comprehension remain unverified.",
+    "This closes only the bounded response-ordering slice; E4 and earlier gates remain open.",
+    "The absent fetch/body deadline was independently reproduced with a simulated 30-second scheduler horizon, not live network measurement. Successful explicit retry recovers."
+  ],
+  "negativeEvidence": [
+    "Eight original-source request/filter defect cases reproduced independently.",
+    "Guard-removal mutants fail actual stale-response/schedule assertions.",
+    "Initial independent baseline invocation raced the product edit and required rerun against preserved original bytes; final baseline is explicitly original-source bound."
+  ],
+  "autopilot": {
+    "state": "failed",
+    "MainPID": 0,
+    "reason": "UNCOMMITTED_NEW_FILES",
+    "action": "Leave stopped; no state or config change"
+  },
+  "nextCanonicalItem": "E4 / ACTIVITY_REFRESH_DEADLINE / bound the latest activity read across fetch and response-body stalls, preserve explicit retry",
+  "artifacts": {
+    "docs/e4-activity-refresh/320-activity-error.png": "dfad84d9d9c1186a23567efbc532bd996692c4a600f99847f3d5efc5b7843ea2",
+    "docs/e4-activity-refresh/320-activity-loading.png": "6c88f393ccac7be5a4c45ba7e4d4ea73e9e4b150cc4fb8a88de014077ec4242f",
+    "docs/e4-activity-refresh/320-activity-recovered.png": "13663b25d5921195ce2d7e88181e0b946c020f90594a05e53d7c199087565d5c",
+    "docs/e4-activity-refresh/390-activity-recovered.png": "0c6a05894e56e0bd7a4afd8eccc2a6b3193fa69c49dc66d97a0c8288b52994d9",
+    "docs/e4-activity-refresh/acceptance-baseline.cjs": "ba48f42e195266f3a65899b50dca486aa4f2c756b8d7eae167db4d505fa17244",
+    "docs/e4-activity-refresh/acceptance-baseline.json": "213fbaf49ccc72764bd0b9fea2c7e46885c61d7eef5ae8bfe3c09d0e8455459e",
+    "docs/e4-activity-refresh/acceptance-review.json": "b3188f60fc467967c59ecb75aa9de975d7d80488da5c37ffbb4b1863f9855697",
+    "docs/e4-activity-refresh/deployment.json": "52fdb94d530ee6e047c954bb2c184ca431c167fb927584d0e7d74a0f5d88e5b6",
+    "docs/e4-activity-refresh/gitleaks-report.json": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+    "docs/e4-activity-refresh/isolation.json": "ba669ad9342c3f0054e48ea70446ddf6f4693b49d94436523c9ff6c226180644",
+    "docs/e4-activity-refresh/next-prerequisite.cjs": "c8cda2be62b3c04742ea05bf49a2b17999fa1d8f8d16d06a598c54f561255cc1",
+    "docs/e4-activity-refresh/next-prerequisite.json": "2a26cef8eaed50edf6ae6eb4ba7b51a9158cd7d2e6217c8c770eb57288c8b477",
+    "docs/e4-activity-refresh/ownership-mutation.json": "cf1c8ea7a36a7bab0884b3234e1bdd1116c435e61931102dbdda2e2d9c468373",
+    "docs/e4-activity-refresh/preflight.json": "535d4728ab71f4f2d9af6caf4bcf4e09054f12a1f156c17891a7f0b8696fe909",
+    "docs/e4-activity-refresh/report.json": "ef0e590963cd79e1a8972fc2b10c50f8ff7d89a1ccfccc8a74e4c3c705628289",
+    "docs/e4-activity-refresh/rollback-rehearsal.json": "b6fe47f77737d0c70c70d0aab19c4512c2e2e62623492ff1b59872e0b64bf60a",
+    "docs/e4-activity-refresh/run-context.json": "5e0036a1f53147a1e784a78fd6d699b32617dabc44fdf9988fd46e373479f0c6",
+    "docs/e4-activity-refresh/security-behavior-result.json": "9858f1b19fad57476c4c545e66a6b8d4911464c894eeedade76c5beb6431d564",
+    "docs/e4-activity-refresh/security-mutation-result.json": "2d4cf532ae69203449021bf5c6331b35100886f96e2719f046769538faca14cf",
+    "docs/e4-activity-refresh/security-mutation-stderr.txt": "6f381b78b48eebf1e4052241f25d5e7232cfe0377f0aadb71083f9305c4198c2",
+    "docs/e4-activity-refresh/security-probe-result.json": "6047782b443678390b79b494617ad9551a518347a610d8c53eb280a6e74b77b3",
+    "docs/e4-activity-refresh/security-probe.cjs": "579b3a635b28f3e56a7bbcc6986c4876ef7d58d2c85aceeecdab69ae0fd0d463",
+    "docs/e4-activity-refresh/security-review.json": "d5652876b5f36199258383537a2c6598812e53ecabfdfda39adff01781c038c8",
+    "docs/e4-activity-refresh/tests.json": "43b72b2f32b48914e1d5eebd11760e1f94aa8b43060471904ea73fd7f0776a81"
+  }
+}
