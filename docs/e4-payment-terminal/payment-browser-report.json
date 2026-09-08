@@ -1,0 +1,2504 @@
+{
+  "schemaVersion": "e4-payment-terminal-browser.v1",
+  "sourceSha256": "c2cebf7a41c1bdc510bf437230dbfbd007fe32dc9a23ab5d80616d221a564324",
+  "runnerSha256": "3813ee9ebd877847ff02d91f0574f406e0c73682fc0dca4b3f4327f191cc270c",
+  "inputs": [
+    {
+      "path": "relay/repositories/payment_status_read_store.py",
+      "sha256": "5cbd26d0335c0cf713aa4be9c87999773bbcc37ab89202a554a4811b6702b6f9"
+    },
+    {
+      "path": "relay/core/order_access.py",
+      "sha256": "15d996a1450ff898ef62b3e43c048069c2c4dc60863399bcba144cfd46c69a0f"
+    },
+    {
+      "path": "relay/core/telegram_freshness.py",
+      "sha256": "40bef427a0daa3069e05565fdb65217836414ed581960b64f1cff5c1c266d601"
+    },
+    {
+      "path": "relay/core/requisites.py",
+      "sha256": "a6c9eb87a236081095eb8213828b4ea33e9296d6f1bb8696d2e91c9733aca507"
+    },
+    {
+      "path": "relay/services/requisite_origin.py",
+      "sha256": "5552f1c274bc2e7721068bf7db69564ca360d5065920cebbb17c022df4335398"
+    },
+    {
+      "path": "relay/core/txid.py",
+      "sha256": "726b98d97696578b0883f5a14eca119f9bc4ce0fd92f409617edf1190129f824"
+    },
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "a399f55e9efb4e5092a072cf30baf6f2c6791ddbcb5dcdbee210526d8665ffc5"
+    },
+    {
+      "path": "docs/e4-payment-terminal/acceptance-probe.py",
+      "sha256": "25d8bb3e1dff58024aa19149fcf0f02342d50f9c0d813b7a3430bf742ed90402"
+    }
+  ],
+  "playwrightVersion": "1.62.0",
+  "checks": [
+    {
+      "name": "expired-absent-none",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-absent-none",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-absent-none",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-absent-none",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-expired-absent-none",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-absent-video",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-absent-video",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-absent-video",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-absent-video",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-expired-absent-video",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-absent-pdf",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-absent-pdf",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-absent-pdf",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-absent-pdf",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-expired-absent-pdf",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-stored-none",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-stored-none",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-stored-none",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-stored-none",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-expired-stored-none",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-stored-video",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-stored-video",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-stored-video",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-stored-video",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-expired-stored-video",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-stored-pdf",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-stored-pdf",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-stored-pdf",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-stored-pdf",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-expired-stored-pdf",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-sent-none",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-sent-none",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-sent-none",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-sent-none",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-expired-sent-none",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-sent-video",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-sent-video",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-sent-video",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-sent-video",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-expired-sent-video",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-sent-pdf",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-sent-pdf",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-sent-pdf",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-sent-pdf",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-expired-sent-pdf",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-absent-none",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-absent-none",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-absent-none",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-absent-none",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-failed-absent-none",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-absent-video",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-absent-video",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-absent-video",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-absent-video",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-failed-absent-video",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-absent-pdf",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-absent-pdf",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-absent-pdf",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-absent-pdf",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-failed-absent-pdf",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-stored-none",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-stored-none",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-stored-none",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-stored-none",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-failed-stored-none",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-stored-video",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-stored-video",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-stored-video",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-stored-video",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-failed-stored-video",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-stored-pdf",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-stored-pdf",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-stored-pdf",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-stored-pdf",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-failed-stored-pdf",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-sent-none",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-sent-none",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-sent-none",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-sent-none",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-failed-sent-none",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-sent-video",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-sent-video",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-sent-video",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-sent-video",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-failed-sent-video",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-sent-pdf",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-sent-pdf",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-sent-pdf",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-sent-pdf",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-failed-sent-pdf",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-absent-none",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-absent-none",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-absent-none",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-absent-none",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-cancelled-absent-none",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-absent-video",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-absent-video",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-absent-video",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-absent-video",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-cancelled-absent-video",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-absent-pdf",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-absent-pdf",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-absent-pdf",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-absent-pdf",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-cancelled-absent-pdf",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-stored-none",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-stored-none",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-stored-none",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-stored-none",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-cancelled-stored-none",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-stored-video",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-stored-video",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-stored-video",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-stored-video",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-cancelled-stored-video",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-stored-pdf",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-stored-pdf",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-stored-pdf",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-stored-pdf",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-cancelled-stored-pdf",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-sent-none",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-sent-none",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-sent-none",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-sent-none",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-cancelled-sent-none",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-sent-video",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-sent-video",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-sent-video",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-sent-video",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-cancelled-sent-video",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-sent-pdf",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-sent-pdf",
+      "width": 320,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-sent-pdf",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-sent-pdf",
+      "width": 320,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-cancelled-sent-pdf",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "pending-active-preserved-control",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "pending-review-preserved-control",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "pending-stored-unavailable-preserved-control",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-pending-stored-unavailable-preserved-control",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "paid-preserved-control",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "sent-preserved-control",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-expired-absent-none",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-expired-absent-video",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-expired-absent-pdf",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-expired-stored-none",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-expired-stored-video",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-expired-stored-pdf",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-expired-sent-none",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-expired-sent-video",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-expired-sent-pdf",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-failed-absent-none",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-failed-absent-video",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-failed-absent-pdf",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-failed-stored-none",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-failed-stored-video",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-failed-stored-pdf",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-failed-sent-none",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-failed-sent-video",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-failed-sent-pdf",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-cancelled-absent-none",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-cancelled-absent-video",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-cancelled-absent-pdf",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-cancelled-stored-none",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-cancelled-stored-video",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-cancelled-stored-pdf",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-cancelled-sent-none",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-cancelled-sent-video",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-cancelled-sent-pdf",
+      "width": 320,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-absent-none",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-absent-none",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-absent-none",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-absent-none",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-expired-absent-none",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-absent-video",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-absent-video",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-absent-video",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-absent-video",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-expired-absent-video",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-absent-pdf",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-absent-pdf",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-absent-pdf",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-absent-pdf",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-expired-absent-pdf",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-stored-none",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-stored-none",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-stored-none",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-stored-none",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-expired-stored-none",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-stored-video",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-stored-video",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-stored-video",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-stored-video",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-expired-stored-video",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-stored-pdf",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-stored-pdf",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-stored-pdf",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-stored-pdf",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-expired-stored-pdf",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-sent-none",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-sent-none",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-sent-none",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-sent-none",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-expired-sent-none",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-sent-video",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-sent-video",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-sent-video",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-sent-video",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-expired-sent-video",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-sent-pdf",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-sent-pdf",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-sent-pdf",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-sent-pdf",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-expired-sent-pdf",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-absent-none",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-absent-none",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-absent-none",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-absent-none",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-failed-absent-none",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-absent-video",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-absent-video",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-absent-video",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-absent-video",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-failed-absent-video",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-absent-pdf",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-absent-pdf",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-absent-pdf",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-absent-pdf",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-failed-absent-pdf",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-stored-none",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-stored-none",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-stored-none",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-stored-none",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-failed-stored-none",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-stored-video",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-stored-video",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-stored-video",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-stored-video",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-failed-stored-video",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-stored-pdf",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-stored-pdf",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-stored-pdf",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-stored-pdf",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-failed-stored-pdf",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-sent-none",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-sent-none",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-sent-none",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-sent-none",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-failed-sent-none",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-sent-video",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-sent-video",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-sent-video",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-sent-video",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-failed-sent-video",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-sent-pdf",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-sent-pdf",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-sent-pdf",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-sent-pdf",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-failed-sent-pdf",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-absent-none",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-absent-none",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-absent-none",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-absent-none",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-cancelled-absent-none",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-absent-video",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-absent-video",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-absent-video",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-absent-video",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-cancelled-absent-video",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-absent-pdf",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-absent-pdf",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-absent-pdf",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-absent-pdf",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-cancelled-absent-pdf",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-stored-none",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-stored-none",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-stored-none",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-stored-none",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-cancelled-stored-none",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-stored-video",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-stored-video",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-stored-video",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-stored-video",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-cancelled-stored-video",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-stored-pdf",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-stored-pdf",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-stored-pdf",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-stored-pdf",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-cancelled-stored-pdf",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-sent-none",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-sent-none",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-sent-none",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-sent-none",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-cancelled-sent-none",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-sent-video",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-sent-video",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-sent-video",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-sent-video",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-cancelled-sent-video",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-sent-pdf",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-sent-pdf",
+      "width": 390,
+      "staleDead": false,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-sent-pdf",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": false,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-sent-pdf",
+      "width": 390,
+      "staleDead": true,
+      "localExpired": true,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-cancelled-sent-pdf",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "pending-active-preserved-control",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "pending-review-preserved-control",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "pending-stored-unavailable-preserved-control",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-pending-stored-unavailable-preserved-control",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "paid-preserved-control",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "sent-preserved-control",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-expired-absent-none",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-expired-absent-video",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-expired-absent-pdf",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-expired-stored-none",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-expired-stored-video",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-expired-stored-pdf",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-expired-sent-none",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-expired-sent-video",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-expired-sent-pdf",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-failed-absent-none",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-failed-absent-video",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-failed-absent-pdf",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-failed-stored-none",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-failed-stored-video",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-failed-stored-pdf",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-failed-sent-none",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-failed-sent-video",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-failed-sent-pdf",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-cancelled-absent-none",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-cancelled-absent-video",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-cancelled-absent-pdf",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-cancelled-stored-none",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-cancelled-stored-video",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-cancelled-stored-pdf",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-cancelled-sent-none",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-cancelled-sent-video",
+      "width": 390,
+      "result": "PASS"
+    },
+    {
+      "name": "poll-pending-to-cancelled-sent-pdf",
+      "width": 390,
+      "result": "PASS"
+    }
+  ],
+  "requests": [
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "expired",
+      "width": 320
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "expired",
+      "width": 320
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "expired",
+      "width": 320
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "expired",
+      "width": 320
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "expired",
+      "width": 320
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "expired",
+      "width": 320
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "expired",
+      "width": 320
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "expired",
+      "width": 320
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "expired",
+      "width": 320
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "failed",
+      "width": 320
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "failed",
+      "width": 320
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "failed",
+      "width": 320
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "failed",
+      "width": 320
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "failed",
+      "width": 320
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "failed",
+      "width": 320
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "failed",
+      "width": 320
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "failed",
+      "width": 320
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "failed",
+      "width": 320
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "cancelled",
+      "width": 320
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "cancelled",
+      "width": 320
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "cancelled",
+      "width": 320
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "cancelled",
+      "width": 320
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "cancelled",
+      "width": 320
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "cancelled",
+      "width": 320
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "cancelled",
+      "width": 320
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "cancelled",
+      "width": 320
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "cancelled",
+      "width": 320
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "expired",
+      "width": 390
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "expired",
+      "width": 390
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "expired",
+      "width": 390
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "expired",
+      "width": 390
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "expired",
+      "width": 390
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "expired",
+      "width": 390
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "expired",
+      "width": 390
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "expired",
+      "width": 390
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "expired",
+      "width": 390
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "failed",
+      "width": 390
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "failed",
+      "width": 390
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "failed",
+      "width": 390
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "failed",
+      "width": 390
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "failed",
+      "width": 390
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "failed",
+      "width": 390
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "failed",
+      "width": 390
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "failed",
+      "width": 390
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "failed",
+      "width": 390
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "cancelled",
+      "width": 390
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "cancelled",
+      "width": 390
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "cancelled",
+      "width": 390
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "cancelled",
+      "width": 390
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "cancelled",
+      "width": 390
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "cancelled",
+      "width": 390
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "cancelled",
+      "width": 390
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "cancelled",
+      "width": 390
+    },
+    {
+      "method": "GET",
+      "path": "/api/order/28",
+      "responseStatus": "cancelled",
+      "width": 390
+    }
+  ],
+  "blockedRequests": [],
+  "pageErrors": [],
+  "pendingReceiptObservations": [
+    {
+      "surface": "opaque",
+      "canonicalStatus": "pending",
+      "receipt": "stored",
+      "dead": true,
+      "receiptAcknowledged": false,
+      "visibleText": "ObsidianExchange\nРеквизиты больше не действуют\nРеквизиты по этой ссылке недоступны\nРеквизиты по этой ссылке больше недоступны. Если вы уже перевели деньги — не переводите повторно. Обратитесь в поддержку для проверки статуса. Поддержка в Telegram →\nЗаявка #30 · оплата защищена",
+      "noPaymentInstructions": true
+    },
+    {
+      "surface": "numeric",
+      "canonicalStatus": "pending",
+      "receipt": "stored",
+      "dead": true,
+      "receiptAcknowledged": false,
+      "visibleText": "ObsidianExchange\nЗаявка #30\nРеквизиты недоступны\n2000 ₽\n\nНе переводите по прежним реквизитам. Если уже оплатили — не платите повторно и обратитесь в поддержку.\n\nОткрыть бота",
+      "noPaymentInstructions": true
+    }
+  ],
+  "browserVersion": "152.0.7977.64",
+  "result": "PASS"
+}

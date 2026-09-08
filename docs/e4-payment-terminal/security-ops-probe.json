@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "e4-payment-terminal-independent-ops-probe.v1",
+  "result": "PASS",
+  "inputs": [
+    {
+      "path": "docs/e4-payment-terminal/security-ops-probe.py",
+      "sha256": "fdc638ba5c0dd3070849e330216e5215e9f618a489f1db7da29b4f6b3eed90e0"
+    },
+    {
+      "path": "deploy/e4_payment_terminal_rollout.py",
+      "sha256": "79c14cc464b6d8939e92c751aa15271cc49c1183c5eac515399e8340436116d2"
+    },
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "a399f55e9efb4e5092a072cf30baf6f2c6791ddbcb5dcdbee210526d8665ffc5"
+    }
+  ],
+  "cases": [
+    {
+      "case": "normal-round-trip",
+      "result": "PASS",
+      "reconciliationSubmittedNoRestart": true,
+      "exactOriginalBytesMetadataRestored": true,
+      "preservedFileUnchanged": true,
+      "restartCount": 2
+    },
+    {
+      "case": "before-publication",
+      "result": "PASS",
+      "reconciliationSubmittedNoRestart": true,
+      "exactOriginalBytesMetadataRestored": true,
+      "preservedFileUnchanged": true,
+      "restartCount": 1
+    },
+    {
+      "case": "after-publication",
+      "result": "PASS",
+      "reconciliationSubmittedNoRestart": true,
+      "exactOriginalBytesMetadataRestored": true,
+      "preservedFileUnchanged": true,
+      "restartCount": 1
+    },
+    {
+      "case": "restart-acknowledgement-lost",
+      "result": "PASS",
+      "reconciliationSubmittedNoRestart": true,
+      "exactOriginalBytesMetadataRestored": true,
+      "preservedFileUnchanged": true,
+      "restartCount": 2
+    }
+  ],
+  "temporaryDirectoriesRemoved": true,
+  "productionReadsWritesNetworkRestarts": false,
+  "scope": "Actual single-file journal, publication, reconciliation and rollback functions on disposable files; only upstream gates and service/public observations are mocked."
+}

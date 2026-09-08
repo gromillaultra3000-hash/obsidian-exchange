@@ -1,0 +1,32 @@
+{
+  "recordedAt": "2026-09-08T02:35:25.156840+00:00",
+  "result": "PASS",
+  "inputs": [
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "a399f55e9efb4e5092a072cf30baf6f2c6791ddbcb5dcdbee210526d8665ffc5"
+    },
+    {
+      "path": "deploy/e4_payment_terminal_rollout.py",
+      "sha256": "79c14cc464b6d8939e92c751aa15271cc49c1183c5eac515399e8340436116d2"
+    },
+    {
+      "path": "tests/test_e4_payment_terminal_rollout.py",
+      "sha256": "9c0b018141e5d8a04fe0db90e7f3ab56c6062747afe431c1eb3c4d17942c2cfc"
+    }
+  ],
+  "command": "/opt/lumi/venv/bin/python -m pytest -q -p no:cacheprovider tests/test_e4_payment_terminal_rollout.py",
+  "exitCode": 0,
+  "passed": 17,
+  "summary": "17 passed in 0.37s",
+  "cases": [
+    "single-file deployment and exact metadata rollback",
+    "interruption before and after publication, read-only reconciliation and explicit rollback",
+    "refuse unknown live bytes, corrupted preimages, candidate/preserved/service drift",
+    "refuse active autonomous writer and blind interrupted rollback replay",
+    "bind browser fixture/runner/candidate and verify browser cleanup",
+    "allow bounded presentation changes; reject backend edits, new Python interpolation and effectful display call"
+  ],
+  "runtimeMutated": false,
+  "limits": "Service restart is simulated in unit tests; the rollback rehearsal changes only disposable files."
+}

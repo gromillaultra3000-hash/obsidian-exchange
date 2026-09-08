@@ -1,0 +1,296 @@
+{
+  "schemaVersion": "e4-payment-terminal-independent-acceptance.v1",
+  "result": "PASS",
+  "reviewedAt": "2026-09-08T02:35:44.397841+00:00",
+  "route": "E4 / PAYMENT_STATUS_TERMINAL_REASON_CONSISTENCY",
+  "reviewer": "Independent acceptance agent; authored fixture/browser/probe evidence, not product or rollout recipe. No browser launch or production mutation by reviewer.",
+  "decision": "Accept the bounded single-file pay-presentation change for the existing gated reversible Relay rollout. Independent security approval and operational deployment gates remain separate.",
+  "context": {
+    "baseline": "Backend-valid failed/cancelled orders were presented as expiry; stale verification could hide terminal outcomes, and receipt metadata replaced distinct reasons with a generic closed caption. Exact installed/baseline probes and prior actual-browser evidence establish this without inferring customer incidence.",
+    "opaquePage": "Canonical expired/failed/cancelled selects its own terminal renderer before receipt/verification. Received-file/delivered-receipt facts are additional text; they do not alter the outcome or promise payment, payout, active staff assignment or a review deadline.",
+    "numericPage": "Terminal status stays intact instead of being overwritten with _receipt_closed. Existing distinct terminal headings receive the corresponding receipt/no-repeat/support text.",
+    "precedence": "Paid/sent remain above terminal branches. Terminal outcome wins stale verification, dead-session metadata and local timer. No terminal page exposes payment, copy or QR controls.",
+    "boundary": "Only pay function changes. All 155 other functions, module wiring/imports, protected read/auth/redirect calls, adapter/proof/Mini App bytes retain their previous behavior."
+  },
+  "evidence": {
+    "focusedTests": "122 passed in 7.99s",
+    "exactHandlers": "59 independent exact-handler/backend/auth checks PASS; 60 generated opaque/numeric pages. Real in-memory SQLite is query_only, with retained installed repository class and unchanged adapter; synthetic HMAC keys only.",
+    "baselineSensitivity": "18 numeric terminal-reason mismatches reproduced on exact previous main and 0 on candidate. Independent security Node-VM terminal matrix has 126 baseline failures and 136 candidate passes.",
+    "actualBrowser": "336 grouped checks PASS across 320/390 viewports: 27 terminal status/receipt/verification combinations, 4 stale dead/local-timer combinations, numeric parity, 54 pending-to-terminal poll transitions and preserved pending/paid/sent controls. 54 synthetic GET requests; zero blocked requests/page errors. Sandbox/private-network unit cleaned to MainPID 0/empty cgroup.",
+    "visualInspection": [
+      "320-terminal-failed-sent-video.png",
+      "320-terminal-cancelled-stored-pdf.png",
+      "320-terminal-numeric-failed-sent-video.png",
+      "320-terminal-pending-stored-unavailable.png"
+    ],
+    "sourceBoundary": "Independent whole-module AST comparison excludes only pay and is identical; protected reads/auth/redirect calls and pay imports are also identical. No new SQL or API behavior.",
+    "operations": "Single-file recipe independently inspected. Own 5 inert reconciliation/no-replay states PASS. Security 4 disposable filesystem scenarios cover normal round trip, interruption before/after publication and lost restart acknowledgement; known bytes/metadata restored and unrelated preserved file unchanged. Current ops tests, file/journal rollback rehearsal and preflight pass."
+  },
+  "databaseRehearsalDecision": "No repeated PostgreSQL/container run: query implementations, repository binding, auth, API and read call ASTs are unchanged. Prior read-contract database proof remains context; this slice adds exact current rendering/browser evidence.",
+  "resolvedFindings": [
+    "Numeric receipt fallback originally still hid expired/failed/cancelled reason; final implementation preserves the canonical terminal heading and adds receipt facts.",
+    "Stale verification prompt no longer outranks a terminal outcome; final actual browser permutations and poll transitions demonstrate the correction."
+  ],
+  "nextPrerequisite": {
+    "id": "PAYMENT_STATUS_PENDING_RECEIPT_EVIDENCE_CONSISTENCY",
+    "artifact": "docs/e4-payment-terminal/next-prerequisite.json",
+    "observed": "Both page forms omit a known stored receipt for pending+unavailable requisites. Exact API fixture and actual DOM/screens establish this remaining pending presentation omission while confirming payment controls are suppressed."
+  },
+  "limitations": [
+    "No real customer/order/bearer/proof/provider/wallet/money action or production database was used.",
+    "Exact handler AST probes use declared exception/redirect wrappers and a false payout-delay fixture rather than importing the entire ASGI application.",
+    "No real Telegram/iOS/WebKit, assistive technology or human-comprehension claim.",
+    "Review is scoped acceptance, not a claim that the entire historical repository suite passes.",
+    "No production deployment or real restart/rollback rehearsal is claimed. An authorized Relay restart resumes ordinary preexisting background work."
+  ],
+  "inputs": [
+    {
+      "path": "deploy/e4_payment_terminal_rollout.py",
+      "sha256": "79c14cc464b6d8939e92c751aa15271cc49c1183c5eac515399e8340436116d2"
+    },
+    {
+      "path": "docs/e4-payment-status-read/ops-release-manifest.json",
+      "sha256": "fa87c1c8ee5eca7da4ba090504a93ae6cbda35b252971a38e89f0476f47e6057"
+    },
+    {
+      "path": "docs/e4-payment-terminal/320-terminal-cancelled-stored-pdf.png",
+      "sha256": "1f0fe64479bad1595a7ec5dbf1da6b46e64ad0daea2ed995893684bca6029f89"
+    },
+    {
+      "path": "docs/e4-payment-terminal/320-terminal-expired-absent-none.png",
+      "sha256": "d13b7845c210da1c14bc1d616495f5d722442b3cd48caee48f30931a8b510331"
+    },
+    {
+      "path": "docs/e4-payment-terminal/320-terminal-failed-sent-video.png",
+      "sha256": "3573b8f52a26bb81adbbe10a88a3c6c1ada09d1fe5ec621f4371dfb63e767330"
+    },
+    {
+      "path": "docs/e4-payment-terminal/320-terminal-numeric-failed-sent-video.png",
+      "sha256": "b6936463e41ac341665b60237d389064e3386387cc470af3258c0e39c1d3662d"
+    },
+    {
+      "path": "docs/e4-payment-terminal/320-terminal-numeric-pending-stored-unavailable.png",
+      "sha256": "a5c3ee8c9a1bbe9a96fe9f2e185d1e09418f807d487938a4ac873e1ebe2ab8bd"
+    },
+    {
+      "path": "docs/e4-payment-terminal/320-terminal-pending-stored-unavailable.png",
+      "sha256": "399a8074f6aa437ff45288fed673b8661e779a5425d0e5b2a1c12b876ed164e7"
+    },
+    {
+      "path": "docs/e4-payment-terminal/390-terminal-cancelled-stored-pdf.png",
+      "sha256": "8184f035716bfda6eca688ab2b1d7251137fe1a50a22b85f5899f62b21ccd7c7"
+    },
+    {
+      "path": "docs/e4-payment-terminal/acceptance-baseline-pages.json",
+      "sha256": "aa5055a346f4f942e7563ad1c555c7cfda20378b5c1844f3c9718f0af8f48cd8"
+    },
+    {
+      "path": "docs/e4-payment-terminal/acceptance-baseline-probe.json",
+      "sha256": "85881620b1a240b2f937699ebbda187b6275d32612d43cbf9fbc8734602b1cfd"
+    },
+    {
+      "path": "docs/e4-payment-terminal/acceptance-ops-probe.json",
+      "sha256": "5e9ee097a5e47fba58e5eaaf60dcbdd56250139942fd6c30b77422f08abe70ce"
+    },
+    {
+      "path": "docs/e4-payment-terminal/acceptance-ops-probe.py",
+      "sha256": "60c47411c861f91a5327572630b5c88b546d7188ceca4069d035f708e794e5ab"
+    },
+    {
+      "path": "docs/e4-payment-terminal/acceptance-pages.json",
+      "sha256": "c2cebf7a41c1bdc510bf437230dbfbd007fe32dc9a23ab5d80616d221a564324"
+    },
+    {
+      "path": "docs/e4-payment-terminal/acceptance-probe.json",
+      "sha256": "3db289cac42757a7d64d78e551faa170c03413e7b94707af7a4b92ba195cfb42"
+    },
+    {
+      "path": "docs/e4-payment-terminal/acceptance-probe.py",
+      "sha256": "25d8bb3e1dff58024aa19149fcf0f02342d50f9c0d813b7a3430bf742ed90402"
+    },
+    {
+      "path": "docs/e4-payment-terminal/acceptance-run-browser.py",
+      "sha256": "d04bf5d7bfb875143bca9e3e220ed82594d4d303c324841781111cf3ede37bec"
+    },
+    {
+      "path": "docs/e4-payment-terminal/acceptance-seal.py",
+      "sha256": "ab4ab466a6bcfc9c0a0a949a4d488cce9f421cdac31076b91e6f53d05c814c35"
+    },
+    {
+      "path": "docs/e4-payment-terminal/acceptance-surface.json",
+      "sha256": "4038d9d8578554a7643c89357cee3d330529849dd4667cf07d0011b6da8fc335"
+    },
+    {
+      "path": "docs/e4-payment-terminal/acceptance-surface.py",
+      "sha256": "3681857675eee64fee671a48069fdce62108efd64086cf50845bf47ee98e5f99"
+    },
+    {
+      "path": "docs/e4-payment-terminal/contract.md",
+      "sha256": "d11cdf7628ef1f7f5748cc980ae6d68f75378d7d9fe0c32e12abc6fd110e863e"
+    },
+    {
+      "path": "docs/e4-payment-terminal/next-prerequisite-probe.py",
+      "sha256": "3b946c091d085116fd3b72b47507c7e1e655604de8c8384a6bbb4af91ce9f2c5"
+    },
+    {
+      "path": "docs/e4-payment-terminal/next-prerequisite.json",
+      "sha256": "6c04ba6885427257836bb188442e8bc3417dd07e2a5423f3173a41f180e6bf13"
+    },
+    {
+      "path": "docs/e4-payment-terminal/ops-baseline.json",
+      "sha256": "bc6cb868fe146443ae9f5ae8782fd7d4111952f82f453d0701ac218d2068ee76"
+    },
+    {
+      "path": "docs/e4-payment-terminal/ops-release-manifest.json",
+      "sha256": "7d3f919bd9073de60869af4bc800d580319524917a93fbfd737de38ad646f284"
+    },
+    {
+      "path": "docs/e4-payment-terminal/ops-review.json",
+      "sha256": "9f9b2da7691db23e3bc95d76a30cca178d3d714fe4b33deb3d434c5442be3d83"
+    },
+    {
+      "path": "docs/e4-payment-terminal/ops-scope-proof.json",
+      "sha256": "e7ffcc582b2ceff6dbfc5a4f06c751cec18d3a49b7b6e4ab5ff4bff337725860"
+    },
+    {
+      "path": "docs/e4-payment-terminal/ops-tests.json",
+      "sha256": "05e054d5790818b807dcb18d18840546816ecb55e608ddb05dd51f20675a9030"
+    },
+    {
+      "path": "docs/e4-payment-terminal/payment-browser-isolation.json",
+      "sha256": "91cef5c87ce6373ab21a7ca65d6cfd31ada9c656adb9e82e846c03ed75645235"
+    },
+    {
+      "path": "docs/e4-payment-terminal/payment-browser-report.json",
+      "sha256": "cfaab4ca624ab6f5701f7875a1de6e7325e5d97a718627f86cc15e6e36be8ff6"
+    },
+    {
+      "path": "docs/e4-payment-terminal/preflight.json",
+      "sha256": "846091fe464830d27a812e1d7cad8b5dfbe8f9f0c9659cbc1a64a0fb12f7c2fe"
+    },
+    {
+      "path": "docs/e4-payment-terminal/rollback-rehearsal.json",
+      "sha256": "7fe32f325dd928afc1d40839fc8840f7b0ae7840e29d3fe9da22f147ea62f8ca"
+    },
+    {
+      "path": "docs/e4-payment-terminal/secret-scan-findings.json",
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "path": "docs/e4-payment-terminal/security-baseline.json",
+      "sha256": "c3cfd3449625505f5e01e675c3c52c074273d27ecf1e93b72dee5ab093ab634e"
+    },
+    {
+      "path": "docs/e4-payment-terminal/security-ops-probe.json",
+      "sha256": "31a700cac98e49e642935a4978793cbefa88a1199581a2a579f8cb5ecdd84efa"
+    },
+    {
+      "path": "docs/e4-payment-terminal/security-ops-probe.py",
+      "sha256": "fdc638ba5c0dd3070849e330216e5215e9f618a489f1db7da29b4f6b3eed90e0"
+    },
+    {
+      "path": "docs/e4-payment-terminal/security-probe.json",
+      "sha256": "05ed86adc39c876a551b4eb00ec80b1503693362b4e71fe261cc77dd024f5035"
+    },
+    {
+      "path": "docs/e4-payment-terminal/security-probe.py",
+      "sha256": "c56126c0bd678e0bf89b30a51fcd0df71f55efd70ee179de6cb0b0da52c93a67"
+    },
+    {
+      "path": "docs/e4-payment-terminal/security-validation-notes.json",
+      "sha256": "2afd49e0fe7e0dd257e2af7147a39b89e9be5321ae23c28af85c868709b4b204"
+    },
+    {
+      "path": "docs/e4-payment-terminal/tests-output.txt",
+      "sha256": "01616ae2d6f869f7ae3765379c606e9a6b2d2a1c6f8b4b4a772a2c7114af6b67"
+    },
+    {
+      "path": "docs/e4-payment-terminal/tests.json",
+      "sha256": "0fddc461e90b86d7c40fa9ffe7698c9418a6fe06704693583abb5498d9795a08"
+    },
+    {
+      "path": "output/manual/e4-payment-terminal-20260908/baseline/relay-fastapi/main.py",
+      "sha256": "1297db5e84e36ddec0cdf09808c871ce55c28cfd7c4ca04bded9bbace5dde2ab"
+    },
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "a399f55e9efb4e5092a072cf30baf6f2c6791ddbcb5dcdbee210526d8665ffc5"
+    },
+    {
+      "path": "relay/core/order_access.py",
+      "sha256": "15d996a1450ff898ef62b3e43c048069c2c4dc60863399bcba144cfd46c69a0f"
+    },
+    {
+      "path": "relay/core/requisites.py",
+      "sha256": "a6c9eb87a236081095eb8213828b4ea33e9296d6f1bb8696d2e91c9733aca507"
+    },
+    {
+      "path": "relay/core/telegram_freshness.py",
+      "sha256": "40bef427a0daa3069e05565fdb65217836414ed581960b64f1cff5c1c266d601"
+    },
+    {
+      "path": "relay/core/txid.py",
+      "sha256": "726b98d97696578b0883f5a14eca119f9bc4ce0fd92f409617edf1190129f824"
+    },
+    {
+      "path": "relay/repositories/payment_status_read_store.py",
+      "sha256": "5cbd26d0335c0cf713aa4be9c87999773bbcc37ab89202a554a4811b6702b6f9"
+    },
+    {
+      "path": "relay/services/requisite_origin.py",
+      "sha256": "5552f1c274bc2e7721068bf7db69564ca360d5065920cebbb17c022df4335398"
+    },
+    {
+      "path": "relay/webapp.html",
+      "sha256": "8347b9df45a27b7077dabae8aa3e68dbfa763f0ed67220a93aca7f58ce11a908"
+    },
+    {
+      "path": "scripts/run_e4_review_browser.py",
+      "sha256": "6f4c9bf3020ae80b323655333a1eb3697eca4d44672ef6d28c679749136c412b"
+    },
+    {
+      "path": "tests/e4_payment_terminal_behavior.cjs",
+      "sha256": "efaecfef55af7587c3a4656a2f1e545195bbbac809415a783c492d659d996bb9"
+    },
+    {
+      "path": "tests/e4_payment_terminal_browser.cjs",
+      "sha256": "3813ee9ebd877847ff02d91f0574f406e0c73682fc0dca4b3f4327f191cc270c"
+    },
+    {
+      "path": "tests/test_e0_3_numeric_pay_token_guard.py",
+      "sha256": "99238ba9bb7e7d6811388f6d9bb7ab055c16e068fff5b0ce24a2604aed85bd85"
+    },
+    {
+      "path": "tests/test_e0_4_authenticated_synthetic_reads.py",
+      "sha256": "d488f5d61b00b3fe9a9188a2c495a87ab95b7f5675675768d5a8282ad6f0065c"
+    },
+    {
+      "path": "tests/test_e4_payment_instruction_behavior.py",
+      "sha256": "b425ababa71e51d8f977214303553bd011509d2bb5dd9c8a0bf2ea2ef218b3ea"
+    },
+    {
+      "path": "tests/test_e4_payment_requisites_copy_behavior.py",
+      "sha256": "3b0e45d530c32e872ac54222120544e4bd63467cf1e33373d44105b7b8230a3a"
+    },
+    {
+      "path": "tests/test_e4_payment_status_read_contract.py",
+      "sha256": "7d7ab67d075f95329e0376fe66991acd8fbbfcc288899acc50eb10a692509c26"
+    },
+    {
+      "path": "tests/test_e4_payment_terminal_behavior.py",
+      "sha256": "f3ae7ad4661d904ae206441e29b13f574861b11a191d965e59d3b908d19a6d77"
+    },
+    {
+      "path": "tests/test_e4_payment_terminal_rollout.py",
+      "sha256": "9c0b018141e5d8a04fe0db90e7f3ab56c6062747afe431c1eb3c4d17942c2cfc"
+    },
+    {
+      "path": "tests/test_order_access.py",
+      "sha256": "ebf8941ca0c125d08b6b975924dba5862f07621a0c723e03eefbcab46a44ed58"
+    },
+    {
+      "path": "tests/test_relay_runtime_isolation.py",
+      "sha256": "eeed65198d8762984cbaba3318e53554111dfb132e477460763c1f2d868933be"
+    }
+  ]
+}

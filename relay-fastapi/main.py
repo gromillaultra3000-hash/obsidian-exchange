@@ -3241,16 +3241,11 @@ async def pay(token: str, request: Request):
         if _rcpt == 'sent':
             if o_status in (None, '', 'pending'):
                 o_status = '_receipt_unavailable' if _closed_session else '_receipt'
-            elif o_status in ('expired', 'failed', 'cancelled'):
-                o_status = '_receipt_closed'
-        elif _rcpt == 'stored' and o_status in ('expired', 'failed', 'cancelled'):
-            o_status = '_receipt_closed'
         if o_status in (None, '', 'pending') and _closed_session:
             o_status = '_session_closed'
         _titles = {'_receipt': ('Чек получен — проверяем', 'Заявка не отменена и не истекла. Как только платёж подтвердится, крипта уйдёт на ваш адрес. Обычно до 30 минут.'),
                    '_session_closed': ('Реквизиты недоступны', 'Не переводите по прежним реквизитам. Если уже оплатили — не платите повторно и обратитесь в поддержку.'),
                    '_receipt_unavailable': ('Чек получен, реквизиты недоступны', 'Повторно не переводите и новую заявку не создавайте. Обратитесь в поддержку для проверки статуса.'),
-                   '_receipt_closed': ('Заявка закрыта, чек у нас', 'Повторно не переводите и новую заявку не создавайте. Напишите в поддержку — разберём вручную по вашему чеку.'),
                    'pending': ('Реквизиты готовятся', 'Платёжный маршрут ещё не выдал реквизиты. Откройте бота — там появится кнопка оплаты, или создайте заявку заново.'),
                    'paid': ('Оплата получена', 'Готовим выплату криптовалюты. Уведомим в Telegram.'),
                    'sent': ('Криптовалюта отправлена', 'Сделка завершена. Спасибо, что выбрали нас!'),
@@ -3258,6 +3253,15 @@ async def pay(token: str, request: Request):
                    'cancelled': ('Заявка отменена', 'Средства не переводите. Если уже оплатили — не платите повторно и обратитесь в поддержку.'),
                    'expired': ('Заявка истекла', 'Средства не переводите — создайте новую заявку с актуальным курсом.')}
         _t, _d = _titles.get(o_status or 'pending', _titles['pending'])
+        if o_status in ('expired', 'failed', 'cancelled'):
+            receipt_note = {
+                'stored': 'Файл чека получен, но платёжному партнёру пока не передан.',
+                'sent': 'Чек получен и передан платёжному партнёру.',
+            }.get(_rcpt, '')
+            repeat_advice = ('Повторно не переводите и новую заявку не создавайте.'
+                             if receipt_note else 'Если уже оплатили — повторно не переводите.')
+            _d = (f'{receipt_note} Не переводите по этим реквизитам. {repeat_advice} '
+                  'Обратитесь в поддержку для проверки статуса.').strip()
         html = f"""<!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -3570,14 +3574,23 @@ function viewReceipt(){{
     <div class="hint">Заявка НЕ отменена и таймер на неё больше не влияет. Как только платёж подтвердится, ${{esc(C.currency)||'криптовалюта'}} уйдёт на ваш адрес. Обычно до 30 минут; если дольше — напишите в поддержку.
     ${{SUPPORT}}</div>`;
 }}
-// Заявка ЗАКРЫТА (истекла/отменена), а чек по ней у нас. Обещать выплату
-// нельзя — решение уже принято; молчать о чеке тоже нельзя — деньги клиент,
-// возможно, отдал. Единственный честный выход — к человеку.
-function viewReceiptClosed(){{
-  return `<div class="pill exp"><i class="pdot"></i>Заявка закрыта · чек у нас</div>
-    <div class="lbl" style="font-size:15px;color:#e7e7ea;text-align:center">Разбираем вручную</div>
-    <div class="hint">Эта заявка больше не активна, но ваш чек мы получили. <b>Повторно не переводите и новую заявку не создавайте</b> — напишите в поддержку, разберём по чеку.
-    ${{SUPPORT}}</div>`;
+// Canonical terminal reason remains visible independently of receipt metadata.
+// A receipt is evidence of a file/delivery, never confirmation of payment.
+function viewTerminal(){{
+  const reason = {{
+    expired: {{title:'Время истекло', label:'Срок оплаты заявки истёк', icon:'⌛'}},
+    failed: {{title:'Заявка не выполнена', label:'Обмен по этой заявке не выполнен', icon:'❌'}},
+    cancelled: {{title:'Заявка отменена', label:'Эта заявка отменена', icon:'⛔'}}
+  }}[C.status] || {{title:'Заявка закрыта', label:'Эта заявка больше не активна', icon:'—'}};
+  const receipt = C.receipt==='sent' ? 'Чек получен и передан платёжному партнёру.'
+    : (C.receipt==='stored' ? 'Файл чека получен, но платёжному партнёру пока не передан.' : '');
+  return `<div class="pill exp"><i class="pdot"></i>${{esc(reason.title)}}</div>
+    <div class="big-ico">${{reason.icon}}</div>
+    <div class="lbl" style="font-size:15px;color:#e7e7ea;text-align:center">${{esc(reason.label)}}</div>
+    ${{receipt?`<div class="hint terminal-receipt">${{receipt}}</div>`:''}}
+    <div class="hint">Не переводите по этим реквизитам.
+    ${{receipt?'<b>Повторно не переводите и новую заявку не создавайте.</b>':'<b>Если уже оплатили — повторно не переводите.</b>'}}
+    Обратитесь в поддержку для проверки статуса. ${{SUPPORT}}</div>`;
 }}
 // Файл у нас, но партнёру НЕ ушёл, а срок реквизитов вышел. Ни «платите по
 // этим реквизитам» (они мертвы), ни «создайте новую» (клиент мог заплатить).
@@ -3601,14 +3614,11 @@ function render(){{
   const closed = (C.status==='expired'||C.status==='failed'||C.status==='cancelled');
   if (C.status==='sent') v.innerHTML=viewSent();
   else if (C.status==='paid') v.innerHTML=viewPaid();
-  // Исход, который объявил СЕРВЕР, старше чека: заявку с дошедшим чеком Слой 0
-  // сам не истекает, а раз статус всё же терминальный — это решение человека,
-  // и обещать по нему выплату было бы враньём в другую сторону.
-  else if (closed && C.receipt) v.innerHTML=viewReceiptClosed();
+  // Canonical order outcome wins over receipt metadata and verification prompts.
+  else if (closed) v.innerHTML=viewTerminal();
   else if (C.verification) v.innerHTML=viewVerify();
   // А вот локальный таймер чеку не указ: 15 минут кончились, решение впереди.
   else if (C.receipt==='sent') v.innerHTML=viewReceipt();
-  else if (closed) v.innerHTML=viewExpired();
   // Мёртвая сессия важнее живого таймера: срок ещё идёт, а платить уже некуда.
   else if (C.dead) v.innerHTML=viewDead();
   else if (_localExpired && C.receipt) v.innerHTML=viewReceiptStored();

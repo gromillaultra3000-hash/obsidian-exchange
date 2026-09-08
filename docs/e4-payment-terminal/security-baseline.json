@@ -1,0 +1,1017 @@
+{
+  "schemaVersion": "e4-payment-terminal-independent-security-probe.v1",
+  "result": "EXPECTED_BASELINE_FAILURE",
+  "baselineHead": "4c7882c15d6d88ff80d56d2cc160076eff929f95",
+  "inputs": [
+    {
+      "path": "docs/e4-payment-terminal/security-probe.py",
+      "sha256": "c56126c0bd678e0bf89b30a51fcd0df71f55efd70ee179de6cb0b0da52c93a67"
+    },
+    {
+      "path": "relay/core/requisites.py",
+      "sha256": "a6c9eb87a236081095eb8213828b4ea33e9296d6f1bb8696d2e91c9733aca507"
+    },
+    {
+      "path": "relay/services/requisite_origin.py",
+      "sha256": "5552f1c274bc2e7721068bf7db69564ca360d5065920cebbb17c022df4335398"
+    },
+    {
+      "path": "relay/core/txid.py",
+      "sha256": "726b98d97696578b0883f5a14eca119f9bc4ce0fd92f409617edf1190129f824"
+    }
+  ],
+  "executedSourceSha256": "1297db5e84e36ddec0cdf09808c871ce55c28cfd7c4ca04bded9bbace5dde2ab",
+  "cases": 136,
+  "passingCases": 10,
+  "failingCases": 126,
+  "failures": [
+    {
+      "name": "expired:absent:none:false:false",
+      "status": "expired",
+      "issues": [
+        "no no-repeat guidance",
+        "fixed support route absent"
+      ]
+    },
+    {
+      "name": "expired:absent:none:false:true",
+      "status": "expired",
+      "issues": [
+        "no no-repeat guidance",
+        "fixed support route absent"
+      ]
+    },
+    {
+      "name": "expired:absent:none:true:false",
+      "status": "expired",
+      "issues": [
+        "no no-repeat guidance",
+        "fixed support route absent"
+      ]
+    },
+    {
+      "name": "expired:absent:none:true:true",
+      "status": "expired",
+      "issues": [
+        "no no-repeat guidance",
+        "fixed support route absent"
+      ]
+    },
+    {
+      "name": "expired:absent:pdf:false:false",
+      "status": "expired",
+      "issues": [
+        "canonical terminal reason absent",
+        "verification or receipt masks terminal outcome",
+        "no no-repeat guidance",
+        "fixed support route absent"
+      ]
+    },
+    {
+      "name": "expired:absent:pdf:false:true",
+      "status": "expired",
+      "issues": [
+        "canonical terminal reason absent",
+        "verification or receipt masks terminal outcome",
+        "no no-repeat guidance",
+        "fixed support route absent"
+      ]
+    },
+    {
+      "name": "expired:absent:pdf:true:false",
+      "status": "expired",
+      "issues": [
+        "canonical terminal reason absent",
+        "verification or receipt masks terminal outcome",
+        "no no-repeat guidance",
+        "fixed support route absent"
+      ]
+    },
+    {
+      "name": "expired:absent:pdf:true:true",
+      "status": "expired",
+      "issues": [
+        "canonical terminal reason absent",
+        "verification or receipt masks terminal outcome",
+        "no no-repeat guidance",
+        "fixed support route absent"
+      ]
+    },
+    {
+      "name": "expired:absent:video:false:false",
+      "status": "expired",
+      "issues": [
+        "canonical terminal reason absent",
+        "verification or receipt masks terminal outcome",
+        "no no-repeat guidance",
+        "fixed support route absent"
+      ]
+    },
+    {
+      "name": "expired:absent:video:false:true",
+      "status": "expired",
+      "issues": [
+        "canonical terminal reason absent",
+        "verification or receipt masks terminal outcome",
+        "no no-repeat guidance",
+        "fixed support route absent"
+      ]
+    },
+    {
+      "name": "expired:absent:video:true:false",
+      "status": "expired",
+      "issues": [
+        "canonical terminal reason absent",
+        "verification or receipt masks terminal outcome",
+        "no no-repeat guidance",
+        "fixed support route absent"
+      ]
+    },
+    {
+      "name": "expired:absent:video:true:true",
+      "status": "expired",
+      "issues": [
+        "canonical terminal reason absent",
+        "verification or receipt masks terminal outcome",
+        "no no-repeat guidance",
+        "fixed support route absent"
+      ]
+    },
+    {
+      "name": "expired:stored:none:false:false",
+      "status": "expired",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "expired:stored:none:false:true",
+      "status": "expired",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "expired:stored:none:true:false",
+      "status": "expired",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "expired:stored:none:true:true",
+      "status": "expired",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "expired:stored:pdf:false:false",
+      "status": "expired",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "expired:stored:pdf:false:true",
+      "status": "expired",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "expired:stored:pdf:true:false",
+      "status": "expired",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "expired:stored:pdf:true:true",
+      "status": "expired",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "expired:stored:video:false:false",
+      "status": "expired",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "expired:stored:video:false:true",
+      "status": "expired",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "expired:stored:video:true:false",
+      "status": "expired",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "expired:stored:video:true:true",
+      "status": "expired",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "expired:sent:none:false:false",
+      "status": "expired",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "expired:sent:none:false:true",
+      "status": "expired",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "expired:sent:none:true:false",
+      "status": "expired",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "expired:sent:none:true:true",
+      "status": "expired",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "expired:sent:pdf:false:false",
+      "status": "expired",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "expired:sent:pdf:false:true",
+      "status": "expired",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "expired:sent:pdf:true:false",
+      "status": "expired",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "expired:sent:pdf:true:true",
+      "status": "expired",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "expired:sent:video:false:false",
+      "status": "expired",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "expired:sent:video:false:true",
+      "status": "expired",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "expired:sent:video:true:false",
+      "status": "expired",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "expired:sent:video:true:true",
+      "status": "expired",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "failed:absent:none:false:false",
+      "status": "failed",
+      "issues": [
+        "canonical terminal reason absent",
+        "no no-repeat guidance",
+        "fixed support route absent"
+      ]
+    },
+    {
+      "name": "failed:absent:none:false:true",
+      "status": "failed",
+      "issues": [
+        "canonical terminal reason absent",
+        "no no-repeat guidance",
+        "fixed support route absent"
+      ]
+    },
+    {
+      "name": "failed:absent:none:true:false",
+      "status": "failed",
+      "issues": [
+        "canonical terminal reason absent",
+        "no no-repeat guidance",
+        "fixed support route absent"
+      ]
+    },
+    {
+      "name": "failed:absent:none:true:true",
+      "status": "failed",
+      "issues": [
+        "canonical terminal reason absent",
+        "no no-repeat guidance",
+        "fixed support route absent"
+      ]
+    },
+    {
+      "name": "failed:absent:pdf:false:false",
+      "status": "failed",
+      "issues": [
+        "canonical terminal reason absent",
+        "verification or receipt masks terminal outcome",
+        "no no-repeat guidance",
+        "fixed support route absent"
+      ]
+    },
+    {
+      "name": "failed:absent:pdf:false:true",
+      "status": "failed",
+      "issues": [
+        "canonical terminal reason absent",
+        "verification or receipt masks terminal outcome",
+        "no no-repeat guidance",
+        "fixed support route absent"
+      ]
+    },
+    {
+      "name": "failed:absent:pdf:true:false",
+      "status": "failed",
+      "issues": [
+        "canonical terminal reason absent",
+        "verification or receipt masks terminal outcome",
+        "no no-repeat guidance",
+        "fixed support route absent"
+      ]
+    },
+    {
+      "name": "failed:absent:pdf:true:true",
+      "status": "failed",
+      "issues": [
+        "canonical terminal reason absent",
+        "verification or receipt masks terminal outcome",
+        "no no-repeat guidance",
+        "fixed support route absent"
+      ]
+    },
+    {
+      "name": "failed:absent:video:false:false",
+      "status": "failed",
+      "issues": [
+        "canonical terminal reason absent",
+        "verification or receipt masks terminal outcome",
+        "no no-repeat guidance",
+        "fixed support route absent"
+      ]
+    },
+    {
+      "name": "failed:absent:video:false:true",
+      "status": "failed",
+      "issues": [
+        "canonical terminal reason absent",
+        "verification or receipt masks terminal outcome",
+        "no no-repeat guidance",
+        "fixed support route absent"
+      ]
+    },
+    {
+      "name": "failed:absent:video:true:false",
+      "status": "failed",
+      "issues": [
+        "canonical terminal reason absent",
+        "verification or receipt masks terminal outcome",
+        "no no-repeat guidance",
+        "fixed support route absent"
+      ]
+    },
+    {
+      "name": "failed:absent:video:true:true",
+      "status": "failed",
+      "issues": [
+        "canonical terminal reason absent",
+        "verification or receipt masks terminal outcome",
+        "no no-repeat guidance",
+        "fixed support route absent"
+      ]
+    },
+    {
+      "name": "failed:stored:none:false:false",
+      "status": "failed",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "failed:stored:none:false:true",
+      "status": "failed",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "failed:stored:none:true:false",
+      "status": "failed",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "failed:stored:none:true:true",
+      "status": "failed",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "failed:stored:pdf:false:false",
+      "status": "failed",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "failed:stored:pdf:false:true",
+      "status": "failed",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "failed:stored:pdf:true:false",
+      "status": "failed",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "failed:stored:pdf:true:true",
+      "status": "failed",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "failed:stored:video:false:false",
+      "status": "failed",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "failed:stored:video:false:true",
+      "status": "failed",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "failed:stored:video:true:false",
+      "status": "failed",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "failed:stored:video:true:true",
+      "status": "failed",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "failed:sent:none:false:false",
+      "status": "failed",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "failed:sent:none:false:true",
+      "status": "failed",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "failed:sent:none:true:false",
+      "status": "failed",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "failed:sent:none:true:true",
+      "status": "failed",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "failed:sent:pdf:false:false",
+      "status": "failed",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "failed:sent:pdf:false:true",
+      "status": "failed",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "failed:sent:pdf:true:false",
+      "status": "failed",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "failed:sent:pdf:true:true",
+      "status": "failed",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "failed:sent:video:false:false",
+      "status": "failed",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "failed:sent:video:false:true",
+      "status": "failed",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "failed:sent:video:true:false",
+      "status": "failed",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "failed:sent:video:true:true",
+      "status": "failed",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "cancelled:absent:none:false:false",
+      "status": "cancelled",
+      "issues": [
+        "canonical terminal reason absent",
+        "no no-repeat guidance",
+        "fixed support route absent"
+      ]
+    },
+    {
+      "name": "cancelled:absent:none:false:true",
+      "status": "cancelled",
+      "issues": [
+        "canonical terminal reason absent",
+        "no no-repeat guidance",
+        "fixed support route absent"
+      ]
+    },
+    {
+      "name": "cancelled:absent:none:true:false",
+      "status": "cancelled",
+      "issues": [
+        "canonical terminal reason absent",
+        "no no-repeat guidance",
+        "fixed support route absent"
+      ]
+    },
+    {
+      "name": "cancelled:absent:none:true:true",
+      "status": "cancelled",
+      "issues": [
+        "canonical terminal reason absent",
+        "no no-repeat guidance",
+        "fixed support route absent"
+      ]
+    },
+    {
+      "name": "cancelled:absent:pdf:false:false",
+      "status": "cancelled",
+      "issues": [
+        "canonical terminal reason absent",
+        "verification or receipt masks terminal outcome",
+        "no no-repeat guidance",
+        "fixed support route absent"
+      ]
+    },
+    {
+      "name": "cancelled:absent:pdf:false:true",
+      "status": "cancelled",
+      "issues": [
+        "canonical terminal reason absent",
+        "verification or receipt masks terminal outcome",
+        "no no-repeat guidance",
+        "fixed support route absent"
+      ]
+    },
+    {
+      "name": "cancelled:absent:pdf:true:false",
+      "status": "cancelled",
+      "issues": [
+        "canonical terminal reason absent",
+        "verification or receipt masks terminal outcome",
+        "no no-repeat guidance",
+        "fixed support route absent"
+      ]
+    },
+    {
+      "name": "cancelled:absent:pdf:true:true",
+      "status": "cancelled",
+      "issues": [
+        "canonical terminal reason absent",
+        "verification or receipt masks terminal outcome",
+        "no no-repeat guidance",
+        "fixed support route absent"
+      ]
+    },
+    {
+      "name": "cancelled:absent:video:false:false",
+      "status": "cancelled",
+      "issues": [
+        "canonical terminal reason absent",
+        "verification or receipt masks terminal outcome",
+        "no no-repeat guidance",
+        "fixed support route absent"
+      ]
+    },
+    {
+      "name": "cancelled:absent:video:false:true",
+      "status": "cancelled",
+      "issues": [
+        "canonical terminal reason absent",
+        "verification or receipt masks terminal outcome",
+        "no no-repeat guidance",
+        "fixed support route absent"
+      ]
+    },
+    {
+      "name": "cancelled:absent:video:true:false",
+      "status": "cancelled",
+      "issues": [
+        "canonical terminal reason absent",
+        "verification or receipt masks terminal outcome",
+        "no no-repeat guidance",
+        "fixed support route absent"
+      ]
+    },
+    {
+      "name": "cancelled:absent:video:true:true",
+      "status": "cancelled",
+      "issues": [
+        "canonical terminal reason absent",
+        "verification or receipt masks terminal outcome",
+        "no no-repeat guidance",
+        "fixed support route absent"
+      ]
+    },
+    {
+      "name": "cancelled:stored:none:false:false",
+      "status": "cancelled",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "cancelled:stored:none:false:true",
+      "status": "cancelled",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "cancelled:stored:none:true:false",
+      "status": "cancelled",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "cancelled:stored:none:true:true",
+      "status": "cancelled",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "cancelled:stored:pdf:false:false",
+      "status": "cancelled",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "cancelled:stored:pdf:false:true",
+      "status": "cancelled",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "cancelled:stored:pdf:true:false",
+      "status": "cancelled",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "cancelled:stored:pdf:true:true",
+      "status": "cancelled",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "cancelled:stored:video:false:false",
+      "status": "cancelled",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "cancelled:stored:video:false:true",
+      "status": "cancelled",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "cancelled:stored:video:true:false",
+      "status": "cancelled",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "cancelled:stored:video:true:true",
+      "status": "cancelled",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "cancelled:sent:none:false:false",
+      "status": "cancelled",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "cancelled:sent:none:false:true",
+      "status": "cancelled",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "cancelled:sent:none:true:false",
+      "status": "cancelled",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "cancelled:sent:none:true:true",
+      "status": "cancelled",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "cancelled:sent:pdf:false:false",
+      "status": "cancelled",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "cancelled:sent:pdf:false:true",
+      "status": "cancelled",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "cancelled:sent:pdf:true:false",
+      "status": "cancelled",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "cancelled:sent:pdf:true:true",
+      "status": "cancelled",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "cancelled:sent:video:false:false",
+      "status": "cancelled",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "cancelled:sent:video:false:true",
+      "status": "cancelled",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "cancelled:sent:video:true:false",
+      "status": "cancelled",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "cancelled:sent:video:true:true",
+      "status": "cancelled",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "poll:expired",
+      "status": "expired",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "poll:failed",
+      "status": "failed",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "poll:cancelled",
+      "status": "cancelled",
+      "issues": [
+        "canonical terminal reason absent"
+      ]
+    },
+    {
+      "name": "unknown-receipt:expired",
+      "status": "expired",
+      "issues": [
+        "unknown metadata fabricated receipt or masked terminal"
+      ]
+    },
+    {
+      "name": "unknown-receipt:failed",
+      "status": "failed",
+      "issues": [
+        "unknown metadata fabricated receipt or masked terminal"
+      ]
+    },
+    {
+      "name": "unknown-receipt:cancelled",
+      "status": "cancelled",
+      "issues": [
+        "unknown metadata fabricated receipt or masked terminal"
+      ]
+    },
+    {
+      "name": "numeric:expired:absent",
+      "status": "expired",
+      "issues": [
+        "numeric no-repeat guidance absent"
+      ]
+    },
+    {
+      "name": "numeric:expired:stored",
+      "status": "expired",
+      "issues": [
+        "canonical numeric reason absent"
+      ]
+    },
+    {
+      "name": "numeric:expired:sent",
+      "status": "expired",
+      "issues": [
+        "canonical numeric reason absent"
+      ]
+    },
+    {
+      "name": "numeric:expired:future-unknown",
+      "status": "expired",
+      "issues": [
+        "numeric no-repeat guidance absent"
+      ]
+    },
+    {
+      "name": "numeric:failed:absent",
+      "status": "failed",
+      "issues": [
+        "numeric no-repeat guidance absent"
+      ]
+    },
+    {
+      "name": "numeric:failed:stored",
+      "status": "failed",
+      "issues": [
+        "canonical numeric reason absent"
+      ]
+    },
+    {
+      "name": "numeric:failed:sent",
+      "status": "failed",
+      "issues": [
+        "canonical numeric reason absent"
+      ]
+    },
+    {
+      "name": "numeric:failed:future-unknown",
+      "status": "failed",
+      "issues": [
+        "numeric no-repeat guidance absent"
+      ]
+    },
+    {
+      "name": "numeric:cancelled:absent",
+      "status": "cancelled",
+      "issues": [
+        "numeric no-repeat guidance absent"
+      ]
+    },
+    {
+      "name": "numeric:cancelled:stored",
+      "status": "cancelled",
+      "issues": [
+        "canonical numeric reason absent"
+      ]
+    },
+    {
+      "name": "numeric:cancelled:sent",
+      "status": "cancelled",
+      "issues": [
+        "canonical numeric reason absent"
+      ]
+    },
+    {
+      "name": "numeric:cancelled:future-unknown",
+      "status": "cancelled",
+      "issues": [
+        "numeric no-repeat guidance absent"
+      ]
+    }
+  ],
+  "securityChecks": {
+    "scriptBreakoutBlocked": true,
+    "copyHandlerUsesLiteralData": true,
+    "hostileProviderPayloadExecuted": false,
+    "onlyStatusGetRequests": true,
+    "pythonAuthReadsSerializationAndOtherFunctionsASTUnchanged": true,
+    "numericChangesLimitedToPureStatusCopyPresentation": true,
+    "adapterProofAndMiniAppBytesUnchanged": true
+  },
+  "scope": "Exact AST-isolated pay page with synthetic provider payload; actual inline JavaScript in Node VM; terminal/receipt/verification/dead/timer permutations and poll transitions.",
+  "productionReadsWritesNetworkRestarts": false,
+  "limits": [
+    "No database/provider/live HTTP/real credentials are used. Browser layout is covered by the separate acceptance reviewer."
+  ]
+}

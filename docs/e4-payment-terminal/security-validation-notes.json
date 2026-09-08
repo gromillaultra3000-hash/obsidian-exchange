@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "e4-payment-terminal-security-validation-notes.v1",
+  "harnessCorrections": [
+    {
+      "observed": "After the explicitly authorized numeric companion was added, the independent AST probe initially selected the first Boolean guard in pay rather than the numeric-token branch and raised StopIteration.",
+      "correction": "Select the exact token.isascii() and token.isdigit() branch, protect every statement outside numeric presentation and opaque HTML, and exercise twelve numeric terminal/receipt combinations.",
+      "finalEvidence": "security-probe.json: 136 PASS; security-baseline.json: 126 failing baseline cases and 10 preserved controls."
+    },
+    {
+      "observed": "The operations recipe gained a presentation-scope guard while the independent disposable fixture still used tiny placeholder main files. Preflight correctly rejected those missing source markers.",
+      "correction": "The fixture now uses the exact baseline Git source and candidate main bytes in disposable directories. It exercises the real presentation-scope guard, publication, journal, reconciliation and rollback functions.",
+      "finalEvidence": "security-ops-probe.json: four PASS scenarios; temporary directories removed."
+    }
+  ],
+  "productOrRuntimeChangedByReviewer": false,
+  "productionRequestsDatabaseCredentialsOrServiceActions": false
+}

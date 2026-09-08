@@ -1,0 +1,340 @@
+{
+  "schemaVersion": "e4-payment-terminal-handler-acceptance.v1",
+  "result": "BASELINE_TERMINAL_REASON_MISMATCH_REPRODUCED",
+  "method": "Reused independent prior fixture scaffold in new files; exact current/baseline api_order/pay/helper ASTs over actual SQLite query_only and retained installed class. Synthetic Telegram/proof HMAC keys only.",
+  "inputs": [
+    {
+      "path": "relay/repositories/payment_status_read_store.py",
+      "sha256": "5cbd26d0335c0cf713aa4be9c87999773bbcc37ab89202a554a4811b6702b6f9"
+    },
+    {
+      "path": "relay/core/order_access.py",
+      "sha256": "15d996a1450ff898ef62b3e43c048069c2c4dc60863399bcba144cfd46c69a0f"
+    },
+    {
+      "path": "relay/core/telegram_freshness.py",
+      "sha256": "40bef427a0daa3069e05565fdb65217836414ed581960b64f1cff5c1c266d601"
+    },
+    {
+      "path": "relay/core/requisites.py",
+      "sha256": "a6c9eb87a236081095eb8213828b4ea33e9296d6f1bb8696d2e91c9733aca507"
+    },
+    {
+      "path": "relay/services/requisite_origin.py",
+      "sha256": "5552f1c274bc2e7721068bf7db69564ca360d5065920cebbb17c022df4335398"
+    },
+    {
+      "path": "relay/core/txid.py",
+      "sha256": "726b98d97696578b0883f5a14eca119f9bc4ce0fd92f409617edf1190129f824"
+    },
+    {
+      "path": "output/manual/e4-payment-terminal-20260908/baseline/relay-fastapi/main.py",
+      "sha256": "1297db5e84e36ddec0cdf09808c871ce55c28cfd7c4ca04bded9bbace5dde2ab"
+    },
+    {
+      "path": "docs/e4-payment-terminal/acceptance-probe.py",
+      "sha256": "25d8bb3e1dff58024aa19149fcf0f02342d50f9c0d813b7a3430bf742ed90402"
+    }
+  ],
+  "installedInputs": [
+    {
+      "path": "/opt/obsidian-exchange/relay/repositories/order_read_store.py",
+      "sha256": "2cc91c733a8388ac2f643016fe192f7687ef0c44b79305d23fed50dcfd2ca06d"
+    }
+  ],
+  "cases": [
+    {
+      "name": "expired---foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-absent-none-canonical-api-and-exact-pages",
+      "result": "PASS"
+    },
+    {
+      "name": "expired--video-foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-absent-video-canonical-api-and-exact-pages",
+      "result": "PASS"
+    },
+    {
+      "name": "expired--pdf-foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-absent-pdf-canonical-api-and-exact-pages",
+      "result": "PASS"
+    },
+    {
+      "name": "expired-stored--foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-stored-none-canonical-api-and-exact-pages",
+      "result": "PASS"
+    },
+    {
+      "name": "expired-stored-video-foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-stored-video-canonical-api-and-exact-pages",
+      "result": "PASS"
+    },
+    {
+      "name": "expired-stored-pdf-foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-stored-pdf-canonical-api-and-exact-pages",
+      "result": "PASS"
+    },
+    {
+      "name": "expired-sent--foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-sent-none-canonical-api-and-exact-pages",
+      "result": "PASS"
+    },
+    {
+      "name": "expired-sent-video-foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-sent-video-canonical-api-and-exact-pages",
+      "result": "PASS"
+    },
+    {
+      "name": "expired-sent-pdf-foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "expired-sent-pdf-canonical-api-and-exact-pages",
+      "result": "PASS"
+    },
+    {
+      "name": "failed---foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-absent-none-canonical-api-and-exact-pages",
+      "result": "PASS"
+    },
+    {
+      "name": "failed--video-foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-absent-video-canonical-api-and-exact-pages",
+      "result": "PASS"
+    },
+    {
+      "name": "failed--pdf-foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-absent-pdf-canonical-api-and-exact-pages",
+      "result": "PASS"
+    },
+    {
+      "name": "failed-stored--foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-stored-none-canonical-api-and-exact-pages",
+      "result": "PASS"
+    },
+    {
+      "name": "failed-stored-video-foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-stored-video-canonical-api-and-exact-pages",
+      "result": "PASS"
+    },
+    {
+      "name": "failed-stored-pdf-foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-stored-pdf-canonical-api-and-exact-pages",
+      "result": "PASS"
+    },
+    {
+      "name": "failed-sent--foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-sent-none-canonical-api-and-exact-pages",
+      "result": "PASS"
+    },
+    {
+      "name": "failed-sent-video-foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-sent-video-canonical-api-and-exact-pages",
+      "result": "PASS"
+    },
+    {
+      "name": "failed-sent-pdf-foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "failed-sent-pdf-canonical-api-and-exact-pages",
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled---foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-absent-none-canonical-api-and-exact-pages",
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled--video-foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-absent-video-canonical-api-and-exact-pages",
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled--pdf-foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-absent-pdf-canonical-api-and-exact-pages",
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-stored--foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-stored-none-canonical-api-and-exact-pages",
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-stored-video-foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-stored-video-canonical-api-and-exact-pages",
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-stored-pdf-foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-stored-pdf-canonical-api-and-exact-pages",
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-sent--foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-sent-none-canonical-api-and-exact-pages",
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-sent-video-foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-sent-video-canonical-api-and-exact-pages",
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-sent-pdf-foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-sent-pdf-canonical-api-and-exact-pages",
+      "result": "PASS"
+    },
+    {
+      "name": "pending-active-control",
+      "result": "PASS"
+    },
+    {
+      "name": "pending-review-control",
+      "result": "PASS"
+    },
+    {
+      "name": "pending-stored-unavailable-control",
+      "result": "PASS"
+    },
+    {
+      "name": "paid-control",
+      "result": "PASS"
+    },
+    {
+      "name": "sent-control",
+      "result": "PASS"
+    }
+  ],
+  "count": 59,
+  "generatedPages": 60,
+  "numericTerminalReasonMismatches": [
+    "expired-stored-none",
+    "expired-stored-video",
+    "expired-stored-pdf",
+    "expired-sent-none",
+    "expired-sent-video",
+    "expired-sent-pdf",
+    "failed-stored-none",
+    "failed-stored-video",
+    "failed-stored-pdf",
+    "failed-sent-none",
+    "failed-sent-video",
+    "failed-sent-pdf",
+    "cancelled-stored-none",
+    "cancelled-stored-video",
+    "cancelled-stored-pdf",
+    "cancelled-sent-none",
+    "cancelled-sent-video",
+    "cancelled-sent-pdf"
+  ],
+  "selectQueries": 332,
+  "databaseWritesAllowed": false,
+  "providerOrMoneyCalls": 0,
+  "limits": [
+    "No application/ASGI import, production database, real authority or provider calls.",
+    "Exact generated page JavaScript must be checked by separate actual browser evidence.",
+    "No new database query behavior is proposed; previous PostgreSQL proof is retained context rather than a repeated container run."
+  ]
+}

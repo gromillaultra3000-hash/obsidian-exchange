@@ -1,0 +1,78 @@
+{
+  "schemaVersion": "e4-next-prerequisite.v1",
+  "result": "CONFIRMED_BOUNDED_NEXT_PREREQUISITE",
+  "activeRoute": "E4",
+  "completedSlice": "PAYMENT_STATUS_TERMINAL_REASON_CONSISTENCY",
+  "nextPrerequisite": "PAYMENT_STATUS_PENDING_RECEIPT_EVIDENCE_CONSISTENCY",
+  "canonicalNeed": "A customer payment-status page should retain known receipt evidence alongside the canonical order state and payment-instruction availability.",
+  "observed": [
+    {
+      "surface": "opaque",
+      "canonicalStatus": "pending",
+      "receipt": "stored",
+      "dead": true,
+      "receiptAcknowledged": false,
+      "visibleText": "ObsidianExchange\nРеквизиты больше не действуют\nРеквизиты по этой ссылке недоступны\nРеквизиты по этой ссылке больше недоступны. Если вы уже перевели деньги — не переводите повторно. Обратитесь в поддержку для проверки статуса. Поддержка в Telegram →\nЗаявка #30 · оплата защищена",
+      "noPaymentInstructions": true
+    },
+    {
+      "surface": "numeric",
+      "canonicalStatus": "pending",
+      "receipt": "stored",
+      "dead": true,
+      "receiptAcknowledged": false,
+      "visibleText": "ObsidianExchange\nЗаявка #30\nРеквизиты недоступны\n2000 ₽\n\nНе переводите по прежним реквизитам. Если уже оплатили — не платите повторно и обратитесь в поддержку.\n\nОткрыть бота",
+      "noPaymentInstructions": true
+    }
+  ],
+  "mechanism": "For a database-valid pending order with receipt='stored' and unavailable latest session, API preserves the receipt fact but opaque viewDead and numeric _session_closed omit it. Both correctly suppress payment instructions. Receipt presence is acknowledged for terminal orders by the completed slice.",
+  "implementationBoundary": "Change only pending payment-page receipt presentation for unavailable requisites on opaque and numeric pages, with focused exact-render/browser tests and bounded operational evidence. Preserve canonical pending, unavailable-instruction suppression and API/database/writer behavior.",
+  "acceptanceCriterion": "Given pending+stored+unavailable, both page forms explicitly acknowledge the received file without claiming payment confirmation, sent-to-partner delivery or an active review assignment. Payment instructions remain absent. No receipt and sent receipt retain their distinct facts.",
+  "notCurrentBlocker": "The completed terminal slice preserves expired/failed/cancelled outcomes and their receipt evidence. This independently reproduced pending-state omission is outside that terminal rendering boundary.",
+  "limits": [
+    "Exact synthetic query_only SQLite fixtures and real Chrome output prove behavior; no customer incidence or production account request was observed.",
+    "This is the only next E4 prerequisite; it neither replaces the canonical route nor authorizes payment/provider actions."
+  ],
+  "inputs": [
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "a399f55e9efb4e5092a072cf30baf6f2c6791ddbcb5dcdbee210526d8665ffc5"
+    },
+    {
+      "path": "relay/repositories/payment_status_read_store.py",
+      "sha256": "5cbd26d0335c0cf713aa4be9c87999773bbcc37ab89202a554a4811b6702b6f9"
+    },
+    {
+      "path": "docs/e4-payment-terminal/acceptance-probe.py",
+      "sha256": "25d8bb3e1dff58024aa19149fcf0f02342d50f9c0d813b7a3430bf742ed90402"
+    },
+    {
+      "path": "docs/e4-payment-terminal/acceptance-probe.json",
+      "sha256": "3db289cac42757a7d64d78e551faa170c03413e7b94707af7a4b92ba195cfb42"
+    },
+    {
+      "path": "docs/e4-payment-terminal/acceptance-pages.json",
+      "sha256": "c2cebf7a41c1bdc510bf437230dbfbd007fe32dc9a23ab5d80616d221a564324"
+    },
+    {
+      "path": "docs/e4-payment-terminal/payment-browser-report.json",
+      "sha256": "cfaab4ca624ab6f5701f7875a1de6e7325e5d97a718627f86cc15e6e36be8ff6"
+    },
+    {
+      "path": "docs/e4-payment-terminal/payment-browser-isolation.json",
+      "sha256": "91cef5c87ce6373ab21a7ca65d6cfd31ada9c656adb9e82e846c03ed75645235"
+    },
+    {
+      "path": "docs/e4-payment-terminal/320-terminal-pending-stored-unavailable.png",
+      "sha256": "399a8074f6aa437ff45288fed673b8661e779a5425d0e5b2a1c12b876ed164e7"
+    },
+    {
+      "path": "docs/e4-payment-terminal/320-terminal-numeric-pending-stored-unavailable.png",
+      "sha256": "a5c3ee8c9a1bbe9a96fe9f2e185d1e09418f807d487938a4ac873e1ebe2ab8bd"
+    },
+    {
+      "path": "docs/e4-payment-terminal/next-prerequisite-probe.py",
+      "sha256": "3b946c091d085116fd3b72b47507c7e1e655604de8c8384a6bbb4af91ce9f2c5"
+    }
+  ]
+}

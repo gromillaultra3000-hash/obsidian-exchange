@@ -1,0 +1,271 @@
+{
+  "schemaVersion": "e4-payment-terminal-independent-security-review.v1",
+  "recordedAt": "2026-09-08T02:37:12.754985+00:00",
+  "route": "E4 / PAYMENT_STATUS_TERMINAL_REASON_CONSISTENCY",
+  "baselineHead": "4c7882c15d6d88ff80d56d2cc160076eff929f95",
+  "result": "PASS",
+  "reviewer": "Independent security/diff reviewer; product and recipe authored by other agents.",
+  "skillApplied": "Continuation of security-best-practices Python/FastAPI and JavaScript review; previously read skill unchanged.",
+  "inputs": [
+    {
+      "path": "deploy/e4_payment_terminal_rollout.py",
+      "sha256": "79c14cc464b6d8939e92c751aa15271cc49c1183c5eac515399e8340436116d2"
+    },
+    {
+      "path": "docs/e4-payment-terminal/320-terminal-cancelled-stored-pdf.png",
+      "sha256": "1f0fe64479bad1595a7ec5dbf1da6b46e64ad0daea2ed995893684bca6029f89"
+    },
+    {
+      "path": "docs/e4-payment-terminal/320-terminal-expired-absent-none.png",
+      "sha256": "d13b7845c210da1c14bc1d616495f5d722442b3cd48caee48f30931a8b510331"
+    },
+    {
+      "path": "docs/e4-payment-terminal/320-terminal-failed-sent-video.png",
+      "sha256": "3573b8f52a26bb81adbbe10a88a3c6c1ada09d1fe5ec621f4371dfb63e767330"
+    },
+    {
+      "path": "docs/e4-payment-terminal/320-terminal-numeric-failed-sent-video.png",
+      "sha256": "b6936463e41ac341665b60237d389064e3386387cc470af3258c0e39c1d3662d"
+    },
+    {
+      "path": "docs/e4-payment-terminal/390-terminal-cancelled-stored-pdf.png",
+      "sha256": "8184f035716bfda6eca688ab2b1d7251137fe1a50a22b85f5899f62b21ccd7c7"
+    },
+    {
+      "path": "docs/e4-payment-terminal/acceptance-pages.json",
+      "sha256": "c2cebf7a41c1bdc510bf437230dbfbd007fe32dc9a23ab5d80616d221a564324"
+    },
+    {
+      "path": "docs/e4-payment-terminal/acceptance-probe.json",
+      "sha256": "3db289cac42757a7d64d78e551faa170c03413e7b94707af7a4b92ba195cfb42"
+    },
+    {
+      "path": "docs/e4-payment-terminal/acceptance-probe.py",
+      "sha256": "25d8bb3e1dff58024aa19149fcf0f02342d50f9c0d813b7a3430bf742ed90402"
+    },
+    {
+      "path": "docs/e4-payment-terminal/acceptance-run-browser.py",
+      "sha256": "d04bf5d7bfb875143bca9e3e220ed82594d4d303c324841781111cf3ede37bec"
+    },
+    {
+      "path": "docs/e4-payment-terminal/acceptance-surface.json",
+      "sha256": "4038d9d8578554a7643c89357cee3d330529849dd4667cf07d0011b6da8fc335"
+    },
+    {
+      "path": "docs/e4-payment-terminal/acceptance-surface.py",
+      "sha256": "3681857675eee64fee671a48069fdce62108efd64086cf50845bf47ee98e5f99"
+    },
+    {
+      "path": "docs/e4-payment-terminal/contract.md",
+      "sha256": "d11cdf7628ef1f7f5748cc980ae6d68f75378d7d9fe0c32e12abc6fd110e863e"
+    },
+    {
+      "path": "docs/e4-payment-terminal/ops-baseline.json",
+      "sha256": "bc6cb868fe146443ae9f5ae8782fd7d4111952f82f453d0701ac218d2068ee76"
+    },
+    {
+      "path": "docs/e4-payment-terminal/ops-release-manifest.json",
+      "sha256": "7d3f919bd9073de60869af4bc800d580319524917a93fbfd737de38ad646f284"
+    },
+    {
+      "path": "docs/e4-payment-terminal/ops-tests.json",
+      "sha256": "05e054d5790818b807dcb18d18840546816ecb55e608ddb05dd51f20675a9030"
+    },
+    {
+      "path": "docs/e4-payment-terminal/payment-browser-isolation.json",
+      "sha256": "91cef5c87ce6373ab21a7ca65d6cfd31ada9c656adb9e82e846c03ed75645235"
+    },
+    {
+      "path": "docs/e4-payment-terminal/payment-browser-report.json",
+      "sha256": "cfaab4ca624ab6f5701f7875a1de6e7325e5d97a718627f86cc15e6e36be8ff6"
+    },
+    {
+      "path": "docs/e4-payment-terminal/preflight.json",
+      "sha256": "846091fe464830d27a812e1d7cad8b5dfbe8f9f0c9659cbc1a64a0fb12f7c2fe"
+    },
+    {
+      "path": "docs/e4-payment-terminal/rollback-rehearsal.json",
+      "sha256": "7fe32f325dd928afc1d40839fc8840f7b0ae7840e29d3fe9da22f147ea62f8ca"
+    },
+    {
+      "path": "docs/e4-payment-terminal/secret-scan-findings.json",
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "path": "docs/e4-payment-terminal/secret-scan.json",
+      "sha256": "58d5894a70fa7e38b1a4cee20b1fe91aa62d6335d4c042653f8c969e63e86054"
+    },
+    {
+      "path": "docs/e4-payment-terminal/security-baseline.json",
+      "sha256": "c3cfd3449625505f5e01e675c3c52c074273d27ecf1e93b72dee5ab093ab634e"
+    },
+    {
+      "path": "docs/e4-payment-terminal/security-ops-probe.json",
+      "sha256": "31a700cac98e49e642935a4978793cbefa88a1199581a2a579f8cb5ecdd84efa"
+    },
+    {
+      "path": "docs/e4-payment-terminal/security-ops-probe.py",
+      "sha256": "fdc638ba5c0dd3070849e330216e5215e9f618a489f1db7da29b4f6b3eed90e0"
+    },
+    {
+      "path": "docs/e4-payment-terminal/security-probe.json",
+      "sha256": "05ed86adc39c876a551b4eb00ec80b1503693362b4e71fe261cc77dd024f5035"
+    },
+    {
+      "path": "docs/e4-payment-terminal/security-probe.py",
+      "sha256": "c56126c0bd678e0bf89b30a51fcd0df71f55efd70ee179de6cb0b0da52c93a67"
+    },
+    {
+      "path": "docs/e4-payment-terminal/security-validation-notes.json",
+      "sha256": "2afd49e0fe7e0dd257e2af7147a39b89e9be5321ae23c28af85c868709b4b204"
+    },
+    {
+      "path": "docs/e4-payment-terminal/tests.json",
+      "sha256": "0fddc461e90b86d7c40fa9ffe7698c9418a6fe06704693583abb5498d9795a08"
+    },
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "a399f55e9efb4e5092a072cf30baf6f2c6791ddbcb5dcdbee210526d8665ffc5"
+    },
+    {
+      "path": "relay/core/order_access.py",
+      "sha256": "15d996a1450ff898ef62b3e43c048069c2c4dc60863399bcba144cfd46c69a0f"
+    },
+    {
+      "path": "relay/core/requisites.py",
+      "sha256": "a6c9eb87a236081095eb8213828b4ea33e9296d6f1bb8696d2e91c9733aca507"
+    },
+    {
+      "path": "relay/core/telegram_freshness.py",
+      "sha256": "40bef427a0daa3069e05565fdb65217836414ed581960b64f1cff5c1c266d601"
+    },
+    {
+      "path": "relay/core/txid.py",
+      "sha256": "726b98d97696578b0883f5a14eca119f9bc4ce0fd92f409617edf1190129f824"
+    },
+    {
+      "path": "relay/repositories/payment_status_read_store.py",
+      "sha256": "5cbd26d0335c0cf713aa4be9c87999773bbcc37ab89202a554a4811b6702b6f9"
+    },
+    {
+      "path": "relay/services/requisite_origin.py",
+      "sha256": "5552f1c274bc2e7721068bf7db69564ca360d5065920cebbb17c022df4335398"
+    },
+    {
+      "path": "scripts/run_e4_review_browser.py",
+      "sha256": "6f4c9bf3020ae80b323655333a1eb3697eca4d44672ef6d28c679749136c412b"
+    },
+    {
+      "path": "tests/e4_payment_terminal_behavior.cjs",
+      "sha256": "efaecfef55af7587c3a4656a2f1e545195bbbac809415a783c492d659d996bb9"
+    },
+    {
+      "path": "tests/e4_payment_terminal_browser.cjs",
+      "sha256": "3813ee9ebd877847ff02d91f0574f406e0c73682fc0dca4b3f4327f191cc270c"
+    },
+    {
+      "path": "tests/test_e0_3_numeric_pay_token_guard.py",
+      "sha256": "99238ba9bb7e7d6811388f6d9bb7ab055c16e068fff5b0ce24a2604aed85bd85"
+    },
+    {
+      "path": "tests/test_e0_4_authenticated_synthetic_reads.py",
+      "sha256": "d488f5d61b00b3fe9a9188a2c495a87ab95b7f5675675768d5a8282ad6f0065c"
+    },
+    {
+      "path": "tests/test_e4_payment_instruction_behavior.py",
+      "sha256": "b425ababa71e51d8f977214303553bd011509d2bb5dd9c8a0bf2ea2ef218b3ea"
+    },
+    {
+      "path": "tests/test_e4_payment_requisites_copy_behavior.py",
+      "sha256": "3b0e45d530c32e872ac54222120544e4bd63467cf1e33373d44105b7b8230a3a"
+    },
+    {
+      "path": "tests/test_e4_payment_status_read_contract.py",
+      "sha256": "7d7ab67d075f95329e0376fe66991acd8fbbfcc288899acc50eb10a692509c26"
+    },
+    {
+      "path": "tests/test_e4_payment_terminal_behavior.py",
+      "sha256": "f3ae7ad4661d904ae206441e29b13f574861b11a191d965e59d3b908d19a6d77"
+    },
+    {
+      "path": "tests/test_e4_payment_terminal_rollout.py",
+      "sha256": "9c0b018141e5d8a04fe0db90e7f3ab56c6062747afe431c1eb3c4d17942c2cfc"
+    },
+    {
+      "path": "tests/test_order_access.py",
+      "sha256": "ebf8941ca0c125d08b6b975924dba5862f07621a0c723e03eefbcab46a44ed58"
+    },
+    {
+      "path": "tests/test_relay_runtime_isolation.py",
+      "sha256": "eeed65198d8762984cbaba3318e53554111dfb132e477460763c1f2d868933be"
+    }
+  ],
+  "inputSetSha256": "54631df4bd167c03e990dd1567b800e22aecb9b93d1246ae2a64af1157150417",
+  "findings": [],
+  "resolvedObservation": "Canonical failed/cancelled/expired outcomes could be replaced by expiry, verification or receipt-only copy. Both opaque and numeric terminal views now retain the canonical reason, acknowledge only known receipt facts and show no-repeat/support guidance.",
+  "productAssessment": {
+    "singleChangedProductFile": "relay-fastapi/main.py",
+    "changedPresentation": "Opaque terminal renderer/precedence and numeric terminal receipt companion.",
+    "terminalReasonDominatesReceiptVerificationTimerAndSessionMetadata": true,
+    "knownStoredAndSentReceiptFactsAreIndependent": true,
+    "unknownReceiptCreatesNoFact": true,
+    "noPayCopyQRControlsInTerminalViews": true,
+    "noPaymentRefundOrStaffAssignmentPromotion": true,
+    "paidSentAndPendingControlsPreserved": true,
+    "embeddedJSONEscapingAndFixedDataValueCopyHandlerPreserved": true,
+    "authenticationReadSQLRedirectAndSerializationCodeUnchanged": true,
+    "numericChangeUsesOnlyPureLocalPresentationOperations": true,
+    "adapterProofAndMiniAppBytesUnchanged": true,
+    "noNewDatabaseProviderMoneyOrMessagingWriter": true
+  },
+  "independentEvidence": {
+    "syntheticExactPayPageAndJavaScriptCases": 136,
+    "baselineCases": {
+      "failed": 126,
+      "passedControls": 10
+    },
+    "terminalOpaquePermutations": 108,
+    "numericTerminalReceiptCases": 12,
+    "otherCases": "Unknown receipts; paid/sent and pending controls; pending-to-terminal polling and terminal polling stop.",
+    "xssChecks": "Hostile provider data remains in one escaped script and a quoted data-value attribute with fixed copy handler; no injected script execution in Node VM.",
+    "opsScenarios": 4,
+    "opsCases": [
+      "normal deployment and exact rollback",
+      "interruption before publication",
+      "interruption after publication before restart",
+      "lost restart acknowledgement"
+    ],
+    "opsScope": "Real recipe and exact baseline/candidate main bytes in disposable files; actual presentation-scope guard; services, public HTTP and upstream gates mocked.",
+    "opsResult": "Observation performs no replay; explicit rollback restores exact bytes and metadata; preserved template and unrelated service identities remain unchanged.",
+    "temporaryDirectoriesRemoved": true
+  },
+  "reviewedExternalEvidence": {
+    "focusedTests": "122 passed in 7.99s",
+    "recipeTests": "17 passed in 0.37s",
+    "exactPaymentBrowserChecks": 336,
+    "browserPageErrors": 0,
+    "browserUnitStoppedAndCgroupEmpty": true,
+    "preflightAndRollbackRehearsal": "PASS; exact main/recipe/manifest bindings checked.",
+    "retainedRuntimeDependencyBindings": 16,
+    "stagedGitleaksFindings": 0,
+    "suppressionUsed": false
+  },
+  "deploymentAssessment": {
+    "onlyMainPublished": true,
+    "onlyRelayRestartPermitted": true,
+    "autopilotMustRemainStopped": true,
+    "fsyncedPrivatePreimagesAndMetadata": true,
+    "candidateAndEvidenceHashesCheckedBeforePublish": true,
+    "byteAndPythonInterpolationScopeGuard": true,
+    "unknownRuntimeBytesOrChangedPreimageRefused": true,
+    "interruptedDeployRequiresObservationThenExplicitRollback": true,
+    "interruptedRollbackReplayRefused": true
+  },
+  "limitations": [
+    "Review and independent probes used synthetic input, isolated handler AST/Node VM and disposable files; no production requests, customer/database reads, real proof keys or service actions were performed by this reviewer.",
+    "Browser acceptance is separately authored and hash-bound; no real Telegram/WebKit, human comprehension, provider confirmation, payout success or full E4 closure is inferred.",
+    "Source changes are presentation only. Existing audit logging and background workers remain enabled as before; a normal Relay restart is not a claim of zero existing effects.",
+    "Pending nonterminal receipt presentation and next-prerequisite artifacts are outside this review.",
+    "A metadata-inclusive directory secret scan is performed after this seal and retained outside this report to avoid self-reference."
+  ]
+}
