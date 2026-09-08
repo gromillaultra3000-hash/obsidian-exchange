@@ -67,6 +67,12 @@ async function failure({action, outcome}) {
     h.advance(5000);
     assert.equal(h.signingAttempts.length, 1, 'no timer-driven retry');
     await h.start();
+    assert.equal(h.requests.length, 1, 'unresolved record blocks new preparation');
+    assert.notEqual(h.el('wallet-attempt-notice').style.display, 'none');
+    h.el('wallet-attempt-ack').checked = true;
+    await h.el('wallet-attempt-ack').fire('change');
+    await h.el('wallet-attempt-remove').fire('click');
+    await h.start();
     assert.equal(h.el('exchange-review-ack').checked, false);
     await h.el('exchange-review-confirm').fire('click');
     assert.equal(h.signingAttempts.length, 1, 'new attempt requires fresh acknowledgement');

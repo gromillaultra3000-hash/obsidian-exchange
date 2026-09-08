@@ -1,0 +1,53 @@
+{
+  "recordedAt": "2026-09-08T22:35:04.804184+00:00",
+  "result": "PREFLIGHT_PASS",
+  "route": "E4 / WALLET_HANDOFF_REENTRY_STATE",
+  "sourceSha256": "8b7d1f6b0dbacdb5fd9faec3ae011d6c362c20b5c5bbdc9a657d6345f6ab10b5",
+  "tests": {
+    "total": 252,
+    "summary": "252 passed in 11.53s",
+    "newStateScenarioGroups": 18,
+    "opsCasesIncluded": 16,
+    "log": "output/manual/e4-wallet-reentry-state-20260908/tests-final.txt",
+    "baselineNewSuite": "FAIL before change: no persisted record after SDK attempt"
+  },
+  "browser": {
+    "cases": 28,
+    "widths": [
+      320,
+      390
+    ],
+    "result": "PASS",
+    "actualDOM": true,
+    "realSDK": false,
+    "isolationCleanupVerified": true
+  },
+  "reviews": [
+    "acceptance-review.json",
+    "diff-ops-review.json"
+  ],
+  "scanner": {
+    "name": "gitleaks",
+    "version": "8.30.0",
+    "scope": "staged implementation, tests and evidence",
+    "findings": 0
+  },
+  "negativeResults": [
+    {
+      "run": "initial combined regression",
+      "result": "30 failed, 221 passed",
+      "cause": "26 synthetic payment fixtures returned unrelated order IDs; four expectations assumed SDK failure allowed immediate new review",
+      "resolution": "Fixtures bind response ID to captured request; tests now require explicit reconciliation. Final full suite passes."
+    },
+    {
+      "run": "initial browser",
+      "result": "sandbox chown failed before launch",
+      "resolution": "Approved host invocation of existing isolated browser supervisor; final cleanup verified."
+    }
+  ],
+  "limitations": [
+    "Manual outcome assertion, not automatic chain reconciliation",
+    "Same-tab session only; other tabs, clearing storage and real SDK reconnect not covered",
+    "Production application pending; preflight is read-only"
+  ]
+}

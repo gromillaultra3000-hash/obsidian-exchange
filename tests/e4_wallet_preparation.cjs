@@ -42,7 +42,7 @@ function setup() {
             p.fetch.resolve({ok: outcome !== 'http-error', json: () => p.json.promise});
             if (outcome === 'json-reject') p.json.reject(new Error('synthetic json rejection'));
             else p.json.resolve({ok: outcome !== 'api-error', message: 'synthetic stale failure',
-                sell_id: 42 + index, address: 'EQ' + String(index).repeat(46), amount: index + 1,
+                from_address: '0:' + 'b'.repeat(64), sell_id: h.requests[index].body.sell_id || 42, address: 'EQ' + String(index).repeat(46), amount: index + 1,
                 marker: 'synthetic ' + index,
                 request: {...h.walletRequest, messages: [{...h.walletRequest.messages[0], amount: String(index + 1)}]}});
         }

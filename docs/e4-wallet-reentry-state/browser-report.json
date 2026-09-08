@@ -1,0 +1,151 @@
+{
+  "sourceSha256": "8b7d1f6b0dbacdb5fd9faec3ae011d6c362c20b5c5bbdc9a657d6345f6ab10b5",
+  "runnerSha256": "9b77163dfc70b401286e7fab514e1257abc04b2ce144d0df79adc2696008c1e5",
+  "playwrightVersion": "1.62.0",
+  "checks": [
+    {
+      "width": 320,
+      "case": "transfer reload cross-action/account block, minimal retention, explicit clear then fresh review",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "case": "payment reload cross-action/account block, minimal retention, explicit clear then fresh review",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "case": "transfer reject retains unresolved state",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "case": "transfer success retains unresolved state",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "case": "payment reject retains unresolved state",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "case": "payment success retains unresolved state",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "case": "corrupt storage blocks and explicit recovery clears",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "case": "getItem failure prevents signing",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "case": "setItem failure prevents signing",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "case": "remove failure preserves block",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "case": "response wallet binding rejects mismatch",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "case": "response network binding rejects mismatch",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "case": "payment response order mismatch rejected",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "case": "account changes after review prevent signing",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "case": "transfer reload cross-action/account block, minimal retention, explicit clear then fresh review",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "case": "payment reload cross-action/account block, minimal retention, explicit clear then fresh review",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "case": "transfer reject retains unresolved state",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "case": "transfer success retains unresolved state",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "case": "payment reject retains unresolved state",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "case": "payment success retains unresolved state",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "case": "corrupt storage blocks and explicit recovery clears",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "case": "getItem failure prevents signing",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "case": "setItem failure prevents signing",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "case": "remove failure preserves block",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "case": "response wallet binding rejects mismatch",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "case": "response network binding rejects mismatch",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "case": "payment response order mismatch rejected",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "case": "account changes after review prevent signing",
+      "result": "PASS"
+    }
+  ],
+  "unexpectedWrites": [],
+  "pageErrors": [],
+  "browserVersion": "152.0.7977.64",
+  "result": "PASS"
+}

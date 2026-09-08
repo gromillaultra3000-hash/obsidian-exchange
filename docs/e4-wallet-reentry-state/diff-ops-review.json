@@ -1,0 +1,52 @@
+{
+  "reviewer": "independent-agent /root/diff_ops",
+  "reviewed_at": "2026-09-08T22:33:07.374907+00:00",
+  "scope": "E4 WALLET_HANDOFF_REENTRY_STATE product diff/storage safety and HTML-only ops rehearsal",
+  "verdict": "PASS",
+  "inputs": {
+    "relay/webapp.html": "8b7d1f6b0dbacdb5fd9faec3ae011d6c362c20b5c5bbdc9a657d6345f6ab10b5",
+    "docs/e4-wallet-reentry-state/rollout.py": "9cab6ea81647d122a967883139be11a229bd72bead9296acadd920645c159f3b",
+    "docs/e4-wallet-reentry-state/ops-baseline.json": "c25a37adb2fc4a906a8300f480fc848e68e1ab978ff05d8ddcd59af178cd370d",
+    "tests/test_e4_wallet_reentry_state_rollout.py": "6c77c053ceec77a983faee25b0c3eff009c43001e02c3650e6993b0b5bbcef48",
+    "docs/e4-wallet-reentry-state/contract.md": "f51bbaad20acb280bdcaefdb748a704fbfc329d81f003f113e5d107991b26563"
+  },
+  "base_commit": "fcee09fd7d8525b6dc6c6f4793695b6bf6b8b8ab",
+  "diff_sha256": "88212b6afb0239e605d4f20cd2bb77b4e087351e6a8f4739a9c6d209ccda3b9f",
+  "findings": [
+    {
+      "severity": "P2",
+      "issue": "Stored wallet array accepted via regex coercion",
+      "disposition": "FIXED: exact string type before regex."
+    },
+    {
+      "severity": "P2",
+      "issue": "Record reread could remove changed evidence using prior checkbox acknowledgement",
+      "disposition": "FIXED: exact observed raw changes reset acknowledgement; removal rechecks acknowledgement after reread."
+    }
+  ],
+  "verified": [
+    "Only additive notice, state/helper block, wiring and walletTransfer/walletPay function changes; scope stripper reproduces prior HTML outside these boundaries.",
+    "Record is written/read back synchronously before SDK; success, rejection, timeout passage, reload, wallet switch and disconnect have no automatic clearing path. Existing request bytes/signature notification boundary retained.",
+    "Exact version/field/schema validation, bounded 512-byte parsing, literal textContent rendering; raw/friendly sender normalization checks CRC, network and current connected account both before review and before SDK.",
+    "Storage get/set/readback/removal failures block new handoff; in-memory record survives external deletion; malformed records block until explicit acknowledged removal. Current pending SDK blocks removal.",
+    "Single public sender/network/operation/order metadata record; no payload, recipient, amount, memo, signature, identity, credential or new network/telemetry path.",
+    "56 baseline live file hashes checked; 55 dependencies preserved, HTML baseline df92e68e. Runtime guard and exact metadata/input/public checks retained."
+  ],
+  "local_ops_rehearsal": {
+    "result": "16 passed in 0.45s",
+    "command": "/opt/lumi/venv/bin/python -m pytest -q tests/test_e4_wallet_reentry_state_rollout.py",
+    "limitations": "Only disposable pytest files mutate. Runtime/public calls mocked except active-runner guard test. No production mutation."
+  },
+  "limitations": [
+    "Same-tab session evidence is a manual reconciliation checkpoint, not proof of chain outcome or cross-tab duplicate prevention. Browser close/clear/restore retention follows sessionStorage.",
+    "Rollback restores old HTML and loses the new guard on future loads; does not cancel wallet requests, remove retained evidence or alter already-open JavaScript.",
+    "Browser/platform acceptance and product regression tests are independently owned; this receipt does not attest their outcomes.",
+    "No actual SDK reconnect, signature, money operation or authenticated customer read performed."
+  ],
+  "read_only_preflight": {
+    "result": "PREPARED",
+    "plan_sha256": "278ae8436c1f5d32209a794cec7a153601766b5aaebb582db3179e64e6acadef",
+    "candidate_sha256": "8b7d1f6b0dbacdb5fd9faec3ae011d6c362c20b5c5bbdc9a657d6345f6ab10b5",
+    "verified": "56 live files, exact prior public HTML substitution, unchanged 4 service states, failed/inactive autopilot MainPID0, target metadata and authorized scope; no production mutation."
+  }
+}

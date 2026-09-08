@@ -39,7 +39,7 @@ function setup() {
         h.requests.push({url, method: options.method, body: JSON.parse(options.body)});
         if (url === '/api/wallet/send-signed') return h.followup.promise;
         assert.ok(['/api/wallet/transfer-request', '/api/wallet/send-request'].includes(url));
-        const data = {ok: true, sell_id: 42, amount: 1.25, address: h.walletRequest.messages[0].address,
+        const data = {ok: true, from_address: '0:' + 'b'.repeat(64), sell_id: 42, amount: 1.25, address: h.walletRequest.messages[0].address,
             marker: 'synthetic invoice', request: h.walletRequest};
         return {ok: true, json: () => h.preparation ? h.preparation.promise : Promise.resolve(data)};
     };
@@ -48,6 +48,14 @@ function setup() {
     h.prepCount = () => h.requests.filter(r => r.url.endsWith('-request')).length;
     h.signedCount = () => h.requests.filter(r => r.url.endsWith('send-signed')).length;
     return h;
+}
+async function reconcile(h, replacement) {
+    const before = h.prepCount();
+    await h.start(replacement);
+    assert.equal(h.prepCount(), before, 'settled SDK retains unresolved-attempt block');
+    h.el('wallet-attempt-ack').checked = true;
+    await h.el('wallet-attempt-ack').fire('change');
+    await h.el('wallet-attempt-remove').fire('click');
 }
 async function boundary(h, name) {
     if (name === 'cancel') await h.el('exchange-review-cancel').fire('click');
@@ -75,8 +83,9 @@ async function pending({action, replacement, boundary: name, outcome}) {
     assert.equal(h.signingAttempts.length, 1, 'settlement must not automatically retry');
     assert.equal(h.signedCount(), action === 'payment' && outcome === 'resolve' ? 1 : 0);
     assert.deepEqual(h.signingAttempts[0], h.walletRequest, 'SDK receives exact reviewed server request');
+    await reconcile(h, replacement);
     await h.start(replacement);
-    assert.equal(h.prepCount(), 2, 'SDK settlement permits fresh preparation');
+    assert.equal(h.prepCount(), 2, 'explicit reconciliation permits fresh preparation');
     assert.equal(h.el('exchange-review-ack').checked, false);
     await h.el('exchange-review-confirm').fire('click');
     assert.equal(h.signingAttempts.length, 1, 'fresh action requires fresh acknowledgement');
@@ -89,6 +98,7 @@ async function syncThrow({action, replacement}) {
     await h.start(action); await h.confirm();
     assert.equal(h.signingAttempts.length, 1); assert.equal(h.signedCount(), 0);
     h.throwSync = false;
+    await reconcile(h, replacement);
     await h.start(replacement);
     assert.equal(h.prepCount(), 2);
     const second = h.confirm(); await flush();
@@ -102,8 +112,9 @@ async function followup({replacement}) {
     assert.equal(h.signedCount(), 1);
     assert.deepEqual(h.requests.find(r => r.url.endsWith('send-signed')),
         {url: '/api/wallet/send-signed', method: 'POST', body: {sell_id: 42}});
+    await reconcile(h, replacement);
     await h.start(replacement);
-    assert.equal(h.prepCount(), 2, 'pending signed marker is outside SDK ownership');
+    assert.equal(h.prepCount(), 2, 'explicit reconciliation works outside SDK ownership');
     assert.equal(h.el('exchange-review-ack').checked, false);
     const second = h.confirm(); await flush();
     assert.equal(h.signingAttempts.length, 2);
@@ -119,7 +130,7 @@ async function lateJson({action, replacement}) {
     const next = h.start(replacement); await flush();
     const first = stale(); await flush();
     assert.equal(h.signingAttempts.length, 1);
-    h.preparation.resolve({ok: true, sell_id: 42, amount: 1.25,
+    h.preparation.resolve({ok: true, from_address: '0:' + 'b'.repeat(64), sell_id: 42, amount: 1.25,
         address: h.walletRequest.messages[0].address, request: h.walletRequest});
     await next;
     assert.equal(h.reviews.length, 1, 'JSON completion while SDK pending cannot open another review');

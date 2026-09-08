@@ -571,6 +571,15 @@
             </div>
         </div>
 
+        <section id="wallet-attempt-notice" aria-label="Проверка предыдущего перевода" style="display:none;padding:16px;margin:12px 0;border:1px solid #bd8c55;border-radius:14px;overflow-wrap:anywhere">
+          <strong>Проверьте предыдущий перевод</strong>
+          <div id="wallet-attempt-details" role="status" aria-live="polite" style="margin:8px 0;font-size:13px"></div>
+          <p style="font-size:13px">Откройте историю указанного кошелька и, для оплаты, статус заявки. Пока результат неясен, не повторяйте перевод. Ответ кошелька и прошедшее время не подтверждают оплату.</p>
+          <label style="display:flex;gap:8px;font-size:13px"><input type="checkbox" id="wallet-attempt-ack">Я проверил историю указанного кошелька и статус заявки, если это оплата, и установил результат. Он больше не является неизвестным.</label>
+          <button type="button" id="wallet-attempt-remove" disabled style="margin-top:12px;padding:10px;border-radius:10px">Убрать напоминание после проверки</button>
+          <p style="font-size:12px">Это удалит только локальное напоминание, не подтвердит оплату и не повторит перевод. Оно хранится в этой вкладке до удаления или закрытия вкладки. В другой вкладке или после очистки данных защита не гарантируется.</p>
+        </section>
+
         <div id="exchange-review" role="dialog" aria-modal="true" aria-labelledby="exchange-review-title" aria-describedby="exchange-review-description" tabindex="-1"
              style="display:none;position:fixed;inset:0;z-index:1000;padding:20px;background:rgba(3,1,8,.82);align-items:flex-end;justify-content:center">
           <div class="exchange-review-surface" style="width:min(520px,100%);max-height:86vh;overflow:auto;padding:18px;border-radius:22px;background:#140a22;border:1px solid rgba(196,140,255,.45);box-shadow:0 18px 60px rgba(0,0,0,.5)">
@@ -1858,6 +1867,7 @@
             const comment = (document.getElementById('w-comment').value || '').trim();
             const say = (t) => { if (msg) msg.textContent = t; };
             if (walletHandoffPending) { say('Дождитесь ответа кошелька на предыдущий запрос. Не повторяйте перевод.'); return; }
+            if (walletAttemptBlocked(say)) return;
             if (!tcUI) { say('Кошелёк недоступен'); return; }
             closeExchangeReview();
             const preparation = exchangeReviewPreparationGeneration;
@@ -1872,7 +1882,9 @@
                 const d = await r.json().catch(() => ({}));
                 if (preparation !== exchangeReviewPreparationGeneration) return;
                 if (walletHandoffPending) { say('Дождитесь ответа кошелька на предыдущий запрос. Не повторяйте перевод.'); return; }
+                if (walletAttemptBlocked(say)) return;
                 if (!r.ok || !d.ok || !d.request) { say(d.message || 'Не получилось'); return; }
+                if (!walletAttemptBinding(d, 'transfer', null)) { say('Кошелёк или сеть не совпадают. Подключите нужный кошелёк и заново проверьте перевод.'); return; }
                 say('Проверьте условия перед подписью в кошельке.');
                 openExchangeReview({
                     title: 'Отправить ' + d.amount + ' TON',
@@ -1890,13 +1902,17 @@
                     risk: 'После подписи в кошельке перевод в сети TON нельзя отменить. Проверьте адрес, сумму и комментарий в окне кошелька. Если вы уже начинали этот перевод или вернулись после перезагрузки, проверьте историю операций в подключённом кошельке. Пока результат предыдущей попытки неясен, не повторяйте перевод.',
                     onConfirm: async () => {
                         if (walletHandoffPending) { say('Дождитесь ответа кошелька на предыдущий запрос. Не повторяйте перевод.'); return; }
+                        if (walletAttemptBlocked(say)) return;
                         try {
                             say('Подтвердите в кошельке: ' + d.amount + ' TON → ' + walletShorten(d.address));
+                            if (!beginWalletAttempt(d, 'transfer', null, say)) return;
                             walletHandoffPending = true;
+                            renderWalletAttempt();
                             try {
                                 await tcUI.sendTransaction(d.request);
                             } finally {
                                 walletHandoffPending = false;
+                                renderWalletAttempt();
                             }
                             say('✅ Подписано. Операция появится в списке, когда её увидит сеть.');
                             if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
@@ -2148,6 +2164,107 @@
             return sum % 10 === 0;
         }
 
+        // One unresolved handoff per tab. No payload, recipient, amount, memo,
+        // Telegram identity, signature or secret is retained; no time-based expiry.
+        const walletAttemptStorageKey = 'oe.wallet-attempt.v1';
+        let walletAttempt = null;
+        let walletAttemptStorageFault = false;
+        let walletAttemptObservedRaw;
+        function validWalletAttempt(value) {
+            return value && Object.keys(value).sort().join(',') === 'network,operation,orderId,version,wallet'
+                && value.version === 1 && typeof value.wallet === 'string' && /^(-1|0):[0-9a-f]{64}$/.test(value.wallet)
+                && ['-239', '-3'].includes(value.network)
+                && ((value.operation === 'transfer' && value.orderId === null)
+                    || (value.operation === 'payment' && Number.isSafeInteger(value.orderId) && value.orderId > 0));
+        }
+        function readWalletAttempt() {
+            try {
+                const raw = sessionStorage.getItem(walletAttemptStorageKey);
+                if (raw !== walletAttemptObservedRaw) {
+                    const ack = document.getElementById('wallet-attempt-ack');
+                    if (ack) ack.checked = false;
+                    walletAttemptObservedRaw = raw;
+                }
+                // An in-memory record must survive unexpected storage deletion.
+                if (raw !== null) {
+                    let parsed;
+                    try { parsed = raw.length <= 512 ? JSON.parse(raw) : null; } catch (_) {}
+                    walletAttempt = validWalletAttempt(parsed) ? parsed : {invalid: true};
+                }
+                walletAttemptStorageFault = false;
+            } catch (_) { walletAttemptStorageFault = true; }
+        }
+        function renderWalletAttempt() {
+            const notice = document.getElementById('wallet-attempt-notice');
+            const details = document.getElementById('wallet-attempt-details');
+            const ack = document.getElementById('wallet-attempt-ack');
+            const remove = document.getElementById('wallet-attempt-remove');
+            if (!notice || !details || !ack || !remove) return;
+            notice.style.display = walletAttempt || walletAttemptStorageFault ? '' : 'none';
+            details.textContent = walletAttemptStorageFault
+                ? 'Хранилище вкладки недоступно. Новый перевод заблокирован. Восстановите доступ к хранилищу и проверьте предыдущие операции.'
+                : walletAttempt && !walletAttempt.invalid
+                    ? 'Кошелёк: ' + walletAttempt.wallet + ' · сеть TON ' + (walletAttempt.network === '-239' ? 'mainnet' : 'testnet')
+                        + ' · ' + (walletAttempt.operation === 'payment' ? 'Оплата заявки #' + walletAttempt.orderId : 'Прямой перевод') + '. Исход требует проверки.'
+                    : 'Данные предыдущей попытки повреждены. Проверьте историю всех использованных кошельков и статусы заявок перед удалением напоминания.';
+            remove.disabled = !walletAttempt || walletAttemptStorageFault || walletHandoffPending || !ack.checked;
+            ack.disabled = walletHandoffPending || walletAttemptStorageFault;
+        }
+        function walletAttemptBlocked(say) {
+            readWalletAttempt();
+            renderWalletAttempt();
+            if (!walletAttempt && !walletAttemptStorageFault) return false;
+            say('Новый перевод заблокирован: проверьте предыдущую попытку в напоминании ниже. Пока результат неясен, не повторяйте перевод.');
+            return true;
+        }
+        function walletAttemptAddress(address, network) {
+            if (typeof address !== 'string') return null;
+            if (/^(-1|0):[0-9a-fA-F]{64}$/.test(address)) return address.toLowerCase();
+            if (!/^[A-Za-z0-9_+/-]{48}$/.test(address)) return null;
+            try {
+                const bytes = Array.from(atob(address.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+                if (bytes.length !== 36 || ![0x11, 0x51].includes(bytes[0] & 0x7f)
+                    || ((bytes[0] & 0x80) !== 0 && network !== '-3') || ![0, 255].includes(bytes[1])) return null;
+                let crc = 0;
+                for (const byte of bytes.slice(0, 34)) {
+                    crc ^= byte << 8;
+                    for (let bit = 0; bit < 8; bit++) crc = ((crc << 1) ^ ((crc & 0x8000) ? 0x1021 : 0)) & 0xffff;
+                }
+                if (crc !== (bytes[34] << 8 | bytes[35])) return null;
+                return (bytes[1] === 255 ? '-1' : '0') + ':' + bytes.slice(2, 34).map(byte => byte.toString(16).padStart(2, '0')).join('');
+            } catch (_) { return null; }
+        }
+        function walletAttemptBinding(data, operation, orderId) {
+            const account = tcUI && tcUI.account;
+            if (operation === 'payment' && (!Number.isSafeInteger(data.sell_id) || data.sell_id !== orderId)) return null;
+            const value = {version: 1, wallet: walletAttemptAddress(data.from_address, data.request.network), network: data.request.network,
+                operation: operation, orderId: orderId};
+            if (!validWalletAttempt(value) || !account || typeof account.address !== 'string'
+                || account.address.toLowerCase() !== value.wallet || account.chain !== value.network) return null;
+            return value;
+        }
+        function beginWalletAttempt(data, operation, orderId, say) {
+            if (walletAttemptBlocked(say)) return false;
+            const value = walletAttemptBinding(data, operation, orderId);
+            if (!value) { say('Кошелёк или сеть изменились либо недоступны. Подключите нужный кошелёк и заново проверьте перевод.'); return false; }
+            // Persist and read back before invoking the external signing boundary.
+            walletAttempt = value;
+            try {
+                const encoded = JSON.stringify(value);
+                sessionStorage.setItem(walletAttemptStorageKey, encoded);
+                if (sessionStorage.getItem(walletAttemptStorageKey) !== encoded) throw new Error('storage');
+                walletAttemptObservedRaw = encoded;
+            } catch (_) {
+                walletAttemptStorageFault = true;
+                say('Не удалось сохранить напоминание. Запрос в кошелёк не отправлен. Новый перевод заблокирован до проверки хранилища.');
+                renderWalletAttempt();
+                return false;
+            }
+            document.getElementById('wallet-attempt-ack').checked = false;
+            renderWalletAttempt();
+            return true;
+        }
+
         let exchangeReviewCommit = null;
         // Pending wallet responses belong to one review attempt only.
         let exchangeReviewPreparationGeneration = 0;
@@ -2379,6 +2496,7 @@
         async function walletPay(sellId, btn) {
             const say = (t) => { if (btn) { btn.textContent = t; } };
             if (walletHandoffPending) { say('Дождитесь ответа кошелька на предыдущий запрос. Не повторяйте перевод.'); return; }
+            if (walletAttemptBlocked(say)) return;
             if (!tcUI) { say('Кошелёк недоступен'); return; }
             closeExchangeReview();
             const preparation = exchangeReviewPreparationGeneration;
@@ -2393,10 +2511,12 @@
                 const d = await r.json().catch(() => ({}));
                 if (preparation !== exchangeReviewPreparationGeneration) return;
                 if (walletHandoffPending) { say('Дождитесь ответа кошелька на предыдущий запрос. Не повторяйте перевод.'); return; }
+                if (walletAttemptBlocked(say)) return;
                 if (!r.ok || !d.ok || !d.request) {
                     say(d.message || 'Не получилось — попробуйте позже');
                     return;
                 }
+                if (!walletAttemptBinding(d, 'payment', Number(sellId))) { say('Кошелёк или сеть не совпадают. Подключите нужный кошелёк и заново проверьте перевод.'); return; }
                 say('Проверьте условия перед подписью в кошельке.');
                 openExchangeReview({
                     title: 'Оплатить заявку #' + d.sell_id + ' из кошелька',
@@ -2414,15 +2534,19 @@
                     risk: 'После подписи перевод в сети TON нельзя отменить. Заявка будет считаться оплаченной только после подтверждения в сети. Если вы уже начинали этот перевод или вернулись после перезагрузки, проверьте историю операций в подключённом кошельке и статус заявки. Пока результат предыдущей попытки неясен, не повторяйте перевод.',
                     onConfirm: async () => {
                         if (walletHandoffPending) { say('Дождитесь ответа кошелька на предыдущий запрос. Не повторяйте перевод.'); return; }
+                        if (walletAttemptBlocked(say)) return;
                         try {
                             say('Подтвердите в кошельке…');
                             // Запрос уходит в кошелёк КАК ПРИШЁЛ: подменять адрес или сумму
                             // на фронте нечем и незачем — подписывать всё равно клиенту.
+                            if (!beginWalletAttempt(d, 'payment', Number(sellId), say)) return;
                             walletHandoffPending = true;
+                            renderWalletAttempt();
                             try {
                                 await tcUI.sendTransaction(d.request);
                             } finally {
                                 walletHandoffPending = false;
+                                renderWalletAttempt();
                             }
                             // Подпись — не поступление денег: сервер лишь отмечает время,
                             // заявку закроет проверка блокчейна.
@@ -3272,6 +3396,30 @@
                 }
             });
         })();
+        (function wireWalletAttemptNotice() {
+            const ack = document.getElementById('wallet-attempt-ack');
+            const remove = document.getElementById('wallet-attempt-remove');
+            if (!ack || !remove) return;
+            readWalletAttempt();
+            ack.checked = false;
+            renderWalletAttempt();
+            ack.addEventListener('change', renderWalletAttempt);
+            remove.addEventListener('click', () => {
+                if (walletHandoffPending || !ack.checked) return;
+                readWalletAttempt();
+                if (!walletAttempt || walletAttemptStorageFault || !ack.checked) { renderWalletAttempt(); return; }
+                try {
+                    sessionStorage.removeItem(walletAttemptStorageKey);
+                    if (sessionStorage.getItem(walletAttemptStorageKey) !== null) throw new Error('storage');
+                    walletAttempt = null;
+                    walletAttemptObservedRaw = null;
+                    ack.checked = false;
+                    closeExchangeReview();
+                } catch (_) { walletAttemptStorageFault = true; }
+                renderWalletAttempt();
+            });
+        })();
+
 
         // --- Отслеживание оплаты заявки внутри Mini App ---
         let _orderPoll = null, _orderTimer = null, _orderGeneration = 0;

@@ -31,7 +31,7 @@ def test_pending_sdk_excludes_second_handoff(action, replacement, boundary, outc
 
 @pytest.mark.parametrize("action", ["transfer", "payment"])
 @pytest.mark.parametrize("replacement", ["transfer", "payment"])
-def test_synchronous_sdk_throw_releases_for_fresh_review(action, replacement):
+def test_synchronous_sdk_throw_requires_reconciliation_for_fresh_review(action, replacement):
     run_case("sync_throw", action=action, replacement=replacement)
 
 

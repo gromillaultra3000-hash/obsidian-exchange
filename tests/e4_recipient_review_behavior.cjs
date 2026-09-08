@@ -24,7 +24,13 @@ function oneRegion(pattern, label) {
     return match[0];
 }
 
-function harness() {
+function harness(options = {}) {
+    const sessionValues = options.sessionValues || new Map();
+    const sessionStorage = options.sessionStorage || {
+        getItem: key => sessionValues.has(key) ? sessionValues.get(key) : null,
+        setItem: (key, value) => sessionValues.set(key, String(value)),
+        removeItem: key => sessionValues.delete(key),
+    };
     let now = 1_000_000;
     let nextTimer = 0;
     const timers = new Map();
@@ -83,6 +89,7 @@ function harness() {
         'exchange-review-cancel', 'exchange-review-freshness',
         'sell-submit', 'sell-result', 'sell-currency', 'sell-amount', 'sell-method',
         'sell-phone', 'sell-bank', 'sell-name', 'sell-payout', 'sell-fee-note',
+        'wallet-attempt-notice', 'wallet-attempt-details', 'wallet-attempt-ack', 'wallet-attempt-remove',
         'w-send-msg', 'w-to', 'w-amount', 'w-comment', 'w-send-go', 'sell-card-pay',
     ];
     for (const id of ids) elements.set(id, new Element(id));
@@ -107,6 +114,7 @@ function harness() {
 
     const context = vm.createContext({
         document,
+        atob,
         HTMLElement: Element,
         Date: class Clock extends Date { static now() { return now; } },
         setTimeout(callback, delay) {
@@ -116,7 +124,7 @@ function harness() {
         },
         clearTimeout: id => timers.delete(id),
         tg: {initData: ''},
-        tcUI: {async sendTransaction(request) {
+        tcUI: {account: {address: '0:' + 'b'.repeat(64), chain: '-239'}, async sendTransaction(request) {
             signingAttempts.push(JSON.parse(JSON.stringify(request)));
             throw new Error('Synthetic signing blocked');
         }},
@@ -128,12 +136,13 @@ function harness() {
             {code: 'sbp', needs_bank: true, needs_name: true},
             {code: 'card', needs_bank: true, needs_name: true},
         ],
+        sessionStorage,
         localStorage: {setItem: (...args) => storageWrites.push(args)},
         async fetch(url, options) {
             requests.push({url, method: options.method, body: JSON.parse(options.body)});
             if (['/api/wallet/transfer-request', '/api/wallet/send-request'].includes(url)) {
                 return {ok: true, json: async () => ({ok: true, sell_id: 42,
-                    amount: 1.25, address: walletRequest.messages[0].address,
+                    amount: 1.25, from_address: '0:' + 'b'.repeat(64), address: walletRequest.messages[0].address,
                     marker: 'invoice  42 <b>literal</b>', request: walletRequest})};
             }
             // Stop after the real writer serializes its payload; this test does
@@ -155,8 +164,14 @@ function harness() {
     const wiring = oneRegion(
         /^        \(function wireExchangeReview\(\) \{[^]*?^        \}\)\(\);/m,
         'review event wiring');
-    vm.runInContext(declarations + '\n' + functions.map(functionSource).join('\n') + '\n' + wiring,
+    const attempt = source.includes('const walletAttemptStorageKey') ? oneRegion(
+        /^        const walletAttemptStorageKey[^]*?(?=^        let exchangeReviewCommit)/m,
+        'wallet attempt state') : '';
+    vm.runInContext(declarations + '\n' + attempt + '\n' + functions.map(functionSource).join('\n') + '\n' + wiring,
         context, {filename: sourcePath, timeout: 1000});
+    if (attempt) vm.runInContext(oneRegion(
+        /^        \(function wireWalletAttemptNotice\(\) \{[^]*?^        \}\)\(\);/m,
+        'wallet attempt event wiring'), context);
 
     el('currency').value = 'BTC';
     el('amount').value = '12500';
@@ -211,7 +226,7 @@ function harness() {
         assert.deepEqual(storageWrites, [], 'reviewing must not persist the destination');
     }
     return {context, el, document, requests, storageWrites, rows, row, acknowledge, confirm,
-        advance, noWrites, signingAttempts, walletRequest};
+        advance, noWrites, signingAttempts, walletRequest, sessionValues, sessionStorage};
 }
 
 function assertBuyWrite(h, expected) {
