@@ -1,0 +1,1887 @@
+{
+  "scope": "E4 WALLET_REVIEW_PREPARATION_CANCELLATION",
+  "network": "deterministic deferred fetch; no network",
+  "signing": "inert rejection stub; zero real signing",
+  "runs": [
+    {
+      "label": "baseline",
+      "sha256": "7a99bd3c75d623f24c3c8807cadeaa5b670258ab3345f713f0136792c77ecac2",
+      "passed": 8,
+      "failed": 76,
+      "cases": [
+        {
+          "scenario": "cancelled",
+          "parameters": {
+            "action": "transfer",
+            "boundary": "cancel",
+            "stage": "fetch"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: cancelled preparation cannot reopen review"
+        },
+        {
+          "scenario": "cancelled",
+          "parameters": {
+            "action": "transfer",
+            "boundary": "cancel",
+            "stage": "json"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: cancelled preparation cannot reopen review"
+        },
+        {
+          "scenario": "cancelled",
+          "parameters": {
+            "action": "transfer",
+            "boundary": "close",
+            "stage": "fetch"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: cancelled preparation cannot reopen review"
+        },
+        {
+          "scenario": "cancelled",
+          "parameters": {
+            "action": "transfer",
+            "boundary": "close",
+            "stage": "json"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: cancelled preparation cannot reopen review"
+        },
+        {
+          "scenario": "cancelled",
+          "parameters": {
+            "action": "payment",
+            "boundary": "cancel",
+            "stage": "fetch"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: cancelled preparation cannot reopen review"
+        },
+        {
+          "scenario": "cancelled",
+          "parameters": {
+            "action": "payment",
+            "boundary": "cancel",
+            "stage": "json"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: cancelled preparation cannot reopen review"
+        },
+        {
+          "scenario": "cancelled",
+          "parameters": {
+            "action": "payment",
+            "boundary": "close",
+            "stage": "fetch"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: cancelled preparation cannot reopen review"
+        },
+        {
+          "scenario": "cancelled",
+          "parameters": {
+            "action": "payment",
+            "boundary": "close",
+            "stage": "json"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: cancelled preparation cannot reopen review"
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "transfer",
+            "order": "old-first",
+            "outcome": "success",
+            "stage": "fetch"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: superseded response cannot alter pending newer UI"
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "transfer",
+            "order": "old-first",
+            "outcome": "fetch-reject",
+            "stage": "fetch"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: superseded response cannot alter pending newer UI"
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "transfer",
+            "order": "old-first",
+            "outcome": "json-reject",
+            "stage": "fetch"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: superseded response cannot alter pending newer UI"
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "transfer",
+            "order": "old-first",
+            "outcome": "http-error",
+            "stage": "fetch"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: superseded response cannot alter pending newer UI"
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "transfer",
+            "order": "old-first",
+            "outcome": "api-error",
+            "stage": "fetch"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: superseded response cannot alter pending newer UI"
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "transfer",
+            "order": "old-last",
+            "outcome": "success",
+            "stage": "fetch"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: stale completion cannot replace fresh review or its acknowledgement"
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "transfer",
+            "order": "old-last",
+            "outcome": "fetch-reject",
+            "stage": "fetch"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: stale completion cannot replace fresh review or its acknowledgement"
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "transfer",
+            "order": "old-last",
+            "outcome": "json-reject",
+            "stage": "fetch"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: stale completion cannot replace fresh review or its acknowledgement"
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "transfer",
+            "order": "old-last",
+            "outcome": "http-error",
+            "stage": "fetch"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: stale completion cannot replace fresh review or its acknowledgement"
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "transfer",
+            "order": "old-last",
+            "outcome": "api-error",
+            "stage": "fetch"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: stale completion cannot replace fresh review or its acknowledgement"
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "payment",
+            "order": "old-first",
+            "outcome": "success",
+            "stage": "fetch"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: superseded response cannot alter pending newer UI"
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "payment",
+            "order": "old-first",
+            "outcome": "fetch-reject",
+            "stage": "fetch"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: superseded response cannot alter pending newer UI"
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "payment",
+            "order": "old-first",
+            "outcome": "json-reject",
+            "stage": "fetch"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: superseded response cannot alter pending newer UI"
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "payment",
+            "order": "old-first",
+            "outcome": "http-error",
+            "stage": "fetch"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: superseded response cannot alter pending newer UI"
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "payment",
+            "order": "old-first",
+            "outcome": "api-error",
+            "stage": "fetch"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: superseded response cannot alter pending newer UI"
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "payment",
+            "order": "old-last",
+            "outcome": "success",
+            "stage": "fetch"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: stale completion cannot replace fresh review or its acknowledgement"
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "payment",
+            "order": "old-last",
+            "outcome": "fetch-reject",
+            "stage": "fetch"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: stale completion cannot replace fresh review or its acknowledgement"
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "payment",
+            "order": "old-last",
+            "outcome": "json-reject",
+            "stage": "fetch"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: stale completion cannot replace fresh review or its acknowledgement"
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "payment",
+            "order": "old-last",
+            "outcome": "http-error",
+            "stage": "fetch"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: stale completion cannot replace fresh review or its acknowledgement"
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "payment",
+            "order": "old-last",
+            "outcome": "api-error",
+            "stage": "fetch"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: stale completion cannot replace fresh review or its acknowledgement"
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "payment",
+            "replacement": "transfer",
+            "order": "old-first",
+            "outcome": "success",
+            "stage": "fetch"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: superseded response cannot alter pending newer UI"
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "payment",
+            "replacement": "transfer",
+            "order": "old-first",
+            "outcome": "fetch-reject",
+            "stage": "fetch"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: superseded response cannot alter pending newer UI"
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "payment",
+            "replacement": "transfer",
+            "order": "old-first",
+            "outcome": "json-reject",
+            "stage": "fetch"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: superseded response cannot alter pending newer UI"
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "payment",
+            "replacement": "transfer",
+            "order": "old-first",
+            "outcome": "http-error",
+            "stage": "fetch"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: superseded response cannot alter pending newer UI"
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "payment",
+            "replacement": "transfer",
+            "order": "old-first",
+            "outcome": "api-error",
+            "stage": "fetch"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: superseded response cannot alter pending newer UI"
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "payment",
+            "replacement": "transfer",
+            "order": "old-last",
+            "outcome": "success",
+            "stage": "fetch"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: stale completion cannot replace fresh review or its acknowledgement"
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "payment",
+            "replacement": "transfer",
+            "order": "old-last",
+            "outcome": "fetch-reject",
+            "stage": "fetch"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: stale completion cannot replace fresh review or its acknowledgement"
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "payment",
+            "replacement": "transfer",
+            "order": "old-last",
+            "outcome": "json-reject",
+            "stage": "fetch"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: stale completion cannot replace fresh review or its acknowledgement"
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "payment",
+            "replacement": "transfer",
+            "order": "old-last",
+            "outcome": "http-error",
+            "stage": "fetch"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: stale completion cannot replace fresh review or its acknowledgement"
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "payment",
+            "replacement": "transfer",
+            "order": "old-last",
+            "outcome": "api-error",
+            "stage": "fetch"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: stale completion cannot replace fresh review or its acknowledgement"
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "payment",
+            "replacement": "payment",
+            "order": "old-first",
+            "outcome": "success",
+            "stage": "fetch"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: superseded response cannot alter pending newer UI"
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "payment",
+            "replacement": "payment",
+            "order": "old-first",
+            "outcome": "fetch-reject",
+            "stage": "fetch"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: superseded response cannot alter pending newer UI"
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "payment",
+            "replacement": "payment",
+            "order": "old-first",
+            "outcome": "json-reject",
+            "stage": "fetch"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: superseded response cannot alter pending newer UI"
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "payment",
+            "replacement": "payment",
+            "order": "old-first",
+            "outcome": "http-error",
+            "stage": "fetch"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: superseded response cannot alter pending newer UI"
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "payment",
+            "replacement": "payment",
+            "order": "old-first",
+            "outcome": "api-error",
+            "stage": "fetch"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: superseded response cannot alter pending newer UI"
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "payment",
+            "replacement": "payment",
+            "order": "old-last",
+            "outcome": "success",
+            "stage": "fetch"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: stale completion cannot replace fresh review or its acknowledgement"
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "payment",
+            "replacement": "payment",
+            "order": "old-last",
+            "outcome": "fetch-reject",
+            "stage": "fetch"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: stale completion cannot replace fresh review or its acknowledgement"
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "payment",
+            "replacement": "payment",
+            "order": "old-last",
+            "outcome": "json-reject",
+            "stage": "fetch"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: stale completion cannot replace fresh review or its acknowledgement"
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "payment",
+            "replacement": "payment",
+            "order": "old-last",
+            "outcome": "http-error",
+            "stage": "fetch"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: stale completion cannot replace fresh review or its acknowledgement"
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "payment",
+            "replacement": "payment",
+            "order": "old-last",
+            "outcome": "api-error",
+            "stage": "fetch"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: stale completion cannot replace fresh review or its acknowledgement"
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "transfer",
+            "order": "old-first",
+            "outcome": "success",
+            "stage": "json"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: superseded response cannot alter pending newer UI"
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "transfer",
+            "order": "old-first",
+            "outcome": "json-reject",
+            "stage": "json"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: superseded response cannot alter pending newer UI"
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "transfer",
+            "order": "old-last",
+            "outcome": "success",
+            "stage": "json"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: stale completion cannot replace fresh review or its acknowledgement"
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "transfer",
+            "order": "old-last",
+            "outcome": "json-reject",
+            "stage": "json"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: stale completion cannot replace fresh review or its acknowledgement"
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "payment",
+            "replacement": "payment",
+            "order": "old-first",
+            "outcome": "success",
+            "stage": "json"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: superseded response cannot alter pending newer UI"
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "payment",
+            "replacement": "payment",
+            "order": "old-first",
+            "outcome": "json-reject",
+            "stage": "json"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: superseded response cannot alter pending newer UI"
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "payment",
+            "replacement": "payment",
+            "order": "old-last",
+            "outcome": "success",
+            "stage": "json"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: stale completion cannot replace fresh review or its acknowledgement"
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "payment",
+            "replacement": "payment",
+            "order": "old-last",
+            "outcome": "json-reject",
+            "stage": "json"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: stale completion cannot replace fresh review or its acknowledgement"
+        },
+        {
+          "scenario": "exchange_supersedes",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "buy",
+            "boundary": "open"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: wallet preparation cannot replace later exchange review state"
+        },
+        {
+          "scenario": "exchange_supersedes",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "buy",
+            "boundary": "cancel"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: wallet preparation cannot replace later exchange review state"
+        },
+        {
+          "scenario": "exchange_supersedes",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "buy",
+            "boundary": "escape"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: wallet preparation cannot replace later exchange review state"
+        },
+        {
+          "scenario": "exchange_supersedes",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "buy",
+            "boundary": "expiry"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: wallet preparation cannot replace later exchange review state"
+        },
+        {
+          "scenario": "exchange_supersedes",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "sell",
+            "boundary": "open"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: wallet preparation cannot replace later exchange review state"
+        },
+        {
+          "scenario": "exchange_supersedes",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "sell",
+            "boundary": "cancel"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: wallet preparation cannot replace later exchange review state"
+        },
+        {
+          "scenario": "exchange_supersedes",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "sell",
+            "boundary": "escape"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: wallet preparation cannot replace later exchange review state"
+        },
+        {
+          "scenario": "exchange_supersedes",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "sell",
+            "boundary": "expiry"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: wallet preparation cannot replace later exchange review state"
+        },
+        {
+          "scenario": "exchange_supersedes",
+          "parameters": {
+            "action": "payment",
+            "replacement": "buy",
+            "boundary": "open"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: wallet preparation cannot replace later exchange review state"
+        },
+        {
+          "scenario": "exchange_supersedes",
+          "parameters": {
+            "action": "payment",
+            "replacement": "buy",
+            "boundary": "cancel"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: wallet preparation cannot replace later exchange review state"
+        },
+        {
+          "scenario": "exchange_supersedes",
+          "parameters": {
+            "action": "payment",
+            "replacement": "buy",
+            "boundary": "escape"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: wallet preparation cannot replace later exchange review state"
+        },
+        {
+          "scenario": "exchange_supersedes",
+          "parameters": {
+            "action": "payment",
+            "replacement": "buy",
+            "boundary": "expiry"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: wallet preparation cannot replace later exchange review state"
+        },
+        {
+          "scenario": "exchange_supersedes",
+          "parameters": {
+            "action": "payment",
+            "replacement": "sell",
+            "boundary": "open"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: wallet preparation cannot replace later exchange review state"
+        },
+        {
+          "scenario": "exchange_supersedes",
+          "parameters": {
+            "action": "payment",
+            "replacement": "sell",
+            "boundary": "cancel"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: wallet preparation cannot replace later exchange review state"
+        },
+        {
+          "scenario": "exchange_supersedes",
+          "parameters": {
+            "action": "payment",
+            "replacement": "sell",
+            "boundary": "escape"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: wallet preparation cannot replace later exchange review state"
+        },
+        {
+          "scenario": "exchange_supersedes",
+          "parameters": {
+            "action": "payment",
+            "replacement": "sell",
+            "boundary": "expiry"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: wallet preparation cannot replace later exchange review state"
+        },
+        {
+          "scenario": "fresh",
+          "parameters": {
+            "action": "transfer",
+            "boundary": "confirm"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "fresh",
+          "parameters": {
+            "action": "transfer",
+            "boundary": "cancel"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "fresh",
+          "parameters": {
+            "action": "transfer",
+            "boundary": "escape"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "fresh",
+          "parameters": {
+            "action": "transfer",
+            "boundary": "expiry"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "fresh",
+          "parameters": {
+            "action": "payment",
+            "boundary": "confirm"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "fresh",
+          "parameters": {
+            "action": "payment",
+            "boundary": "cancel"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "fresh",
+          "parameters": {
+            "action": "payment",
+            "boundary": "escape"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "fresh",
+          "parameters": {
+            "action": "payment",
+            "boundary": "expiry"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "preparing_replaces_review",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "transfer"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: new preparation closes previous review"
+        },
+        {
+          "scenario": "preparing_replaces_review",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "payment"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: new preparation closes previous review"
+        },
+        {
+          "scenario": "preparing_replaces_review",
+          "parameters": {
+            "action": "payment",
+            "replacement": "transfer"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: new preparation closes previous review"
+        },
+        {
+          "scenario": "preparing_replaces_review",
+          "parameters": {
+            "action": "payment",
+            "replacement": "payment"
+          },
+          "passed": false,
+          "failure": "AssertionError [ERR_ASSERTION]: new preparation closes previous review"
+        }
+      ]
+    },
+    {
+      "label": "candidate",
+      "sha256": "0499c7a11f58d8450d6475f10da2c6d9e74851ddf0fc01b6eaa69adfe92af9e7",
+      "passed": 84,
+      "failed": 0,
+      "cases": [
+        {
+          "scenario": "cancelled",
+          "parameters": {
+            "action": "transfer",
+            "boundary": "cancel",
+            "stage": "fetch"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "cancelled",
+          "parameters": {
+            "action": "transfer",
+            "boundary": "cancel",
+            "stage": "json"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "cancelled",
+          "parameters": {
+            "action": "transfer",
+            "boundary": "close",
+            "stage": "fetch"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "cancelled",
+          "parameters": {
+            "action": "transfer",
+            "boundary": "close",
+            "stage": "json"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "cancelled",
+          "parameters": {
+            "action": "payment",
+            "boundary": "cancel",
+            "stage": "fetch"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "cancelled",
+          "parameters": {
+            "action": "payment",
+            "boundary": "cancel",
+            "stage": "json"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "cancelled",
+          "parameters": {
+            "action": "payment",
+            "boundary": "close",
+            "stage": "fetch"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "cancelled",
+          "parameters": {
+            "action": "payment",
+            "boundary": "close",
+            "stage": "json"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "transfer",
+            "order": "old-first",
+            "outcome": "success",
+            "stage": "fetch"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "transfer",
+            "order": "old-first",
+            "outcome": "fetch-reject",
+            "stage": "fetch"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "transfer",
+            "order": "old-first",
+            "outcome": "json-reject",
+            "stage": "fetch"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "transfer",
+            "order": "old-first",
+            "outcome": "http-error",
+            "stage": "fetch"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "transfer",
+            "order": "old-first",
+            "outcome": "api-error",
+            "stage": "fetch"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "transfer",
+            "order": "old-last",
+            "outcome": "success",
+            "stage": "fetch"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "transfer",
+            "order": "old-last",
+            "outcome": "fetch-reject",
+            "stage": "fetch"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "transfer",
+            "order": "old-last",
+            "outcome": "json-reject",
+            "stage": "fetch"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "transfer",
+            "order": "old-last",
+            "outcome": "http-error",
+            "stage": "fetch"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "transfer",
+            "order": "old-last",
+            "outcome": "api-error",
+            "stage": "fetch"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "payment",
+            "order": "old-first",
+            "outcome": "success",
+            "stage": "fetch"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "payment",
+            "order": "old-first",
+            "outcome": "fetch-reject",
+            "stage": "fetch"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "payment",
+            "order": "old-first",
+            "outcome": "json-reject",
+            "stage": "fetch"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "payment",
+            "order": "old-first",
+            "outcome": "http-error",
+            "stage": "fetch"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "payment",
+            "order": "old-first",
+            "outcome": "api-error",
+            "stage": "fetch"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "payment",
+            "order": "old-last",
+            "outcome": "success",
+            "stage": "fetch"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "payment",
+            "order": "old-last",
+            "outcome": "fetch-reject",
+            "stage": "fetch"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "payment",
+            "order": "old-last",
+            "outcome": "json-reject",
+            "stage": "fetch"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "payment",
+            "order": "old-last",
+            "outcome": "http-error",
+            "stage": "fetch"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "payment",
+            "order": "old-last",
+            "outcome": "api-error",
+            "stage": "fetch"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "payment",
+            "replacement": "transfer",
+            "order": "old-first",
+            "outcome": "success",
+            "stage": "fetch"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "payment",
+            "replacement": "transfer",
+            "order": "old-first",
+            "outcome": "fetch-reject",
+            "stage": "fetch"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "payment",
+            "replacement": "transfer",
+            "order": "old-first",
+            "outcome": "json-reject",
+            "stage": "fetch"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "payment",
+            "replacement": "transfer",
+            "order": "old-first",
+            "outcome": "http-error",
+            "stage": "fetch"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "payment",
+            "replacement": "transfer",
+            "order": "old-first",
+            "outcome": "api-error",
+            "stage": "fetch"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "payment",
+            "replacement": "transfer",
+            "order": "old-last",
+            "outcome": "success",
+            "stage": "fetch"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "payment",
+            "replacement": "transfer",
+            "order": "old-last",
+            "outcome": "fetch-reject",
+            "stage": "fetch"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "payment",
+            "replacement": "transfer",
+            "order": "old-last",
+            "outcome": "json-reject",
+            "stage": "fetch"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "payment",
+            "replacement": "transfer",
+            "order": "old-last",
+            "outcome": "http-error",
+            "stage": "fetch"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "payment",
+            "replacement": "transfer",
+            "order": "old-last",
+            "outcome": "api-error",
+            "stage": "fetch"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "payment",
+            "replacement": "payment",
+            "order": "old-first",
+            "outcome": "success",
+            "stage": "fetch"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "payment",
+            "replacement": "payment",
+            "order": "old-first",
+            "outcome": "fetch-reject",
+            "stage": "fetch"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "payment",
+            "replacement": "payment",
+            "order": "old-first",
+            "outcome": "json-reject",
+            "stage": "fetch"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "payment",
+            "replacement": "payment",
+            "order": "old-first",
+            "outcome": "http-error",
+            "stage": "fetch"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "payment",
+            "replacement": "payment",
+            "order": "old-first",
+            "outcome": "api-error",
+            "stage": "fetch"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "payment",
+            "replacement": "payment",
+            "order": "old-last",
+            "outcome": "success",
+            "stage": "fetch"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "payment",
+            "replacement": "payment",
+            "order": "old-last",
+            "outcome": "fetch-reject",
+            "stage": "fetch"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "payment",
+            "replacement": "payment",
+            "order": "old-last",
+            "outcome": "json-reject",
+            "stage": "fetch"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "payment",
+            "replacement": "payment",
+            "order": "old-last",
+            "outcome": "http-error",
+            "stage": "fetch"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "payment",
+            "replacement": "payment",
+            "order": "old-last",
+            "outcome": "api-error",
+            "stage": "fetch"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "transfer",
+            "order": "old-first",
+            "outcome": "success",
+            "stage": "json"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "transfer",
+            "order": "old-first",
+            "outcome": "json-reject",
+            "stage": "json"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "transfer",
+            "order": "old-last",
+            "outcome": "success",
+            "stage": "json"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "transfer",
+            "order": "old-last",
+            "outcome": "json-reject",
+            "stage": "json"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "payment",
+            "replacement": "payment",
+            "order": "old-first",
+            "outcome": "success",
+            "stage": "json"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "payment",
+            "replacement": "payment",
+            "order": "old-first",
+            "outcome": "json-reject",
+            "stage": "json"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "payment",
+            "replacement": "payment",
+            "order": "old-last",
+            "outcome": "success",
+            "stage": "json"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "superseded",
+          "parameters": {
+            "action": "payment",
+            "replacement": "payment",
+            "order": "old-last",
+            "outcome": "json-reject",
+            "stage": "json"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "exchange_supersedes",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "buy",
+            "boundary": "open"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "exchange_supersedes",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "buy",
+            "boundary": "cancel"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "exchange_supersedes",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "buy",
+            "boundary": "escape"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "exchange_supersedes",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "buy",
+            "boundary": "expiry"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "exchange_supersedes",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "sell",
+            "boundary": "open"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "exchange_supersedes",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "sell",
+            "boundary": "cancel"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "exchange_supersedes",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "sell",
+            "boundary": "escape"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "exchange_supersedes",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "sell",
+            "boundary": "expiry"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "exchange_supersedes",
+          "parameters": {
+            "action": "payment",
+            "replacement": "buy",
+            "boundary": "open"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "exchange_supersedes",
+          "parameters": {
+            "action": "payment",
+            "replacement": "buy",
+            "boundary": "cancel"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "exchange_supersedes",
+          "parameters": {
+            "action": "payment",
+            "replacement": "buy",
+            "boundary": "escape"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "exchange_supersedes",
+          "parameters": {
+            "action": "payment",
+            "replacement": "buy",
+            "boundary": "expiry"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "exchange_supersedes",
+          "parameters": {
+            "action": "payment",
+            "replacement": "sell",
+            "boundary": "open"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "exchange_supersedes",
+          "parameters": {
+            "action": "payment",
+            "replacement": "sell",
+            "boundary": "cancel"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "exchange_supersedes",
+          "parameters": {
+            "action": "payment",
+            "replacement": "sell",
+            "boundary": "escape"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "exchange_supersedes",
+          "parameters": {
+            "action": "payment",
+            "replacement": "sell",
+            "boundary": "expiry"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "fresh",
+          "parameters": {
+            "action": "transfer",
+            "boundary": "confirm"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "fresh",
+          "parameters": {
+            "action": "transfer",
+            "boundary": "cancel"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "fresh",
+          "parameters": {
+            "action": "transfer",
+            "boundary": "escape"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "fresh",
+          "parameters": {
+            "action": "transfer",
+            "boundary": "expiry"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "fresh",
+          "parameters": {
+            "action": "payment",
+            "boundary": "confirm"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "fresh",
+          "parameters": {
+            "action": "payment",
+            "boundary": "cancel"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "fresh",
+          "parameters": {
+            "action": "payment",
+            "boundary": "escape"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "fresh",
+          "parameters": {
+            "action": "payment",
+            "boundary": "expiry"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "preparing_replaces_review",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "transfer"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "preparing_replaces_review",
+          "parameters": {
+            "action": "transfer",
+            "replacement": "payment"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "preparing_replaces_review",
+          "parameters": {
+            "action": "payment",
+            "replacement": "transfer"
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "scenario": "preparing_replaces_review",
+          "parameters": {
+            "action": "payment",
+            "replacement": "payment"
+          },
+          "passed": true,
+          "failure": null
+        }
+      ]
+    }
+  ],
+  "limitations": [
+    "Browser acceptance and deployment are separate root-agent evidence.",
+    "Escape is exercised for visible reviews; hidden pending preparation adds no new Escape UI.",
+    "Already submitted wallet signature promise overlap remains outside this preparation scope."
+  ],
+  "reviewed_at_utc": "2026-09-08T22:00:27.085442+00:00",
+  "pytest": {
+    "interpreter": "/opt/lumi/venv/bin/python",
+    "test_file": "tests/test_e4_wallet_preparation.py",
+    "baseline": "76 failed, 8 passed in 4.13s",
+    "candidate": "84 passed in 4.25s"
+  },
+  "test_sha256": {
+    "tests/e4_wallet_preparation.cjs": "9074abedd826d9d23809b1d1149b9dc2ca2638fb472b0f7e62bf99784e0d1bd5",
+    "tests/test_e4_wallet_preparation.py": "e6e14c2e638dc48ed1cefeae35010b887f17513e90e1e8f86dc3c43c6c164496"
+  }
+}

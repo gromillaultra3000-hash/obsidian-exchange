@@ -1,0 +1,33 @@
+{
+  "recordedAt": "2026-09-08T22:00:36.087990+00:00",
+  "result": "PREFLIGHT_PASS",
+  "sourceSha256": "0499c7a11f58d8450d6475f10da2c6d9e74851ddf0fc01b6eaa69adfe92af9e7",
+  "regressionCommand": "/opt/lumi/venv/bin/python -m pytest -q -p no:cacheprovider tests/test_e4_recipient_review_behavior.py tests/test_e4_exchange_review_ui.py tests/test_e4_money_flow_outcome.py tests/test_e4_review_browser_runner.py tests/test_e4_miniapp_browser_shell.py tests/test_relay_runtime_isolation.py",
+  "regressions": "115 passed in 5.97s",
+  "browser": {
+    "cases": 48,
+    "result": "PASS",
+    "inputScope": "Full shipped HTML, native DOM/fetch, direct wallet-function entry with synthetic SDK boundary; genuine review DOM controls",
+    "network": "PrivateNetwork; all external browser requests aborted",
+    "signatures": "Rejecting synthetic SDK; no real wallet call",
+    "isolationCleanupVerified": true
+  },
+  "secretScan": {
+    "version": "8.30.0",
+    "findings": 0,
+    "suppression": false
+  },
+  "limitations": [
+    "No real Telegram/WebKit or human acceptance",
+    "No new pending-hidden-state Escape control",
+    "Already confirmed unresolved wallet handoff overlap remains separate"
+  ],
+  "newRaceTests": {
+    "passed": 84,
+    "baselinePassed": 8,
+    "baselineFailed": 76,
+    "evidence": "docs/e4-wallet-preparation/acceptance-review.json",
+    "reviewer": "/root/wallet_acceptance"
+  },
+  "independentDiffOpsReview": "docs/e4-wallet-preparation/diff-ops-review.json"
+}

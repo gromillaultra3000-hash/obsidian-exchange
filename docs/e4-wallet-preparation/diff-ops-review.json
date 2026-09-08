@@ -1,0 +1,68 @@
+{
+  "date": "2026-09-08T21:58:06.714897+00:00",
+  "reviewer": "wallet_diff_ops independent agent",
+  "route": "E4 wallet preparation cancellation",
+  "verdict": "PASS",
+  "candidate_sha256": "0499c7a11f58d8450d6475f10da2c6d9e74851ddf0fc01b6eaa69adfe92af9e7",
+  "baseline_sha256": "7a99bd3c75d623f24c3c8807cadeaa5b670258ab3345f713f0136792c77ecac2",
+  "rollout_sha256": "d02da170123d30a6a55e65eefec0148342808cf63a8c3085348c8ccb1e9454be",
+  "signing_callback_sha256": {
+    "walletTransfer": "79d88dc796672894ed3be9d2b49e8d52d18c8cd5bb904ad6b84b87742eff7609",
+    "walletPay": "65fbbe0ea9b04b8090bfb896db8a51d6e66e0ba292e3625eeef74d9975e35cab"
+  },
+  "findings": [],
+  "reviewed_properties": [
+    "A newer wallet preparation closes current review and takes shared generation ownership.",
+    "Close, expiry invalidation and any new review invalidate pending wallet preparation replies across payment/transfer and buy/sell review surfaces.",
+    "Generation is checked after JSON decoding, covering delayed headers and delayed JSON success/failure; outer errors update feedback only while generation still owns preparation.",
+    "Wallet signing callbacks byte-identical to baseline; preparation request endpoints, bodies and headers unchanged.",
+    "Rollout allows only five named functions and exact generation declaration; candidate digest, preimage metadata and file/runtime inventories verified before atomic replacement.",
+    "Rollback requires verified matching backup plan, digest and metadata; post-write failures retain preimage and permit explicit reconciliation or rollback.",
+    "Browser runner loads exact HTML into an intercepted .invalid origin; blocks service workers and other origins, allows only synthetic wallet preparation POSTs, records unexpected same-origin writes, and always rejects wallet signing.",
+    "Browser uses native DOM/fetch with deferred route fulfillment, 320/390 widths, all transfer/payment pairings and cancel/Escape/ordering/stale transport failure/replacement/expiry modes. JSON-body stalls and actual buy/sell replacements are separately covered in deterministic tests, not claimed as native browser cases.",
+    "Recorded isolated supervisor reports nobody, Chromium sandbox, PrivateNetwork, ProtectHome, process exit zero and stopped/empty cgroup.",
+    "Prepared plan pins reviewed candidate and 56 installed inputs; full host state validation executes again at apply."
+  ],
+  "tests": [
+    {
+      "name": "Node existing wallet_review action transfer/payment x confirm/cancel/escape/expiry",
+      "result": "PASS",
+      "count": 8
+    },
+    {
+      "name": "isolated local rollout apply/reconcile/rollback and two scope rejection checks",
+      "result": "PASS",
+      "artifact": "docs/e4-wallet-preparation/reviewer-local-rehearsal.json"
+    },
+    {
+      "name": "pytest wallet preparation, recipient review behavior and exchange review UI",
+      "command": "/opt/lumi/venv/bin/python -m pytest -q tests/test_e4_wallet_preparation.py tests/test_e4_recipient_review_behavior.py tests/test_e4_exchange_review_ui.py",
+      "count": 135,
+      "result": "PASS",
+      "duration_seconds": 6.93
+    },
+    {
+      "name": "Reviewed recorded native browser cases and matching source/runner hashes",
+      "count": 48,
+      "result": "PASS",
+      "executed_by": "root agent"
+    }
+  ],
+  "limitations": [
+    "Local rollout rehearsal mocks runtime/public GET and modifies temporary files only; host/public preflight and deployment remain root agent responsibilities.",
+    "Cancellation during already-started wallet signing is a separate existing roadmap item outside this preparation-only review."
+  ],
+  "reviewed_input_hashes": {
+    "relay/webapp.html": "0499c7a11f58d8450d6475f10da2c6d9e74851ddf0fc01b6eaa69adfe92af9e7",
+    "tests/e4_wallet_preparation_browser.cjs": "1d5da2615633fa595f1595b7090d2b18638bc6bd56c11673999d816faada9edb",
+    "tests/e4_wallet_preparation.cjs": "9074abedd826d9d23809b1d1149b9dc2ca2638fb472b0f7e62bf99784e0d1bd5",
+    "tests/test_e4_wallet_preparation.py": "e6e14c2e638dc48ed1cefeae35010b887f17513e90e1e8f86dc3c43c6c164496",
+    "docs/e4-wallet-preparation/contract.md": "823f4da87e39f1db3fa5c969d900bbe66ec61f303735c41ece7fccf7d37b7166",
+    "docs/e4-wallet-preparation/run-browser.py": "f1be6b7f5d1930fb79f3ec21cc1afe1f7ba6f096ed67c0eb70a8e4cb5170b4be",
+    "scripts/run_e4_review_browser.py": "6f4c9bf3020ae80b323655333a1eb3697eca4d44672ef6d28c679749136c412b",
+    "docs/e4-wallet-preparation/rollout.py": "d02da170123d30a6a55e65eefec0148342808cf63a8c3085348c8ccb1e9454be",
+    "docs/e4-wallet-preparation/plan.json": "422f564c0c1aece5163cd13e6b78cc515771bc57fcfd25c5d462dc68eae3c433",
+    "output/playwright/e4-wallet-preparation-20260908/report.json": "164fdc06d0aba5b1c98a759b31da181cc9f00f96a8df70e28dc7dbfb69eb22ac",
+    "output/playwright/e4-wallet-preparation-20260908/isolation.json": "4986539fd63194c8631a767ba13aad153c160f52cbcfa8919d54bb04dd1c892e"
+  }
+}

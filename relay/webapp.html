@@ -1858,6 +1858,8 @@
             const comment = (document.getElementById('w-comment').value || '').trim();
             const say = (t) => { if (msg) msg.textContent = t; };
             if (!tcUI) { say('Кошелёк недоступен'); return; }
+            closeExchangeReview();
+            const preparation = exchangeReviewPreparationGeneration;
             say('Проверяем адрес…');
             try {
                 const r = await fetch('/api/wallet/transfer-request', {
@@ -1867,6 +1869,7 @@
                     body: JSON.stringify({ to: to, amount: amount, comment: comment })
                 });
                 const d = await r.json().catch(() => ({}));
+                if (preparation !== exchangeReviewPreparationGeneration) return;
                 if (!r.ok || !d.ok || !d.request) { say(d.message || 'Не получилось'); return; }
                 say('Проверьте условия перед подписью в кошельке.');
                 openExchangeReview({
@@ -1897,7 +1900,7 @@
                 });
             } catch (e) {
                 // Отказ в кошельке — обычный исход, а не сбой.
-                say('Перевод не подтверждён');
+                if (preparation === exchangeReviewPreparationGeneration) say('Перевод не подтверждён');
             }
         }
 
@@ -2138,6 +2141,8 @@
         }
 
         let exchangeReviewCommit = null;
+        // Pending wallet responses belong to one review attempt only.
+        let exchangeReviewPreparationGeneration = 0;
         let exchangeReviewRestoreFocus = null;
         let exchangeReviewExpiresAt = 0;
         let exchangeReviewExpiryTimer = null;
@@ -2160,6 +2165,7 @@
                 || !modal || modal.style.display !== 'flex';
         }
         function invalidateExchangeReview() {
+            exchangeReviewPreparationGeneration++;
             const ack = document.getElementById('exchange-review-ack');
             const freshness = document.getElementById('exchange-review-freshness');
             clearExchangeReviewExpiry();
@@ -2169,6 +2175,7 @@
             updateExchangeReviewConfirm();
         }
         function closeExchangeReview() {
+            exchangeReviewPreparationGeneration++;
             const modal = document.getElementById('exchange-review');
             if (modal) modal.style.display = 'none';
             clearExchangeReviewExpiry();
@@ -2178,6 +2185,7 @@
             if (restore && document.contains(restore) && !restore.disabled) restore.focus();
         }
         function openExchangeReview({title, description = 'Заявка ещё не создана. Ничего не списывается до следующего подтверждения.', confirmLabel = 'Подтвердить и создать', rows, risk, onConfirm}) {
+            exchangeReviewPreparationGeneration++;
             const modal = document.getElementById('exchange-review');
             const heading = document.getElementById('exchange-review-title');
             const descriptionBox = document.getElementById('exchange-review-description');
@@ -2362,6 +2370,8 @@
         async function walletPay(sellId, btn) {
             const say = (t) => { if (btn) { btn.textContent = t; } };
             if (!tcUI) { say('Кошелёк недоступен'); return; }
+            closeExchangeReview();
+            const preparation = exchangeReviewPreparationGeneration;
             try {
                 say('Готовим перевод…');
                 const r = await fetch('/api/wallet/send-request', {
@@ -2371,6 +2381,7 @@
                     body: JSON.stringify({ sell_id: Number(sellId) })
                 });
                 const d = await r.json().catch(() => ({}));
+                if (preparation !== exchangeReviewPreparationGeneration) return;
                 if (!r.ok || !d.ok || !d.request) {
                     say(d.message || 'Не получилось — попробуйте позже');
                     return;
@@ -2413,7 +2424,7 @@
                 });
             } catch (e) {
                 // Отказ в кошельке — нормальный исход, а не сбой: так и пишем.
-                say('Перевод не подтверждён');
+                if (preparation === exchangeReviewPreparationGeneration) say('Перевод не подтверждён');
             }
         }
 

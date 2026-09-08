@@ -1,0 +1,22 @@
+{
+  "apply": {
+    "result": "APPLY_PASS",
+    "live_sha": "0499c7a11f58d8450d6475f10da2c6d9e74851ddf0fc01b6eaa69adfe92af9e7",
+    "public_sha": "0499c7a11f58d8450d6475f10da2c6d9e74851ddf0fc01b6eaa69adfe92af9e7",
+    "restart": false
+  },
+  "reconcile": {
+    "result": "RECONCILE_PASS",
+    "live_sha": "0499c7a11f58d8450d6475f10da2c6d9e74851ddf0fc01b6eaa69adfe92af9e7",
+    "public_sha": "0499c7a11f58d8450d6475f10da2c6d9e74851ddf0fc01b6eaa69adfe92af9e7",
+    "restart": false
+  },
+  "rollback": {
+    "result": "ROLLBACK_PASS",
+    "live_sha": "7a99bd3c75d623f24c3c8807cadeaa5b670258ab3345f713f0136792c77ecac2",
+    "public_sha": "7a99bd3c75d623f24c3c8807cadeaa5b670258ab3345f713f0136792c77ecac2",
+    "restart": false
+  },
+  "scope_negative_checks": 2,
+  "limitations": "runtime and public GET mocked; temporary local files only"
+}

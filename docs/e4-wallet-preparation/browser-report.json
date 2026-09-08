@@ -1,0 +1,395 @@
+{
+  "sourceSha256": "0499c7a11f58d8450d6475f10da2c6d9e74851ddf0fc01b6eaa69adfe92af9e7",
+  "runnerSha256": "1d5da2615633fa595f1595b7090d2b18638bc6bd56c11673999d816faada9edb",
+  "playwrightVersion": "1.62.0",
+  "checks": [
+    {
+      "width": 320,
+      "first": "transfer",
+      "second": "transfer",
+      "mode": "cancel",
+      "result": "PASS",
+      "preparations": 2
+    },
+    {
+      "width": 320,
+      "first": "transfer",
+      "second": "transfer",
+      "mode": "escape",
+      "result": "PASS",
+      "preparations": 2
+    },
+    {
+      "width": 320,
+      "first": "transfer",
+      "second": "transfer",
+      "mode": "older-first",
+      "result": "PASS",
+      "preparations": 2
+    },
+    {
+      "width": 320,
+      "first": "transfer",
+      "second": "transfer",
+      "mode": "stale-error",
+      "result": "PASS",
+      "preparations": 2
+    },
+    {
+      "width": 320,
+      "first": "transfer",
+      "second": "transfer",
+      "mode": "other-review",
+      "result": "PASS",
+      "preparations": 2
+    },
+    {
+      "width": 320,
+      "first": "transfer",
+      "second": "transfer",
+      "mode": "expiry",
+      "result": "PASS",
+      "preparations": 2
+    },
+    {
+      "width": 320,
+      "first": "transfer",
+      "second": "payment",
+      "mode": "cancel",
+      "result": "PASS",
+      "preparations": 2
+    },
+    {
+      "width": 320,
+      "first": "transfer",
+      "second": "payment",
+      "mode": "escape",
+      "result": "PASS",
+      "preparations": 2
+    },
+    {
+      "width": 320,
+      "first": "transfer",
+      "second": "payment",
+      "mode": "older-first",
+      "result": "PASS",
+      "preparations": 2
+    },
+    {
+      "width": 320,
+      "first": "transfer",
+      "second": "payment",
+      "mode": "stale-error",
+      "result": "PASS",
+      "preparations": 2
+    },
+    {
+      "width": 320,
+      "first": "transfer",
+      "second": "payment",
+      "mode": "other-review",
+      "result": "PASS",
+      "preparations": 2
+    },
+    {
+      "width": 320,
+      "first": "transfer",
+      "second": "payment",
+      "mode": "expiry",
+      "result": "PASS",
+      "preparations": 2
+    },
+    {
+      "width": 320,
+      "first": "payment",
+      "second": "transfer",
+      "mode": "cancel",
+      "result": "PASS",
+      "preparations": 2
+    },
+    {
+      "width": 320,
+      "first": "payment",
+      "second": "transfer",
+      "mode": "escape",
+      "result": "PASS",
+      "preparations": 2
+    },
+    {
+      "width": 320,
+      "first": "payment",
+      "second": "transfer",
+      "mode": "older-first",
+      "result": "PASS",
+      "preparations": 2
+    },
+    {
+      "width": 320,
+      "first": "payment",
+      "second": "transfer",
+      "mode": "stale-error",
+      "result": "PASS",
+      "preparations": 2
+    },
+    {
+      "width": 320,
+      "first": "payment",
+      "second": "transfer",
+      "mode": "other-review",
+      "result": "PASS",
+      "preparations": 2
+    },
+    {
+      "width": 320,
+      "first": "payment",
+      "second": "transfer",
+      "mode": "expiry",
+      "result": "PASS",
+      "preparations": 2
+    },
+    {
+      "width": 320,
+      "first": "payment",
+      "second": "payment",
+      "mode": "cancel",
+      "result": "PASS",
+      "preparations": 2
+    },
+    {
+      "width": 320,
+      "first": "payment",
+      "second": "payment",
+      "mode": "escape",
+      "result": "PASS",
+      "preparations": 2
+    },
+    {
+      "width": 320,
+      "first": "payment",
+      "second": "payment",
+      "mode": "older-first",
+      "result": "PASS",
+      "preparations": 2
+    },
+    {
+      "width": 320,
+      "first": "payment",
+      "second": "payment",
+      "mode": "stale-error",
+      "result": "PASS",
+      "preparations": 2
+    },
+    {
+      "width": 320,
+      "first": "payment",
+      "second": "payment",
+      "mode": "other-review",
+      "result": "PASS",
+      "preparations": 2
+    },
+    {
+      "width": 320,
+      "first": "payment",
+      "second": "payment",
+      "mode": "expiry",
+      "result": "PASS",
+      "preparations": 2
+    },
+    {
+      "width": 390,
+      "first": "transfer",
+      "second": "transfer",
+      "mode": "cancel",
+      "result": "PASS",
+      "preparations": 2
+    },
+    {
+      "width": 390,
+      "first": "transfer",
+      "second": "transfer",
+      "mode": "escape",
+      "result": "PASS",
+      "preparations": 2
+    },
+    {
+      "width": 390,
+      "first": "transfer",
+      "second": "transfer",
+      "mode": "older-first",
+      "result": "PASS",
+      "preparations": 2
+    },
+    {
+      "width": 390,
+      "first": "transfer",
+      "second": "transfer",
+      "mode": "stale-error",
+      "result": "PASS",
+      "preparations": 2
+    },
+    {
+      "width": 390,
+      "first": "transfer",
+      "second": "transfer",
+      "mode": "other-review",
+      "result": "PASS",
+      "preparations": 2
+    },
+    {
+      "width": 390,
+      "first": "transfer",
+      "second": "transfer",
+      "mode": "expiry",
+      "result": "PASS",
+      "preparations": 2
+    },
+    {
+      "width": 390,
+      "first": "transfer",
+      "second": "payment",
+      "mode": "cancel",
+      "result": "PASS",
+      "preparations": 2
+    },
+    {
+      "width": 390,
+      "first": "transfer",
+      "second": "payment",
+      "mode": "escape",
+      "result": "PASS",
+      "preparations": 2
+    },
+    {
+      "width": 390,
+      "first": "transfer",
+      "second": "payment",
+      "mode": "older-first",
+      "result": "PASS",
+      "preparations": 2
+    },
+    {
+      "width": 390,
+      "first": "transfer",
+      "second": "payment",
+      "mode": "stale-error",
+      "result": "PASS",
+      "preparations": 2
+    },
+    {
+      "width": 390,
+      "first": "transfer",
+      "second": "payment",
+      "mode": "other-review",
+      "result": "PASS",
+      "preparations": 2
+    },
+    {
+      "width": 390,
+      "first": "transfer",
+      "second": "payment",
+      "mode": "expiry",
+      "result": "PASS",
+      "preparations": 2
+    },
+    {
+      "width": 390,
+      "first": "payment",
+      "second": "transfer",
+      "mode": "cancel",
+      "result": "PASS",
+      "preparations": 2
+    },
+    {
+      "width": 390,
+      "first": "payment",
+      "second": "transfer",
+      "mode": "escape",
+      "result": "PASS",
+      "preparations": 2
+    },
+    {
+      "width": 390,
+      "first": "payment",
+      "second": "transfer",
+      "mode": "older-first",
+      "result": "PASS",
+      "preparations": 2
+    },
+    {
+      "width": 390,
+      "first": "payment",
+      "second": "transfer",
+      "mode": "stale-error",
+      "result": "PASS",
+      "preparations": 2
+    },
+    {
+      "width": 390,
+      "first": "payment",
+      "second": "transfer",
+      "mode": "other-review",
+      "result": "PASS",
+      "preparations": 2
+    },
+    {
+      "width": 390,
+      "first": "payment",
+      "second": "transfer",
+      "mode": "expiry",
+      "result": "PASS",
+      "preparations": 2
+    },
+    {
+      "width": 390,
+      "first": "payment",
+      "second": "payment",
+      "mode": "cancel",
+      "result": "PASS",
+      "preparations": 2
+    },
+    {
+      "width": 390,
+      "first": "payment",
+      "second": "payment",
+      "mode": "escape",
+      "result": "PASS",
+      "preparations": 2
+    },
+    {
+      "width": 390,
+      "first": "payment",
+      "second": "payment",
+      "mode": "older-first",
+      "result": "PASS",
+      "preparations": 2
+    },
+    {
+      "width": 390,
+      "first": "payment",
+      "second": "payment",
+      "mode": "stale-error",
+      "result": "PASS",
+      "preparations": 2
+    },
+    {
+      "width": 390,
+      "first": "payment",
+      "second": "payment",
+      "mode": "other-review",
+      "result": "PASS",
+      "preparations": 2
+    },
+    {
+      "width": 390,
+      "first": "payment",
+      "second": "payment",
+      "mode": "expiry",
+      "result": "PASS",
+      "preparations": 2
+    }
+  ],
+  "unexpectedWrites": [],
+  "pageErrors": [],
+  "browserVersion": "152.0.7977.64",
+  "result": "PASS"
+}
