@@ -1,0 +1,243 @@
+{
+  "recordedAt": "2026-09-08T02:21:25.057177+00:00",
+  "result": "PASS",
+  "route": "E4 / PAYMENT_STATUS_RUNTIME_READ_CONTRACT",
+  "implementationCommit": "25dccdd3682cac1f9db76f28e318a31db49be16c",
+  "files": [
+    {
+      "path": "relay/repositories/payment_status_read_store.py",
+      "sha256": "5cbd26d0335c0cf713aa4be9c87999773bbcc37ab89202a554a4811b6702b6f9",
+      "repositoryCommitLiveExact": true,
+      "ownershipModeMtimeXattrsExact": true
+    },
+    {
+      "path": "relay/core/order_access.py",
+      "sha256": "15d996a1450ff898ef62b3e43c048069c2c4dc60863399bcba144cfd46c69a0f",
+      "repositoryCommitLiveExact": true,
+      "ownershipModeMtimeXattrsExact": true
+    },
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "1297db5e84e36ddec0cdf09808c871ce55c28cfd7c4ca04bded9bbace5dde2ab",
+      "repositoryCommitLiveExact": true,
+      "ownershipModeMtimeXattrsExact": true
+    },
+    {
+      "path": "relay/webapp.html",
+      "sha256": "8347b9df45a27b7077dabae8aa3e68dbfa763f0ed67220a93aca7f58ce11a908",
+      "repositoryCommitLiveExact": true,
+      "ownershipModeMtimeXattrsExact": true
+    }
+  ],
+  "preservedDependencies": [
+    {
+      "path": "relay/repositories/order_read_store.py",
+      "sha256": "2cc91c733a8388ac2f643016fe192f7687ef0c44b79305d23fed50dcfd2ca06d",
+      "repositorySha256": "5651f8400da4b0024b11bc77f03f9cb239ac284766f44586f0673788e1d54506",
+      "liveUnchanged": true,
+      "preexistingDriftExcluded": true
+    },
+    {
+      "path": "relay/repositories/payment_session_store.py",
+      "sha256": "eb41d099a06beac4251190d10221467bdca4b21db7bc97dba687dd8d40653b8e",
+      "repositorySha256": "5684f496570e285987c58bfce0e3c59ef195ac689591a7367028bd93351aaf11",
+      "liveUnchanged": true,
+      "preexistingDriftExcluded": true
+    },
+    {
+      "path": "relay/repositories/receipt_store.py",
+      "sha256": "252ada0ad673dfb60ad3f18913b11aa0a6bfa90d647978af71a97651cc54e123",
+      "repositorySha256": "2abf6710b247b1f8452795bbfb173e262a805195a81bb15f1b5a864ec9e0d193",
+      "liveUnchanged": true,
+      "preexistingDriftExcluded": true
+    },
+    {
+      "path": "relay/core/db_runtime.py",
+      "sha256": "9e0572dc70d5d883f7009c1f6701bdd8d34ec8fcc26a3d4c7a050a7938212237",
+      "repositorySha256": "9e0572dc70d5d883f7009c1f6701bdd8d34ec8fcc26a3d4c7a050a7938212237",
+      "liveUnchanged": true,
+      "preexistingDriftExcluded": false
+    },
+    {
+      "path": "relay/core/payout_queue.py",
+      "sha256": "23aea1f15c254cc05c6732119158076d2b946fda3a6d3d5409b7e9a54086c93c",
+      "repositorySha256": "23aea1f15c254cc05c6732119158076d2b946fda3a6d3d5409b7e9a54086c93c",
+      "liveUnchanged": true,
+      "preexistingDriftExcluded": false
+    },
+    {
+      "path": "relay/core/txid.py",
+      "sha256": "726b98d97696578b0883f5a14eca119f9bc4ce0fd92f409617edf1190129f824",
+      "repositorySha256": "726b98d97696578b0883f5a14eca119f9bc4ce0fd92f409617edf1190129f824",
+      "liveUnchanged": true,
+      "preexistingDriftExcluded": false
+    },
+    {
+      "path": "relay/repositories/activity_read_store.py",
+      "sha256": "32166cac62d1f92f21b1cdcaad46edda968c75832db7311969dff9228cd82f6e",
+      "repositorySha256": "32166cac62d1f92f21b1cdcaad46edda968c75832db7311969dff9228cd82f6e",
+      "liveUnchanged": true,
+      "preexistingDriftExcluded": false
+    },
+    {
+      "path": "relay/repositories/operational_read_store.py",
+      "sha256": "c4df1ca1bc1b6c5d66234c8a314896b31cfb1c96c2900e7240ac36ee5c517259",
+      "repositorySha256": "c4df1ca1bc1b6c5d66234c8a314896b31cfb1c96c2900e7240ac36ee5c517259",
+      "liveUnchanged": true,
+      "preexistingDriftExcluded": false
+    },
+    {
+      "path": "relay/services/state_machine.py",
+      "sha256": "0582042d29f4d1fe78fb33b58a84dc5538e49b4142b036ad7ddec9fb3886557e",
+      "repositorySha256": "0582042d29f4d1fe78fb33b58a84dc5538e49b4142b036ad7ddec9fb3886557e",
+      "liveUnchanged": true,
+      "preexistingDriftExcluded": false
+    },
+    {
+      "path": "relay-fastapi/auth.py",
+      "sha256": "cb0c3831f2d862a5519824b317dd537f7e592fdeb678a7d34a083b26436c9746",
+      "repositorySha256": "cb0c3831f2d862a5519824b317dd537f7e592fdeb678a7d34a083b26436c9746",
+      "liveUnchanged": true,
+      "preexistingDriftExcluded": false
+    },
+    {
+      "path": "relay/core/requisites.py",
+      "sha256": "a6c9eb87a236081095eb8213828b4ea33e9296d6f1bb8696d2e91c9733aca507",
+      "repositorySha256": "a6c9eb87a236081095eb8213828b4ea33e9296d6f1bb8696d2e91c9733aca507",
+      "liveUnchanged": true,
+      "preexistingDriftExcluded": false
+    },
+    {
+      "path": "relay/services/requisite_origin.py",
+      "sha256": "5552f1c274bc2e7721068bf7db69564ca360d5065920cebbb17c022df4335398",
+      "repositorySha256": "5552f1c274bc2e7721068bf7db69564ca360d5065920cebbb17c022df4335398",
+      "liveUnchanged": true,
+      "preexistingDriftExcluded": false
+    },
+    {
+      "path": "relay/core/telegram_freshness.py",
+      "sha256": "40bef427a0daa3069e05565fdb65217836414ed581960b64f1cff5c1c266d601",
+      "repositorySha256": "40bef427a0daa3069e05565fdb65217836414ed581960b64f1cff5c1c266d601",
+      "liveUnchanged": true,
+      "preexistingDriftExcluded": false
+    }
+  ],
+  "rollbackDirectory": "/var/lib/obsidian-exchange/deployment-preimages/e4-payment-status-read-20260908-keknzn3g",
+  "preimages": [
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "3b75a18fffeabd2d8d2640d463d26eb8f227b010534e48c37edd3888be7013df",
+      "exact": true,
+      "privateMode": "0600"
+    },
+    {
+      "path": "relay/repositories/payment_status_read_store.py",
+      "originalState": "ABSENT",
+      "rollback": "remove exact additive source after old-main restart"
+    },
+    {
+      "path": "relay/core/order_access.py",
+      "originalState": "ABSENT",
+      "rollback": "remove exact additive source after old-main restart"
+    },
+    {
+      "path": "relay/webapp.html",
+      "sha256": "b2859b9fbe532a6121f2bbd2487e0ef2a0ccee6bf3c54da414ad49b61087cc9d",
+      "exact": true,
+      "privateMode": "0600"
+    }
+  ],
+  "metadataPreimageExact": true,
+  "changedServices": [
+    "relay-fastapi.service"
+  ],
+  "services": {
+    "relay-fastapi.service": {
+      "MainPID": "2918390",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Tue 2026-09-08 02:20:18 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    },
+    "exchange-bot.service": {
+      "MainPID": "3877887",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Tue 2026-09-01 06:20:00 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    },
+    "nginx.service": {
+      "MainPID": "3877705",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:56 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    },
+    "obsidian-postgres.service": {
+      "MainPID": "3136948",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Mon 2026-08-24 05:08:51 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    }
+  },
+  "safeRuntimeFlags": {
+    "setting": "RELAY_P3_AUTHORIZED_READ_FUNCTIONS_ENABLED",
+    "present": false,
+    "enabled": false
+  },
+  "autopilot": {
+    "MainPID": "0",
+    "NRestarts": "0",
+    "ExecMainStartTimestamp": "Mon 2026-09-07 04:40:24 UTC",
+    "ActiveState": "failed",
+    "SubState": "failed"
+  },
+  "publicChecks": [
+    {
+      "path": "/webapp",
+      "method": "GET",
+      "status": 200,
+      "authenticated": false,
+      "publicMatchesDeployedTemplate": true,
+      "publicBodySha256": "0944b4ddf679d021e3347a492404824dc7734a2c40c353e3b769c40cbf90dbf4"
+    },
+    {
+      "path": "/webapp",
+      "method": "POST",
+      "status": 405,
+      "authenticated": false
+    },
+    {
+      "path": "/api/history",
+      "method": "GET",
+      "status": 403,
+      "authenticated": false,
+      "customerRowsReturned": 0
+    },
+    {
+      "path": "/api/order/0",
+      "method": "GET",
+      "status": 404,
+      "authenticated": false
+    },
+    {
+      "path": "/pay/0",
+      "method": "GET",
+      "status": 404,
+      "authenticated": false
+    }
+  ],
+  "reconciliation": "VERIFIED / no replay",
+  "runtimeMutated": false,
+  "customerDataRead": false,
+  "databaseRead": false,
+  "sealedEvidenceChanged": false,
+  "notes": [
+    "All four published source files match commit/repository/live bytes.",
+    "All13 preserved dependencies remain exact, including deliberately excluded shared order/session/receipt checkout drift.",
+    "Proofless /api/order/0 and /pay/0 now return404; source guards fail before opening a repository connection or audit call.",
+    "No authenticated customer request, production database query, service restart, config change or replay was performed by this verification.",
+    "Metadata verification covers uid/gid/mode/mtime/xattrs; atime can change as files are read."
+  ]
+}

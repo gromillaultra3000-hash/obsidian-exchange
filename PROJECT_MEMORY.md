@@ -5,33 +5,36 @@ Updated: 2026-09-08 UTC
 ## Current goal and status
 
 
-- 2026-09-08 manual E4 / ACTIVITY_PAYMENT_SESSION_STATE is VERIFIED and
-  deployed at 01:58 UTC, implementation `7bc1e87`. New activity_read_store uses
-  existing connection policy and one owner-scoped order/latest-session SELECT.
-  Highest id binds token/state; closed/unknown sessions cannot revive an older
-  token. UI closure/support advice preserves receipt/order outcome precedence.
-  316 tests, 186 isolated Chrome checks, both independent reviews, three killed
-  mutants, 14 ops tests and independent interrupted-rollout/rollback probes PASS.
-  Exact retained live SQLite dependency and networkless PostgreSQL17.11 each pass
-  13 cases; disposable container/browser/temp/cgroup/socket cleanup verified.
-  Exactly main.py, HTML and additive module deployed; shared live order_read_store
-  remains `2cc91c73...ca06d`. Checkout has unrelated undeployed changes; never
-  replace it wholesale. Relay restarted once: PID2883897/startSep8 01:58:52 UTC,
-  NRestarts0. Bot3877887/Nginx3877705/Postgres3136948 identities unchanged.
-  Public GET200/POST405/template exact; anonymous history403 with no rows.
-  Rollback: `deployment-preimages/e4-activity-session-20260908-c9fhjhuc`.
-  Evidence: `docs/e4-activity-session-rollout.v1.json`. No new money authority,
-  credentials/signatures/064A or direct customer reads. Routine Relay restart
-  resumes existing payment/notification workers; zero background effects is not
-  claimed. Owner wants manual delivery; autopilot stays failed/stopped. Reconcile
-  all manual commits before any future explicitly requested start.
+- 2026-09-08 manual E4 / PAYMENT_STATUS_RUNTIME_READ_CONTRACT is VERIFIED and
+  deployed 02:20 UTC, implementation `25dccdd`. New PaymentStatusReadStore supplies
+  bounded owner-scoped SELECTs using the exact installed order connection policy;
+  UID wins bearer proof, numeric links use the additive HMAC proof helper.
+  Stale/closed/unknown/post-payment sessions cannot invite a transfer; read errors
+  return 503. Receipt state is preserved; provider-field JSON/JS sinks are escaped.
+  Status GET no longer polls providers or triggers payment transitions. Existing
+  callbacks/workers/_mark_order_paid remain AST-identical (152 functions).
+  174 focused tests, 69 exact-handler/194 security checks, 186+92 browser checks,
+  two reviews, 20 ops tests, interrupted-rollout/restart/no-replay/rollback probes,
+  and 26-case exact-live-SQLite/actual-networkless-PG17.11 rehearsals PASS.
+  Container/browser/temp/cgroup cleanup verified; secret scans 0/no suppression.
+  Historical E0 tests have independently triaged stale baseline assertions and
+  archived builder digests; no overall-project test PASS claim or E0 rewrite.
+  Exactly main.py,HTML,adapter,core/order_access.py deployed; all 13 shared runtime
+  dependencies byte-exact. Do not replace checkout order/session/receipt stores
+  wholesale: unrelated undeployed drift remains. Relay 2918390/start02:20:18 UTC,
+  NRestarts 0; Bot 3877887/Nginx 3877705/Postgres 3136948 unchanged. GET200/POST405,
+  history403; proofless api/order/0 and pay/0 now404 vs baseline500.
+  Rollback: deployment-preimages/e4-payment-status-read-20260908-keknzn3g.
+  Evidence: docs/e4-payment-status-read-rollout.v1.json. No real authenticated
+  production/customer reads, money outcome, credential/signature or 064A authority.
+  Routine restart resumes existing background payment/notification workers;
+  zero background effects is not claimed. Autopilot remains failed/MainPID0 by
+  owner's no-autopilot instruction; reconcile all manual commits before later start.
+  Exactly next: E4 / PAYMENT_STATUS_TERMINAL_REASON_CONSISTENCY. Exact API+Chrome
+  fixtures show failed/cancelled opaque pages called expiry (no payment action);
+  fix bounded terminal rendering, preserving receipts and writer boundaries.
   E4/earlier gates and real Telegram/iOS/WebKit/human/screen-reader acceptance
-  remain open. Exactly next: E4 / PAYMENT_STATUS_RUNTIME_READ_CONTRACT.
-  Eight exact-installed-source cases prove missing authorized_snapshot/get_by_token
-  cause api_order AttributeError/pay HTTP500 before any DB call, in both baseline
-  and candidate handlers. No authenticated production request/incidence claimed.
-  Restore only needed owner-scoped reads; inspect immediate dependencies without
-  shipping unrelated checkout drift. Evidence: slice next-prerequisite.json.
+  remain open. Prior activity-session slice 7bc1e87 remains deployed.
 
 - 2026-09-08 status audit confirmed Sep 7's three deployed E4 slices: wallet
   review/fees (`d650b8d`), receive-address integrity (`1cbfe1f`) and payment

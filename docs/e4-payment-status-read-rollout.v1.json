@@ -1,0 +1,294 @@
+{
+  "schemaVersion": "e4-payment-status-read-rollout.v1",
+  "recordedAt": "2026-09-08T02:22:25.618795+00:00",
+  "route": "E4 / PAYMENT_STATUS_RUNTIME_READ_CONTRACT",
+  "status": "VERIFIED",
+  "e4Gate": "IN_PROGRESS",
+  "implementationCommit": "25dccdd3682cac1f9db76f28e318a31db49be16c",
+  "deployedAt": "2026-09-08T02:20:20.207989+00:00",
+  "behavior": "Owner-scoped payment status/page reads restored. Closed, stale, unknown and post-payment sessions suppress transfer instructions; unavailable receipt/session reads fail closed. Provider data cannot cross the restored page script boundaries. Status GET uses canonical ledger reads without activating provider polling/payment transitions.",
+  "publication": {
+    "files": [
+      {
+        "path": "relay/repositories/payment_status_read_store.py",
+        "sha256": "5cbd26d0335c0cf713aa4be9c87999773bbcc37ab89202a554a4811b6702b6f9"
+      },
+      {
+        "path": "relay/core/order_access.py",
+        "sha256": "15d996a1450ff898ef62b3e43c048069c2c4dc60863399bcba144cfd46c69a0f"
+      },
+      {
+        "path": "relay-fastapi/main.py",
+        "sha256": "1297db5e84e36ddec0cdf09808c871ce55c28cfd7c4ca04bded9bbace5dde2ab"
+      },
+      {
+        "path": "relay/webapp.html",
+        "sha256": "8347b9df45a27b7077dabae8aa3e68dbfa763f0ed67220a93aca7f58ce11a908"
+      },
+      {
+        "path": "deploy/e4_payment_status_read_rollout.py",
+        "sha256": "21a12ffbf22ccef237f7ddef545648d0e0e3a660842b394ac4f31a95b7bd1129"
+      }
+    ],
+    "preservedDependencies": [
+      {
+        "path": "relay/repositories/order_read_store.py",
+        "sha256": "2cc91c733a8388ac2f643016fe192f7687ef0c44b79305d23fed50dcfd2ca06d"
+      },
+      {
+        "path": "relay/repositories/payment_session_store.py",
+        "sha256": "eb41d099a06beac4251190d10221467bdca4b21db7bc97dba687dd8d40653b8e"
+      },
+      {
+        "path": "relay/repositories/receipt_store.py",
+        "sha256": "252ada0ad673dfb60ad3f18913b11aa0a6bfa90d647978af71a97651cc54e123"
+      },
+      {
+        "path": "relay/core/db_runtime.py",
+        "sha256": "9e0572dc70d5d883f7009c1f6701bdd8d34ec8fcc26a3d4c7a050a7938212237"
+      },
+      {
+        "path": "relay/core/payout_queue.py",
+        "sha256": "23aea1f15c254cc05c6732119158076d2b946fda3a6d3d5409b7e9a54086c93c"
+      },
+      {
+        "path": "relay/core/txid.py",
+        "sha256": "726b98d97696578b0883f5a14eca119f9bc4ce0fd92f409617edf1190129f824"
+      },
+      {
+        "path": "relay/repositories/activity_read_store.py",
+        "sha256": "32166cac62d1f92f21b1cdcaad46edda968c75832db7311969dff9228cd82f6e"
+      },
+      {
+        "path": "relay/repositories/operational_read_store.py",
+        "sha256": "c4df1ca1bc1b6c5d66234c8a314896b31cfb1c96c2900e7240ac36ee5c517259"
+      },
+      {
+        "path": "relay/services/state_machine.py",
+        "sha256": "0582042d29f4d1fe78fb33b58a84dc5538e49b4142b036ad7ddec9fb3886557e"
+      },
+      {
+        "path": "relay-fastapi/auth.py",
+        "sha256": "cb0c3831f2d862a5519824b317dd537f7e592fdeb678a7d34a083b26436c9746"
+      },
+      {
+        "path": "relay/core/requisites.py",
+        "sha256": "a6c9eb87a236081095eb8213828b4ea33e9296d6f1bb8696d2e91c9733aca507"
+      },
+      {
+        "path": "relay/services/requisite_origin.py",
+        "sha256": "5552f1c274bc2e7721068bf7db69564ca360d5065920cebbb17c022df4335398"
+      },
+      {
+        "path": "relay/core/telegram_freshness.py",
+        "sha256": "40bef427a0daa3069e05565fdb65217836414ed581960b64f1cff5c1c266d601"
+      }
+    ],
+    "rollbackDirectory": "/var/lib/obsidian-exchange/deployment-preimages/e4-payment-status-read-20260908-keknzn3g",
+    "beforeServices": {
+      "relay-fastapi.service": {
+        "MainPID": "2883897",
+        "NRestarts": "0",
+        "ExecMainStartTimestamp": "Tue 2026-09-08 01:58:52 UTC",
+        "ActiveState": "active",
+        "SubState": "running"
+      },
+      "exchange-bot.service": {
+        "MainPID": "3877887",
+        "NRestarts": "0",
+        "ExecMainStartTimestamp": "Tue 2026-09-01 06:20:00 UTC",
+        "ActiveState": "active",
+        "SubState": "running"
+      },
+      "nginx.service": {
+        "MainPID": "3877705",
+        "NRestarts": "0",
+        "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:56 UTC",
+        "ActiveState": "active",
+        "SubState": "running"
+      },
+      "obsidian-postgres.service": {
+        "MainPID": "3136948",
+        "NRestarts": "0",
+        "ExecMainStartTimestamp": "Mon 2026-08-24 05:08:51 UTC",
+        "ActiveState": "active",
+        "SubState": "running"
+      }
+    },
+    "afterServices": {
+      "relay-fastapi.service": {
+        "MainPID": "2918390",
+        "NRestarts": "0",
+        "ExecMainStartTimestamp": "Tue 2026-09-08 02:20:18 UTC",
+        "ActiveState": "active",
+        "SubState": "running"
+      },
+      "exchange-bot.service": {
+        "MainPID": "3877887",
+        "NRestarts": "0",
+        "ExecMainStartTimestamp": "Tue 2026-09-01 06:20:00 UTC",
+        "ActiveState": "active",
+        "SubState": "running"
+      },
+      "nginx.service": {
+        "MainPID": "3877705",
+        "NRestarts": "0",
+        "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:56 UTC",
+        "ActiveState": "active",
+        "SubState": "running"
+      },
+      "obsidian-postgres.service": {
+        "MainPID": "3136948",
+        "NRestarts": "0",
+        "ExecMainStartTimestamp": "Mon 2026-08-24 05:08:51 UTC",
+        "ActiveState": "active",
+        "SubState": "running"
+      }
+    },
+    "publicChecks": [
+      {
+        "path": "/webapp",
+        "method": "GET",
+        "status": 200,
+        "authenticated": false,
+        "publicMatchesDeployedTemplate": true,
+        "publicBodySha256": "0944b4ddf679d021e3347a492404824dc7734a2c40c353e3b769c40cbf90dbf4"
+      },
+      {
+        "path": "/webapp",
+        "method": "POST",
+        "status": 405,
+        "authenticated": false
+      },
+      {
+        "path": "/api/history",
+        "method": "GET",
+        "status": 403,
+        "authenticated": false,
+        "customerRowsReturned": 0
+      },
+      {
+        "path": "/api/order/0",
+        "method": "GET",
+        "status": 404,
+        "authenticated": false
+      },
+      {
+        "path": "/pay/0",
+        "method": "GET",
+        "status": 404,
+        "authenticated": false
+      }
+    ],
+    "onlyRelayRestarted": true,
+    "rollbackExecuted": false
+  },
+  "validation": {
+    "focusedTests": 174,
+    "exactHandlerAcceptanceChecks": 69,
+    "independentSecurityChecks": 194,
+    "miniAppBrowserChecks": 186,
+    "paymentPageBrowserChecks": 92,
+    "exactInstalledSQLiteCases": 26,
+    "actualIsolatedPostgresCases": 26,
+    "postgresVersion": "17.11",
+    "opsTests": 20,
+    "unchangedTopLevelFunctions": 152,
+    "independentAcceptance": "PASS",
+    "independentSecurity": "PASS",
+    "independentPostdeploy": "PASS",
+    "secretScanFindings": 0,
+    "cleanupVerified": true,
+    "historicalChecks": "Independently triaged stale E0 baseline assertions, expected removed dynamic-edge inventory and archived builder digest pins remain documented; no claim that all project tests pass."
+  },
+  "nextCanonicalItem": "E4 / PAYMENT_STATUS_TERMINAL_REASON_CONSISTENCY",
+  "limits": [
+    "No real authenticated production/customer reads or actual customer incident/payment outcome was observed.",
+    "Existing provider callbacks/background workers remain unchanged; the ordinary Relay restart resumes their pre-existing database/notification effects.",
+    "No new credential, signature, money operation or consumed 064A authority was issued or reused.",
+    "Real Telegram/iOS/WebKit, screen-reader behavior and human comprehension remain unverified.",
+    "Autopilot remains failed/MainPID zero by owner instruction; reconcile stale runner receipts and manual commits before a later explicitly requested start."
+  ],
+  "evidence": [
+    {
+      "path": "docs/e4-payment-status-read/deployment.json",
+      "sha256": "1c29bc386eb2daa420f1169a5aac2fbd7ad8977eac2cdc204edb7427b260ea2b"
+    },
+    {
+      "path": "docs/e4-payment-status-read/ops-postdeploy.json",
+      "sha256": "df3a9ad3ca7ee63c4708a053423ec58af66ef1f4f1e6eea456b432b080a03b33"
+    },
+    {
+      "path": "docs/e4-payment-status-read/ops-reconciliation.json",
+      "sha256": "913bd93c90cdc22e09e4b37ceac5d682812f46fdf81ddb16e43123ffb783197b"
+    },
+    {
+      "path": "docs/e4-payment-status-read/ops-release-manifest.json",
+      "sha256": "fa87c1c8ee5eca7da4ba090504a93ae6cbda35b252971a38e89f0476f47e6057"
+    },
+    {
+      "path": "docs/e4-payment-status-read/preflight.json",
+      "sha256": "085af2cfca76016f33929793315802be7d37353420e5bd94b8ba0b94c06500db"
+    },
+    {
+      "path": "docs/e4-payment-status-read/tests.json",
+      "sha256": "7513c0177d900ba923edf1d5743bd3c01627a937434058509749a4e6eccf284c"
+    },
+    {
+      "path": "docs/e4-payment-status-read/acceptance-review.json",
+      "sha256": "69b55c5df9d4de9dc25c4d3f6c798722d6b1ddf65db256b7e8a0e41b1e9b8e7c"
+    },
+    {
+      "path": "docs/e4-payment-status-read/security-review.json",
+      "sha256": "e22db6d5814257a6e64d2f329fbe8a7fe6215909d5203556a535b1637a15ba84"
+    },
+    {
+      "path": "docs/e4-payment-status-read/browser-report.json",
+      "sha256": "b3f105d3363986d748b23a467326e12ecf17758237a2348a29bbcb873aa7b337"
+    },
+    {
+      "path": "docs/e4-payment-status-read/browser-isolation.json",
+      "sha256": "062e8bcbca7f49105fc5f7d048cf32f567a548e4a2b76061c64ff769b834cbdb"
+    },
+    {
+      "path": "docs/e4-payment-status-read/payment-browser-report.json",
+      "sha256": "c64e7a56d7b0e04dd962de7a58316c2a52f5dd4d3c2594b17e90ad6307d1eb02"
+    },
+    {
+      "path": "docs/e4-payment-status-read/payment-browser-isolation.json",
+      "sha256": "0484a95056f34623bfa17067800a4856b982b1ac7352f6f7a75ce99de1e55d0e"
+    },
+    {
+      "path": "docs/e4-payment-status-read/isolated-postgres.json",
+      "sha256": "c512244813522379e0d26ca1426467c4bbe7881e2ec97107a5c6e4baf1060b56"
+    },
+    {
+      "path": "docs/e4-payment-status-read/live-dependency-rehearsal.json",
+      "sha256": "19219b779bcbdd53d6e106613a9ed6724a9a1a6f45125a7be04c830035ab4a06"
+    },
+    {
+      "path": "docs/e4-payment-status-read/rollback-rehearsal.json",
+      "sha256": "fb8b41ae7052feb9ea765d8050bdcf29d0a67edb24d381c16e659896ba2af03b"
+    },
+    {
+      "path": "docs/e4-payment-status-read/ops-historical-check-triage.json",
+      "sha256": "663beb28104f32e8937e9d71a005e5a43900300bbf36536e6b39188ef1a5b13a"
+    },
+    {
+      "path": "docs/e4-payment-status-read/next-prerequisite.json",
+      "sha256": "15016722f8fa8a5f8def4bd811f9e1f9a3627449665642d53fe65f73eb2ceaa1"
+    },
+    {
+      "path": "docs/e4-payment-status-read/secret-scan.json",
+      "sha256": "7ce74bf9ab4a61946bdc933747f0be17e9bf07601add1566ab67dffe7031415e"
+    },
+    {
+      "path": "docs/e4-payment-status-read/validation-notes.json",
+      "sha256": "9659e256f8297fea712db6b6e76f41aa4a38fa76aca358344237fddf8d916f98"
+    },
+    {
+      "path": "docs/e4-payment-status-read/contract.md",
+      "sha256": "57a008303e5d09780f3d68105f4cfad4d323852c05ef2f8c6a83c91c16aae356"
+    }
+  ]
+}

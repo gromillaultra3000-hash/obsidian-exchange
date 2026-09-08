@@ -819,6 +819,22 @@ installed-source cases reproduce missing authorized_snapshot/get_by_token in
 payment handlers before database/provider access. No production incidence or
 earlier gate closure claimed; autopilot remains stopped.
 
+2026-09-08: manual PAYMENT_STATUS_RUNTIME_READ_CONTRACT is VERIFIED and deployed
+at 02:20 UTC (`25dccdd`). An additive owner-scoped read adapter and HMAC proof
+helper restore payment status/page reads without deploying unrelated shared-store
+drift. Closed/stale/unknown/post-payment sessions suppress transfer instructions,
+read failures return 503, and provider fields cannot cross executable JS sinks.
+Status GET reads the canonical ledger; existing callbacks/workers are unchanged.
+174 focused tests, 69 handler/194 security checks, 186+92 Chrome checks, two reviews,
+20 ops tests and 26-case real PostgreSQL/exact-installed SQLite rehearsals PASS.
+Historical E0 assertion/digest failures are independently triaged, not claimed
+PASS. Exactly 4 files deployed with 13 dependencies preserved, only Relay restarted;
+public unauthorized status/page probes now404 vs baseline500. Rollback retained.
+Evidence: `docs/e4-payment-status-read-rollout.v1.json`. E4 remains IN_PROGRESS;
+exactly next is PAYMENT_STATUS_TERMINAL_REASON_CONSISTENCY: actual DOM calls
+canonical failed/cancelled opaque pages expired, while payment actions stay hidden.
+No earlier gate closure, money authority or 064A reuse; autopilot remains stopped.
+
 ### E5 — нативный некастодиальный кошелёк
 
 E0.4 inventory evidence (2026-08-18): the checkout has a Rust/UniFFI Bitcoin

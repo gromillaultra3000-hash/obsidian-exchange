@@ -1,0 +1,98 @@
+{
+  "recordedAt": "2026-09-08T02:20:41.638525+00:00",
+  "result": "OBSERVED_NO_REPLAY",
+  "journalState": "VERIFIED",
+  "files": [
+    {
+      "path": "relay/repositories/payment_status_read_store.py",
+      "sha256": "5cbd26d0335c0cf713aa4be9c87999773bbcc37ab89202a554a4811b6702b6f9"
+    },
+    {
+      "path": "relay/core/order_access.py",
+      "sha256": "15d996a1450ff898ef62b3e43c048069c2c4dc60863399bcba144cfd46c69a0f"
+    },
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "1297db5e84e36ddec0cdf09808c871ce55c28cfd7c4ca04bded9bbace5dde2ab"
+    },
+    {
+      "path": "relay/webapp.html",
+      "sha256": "8347b9df45a27b7077dabae8aa3e68dbfa763f0ed67220a93aca7f58ce11a908"
+    }
+  ],
+  "services": {
+    "relay-fastapi.service": {
+      "MainPID": "2918390",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Tue 2026-09-08 02:20:18 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    },
+    "exchange-bot.service": {
+      "MainPID": "3877887",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Tue 2026-09-01 06:20:00 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    },
+    "nginx.service": {
+      "MainPID": "3877705",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:56 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    },
+    "obsidian-postgres.service": {
+      "MainPID": "3136948",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Mon 2026-08-24 05:08:51 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    }
+  },
+  "autopilot": {
+    "MainPID": "0",
+    "NRestarts": "0",
+    "ExecMainStartTimestamp": "Mon 2026-09-07 04:40:24 UTC",
+    "ActiveState": "failed",
+    "SubState": "failed"
+  },
+  "runtimeMutated": false,
+  "next": "Terminal state verified; no runtime action.",
+  "publicChecks": [
+    {
+      "path": "/webapp",
+      "method": "GET",
+      "status": 200,
+      "authenticated": false,
+      "publicMatchesDeployedTemplate": true,
+      "publicBodySha256": "0944b4ddf679d021e3347a492404824dc7734a2c40c353e3b769c40cbf90dbf4"
+    },
+    {
+      "path": "/webapp",
+      "method": "POST",
+      "status": 405,
+      "authenticated": false
+    },
+    {
+      "path": "/api/history",
+      "method": "GET",
+      "status": 403,
+      "authenticated": false,
+      "customerRowsReturned": 0
+    },
+    {
+      "path": "/api/order/0",
+      "method": "GET",
+      "status": 404,
+      "authenticated": false
+    },
+    {
+      "path": "/pay/0",
+      "method": "GET",
+      "status": 404,
+      "authenticated": false
+    }
+  ],
+  "serialization": "File digests exported as path/sha256 records; observation values unchanged."
+}

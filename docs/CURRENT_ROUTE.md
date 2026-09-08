@@ -11,55 +11,60 @@ non-custodial wallet whose keys never reach the server.
 
 ## Active route
 
-`E4 / PAYMENT_STATUS_RUNTIME_READ_CONTRACT / restore installed owner-scoped read methods required by payment status and page handlers`
+`E4 / PAYMENT_STATUS_TERMINAL_REASON_CONSISTENCY / distinguish failed and cancelled outcomes from expiry on the payment page`
 
 Owner decision 2026-09-08: continue code-first implementation and reversible
-rollouts manually. Autopilot remains stopped by explicit instruction:
-failed / MainPID zero / UNCOMMITTED_NEW_FILES since Sep 7. Before any later
-explicitly requested start, reconcile its stale third-deployment receipt and
-all subsequent manual commits. No supervisor config, state or unit was changed.
+rollouts manually. Autopilot remains stopped: failed / MainPID zero /
+UNCOMMITTED_NEW_FILES since Sep 7. Before any explicitly requested later start,
+reconcile its stale third-deployment receipt and all subsequent manual commits.
+No supervisor configuration or unit changed in this slice.
 
-ACTIVITY_PAYMENT_SESSION_STATE is VERIFIED and deployed at 2026-09-08 01:58 UTC,
-implementation `7bc1e87`. The new activity read module selects owner-scoped orders
-and their highest-id payment session in one SQL snapshot. Tokens and bounded
-lifecycle state come from the same row; failed/expired/unknown sessions cannot
-revive an older token. Pending closed sessions show closure/support guidance;
-receipt and paid/sent/terminal order precedence remain intact.
+PAYMENT_STATUS_RUNTIME_READ_CONTRACT is VERIFIED and deployed at 2026-09-08
+02:20 UTC, implementation `25dccdd`. The additive PaymentStatusReadStore uses
+bounded owner-scoped SELECTs through the exact installed order connection
+policy. Verified UID takes precedence over bearer proof; numeric links require
+an order/user/time-bound HMAC proof. Stale, closed, unknown and post-payment
+sessions cannot invite a new transfer; missing reads return 503, never fabricated
+receipt absence. Provider fields are escaped at both executable HTML/JS sinks.
 
-316 focused tests and 186 isolated Chrome checks pass. Both independent reviews
-cover product and the operations-authored recipe. Three mutants are killed;
-14 recipe tests and independent interrupted-publication/restart probes prove
-no replay and exact rollback. Actual PostgreSQL17.11 in a disposable networkless
-container and the exact retained live SQLite dependency each pass 13 cases;
-container/temp cleanup verified. Browser unit/cgroup/socket cleanup is verified.
-Real Telegram/iOS/WebKit, screen-reader behavior and human comprehension remain
-unverified; no actual customer incidence or money outcome is inferred.
+Status GET now reads the canonical ledger without provider polling or payment
+transitions. Restoring the previously missing provider helper would have enabled
+an unreachable writer during this read repair. Existing callbacks, background
+workers and _mark_order_paid remain AST-identical (152 unchanged functions).
+Routine Relay restart resumes those pre-existing workers; no claim that their
+normal database/notification effects are disabled or zero is made.
 
-Exactly three files were published: new activity_read_store.py, main.py and
-webapp.html. The live shared order_read_store.py remains byte-exact `2cc91c73...ca06d`
-because checkout contains unrelated undeployed changes. Do not replace it wholesale.
-Relay restarted once: PID `2883897`, start `2026-09-08 01:58:52 UTC`, NRestarts0.
-Bot `3877887`, Nginx `3877705` and PostgreSQL `3136948` retain their prior identities.
-Public checks: /webapp GET200/POST405/exact template, anonymous /api/history403
-with no customer rows. HTML `b2859b9f...87cc9d` is live.
-Rollback directory: `/var/lib/obsidian-exchange/deployment-preimages/e4-activity-session-20260908-c9fhjhuc`.
-Evidence: `docs/e4-activity-session-rollout.v1.json` and its directory.
-This change adds no money writer/credential/signature or 064A authority. Routine
-Relay restart resumes its already-enabled payment/notification workers; no claim
-that those pre-existing background effects are disabled or zero is made.
+174 focused tests, 69 exact-handler acceptance checks, 194 independent security
+checks, 186 Mini App plus 92 payment-page Chrome checks, and both independent
+reviews PASS. Exact installed SQLite and actual isolated PostgreSQL17.11 each
+pass 26 cases with read-only query sessions and verified cleanup. Recipe tests 20,
+independent interrupted-publication/restart probes, no-replay and exact rollback
+pass. Final staged and independent secret scans report 0 without suppression.
+Historical E0 checks remain non-current: baseline 3 stale assertions, candidate 4
+including the expected removed dynamic-edge inventory, plus an archived builder
+digest mismatch. They are documented, not relabelled PASS; frozen E0 authority
+artifacts were not changed. See ops-historical-check-triage.json.
 
-Exactly next: `E4 / PAYMENT_STATUS_RUNTIME_READ_CONTRACT`.
-Eight isolated exact-installed-source cases reproduce missing authorized_snapshot
-in order_read_store and get_by_token in payment_session_store: api_order raises
-AttributeError and opaque-token pay wraps it as HTTP500. Baseline and candidate
-handlers behave identically, without database/provider calls. Restore only the
-required owner-scoped read methods and inspect immediate session/receipt
-requirements; preserve unrelated live behavior and money-transition boundaries.
-No authenticated production request or actual customer incident was observed.
-Evidence: `docs/e4-activity-session/next-prerequisite.json`.
+Exactly 4 files were published: main.py, webapp.html, the additive adapter and
+core/order_access.py. All 13 retained runtime dependencies remain byte-exact;
+shared order/session/receipt checkout drift was not deployed. Relay PID 2918390,
+start 2026-09-08 02:20:18 UTC, NRestarts 0. Bot 3877887, Nginx 3877705 and
+PostgreSQL 3136948 identities unchanged. Public /webapp GET200/POST405/exact
+rendered template; anonymous history403. Proofless /api/order/0 and /pay/0 now404
+instead of observed baseline 500, without customer reads or valid credentials.
+Rollback: `/var/lib/obsidian-exchange/deployment-preimages/e4-payment-status-read-20260908-keknzn3g`.
+Evidence: `docs/e4-payment-status-read-rollout.v1.json` and its directory.
 
-E4 stays IN_PROGRESS; no earlier gate closure or stage transition occurred.
-Actual trades/transfers remain owner-executed; consumed 064A authority stays closed.
+Exactly next: PAYMENT_STATUS_TERMINAL_REASON_CONSISTENCY. Actual Chrome fixtures
+show canonical failed/cancelled opaque payment pages labelled as time expiry;
+payment actions are suppressed. Numeric fallback already distinguishes these
+outcomes. Change the bounded terminal rendering and focused tests, preserving
+receipt precedence, canonical API state and writer behavior. Evidence:
+`docs/e4-payment-status-read/next-prerequisite.json`.
+
+E4 remains IN_PROGRESS. No earlier gate closure, new money operation or 064A
+authority. Real Telegram/iOS/WebKit, screen-reader and human acceptance remain
+unverified; no actual customer incident or payment outcome is inferred.
 
 ### Owner reprioritization — 2026-08-26
 
