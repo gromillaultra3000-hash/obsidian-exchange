@@ -1,0 +1,331 @@
+{
+  "schemaVersion": "e4-expiry-independent-security-review.v1",
+  "recordedAt": "2026-09-08T03:24:24.734589+00:00",
+  "route": "E4 / PAYMENT_STATUS_EXPIRY_TIME_FORMAT_CONSISTENCY",
+  "baselineHead": "73115816d41de5963d395aeaee841caf833dcdc2",
+  "result": "PASS",
+  "reviewer": "Independent security/diff reviewer; product and deployment recipe authored by other agents.",
+  "skillApplied": "Continuation of previously read security-best-practices Python/FastAPI and JavaScript guidance; no unchanged skill reread or broader research.",
+  "inputs": [
+    {
+      "path": "deploy/e4_payment_expiry_rollout.py",
+      "sha256": "875a764852390fe9fe7bcc8db9737275b875c6572d8081c014f342dd24aaac8f"
+    },
+    {
+      "path": "docs/e4-payment-expiry/320-expiry-invalid-calendar.png",
+      "sha256": "19102448a4f47396958dfb101f1ea324c6367afe3840b7b326a6e80a52bc77a9"
+    },
+    {
+      "path": "docs/e4-payment-expiry/320-expiry-positive-offset.png",
+      "sha256": "6b4417c2088951d14bab7892d1f19bc8f93fc11085917360fd75371fbaf076c8"
+    },
+    {
+      "path": "docs/e4-payment-expiry/320-expiry-utc-offset.png",
+      "sha256": "988eb184e4d456e8360ca4fc469f5cd18b7c1984d0eb50b8108f96ba083b4a84"
+    },
+    {
+      "path": "docs/e4-payment-expiry/acceptance-ops-probe.json",
+      "sha256": "3c0863e0f1966ceb62281a76acb54ae1d405423ce298bd236be6e02f0c448c4e"
+    },
+    {
+      "path": "docs/e4-payment-expiry/acceptance-ops-probe.py",
+      "sha256": "d02d2adeb699c2743831bb6db9e7afc948f13308adff6ef027dedff599e83215"
+    },
+    {
+      "path": "docs/e4-payment-expiry/acceptance-pages.json",
+      "sha256": "e21d5961f8c35435979fc99c81cce82d58891f558e940951a76516adc809f670"
+    },
+    {
+      "path": "docs/e4-payment-expiry/acceptance-probe.json",
+      "sha256": "892149fb5d2c30bd11077eb2d1a0a9e31cfd6a33a501f50c385b4c43c2bd33af"
+    },
+    {
+      "path": "docs/e4-payment-expiry/acceptance-probe.py",
+      "sha256": "8166b6edb00144583971adcff8466c3b7286345fb3148318c1f0b3a8cf5fdb10"
+    },
+    {
+      "path": "docs/e4-payment-expiry/acceptance-run-browser.py",
+      "sha256": "7942725825f902c21a8112d3e1ff55f0ded9bb9dbd54904c26337e76a7e728df"
+    },
+    {
+      "path": "docs/e4-payment-expiry/acceptance-surface.json",
+      "sha256": "337dcef9cf7fd6343ce4e31f42d8a8db60a635c9a6c6cfce30573e7bd7347a66"
+    },
+    {
+      "path": "docs/e4-payment-expiry/acceptance-surface.py",
+      "sha256": "c07ddb8fdd58018cfc726a3ebd905107d9903b1f563db95f799e027ea34c60f7"
+    },
+    {
+      "path": "docs/e4-payment-expiry/contract.md",
+      "sha256": "5ed42f60f442177ac83c54c1ae3d3be1f172c04272eac599e6b3bc959530a157"
+    },
+    {
+      "path": "docs/e4-payment-expiry/ops-baseline.json",
+      "sha256": "2a85df9c7755839791e94d4be46d2ab3f94d3bf5464066682f66913074958237"
+    },
+    {
+      "path": "docs/e4-payment-expiry/ops-release-manifest.json",
+      "sha256": "5e557c90493ed45df651907554d1df96db6d917cf19c4f4fe8e5adccc0255a36"
+    },
+    {
+      "path": "docs/e4-payment-expiry/ops-review.json",
+      "sha256": "eb4b129e6dac7bb359755a498e5a5eb682fd65915dfd1f99497ef93a6b909bd1"
+    },
+    {
+      "path": "docs/e4-payment-expiry/ops-scope-proof.json",
+      "sha256": "c3ad9132b718dc49929b2213ddcfffe7e2170b0e2c44f2c4457617eab76fd2a8"
+    },
+    {
+      "path": "docs/e4-payment-expiry/ops-tests.json",
+      "sha256": "ba41f6a56b0d09782338353cd80ec53aa317ef51fa34952d84c9d92a57d20245"
+    },
+    {
+      "path": "docs/e4-payment-expiry/payment-browser-isolation.json",
+      "sha256": "8d3800edfc52a4969321f9aa1c5819f918fa556cbbf9f7b14419c7f0027bad8d"
+    },
+    {
+      "path": "docs/e4-payment-expiry/payment-browser-report.json",
+      "sha256": "19c5017d255ed4d2d9f564678286d237127dd5ae685cd2e10af564e5f6ea64a8"
+    },
+    {
+      "path": "docs/e4-payment-expiry/preflight.json",
+      "sha256": "eb4c7cce67de01bbbcb486463e71489035cca3be605b44de0254ccd61914fc03"
+    },
+    {
+      "path": "docs/e4-payment-expiry/rollback-rehearsal.json",
+      "sha256": "8bf5da0818d603493826a4c4225d6f65cd4d735b16c423c1df262a3bd379b63f"
+    },
+    {
+      "path": "docs/e4-payment-expiry/secret-scan-findings.json",
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "path": "docs/e4-payment-expiry/secret-scan.json",
+      "sha256": "30099b004b7dfaaf6565a32c139a5c975d6384ad583c381d2b28abd7b9669e09"
+    },
+    {
+      "path": "docs/e4-payment-expiry/security-baseline.json",
+      "sha256": "d99ab2ad7cdef9adae812080fb39dbf5d9ad4bb8a03f44743d3973ec450a7d59"
+    },
+    {
+      "path": "docs/e4-payment-expiry/security-ops-probe.json",
+      "sha256": "a3d3fcb676910a818949f3f641f420bb54166ce47401227cd0c509809078576a"
+    },
+    {
+      "path": "docs/e4-payment-expiry/security-ops-probe.py",
+      "sha256": "55ff62596f2e2c982fcfc1180bd732b86a16b4241584eeebae1e7d78254db1b7"
+    },
+    {
+      "path": "docs/e4-payment-expiry/security-probe.json",
+      "sha256": "8b7e64397949b0140d717e9934d94386d08cd7e1fdc1564892292e6b65af6cc8"
+    },
+    {
+      "path": "docs/e4-payment-expiry/security-probe.py",
+      "sha256": "c050019d9a6cdd745e6bd696711b8c7acdea147c1cc53e7df2439b7f9937ecd1"
+    },
+    {
+      "path": "docs/e4-payment-expiry/tests.json",
+      "sha256": "a0b52fbd56b932d49f2363722ee99e8223f9d0ad156af6fe7cc2141d2c95aa64"
+    },
+    {
+      "path": "docs/e4-payment-expiry/tests.stdout.txt",
+      "sha256": "b76d770471a9ea33dc81139fa54c6b2f3b91391263883e2570af81de83aa8f27"
+    },
+    {
+      "path": "output/manual/e4-payment-expiry-20260908/baseline/relay-fastapi/main.py",
+      "sha256": "4ee1c62ee72734f0f403ec1a438f829fb800989f893dca2b24a184eb5cd1ecf7"
+    },
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "25624ac7bc9174ac9ec35d90402042c62bd344d6c74c1cf730593017a79ae26f"
+    },
+    {
+      "path": "relay/core/order_access.py",
+      "sha256": "15d996a1450ff898ef62b3e43c048069c2c4dc60863399bcba144cfd46c69a0f"
+    },
+    {
+      "path": "relay/core/requisites.py",
+      "sha256": "a6c9eb87a236081095eb8213828b4ea33e9296d6f1bb8696d2e91c9733aca507"
+    },
+    {
+      "path": "relay/core/telegram_freshness.py",
+      "sha256": "40bef427a0daa3069e05565fdb65217836414ed581960b64f1cff5c1c266d601"
+    },
+    {
+      "path": "relay/core/txid.py",
+      "sha256": "726b98d97696578b0883f5a14eca119f9bc4ce0fd92f409617edf1190129f824"
+    },
+    {
+      "path": "relay/repositories/payment_status_read_store.py",
+      "sha256": "5cbd26d0335c0cf713aa4be9c87999773bbcc37ab89202a554a4811b6702b6f9"
+    },
+    {
+      "path": "relay/services/requisite_origin.py",
+      "sha256": "5552f1c274bc2e7721068bf7db69564ca360d5065920cebbb17c022df4335398"
+    },
+    {
+      "path": "scripts/run_e4_review_browser.py",
+      "sha256": "6f4c9bf3020ae80b323655333a1eb3697eca4d44672ef6d28c679749136c412b"
+    },
+    {
+      "path": "tests/e4_payment_expiry_behavior.cjs",
+      "sha256": "3cb00b5d8406183c5f7cfe28ca1f9d59dbbaf17102a50d4190083cd56b61b40e"
+    },
+    {
+      "path": "tests/e4_payment_expiry_browser.cjs",
+      "sha256": "8bb6b9e09fb6b6ad94a28342cfd4f31cb1e4444625b9fbb766d06618a9eb83e3"
+    },
+    {
+      "path": "tests/e4_payment_terminal_behavior.cjs",
+      "sha256": "efaecfef55af7587c3a4656a2f1e545195bbbac809415a783c492d659d996bb9"
+    },
+    {
+      "path": "tests/test_e0_3_numeric_pay_token_guard.py",
+      "sha256": "99238ba9bb7e7d6811388f6d9bb7ab055c16e068fff5b0ce24a2604aed85bd85"
+    },
+    {
+      "path": "tests/test_e0_4_authenticated_synthetic_reads.py",
+      "sha256": "d488f5d61b00b3fe9a9188a2c495a87ab95b7f5675675768d5a8282ad6f0065c"
+    },
+    {
+      "path": "tests/test_e4_payment_expiry_behavior.py",
+      "sha256": "4fb2d29b880283b163918b411e5ed7cb4d9edbdf7639c1e3f533c7035105ec61"
+    },
+    {
+      "path": "tests/test_e4_payment_expiry_rollout.py",
+      "sha256": "42f37f2aa95408f54391055616a5e53fc96e7c5ece61e8fd329900ef50f5e548"
+    },
+    {
+      "path": "tests/test_e4_payment_instruction_behavior.py",
+      "sha256": "b425ababa71e51d8f977214303553bd011509d2bb5dd9c8a0bf2ea2ef218b3ea"
+    },
+    {
+      "path": "tests/test_e4_payment_pending_receipt_behavior.py",
+      "sha256": "0d94fc59e5da0cdb405d5c49e1ca189c4d74da37680263c4ba8a6b4b3d445449"
+    },
+    {
+      "path": "tests/test_e4_payment_requisites_copy_behavior.py",
+      "sha256": "3b0e45d530c32e872ac54222120544e4bd63467cf1e33373d44105b7b8230a3a"
+    },
+    {
+      "path": "tests/test_e4_payment_status_read_contract.py",
+      "sha256": "7d7ab67d075f95329e0376fe66991acd8fbbfcc288899acc50eb10a692509c26"
+    },
+    {
+      "path": "tests/test_e4_payment_terminal_behavior.py",
+      "sha256": "f3ae7ad4661d904ae206441e29b13f574861b11a191d965e59d3b908d19a6d77"
+    },
+    {
+      "path": "tests/test_order_access.py",
+      "sha256": "ebf8941ca0c125d08b6b975924dba5862f07621a0c723e03eefbcab46a44ed58"
+    },
+    {
+      "path": "tests/test_relay_runtime_isolation.py",
+      "sha256": "eeed65198d8762984cbaba3318e53554111dfb132e477460763c1f2d868933be"
+    }
+  ],
+  "inputSetSha256": "b3f1f36b6ad8f5bf88423adc87ec761517fdfc6c95f12a72219a20401d5ab607",
+  "findings": [],
+  "blockers": [],
+  "scope": {
+    "productTargets": [
+      "relay-fastapi/main.py"
+    ],
+    "change": "Only paymentExpiryMs and startTimer inside the opaque pay page inline JavaScript.",
+    "sourceOutsideExpiryHelperAndTimerByteExact": true,
+    "PythonAuthAPIReadReceiptVerificationMoneyAndNumericFallbackASTUnchanged": true,
+    "allPythonInterpolationsIdentical": true,
+    "unexpectedWritersAdded": false,
+    "reviewedBoundaries": [
+      "Type and length guards reject nonstrings and oversized metadata before parsing; bounded ASCII grammar and complete match reject extra characters.",
+      "Calendar roundtrip rejects impossible dates and hours before applying explicit offsets; naive timestamps are interpreted as UTC. Years 0001 through 9999 avoid Date.UTC year remapping.",
+      "Invalid or absent metadata produces fixed textContent guidance, without inventing expiry, installing a timer, interpolating input into HTML or changing canonical status.",
+      "Any prior timer is cancelled first; absent timer elements return immediately; already elapsed first ticks do not reinstall intervals.",
+      "Timer expiry changes only local presentation and keeps status polling available; paid, sent, terminal, verification and receipt precedence is preserved.",
+      "Existing JSON script escaping remains intact; hostile timestamp markup cannot terminate the inline script. No SQL, credentials, authentication, authorization, provider, callback or background writer changes."
+    ]
+  },
+  "independentVerification": {
+    "namedScenariosPassed": 318,
+    "perTimezone": {
+      "validTimestampEpochAndCountdown": 22,
+      "invalidTimestampValues": 46,
+      "clearPriorTimerOnInvalidRefresh": 1,
+      "actualIntervalDeadlinePreservesCanonicalPending": 2,
+      "higherPrecedenceOrMissingTimerElement": 34,
+      "readOnlyStatusPolling": 1,
+      "total": 106
+    },
+    "timezones": [
+      "UTC",
+      "America/Los_Angeles",
+      "Asia/Calcutta"
+    ],
+    "timezoneAliasNote": "Node resolves requested Asia/Kolkata to Asia/Calcutta.",
+    "method": "Exact AST-isolated synthetic pay HTML and actual inline JS in Node VM; independent expected epochs from Python datetime; controlled Date.now and actual captured interval callbacks.",
+    "baseline": {
+      "result": "EXPECTED_BASELINE_FAILURE",
+      "scenarios": 318,
+      "failed": 288,
+      "preservedControls": 30,
+      "interpretation": "Synthetic scenario outcomes, including defensive direct timer entry; not customer incidence."
+    },
+    "deploymentProbe": {
+      "passed": 4,
+      "cases": [
+        "normal-round-trip",
+        "before-publication",
+        "after-publication",
+        "restart-acknowledgement-lost"
+      ],
+      "actualFileJournalAndRollbackFunctions": true,
+      "upstreamGatesAndServiceObservationsMocked": true,
+      "knownBytesRequired": true,
+      "blindDeployAndRollbackReplayRejected": true,
+      "reconcileDoesNotRestart": true,
+      "exactBytesUidGidModeMtimeXattrsRestored": true,
+      "temporaryDirectoriesRemoved": true
+    }
+  },
+  "supportingEvidence": {
+    "primaryFocusedTestsPassed": 208,
+    "opsTestsPassed": 17,
+    "browserNamedChecksPassed": 83,
+    "browserTimezoneInstantComparisons": 27,
+    "browserPageErrors": 0,
+    "browserBlockedRequests": 0,
+    "browserIsolation": "Non-root sandboxed Chrome, private network, protected home, collected unit with MainPID 0 and empty cgroup.",
+    "browserRunnerReview": "Only synthetic expiry.invalid fixture and GET API paths are fulfilled; every other request aborts. Controlled browser clocks exercise real interval deadlines and continued status polling.",
+    "hashVerification": {
+      "currentTopLevelEvidenceBindingsVerified": 76,
+      "browserFixtureAndRunnerMatchIsolation": true,
+      "preflightManifestBindingVerified": true
+    },
+    "secretScan": {
+      "stagedReportResult": "PASS",
+      "findings": 0,
+      "suppressionUsed": false
+    }
+  },
+  "deploymentReview": {
+    "result": "PASS",
+    "targetCount": 1,
+    "preservedFiles": 16,
+    "scopeGuard": "Source outside inline script and every Python interpolation must be exact; numeric payment page and API/database/authentication/redirect code are protected.",
+    "publication": "Private fsynced preimages and metadata precede atomic main.py replacement. Exact candidate/recipe/review/browser bindings are mandatory.",
+    "restart": "Only Relay; bot, nginx and PostgreSQL identities are preserved.",
+    "interruption": "Observation does not replay publication or restart. Verified known bytes permit explicit rollback before rollback has started; interrupted rollback requires independent inspection and manual completion.",
+    "preflight": "PASS; baseline and retained dependency hashes exact; unauthenticated public checks only.",
+    "autopilot": "failed, MainPID 0; must remain stopped."
+  },
+  "validationNotes": [
+    "One read-only evidence inventory command assumed every cases field was a list and stopped with TypeError on an integer count. The reporting helper was corrected; the completed inventory verified 76 current input bindings with no mismatch. No source or test outcome was altered."
+  ],
+  "limits": [
+    "This reviewer made no runtime mutation, production database query, customer request, provider call, real credential access or service restart.",
+    "The local countdown follows the client clock and is presentation only; it cannot establish payment, refund, receipt verification or canonical expiry.",
+    "No PostgreSQL/container repetition or whole-application security certification is claimed for this bounded JavaScript change.",
+    "Acceptance and security final reviews are not mutually bound, avoiding a digest cycle; their raw evidence is bound independently.",
+    "Final staged scanning and deployment remain the primary deployer responsibility; this review approves only the exact bound source and recipe."
+  ]
+}

@@ -1,0 +1,178 @@
+{
+  "schemaVersion": "e4-payment-expiry-handler-acceptance.v1",
+  "result": "PASS",
+  "method": "30 exact pay outputs from synthetic real query_only SQLite and unchanged retained installed class/adapter; exact API/receipt/verification/dead state cross-check. Synthetic HMAC only; no duplicate prior or baseline HTML bundle.",
+  "inputs": [
+    {
+      "path": "relay/repositories/payment_status_read_store.py",
+      "sha256": "5cbd26d0335c0cf713aa4be9c87999773bbcc37ab89202a554a4811b6702b6f9"
+    },
+    {
+      "path": "relay/core/order_access.py",
+      "sha256": "15d996a1450ff898ef62b3e43c048069c2c4dc60863399bcba144cfd46c69a0f"
+    },
+    {
+      "path": "relay/core/telegram_freshness.py",
+      "sha256": "40bef427a0daa3069e05565fdb65217836414ed581960b64f1cff5c1c266d601"
+    },
+    {
+      "path": "relay/core/requisites.py",
+      "sha256": "a6c9eb87a236081095eb8213828b4ea33e9296d6f1bb8696d2e91c9733aca507"
+    },
+    {
+      "path": "relay/services/requisite_origin.py",
+      "sha256": "5552f1c274bc2e7721068bf7db69564ca360d5065920cebbb17c022df4335398"
+    },
+    {
+      "path": "relay/core/txid.py",
+      "sha256": "726b98d97696578b0883f5a14eca119f9bc4ce0fd92f409617edf1190129f824"
+    },
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "25624ac7bc9174ac9ec35d90402042c62bd344d6c74c1cf730593017a79ae26f"
+    },
+    {
+      "path": "docs/e4-payment-expiry/acceptance-probe.py",
+      "sha256": "8166b6edb00144583971adcff8466c3b7286345fb3148318c1f0b3a8cf5fdb10"
+    }
+  ],
+  "installedInputs": [
+    {
+      "path": "/opt/obsidian-exchange/relay/repositories/order_read_store.py",
+      "sha256": "2cc91c733a8388ac2f643016fe192f7687ef0c44b79305d23fed50dcfd2ca06d"
+    }
+  ],
+  "cases": [
+    {
+      "name": "utc-z-exact-canonical-page",
+      "result": "PASS"
+    },
+    {
+      "name": "utc-offset-exact-canonical-page",
+      "result": "PASS"
+    },
+    {
+      "name": "positive-offset-exact-canonical-page",
+      "result": "PASS"
+    },
+    {
+      "name": "negative-offset-exact-canonical-page",
+      "result": "PASS"
+    },
+    {
+      "name": "naive-t-exact-canonical-page",
+      "result": "PASS"
+    },
+    {
+      "name": "naive-space-exact-canonical-page",
+      "result": "PASS"
+    },
+    {
+      "name": "microsecond-offset-exact-canonical-page",
+      "result": "PASS"
+    },
+    {
+      "name": "fraction-z-exact-canonical-page",
+      "result": "PASS"
+    },
+    {
+      "name": "fraction-naive-exact-canonical-page",
+      "result": "PASS"
+    },
+    {
+      "name": "missing-exact-canonical-page",
+      "result": "PASS"
+    },
+    {
+      "name": "empty-exact-canonical-page",
+      "result": "PASS"
+    },
+    {
+      "name": "malformed-exact-canonical-page",
+      "result": "PASS"
+    },
+    {
+      "name": "invalid-calendar-exact-canonical-page",
+      "result": "PASS"
+    },
+    {
+      "name": "invalid-hour-exact-canonical-page",
+      "result": "PASS"
+    },
+    {
+      "name": "invalid-offset-exact-canonical-page",
+      "result": "PASS"
+    },
+    {
+      "name": "invalid-fraction-exact-canonical-page",
+      "result": "PASS"
+    },
+    {
+      "name": "date-only-exact-canonical-page",
+      "result": "PASS"
+    },
+    {
+      "name": "trailing-newline-exact-canonical-page",
+      "result": "PASS"
+    },
+    {
+      "name": "past-absent-exact-canonical-page",
+      "result": "PASS"
+    },
+    {
+      "name": "past-stored-exact-canonical-page",
+      "result": "PASS"
+    },
+    {
+      "name": "past-sent-exact-canonical-page",
+      "result": "PASS"
+    },
+    {
+      "name": "verification-absent-exact-canonical-page",
+      "result": "PASS"
+    },
+    {
+      "name": "verification-stored-exact-canonical-page",
+      "result": "PASS"
+    },
+    {
+      "name": "unavailable-stored-exact-canonical-page",
+      "result": "PASS"
+    },
+    {
+      "name": "canonical-expired-exact-canonical-page",
+      "result": "PASS"
+    },
+    {
+      "name": "canonical-failed-exact-canonical-page",
+      "result": "PASS"
+    },
+    {
+      "name": "canonical-cancelled-exact-canonical-page",
+      "result": "PASS"
+    },
+    {
+      "name": "canonical-paid-exact-canonical-page",
+      "result": "PASS"
+    },
+    {
+      "name": "canonical-sent-exact-canonical-page",
+      "result": "PASS"
+    },
+    {
+      "name": "expiry-boundary-exact-canonical-page",
+      "result": "PASS"
+    }
+  ],
+  "count": 30,
+  "generatedPages": 30,
+  "selectQueries": 200,
+  "databaseWritesAllowed": false,
+  "providerOrMoneyCalls": 0,
+  "referenceNowMs": 1893456001000,
+  "limits": [
+    "The JavaScript parser/countdown is tested separately in actual Chrome with controlled time and timezone contexts.",
+    "No application import, ASGI server, production database/provider request or real authority is used.",
+    "No new SQL/API behavior: PostgreSQL container repetition is outside this presentation slice."
+  ]
+}

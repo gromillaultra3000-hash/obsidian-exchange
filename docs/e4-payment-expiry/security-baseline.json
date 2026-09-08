@@ -1,0 +1,2236 @@
+{
+  "schemaVersion": "e4-expiry-independent-security-probe.v1",
+  "result": "EXPECTED_BASELINE_FAILURE",
+  "baselineHead": "73115816d41de5963d395aeaee841caf833dcdc2",
+  "inputs": [
+    {
+      "path": "docs/e4-payment-expiry/security-probe.py",
+      "sha256": "c050019d9a6cdd745e6bd696711b8c7acdea147c1cc53e7df2439b7f9937ecd1"
+    },
+    {
+      "path": "relay/core/requisites.py",
+      "sha256": "a6c9eb87a236081095eb8213828b4ea33e9296d6f1bb8696d2e91c9733aca507"
+    },
+    {
+      "path": "relay/services/requisite_origin.py",
+      "sha256": "5552f1c274bc2e7721068bf7db69564ca360d5065920cebbb17c022df4335398"
+    },
+    {
+      "path": "relay/core/txid.py",
+      "sha256": "726b98d97696578b0883f5a14eca119f9bc4ce0fd92f409617edf1190129f824"
+    }
+  ],
+  "executedSourceSha256": "4ee1c62ee72734f0f403ec1a438f829fb800989f893dca2b24a184eb5cd1ecf7",
+  "validTimestampCases": 22,
+  "invalidTimestampCases": 46,
+  "timezones": [
+    "UTC",
+    "America/Los_Angeles",
+    "Asia/Calcutta"
+  ],
+  "cases": 318,
+  "failingCases": 288,
+  "failures": [
+    {
+      "timezone": "UTC",
+      "name": "valid:2026-09-08T00:15:00+00:00",
+      "issues": [
+        "wrong parsed instant",
+        "incorrect countdown"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "valid:2026-09-08T03:15:00+03:00",
+      "issues": [
+        "wrong parsed instant",
+        "incorrect countdown"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "valid:2026-09-07T17:15:00-07:00",
+      "issues": [
+        "wrong parsed instant",
+        "incorrect countdown"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "valid:2026-09-08T05:45:00+05:30",
+      "issues": [
+        "wrong parsed instant",
+        "incorrect countdown"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "valid:2026-09-08T13:00:00+12:45",
+      "issues": [
+        "wrong parsed instant",
+        "incorrect countdown"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "valid:2026-09-08 00:15:00.123456+00:00",
+      "issues": [
+        "wrong parsed instant",
+        "incorrect countdown"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "valid:2026-09-08T23:59:59+23:59",
+      "issues": [
+        "wrong parsed instant",
+        "incorrect countdown"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "valid:2026-09-07T00:01:00-23:59",
+      "issues": [
+        "wrong parsed instant",
+        "elapsed instant not locally expired",
+        "already elapsed timer reinstalled"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "valid:2026-09-08T00:15:00-00:00",
+      "issues": [
+        "wrong parsed instant",
+        "incorrect countdown"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "valid:2024-02-29T12:00:00Z",
+      "issues": [
+        "already elapsed timer reinstalled"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "valid:2000-02-29T00:00:00Z",
+      "issues": [
+        "already elapsed timer reinstalled"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "valid:0099-12-31T23:59:59Z",
+      "issues": [
+        "already elapsed timer reinstalled"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "valid:0001-01-01T00:00:00Z",
+      "issues": [
+        "already elapsed timer reinstalled"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "valid:2026-09-08T00:00:00Z",
+      "issues": [
+        "already elapsed timer reinstalled"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "valid:2026-09-07T23:59:59.999999Z",
+      "issues": [
+        "already elapsed timer reinstalled"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "invalid:0",
+      "issues": [
+        "unknown-time fallback missing"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "invalid:1",
+      "issues": [
+        "unknown-time fallback missing"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "invalid:2",
+      "issues": [
+        "exception:TypeError",
+        "unknown-time fallback missing"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "invalid:3",
+      "issues": [
+        "unknown-time fallback missing"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "invalid:4",
+      "issues": [
+        "exception:TypeError",
+        "unknown-time fallback missing"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "invalid:5",
+      "issues": [
+        "exception:TypeError",
+        "unknown-time fallback missing"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "invalid:6",
+      "issues": [
+        "exception:TypeError",
+        "unknown-time fallback missing"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "invalid:7",
+      "issues": [
+        "exception:TypeError",
+        "unknown-time fallback missing"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "invalid:8",
+      "issues": [
+        "unknown-time fallback missing"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "invalid:9",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata invented expiry",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "invalid:10",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "invalid:11",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "invalid:12",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "invalid:13",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "invalid:14",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "invalid:15",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "invalid:16",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata invented expiry",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "invalid:17",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata invented expiry",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "invalid:18",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata invented expiry",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "invalid:19",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata invented expiry",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "invalid:20",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "invalid:21",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "invalid:22",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "invalid:23",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "invalid:24",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata invented expiry",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "invalid:25",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "invalid:26",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "invalid:27",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "invalid:28",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "invalid:29",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "invalid:30",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "invalid:31",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "invalid:32",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "invalid:33",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "invalid:34",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "invalid:35",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "invalid:36",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "invalid:37",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "invalid:38",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "invalid:39",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "invalid:40",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "invalid:41",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "invalid:42",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "invalid:43",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "invalid:44",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "invalid:45",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata invented expiry",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "invalid-refresh-clears-prior-timer",
+      "issues": [
+        "old timer retained"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "precedence:pending::video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "precedence:pending:stored:video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "precedence:pending:sent:",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "precedence:pending:sent:video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "precedence:paid::",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "precedence:paid::video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "precedence:paid:stored:",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "precedence:paid:stored:video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "precedence:paid:sent:",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "precedence:paid:sent:video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "precedence:sent::",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "precedence:sent::video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "precedence:sent:stored:",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "precedence:sent:stored:video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "precedence:sent:sent:",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "precedence:sent:sent:video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "precedence:expired::",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "precedence:expired::video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "precedence:expired:stored:",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "precedence:expired:stored:video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "precedence:expired:sent:",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "precedence:expired:sent:video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "precedence:failed::",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "precedence:failed::video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "precedence:failed:stored:",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "precedence:failed:stored:video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "precedence:failed:sent:",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "precedence:failed:sent:video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "precedence:cancelled::",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "precedence:cancelled::video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "precedence:cancelled:stored:",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "precedence:cancelled:stored:video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "precedence:cancelled:sent:",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "UTC",
+      "name": "precedence:cancelled:sent:video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "valid:2026-09-08T00:15:00+00:00",
+      "issues": [
+        "wrong parsed instant",
+        "incorrect countdown"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "valid:2026-09-08T03:15:00+03:00",
+      "issues": [
+        "wrong parsed instant",
+        "incorrect countdown"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "valid:2026-09-07T17:15:00-07:00",
+      "issues": [
+        "wrong parsed instant",
+        "incorrect countdown"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "valid:2026-09-08T05:45:00+05:30",
+      "issues": [
+        "wrong parsed instant",
+        "incorrect countdown"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "valid:2026-09-08T13:00:00+12:45",
+      "issues": [
+        "wrong parsed instant",
+        "incorrect countdown"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "valid:2026-09-08 00:15:00.123456+00:00",
+      "issues": [
+        "wrong parsed instant",
+        "incorrect countdown"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "valid:2026-09-08T23:59:59+23:59",
+      "issues": [
+        "wrong parsed instant",
+        "incorrect countdown"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "valid:2026-09-07T00:01:00-23:59",
+      "issues": [
+        "wrong parsed instant",
+        "elapsed instant not locally expired",
+        "already elapsed timer reinstalled"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "valid:2026-09-08T00:15:00-00:00",
+      "issues": [
+        "wrong parsed instant",
+        "incorrect countdown"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "valid:2024-02-29T12:00:00Z",
+      "issues": [
+        "already elapsed timer reinstalled"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "valid:2000-02-29T00:00:00Z",
+      "issues": [
+        "already elapsed timer reinstalled"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "valid:0099-12-31T23:59:59Z",
+      "issues": [
+        "already elapsed timer reinstalled"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "valid:0001-01-01T00:00:00Z",
+      "issues": [
+        "already elapsed timer reinstalled"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "valid:2026-09-08T00:00:00Z",
+      "issues": [
+        "already elapsed timer reinstalled"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "valid:2026-09-07T23:59:59.999999Z",
+      "issues": [
+        "already elapsed timer reinstalled"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "invalid:0",
+      "issues": [
+        "unknown-time fallback missing"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "invalid:1",
+      "issues": [
+        "unknown-time fallback missing"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "invalid:2",
+      "issues": [
+        "exception:TypeError",
+        "unknown-time fallback missing"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "invalid:3",
+      "issues": [
+        "unknown-time fallback missing"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "invalid:4",
+      "issues": [
+        "exception:TypeError",
+        "unknown-time fallback missing"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "invalid:5",
+      "issues": [
+        "exception:TypeError",
+        "unknown-time fallback missing"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "invalid:6",
+      "issues": [
+        "exception:TypeError",
+        "unknown-time fallback missing"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "invalid:7",
+      "issues": [
+        "exception:TypeError",
+        "unknown-time fallback missing"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "invalid:8",
+      "issues": [
+        "unknown-time fallback missing"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "invalid:9",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata invented expiry",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "invalid:10",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "invalid:11",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "invalid:12",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "invalid:13",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "invalid:14",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "invalid:15",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "invalid:16",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata invented expiry",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "invalid:17",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata invented expiry",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "invalid:18",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata invented expiry",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "invalid:19",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata invented expiry",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "invalid:20",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "invalid:21",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "invalid:22",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "invalid:23",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "invalid:24",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata invented expiry",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "invalid:25",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "invalid:26",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "invalid:27",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "invalid:28",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "invalid:29",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "invalid:30",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "invalid:31",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "invalid:32",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "invalid:33",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "invalid:34",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "invalid:35",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "invalid:36",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "invalid:37",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "invalid:38",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "invalid:39",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "invalid:40",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "invalid:41",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "invalid:42",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "invalid:43",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "invalid:44",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "invalid:45",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata invented expiry",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "invalid-refresh-clears-prior-timer",
+      "issues": [
+        "old timer retained"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "precedence:pending::video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "precedence:pending:stored:video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "precedence:pending:sent:",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "precedence:pending:sent:video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "precedence:paid::",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "precedence:paid::video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "precedence:paid:stored:",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "precedence:paid:stored:video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "precedence:paid:sent:",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "precedence:paid:sent:video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "precedence:sent::",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "precedence:sent::video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "precedence:sent:stored:",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "precedence:sent:stored:video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "precedence:sent:sent:",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "precedence:sent:sent:video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "precedence:expired::",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "precedence:expired::video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "precedence:expired:stored:",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "precedence:expired:stored:video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "precedence:expired:sent:",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "precedence:expired:sent:video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "precedence:failed::",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "precedence:failed::video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "precedence:failed:stored:",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "precedence:failed:stored:video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "precedence:failed:sent:",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "precedence:failed:sent:video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "precedence:cancelled::",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "precedence:cancelled::video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "precedence:cancelled:stored:",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "precedence:cancelled:stored:video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "precedence:cancelled:sent:",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "America/Los_Angeles",
+      "name": "precedence:cancelled:sent:video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "valid:2026-09-08T00:15:00+00:00",
+      "issues": [
+        "wrong parsed instant",
+        "incorrect countdown"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "valid:2026-09-08T03:15:00+03:00",
+      "issues": [
+        "wrong parsed instant",
+        "incorrect countdown"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "valid:2026-09-07T17:15:00-07:00",
+      "issues": [
+        "wrong parsed instant",
+        "incorrect countdown"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "valid:2026-09-08T05:45:00+05:30",
+      "issues": [
+        "wrong parsed instant",
+        "incorrect countdown"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "valid:2026-09-08T13:00:00+12:45",
+      "issues": [
+        "wrong parsed instant",
+        "incorrect countdown"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "valid:2026-09-08 00:15:00.123456+00:00",
+      "issues": [
+        "wrong parsed instant",
+        "incorrect countdown"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "valid:2026-09-08T23:59:59+23:59",
+      "issues": [
+        "wrong parsed instant",
+        "incorrect countdown"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "valid:2026-09-07T00:01:00-23:59",
+      "issues": [
+        "wrong parsed instant",
+        "elapsed instant not locally expired",
+        "already elapsed timer reinstalled"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "valid:2026-09-08T00:15:00-00:00",
+      "issues": [
+        "wrong parsed instant",
+        "incorrect countdown"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "valid:2024-02-29T12:00:00Z",
+      "issues": [
+        "already elapsed timer reinstalled"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "valid:2000-02-29T00:00:00Z",
+      "issues": [
+        "already elapsed timer reinstalled"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "valid:0099-12-31T23:59:59Z",
+      "issues": [
+        "already elapsed timer reinstalled"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "valid:0001-01-01T00:00:00Z",
+      "issues": [
+        "already elapsed timer reinstalled"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "valid:2026-09-08T00:00:00Z",
+      "issues": [
+        "already elapsed timer reinstalled"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "valid:2026-09-07T23:59:59.999999Z",
+      "issues": [
+        "already elapsed timer reinstalled"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "invalid:0",
+      "issues": [
+        "unknown-time fallback missing"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "invalid:1",
+      "issues": [
+        "unknown-time fallback missing"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "invalid:2",
+      "issues": [
+        "exception:TypeError",
+        "unknown-time fallback missing"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "invalid:3",
+      "issues": [
+        "unknown-time fallback missing"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "invalid:4",
+      "issues": [
+        "exception:TypeError",
+        "unknown-time fallback missing"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "invalid:5",
+      "issues": [
+        "exception:TypeError",
+        "unknown-time fallback missing"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "invalid:6",
+      "issues": [
+        "exception:TypeError",
+        "unknown-time fallback missing"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "invalid:7",
+      "issues": [
+        "exception:TypeError",
+        "unknown-time fallback missing"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "invalid:8",
+      "issues": [
+        "unknown-time fallback missing"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "invalid:9",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata invented expiry",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "invalid:10",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "invalid:11",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "invalid:12",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "invalid:13",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "invalid:14",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "invalid:15",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "invalid:16",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata invented expiry",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "invalid:17",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata invented expiry",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "invalid:18",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata invented expiry",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "invalid:19",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata invented expiry",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "invalid:20",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "invalid:21",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "invalid:22",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "invalid:23",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "invalid:24",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata invented expiry",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "invalid:25",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "invalid:26",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "invalid:27",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "invalid:28",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "invalid:29",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "invalid:30",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "invalid:31",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "invalid:32",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "invalid:33",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "invalid:34",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "invalid:35",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "invalid:36",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "invalid:37",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "invalid:38",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "invalid:39",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "invalid:40",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "invalid:41",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "invalid:42",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "invalid:43",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "invalid:44",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "invalid:45",
+      "issues": [
+        "unknown-time fallback missing",
+        "invalid metadata invented expiry",
+        "invalid metadata installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "invalid-refresh-clears-prior-timer",
+      "issues": [
+        "old timer retained"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "precedence:pending::video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "precedence:pending:stored:video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "precedence:pending:sent:",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "precedence:pending:sent:video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "precedence:paid::",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "precedence:paid::video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "precedence:paid:stored:",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "precedence:paid:stored:video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "precedence:paid:sent:",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "precedence:paid:sent:video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "precedence:sent::",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "precedence:sent::video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "precedence:sent:stored:",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "precedence:sent:stored:video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "precedence:sent:sent:",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "precedence:sent:sent:video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "precedence:expired::",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "precedence:expired::video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "precedence:expired:stored:",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "precedence:expired:stored:video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "precedence:expired:sent:",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "precedence:expired:sent:video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "precedence:failed::",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "precedence:failed::video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "precedence:failed:stored:",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "precedence:failed:stored:video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "precedence:failed:sent:",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "precedence:failed:sent:video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "precedence:cancelled::",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "precedence:cancelled::video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "precedence:cancelled:stored:",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "precedence:cancelled:stored:video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "precedence:cancelled:sent:",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    },
+    {
+      "timezone": "Asia/Calcutta",
+      "name": "precedence:cancelled:sent:video",
+      "issues": [
+        "missing timer element still installed interval"
+      ]
+    }
+  ],
+  "securityChecks": {
+    "timestampMarkupCannotBreakOutOfScript": true,
+    "PythonAuthReadAPIReceiptVerificationMoneyAndNumericFallbackASTUnchanged": true,
+    "allPythonInterpolationsIdentical": true,
+    "sourceOutsideExpiryHelperAndTimerByteExact": true
+  },
+  "scope": "Exact AST-isolated pay HTML and actual inline JS with controlled Date.now/intervals in three process-local timezones. Expected valid epochs computed independently with Python datetime.",
+  "productionDatabaseRequestsCredentialsWritesRestarts": false
+}

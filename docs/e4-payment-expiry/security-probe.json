@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "e4-expiry-independent-security-probe.v1",
+  "result": "PASS",
+  "baselineHead": "73115816d41de5963d395aeaee841caf833dcdc2",
+  "inputs": [
+    {
+      "path": "docs/e4-payment-expiry/security-probe.py",
+      "sha256": "c050019d9a6cdd745e6bd696711b8c7acdea147c1cc53e7df2439b7f9937ecd1"
+    },
+    {
+      "path": "relay/core/requisites.py",
+      "sha256": "a6c9eb87a236081095eb8213828b4ea33e9296d6f1bb8696d2e91c9733aca507"
+    },
+    {
+      "path": "relay/services/requisite_origin.py",
+      "sha256": "5552f1c274bc2e7721068bf7db69564ca360d5065920cebbb17c022df4335398"
+    },
+    {
+      "path": "relay/core/txid.py",
+      "sha256": "726b98d97696578b0883f5a14eca119f9bc4ce0fd92f409617edf1190129f824"
+    },
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "25624ac7bc9174ac9ec35d90402042c62bd344d6c74c1cf730593017a79ae26f"
+    }
+  ],
+  "executedSourceSha256": "25624ac7bc9174ac9ec35d90402042c62bd344d6c74c1cf730593017a79ae26f",
+  "validTimestampCases": 22,
+  "invalidTimestampCases": 46,
+  "timezones": [
+    "UTC",
+    "America/Los_Angeles",
+    "Asia/Calcutta"
+  ],
+  "cases": 318,
+  "failingCases": 0,
+  "failures": [],
+  "securityChecks": {
+    "timestampMarkupCannotBreakOutOfScript": true,
+    "PythonAuthReadAPIReceiptVerificationMoneyAndNumericFallbackASTUnchanged": true,
+    "allPythonInterpolationsIdentical": true,
+    "sourceOutsideExpiryHelperAndTimerByteExact": true
+  },
+  "scope": "Exact AST-isolated pay HTML and actual inline JS with controlled Date.now/intervals in three process-local timezones. Expected valid epochs computed independently with Python datetime.",
+  "productionDatabaseRequestsCredentialsWritesRestarts": false
+}

@@ -1,0 +1,304 @@
+{
+  "recordedAt": "2026-09-08T03:09:06.999141+00:00",
+  "result": "BASELINE_CAPTURED",
+  "route": "E4 / PAYMENT_STATUS_EXPIRY_TIME_FORMAT_CONSISTENCY",
+  "files": [
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "4ee1c62ee72734f0f403ec1a438f829fb800989f893dca2b24a184eb5cd1ecf7",
+      "repositoryInputs": [
+        {
+          "path": "relay-fastapi/main.py",
+          "sha256": "257f181599a13cea8333c40aa63d399e12fba6c6a38273909084d3e518d10986"
+        }
+      ],
+      "uid": 0,
+      "gid": 0,
+      "mode": 420,
+      "mtimeNs": 1787738836204001133,
+      "xattrs": {}
+    },
+    {
+      "path": "relay/repositories/order_read_store.py",
+      "sha256": "2cc91c733a8388ac2f643016fe192f7687ef0c44b79305d23fed50dcfd2ca06d",
+      "repositoryInputs": [
+        {
+          "path": "relay/repositories/order_read_store.py",
+          "sha256": "5651f8400da4b0024b11bc77f03f9cb239ac284766f44586f0673788e1d54506"
+        }
+      ],
+      "uid": 0,
+      "gid": 0,
+      "mode": 420,
+      "mtimeNs": 1786974796191260096,
+      "xattrs": {}
+    },
+    {
+      "path": "relay/repositories/payment_session_store.py",
+      "sha256": "eb41d099a06beac4251190d10221467bdca4b21db7bc97dba687dd8d40653b8e",
+      "repositoryInputs": [
+        {
+          "path": "relay/repositories/payment_session_store.py",
+          "sha256": "5684f496570e285987c58bfce0e3c59ef195ac689591a7367028bd93351aaf11"
+        }
+      ],
+      "uid": 0,
+      "gid": 0,
+      "mode": 420,
+      "mtimeNs": 1786322782745155657,
+      "xattrs": {}
+    },
+    {
+      "path": "relay/repositories/receipt_store.py",
+      "sha256": "252ada0ad673dfb60ad3f18913b11aa0a6bfa90d647978af71a97651cc54e123",
+      "repositoryInputs": [
+        {
+          "path": "relay/repositories/receipt_store.py",
+          "sha256": "2abf6710b247b1f8452795bbfb173e262a805195a81bb15f1b5a864ec9e0d193"
+        }
+      ],
+      "uid": 0,
+      "gid": 0,
+      "mode": 420,
+      "mtimeNs": 1786318260448021252,
+      "xattrs": {}
+    },
+    {
+      "path": "relay/core/db_runtime.py",
+      "sha256": "9e0572dc70d5d883f7009c1f6701bdd8d34ec8fcc26a3d4c7a050a7938212237",
+      "repositoryInputs": [
+        {
+          "path": "relay/core/db_runtime.py",
+          "sha256": "9e0572dc70d5d883f7009c1f6701bdd8d34ec8fcc26a3d4c7a050a7938212237"
+        }
+      ],
+      "uid": 0,
+      "gid": 0,
+      "mode": 420,
+      "mtimeNs": 1786233545336688724,
+      "xattrs": {}
+    },
+    {
+      "path": "relay/core/payout_queue.py",
+      "sha256": "23aea1f15c254cc05c6732119158076d2b946fda3a6d3d5409b7e9a54086c93c",
+      "repositoryInputs": [
+        {
+          "path": "relay/core/payout_queue.py",
+          "sha256": "23aea1f15c254cc05c6732119158076d2b946fda3a6d3d5409b7e9a54086c93c"
+        }
+      ],
+      "uid": 0,
+      "gid": 0,
+      "mode": 420,
+      "mtimeNs": 1786249395844536487,
+      "xattrs": {}
+    },
+    {
+      "path": "relay/core/txid.py",
+      "sha256": "726b98d97696578b0883f5a14eca119f9bc4ce0fd92f409617edf1190129f824",
+      "repositoryInputs": [
+        {
+          "path": "relay/core/txid.py",
+          "sha256": "726b98d97696578b0883f5a14eca119f9bc4ce0fd92f409617edf1190129f824"
+        }
+      ],
+      "uid": 0,
+      "gid": 0,
+      "mode": 420,
+      "mtimeNs": 1785963094784182835,
+      "xattrs": {}
+    },
+    {
+      "path": "relay/repositories/activity_read_store.py",
+      "sha256": "32166cac62d1f92f21b1cdcaad46edda968c75832db7311969dff9228cd82f6e",
+      "repositoryInputs": [
+        {
+          "path": "relay/repositories/activity_read_store.py",
+          "sha256": "32166cac62d1f92f21b1cdcaad46edda968c75832db7311969dff9228cd82f6e"
+        }
+      ],
+      "uid": 0,
+      "gid": 0,
+      "mode": 420,
+      "mtimeNs": 1788832160086162588,
+      "xattrs": {}
+    },
+    {
+      "path": "relay/repositories/operational_read_store.py",
+      "sha256": "c4df1ca1bc1b6c5d66234c8a314896b31cfb1c96c2900e7240ac36ee5c517259",
+      "repositoryInputs": [
+        {
+          "path": "relay/repositories/operational_read_store.py",
+          "sha256": "c4df1ca1bc1b6c5d66234c8a314896b31cfb1c96c2900e7240ac36ee5c517259"
+        }
+      ],
+      "uid": 0,
+      "gid": 0,
+      "mode": 420,
+      "mtimeNs": 1786309837960439739,
+      "xattrs": {}
+    },
+    {
+      "path": "relay/services/state_machine.py",
+      "sha256": "0582042d29f4d1fe78fb33b58a84dc5538e49b4142b036ad7ddec9fb3886557e",
+      "repositoryInputs": [
+        {
+          "path": "relay/services/state_machine.py",
+          "sha256": "0582042d29f4d1fe78fb33b58a84dc5538e49b4142b036ad7ddec9fb3886557e"
+        }
+      ],
+      "uid": 0,
+      "gid": 0,
+      "mode": 420,
+      "mtimeNs": 1779848078480535339,
+      "xattrs": {}
+    },
+    {
+      "path": "relay-fastapi/auth.py",
+      "sha256": "cb0c3831f2d862a5519824b317dd537f7e592fdeb678a7d34a083b26436c9746",
+      "repositoryInputs": [
+        {
+          "path": "relay-fastapi/auth.py",
+          "sha256": "cb0c3831f2d862a5519824b317dd537f7e592fdeb678a7d34a083b26436c9746"
+        }
+      ],
+      "uid": 0,
+      "gid": 0,
+      "mode": 420,
+      "mtimeNs": 1786336037976607385,
+      "xattrs": {}
+    },
+    {
+      "path": "relay/core/requisites.py",
+      "sha256": "a6c9eb87a236081095eb8213828b4ea33e9296d6f1bb8696d2e91c9733aca507",
+      "repositoryInputs": [
+        {
+          "path": "relay/core/requisites.py",
+          "sha256": "a6c9eb87a236081095eb8213828b4ea33e9296d6f1bb8696d2e91c9733aca507"
+        }
+      ],
+      "uid": 0,
+      "gid": 0,
+      "mode": 420,
+      "mtimeNs": 1784502624744464342,
+      "xattrs": {}
+    },
+    {
+      "path": "relay/services/requisite_origin.py",
+      "sha256": "5552f1c274bc2e7721068bf7db69564ca360d5065920cebbb17c022df4335398",
+      "repositoryInputs": [
+        {
+          "path": "relay/services/requisite_origin.py",
+          "sha256": "5552f1c274bc2e7721068bf7db69564ca360d5065920cebbb17c022df4335398"
+        }
+      ],
+      "uid": 0,
+      "gid": 0,
+      "mode": 420,
+      "mtimeNs": 1784245348567243310,
+      "xattrs": {}
+    },
+    {
+      "path": "relay/core/telegram_freshness.py",
+      "sha256": "40bef427a0daa3069e05565fdb65217836414ed581960b64f1cff5c1c266d601",
+      "repositoryInputs": [
+        {
+          "path": "relay/core/telegram_freshness.py",
+          "sha256": "40bef427a0daa3069e05565fdb65217836414ed581960b64f1cff5c1c266d601"
+        }
+      ],
+      "uid": 0,
+      "gid": 0,
+      "mode": 420,
+      "mtimeNs": 1786336037973607283,
+      "xattrs": {}
+    },
+    {
+      "path": "relay/webapp.html",
+      "sha256": "8347b9df45a27b7077dabae8aa3e68dbfa763f0ed67220a93aca7f58ce11a908",
+      "repositoryInputs": [
+        {
+          "path": "relay/webapp.html",
+          "sha256": "8347b9df45a27b7077dabae8aa3e68dbfa763f0ed67220a93aca7f58ce11a908"
+        }
+      ],
+      "uid": 0,
+      "gid": 0,
+      "mode": 420,
+      "mtimeNs": 1788831818873731606,
+      "xattrs": {}
+    },
+    {
+      "path": "relay/repositories/payment_status_read_store.py",
+      "sha256": "5cbd26d0335c0cf713aa4be9c87999773bbcc37ab89202a554a4811b6702b6f9",
+      "repositoryInputs": [
+        {
+          "path": "relay/repositories/payment_status_read_store.py",
+          "sha256": "5cbd26d0335c0cf713aa4be9c87999773bbcc37ab89202a554a4811b6702b6f9"
+        }
+      ],
+      "uid": 0,
+      "gid": 0,
+      "mode": 420,
+      "mtimeNs": 1788833444532225750,
+      "xattrs": {}
+    },
+    {
+      "path": "relay/core/order_access.py",
+      "sha256": "15d996a1450ff898ef62b3e43c048069c2c4dc60863399bcba144cfd46c69a0f",
+      "repositoryInputs": [
+        {
+          "path": "relay/core/order_access.py",
+          "sha256": "15d996a1450ff898ef62b3e43c048069c2c4dc60863399bcba144cfd46c69a0f"
+        }
+      ],
+      "uid": 0,
+      "gid": 0,
+      "mode": 420,
+      "mtimeNs": 1788833191861625324,
+      "xattrs": {}
+    }
+  ],
+  "targetCount": 1,
+  "preservedCount": 16,
+  "services": {
+    "relay-fastapi.service": {
+      "MainPID": "2977932",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Tue 2026-09-08 02:59:54 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    },
+    "exchange-bot.service": {
+      "MainPID": "3877887",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Tue 2026-09-01 06:20:00 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    },
+    "nginx.service": {
+      "MainPID": "3877705",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:56 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    },
+    "obsidian-postgres.service": {
+      "MainPID": "3136948",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Mon 2026-08-24 05:08:51 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    }
+  },
+  "autopilot": {
+    "MainPID": "0",
+    "NRestarts": "0",
+    "ExecMainStartTimestamp": "Mon 2026-09-07 04:40:24 UTC",
+    "ActiveState": "failed",
+    "SubState": "failed"
+  },
+  "runtimeMutated": false,
+  "customerDataRead": false,
+  "databaseRead": false
+}

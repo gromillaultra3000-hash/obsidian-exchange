@@ -1,0 +1,54 @@
+{
+  "schemaVersion": "e4-expiry-next-acceptance-evaluation.v1",
+  "result": "NO_ADDITIONAL_CONCRETE_PRODUCT_DEFECT_IDENTIFIED",
+  "route": "E4 / PAYMENT_STATUS_EXPIRY_TIME_FORMAT_CONSISTENCY",
+  "canonicalSource": "docs/ecosystem-master-roadmap.md, E4 gate section",
+  "canonicalGate": "Before confirmation the user understands the executor, custody, KYC, fees and irreversibility; dangerous actions cannot happen by an accidental tap.",
+  "scope": "This expiry-format audit establishes its bounded behavior and does not establish the whole E4 gate.",
+  "nextPrerequisite": null,
+  "nextBoundedWork": {
+    "id": "MONEY_FLOW_ACCEPTANCE_COVERAGE",
+    "route": "E4 / MONEY_FLOW_ACCEPTANCE_COVERAGE",
+    "purpose": "Assess cross-surface money-flow coverage against the canonical E4 gate using existing executable tests and deployed evidence.",
+    "acceptance": [
+      "Map each canonical gate claim to its concrete site, bot, Mini App or payment-page flow and existing executable/deployment evidence; distinguish covered behavior from unverified claims.",
+      "Add meaningful executable coverage for a demonstrated gap that can be verified without customer data, credentials, provider or money actions.",
+      "Name the next actual code fix only if a reproducible failure establishes it; do not invent a defect from an absent test.",
+      "Keep real Telegram/iOS/WebKit, assistive-technology and human-comprehension/usability checks explicitly unverified until corresponding evidence exists."
+    ]
+  },
+  "evidence": "The current 30 exact generated pages and 83 actual Chrome checks pass, including 27 timezone comparisons. No additional expiry, receipt, verification, canonical-status or poll defect was reproduced by this bounded matrix.",
+  "notAnE4Closure": true,
+  "currentDeploymentBlockedByThisEvaluation": false,
+  "limits": "Chrome synthetic fixtures establish the exercised DOM and timer behavior, not human understanding, platform completeness or live money outcomes.",
+  "inputs": [
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "25624ac7bc9174ac9ec35d90402042c62bd344d6c74c1cf730593017a79ae26f"
+    },
+    {
+      "path": "tests/e4_payment_expiry_browser.cjs",
+      "sha256": "8bb6b9e09fb6b6ad94a28342cfd4f31cb1e4444625b9fbb766d06618a9eb83e3"
+    },
+    {
+      "path": "docs/e4-payment-expiry/acceptance-probe.json",
+      "sha256": "892149fb5d2c30bd11077eb2d1a0a9e31cfd6a33a501f50c385b4c43c2bd33af"
+    },
+    {
+      "path": "docs/e4-payment-expiry/acceptance-surface.json",
+      "sha256": "337dcef9cf7fd6343ce4e31f42d8a8db60a635c9a6c6cfce30573e7bd7347a66"
+    },
+    {
+      "path": "docs/e4-payment-expiry/payment-browser-report.json",
+      "sha256": "19c5017d255ed4d2d9f564678286d237127dd5ae685cd2e10af564e5f6ea64a8"
+    },
+    {
+      "path": "docs/e4-payment-expiry/payment-browser-isolation.json",
+      "sha256": "8d3800edfc52a4969321f9aa1c5819f918fa556cbbf9f7b14419c7f0027bad8d"
+    },
+    {
+      "path": "docs/e4-payment-expiry/contract.md",
+      "sha256": "5ed42f60f442177ac83c54c1ae3d3be1f172c04272eac599e6b3bc959530a157"
+    }
+  ]
+}

@@ -3638,22 +3638,39 @@ function render(){{
     v.innerHTML += `<div class="hint pending-receipt-evidence">${{receiptNote}} ${{advice}}</div>`;
   }}
 }}
+function paymentExpiryMs(value){{
+  // The ledger emits ISO timestamps; legacy SQLite values have no UTC suffix.
+  // Reject malformed/calendar-invalid values instead of guessing an expiry.
+  if(typeof value!=='string' || value.length>40) return null;
+  const match = /^([0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}})[T ]([0-2][0-9]:[0-5][0-9]:[0-5][0-9])([.][0-9]{{1,6}})?(Z|[+-][0-9]{{2}}:[0-9]{{2}})?$/.exec(value);
+  if(!match || match[0]!==value || match[1].startsWith('0000') || Number(match[2].slice(0,2))>23) return null;
+  const base = `${{match[1]}}T${{match[2]}}`;
+  const calendar = new Date(base+'Z');
+  if(!Number.isFinite(calendar.getTime()) || calendar.toISOString().slice(0,19)!==base) return null;
+  const zone = match[4] || 'Z';
+  if(zone!=='Z' && (Number(zone.slice(1,3))>23 || Number(zone.slice(4,6))>59)) return null;
+  const end = Date.parse(base+(match[3] || '')+zone);
+  return Number.isFinite(end) ? end : null;
+}}
 function startTimer(){{
-  if(!C.expiresAt) return;
-  const end = new Date(C.expiresAt.replace(' ','T')+ (C.expiresAt.includes('Z')?'':'Z')).getTime();
+  if(_timer) clearInterval(_timer);
+  _timer=null;
   const el = document.getElementById('timer');
+  if(!el) return;
+  const end = paymentExpiryMs(C.expiresAt);
+  if(end===null) {{ el.textContent='Срок действия реквизитов уточняется.'; return; }}
   const tick=()=>{{
-    if(!el) return;
     let s = Math.floor((end-Date.now())/1000);
     // Локальный таймер — догадка, а не приговор: сервер держит заявку живой,
     // пока не решит иначе (а с чеком — не истекает вовсе). Раньше здесь
     // писалось C.status='expired', и это же значение глушило опрос ниже —
     // страница переставала узнавать что бы то ни было.
-    if (s<=0) {{ _localExpired=true; if(_timer)clearInterval(_timer); render(); return; }}
+    if (s<=0) {{ _localExpired=true; if(_timer)clearInterval(_timer); _timer=null; render(); return false; }}
     const m=String(Math.floor(s/60)).padStart(2,'0'), ss=String(s%60).padStart(2,'0');
     el.innerHTML = `Реквизиты действительны ещё <b>${{m}}:${{ss}}</b>`;
+    return true;
   }};
-  tick(); if(_timer)clearInterval(_timer); _timer=setInterval(tick,1000);
+  if(tick()) _timer=setInterval(tick,1000);
 }}
 async function poll(){{
   // Останавливаемся только на исходе, который подтвердил СЕРВЕР. Пока заявка
