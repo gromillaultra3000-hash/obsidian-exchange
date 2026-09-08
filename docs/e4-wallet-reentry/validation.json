@@ -1,0 +1,32 @@
+{
+  "recordedAt": "2026-09-08T22:16:36.208279+00:00",
+  "result": "PREFLIGHT_PASS",
+  "sourceSha256": "df92e68ea5d5f354dcab43147c23976a662e0853394b506c006652229d0358e9",
+  "tests": {
+    "total": 249,
+    "new": 8,
+    "baselineNewFailures": 6,
+    "baselineNewPasses": 2,
+    "summary": "249 passed in 11.10s"
+  },
+  "browser": {
+    "cases": 16,
+    "result": "PASS",
+    "actualControls": true,
+    "reloadVerified": "In-memory document guard resets; new unchecked review shows prior-attempt guidance; SDK restore is synthetic",
+    "layout": "320/390; no page overflow; 320 payment re-entry screenshot visually inspected",
+    "isolationCleanupVerified": true
+  },
+  "negativeResults": [
+    {
+      "run": "output/playwright/e4-wallet-reentry-20260908",
+      "failure": "Empty wallet fixture hid Send button",
+      "resolution": "Synthetic TON wallet fixture; final exact source passes"
+    }
+  ],
+  "scope": "Exactly four product strings; no durable lock or SDK classification",
+  "reviews": [
+    "docs/e4-wallet-reentry/acceptance-review.json",
+    "docs/e4-wallet-reentry/diff-ops-review.json"
+  ]
+}

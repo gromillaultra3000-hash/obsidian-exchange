@@ -1,0 +1,155 @@
+{
+  "sourceSha256": "df92e68ea5d5f354dcab43147c23976a662e0853394b506c006652229d0358e9",
+  "runnerSha256": "5b6841fb4a567e4ffc62745166f6ddb56aca80743697d29ca937fc2282e3fd67",
+  "playwrightVersion": "1.62.0",
+  "checks": [
+    {
+      "width": 320,
+      "action": "transfer",
+      "mode": "fresh",
+      "result": "PASS",
+      "discardedDocumentCalls": 0,
+      "sdkCalls": 0,
+      "automaticRetries": 0
+    },
+    {
+      "width": 320,
+      "action": "transfer",
+      "mode": "reload",
+      "result": "PASS",
+      "discardedDocumentCalls": 1,
+      "sdkCalls": 1,
+      "automaticRetries": 0
+    },
+    {
+      "width": 320,
+      "action": "transfer",
+      "mode": "reject",
+      "result": "PASS",
+      "discardedDocumentCalls": 0,
+      "sdkCalls": 1,
+      "automaticRetries": 0
+    },
+    {
+      "width": 320,
+      "action": "transfer",
+      "mode": "sync-throw",
+      "result": "PASS",
+      "discardedDocumentCalls": 0,
+      "sdkCalls": 1,
+      "automaticRetries": 0
+    },
+    {
+      "width": 320,
+      "action": "payment",
+      "mode": "fresh",
+      "result": "PASS",
+      "discardedDocumentCalls": 0,
+      "sdkCalls": 0,
+      "automaticRetries": 0
+    },
+    {
+      "width": 320,
+      "action": "payment",
+      "mode": "reload",
+      "result": "PASS",
+      "discardedDocumentCalls": 1,
+      "sdkCalls": 1,
+      "automaticRetries": 0
+    },
+    {
+      "width": 320,
+      "action": "payment",
+      "mode": "reject",
+      "result": "PASS",
+      "discardedDocumentCalls": 0,
+      "sdkCalls": 1,
+      "automaticRetries": 0
+    },
+    {
+      "width": 320,
+      "action": "payment",
+      "mode": "sync-throw",
+      "result": "PASS",
+      "discardedDocumentCalls": 0,
+      "sdkCalls": 1,
+      "automaticRetries": 0
+    },
+    {
+      "width": 390,
+      "action": "transfer",
+      "mode": "fresh",
+      "result": "PASS",
+      "discardedDocumentCalls": 0,
+      "sdkCalls": 0,
+      "automaticRetries": 0
+    },
+    {
+      "width": 390,
+      "action": "transfer",
+      "mode": "reload",
+      "result": "PASS",
+      "discardedDocumentCalls": 1,
+      "sdkCalls": 1,
+      "automaticRetries": 0
+    },
+    {
+      "width": 390,
+      "action": "transfer",
+      "mode": "reject",
+      "result": "PASS",
+      "discardedDocumentCalls": 0,
+      "sdkCalls": 1,
+      "automaticRetries": 0
+    },
+    {
+      "width": 390,
+      "action": "transfer",
+      "mode": "sync-throw",
+      "result": "PASS",
+      "discardedDocumentCalls": 0,
+      "sdkCalls": 1,
+      "automaticRetries": 0
+    },
+    {
+      "width": 390,
+      "action": "payment",
+      "mode": "fresh",
+      "result": "PASS",
+      "discardedDocumentCalls": 0,
+      "sdkCalls": 0,
+      "automaticRetries": 0
+    },
+    {
+      "width": 390,
+      "action": "payment",
+      "mode": "reload",
+      "result": "PASS",
+      "discardedDocumentCalls": 1,
+      "sdkCalls": 1,
+      "automaticRetries": 0
+    },
+    {
+      "width": 390,
+      "action": "payment",
+      "mode": "reject",
+      "result": "PASS",
+      "discardedDocumentCalls": 0,
+      "sdkCalls": 1,
+      "automaticRetries": 0
+    },
+    {
+      "width": 390,
+      "action": "payment",
+      "mode": "sync-throw",
+      "result": "PASS",
+      "discardedDocumentCalls": 0,
+      "sdkCalls": 1,
+      "automaticRetries": 0
+    }
+  ],
+  "unexpectedWrites": [],
+  "pageErrors": [],
+  "browserVersion": "152.0.7977.64",
+  "result": "PASS"
+}

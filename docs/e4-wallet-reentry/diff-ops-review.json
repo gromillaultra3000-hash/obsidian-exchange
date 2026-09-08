@@ -1,0 +1,71 @@
+{
+  "reviewer": "independent-agent /root/reentry_diff_ops",
+  "reviewed_at": "2026-09-08T22:14:19.618839+00:00",
+  "scope": "E4 WALLET_HANDOFF_REENTRY_COVERAGE: product diff and bounded HTML rollout helper",
+  "verdict": "PASS",
+  "inputs": {
+    "relay/webapp.html": "df92e68ea5d5f354dcab43147c23976a662e0853394b506c006652229d0358e9",
+    "tests/e4_recipient_review_behavior.cjs": "e6d14acc52b52fa7061a4038e29028c64906b2bd2c815d1cd180d2d0692923e3",
+    "docs/e4-wallet-reentry/rollout.py": "641ee3fcdc3bc2475c5a219e8f8e7273b891a4dd8318a323f2c53a0684cfeefe",
+    "docs/e4-wallet-reentry/ops-baseline.json": "cbaf0e8e6fa605888593b3b5ad4c67955776ff53f3537dbf2fb30e5c6ca12f83",
+    "tests/e4_wallet_reentry_browser.cjs": "5b6841fb4a567e4ffc62745166f6ddb56aca80743697d29ca937fc2282e3fd67",
+    "output/playwright/e4-wallet-reentry-wallet-fixture-20260908/report.json": "83c74e7f77618dbde622d9b7a1c5be6b5711b82f08343aa7ac287c06a199ca42",
+    "output/playwright/e4-wallet-reentry-wallet-fixture-20260908/isolation.json": "fe735c62b6bb3cc6378b94ff913f4377f7847b1ae42edcaa85509b652eb08c96"
+  },
+  "base_commit": "36b11ad4dbc62ecf0aaca96b23961d6b6368f135",
+  "diff_sha256": "48efcf55926c86880c472c428877636570daee1ef9872525791b1903fc829350",
+  "findings": [],
+  "verified": [
+    "Exactly four single-line literal-only changes; restoring the four old strings reproduces HEAD HTML byte-for-byte. No control flow, request, state, SDK classification, persistence, or automatic retry changes.",
+    "Inline JavaScript passes node --check.",
+    "Both review risk messages explicitly cover an earlier attempt or reload, wallet history, unknown result and no repeat; payment additionally covers order status.",
+    "Generic SDK catch message conservatively states unknown/may sent. This does not assert an exact wallet rejection type or infer chain state.",
+    "Existing shared harness assertion now checks unknown result and no repeat; request/signing assertions remain intact.",
+    "Rollout permits only walletTransfer and walletPay; exact candidate SHA binding, input/metadata/runtime drift checks, baseline backup verification, atomic replace and exact public-template verification retained."
+  ],
+  "local_ops_rehearsal": {
+    "result": "11 passed in 0.30s",
+    "command": "/opt/lumi/venv/bin/python -m pytest -q /tmp/test_e4_reentry_ops_review.py",
+    "harness_sha256": "85bce361c335fe011914c39838ee0b4926f634caae89028835f9e92b61566a73",
+    "cases": [
+      "apply/reconcile/rollback exact bytes and metadata",
+      "candidate digest drift",
+      "live file drift",
+      "other live input drift",
+      "invalid scope",
+      "existing backup",
+      "metadata drift",
+      "atomic replace failure preserves baseline and backup and removes temporary file",
+      "post-write public failure recoverable via reconcile and rollback",
+      "out-of-function scope drift rejected",
+      "corrupted backup rejected"
+    ],
+    "limitations": "Runtime and public functions mocked. Real file mutation restricted to pytest temporary directories. No production writes."
+  },
+  "limitations": [
+    "Advisory copy does not persist or reconcile a handoff across reload or other tabs. The existing pending lock remains page-local.",
+    "Generic errors are intentionally conservative, including definite rejection or synchronous exception, because this slice adds no reliable SDK error classification.",
+    "Browser/re-entry behavior and rendering acceptance delegated to separate independent acceptance review."
+  ],
+  "browser_harness_review": {
+    "verdict": "PASS",
+    "cases": 16,
+    "viewports": [
+      320,
+      390
+    ],
+    "verified": [
+      "Actual wallet tab, transfer/payment buttons, unchecked review checkbox, disabled confirmation before acknowledgement, and cancel controls exercised.",
+      "Both functions tested for fresh review, unresolved SDK then reload, rejected SDK and synchronous exception; request structure remains exact.",
+      "Reload case explicitly verifies pending lock true before reload and false in new document; next review warns about previous attempt and cancel causes no SDK call.",
+      "Error text checks unknown outcome, may sent, wallet history and no repeat; payment adds order status. No signed notifications or unexpected API writes observed.",
+      "Exact source/harness hashes match report and isolation receipts; nobody/private network/Chromium sandbox, stopped unit and empty cgroup reported."
+    ],
+    "limitations": [
+      "SDK reconnection and linked-wallet data are inert fixtures; no real TonConnect session restoration or wallet/chain reconciliation is proven.",
+      "automaticRetries=0 report field is descriptive; counts assert immediate no-extra-call behavior. Clock is installed but not advanced for a long retry window. String-only product proof separately confirms no retry logic was introduced.",
+      "Reload test deliberately cancels fresh review: durable duplicate prevention is neither implemented nor asserted. Viewport overflow check is document-wide and is not exhaustive visual review."
+    ]
+  },
+  "next_e4_step": "WALLET_HANDOFF_REENTRY_STATE: preserve unresolved-attempt evidence across same-tab reload and provide explicit reconciliation without automatic signing. Persistence alone is not proof of chain outcome; durable evidence must not silently expire/unlock or claim cross-tab coverage. Define conservative storage-failure behavior and bind evidence to the intended wallet/network/operation context."
+}

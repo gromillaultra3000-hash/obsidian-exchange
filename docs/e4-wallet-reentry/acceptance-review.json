@@ -1,0 +1,42 @@
+{
+  "date": "2026-09-08",
+  "route": "E4",
+  "slice": "WALLET_HANDOFF_REENTRY_COVERAGE",
+  "reviewer": "/root/reentry_acceptance",
+  "independent": true,
+  "verdict": "PASS for bounded guidance change; no persistent duplicate-prevention claim",
+  "baseline_head": "36b11ad4dbc62ecf0aaca96b23961d6b6368f135",
+  "baseline_webapp_sha256": "9a2d4a4aa1734a7f4e9928e0e5c2b1a529dc19577d89e84b2fd949fcb69f0b1d",
+  "files_sha256": {
+    "relay/webapp.html": "df92e68ea5d5f354dcab43147c23976a662e0853394b506c006652229d0358e9",
+    "tests/test_e4_wallet_reentry.py": "20bad04eb5f6cc9d982e908309f96b5bdf21458397dc2dd9bcd3e8fca183c44c",
+    "tests/e4_wallet_reentry.cjs": "c38fb2278225ffb29fc312cf8d257f1e5311f1befcabe76b113eb94260947a2b",
+    "tests/e4_recipient_review_behavior.cjs": "e6d14acc52b52fa7061a4038e29028c64906b2bd2c815d1cd180d2d0692923e3"
+  },
+  "baseline_observations": [
+    "Both generic SDK catch blocks report only Перевод не подтверждён, without distinguishing uncertain transfer outcome.",
+    "Fresh transfer/payment reviews contain no prior-attempt/reload warning or external history check guidance.",
+    "Baseline exact-source tests: 6 expected failures (2 fresh-review guidance, 4 SDK rejection/synchronous error guidance); 2 success-preservation passes."
+  ],
+  "candidate_verification": {
+    "command": "/opt/lumi/venv/bin/python -m pytest -q tests/test_e4_wallet_reentry.py",
+    "passed": 8,
+    "failed": 0
+  },
+  "coverage": [
+    "fresh VM review guidance visible before acknowledgement",
+    "transfer and payment generic promise rejection",
+    "transfer and payment synchronous SDK throw",
+    "no unexpected or timer-driven signature retry",
+    "fresh acknowledgement required after SDK failure",
+    "exact server wallet request unchanged",
+    "exact success messages and payment signed marker unchanged"
+  ],
+  "findings": [],
+  "limits": [
+    "Synthetic DOM/SDK/network boundaries; no real signatures or funds used.",
+    "Does not persist, recover or enforce wallet handoff ownership across reloads.",
+    "Generic SDK failure treated conservatively; no SDK error taxonomy claim.",
+    "Wallet history or application order status may lag; absence is not proof of transaction failure."
+  ]
+}

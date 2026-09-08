@@ -429,8 +429,9 @@ async function walletReview({action, boundary}) {
         await h.el('exchange-review-confirm').fire('click');
         assert.deepEqual(h.signingAttempts, [h.walletRequest]);
         assert.equal(h.requests.length, 1, 'rejected signing must never mark payment signed');
-        assert.equal(action === 'payment' ? button.textContent : h.el('w-send-msg').textContent,
-            'Перевод не подтверждён');
+        const feedback = action === 'payment' ? button.textContent : h.el('w-send-msg').textContent;
+        assert.ok(feedback.includes('Исход перевода неизвестен'));
+        assert.ok(feedback.includes('не повторяйте перевод'));
     } else {
         await h.acknowledge();
         if (boundary === 'cancel') await h.el('exchange-review-cancel').fire('click');
