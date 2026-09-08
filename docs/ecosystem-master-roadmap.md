@@ -805,6 +805,20 @@ code over an in-memory synthetic DB: failed latest payment session is omitted
 from activity, leaving waiting-for-payment wording without closure advice.
 No earlier gate closure or new money authority; autopilot stays stopped.
 
+2026-09-08: manual ACTIVITY_PAYMENT_SESSION_STATE is VERIFIED and production-
+deployed at 01:58 UTC (`7bc1e87`). Owner-scoped activity joins the highest-id
+session in one snapshot, suppresses closed/unknown tokens and displays closure
+with safe support guidance, preserving receipt/order precedence. The new module
+avoids unrelated live/check-out repository drift. 316 tests, 186 Chrome checks,
+two independent reviews, 14 ops tests, three killed mutants and 13-case actual
+PostgreSQL/exact-live-dependency rehearsals each pass. Only Relay restarted;
+bot/Nginx/Postgres identities unchanged. Public HTML and unauthorized API checks
+pass. Evidence: `docs/e4-activity-session-rollout.v1.json`. E4 remains IN_PROGRESS;
+exactly next is PAYMENT_STATUS_RUNTIME_READ_CONTRACT. Eight synthetic exact-
+installed-source cases reproduce missing authorized_snapshot/get_by_token in
+payment handlers before database/provider access. No production incidence or
+earlier gate closure claimed; autopilot remains stopped.
+
 ### E5 — нативный некастодиальный кошелёк
 
 E0.4 inventory evidence (2026-08-18): the checkout has a Rust/UniFFI Bitcoin

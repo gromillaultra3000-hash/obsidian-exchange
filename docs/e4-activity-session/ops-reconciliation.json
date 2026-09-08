@@ -1,0 +1,72 @@
+{
+  "recordedAt": "2026-09-08T01:59:18.765803+00:00",
+  "result": "OBSERVED_NO_REPLAY",
+  "journalState": "VERIFIED",
+  "files": {
+    "relay/repositories/activity_read_store.py": "32166cac62d1f92f21b1cdcaad46edda968c75832db7311969dff9228cd82f6e",
+    "relay-fastapi/main.py": "3b75a18fffeabd2d8d2640d463d26eb8f227b010534e48c37edd3888be7013df",
+    "relay/webapp.html": "b2859b9fbe532a6121f2bbd2487e0ef2a0ccee6bf3c54da414ad49b61087cc9d"
+  },
+  "services": {
+    "relay-fastapi.service": {
+      "MainPID": "2883897",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Tue 2026-09-08 01:58:52 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    },
+    "exchange-bot.service": {
+      "MainPID": "3877887",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Tue 2026-09-01 06:20:00 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    },
+    "nginx.service": {
+      "MainPID": "3877705",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:56 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    },
+    "obsidian-postgres.service": {
+      "MainPID": "3136948",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Mon 2026-08-24 05:08:51 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    }
+  },
+  "autopilot": {
+    "MainPID": "0",
+    "NRestarts": "0",
+    "ExecMainStartTimestamp": "Mon 2026-09-07 04:40:24 UTC",
+    "ActiveState": "failed",
+    "SubState": "failed"
+  },
+  "runtimeMutated": false,
+  "next": "Terminal state verified; no runtime action.",
+  "publicChecks": [
+    {
+      "path": "/webapp",
+      "method": "GET",
+      "status": 200,
+      "authenticated": false,
+      "publicMatchesDeployedTemplate": true,
+      "publicBodySha256": "f69be66f2f896f93e4bc6db377620d22c067c786fc43856306ad3b1458bfd4e9"
+    },
+    {
+      "path": "/webapp",
+      "method": "POST",
+      "status": 405,
+      "authenticated": false
+    },
+    {
+      "path": "/api/history",
+      "method": "GET",
+      "status": 403,
+      "authenticated": false,
+      "customerRowsReturned": 0
+    }
+  ]
+}

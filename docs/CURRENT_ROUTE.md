@@ -11,55 +11,55 @@ non-custodial wallet whose keys never reach the server.
 
 ## Active route
 
-`E4 / ACTIVITY_PAYMENT_SESSION_STATE / expose closed payment-session state truthfully in activity`
+`E4 / PAYMENT_STATUS_RUNTIME_READ_CONTRACT / restore installed owner-scoped read methods required by payment status and page handlers`
 
 Owner decision 2026-09-08: continue code-first implementation and reversible
-deployment manually. Autopilot remains stopped by explicit owner instruction:
+rollouts manually. Autopilot remains stopped by explicit instruction:
 failed / MainPID zero / UNCOMMITTED_NEW_FILES since Sep 7. Before any later
 explicitly requested start, reconcile its stale third-deployment receipt and
-all subsequent manual commits. Do not replay its next_step or consumed authority.
-No supervisor configuration, state or unit was changed by these manual slices.
+all subsequent manual commits. No supervisor config, state or unit was changed.
 
-ACTIVITY_RECEIPT_EVIDENCE_CONSISTENCY is VERIFIED and deployed at 2026-09-08
-01:43 UTC, implementation `efc92dc`. Pending receipts retain no-repeat-payment
-advice; paid/sent/closed orders show historical file/forwarding facts without
-future review promises. Available sent-order transaction evidence displays
-independently of receipts and directs users to check network confirmations.
-Status labels, action visibility, backend and refresh/deadline behavior remain
-unchanged.
+ACTIVITY_PAYMENT_SESSION_STATE is VERIFIED and deployed at 2026-09-08 01:58 UTC,
+implementation `7bc1e87`. The new activity read module selects owner-scoped orders
+and their highest-id payment session in one SQL snapshot. Tokens and bounded
+lifecycle state come from the same row; failed/expired/unknown sessions cannot
+revive an older token. Pending closed sessions show closure/support guidance;
+receipt and paid/sent/terminal order precedence remain intact.
 
-249 focused tests and 174 isolated Chrome checks at 320/390/1280px pass,
-including 36 actual API-serialization/rendering combinations and 21 new browser
-checks. Both independent reviews pass; 504 independent synthetic backend cases,
-3651 rendering assertions and two killed mutants support acceptance. Browser
-unit is collected/inactive with MainPID zero, empty cgroup and zero native sockets.
-Public source/artifact digest scanner false positives were independently verified
-and provenance reformatted without suppression; final staged scan has zero findings.
-Real Telegram/iOS/WebKit, screen-reader and human comprehension acceptance remain
-unverified. Receipt forwarding and an explorer link do not establish approval
-or network confirmation.
+316 focused tests and 186 isolated Chrome checks pass. Both independent reviews
+cover product and the operations-authored recipe. Three mutants are killed;
+14 recipe tests and independent interrupted-publication/restart probes prove
+no replay and exact rollback. Actual PostgreSQL17.11 in a disposable networkless
+container and the exact retained live SQLite dependency each pass 13 cases;
+container/temp cleanup verified. Browser unit/cgroup/socket cleanup is verified.
+Real Telegram/iOS/WebKit, screen-reader behavior and human comprehension remain
+unverified; no actual customer incidence or money outcome is inferred.
 
-HTML `5cd9482c...b3a623` is live with GET200/POST405/exact rendered-template match.
-Relay/bot/Nginx retain Sep 1 PID/start identities; no restart.
-Rollback: `/var/lib/obsidian-exchange/deployment-preimages/e4-activity-receipt-20260908-4ngb7wro/webapp.html`.
-Evidence: `docs/e4-activity-receipt-rollout.v1.json` and its directory.
-No customer reads, messages, credentials, signatures, money action or 064A work.
-Prior activity deadline `e1d6e41`, ordering `06b5ece`, support `0a9295a` and
-requisites `50fa630` behavior is retained.
+Exactly three files were published: new activity_read_store.py, main.py and
+webapp.html. The live shared order_read_store.py remains byte-exact `2cc91c73...ca06d`
+because checkout contains unrelated undeployed changes. Do not replace it wholesale.
+Relay restarted once: PID `2883897`, start `2026-09-08 01:58:52 UTC`, NRestarts0.
+Bot `3877887`, Nginx `3877705` and PostgreSQL `3136948` retain their prior identities.
+Public checks: /webapp GET200/POST405/exact template, anonymous /api/history403
+with no customer rows. HTML `b2859b9f...87cc9d` is live.
+Rollback directory: `/var/lib/obsidian-exchange/deployment-preimages/e4-activity-session-20260908-c9fhjhuc`.
+Evidence: `docs/e4-activity-session-rollout.v1.json` and its directory.
+This change adds no money writer/credential/signature or 064A authority. Routine
+Relay restart resumes its already-enabled payment/notification workers; no claim
+that those pre-existing background effects are disabled or zero is made.
 
-Exactly next: `E4 / ACTIVITY_PAYMENT_SESSION_STATE`.
-Actual repository SQL over an in-memory synthetic DB plus exact API/render code
-reproduces a pending order with a failed latest payment session. Payment flow
-recognizes it as dead; activity omits that metadata and says waiting for payment
-without explaining the missing payment action. Expose owner-scoped session state,
-preserve receipt/order precedence and explain closure without treating absent
-metadata or a failed session as proof of failed payment/order. Evidence:
-`docs/e4-activity-receipt/next-prerequisite.json`.
+Exactly next: `E4 / PAYMENT_STATUS_RUNTIME_READ_CONTRACT`.
+Eight isolated exact-installed-source cases reproduce missing authorized_snapshot
+in order_read_store and get_by_token in payment_session_store: api_order raises
+AttributeError and opaque-token pay wraps it as HTTP500. Baseline and candidate
+handlers behave identically, without database/provider calls. Restore only the
+required owner-scoped read methods and inspect immediate session/receipt
+requirements; preserve unrelated live behavior and money-transition boundaries.
+No authenticated production request or actual customer incident was observed.
+Evidence: `docs/e4-activity-session/next-prerequisite.json`.
 
-E4 stays IN_PROGRESS; no stage transition or earlier gate closure occurred.
-Technical financial preparation remains permitted; actual trades/transfers stay
-owner-executed. Earlier E0/E0.3/B5.3/064A terminal evidence and consumed authority
-remain closed; this slice supplies no new live authority.
+E4 stays IN_PROGRESS; no earlier gate closure or stage transition occurred.
+Actual trades/transfers remain owner-executed; consumed 064A authority stays closed.
 
 ### Owner reprioritization — 2026-08-26
 

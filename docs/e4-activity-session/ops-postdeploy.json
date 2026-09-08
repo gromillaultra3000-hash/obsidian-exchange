@@ -1,0 +1,128 @@
+{
+  "recordedAt": "2026-09-08T01:59:38.269523+00:00",
+  "result": "PASS",
+  "implementationCommit": "7bc1e8712173ff00322d80dc24ed9800e8275449",
+  "route": "E4 / ACTIVITY_PAYMENT_SESSION_STATE",
+  "files": [
+    {
+      "path": "relay/repositories/activity_read_store.py",
+      "sha256": "32166cac62d1f92f21b1cdcaad46edda968c75832db7311969dff9228cd82f6e",
+      "repositoryAndCommitAndLiveExact": true,
+      "ownershipModeMtimeXattrsExact": true
+    },
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "3b75a18fffeabd2d8d2640d463d26eb8f227b010534e48c37edd3888be7013df",
+      "repositoryAndCommitAndLiveExact": true,
+      "ownershipModeMtimeXattrsExact": true
+    },
+    {
+      "path": "relay/webapp.html",
+      "sha256": "b2859b9fbe532a6121f2bbd2487e0ef2a0ccee6bf3c54da414ad49b61087cc9d",
+      "repositoryAndCommitAndLiveExact": true,
+      "ownershipModeMtimeXattrsExact": true
+    }
+  ],
+  "preservedDependencies": [
+    {
+      "path": "relay/repositories/order_read_store.py",
+      "liveSha256": "2cc91c733a8388ac2f643016fe192f7687ef0c44b79305d23fed50dcfd2ca06d",
+      "repositorySha256": "5651f8400da4b0024b11bc77f03f9cb239ac284766f44586f0673788e1d54506",
+      "liveUnchanged": true,
+      "preexistingDriftExcluded": true
+    }
+  ],
+  "rollbackDirectory": "/var/lib/obsidian-exchange/deployment-preimages/e4-activity-session-20260908-c9fhjhuc",
+  "preimages": [
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "e36eede7efcf0a48657ff07fa805e57dbbb516c66a16a5696855f9bca978d1ca",
+      "exact": true,
+      "privateMode": "0600"
+    },
+    {
+      "path": "relay/webapp.html",
+      "sha256": "5cd9482c174fec4288ace306e0ead463534933fc6b594d7497d88ec5ccb3a623",
+      "exact": true,
+      "privateMode": "0600"
+    },
+    {
+      "path": "relay/repositories/activity_read_store.py",
+      "originalState": "ABSENT",
+      "rollback": "remove exact additive module after old-main restart"
+    }
+  ],
+  "metadataPreimageExact": true,
+  "changedServices": [
+    "relay-fastapi.service"
+  ],
+  "services": {
+    "relay-fastapi.service": {
+      "MainPID": "2883897",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Tue 2026-09-08 01:58:52 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    },
+    "exchange-bot.service": {
+      "MainPID": "3877887",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Tue 2026-09-01 06:20:00 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    },
+    "nginx.service": {
+      "MainPID": "3877705",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:56 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    },
+    "obsidian-postgres.service": {
+      "MainPID": "3136948",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Mon 2026-08-24 05:08:51 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    }
+  },
+  "autopilot": {
+    "MainPID": "0",
+    "NRestarts": "0",
+    "ExecMainStartTimestamp": "Mon 2026-09-07 04:40:24 UTC",
+    "ActiveState": "failed",
+    "SubState": "failed"
+  },
+  "publicChecks": [
+    {
+      "path": "/webapp",
+      "method": "GET",
+      "status": 200,
+      "authenticated": false,
+      "publicMatchesDeployedTemplate": true,
+      "publicBodySha256": "f69be66f2f896f93e4bc6db377620d22c067c786fc43856306ad3b1458bfd4e9"
+    },
+    {
+      "path": "/webapp",
+      "method": "POST",
+      "status": 405,
+      "authenticated": false
+    },
+    {
+      "path": "/api/history",
+      "method": "GET",
+      "status": 403,
+      "authenticated": false,
+      "customerRowsReturned": 0
+    }
+  ],
+  "reconciliation": "VERIFIED / no replay",
+  "runtimeMutated": false,
+  "customerDataRead": false,
+  "databaseRead": false,
+  "notes": [
+    "Pre-existing checkout/live order_read_store helper/authorization/query-bound differences remain excluded.",
+    "This independent postdeploy check executed no restart or authenticated request.",
+    "Public probes validate serving/authorization boundary; authenticated customer behavior remains covered only by synthetic isolated tests."
+  ]
+}

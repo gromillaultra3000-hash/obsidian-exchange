@@ -5,31 +5,33 @@ Updated: 2026-09-08 UTC
 ## Current goal and status
 
 
-- 2026-09-08 manual E4 / ACTIVITY_RECEIPT_EVIDENCE_CONSISTENCY is VERIFIED
-  and deployed at 01:43 UTC, implementation `efc92dc`. Pending receipts retain
-  no-repeat-payment guidance; paid/sent/closed receipts show historical facts.
-  Transaction evidence is independent of receipts and asks users to check network
-  confirmations. Backend/status/action/deadline semantics remain unchanged.
-  249 focused tests, 174 isolated Chrome checks, both independent reviews, 504
-  synthetic backend cases / 3651 independent rendering assertions and two killed
-  mutants PASS. Browser unit/cgroup/native sockets cleanup PASS. Public digest
-  false positives were verified; use path/sha256 records for provenance instead
-  of token/secret-named hash-map keys. Final staged secret scan is clean.
-  HTML `5cd9482c...b3a623` is live with GET200/POST405/exact template match;
-  Relay/bot/Nginx retain Sep 1 PID/start identities. Rollback:
-  `deployment-preimages/e4-activity-receipt-20260908-4ngb7wro/webapp.html`.
-  Evidence: `docs/e4-activity-receipt-rollout.v1.json`. Prior deadline `e1d6e41`,
-  ordering `06b5ece`, support `0a9295a`, requisites `50fa630` retained.
-  Owner again authorized manual continuation; autopilot stays failed/stopped.
-  Reconcile all manual commits before any future explicitly requested start.
-  No money/signatures/customer reads/keys/credentials/messages/064A work.
-  E4/earlier gates remain open; real Telegram/iOS/WebKit/human/screen-reader
-  acceptance unverified. Receipt/link metadata cannot prove approval/finality.
-  Exactly next: E4 / ACTIVITY_PAYMENT_SESSION_STATE. Real repository SQL over
-  synthetic in-memory data reproduces pending order + failed latest session:
-  payment flow knows it is dead, activity omits closure metadata/advice. Payment
-  action is already absent; do not infer failed order from failed/missing session.
-  Evidence: `docs/e4-activity-receipt/next-prerequisite.json`.
+- 2026-09-08 manual E4 / ACTIVITY_PAYMENT_SESSION_STATE is VERIFIED and
+  deployed at 01:58 UTC, implementation `7bc1e87`. New activity_read_store uses
+  existing connection policy and one owner-scoped order/latest-session SELECT.
+  Highest id binds token/state; closed/unknown sessions cannot revive an older
+  token. UI closure/support advice preserves receipt/order outcome precedence.
+  316 tests, 186 isolated Chrome checks, both independent reviews, three killed
+  mutants, 14 ops tests and independent interrupted-rollout/rollback probes PASS.
+  Exact retained live SQLite dependency and networkless PostgreSQL17.11 each pass
+  13 cases; disposable container/browser/temp/cgroup/socket cleanup verified.
+  Exactly main.py, HTML and additive module deployed; shared live order_read_store
+  remains `2cc91c73...ca06d`. Checkout has unrelated undeployed changes; never
+  replace it wholesale. Relay restarted once: PID2883897/startSep8 01:58:52 UTC,
+  NRestarts0. Bot3877887/Nginx3877705/Postgres3136948 identities unchanged.
+  Public GET200/POST405/template exact; anonymous history403 with no rows.
+  Rollback: `deployment-preimages/e4-activity-session-20260908-c9fhjhuc`.
+  Evidence: `docs/e4-activity-session-rollout.v1.json`. No new money authority,
+  credentials/signatures/064A or direct customer reads. Routine Relay restart
+  resumes existing payment/notification workers; zero background effects is not
+  claimed. Owner wants manual delivery; autopilot stays failed/stopped. Reconcile
+  all manual commits before any future explicitly requested start.
+  E4/earlier gates and real Telegram/iOS/WebKit/human/screen-reader acceptance
+  remain open. Exactly next: E4 / PAYMENT_STATUS_RUNTIME_READ_CONTRACT.
+  Eight exact-installed-source cases prove missing authorized_snapshot/get_by_token
+  cause api_order AttributeError/pay HTTP500 before any DB call, in both baseline
+  and candidate handlers. No authenticated production request/incidence claimed.
+  Restore only needed owner-scoped reads; inspect immediate dependencies without
+  shipping unrelated checkout drift. Evidence: slice next-prerequisite.json.
 
 - 2026-09-08 status audit confirmed Sep 7's three deployed E4 slices: wallet
   review/fees (`d650b8d`), receive-address integrity (`1cbfe1f`) and payment

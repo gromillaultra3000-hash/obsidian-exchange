@@ -1,0 +1,145 @@
+{
+  "beforeServices": {
+    "relay-fastapi.service": {
+      "MainPID": "3877703",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:55 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    },
+    "exchange-bot.service": {
+      "MainPID": "3877887",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Tue 2026-09-01 06:20:00 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    },
+    "nginx.service": {
+      "MainPID": "3877705",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:56 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    },
+    "obsidian-postgres.service": {
+      "MainPID": "3136948",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Mon 2026-08-24 05:08:51 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    }
+  },
+  "inputs": [
+    {
+      "path": "relay/repositories/activity_read_store.py",
+      "sha256": "32166cac62d1f92f21b1cdcaad46edda968c75832db7311969dff9228cd82f6e"
+    },
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "3b75a18fffeabd2d8d2640d463d26eb8f227b010534e48c37edd3888be7013df"
+    },
+    {
+      "path": "relay/webapp.html",
+      "sha256": "b2859b9fbe532a6121f2bbd2487e0ef2a0ccee6bf3c54da414ad49b61087cc9d"
+    },
+    {
+      "path": "deploy/e4_activity_session_rollout.py",
+      "sha256": "96b139963f00a78593c7ec5cc0b13d7fde32131287017cae4e99c0151e353138"
+    }
+  ],
+  "manifestSha256": "c1bb0bcca6c705193b5638610247c02aaec859020065bddcb379c89950511500",
+  "rollbackDirectory": "/var/lib/obsidian-exchange/deployment-preimages/e4-activity-session-20260908-c9fhjhuc",
+  "originalMetadata": {
+    "relay/repositories/activity_read_store.py": {
+      "uid": 0,
+      "gid": 0,
+      "mode": 420,
+      "atimeNs": 1788832160148164663,
+      "mtimeNs": 1788832160086162588,
+      "xattrs": {}
+    },
+    "relay-fastapi/main.py": {
+      "uid": 0,
+      "gid": 0,
+      "mode": 420,
+      "atimeNs": 1788831985226308625,
+      "mtimeNs": 1787738836204001133,
+      "xattrs": {}
+    },
+    "relay/webapp.html": {
+      "uid": 0,
+      "gid": 0,
+      "mode": 420,
+      "atimeNs": 1788831818877731741,
+      "mtimeNs": 1788831818873731606,
+      "xattrs": {}
+    }
+  },
+  "baseline": {
+    "relay-fastapi/main.py": "e36eede7efcf0a48657ff07fa805e57dbbb516c66a16a5696855f9bca978d1ca",
+    "relay/webapp.html": "5cd9482c174fec4288ace306e0ead463534933fc6b594d7497d88ec5ccb3a623",
+    "relay/repositories/activity_read_store.py": null
+  },
+  "rollbackExecuted": false,
+  "applied": [
+    "relay/repositories/activity_read_store.py",
+    "relay-fastapi/main.py",
+    "relay/webapp.html"
+  ],
+  "runtimeMutated": true,
+  "state": "VERIFIED",
+  "recordedAt": "2026-09-08T01:58:53.577139+00:00",
+  "afterServices": {
+    "relay-fastapi.service": {
+      "MainPID": "2883897",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Tue 2026-09-08 01:58:52 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    },
+    "exchange-bot.service": {
+      "MainPID": "3877887",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Tue 2026-09-01 06:20:00 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    },
+    "nginx.service": {
+      "MainPID": "3877705",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:56 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    },
+    "obsidian-postgres.service": {
+      "MainPID": "3136948",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Mon 2026-08-24 05:08:51 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    }
+  },
+  "publicChecks": [
+    {
+      "path": "/webapp",
+      "method": "GET",
+      "status": 200,
+      "authenticated": false,
+      "publicMatchesDeployedTemplate": true,
+      "publicBodySha256": "f69be66f2f896f93e4bc6db377620d22c067c786fc43856306ad3b1458bfd4e9"
+    },
+    {
+      "path": "/webapp",
+      "method": "POST",
+      "status": 405,
+      "authenticated": false
+    },
+    {
+      "path": "/api/history",
+      "method": "GET",
+      "status": 403,
+      "authenticated": false,
+      "customerRowsReturned": 0
+    }
+  ]
+}
