@@ -3646,15 +3646,21 @@
                 const advice = state.advice
                     ? `<div class="history-advice" style="margin-top:8px;font-size:11px;line-height:1.4;color:${state.terminal ? '#fbbf24' : 'var(--muted)'}">${esc(state.advice)}</div>`
                     : '';
-                const evidence = o.receipt
-                    ? `<div class="history-evidence" style="margin-top:8px;font-size:11px;line-height:1.4;color:var(--muted)">🧾 ${o.receipt === 'sent' ? 'Чек передан на проверку. Не оплачивайте повторно.' : 'Файл чека получен. Его статус появится здесь.'}</div>`
-                    : (o.status === 'sent' && o.tx_url
-                        ? '<div class="history-evidence" style="margin-top:8px;font-size:11px;line-height:1.4;color:var(--muted)">🔍 Доказательство выдачи — ссылка на транзакцию выше.</div>'
-                        : '');
+                const receiptCopy = o.status === 'pending'
+                    ? (o.receipt === 'sent' ? 'Чек передан на проверку. Не оплачивайте повторно.'
+                        : 'Файл чека получен. Статус проверки пока не подтверждён. Не оплачивайте повторно.')
+                    : (o.receipt === 'sent' ? 'Чек был передан на проверку.'
+                        : 'Файл чека сохранён в истории заявки.');
+                const receiptEvidence = o.receipt
+                    ? `<div class="history-evidence history-receipt-evidence" style="margin-top:8px;font-size:11px;line-height:1.4;color:var(--muted)">🧾 ${receiptCopy}</div>`
+                    : '';
+                const transactionEvidence = o.status === 'sent' && o.tx_url
+                    ? '<div class="history-evidence history-transaction-evidence" style="margin-top:8px;font-size:11px;line-height:1.4;color:var(--muted)">🔍 Ссылка на транзакцию отправки доступна ниже. Подтверждения проверьте в обозревателе сети.</div>'
+                    : '';
                 const support = orderId
                     ? `<button type="button" class="history-support-order" aria-label="Открыть поддержку по заявке ${esc(orderId)}" style="margin:10px 0 0 7px;border:1px solid rgba(159,103,255,.35);background:rgba(159,103,255,.08);color:var(--text);border-radius:9px;padding:6px 9px;font-size:11px;cursor:pointer">💬 Поддержка по заявке</button><div class="history-copy-status" role="status" aria-live="polite" aria-atomic="true" style="margin-top:8px;font-size:11px;line-height:1.45;color:var(--muted)">Номер заявки отправьте в поддержку сами. Для копирования нажмите «Копировать №».</div>`
                     : '';
-                return `<div class="history-item ${state.cls}"><span class="h-icon">${state.emoji}</span><div class="h-title">#${esc(o.order_id)} — ${esc(o.currency)}</div><div class="h-meta">${esc(o.amount)} RUB</div><div class="h-status-row"><small>${esc(o.created)}</small><span class="status">${esc(state.label)}</span></div>${advice}${evidence}${action}${copy}${support}</div>`;
+                return `<div class="history-item ${state.cls}"><span class="h-icon">${state.emoji}</span><div class="h-title">#${esc(o.order_id)} — ${esc(o.currency)}</div><div class="h-meta">${esc(o.amount)} RUB</div><div class="h-status-row"><small>${esc(o.created)}</small><span class="status">${esc(state.label)}</span></div>${advice}${receiptEvidence}${transactionEvidence}${action}${copy}${support}</div>`;
             }).join('');
             list.querySelectorAll('.history-copy-id').forEach(button =>
                 button.addEventListener('click', () => copyOrderId(button.dataset.orderId, button)));

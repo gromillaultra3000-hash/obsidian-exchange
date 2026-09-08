@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "e4-activity-session-lifecycle-contract-reproduction.v1",
+  "result": "VALID_BACKEND_STATE_REPRODUCED",
+  "method": "AST-extracted exact SQLite read methods over sqlite3 :memory: fixtures, exact api_history and _session_dead functions; only pure core.txid imported. No application import, production DB, real identity, provider or network calls.",
+  "inputs": [
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "e36eede7efcf0a48657ff07fa805e57dbbb516c66a16a5696855f9bca978d1ca"
+    },
+    {
+      "path": "relay/repositories/order_read_store.py",
+      "sha256": "5651f8400da4b0024b11bc77f03f9cb239ac284766f44586f0673788e1d54506"
+    },
+    {
+      "path": "relay/repositories/payment_session_store.py",
+      "sha256": "5684f496570e285987c58bfce0e3c59ef195ac689591a7367028bd93351aaf11"
+    },
+    {
+      "path": "relay/core/txid.py",
+      "sha256": "726b98d97696578b0883f5a14eca119f9bc4ce0fd92f409617edf1190129f824"
+    }
+  ],
+  "fixture": {
+    "orderStatus": "pending",
+    "latestPaymentSessionStatus": "failed",
+    "receiptPresent": false
+  },
+  "actualRepositoryLatestSession": {
+    "session_token": "synthetic_closed_session",
+    "status": "failed"
+  },
+  "actualSessionDead": true,
+  "apiResponse": [
+    {
+      "order_id": 42,
+      "amount": 2000.0,
+      "currency": "TON",
+      "status": "pending",
+      "created": "2026-09-08 00:00",
+      "session_token": null,
+      "txid": "",
+      "receipt": "",
+      "delayed": false,
+      "tx_url": ""
+    }
+  ],
+  "omittedSessionLifecycle": true,
+  "productionDataAccessed": false
+}

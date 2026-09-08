@@ -1,0 +1,10 @@
+{
+  "result": "REPRODUCED",
+  "method": "Actual AST-isolated api_history over synthetic repository rows and exact shipped Node VM rendering; 36 status/receipt/transaction cases",
+  "baselineCommit": "585d3e5",
+  "baselineSha256": "efcc97b6e41f8972b39163a876196f45fd8c5562dad23b5769634aac8ba7b499",
+  "command": "E4_WEBAPP_SOURCE=output/manual/e4-activity-receipt-20260908/baseline-webapp.html /opt/lumi/venv/bin/python -m pytest -q -p no:cacheprovider tests/test_e4_activity_receipt_behavior.py --tb=no",
+  "failed": 23,
+  "passed": 13,
+  "stdoutSha256": "45f593fa535d48757ef44ac4942564e2fbaffc32d9803640c53b966274e01f38"
+}

@@ -1,0 +1,116 @@
+{
+  "schemaVersion": "e4-activity-receipt-security-review.v1",
+  "recordedAt": "2026-09-08T01:43:15.408981+00:00",
+  "reviewer": "Codex independent context-poor diff/security reviewer /root/receipt_security",
+  "reviewerRole": "Independent of product author; authored only security review and synthetic probes",
+  "skill": "/root/.codex/skills/security-best-practices/SKILL.md",
+  "skillReferences": [
+    "javascript-general-web-frontend-security.md",
+    "python-fastapi-web-server-security.md"
+  ],
+  "toolVersions": {
+    "node": "v22.22.3",
+    "python": "3.12.3",
+    "reviewedBrowser": "152.0.7977.64",
+    "reviewedPlaywright": "1.62.0"
+  },
+  "route": "E4 / ACTIVITY_RECEIPT_EVIDENCE_CONSISTENCY",
+  "baselineCommit": "585d3e5ad1d79103f8b28ef53349e02ac221f924",
+  "result": "PASS",
+  "findings": [],
+  "blockingFindings": [],
+  "inputsSha256": {
+    "relay/webapp.html": "5cd9482c174fec4288ace306e0ead463534933fc6b594d7497d88ec5ccb3a623",
+    "relay-fastapi/main.py": "e36eede7efcf0a48657ff07fa805e57dbbb516c66a16a5696855f9bca978d1ca",
+    "relay/core/txid.py": "726b98d97696578b0883f5a14eca119f9bc4ce0fd92f409617edf1190129f824",
+    "relay/repositories/order_read_store.py": "5651f8400da4b0024b11bc77f03f9cb239ac284766f44586f0673788e1d54506",
+    "deploy/e4_activity_receipt_rollout.py": "4eb6f98898ec7cc4554a1ff2349957dfd0ac1c7c7e1df1c62552e0b44dac571e",
+    "scripts/run_e4_review_browser.py": "6f4c9bf3020ae80b323655333a1eb3697eca4d44672ef6d28c679749136c412b",
+    "tests/e4_activity_receipt_behavior.cjs": "f9f47288d62bfbeaca5fdc56abcddfa83ef71f62fa922557e57cbed747ee70de",
+    "tests/test_e4_activity_receipt_behavior.py": "b387e1e0dc64cde2911c27bb2efb69658025303708435373e4633feb91ef7e58",
+    "tests/e4_review_browser.cjs": "ef2cd0dc837487c55d2fc11cc3cd782a351fc679fd77566d7c3aabd8a2e598d0",
+    "tests/test_e4_activity_notifications.py": "4e9efc5011741c0d66abd0bf419416947d159a58a71101ae2d9d209e61b0136e",
+    "docs/e4-activity-receipt/report.json": "9cc7213b31fee108e8c59d73961bfb8cd92b2abfc52379977fec2053f19f0852",
+    "docs/e4-activity-receipt/isolation.json": "89654e1fc66e5c14176adda14c90defeecdea470d27641dc294c26d2906b22da",
+    "docs/e4-activity-receipt/tests.json": "e9944e68eeff519fc3742a850a25137ccef6d08e1526374d1a7b44a8969a1765",
+    "docs/e4-activity-receipt/preflight.json": "354fe1b096373c33c4c3395aa3c4d2294a5e6fd79fab959fca5269f26256a886",
+    "docs/e4-activity-receipt/rollback-rehearsal.json": "60633be202d33ec5341a1e20288d5b2409d5b1e82ef0230675eec9f831888cb9",
+    "docs/e4-activity-receipt/gitleaks-report.json": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+    "docs/e4-activity-receipt/run-context.json": "704a44b007e186a55a95004d90c0d43a06198087bb08dabba870f9a3b62c1fb4",
+    "docs/e4-activity-receipt/baseline.json": "eed07cd89ce0284a7dbd83a2c97df6372bc11d969452eb64258f6edaab101026",
+    "docs/e4-activity-receipt/mutations.json": "fc2d2ea4efc41312ca787bd6f84c261264fe29493faa8a60169e484a1350bea9",
+    "docs/e4-activity-receipt/security-probe.py": "91cae4a387136e5ae4cc3af437350b9de30ba161c501e88fee2b43862aded423",
+    "docs/e4-activity-receipt/security-probe-result.json": "3086cf0b2590549ff1e65b4fa2949cf9c587b39e684ec11a5dd0a95757796adb",
+    "docs/e4-activity-receipt/security-baseline-red.json": "860bf6d98c005c4916a4ee2b58f9d1be05a641ada5c584573a3308acee0a916b",
+    "docs/e4-activity-receipt/security-baseline-red.log": "d3fc0fa1ef001008c37b84a83363937e695e1dfe002d4c0f20866f18b6b54e1e"
+  },
+  "inputSetSha256": "42121d941c730be1a12bf7361a6f5c54b7e441af125669a993b714932c54c96d",
+  "reviewedScope": [
+    "relay/webapp.html:3649–3669 receipt and transaction evidence diff; unchanged historyStatus/action/escaping/request boundaries inspected",
+    "relay-fastapi/main.py:3005–3030 exact api_history receipt serialization and signed-user ownership; core.txid fixed HTTPS explorer/hash construction",
+    "Primary receipt tests and modified browser assertions; isolated browser launcher/cleanup; final report/isolation and source hashes",
+    "Hash-bound deploy/preflight/rollback recipe and observed preflight/rollback artifacts; no deploy command run by this reviewer"
+  ],
+  "conclusions": [
+    "Receipt sent denotes recorded forwarding, not approval. Non-pending receipt copy makes only historical claims and invents no refund, finality or delivery outcome.",
+    "Transaction explanation is independently present exactly for sent with tx_url and instructs the user to inspect confirmations in the explorer; receipt presence cannot suppress it.",
+    "New strings are constants, all existing ordinary metadata escaping is retained, and no new navigation sink, authentication change, dependency, custody or money writer is introduced.",
+    "Unchanged inline link handlers remain bounded by observed backend normalized transaction hashes and fixed HTTPS explorers; a raw arbitrary tx_url payload alone does not establish reachable production injection.",
+    "Deployment is limited to the exact public HTML target with retained root-only old bytes, atomic fsynced replacement, review/test digest gates and unchanged service identity checks.",
+    "Browser writer/signing entries are explicitly synthetic in-memory/routed test attempts, not real actions; external requests are blocked, private-loopback streams closed, unit collected and cgroup empty.",
+    "Autopilot remained failed with MainPID zero at independent final observation; this reviewer made no production or customer-data mutation."
+  ],
+  "verification": {
+    "independentProbe": "504 synthetic exact API cases / 3651 Node VM assertions PASS; unauthenticated reads rejected before repository access, malformed txids yield no link, absent receipt table invents no receipt, exact shipped escaping preserved",
+    "independentFocusedTests": "38 passed in 3.03s for receipt behavior and activity notifications",
+    "baseline": "Exact original HTML fails final independent probe on future receipt wording; negative stderr retained and hashed",
+    "primaryFocusedTests": "249 PASS; every recorded input hash and raw stdout SHA256 rechecked",
+    "browser": "174 PASS; final source/runner hashes match, no page errors, 0 residual native sockets; inactive/collected unit, MainPID zero and empty cgroup",
+    "mutations": "Lifecycle-removal and receipt-suppresses-transaction mutants both killed in recorded primary evidence",
+    "secrets": "Two later staged findings matched only SHA256 provenance metadata. Both values were independently recomputed; redacted findings and dispositions are retained. Optional provenance uses explicit path/sha256 objects without suppression or waiver. Product, test and browser inputs are unchanged.",
+    "operations": "Preflight public GET200/POST405 with exact original template and unchanged active service identities; OLD→NEW→OLD rehearsal PASS"
+  },
+  "limitations": [
+    "This bounded review is not a full-application security audit or approval of unrelated legacy handlers.",
+    "Synthetic API/VM/browser fixtures do not prove customer incidence, real-chain confirmations, human comprehension, Telegram/iOS/WebKit or actual screen-reader behavior.",
+    "Independent review gates this candidate and recipe; production application and post-deployment runtime verification remain the primary operator responsibility.",
+    "Initial system Python had no pytest; successful independent test run used existing /opt/lumi/venv/bin/python without installing dependencies."
+  ],
+  "productionMutationsByReviewer": false,
+  "publicSourceProvenance": [
+    {
+      "path": "relay/utils/tokens.py",
+      "sha256": "66154208ce8958a35135551bcf2663474732158a4128d86dbd9ee9ca3bde4a28"
+    }
+  ],
+  "supplementaryEvidence": [
+    {
+      "path": "docs/e4-activity-receipt/security-secret-scan-finding.json",
+      "sha256": "b83d625cbc6305075ed703a6d2027e010db2d6a74979e97f31588ddbeb164b6d"
+    },
+    {
+      "path": "docs/e4-activity-receipt/security-secret-scan-disposition.json",
+      "sha256": "73933dcffa9685054056a22d8437d9f163d945a380e450bbfdbe25131846368e"
+    },
+    {
+      "path": "docs/e4-activity-receipt/security-secret-scan-finding-2.json",
+      "sha256": "ac8b5b62794102858934dd01bf611387ee644f4ecba72c51db9ad845a293d4e5"
+    }
+  ],
+  "reviewerDirectoryScan": {
+    "toolVersion": "8.30.0",
+    "command": [
+      "gitleaks",
+      "dir",
+      "docs/e4-activity-receipt",
+      "--redact",
+      "--report-format",
+      "json",
+      "--report-path",
+      "output/manual/e4-activity-receipt-20260908/reviewer-dir-gitleaks.json"
+    ],
+    "result": "PASS",
+    "findings": 0,
+    "reportPath": "output/manual/e4-activity-receipt-20260908/reviewer-dir-gitleaks.json"
+  }
+}

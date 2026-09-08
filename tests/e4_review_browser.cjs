@@ -1153,7 +1153,7 @@ async function main() {
             assert.equal(await activityStatus.textContent(), 'Активность обновлена.');
             assert.equal(await activityList.locator('.history-item .status').textContent(), 'Отправлено');
             assert.equal(await activityList.locator('.btn-pay').textContent(), '🔍 Транзакция');
-            assert.ok((await activityList.locator('.history-evidence').textContent()).includes('Доказательство выдачи'));
+            assert.ok((await activityList.locator('.history-transaction-evidence').textContent()).includes('Подтверждения проверьте в обозревателе сети.'));
             assert.ok((await page.locator('#ecosystem-activity-status').textContent()).includes('Нет активных заявок'));
             assert.ok(!(await activityList.textContent()).includes('Оплатить'));
         }
@@ -1267,6 +1267,89 @@ async function main() {
         }
         await orderSupport.scrollIntoViewIfNeeded();
         await page.screenshot({path: path.join(outputDir, `${viewport.width}-activity-deadline-recovered.png`)});
+        // These valid history shapes retain persisted receipt metadata after a
+        // final status. Drive actual refresh/filter controls and routed GET
+        // responses so the lifecycle rendering is checked in the shipped page.
+        const receiptLabels = {pending: 'Ожидание оплаты', paid: 'Оплата получена',
+            sent: 'Отправлено', expired: 'Истекла', failed: 'Закрыта', cancelled: 'Отменена'};
+        const pendingReceiptCopy = {
+            stored: '🧾 Файл чека получен. Статус проверки пока не подтверждён. Не оплачивайте повторно.',
+            sent: '🧾 Чек передан на проверку. Не оплачивайте повторно.',
+        };
+        const historicalReceiptCopy = {
+            stored: '🧾 Файл чека сохранён в истории заявки.',
+            sent: '🧾 Чек был передан на проверку.',
+        };
+        const transactionCopy = '🔍 Ссылка на транзакцию отправки доступна ниже. Подтверждения проверьте в обозревателе сети.';
+        await page.locator('[data-history-filter="all"]').click();
+        for (const [stateIndex, status] of Object.keys(receiptLabels).entries()) {
+            const receipts = ['', 'stored', 'sent'];
+            const fixtures = receipts.map((receipt, index) => ({order_id: 4200 + stateIndex * 10 + index,
+                amount: 2000, currency: 'TON', status, created: '2026-09-08 00:00',
+                receipt, delayed: false, session_token: 'synthetic_urlsafe_session',
+                txid: status === 'sent' ? 'a'.repeat(64) : '',
+                tx_url: status === 'sent' ? 'https://tonviewer.com/transaction/' + 'a'.repeat(64) : ''}));
+            const read = await beginActivity(); await replyActivity(read, fixtures);
+            assert.equal(await activityList.locator('.history-item').count(), 3);
+            for (const [index, receipt] of receipts.entries()) {
+                const card = activityList.locator('.history-item').nth(index);
+                const receiptBlock = card.locator('.history-receipt-evidence');
+                const transactionBlock = card.locator('.history-transaction-evidence');
+                const expectedLabel = status === 'pending' && receipt === 'sent' ? 'Чек на проверке' : receiptLabels[status];
+                assert.equal(await card.locator('.status').textContent(), expectedLabel);
+                assert.equal(await receiptBlock.count(), receipt ? 1 : 0);
+                if (receipt) assert.equal(await receiptBlock.textContent(),
+                    (status === 'pending' ? pendingReceiptCopy : historicalReceiptCopy)[receipt]);
+                assert.equal(await transactionBlock.count(), status === 'sent' ? 1 : 0);
+                assert.equal(await card.locator('.history-evidence').count(), Number(!!receipt) + Number(status === 'sent'));
+                if (status === 'sent') {
+                    assert.equal(await transactionBlock.textContent(), transactionCopy);
+                    assert.equal(await card.locator('.btn-pay').textContent(), '🔍 Транзакция');
+                    assert.equal(await card.evaluate(el => {
+                        const evidence = el.querySelector('.history-transaction-evidence');
+                        return !!(evidence.compareDocumentPosition(el.querySelector('.btn-pay')) & Node.DOCUMENT_POSITION_FOLLOWING);
+                    }), true, 'transaction copy must correctly refer to the link below');
+                } else if (status === 'pending') {
+                    assert.equal(await card.locator('.btn-pay').textContent(), receipt ? '🧾 Открыть заявку' : '💳 Оплатить');
+                } else assert.equal(await card.locator('.btn-pay').count(), 0);
+                if (['expired', 'failed', 'cancelled'].includes(status)) {
+                    assert.ok((await card.locator('.history-advice').textContent()).includes('не переводите')
+                        || (await card.locator('.history-advice').textContent()).includes('Не переводите'));
+                }
+                assert.ok(!(await card.textContent()).includes('Его статус появится здесь.'));
+                assert.equal(await card.locator('.history-support-order').isEnabled(), true);
+                assert.equal(await card.evaluate(el => el.scrollWidth <= el.clientWidth), true);
+            }
+            if (['pending', 'sent', 'cancelled'].includes(status)) {
+                const pictured = activityList.locator('.history-item').nth(status === 'sent' ? 2 : 1);
+                await pictured.scrollIntoViewIfNeeded();
+                await pictured.screenshot({path: path.join(outputDir, `${viewport.width}-activity-receipt-${status}.png`)});
+            }
+            report.checks.push(`${viewport.width}: actual activity GET ${status} with absent/stored/sent receipt preserves lifecycle facts, independent transaction evidence, safe action policy and readable card bounds`);
+        }
+        const noLink = await beginActivity();
+        await replyActivity(noLink, [{...freshActivityOrder, receipt: 'sent', tx_url: ''}]);
+        assert.equal(await activityList.locator('.history-receipt-evidence').textContent(), historicalReceiptCopy.sent);
+        assert.equal(await activityList.locator('.history-transaction-evidence').count(), 0);
+        assert.equal(await activityList.locator('.btn-pay').count(), 0);
+        const delayedPaid = await beginActivity();
+        await replyActivity(delayedPaid, [{...freshActivityOrder, status: 'paid', delayed: true,
+            receipt: 'stored', tx_url: ''}]);
+        assert.equal(await activityList.locator('.status').textContent(), 'Выплата задерживается');
+        assert.equal(await activityList.locator('.history-receipt-evidence').textContent(), historicalReceiptCopy.stored);
+        assert.equal(await activityList.locator('.history-advice').textContent(), 'Оплата получена. Повторно не оплачивайте заявку.');
+        assert.equal(await activityList.locator('.history-transaction-evidence').count(), 0);
+        assert.equal(await activityList.locator('.btn-pay').count(), 0);
+        await page.locator('[data-history-filter="sent"]').click();
+        assert.equal(await activityList.locator('.history-evidence').count(), 0);
+        assert.ok((await activityList.textContent()).includes('В этой группе заявок пока нет.'));
+        await page.locator('[data-history-filter="paid"]').click();
+        assert.equal(await activityList.locator('.history-receipt-evidence').textContent(), historicalReceiptCopy.stored);
+        const supportBeforeReceipt = await page.evaluate(() => window.__supportOpenings.length);
+        await orderSupport.focus(); await page.keyboard.press('Enter');
+        await supportCount(supportBeforeReceipt + 1);
+        assert.equal(await activityList.evaluate(el => el.scrollWidth <= el.clientWidth), true);
+        report.checks.push(`${viewport.width}: sent without tx_url makes no transaction claim; delayed paid retains status/advice, filter changes retire old evidence and current keyboard support remains usable`);
         await context.close();
         }
         await nativeActivityDeadlineChecks(browser);

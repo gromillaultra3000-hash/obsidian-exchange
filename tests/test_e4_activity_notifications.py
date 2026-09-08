@@ -17,7 +17,8 @@ def test_activity_order_cards_expose_evidence_and_owner_controlled_support_hando
                      WEBAPP.index("function setHistoryFilter", WEBAPP.index("function renderHistoryOrders"))]
     assert 'history-evidence' in history
     assert "Чек передан на проверку. Не оплачивайте повторно." in history
-    assert "Доказательство выдачи — ссылка на транзакцию выше." in history
+    assert "Ссылка на транзакцию отправки доступна ниже." in history
+    assert "Подтверждения проверьте в обозревателе сети." in history
     assert 'history-support-order' in history
 
     handoff = WEBAPP[WEBAPP.index("function openOrderSupport"):

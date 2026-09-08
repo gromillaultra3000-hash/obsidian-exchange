@@ -1,0 +1,9 @@
+{
+  "recordedAt": "2026-09-08T01:38:09.600889+00:00",
+  "result": "PASS",
+  "productionTouched": false,
+  "method": "same fsynced atomic replacement: OLD to NEW to exact OLD",
+  "beforeSha256": "efcc97b6e41f8972b39163a876196f45fd8c5562dad23b5769634aac8ba7b499",
+  "afterSha256": "5cd9482c174fec4288ace306e0ead463534933fc6b594d7497d88ec5ccb3a623",
+  "cleanupVerified": true
+}

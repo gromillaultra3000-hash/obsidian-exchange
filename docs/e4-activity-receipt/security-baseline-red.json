@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "e4-activity-receipt-security-baseline.v1",
+  "result": "EXPECTED_FAIL",
+  "sourcePath": "relay/webapp.html",
+  "sourceSha256": "efcc97b6e41f8972b39163a876196f45fd8c5562dad23b5769634aac8ba7b499",
+  "probePath": "docs/e4-activity-receipt/security-probe.py",
+  "probeSha256": "91cae4a387136e5ae4cc3af437350b9de30ba161c501e88fee2b43862aded423",
+  "command": "python3 docs/e4-activity-receipt/security-probe.py output/manual/e4-activity-receipt-20260908/baseline-webapp.html",
+  "failure": "Renderer assertion rejects the baseline future promise: Его статус появится здесь.",
+  "scope": "Synthetic exact API serialization and Node VM source rendering; no application import, production/customer read, network or production mutation.",
+  "stderrPath": "docs/e4-activity-receipt/security-baseline-red.log",
+  "stderrSha256": "d3fc0fa1ef001008c37b84a83363937e695e1dfe002d4c0f20866f18b6b54e1e"
+}

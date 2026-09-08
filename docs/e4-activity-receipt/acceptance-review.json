@@ -1,0 +1,137 @@
+{
+  "schemaVersion": "e4-activity-receipt-acceptance-review.v1",
+  "recordedAt": "2026-09-08T01:40:15.944971+00:00",
+  "reviewer": {
+    "identity": "Codex independent context-aware acceptance subagent /root/receipt_acceptance",
+    "role": "Acceptance reviewer separate from product implementation/deployment and security review",
+    "toolsActuallyUsed": [
+      "functions.exec / exec_command: exact source/repository/API inspection, AST-isolated serialization and SQLite methods, independent old/candidate Node VM rendering, syntax/diff checks and hash verification",
+      "Playwright skill read; added bounded actual-browser checks to existing CJS runner, which the primary executed through its unchanged isolated launcher",
+      "view_image: inspected final 320px pending/sent/cancelled receipt card screenshots"
+    ],
+    "edits": "tests/e4_review_browser.cjs and own acceptance/next-prerequisite artifacts only; no product/deployment/customer/network/money/message mutations"
+  },
+  "route": "E4 / ACTIVITY_RECEIPT_EVIDENCE_CONSISTENCY",
+  "result": "PASS",
+  "inputsSha256": {
+    "deploy/e4_activity_receipt_rollout.py": "4eb6f98898ec7cc4554a1ff2349957dfd0ac1c7c7e1df1c62552e0b44dac571e",
+    "docs/e4-activity-receipt/320-activity-receipt-cancelled.png": "a46529b6197cfb97d148fba7d10333722f0b33c88c5ad2cf32cff2d1b88f3860",
+    "docs/e4-activity-receipt/320-activity-receipt-pending.png": "a830f724807530df99f020a593be12dd79745b27c9a99d53ea97dca1f7bc383b",
+    "docs/e4-activity-receipt/320-activity-receipt-sent.png": "baeb01aa795559c24bb7eadb93a870bfbe3f735bdefe640eb0bfa2b5eced29b0",
+    "docs/e4-activity-receipt/390-activity-receipt-sent.png": "e5525e4d0e7827237bdb4ac093379a0c70d97640d27731d8392c4e3b2c6485be",
+    "docs/e4-activity-receipt/acceptance-baseline.json": "73616675883cbdfbdf499e66c73e808f4ea8a40c03c4837f819cfb495b95698a",
+    "docs/e4-activity-receipt/baseline.json": "eed07cd89ce0284a7dbd83a2c97df6372bc11d969452eb64258f6edaab101026",
+    "docs/e4-activity-receipt/isolation.json": "89654e1fc66e5c14176adda14c90defeecdea470d27641dc294c26d2906b22da",
+    "docs/e4-activity-receipt/mutations.json": "fc2d2ea4efc41312ca787bd6f84c261264fe29493faa8a60169e484a1350bea9",
+    "docs/e4-activity-receipt/next-prerequisite-backend.json": "b40bb7af8cbedafcb6a6a8310bbe572d4172bd2540669fc00cbd368a528f81ae",
+    "docs/e4-activity-receipt/next-prerequisite-backend.py": "3e8f8f67752769621c490d367f4900f2c4c3d64bbcfc42bf425f3c230ad11bb9",
+    "docs/e4-activity-receipt/next-prerequisite.cjs": "68b4302fa5fdbdc36d13d627194609f59f4f7eb69b104e1952a2704d2c7fba66",
+    "docs/e4-activity-receipt/next-prerequisite.json": "d8354c0db618ae798005cf50add548fe8db06d3f152b59d441db7c616b1b4d4a",
+    "docs/e4-activity-receipt/preflight.json": "354fe1b096373c33c4c3395aa3c4d2294a5e6fd79fab959fca5269f26256a886",
+    "docs/e4-activity-receipt/report.json": "9cc7213b31fee108e8c59d73961bfb8cd92b2abfc52379977fec2053f19f0852",
+    "docs/e4-activity-receipt/rollback-rehearsal.json": "60633be202d33ec5341a1e20288d5b2409d5b1e82ef0230675eec9f831888cb9",
+    "docs/e4-activity-receipt/tests.json": "e9944e68eeff519fc3742a850a25137ccef6d08e1526374d1a7b44a8969a1765",
+    "relay-fastapi/main.py": "e36eede7efcf0a48657ff07fa805e57dbbb516c66a16a5696855f9bca978d1ca",
+    "relay/core/txid.py": "726b98d97696578b0883f5a14eca119f9bc4ce0fd92f409617edf1190129f824",
+    "relay/repositories/order_read_store.py": "5651f8400da4b0024b11bc77f03f9cb239ac284766f44586f0673788e1d54506",
+    "relay/repositories/payment_session_store.py": "5684f496570e285987c58bfce0e3c59ef195ac689591a7367028bd93351aaf11",
+    "relay/webapp.html": "5cd9482c174fec4288ace306e0ead463534933fc6b594d7497d88ec5ccb3a623",
+    "scripts/run_e4_review_browser.py": "6f4c9bf3020ae80b323655333a1eb3697eca4d44672ef6d28c679749136c412b",
+    "tests/e4_activity_deadline_behavior.cjs": "48b85b7701ede6142e232be00abd0b930c6b54cdcc87feceffdb12dbff20b56f",
+    "tests/e4_activity_receipt_behavior.cjs": "f9f47288d62bfbeaca5fdc56abcddfa83ef71f62fa922557e57cbed747ee70de",
+    "tests/e4_activity_refresh_behavior.cjs": "84544256bfc5aef1f2cd7af768f6217d55771be92621ad9572426195ef29696b",
+    "tests/e4_review_browser.cjs": "ef2cd0dc837487c55d2fc11cc3cd782a351fc679fd77566d7c3aabd8a2e598d0",
+    "tests/test_e4_activity_deadline_behavior.py": "8ebeccfd0937ba08752dcbc996f886a4be6cdaf1e429e3885b8f142cab33ca37",
+    "tests/test_e4_activity_notifications.py": "4e9efc5011741c0d66abd0bf419416947d159a58a71101ae2d9d209e61b0136e",
+    "tests/test_e4_activity_receipt_behavior.py": "b387e1e0dc64cde2911c27bb2efb69658025303708435373e4633feb91ef7e58",
+    "tests/test_e4_activity_refresh_behavior.py": "ab3798379d4c445ebec27306829c6781e372886bef65de7522fad7c1619e298b",
+    "tests/test_e4_exchange_review_ui.py": "15da942a4d78a3d1271d04ba642c857d4408e27ede66ea58441710e347325c36",
+    "tests/test_e4_miniapp_browser_shell.py": "f1266129d2f2c84e9fd7c5847bba0a1b5f0ff27d0e7695249e6554202e6312fd",
+    "tests/test_e4_order_support_behavior.py": "b5e5f3b53b484a85c0ece511e96925b5b42d9de94fc62004107922c82c40b988",
+    "tests/test_e4_payment_instruction_behavior.py": "b425ababa71e51d8f977214303553bd011509d2bb5dd9c8a0bf2ea2ef218b3ea",
+    "tests/test_e4_payment_requisites_copy_behavior.py": "3b0e45d530c32e872ac54222120544e4bd63467cf1e33373d44105b7b8230a3a",
+    "tests/test_e4_public_support_path.py": "04f36a7270fce9aaa3281ae35f8b093ed40aa841a4053b375c26525b19491769",
+    "tests/test_e4_receive_copy_behavior.py": "bb2738ab5c0a41f496db0dfecdf73918094199b7f2cdff4cb359c414a5bdbb5b",
+    "tests/test_e4_recipient_review_behavior.py": "0dba9cc3e4b4a490b8d88705434968a53b487698a444aa1b512326bd238d5ccf",
+    "tests/test_e4_responsive_navigation.py": "5758be025dd2f1e318c304ee4d771d70dc7ad2fda5506077958098dfe493292d",
+    "tests/test_e4_review_browser_runner.py": "10e63f75d216cd5a11a4c6c883db7d15a134d00088a3f6a41b8deb80b375a98b",
+    "tests/test_unified_portfolio_ui.py": "250796a1f514cba3ae701b5f14d45420cf22124bebb43c7dd4c0810c64c7fb54"
+  },
+  "baseline": {
+    "evidence": "docs/e4-activity-receipt/acceptance-baseline.json",
+    "cases": 18,
+    "method": "Actual api_history serialization of six statuses × absent/stored/sent receipt, then independently evaluated exact old HEAD and candidate history rendering.",
+    "observed": "Old sent orders with both receipt variants suppress transaction explanation; stored receipts on five nonpending statuses promise a future receipt update. Candidate removes both inconsistencies and preserves pending safety advice."
+  },
+  "acceptanceResults": [
+    "Receipt evidence depends on the actual order lifecycle. Pending sent receipt retains current review/duplicate-payment warning; pending stored receipt says review status is not confirmed and warns against duplicate payment.",
+    "Paid, sent, expired, failed and cancelled receipt evidence uses only historical receipt/file facts. No claim of receipt verification, delivered funds or refund is introduced, and no future receipt update is promised.",
+    "Every sent order with an available backend transaction URL has a separate transaction explanation whether a receipt is absent, stored or sent. It directs the user to check confirmations in the explorer and correctly locates the existing transaction action below.",
+    "Sent without tx_url does not invent a transaction action or explanation. Paid and terminal states retain their current status, warning/support and no-pay action policy. Delayed paid keeps its existing warning.",
+    "Real Chrome refresh GETs render the full receipt/status matrix at 320,390,1280px; selected filters remove old evidence, restore current evidence and preserve usable keyboard support. Existing request ownership/deadline/copy/payment guard checks still pass.",
+    "The inspected 320px cards show readable receipt and transaction facts, wrapped lines within card bounds, the transaction action below its explanation and support available on pending/completed/cancelled cards."
+  ],
+  "verification": {
+    "focusedTests": 249,
+    "newBackendSerializationRenderingCases": 36,
+    "focusedResult": "PASS",
+    "rawOutputSha256Verified": "852ab44c0fb2248a351629fb2d513c3c7f79ab11967cf638691040bffe00177a",
+    "baselineFocusedResult": "23 failing candidate-behavior cases on old HTML as recorded by primary",
+    "independentBaselineCases": 18,
+    "mutantsKilled": [
+      "receipt_without_lifecycle",
+      "receipt_hides_transaction"
+    ],
+    "browserChecks": 174,
+    "newBrowserChecks": 21,
+    "browserWidths": [
+      320,
+      390,
+      1280
+    ],
+    "browserResult": "PASS",
+    "pageErrors": [],
+    "sourceAndRunnerHashesMatch": true,
+    "copiedBrowserEvidenceMatchesRawOutput": true,
+    "isolation": {
+      "user": "nobody",
+      "chromiumSandbox": true,
+      "privateNetwork": true,
+      "protectHome": true,
+      "unit": "e4-review-browser-8251f1129a5b4fe4a094221a8b48ecc9",
+      "unitStopped": true,
+      "stopObservation": {
+        "MainPID": "0",
+        "LoadState": "not-found",
+        "ActiveState": "inactive",
+        "cgroupEmpty": true
+      },
+      "sourceSha256": "5cd9482c174fec4288ace306e0ead463534933fc6b594d7497d88ec5ccb3a623",
+      "runnerSha256": "ef2cd0dc837487c55d2fc11cc3cd782a351fc679fd77566d7c3aabd8a2e598d0",
+      "processExitCode": 0
+    },
+    "unchangedBudgets": "5000ms action/cleanup bounds, default motion, existing 120s unit cap; no force clicks or timeout relaxation.",
+    "existingNativeDeadlineCleanup": {
+      "serverClosed": true,
+      "socketsRemaining": 0,
+      "individualSocketCloseEventsAwaited": true
+    },
+    "preflight": "Original deployed HTML returned GET200/POST405 and exact rendered-template match; active Relay/bot/Nginx identities recorded before replacement.",
+    "rollback": "Disposable fsynced atomic OLD to NEW to exact OLD rehearsal passed; cleanup verified."
+  },
+  "findings": [],
+  "nextPrerequisite": {
+    "item": "E4 / ACTIVITY_PAYMENT_SESSION_STATE / expose closed payment-session state truthfully in activity",
+    "evidence": "docs/e4-activity-receipt/next-prerequisite.json",
+    "backendEvidence": "docs/e4-activity-receipt/next-prerequisite-backend.json",
+    "observed": "Exact existing SQLite read methods over an in-memory synthetic ledger produce a pending order whose latest payment session is failed. Existing _session_dead returns true. api_history excludes its token and omits session state; exact history render still labels it waiting for payment with no closed-session advice. Payment action is correctly absent and support remains available.",
+    "disposition": "Exactly one separate canonical E4 read-only status-contract prerequisite; no backend/session-state implementation in this slice."
+  },
+  "limitations": [
+    "Backend fixtures and browser responses are synthetic; no real customer incidence or human comprehension was measured.",
+    "Actual-browser acceptance covers isolated Chrome. Real Telegram/iOS/WebKit, assistive screen readers and live provider confirmation remain unverified.",
+    "Receipt metadata is a persisted historical fact. This change does not establish that a receipt was approved, funds reached a recipient or a transaction was confirmed.",
+    "The next prerequisite does not infer that a failed payment session means the order failed, or that missing metadata alone means a provider session closed.",
+    "PASS covers this bounded reversible public HTML change. Production replacement/runtime verification remains primary-agent work; E4 and earlier gates remain open."
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "recordedAt": "2026-09-08T01:38:51.351687+00:00",
+  "route": "E4 / ACTIVITY_RECEIPT_EVIDENCE_CONSISTENCY",
+  "canonicalCriterion": "E4 unified notification/evidence/support centre; lifecycle-consistent evidence and clear monetary status",
+  "accountableOwner": "Project owner; explicit manual continuation approval 2026-09-08; implementation Codex /root",
+  "baselineCommit": "585d3e5ad1d79103f8b28ef53349e02ac221f924",
+  "charterSha256": "d159a3f71ea21c57a4d73ea675f1c5ded76ea504b8c3f186ba166ed9218cfc80",
+  "charterUnchanged": true,
+  "capabilities": {
+    "implementation": "Codex primary; product and focused tests",
+    "acceptance": "Independent /root/receipt_acceptance; browser assertions and contextual review",
+    "security": "Independent /root/receipt_security; diff/security review and backend-valid matrix probe",
+    "browser": "Playwright skill; existing playwright-core runner in nobody/PrivateNetwork/ProtectHome isolated Chrome",
+    "ops": "Hash-bound atomic HTML replacement, reversible rehearsal, exact public template and unchanged service identity checks",
+    "secrets": "Gitleaks staged scope",
+    "research": "Not needed for repository-local serialization/rendering; no external dependency added"
+  },
+  "surfaceMatrix": {
+    "MiniApp": "REQUIRED: activity receipt and transaction evidence wording",
+    "site": "READ_ONLY: public /webapp entry serves same HTML",
+    "TelegramBot": "READ_ONLY: current fixed support link unchanged",
+    "API": "READ_ONLY: existing history serialization unchanged; synthetic tests only",
+    "admin": "N/A: no operator change",
+    "nativeWallet": "N/A: no signing or custody change",
+    "KAIROS_LUMI": "N/A"
+  },
+  "autopilot": {
+    "state": "failed",
+    "MainPID": 0,
+    "reason": "UNCOMMITTED_NEW_FILES",
+    "action": "Leave stopped by current owner instruction; no state/config/unit change"
+  },
+  "custodySecretsMoneyWriters": "No new credentials, signatures, customer reads, messages, money action or 064A authority; receipt and normalized transaction metadata remain existing read-only facts",
+  "boundedDecisions": [
+    "Pending receipts keep explicit no-repeat-payment guidance; only sent metadata says forwarded for review.",
+    "Non-pending receipts show historical file/forwarding facts, without future promises or verification/refund claims.",
+    "Existing sent+tx_url condition independently shows transaction explanation and action; network confirmations are left for the explorer.",
+    "Status labels, action visibility, backend serialization and request ownership/deadline behavior remain unchanged."
+  ],
+  "limitations": [
+    "Synthetic backend rows do not measure actual customer incidence or understanding.",
+    "Real Telegram/iOS/WebKit, human comprehension and actual screen-reader announcements remain unverified.",
+    "Receipt sent means recorded forwarding, not approval; order sent and an explorer URL do not establish network confirmations.",
+    "Only this bounded E4 slice is accepted; E4 and earlier gates remain open."
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "result": "MUTATIONS_KILLED",
+  "sourceSha256": "5cd9482c174fec4288ace306e0ead463534933fc6b594d7497d88ec5ccb3a623",
+  "runs": [
+    {
+      "mutation": "receipt_without_lifecycle",
+      "exitCode": 1,
+      "mutantSha256": "87cb62f8febee7ebd508ffffcd00a9222e8c9bd6fc74709333f8536b6356fd59",
+      "stderr": "node:assert:883\n    throw err;\n    ^\n\nAssertionError [ERR_ASSERTION]: historical receipts cannot promise future review or reuse active-review instructions\n    at Object.<anonymous> (/root/tests/e4_activity_receipt_behavior.cjs:30:16)\n    at Module._compile (node:internal/modules/cjs/loader:1781:14)\n    at Object..js (node:internal/modules/cjs/loader:1913:10)\n    at Module.load (node:internal/modules/cjs/loader:1505:32)\n    at Function._load (node:internal/modules/cjs/loader:1309:12)\n    at wrapModuleLoad (node:internal/modules/cjs/loader:254:19)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)\n    at node:internal/main/run_main_module:36:49 {\n  generatedMessage: false,\n  code: 'ERR_ASSERTION',\n  actual: '\ud83e\uddfe \u0424\u0430\u0439\u043b \u0447\u0435\u043a\u0430 \u043f\u043e\u043b\u0443\u0447\u0435\u043d. \u0421\u0442\u0430\u0442\u0443\u0441 \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0438 \u043f\u043e\u043a\u0430 \u043d\u0435 \u043f\u043e\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0451\u043d. \u041d\u0435 \u043e\u043f\u043b\u0430\u0447\u0438\u0432\u0430\u0439\u0442\u0435 \u043f\u043e\u0432\u0442\u043e\u0440\u043d\u043e. \ud83d\udd0d \u0421\u0441\u044b\u043b\u043a\u0430 \u043d\u0430 \u0442\u0440\u0430\u043d\u0437\u0430\u043a\u0446\u0438\u044e \u043e\u0442\u043f\u0440\u0430\u0432\u043a\u0438 \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430 \u043d\u0438\u0436\u0435. \u041f\u043e\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043d\u0438\u044f \u043f\u0440\u043e\u0432\u0435\u0440\u044c\u0442\u0435 \u0432 \u043e\u0431\u043e\u0437\u0440\u0435\u0432\u0430\u0442\u0435\u043b\u0435 \u0441\u0435\u0442\u0438.',\n  expected: /\u0415\u0433\u043e \u0441\u0442\u0430\u0442\u0443\u0441 \u043f\u043e\u044f\u0432\u0438\u0442\u0441\u044f|\u041d\u0435 \u043e\u043f\u043b\u0430\u0447\u0438\u0432\u0430\u0439\u0442\u0435 \u043f\u043e\u0432\u0442\u043e\u0440\u043d\u043e|\u0421\u0442\u0430\u0442\u0443\u0441 \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0438 \u043f\u043e\u043a\u0430/,\n  operator: 'doesNotMatch',\n  diff: 'simple'\n}\n\nNode.js v22.22.3\n"
+    },
+    {
+      "mutation": "receipt_hides_transaction",
+      "exitCode": 1,
+      "mutantSha256": "3a174a3fae9f7ce2468e12f8c7a1811be7b68c8fefc4501e4f516b8139419cc7",
+      "stderr": "node:assert:150\n  throw new AssertionError(obj);\n  ^\n\nAssertionError [ERR_ASSERTION]: receipt must not suppress available transaction explanation\n\nfalse !== true\n\n    at Object.<anonymous> (/root/tests/e4_activity_receipt_behavior.cjs:21:8)\n    at Module._compile (node:internal/modules/cjs/loader:1781:14)\n    at Object..js (node:internal/modules/cjs/loader:1913:10)\n    at Module.load (node:internal/modules/cjs/loader:1505:32)\n    at Function._load (node:internal/modules/cjs/loader:1309:12)\n    at wrapModuleLoad (node:internal/modules/cjs/loader:254:19)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)\n    at node:internal/main/run_main_module:36:49 {\n  generatedMessage: false,\n  code: 'ERR_ASSERTION',\n  actual: false,\n  expected: true,\n  operator: 'strictEqual',\n  diff: 'simple'\n}\n\nNode.js v22.22.3\n"
+    }
+  ]
+}

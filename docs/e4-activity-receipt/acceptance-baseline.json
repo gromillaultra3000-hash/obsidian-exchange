@@ -1,0 +1,414 @@
+{
+  "schemaVersion": "e4-activity-receipt-acceptance-baseline.v1",
+  "reviewer": "Codex independent acceptance /root/receipt_acceptance",
+  "result": "BASELINE_REPRODUCED_AND_CANDIDATE_VERIFIED",
+  "method": "Exact api_history AST serialized 18 synthetic repository states (6 lifecycle statuses × absent/stored/sent receipt), then independently evaluated old HEAD and candidate exact history rendering in Node VM. No app import, live API or customer/database access.",
+  "sourceBefore": {
+    "revision": "585d3e5ad1d79103f8b28ef53349e02ac221f924",
+    "sha256": "efcc97b6e41f8972b39163a876196f45fd8c5562dad23b5769634aac8ba7b499"
+  },
+  "sourceAfter": {
+    "path": "relay/webapp.html",
+    "sha256": "5cd9482c174fec4288ace306e0ead463534933fc6b594d7497d88ec5ccb3a623"
+  },
+  "backendInputs": [
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "e36eede7efcf0a48657ff07fa805e57dbbb516c66a16a5696855f9bca978d1ca"
+    },
+    {
+      "path": "relay/core/txid.py",
+      "sha256": "726b98d97696578b0883f5a14eca119f9bc4ce0fd92f409617edf1190129f824"
+    }
+  ],
+  "before": [
+    {
+      "status": "pending",
+      "receipt": "",
+      "evidence": [],
+      "transactionAction": false,
+      "transactionExplanation": false,
+      "futureReceiptPromise": false,
+      "statusLabel": "Ожидание оплаты"
+    },
+    {
+      "status": "pending",
+      "receipt": "stored",
+      "evidence": [
+        "🧾 Файл чека получен. Его статус появится здесь."
+      ],
+      "transactionAction": false,
+      "transactionExplanation": false,
+      "futureReceiptPromise": true,
+      "statusLabel": "Ожидание оплаты"
+    },
+    {
+      "status": "pending",
+      "receipt": "sent",
+      "evidence": [
+        "🧾 Чек передан на проверку. Не оплачивайте повторно."
+      ],
+      "transactionAction": false,
+      "transactionExplanation": false,
+      "futureReceiptPromise": false,
+      "statusLabel": "Чек на проверке"
+    },
+    {
+      "status": "paid",
+      "receipt": "",
+      "evidence": [],
+      "transactionAction": false,
+      "transactionExplanation": false,
+      "futureReceiptPromise": false,
+      "statusLabel": "Оплата получена"
+    },
+    {
+      "status": "paid",
+      "receipt": "stored",
+      "evidence": [
+        "🧾 Файл чека получен. Его статус появится здесь."
+      ],
+      "transactionAction": false,
+      "transactionExplanation": false,
+      "futureReceiptPromise": true,
+      "statusLabel": "Оплата получена"
+    },
+    {
+      "status": "paid",
+      "receipt": "sent",
+      "evidence": [
+        "🧾 Чек передан на проверку. Не оплачивайте повторно."
+      ],
+      "transactionAction": false,
+      "transactionExplanation": false,
+      "futureReceiptPromise": false,
+      "statusLabel": "Оплата получена"
+    },
+    {
+      "status": "sent",
+      "receipt": "",
+      "evidence": [
+        "🔍 Доказательство выдачи — ссылка на транзакцию выше."
+      ],
+      "transactionAction": true,
+      "transactionExplanation": true,
+      "futureReceiptPromise": false,
+      "statusLabel": "Отправлено"
+    },
+    {
+      "status": "sent",
+      "receipt": "stored",
+      "evidence": [
+        "🧾 Файл чека получен. Его статус появится здесь."
+      ],
+      "transactionAction": true,
+      "transactionExplanation": false,
+      "futureReceiptPromise": true,
+      "statusLabel": "Отправлено"
+    },
+    {
+      "status": "sent",
+      "receipt": "sent",
+      "evidence": [
+        "🧾 Чек передан на проверку. Не оплачивайте повторно."
+      ],
+      "transactionAction": true,
+      "transactionExplanation": false,
+      "futureReceiptPromise": false,
+      "statusLabel": "Отправлено"
+    },
+    {
+      "status": "expired",
+      "receipt": "",
+      "evidence": [],
+      "transactionAction": false,
+      "transactionExplanation": false,
+      "futureReceiptPromise": false,
+      "statusLabel": "Истекла"
+    },
+    {
+      "status": "expired",
+      "receipt": "stored",
+      "evidence": [
+        "🧾 Файл чека получен. Его статус появится здесь."
+      ],
+      "transactionAction": false,
+      "transactionExplanation": false,
+      "futureReceiptPromise": true,
+      "statusLabel": "Истекла"
+    },
+    {
+      "status": "expired",
+      "receipt": "sent",
+      "evidence": [
+        "🧾 Чек передан на проверку. Не оплачивайте повторно."
+      ],
+      "transactionAction": false,
+      "transactionExplanation": false,
+      "futureReceiptPromise": false,
+      "statusLabel": "Истекла"
+    },
+    {
+      "status": "failed",
+      "receipt": "",
+      "evidence": [],
+      "transactionAction": false,
+      "transactionExplanation": false,
+      "futureReceiptPromise": false,
+      "statusLabel": "Закрыта"
+    },
+    {
+      "status": "failed",
+      "receipt": "stored",
+      "evidence": [
+        "🧾 Файл чека получен. Его статус появится здесь."
+      ],
+      "transactionAction": false,
+      "transactionExplanation": false,
+      "futureReceiptPromise": true,
+      "statusLabel": "Закрыта"
+    },
+    {
+      "status": "failed",
+      "receipt": "sent",
+      "evidence": [
+        "🧾 Чек передан на проверку. Не оплачивайте повторно."
+      ],
+      "transactionAction": false,
+      "transactionExplanation": false,
+      "futureReceiptPromise": false,
+      "statusLabel": "Закрыта"
+    },
+    {
+      "status": "cancelled",
+      "receipt": "",
+      "evidence": [],
+      "transactionAction": false,
+      "transactionExplanation": false,
+      "futureReceiptPromise": false,
+      "statusLabel": "Отменена"
+    },
+    {
+      "status": "cancelled",
+      "receipt": "stored",
+      "evidence": [
+        "🧾 Файл чека получен. Его статус появится здесь."
+      ],
+      "transactionAction": false,
+      "transactionExplanation": false,
+      "futureReceiptPromise": true,
+      "statusLabel": "Отменена"
+    },
+    {
+      "status": "cancelled",
+      "receipt": "sent",
+      "evidence": [
+        "🧾 Чек передан на проверку. Не оплачивайте повторно."
+      ],
+      "transactionAction": false,
+      "transactionExplanation": false,
+      "futureReceiptPromise": false,
+      "statusLabel": "Отменена"
+    }
+  ],
+  "after": [
+    {
+      "status": "pending",
+      "receipt": "",
+      "evidence": [],
+      "transactionAction": false,
+      "transactionExplanation": false,
+      "futureReceiptPromise": false,
+      "statusLabel": "Ожидание оплаты"
+    },
+    {
+      "status": "pending",
+      "receipt": "stored",
+      "evidence": [
+        "🧾 Файл чека получен. Статус проверки пока не подтверждён. Не оплачивайте повторно."
+      ],
+      "transactionAction": false,
+      "transactionExplanation": false,
+      "futureReceiptPromise": false,
+      "statusLabel": "Ожидание оплаты"
+    },
+    {
+      "status": "pending",
+      "receipt": "sent",
+      "evidence": [
+        "🧾 Чек передан на проверку. Не оплачивайте повторно."
+      ],
+      "transactionAction": false,
+      "transactionExplanation": false,
+      "futureReceiptPromise": false,
+      "statusLabel": "Чек на проверке"
+    },
+    {
+      "status": "paid",
+      "receipt": "",
+      "evidence": [],
+      "transactionAction": false,
+      "transactionExplanation": false,
+      "futureReceiptPromise": false,
+      "statusLabel": "Оплата получена"
+    },
+    {
+      "status": "paid",
+      "receipt": "stored",
+      "evidence": [
+        "🧾 Файл чека сохранён в истории заявки."
+      ],
+      "transactionAction": false,
+      "transactionExplanation": false,
+      "futureReceiptPromise": false,
+      "statusLabel": "Оплата получена"
+    },
+    {
+      "status": "paid",
+      "receipt": "sent",
+      "evidence": [
+        "🧾 Чек был передан на проверку."
+      ],
+      "transactionAction": false,
+      "transactionExplanation": false,
+      "futureReceiptPromise": false,
+      "statusLabel": "Оплата получена"
+    },
+    {
+      "status": "sent",
+      "receipt": "",
+      "evidence": [
+        "🔍 Ссылка на транзакцию отправки доступна ниже. Подтверждения проверьте в обозревателе сети."
+      ],
+      "transactionAction": true,
+      "transactionExplanation": true,
+      "futureReceiptPromise": false,
+      "statusLabel": "Отправлено"
+    },
+    {
+      "status": "sent",
+      "receipt": "stored",
+      "evidence": [
+        "🧾 Файл чека сохранён в истории заявки.",
+        "🔍 Ссылка на транзакцию отправки доступна ниже. Подтверждения проверьте в обозревателе сети."
+      ],
+      "transactionAction": true,
+      "transactionExplanation": true,
+      "futureReceiptPromise": false,
+      "statusLabel": "Отправлено"
+    },
+    {
+      "status": "sent",
+      "receipt": "sent",
+      "evidence": [
+        "🧾 Чек был передан на проверку.",
+        "🔍 Ссылка на транзакцию отправки доступна ниже. Подтверждения проверьте в обозревателе сети."
+      ],
+      "transactionAction": true,
+      "transactionExplanation": true,
+      "futureReceiptPromise": false,
+      "statusLabel": "Отправлено"
+    },
+    {
+      "status": "expired",
+      "receipt": "",
+      "evidence": [],
+      "transactionAction": false,
+      "transactionExplanation": false,
+      "futureReceiptPromise": false,
+      "statusLabel": "Истекла"
+    },
+    {
+      "status": "expired",
+      "receipt": "stored",
+      "evidence": [
+        "🧾 Файл чека сохранён в истории заявки."
+      ],
+      "transactionAction": false,
+      "transactionExplanation": false,
+      "futureReceiptPromise": false,
+      "statusLabel": "Истекла"
+    },
+    {
+      "status": "expired",
+      "receipt": "sent",
+      "evidence": [
+        "🧾 Чек был передан на проверку."
+      ],
+      "transactionAction": false,
+      "transactionExplanation": false,
+      "futureReceiptPromise": false,
+      "statusLabel": "Истекла"
+    },
+    {
+      "status": "failed",
+      "receipt": "",
+      "evidence": [],
+      "transactionAction": false,
+      "transactionExplanation": false,
+      "futureReceiptPromise": false,
+      "statusLabel": "Закрыта"
+    },
+    {
+      "status": "failed",
+      "receipt": "stored",
+      "evidence": [
+        "🧾 Файл чека сохранён в истории заявки."
+      ],
+      "transactionAction": false,
+      "transactionExplanation": false,
+      "futureReceiptPromise": false,
+      "statusLabel": "Закрыта"
+    },
+    {
+      "status": "failed",
+      "receipt": "sent",
+      "evidence": [
+        "🧾 Чек был передан на проверку."
+      ],
+      "transactionAction": false,
+      "transactionExplanation": false,
+      "futureReceiptPromise": false,
+      "statusLabel": "Закрыта"
+    },
+    {
+      "status": "cancelled",
+      "receipt": "",
+      "evidence": [],
+      "transactionAction": false,
+      "transactionExplanation": false,
+      "futureReceiptPromise": false,
+      "statusLabel": "Отменена"
+    },
+    {
+      "status": "cancelled",
+      "receipt": "stored",
+      "evidence": [
+        "🧾 Файл чека сохранён в истории заявки."
+      ],
+      "transactionAction": false,
+      "transactionExplanation": false,
+      "futureReceiptPromise": false,
+      "statusLabel": "Отменена"
+    },
+    {
+      "status": "cancelled",
+      "receipt": "sent",
+      "evidence": [
+        "🧾 Чек был передан на проверку."
+      ],
+      "transactionAction": false,
+      "transactionExplanation": false,
+      "futureReceiptPromise": false,
+      "statusLabel": "Отменена"
+    }
+  ],
+  "verifiedDifferences": [
+    "Before: both receipt variants suppress transaction explanation on sent orders. After: transaction explanation is present for every sent order with a valid backend explorer URL.",
+    "Before: stored receipts on five nonpending statuses promise future receipt status. After: no future receipt-status promise exists; nonpending receipt evidence remains a historical fact.",
+    "Pending sent review warning remains intact; pending stored now says review status is not confirmed and warns against duplicate payment."
+  ],
+  "limitations": [
+    "This separate Node VM probe verifies exact serialization/render text. Layout, actionability and navigation evidence are covered only by the isolated real-browser report."
+  ]
+}
