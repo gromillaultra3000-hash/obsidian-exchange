@@ -5,12 +5,13 @@ Updated: 2026-09-08 UTC
 ## Current goal and status
 
 
-- 2026-09-08 manual E4 / PAYMENT_STATUS_TERMINAL_REASON_CONSISTENCY is VERIFIED,
-  deployed 02:38 UTC, implementation `bfa8d9e`. Both payment-page forms retain
-  expired/failed/cancelled reasons beside independent stored/sent receipt facts;
-  terminal outcome wins over stale verification/timer and exposes no pay/copy/QR.
-  122 focused tests, 17 ops tests, 59 exact SQLite/handler checks, 336 isolated Chrome
-  checks, 136 security cases and both reviews PASS. Independent interrupted publish,
+- 2026-09-08 manual E4 / PAYMENT_STATUS_PENDING_RECEIPT_EVIDENCE_CONSISTENCY is VERIFIED,
+  deployed 02:59 UTC, implementation `033c567`. Both payment-page forms acknowledge
+  stored files with unavailable instructions; video/PDF requests stay visible.
+  Storage/delivery/payment remain distinct; unknown receipt values no longer
+  invent file evidence after expiry. Terminal and paid/sent precedence is preserved.
+  141 focused tests, 17 ops tests, 49 exact SQLite/handler checks, 142 isolated Chrome
+  checks, 122 security cases and both reviews PASS. Independent interrupted publish,
   lost restart acknowledgement, no-replay/reconcile/rollback probes pass; browser
   and temporary harness cleanup verified. Secret scans 0 without suppression.
   Only pay changed (155 other functions and API/read/auth/redirect code exact);
@@ -19,18 +20,20 @@ Updated: 2026-09-08 UTC
   Do not replace checkout order/session/receipt stores wholesale: unrelated drift
   persists. Prior owner-scoped read repair 25dccdd remains deployed; status GET
   still uses the canonical ledger without provider/payment transitions.
-  Relay 2945610/start 2026-09-08 02:38:15 UTC/NRestarts 0; Bot 3877887/Nginx 3877705/
+  Relay 2977932/start 2026-09-08 02:59:54 UTC/NRestarts 0; Bot 3877887/Nginx 3877705/
   Postgres 3136948 unchanged. Public200/405/history403/order0+pay0 both404.
-  Rollback: deployment-preimages/e4-payment-terminal-20260908-_yr3ap7p.
-  Evidence: docs/e4-payment-terminal-rollout.v1.json. No real authenticated
+  Rollback: deployment-preimages/e4-payment-pending-receipt-20260908-gp41_of5.
+  Evidence: docs/e4-payment-pending-receipt-rollout.v1.json. No real authenticated
   customer read, payment outcome, new money operation/credential/signature/064A
   authority. Routine restart resumes existing workers; zero background database
   or notification effects is not claimed. Autopilot stays failed/MainPID0 by
   owner's instruction; reconcile runner receipts/manual commits before later start.
-  Exactly next: E4 / PAYMENT_STATUS_PENDING_RECEIPT_EVIDENCE_CONSISTENCY.
-  Real Chrome+exact API fixtures show both pending+stored+unavailable page forms
-  omit acknowledgment of the received file while suppressing payment instructions.
-  Add receipt fact without claiming delivery/payment/review or changing outcome.
+  Exactly next: E4 / PAYMENT_STATUS_EXPIRY_TIME_FORMAT_CONSISTENCY. The retained
+  serializer emits +00:00 ISO for supported TIMESTAMPTZ; timer appends Z and actual
+  Chrome displays NaN:NaN. Handle offset/Z/naive UTC and invalid/missing dates without
+  inventing canonical expiry or changing API/database/writer behavior. Proof is
+  synthetic exact serializer/handler/browser, not a live customer incident.
+  Prior terminal-reason implementation bfa8d9e remains deployed.
   E4 and earlier gates plus Telegram/iOS/WebKit/assistive/human acceptance remain
   open. Historical E0 snapshot assertions/builders remain separately triaged,
   not an overall-project test PASS claim; frozen authority artifacts are unchanged.

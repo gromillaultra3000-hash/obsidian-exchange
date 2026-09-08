@@ -11,45 +11,48 @@ non-custodial wallet whose keys never reach the server.
 
 ## Active route
 
-`E4 / PAYMENT_STATUS_PENDING_RECEIPT_EVIDENCE_CONSISTENCY / acknowledge a stored receipt when a pending order has unavailable payment instructions`
+`E4 / PAYMENT_STATUS_EXPIRY_TIME_FORMAT_CONSISTENCY / parse supported payment-session timestamps without an invalid countdown`
 
 Owner decision 2026-09-08: continue code-first delivery and reversible rollouts
 manually. Autopilot remains failed / MainPID zero / UNCOMMITTED_NEW_FILES since
 Sep 7. Before any explicitly requested later start, reconcile its stale third
 receipt and all subsequent manual commits. No supervisor setting or unit changed.
 
-PAYMENT_STATUS_TERMINAL_REASON_CONSISTENCY is VERIFIED and deployed at
-2026-09-08 02:38 UTC, implementation `bfa8d9e`. Opaque and numeric payment pages
-retain distinct expired, failed and cancelled reasons. Stored/sent receipt facts
-appear independently, without payment confirmation or a promised review/payout.
-Canonical terminal status takes precedence over stale verification and timer
-state; payment/copy/QR controls remain absent. Paid/sent precedence is preserved.
+PAYMENT_STATUS_PENDING_RECEIPT_EVIDENCE_CONSISTENCY is VERIFIED and deployed at
+2026-09-08 02:59 UTC, implementation `033c567`. Both payment-page forms acknowledge
+a stored file when a pending order has unavailable payment instructions, without
+claiming delivery to the payment partner or confirmed payment. Existing video/PDF
+requests stay visible alongside receipt evidence. Delivered and absent receipts
+remain distinct; unknown receipt values cannot invent a stored file after local
+expiry. Terminal and paid/sent precedence and hidden payment/copy/QR controls
+remain preserved. Prior terminal-reason implementation `bfa8d9e` stays deployed.
 
-122 focused tests, 17 ops tests, 59 exact synthetic SQLite/handler checks,
-336 isolated Chrome checks and both independent reviews PASS. Security covers
-136 cases; independent interruption/reconcile/rollback probes pass. Only pay
+141 focused tests, 17 ops tests, 49 exact synthetic SQLite/handler checks,
+142 isolated Chrome checks and both independent reviews PASS. Security covers
+122 cases; independent interruption/reconcile/rollback probes pass. Only pay
 changed: 155 other functions, API/read/auth/redirect code and Python interpolation
 boundaries remain exact. No repeated PostgreSQL rehearsal was required for this
 presentation-only change; no broader database or project test PASS is inferred.
 Final staged and independent secret scans report zero without suppression.
 
-Only main.py was published, SHA256 `a399f55e...`; all 16 retained dependencies
+Only main.py was published, SHA256 `4ee1c62e...`; all 16 retained dependencies
 remain byte-exact, including HTML and the installed payment-status adapter/proof
 helper. Shared order/session/receipt checkout drift must not be deployed wholesale.
-Relay PID 2945610, start 2026-09-08 02:38:15 UTC, NRestarts 0. Bot 3877887,
+Relay PID 2977932, start 2026-09-08 02:59:54 UTC, NRestarts 0. Bot 3877887,
 Nginx 3877705 and PostgreSQL 3136948 identities are unchanged. Public checks:
 /webapp GET200/POST405/exact template, anonymous history403, proofless
 /api/order/0 and /pay/0 both404. Rollback preimage and metadata retained at
-`/var/lib/obsidian-exchange/deployment-preimages/e4-payment-terminal-20260908-_yr3ap7p`.
-Evidence: `docs/e4-payment-terminal-rollout.v1.json` and its directory.
+`/var/lib/obsidian-exchange/deployment-preimages/e4-payment-pending-receipt-20260908-gp41_of5`.
+Evidence: `docs/e4-payment-pending-receipt-rollout.v1.json` and its directory.
 
-Exactly next: PAYMENT_STATUS_PENDING_RECEIPT_EVIDENCE_CONSISTENCY. Exact API and
-actual Chrome fixtures show pending+stored+unavailable sessions on both payment
-pages omit acknowledgment of the received file, though payment controls stay
-hidden. Add the stored-file fact without claiming partner delivery, confirmed
-payment, a review assignment or changing the canonical outcome. Preserve absent
-and sent receipt distinctions. Evidence:
-`docs/e4-payment-terminal/next-prerequisite.json`.
+Exactly next: PAYMENT_STATUS_EXPIRY_TIME_FORMAT_CONSISTENCY. The retained serializer
+emits an aware ISO timestamp with `+00:00` for the supported TIMESTAMPTZ column.
+The payment timer appends `Z`, making that valid timestamp invalid; actual Chrome
+renders `NaN:NaN`. Repair parsing of offset, Z and supported naive UTC forms;
+missing/invalid metadata must not invent an expiry outcome. Preserve canonical
+status, receipt/verification precedence, polling and all API/database/writer code.
+This proves a supported-format mismatch, not a live customer incident. Evidence:
+`docs/e4-payment-pending-receipt/next-prerequisite.json`.
 
 E4 remains IN_PROGRESS; no earlier gate closure or new money/064A authority.
 No real authenticated production request, customer incident or payment outcome

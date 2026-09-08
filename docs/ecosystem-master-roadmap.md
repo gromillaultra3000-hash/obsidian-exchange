@@ -849,6 +849,23 @@ Chrome fixtures show both pending+stored+unavailable page forms omit the receive
 file fact while suppressing payment actions. No new money/064A authority or
 prior gate closure; autopilot stays stopped.
 
+2026-09-08: manual PAYMENT_STATUS_PENDING_RECEIPT_EVIDENCE_CONSISTENCY is VERIFIED
+and production-deployed at 02:59 UTC (`033c567`). Both payment-page forms acknowledge
+stored files when pending-order instructions are unavailable, while preserving
+video/PDF requests and distinct delivered/absent receipt states. Unknown receipt
+values no longer invent storage after expiry. Canonical outcome and paid/sent
+precedence, hidden payment controls and API/read/auth/redirect boundaries remain
+preserved. 141 focused tests, 17 ops tests, 49 handler/122 security checks, 142 Chrome
+checks and both independent reviews PASS. Only main.py deployed with 16 installed
+dependencies preserved; only Relay restarted, public checks and rollback verified.
+Evidence: `docs/e4-payment-pending-receipt-rollout.v1.json`. E4 remains IN_PROGRESS.
+Exactly next: PAYMENT_STATUS_EXPIRY_TIME_FORMAT_CONSISTENCY. The retained serializer
+emits valid +00:00 ISO timestamps for supported TIMESTAMPTZ; the timer appends Z,
+and actual Chrome renders NaN:NaN. Preserve offset/Z/naive UTC, canonical outcomes
+and read/writer boundaries; invalid metadata must not invent expiry. This is a
+synthetic supported-format proof, not a live customer incident. No prior gate
+closure or new money/064A authority; autopilot remains stopped.
+
 ### E5 — нативный некастодиальный кошелёк
 
 E0.4 inventory evidence (2026-08-18): the checkout has a Rust/UniFFI Bitcoin

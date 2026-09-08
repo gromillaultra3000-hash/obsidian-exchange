@@ -1,0 +1,407 @@
+{
+  "recordedAt": "2026-09-08T03:01:25.395951+00:00",
+  "result": "PASS",
+  "route": "E4 / PAYMENT_STATUS_PENDING_RECEIPT_EVIDENCE_CONSISTENCY",
+  "reviewer": "session_ops",
+  "implementationCommit": "033c567d4909ab0846c0b2b1407cb96b5d3965c5",
+  "headAndLocalOriginMasterMatchImplementation": true,
+  "inputs": [
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "4ee1c62ee72734f0f403ec1a438f829fb800989f893dca2b24a184eb5cd1ecf7"
+    },
+    {
+      "path": "deploy/e4_payment_pending_receipt_rollout.py",
+      "sha256": "302ec469faf1523393228879a144c9c3151d027b37ca0c66d2319a4d7bb59940"
+    },
+    {
+      "path": "docs/e4-payment-pending-receipt/deployment.json",
+      "sha256": "4ed36c0c9891b86e8835f512b819768deecfcef81744b71aca997b2e1585f9d3"
+    },
+    {
+      "path": "docs/e4-payment-pending-receipt/ops-reconciliation.json",
+      "sha256": "4f5e8d726b464d8e50fb71c444f00f2b9e1a152720b35487b2b5530c630b039f"
+    },
+    {
+      "path": "docs/e4-payment-pending-receipt/ops-baseline.json",
+      "sha256": "1b5879466d8838f328ca27c7a63a9882f715303246f46f78b6e6a6ec8ed00a43"
+    },
+    {
+      "path": "docs/e4-payment-pending-receipt/ops-release-manifest.json",
+      "sha256": "8fe2229420716f7cee083896030d8784498750a06cd7f61aedcafc47a89214c0"
+    },
+    {
+      "path": "docs/e4-payment-pending-receipt/preflight.json",
+      "sha256": "f22283114e5a5435546e44b3c3b149b568ca65dbe7dd9104b1d88995b51fb00f"
+    },
+    {
+      "path": "docs/e4-payment-pending-receipt/rollback-rehearsal.json",
+      "sha256": "009d703704d4965830c54c7276e295e736a8d2f4698f7b3cee003a7a4f34812c"
+    },
+    {
+      "path": "docs/e4-payment-pending-receipt/tests.json",
+      "sha256": "656a6bcce2bcab6209db0816a561ccda8f28a107ee219711de028407c20902c4"
+    },
+    {
+      "path": "docs/e4-payment-pending-receipt/acceptance-review.json",
+      "sha256": "3ad2cc0fcd6db82989fc407076b58efe26805847ac75ccab46eb369b6b5edd84"
+    },
+    {
+      "path": "docs/e4-payment-pending-receipt/security-review.json",
+      "sha256": "e9e583c02b8255c2e25d8fa432c0150e5a2fc9676c5589fd6043e9751fe15338"
+    },
+    {
+      "path": "docs/e4-payment-pending-receipt/payment-browser-report.json",
+      "sha256": "cab463e26422456b1b9dc62e0f8dddae5fc21bd5b6f780279d133e07ee514cee"
+    },
+    {
+      "path": "docs/e4-payment-pending-receipt/payment-browser-isolation.json",
+      "sha256": "7cb23cd435059eb87977cb4e88c0576bd0b6ffff869f55411389558246e31730"
+    }
+  ],
+  "committedSource": [
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "4ee1c62ee72734f0f403ec1a438f829fb800989f893dca2b24a184eb5cd1ecf7"
+    },
+    {
+      "path": "deploy/e4_payment_pending_receipt_rollout.py",
+      "sha256": "302ec469faf1523393228879a144c9c3151d027b37ca0c66d2319a4d7bb59940"
+    }
+  ],
+  "liveSource": [
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "4ee1c62ee72734f0f403ec1a438f829fb800989f893dca2b24a184eb5cd1ecf7"
+    }
+  ],
+  "preserved": [
+    {
+      "path": "relay/repositories/order_read_store.py",
+      "sha256": "2cc91c733a8388ac2f643016fe192f7687ef0c44b79305d23fed50dcfd2ca06d"
+    },
+    {
+      "path": "relay/repositories/payment_session_store.py",
+      "sha256": "eb41d099a06beac4251190d10221467bdca4b21db7bc97dba687dd8d40653b8e"
+    },
+    {
+      "path": "relay/repositories/receipt_store.py",
+      "sha256": "252ada0ad673dfb60ad3f18913b11aa0a6bfa90d647978af71a97651cc54e123"
+    },
+    {
+      "path": "relay/core/db_runtime.py",
+      "sha256": "9e0572dc70d5d883f7009c1f6701bdd8d34ec8fcc26a3d4c7a050a7938212237"
+    },
+    {
+      "path": "relay/core/payout_queue.py",
+      "sha256": "23aea1f15c254cc05c6732119158076d2b946fda3a6d3d5409b7e9a54086c93c"
+    },
+    {
+      "path": "relay/core/txid.py",
+      "sha256": "726b98d97696578b0883f5a14eca119f9bc4ce0fd92f409617edf1190129f824"
+    },
+    {
+      "path": "relay/repositories/activity_read_store.py",
+      "sha256": "32166cac62d1f92f21b1cdcaad46edda968c75832db7311969dff9228cd82f6e"
+    },
+    {
+      "path": "relay/repositories/operational_read_store.py",
+      "sha256": "c4df1ca1bc1b6c5d66234c8a314896b31cfb1c96c2900e7240ac36ee5c517259"
+    },
+    {
+      "path": "relay/services/state_machine.py",
+      "sha256": "0582042d29f4d1fe78fb33b58a84dc5538e49b4142b036ad7ddec9fb3886557e"
+    },
+    {
+      "path": "relay-fastapi/auth.py",
+      "sha256": "cb0c3831f2d862a5519824b317dd537f7e592fdeb678a7d34a083b26436c9746"
+    },
+    {
+      "path": "relay/core/requisites.py",
+      "sha256": "a6c9eb87a236081095eb8213828b4ea33e9296d6f1bb8696d2e91c9733aca507"
+    },
+    {
+      "path": "relay/services/requisite_origin.py",
+      "sha256": "5552f1c274bc2e7721068bf7db69564ca360d5065920cebbb17c022df4335398"
+    },
+    {
+      "path": "relay/core/telegram_freshness.py",
+      "sha256": "40bef427a0daa3069e05565fdb65217836414ed581960b64f1cff5c1c266d601"
+    },
+    {
+      "path": "relay/webapp.html",
+      "sha256": "8347b9df45a27b7077dabae8aa3e68dbfa763f0ed67220a93aca7f58ce11a908"
+    },
+    {
+      "path": "relay/repositories/payment_status_read_store.py",
+      "sha256": "5cbd26d0335c0cf713aa4be9c87999773bbcc37ab89202a554a4811b6702b6f9"
+    },
+    {
+      "path": "relay/core/order_access.py",
+      "sha256": "15d996a1450ff898ef62b3e43c048069c2c4dc60863399bcba144cfd46c69a0f"
+    }
+  ],
+  "preservedCount": 16,
+  "metadata": [
+    {
+      "path": "relay-fastapi/main.py",
+      "uid": 0,
+      "gid": 0,
+      "mode": 420,
+      "mtimeNs": 1787738836204001133,
+      "xattrs": {},
+      "baselineMetadataExact": true
+    },
+    {
+      "path": "relay/repositories/order_read_store.py",
+      "uid": 0,
+      "gid": 0,
+      "mode": 420,
+      "mtimeNs": 1786974796191260096,
+      "xattrs": {},
+      "baselineMetadataExact": true
+    },
+    {
+      "path": "relay/repositories/payment_session_store.py",
+      "uid": 0,
+      "gid": 0,
+      "mode": 420,
+      "mtimeNs": 1786322782745155657,
+      "xattrs": {},
+      "baselineMetadataExact": true
+    },
+    {
+      "path": "relay/repositories/receipt_store.py",
+      "uid": 0,
+      "gid": 0,
+      "mode": 420,
+      "mtimeNs": 1786318260448021252,
+      "xattrs": {},
+      "baselineMetadataExact": true
+    },
+    {
+      "path": "relay/core/db_runtime.py",
+      "uid": 0,
+      "gid": 0,
+      "mode": 420,
+      "mtimeNs": 1786233545336688724,
+      "xattrs": {},
+      "baselineMetadataExact": true
+    },
+    {
+      "path": "relay/core/payout_queue.py",
+      "uid": 0,
+      "gid": 0,
+      "mode": 420,
+      "mtimeNs": 1786249395844536487,
+      "xattrs": {},
+      "baselineMetadataExact": true
+    },
+    {
+      "path": "relay/core/txid.py",
+      "uid": 0,
+      "gid": 0,
+      "mode": 420,
+      "mtimeNs": 1785963094784182835,
+      "xattrs": {},
+      "baselineMetadataExact": true
+    },
+    {
+      "path": "relay/repositories/activity_read_store.py",
+      "uid": 0,
+      "gid": 0,
+      "mode": 420,
+      "mtimeNs": 1788832160086162588,
+      "xattrs": {},
+      "baselineMetadataExact": true
+    },
+    {
+      "path": "relay/repositories/operational_read_store.py",
+      "uid": 0,
+      "gid": 0,
+      "mode": 420,
+      "mtimeNs": 1786309837960439739,
+      "xattrs": {},
+      "baselineMetadataExact": true
+    },
+    {
+      "path": "relay/services/state_machine.py",
+      "uid": 0,
+      "gid": 0,
+      "mode": 420,
+      "mtimeNs": 1779848078480535339,
+      "xattrs": {},
+      "baselineMetadataExact": true
+    },
+    {
+      "path": "relay-fastapi/auth.py",
+      "uid": 0,
+      "gid": 0,
+      "mode": 420,
+      "mtimeNs": 1786336037976607385,
+      "xattrs": {},
+      "baselineMetadataExact": true
+    },
+    {
+      "path": "relay/core/requisites.py",
+      "uid": 0,
+      "gid": 0,
+      "mode": 420,
+      "mtimeNs": 1784502624744464342,
+      "xattrs": {},
+      "baselineMetadataExact": true
+    },
+    {
+      "path": "relay/services/requisite_origin.py",
+      "uid": 0,
+      "gid": 0,
+      "mode": 420,
+      "mtimeNs": 1784245348567243310,
+      "xattrs": {},
+      "baselineMetadataExact": true
+    },
+    {
+      "path": "relay/core/telegram_freshness.py",
+      "uid": 0,
+      "gid": 0,
+      "mode": 420,
+      "mtimeNs": 1786336037973607283,
+      "xattrs": {},
+      "baselineMetadataExact": true
+    },
+    {
+      "path": "relay/webapp.html",
+      "uid": 0,
+      "gid": 0,
+      "mode": 420,
+      "mtimeNs": 1788831818873731606,
+      "xattrs": {},
+      "baselineMetadataExact": true
+    },
+    {
+      "path": "relay/repositories/payment_status_read_store.py",
+      "uid": 0,
+      "gid": 0,
+      "mode": 420,
+      "mtimeNs": 1788833444532225750,
+      "xattrs": {},
+      "baselineMetadataExact": true
+    },
+    {
+      "path": "relay/core/order_access.py",
+      "uid": 0,
+      "gid": 0,
+      "mode": 420,
+      "mtimeNs": 1788833191861625324,
+      "xattrs": {},
+      "baselineMetadataExact": true
+    }
+  ],
+  "rollbackDirectory": "/var/lib/obsidian-exchange/deployment-preimages/e4-payment-pending-receipt-20260908-gp41_of5",
+  "rollbackPreimages": [
+    {
+      "path": "/var/lib/obsidian-exchange/deployment-preimages/e4-payment-pending-receipt-20260908-gp41_of5/relay-fastapi/main.py",
+      "sha256": "a399f55e9efb4e5092a072cf30baf6f2c6791ddbcb5dcdbee210526d8665ffc5"
+    },
+    {
+      "path": "/var/lib/obsidian-exchange/deployment-preimages/e4-payment-pending-receipt-20260908-gp41_of5/metadata.json",
+      "sha256": "09ace3de14a122b2e1940e071abd63330679c429b783afd7779f1b338c7aae7c"
+    }
+  ],
+  "rollbackMetadataMatchesDeploymentJournal": true,
+  "rollbackDirectoryMode": "0700",
+  "rollbackPreimageMode": "0600",
+  "sealedReportsMatchCommittedBytes": true,
+  "services": {
+    "relay-fastapi.service": {
+      "MainPID": "2977932",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Tue 2026-09-08 02:59:54 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    },
+    "exchange-bot.service": {
+      "MainPID": "3877887",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Tue 2026-09-01 06:20:00 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    },
+    "nginx.service": {
+      "MainPID": "3877705",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:56 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    },
+    "obsidian-postgres.service": {
+      "MainPID": "3136948",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Mon 2026-08-24 05:08:51 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    }
+  },
+  "onlyRelayIdentityChanged": true,
+  "autopilot": {
+    "MainPID": "0",
+    "NRestarts": "0",
+    "ExecMainStartTimestamp": "Mon 2026-09-07 04:40:24 UTC",
+    "ActiveState": "failed",
+    "SubState": "failed"
+  },
+  "publicChecks": [
+    {
+      "path": "/webapp",
+      "method": "GET",
+      "status": 200,
+      "authenticated": false,
+      "publicMatchesDeployedTemplate": true,
+      "inputs": [
+        {
+          "path": "https://obsidian-exchange.org/webapp",
+          "sha256": "0944b4ddf679d021e3347a492404824dc7734a2c40c353e3b769c40cbf90dbf4"
+        }
+      ]
+    },
+    {
+      "path": "/webapp",
+      "method": "POST",
+      "status": 405,
+      "authenticated": false
+    },
+    {
+      "path": "/api/history",
+      "method": "GET",
+      "status": 403,
+      "authenticated": false,
+      "customerRowsReturned": 0
+    },
+    {
+      "path": "/api/order/0",
+      "method": "GET",
+      "status": 404,
+      "authenticated": false
+    },
+    {
+      "path": "/pay/0",
+      "method": "GET",
+      "status": 404,
+      "authenticated": false
+    }
+  ],
+  "preExistingSharedRepositoryDriftExcluded": [
+    "relay/repositories/order_read_store.py",
+    "relay/repositories/payment_session_store.py",
+    "relay/repositories/receipt_store.py"
+  ],
+  "runtimeMutated": false,
+  "customerDataRead": false,
+  "databaseRead": false,
+  "rollbackExecuted": false,
+  "deploymentOrRestartReplaySubmitted": false,
+  "limits": [
+    "Preserved metadata check covers uid, gid, mode, mtime and xattrs; access time may change during reads.",
+    "No production rollback executed; rollback availability verified through exact preimages and prior isolated rehearsal."
+  ]
+}
