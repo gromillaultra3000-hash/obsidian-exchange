@@ -801,7 +801,8 @@
             <div style="font-size:11px;color:var(--muted);line-height:1.45;margin:4px 0 10px">Статусы заявок приходят в Telegram. Уведомления о курсе настраиваются в существующем профиле бота; приложение не меняет их само.</div>
             <button type="button" onclick="openBotProfile()" style="border:0;border-radius:9px;padding:8px 11px;background:rgba(159,103,255,.18);color:var(--text);font-weight:700;cursor:pointer">Настроить уведомления</button>
           </div>
-          <div id="history-list"></div>
+          <div id="history-load-status" role="status" aria-live="polite" aria-atomic="true" style="margin-bottom:8px;font-size:12px;color:var(--muted)"></div>
+          <div id="history-list" aria-busy="false"></div>
           <div id="activity-support" style="margin-top:14px;padding:12px 14px;border-radius:14px;background:rgba(159,103,255,.07);border:1px solid rgba(159,103,255,.20)">
             <div style="font-size:13px;font-weight:800">Нужна помощь по заявке?</div>
             <div style="font-size:11px;color:var(--muted);line-height:1.45;margin:4px 0 10px">Откройте поддержку и укажите номер заявки — это ускорит разбор. Данные из приложения не отправляются автоматически.</div>
@@ -3513,6 +3514,8 @@
 
         let historyOrders = [];
         let historyFilter = 'all';
+        let historyRequestSequence = 0;
+        let historyLoadState = 'idle';
         function historyStatus(o) {
             const onReview = o.status === 'pending' && o.receipt === 'sent';
             const hasFile = o.status === 'pending' && !!o.receipt;
@@ -3561,13 +3564,9 @@
                 ? 'Нет активных заявок. История, доказательства и поддержка — в одном разделе.'
                 : 'Заявок пока нет. Здесь появятся статусы, доказательства и поддержка.';
         }
-        async function loadEcosystemActivity() {
-            try {
-                const res = await fetch(`/api/history?user_id=${userId}`, {
-                    cache: 'no-store', headers: { 'X-Telegram-Init-Data': tg.initData || '' }});
-                const orders = res.ok ? await res.json().catch(() => null) : null;
-                renderEcosystemActivity(Array.isArray(orders) ? orders : null);
-            } catch (_) { renderEcosystemActivity(null); }
+        function loadEcosystemActivity() {
+            // Overview and history share one snapshot and request owner.
+            return loadHistory();
         }
         let orderIdCopyPending = false;
         async function copyOrderId(orderId, button) {
@@ -3614,6 +3613,18 @@
         function renderHistoryOrders() {
             const list = document.getElementById('history-list');
             if (!list) return;
+            list.setAttribute('aria-busy', String(historyLoadState === 'loading'));
+            const status = document.getElementById('history-load-status');
+            if (status) status.textContent = historyLoadState === 'loading' ? 'Обновляем активность…'
+                : historyLoadState === 'error' ? 'Не удалось обновить активность.'
+                : historyLoadState === 'ready' ? 'Активность обновлена.' : '';
+            if (historyLoadState === 'loading' || historyLoadState === 'error') {
+                renderHistorySummary([]);
+                list.innerHTML = historyLoadState === 'loading'
+                    ? '<div class="skeleton-line"></div><div class="skeleton-line"></div><div class="skeleton-line" style="width:60%"></div>'
+                    : '<div class="history-item">История сейчас недоступна. Попробуйте обновить.</div>';
+                return;
+            }
             renderHistorySummary(historyOrders);
             const orders = historyFilter === 'all' ? historyOrders : historyOrders.filter(o => o.status === historyFilter);
             if (!historyOrders.length) { list.innerHTML = '<div class="history-item">У вас пока нет заявок.</div>'; return; }
@@ -3673,20 +3684,27 @@
         async function loadHistory() {
             const list = document.getElementById('history-list');
             if (!list) return;
-            list.innerHTML = '<div class="skeleton-line"></div><div class="skeleton-line"></div><div class="skeleton-line" style="width:60%"></div>';
+            const request = ++historyRequestSequence;
+            historyLoadState = 'loading';
+            historyOrders = [];
+            renderHistoryOrders();
+            const activity = document.getElementById('ecosystem-activity-status');
+            if (activity) activity.textContent = 'Обновляем статусы заявок…';
             try {
                 const res = await fetch(`/api/history?user_id=${userId}`, { cache: 'no-store', headers: { 'X-Telegram-Init-Data': tg.initData || '' } });
                 const orders = res.ok ? await res.json().catch(() => null) : null;
+                if (request !== historyRequestSequence) return;
                 if (!Array.isArray(orders)) throw new Error('history unavailable');
                 historyOrders = orders;
+                historyLoadState = 'ready';
                 renderEcosystemActivity(orders);
                 renderHistoryOrders();
             } catch(e) {
+                if (request !== historyRequestSequence) return;
                 historyOrders = [];
+                historyLoadState = 'error';
                 renderEcosystemActivity(null);
-                const summary = document.getElementById('history-summary');
-                if (summary) summary.style.display = 'none';
-                list.innerHTML = '<div class="history-item">История сейчас недоступна. Попробуйте обновить.</div>';
+                renderHistoryOrders();
             }
         }
         (function wireHistoryControls() {

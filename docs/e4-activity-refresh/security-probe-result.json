@@ -1,0 +1,29 @@
+{
+  "reviewer": "/root/support_security",
+  "node": "v22.22.3",
+  "source": "/root/relay/webapp.html",
+  "sourceSha256": "6842d35ccb8d7bbbf2cac709cbc02c64d47bff527a5acda9699c4897d8b1da05",
+  "result": "PASS",
+  "interleavings": 288,
+  "edgeChecks": [
+    "obsolete_network_error_ignored_while_newer_loading",
+    "obsolete_network_error_ignored_while_newer_ready",
+    "obsolete_http_error_ignored_while_newer_loading",
+    "obsolete_http_error_ignored_while_newer_ready",
+    "obsolete_json_throw_ignored_while_newer_loading",
+    "obsolete_json_throw_ignored_while_newer_ready",
+    "obsolete_json_reject_ignored_while_newer_loading",
+    "obsolete_json_reject_ignored_while_newer_ready",
+    "obsolete_invalid_body_ignored_while_newer_loading",
+    "obsolete_invalid_body_ignored_while_newer_ready",
+    "obsolete_null_row_ignored_while_newer_loading",
+    "obsolete_null_row_ignored_while_newer_ready",
+    "filter_no_loading_error_resurrection_then_latest_success_respects_current_filter",
+    "http_error_fails_closed",
+    "json_throw_fails_closed",
+    "json_reject_fails_closed",
+    "null_row_fails_closed",
+    "nonarray_fails_closed"
+  ],
+  "scope": "Exact shipped JavaScript executed in synthetic VM; fetch never contacts network, navigation and clipboard throw; no money/customer/service/064A actions."
+}

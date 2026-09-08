@@ -1,0 +1,26 @@
+AssertionError [ERR_ASSERTION]: obsolete completion must have zero visible state effect
++ actual - expected
+
+  {
++   busy: 'false',
++   html: `<div class="history-item pending"><span class="h-icon">⏳</span><div class="h-title">#STALE-PENDING — TON</div><div class="h-meta">2000 RUB</div><div class="h-status-row"><small>synthetic date</small><span class="status">Ожидание оплаты</span></div><a href="#" class="btn-pay" onclick="tg.openLink('https://synthetic.invalid/pay/synthetic-pay-token');return false">💳 Оплатить</a><button type="button" class="history-copy-id" data-order-id="STALE-PENDING" aria-label="Скопировать номер заявки STALE-PENDING" style="margin:10px 0 0;border:1px solid rgba(255,255,255,.14);background:none;color:var(--muted);border-radius:9px;padding:6px 9px;font-size:11px;cursor:pointer">Копировать №</button><button type="button" class="history-support-order" aria-label="Открыть поддержку по заявке STALE-PENDING" style="margin:10px 0 0 7px;border:1px solid rgba(159,103,255,.35);background:rgba(159,103,255,.08);color:var(--text);border-radius:9px;padding:6px 9px;font-size:11px;cursor:pointer">💬 Поддержка по заявке</button><div class="history-copy-status" role="status" aria-live="polite" aria-atomic="true" style="margin-top:8px;font-size:11px;line-height:1.45;color:var(--muted)">Номер заявки отправьте в поддержку сами. Для копирования нажмите «Копировать №».</div></div>`,
++   overview: 'Требуют внимания: 1 ожидают · 0 в работе. Откройте статусы, доказательства и поддержку.',
++   status: 'Активность обновлена.',
++   summary: '<div style="padding:9px 10px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07)"><div style="font-size:18px;font-weight:800;color:#fbbf24">1</div><div style="font-size:10px;color:var(--muted)">Ожидают</div></div><div style="padding:9px 10px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07)"><div style="font-size:18px;font-weight:800;color:#a78bfa">0</div><div style="font-size:10px;color:var(--muted)">В работе</div></div><div style="padding:9px 10px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07)"><div style="font-size:18px;font-weight:800;color:#34d399">0</div><div style="font-size:10px;color:var(--muted)">Завершены</div></div>',
++   summaryDisplay: 'grid'
+-   busy: 'true',
+-   html: '<div class="skeleton-line"></div><div class="skeleton-line"></div><div class="skeleton-line" style="width:60%"></div>',
+-   overview: 'Обновляем статусы заявок…',
+-   status: 'Обновляем активность…',
+-   summary: '<div style="padding:9px 10px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07)"><div style="font-size:18px;font-weight:800;color:#fbbf24">0</div><div style="font-size:10px;color:var(--muted)">Ожидают</div></div><div style="padding:9px 10px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07)"><div style="font-size:18px;font-weight:800;color:#a78bfa">0</div><div style="font-size:10px;color:var(--muted)">В работе</div></div><div style="padding:9px 10px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07)"><div style="font-size:18px;font-weight:800;color:#34d399">0</div><div style="font-size:10px;color:var(--muted)">Завершены</div></div>',
+-   summaryDisplay: 'none'
+  }
+
+    at main (/root/output/playwright/e4-activity-refresh-20260908/security/probe.cjs:73:21) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: [Object],
+  expected: [Object],
+  operator: 'deepStrictEqual',
+  diff: 'simple'
+}

@@ -40,6 +40,9 @@ async function main() {
         const pendingReceiveRoutes = [];
         let orderRequested;
         const pendingOrderRoutes = [];
+        let holdHistory = false;
+        let historyRequested;
+        const pendingHistoryRoutes = [];
         await context.addInitScript(() => {
             window.Telegram = {WebApp: {initData: '', initDataUnsafe: {},
                 expand() {}, ready() {}, onEvent() {},
@@ -59,6 +62,11 @@ async function main() {
         await context.route('**/*', async route => {
             const req = route.request();
             const url = new URL(req.url());
+            if (holdHistory && url.origin === origin && req.method() === 'GET' && url.pathname === '/api/history') {
+                pendingHistoryRoutes.push(route);
+                if (historyRequested) historyRequested();
+                return;
+            }
             if (url.origin === origin && req.method() === 'GET' && url.pathname.startsWith('/api/order/synthetic-')) {
                 pendingOrderRoutes.push(route);
                 if (orderRequested) orderRequested();
@@ -900,6 +908,142 @@ async function main() {
         await orderCopy.scrollIntoViewIfNeeded();
         await page.screenshot({path: path.join(outputDir, `${viewport.width}-order-copy-success.png`)});
         report.checks.push(`${viewport.width}: Space retry copies exact literal order ID through native Chrome clipboard; fallback support opens fixed URL synchronously without changing clipboard`);
+        // Both visible activity entry points share controlled read-only GETs.
+        // Hold response bodies separately from headers to test the second await.
+        holdHistory = true;
+        await page.evaluate(() => {
+            window.__historyBodyCompletions = 0;
+            window.__historyFetchFailures = 0;
+            window.__historyBodies = [];
+            const fetchBeforeHistory = window.fetch;
+            window.fetch = async (...args) => {
+                const isHistory = String(args[0]).startsWith('/api/history?');
+                let response;
+                try {response = await fetchBeforeHistory(...args);}
+                catch (error) {
+                    if (isHistory) window.__historyFetchFailures++;
+                    throw error;
+                }
+                if (!isHistory) return response;
+                const json = response.json.bind(response);
+                response.json = async () => {
+                    try {
+                        if (response.headers.get('X-Synthetic-History-Body') === 'hold') {
+                            return await new Promise((resolve, reject) => window.__historyBodies.push({
+                                resolve: async () => resolve(await json()), reject}));
+                        }
+                        return await json();
+                    } finally {window.__historyBodyCompletions++;}
+                };
+                return response;
+            };
+        });
+        const activityStatus = page.locator('#history-load-status');
+        const activityList = page.locator('#history-list');
+        const oldActivityOrder = {order_id: 'synthetic-refresh-42', currency: 'TON', amount: 2000,
+            status: 'pending', session_token: 'synthetic-obsolete', created: '2026-09-08 00:00'};
+        const freshActivityOrder = {...oldActivityOrder, status: 'sent',
+            tx_url: 'https://explorer.invalid/synthetic-latest'};
+        async function beginActivity(selector = '#history-refresh') {
+            const requested = new Promise(resolve => {historyRequested = resolve;});
+            await page.locator(selector).click();
+            await requested;
+            historyRequested = null;
+            return pendingHistoryRoutes.length - 1;
+        }
+        async function replyActivity(index, orders, holdBody = false) {
+            const before = await page.evaluate(() => window.__historyBodyCompletions);
+            const bodiesBefore = await page.evaluate(() => window.__historyBodies.length);
+            await pendingHistoryRoutes[index].fulfill({contentType: 'application/json',
+                headers: holdBody ? {'X-Synthetic-History-Body': 'hold'} : {}, body: JSON.stringify(orders)});
+            if (holdBody) await page.waitForFunction(n => window.__historyBodies.length > n, bodiesBefore);
+            else await page.waitForFunction(n => window.__historyBodyCompletions > n, before);
+        }
+        async function freshActivity() {
+            assert.equal(await activityList.getAttribute('aria-busy'), 'false');
+            assert.equal(await activityStatus.textContent(), 'Активность обновлена.');
+            assert.equal(await activityList.locator('.history-item .status').textContent(), 'Отправлено');
+            assert.equal(await activityList.locator('.btn-pay').textContent(), '🔍 Транзакция');
+            assert.ok((await activityList.locator('.history-evidence').textContent()).includes('Доказательство выдачи'));
+            assert.ok((await page.locator('#ecosystem-activity-status').textContent()).includes('Нет активных заявок'));
+            assert.ok(!(await activityList.textContent()).includes('Оплатить'));
+        }
+        assert.equal(await activityStatus.getAttribute('role'), 'status');
+        assert.equal(await activityStatus.getAttribute('aria-live'), 'polite');
+        assert.equal(await activityStatus.getAttribute('aria-atomic'), 'true');
+        const historyOlder = await beginActivity();
+        const overviewNewer = await beginActivity('#tab-ecosystem');
+        await replyActivity(overviewNewer, [freshActivityOrder]);
+        await freshActivity();
+        await replyActivity(historyOlder, [oldActivityOrder]);
+        await freshActivity();
+        const overviewOlder = await beginActivity('#tab-ecosystem');
+        const historyNewer = await beginActivity('#tab-history');
+        await replyActivity(historyNewer, [freshActivityOrder]);
+        const failuresBefore = await page.evaluate(() => window.__historyFetchFailures);
+        await pendingHistoryRoutes[overviewOlder].abort('failed');
+        await page.waitForFunction(n => window.__historyFetchFailures > n, failuresBefore);
+        await freshActivity();
+        report.checks.push(`${viewport.width}: actual history/overview clicks share newest response ownership; obsolete success/failure cannot restore payment actions or contradict completed evidence/summary`);
+
+        for (const rejectBody of [false, true]) {
+            const earlier = await beginActivity();
+            await replyActivity(earlier, [oldActivityOrder], true);
+            const bodyIndex = await page.evaluate(() => window.__historyBodies.length - 1);
+            const later = await beginActivity();
+            await replyActivity(later, [freshActivityOrder]);
+            const completionsBefore = await page.evaluate(() => window.__historyBodyCompletions);
+            await page.evaluate(({bodyIndex, rejectBody}) => {
+                const body = window.__historyBodies[bodyIndex];
+                if (rejectBody) body.reject(new Error('synthetic old JSON body failure')); else body.resolve();
+            }, {bodyIndex, rejectBody});
+            await page.waitForFunction(n => window.__historyBodyCompletions > n, completionsBefore);
+            await freshActivity();
+        }
+        report.checks.push(`${viewport.width}: delayed old JSON body success and rejection remain inert after a newer complete activity response`);
+
+        const seed = await beginActivity(); await replyActivity(seed, [oldActivityOrder]);
+        assert.ok((await activityList.locator('.btn-pay').textContent()).includes('Оплатить'));
+        const failing = await beginActivity();
+        assert.equal(await activityList.getAttribute('aria-busy'), 'true');
+        assert.equal(await activityStatus.textContent(), 'Обновляем активность…');
+        assert.equal(await activityList.locator('.btn-pay').count(), 0);
+        assert.equal(await page.locator('#history-summary').isVisible(), false);
+        await page.locator('[data-history-filter="pending"]').click();
+        assert.equal(await activityList.getAttribute('aria-busy'), 'true');
+        assert.equal(await activityList.locator('.btn-pay').count(), 0);
+        assert.equal(await activityList.locator('.history-copy-id').count(), 0);
+        assert.ok(!(await activityList.textContent()).includes('пока нет заявок'));
+        assert.ok((await page.locator('#ecosystem-activity-status').textContent()).includes('Обновляем'));
+        await activityStatus.scrollIntoViewIfNeeded();
+        await page.screenshot({path: path.join(outputDir, `${viewport.width}-activity-loading.png`)});
+        await pendingHistoryRoutes[failing].fulfill({status: 503, contentType: 'application/json', body: '{}'});
+        await page.waitForFunction(() => document.getElementById('history-load-status').textContent.includes('Не удалось'));
+        await page.locator('[data-history-filter="all"]').click();
+        assert.equal(await activityList.getAttribute('aria-busy'), 'false');
+        assert.ok((await activityList.textContent()).includes('История сейчас недоступна'));
+        assert.ok(!(await activityList.textContent()).includes('пока нет заявок'));
+        assert.ok((await page.locator('#ecosystem-activity-status').textContent()).includes('временно недоступны'));
+        assert.equal(await activityList.locator('.btn-pay').count(), 0);
+        assert.equal(await page.locator('#history-summary').isVisible(), false);
+        await page.screenshot({path: path.join(outputDir, `${viewport.width}-activity-error.png`)});
+        report.checks.push(`${viewport.width}: refresh clears old actions/counts; filter clicks preserve accessible loading/error states without resurrecting stale payments or claiming an empty history`);
+
+        const empty = await beginActivity(); await replyActivity(empty, []);
+        assert.equal(await activityStatus.textContent(), 'Активность обновлена.');
+        assert.ok((await activityList.textContent()).includes('У вас пока нет заявок'));
+        const recovery = await beginActivity();
+        await page.locator('[data-history-filter="sent"]').click();
+        await replyActivity(recovery, [freshActivityOrder]);
+        await freshActivity();
+        assert.equal(await page.locator('[data-history-filter="sent"]').evaluate(el => el.classList.contains('active')), true);
+        const supportBeforeRefresh = await page.evaluate(() => window.__supportOpenings.length);
+        await orderSupport.focus(); await page.keyboard.press('Enter');
+        await supportCount(supportBeforeRefresh + 1);
+        assert.equal(await activityList.evaluate(el => el.scrollWidth <= el.clientWidth), true);
+        await orderSupport.scrollIntoViewIfNeeded();
+        await page.screenshot({path: path.join(outputDir, `${viewport.width}-activity-recovered.png`)});
+        report.checks.push(`${viewport.width}: empty success is distinct from failure; explicit retry honors the selected filter and restores current evidence plus keyboard support without overflow`);
         await context.close();
         }
         assert.equal(report.writerAttempts.length, 9);

@@ -1,0 +1,101 @@
+{
+  "schemaVersion": "e4-activity-refresh-acceptance-review.v1",
+  "recordedAt": "2026-09-08T01:11:36.561801+00:00",
+  "reviewer": {
+    "identity": "Codex independent context-aware acceptance subagent /root/support_acceptance",
+    "role": "Acceptance reviewer separate from product implementation/deployment and security reviewer",
+    "toolsActuallyUsed": [
+      "functions.exec / exec_command: rg, sed, git diff, Node VM exact-source baseline and deadline probes, hash-bound evidence verification",
+      "Playwright skill retained from this session; authored the new bounded browser checks in existing tests/e4_review_browser.cjs, executed by primary agent in isolated Chrome",
+      "view_image: inspected 320px loading/error and 390px recovered screenshots"
+    ],
+    "edits": "Browser acceptance runner and own evidence/review artifacts only; no product, production, service or external messaging mutation"
+  },
+  "route": "E4 / ACTIVITY_REFRESH_RESPONSE_ORDERING",
+  "result": "PASS",
+  "inputsSha256": {
+    "relay/webapp.html": "6842d35ccb8d7bbbf2cac709cbc02c64d47bff527a5acda9699c4897d8b1da05",
+    "tests/e4_review_browser.cjs": "d350edff91375215354d0d12580890256198bad7f61c01bfd0590810ccd2f30c",
+    "tests/e4_activity_refresh_behavior.cjs": "b6cbc79f2d8e8b8f84b14e3caf7eb875af46fe01f1a9460265e1d11a045686a1",
+    "deploy/e4_activity_refresh_rollout.py": "123aae6661fad7786d6d6247991d12ec47561850990e37ca5bc9fd5622a1d1d5",
+    "tests/test_e4_activity_refresh_behavior.py": "ab3798379d4c445ebec27306829c6781e372886bef65de7522fad7c1619e298b",
+    "tests/test_e4_order_support_behavior.py": "b5e5f3b53b484a85c0ece511e96925b5b42d9de94fc62004107922c82c40b988",
+    "tests/test_e4_activity_notifications.py": "8b3be137d6d64f17e1d12aaa203e80bc856abe83e6cc19d7253c83e0b7f6c908",
+    "tests/test_e4_public_support_path.py": "04f36a7270fce9aaa3281ae35f8b093ed40aa841a4053b375c26525b19491769",
+    "tests/test_unified_portfolio_ui.py": "250796a1f514cba3ae701b5f14d45420cf22124bebb43c7dd4c0810c64c7fb54",
+    "tests/test_e4_payment_requisites_copy_behavior.py": "3b0e45d530c32e872ac54222120544e4bd63467cf1e33373d44105b7b8230a3a",
+    "tests/test_e4_payment_instruction_behavior.py": "b425ababa71e51d8f977214303553bd011509d2bb5dd9c8a0bf2ea2ef218b3ea",
+    "tests/test_e4_receive_copy_behavior.py": "bb2738ab5c0a41f496db0dfecdf73918094199b7f2cdff4cb359c414a5bdbb5b",
+    "tests/test_e4_review_browser_runner.py": "10e63f75d216cd5a11a4c6c883db7d15a134d00088a3f6a41b8deb80b375a98b",
+    "tests/test_e4_exchange_review_ui.py": "15da942a4d78a3d1271d04ba642c857d4408e27ede66ea58441710e347325c36",
+    "tests/test_e4_recipient_review_behavior.py": "0dba9cc3e4b4a490b8d88705434968a53b487698a444aa1b512326bd238d5ccf",
+    "tests/test_e4_responsive_navigation.py": "5758be025dd2f1e318c304ee4d771d70dc7ad2fda5506077958098dfe493292d",
+    "tests/test_e4_miniapp_browser_shell.py": "f1266129d2f2c84e9fd7c5847bba0a1b5f0ff27d0e7695249e6554202e6312fd",
+    "scripts/run_e4_review_browser.py": "6f4c9bf3020ae80b323655333a1eb3697eca4d44672ef6d28c679749136c412b",
+    "docs/e4-activity-refresh/report.json": "ef0e590963cd79e1a8972fc2b10c50f8ff7d89a1ccfccc8a74e4c3c705628289",
+    "docs/e4-activity-refresh/isolation.json": "ba669ad9342c3f0054e48ea70446ddf6f4693b49d94436523c9ff6c226180644",
+    "docs/e4-activity-refresh/tests.json": "43b72b2f32b48914e1d5eebd11760e1f94aa8b43060471904ea73fd7f0776a81",
+    "docs/e4-activity-refresh/preflight.json": "535d4728ab71f4f2d9af6caf4bcf4e09054f12a1f156c17891a7f0b8696fe909",
+    "docs/e4-activity-refresh/rollback-rehearsal.json": "b6fe47f77737d0c70c70d0aab19c4512c2e2e62623492ff1b59872e0b64bf60a",
+    "docs/e4-activity-refresh/ownership-mutation.json": "cf1c8ea7a36a7bab0884b3234e1bdd1116c435e61931102dbdda2e2d9c468373",
+    "docs/e4-activity-refresh/acceptance-baseline.cjs": "ba48f42e195266f3a65899b50dca486aa4f2c756b8d7eae167db4d505fa17244",
+    "docs/e4-activity-refresh/acceptance-baseline.json": "213fbaf49ccc72764bd0b9fea2c7e46885c61d7eef5ae8bfe3c09d0e8455459e",
+    "docs/e4-activity-refresh/next-prerequisite.cjs": "c8cda2be62b3c04742ea05bf49a2b17999fa1d8f8d16d06a598c54f561255cc1",
+    "docs/e4-activity-refresh/next-prerequisite.json": "2a26cef8eaed50edf6ae6eb4ba7b51a9158cd7d2e6217c8c770eb57288c8b477",
+    "docs/e4-activity-refresh/320-activity-loading.png": "6c88f393ccac7be5a4c45ba7e4d4ea73e9e4b150cc4fb8a88de014077ec4242f",
+    "docs/e4-activity-refresh/320-activity-error.png": "dfad84d9d9c1186a23567efbc532bd996692c4a600f99847f3d5efc5b7843ea2",
+    "docs/e4-activity-refresh/390-activity-recovered.png": "0c6a05894e56e0bd7a4afd8eccc2a6b3193fa69c49dc66d97a0c8288b52994d9"
+  },
+  "independentBaseline": {
+    "evidence": "docs/e4-activity-refresh/acceptance-baseline.json",
+    "sourceSha256": "e06b85edd00f0a877b8e75b848713e46c0f800ff37809e5cd085bcac63a4f983",
+    "caseCount": 8,
+    "observed": [
+      "Earlier history success/failure and delayed JSON success/failure overwrite newer completed status/evidence/actions.",
+      "Older overview writes contradict newer history, and older history rewinds newer overview.",
+      "Filter clicks during refresh resurrect cached payment actions, and filter clicks after failure claim an empty history."
+    ],
+    "executionNote": "First probe read concurrent candidate edits and stopped on an unsupported fake-DOM method; successful baseline was then executed against the preserved original snapshot e06b85ed…a4f983. No false baseline result was retained."
+  },
+  "acceptanceResults": [
+    "Shared loader gives latest invocation ownership across overview/history; stale success and catch paths cannot rewrite history, summary or evidence.",
+    "Ownership guard runs after JSON completion, covering delayed response-body success and rejection. Focused tests also cover stale HTTP/malformed data, newest failure, three-way overlap and invalid rows.",
+    "Fresh reads clear prior order state, counters and action rows; a separate accessible status describes loading/error/ready and aria-busy reflects the list state.",
+    "Filters preserve loading/error rather than resurrecting cached orders or claiming empty success; latest successful retry honors the current filter and distinguishes a valid empty result.",
+    "Browser checks operate the real refresh/filter/overview/history controls with synthetic GETs and delayed JSON bodies. Refreshed rows retain explicit keyboard support and transaction evidence; navigation remains a stub.",
+    "Inspected 320px loading/error and 390px recovery images show readable status, hidden stale action rows, persistent general support during loading/error and restored evidence/support after success."
+  ],
+  "findings": [],
+  "verification": {
+    "focusedResult": "PASS",
+    "focusedTests": 188,
+    "newVMScenarios": 22,
+    "mutationEvidence": "Removing both request-generation guards is detected by older_success (MUTATION_KILLED).",
+    "browserResult": "PASS",
+    "browserChecks": 144,
+    "newGroupedActivityChecks": 12,
+    "browserWidths": [
+      320,
+      390,
+      1280
+    ],
+    "browserPageErrors": [],
+    "browserIsolation": "nobody, Chromium sandbox, disconnected network, protected home; unit collected/inactive with MainPID0 and empty cgroup",
+    "unchangedBrowserConditions": "Default motion, 5000ms action timeout, 120sec unit cap; no force clicks or timing relaxation",
+    "preflight": "Recorded original exact-template GET200/POST405; Relay/bot/Nginx active with preserved Sep1 identities.",
+    "rollbackRehearsal": "Disposable fsynced atomic original→candidate→exact original succeeded without production changes."
+  },
+  "nextPrerequisite": {
+    "item": "E4 / ACTIVITY_REFRESH_DEADLINE / bound the latest activity read across fetch and response-body stalls, preserve explicit retry",
+    "evidence": "docs/e4-activity-refresh/next-prerequisite.json",
+    "observed": "Latest stalled fetch or JSON body has no scheduled deadline or abort signal and can retain loading/aria-busy; explicit successful retry recovers.",
+    "disposition": "Independently reproduced on the final candidate as a separate next slice; no timeout/abort implementation added here."
+  },
+  "limitations": [
+    "Synthetic faults and isolated Chrome establish UI response ordering, not real provider/customer data, payment execution or backend status guarantees.",
+    "Real Telegram/iOS/WebKit, human comprehension and screen-reader announcements remain unverified. No messages, credentials, signatures or money operations were used in this acceptance review.",
+    "Newest-request ownership does not establish snapshot freshness on the server. This slice adds no deadline; latest unresolved fetch/body stays visibly loading until a subsequent request settles.",
+    "The next-prerequisite scheduler horizon is simulated and schedules no timer; it is not a claim of 30 seconds elapsed on a real network or native streaming-body cancellation.",
+    "This PASS covers the bounded reversible HTML change and does not close E4 or advance earlier gates. Production replacement and runtime verification remain the primary agent’s next step."
+  ]
+}

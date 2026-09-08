@@ -1,0 +1,99 @@
+{
+  "reviewer": "/root/support_security",
+  "result": "PASS",
+  "scenarios": [
+    {
+      "scenario": "older_success",
+      "result": "PASS"
+    },
+    {
+      "scenario": "older_reject",
+      "result": "PASS"
+    },
+    {
+      "scenario": "older_http",
+      "result": "PASS"
+    },
+    {
+      "scenario": "older_json",
+      "result": "PASS"
+    },
+    {
+      "scenario": "older_invalid",
+      "result": "PASS"
+    },
+    {
+      "scenario": "newer_failure",
+      "result": "PASS"
+    },
+    {
+      "scenario": "pending_older_success",
+      "result": "PASS"
+    },
+    {
+      "scenario": "pending_older_failure",
+      "result": "PASS"
+    },
+    {
+      "scenario": "body_success",
+      "result": "PASS"
+    },
+    {
+      "scenario": "body_rejection",
+      "result": "PASS"
+    },
+    {
+      "scenario": "cross_overview_history",
+      "result": "PASS"
+    },
+    {
+      "scenario": "cross_history_overview",
+      "result": "PASS"
+    },
+    {
+      "scenario": "cross_overview_overview",
+      "result": "PASS"
+    },
+    {
+      "scenario": "filters_pending",
+      "result": "PASS"
+    },
+    {
+      "scenario": "filters_error_retry",
+      "result": "PASS"
+    },
+    {
+      "scenario": "empty_success",
+      "result": "PASS"
+    },
+    {
+      "scenario": "current_reject",
+      "result": "PASS"
+    },
+    {
+      "scenario": "current_http",
+      "result": "PASS"
+    },
+    {
+      "scenario": "current_json",
+      "result": "PASS"
+    },
+    {
+      "scenario": "current_invalid",
+      "result": "PASS"
+    },
+    {
+      "scenario": "current_invalid_row",
+      "result": "PASS"
+    },
+    {
+      "scenario": "three_calls",
+      "result": "PASS"
+    }
+  ],
+  "inputSha256": {
+    "relay/webapp.html": "6842d35ccb8d7bbbf2cac709cbc02c64d47bff527a5acda9699c4897d8b1da05",
+    "tests/e4_activity_refresh_behavior.cjs": "b6cbc79f2d8e8b8f84b14e3caf7eb875af46fe01f1a9460265e1d11a045686a1",
+    "tests/test_e4_activity_refresh_behavior.py": "ab3798379d4c445ebec27306829c6781e372886bef65de7522fad7c1619e298b"
+  }
+}

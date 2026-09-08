@@ -1,0 +1,371 @@
+{
+  "schemaVersion": "e4-activity-refresh-acceptance-baseline.v1",
+  "recordedAt": "2026-09-08T01:07:32.097Z",
+  "reviewer": "Codex independent context-aware acceptance /root/support_acceptance",
+  "route": "E4 / ACTIVITY_REFRESH_RESPONSE_ORDERING",
+  "sourcePath": "/root/output/manual/e4-activity-refresh-20260908/baseline-webapp.html",
+  "sourceSha256": "e06b85edd00f0a877b8e75b848713e46c0f800ff37809e5cd085bcac63a4f983",
+  "method": "Exact shipped history/helper declarations, synthetic DOM and deferred read-only fetch/JSON bodies in Node VM; no real APIs, navigation, messages or money actions.",
+  "result": "BASELINE_DEFECTS_REPRODUCED",
+  "results": [
+    {
+      "case": "overlapping-history-success",
+      "afterNewest": {
+        "orders": [
+          {
+            "order_id": "synthetic-race-42",
+            "currency": "TON",
+            "amount": 2000,
+            "created": "2026-09-08 00:00",
+            "status": "sent",
+            "session_token": "synthetic-stale",
+            "tx_url": "https://explorer.invalid/synthetic-42"
+          }
+        ],
+        "overview": "Нет активных заявок. История, доказательства и поддержка — в одном разделе.",
+        "showsPaymentAction": false,
+        "showsTransactionEvidence": true,
+        "showsLoadFailure": false,
+        "showsFalseEmpty": false,
+        "showsLoading": false,
+        "summaryDisplay": "grid",
+        "filter": "all"
+      },
+      "afterObsolete": {
+        "orders": [
+          {
+            "order_id": "synthetic-race-42",
+            "currency": "TON",
+            "amount": 2000,
+            "created": "2026-09-08 00:00",
+            "status": "pending",
+            "session_token": "synthetic-stale"
+          }
+        ],
+        "overview": "Требуют внимания: 1 ожидают · 0 в работе. Откройте статусы, доказательства и поддержку.",
+        "showsPaymentAction": true,
+        "showsTransactionEvidence": false,
+        "showsLoadFailure": false,
+        "showsFalseEmpty": false,
+        "showsLoading": false,
+        "summaryDisplay": "grid",
+        "filter": "all"
+      }
+    },
+    {
+      "case": "overlapping-history-failure",
+      "afterNewest": {
+        "orders": [
+          {
+            "order_id": "synthetic-race-42",
+            "currency": "TON",
+            "amount": 2000,
+            "created": "2026-09-08 00:00",
+            "status": "sent",
+            "session_token": "synthetic-stale",
+            "tx_url": "https://explorer.invalid/synthetic-42"
+          }
+        ],
+        "overview": "Нет активных заявок. История, доказательства и поддержка — в одном разделе.",
+        "showsPaymentAction": false,
+        "showsTransactionEvidence": true,
+        "showsLoadFailure": false,
+        "showsFalseEmpty": false,
+        "showsLoading": false,
+        "summaryDisplay": "grid",
+        "filter": "all"
+      },
+      "afterObsolete": {
+        "orders": [],
+        "overview": "Статусы заявок временно недоступны. Откройте активность, чтобы повторить.",
+        "showsPaymentAction": false,
+        "showsTransactionEvidence": false,
+        "showsLoadFailure": true,
+        "showsFalseEmpty": false,
+        "showsLoading": false,
+        "summaryDisplay": "none",
+        "filter": "all"
+      }
+    },
+    {
+      "case": "overlapping-history-body-success",
+      "afterNewest": {
+        "orders": [
+          {
+            "order_id": "synthetic-race-42",
+            "currency": "TON",
+            "amount": 2000,
+            "created": "2026-09-08 00:00",
+            "status": "sent",
+            "session_token": "synthetic-stale",
+            "tx_url": "https://explorer.invalid/synthetic-42"
+          }
+        ],
+        "overview": "Нет активных заявок. История, доказательства и поддержка — в одном разделе.",
+        "showsPaymentAction": false,
+        "showsTransactionEvidence": true,
+        "showsLoadFailure": false,
+        "showsFalseEmpty": false,
+        "showsLoading": false,
+        "summaryDisplay": "grid",
+        "filter": "all"
+      },
+      "afterObsolete": {
+        "orders": [
+          {
+            "order_id": "synthetic-race-42",
+            "currency": "TON",
+            "amount": 2000,
+            "created": "2026-09-08 00:00",
+            "status": "pending",
+            "session_token": "synthetic-stale"
+          }
+        ],
+        "overview": "Требуют внимания: 1 ожидают · 0 в работе. Откройте статусы, доказательства и поддержку.",
+        "showsPaymentAction": true,
+        "showsTransactionEvidence": false,
+        "showsLoadFailure": false,
+        "showsFalseEmpty": false,
+        "showsLoading": false,
+        "summaryDisplay": "grid",
+        "filter": "all"
+      }
+    },
+    {
+      "case": "overlapping-history-body-failure",
+      "afterNewest": {
+        "orders": [
+          {
+            "order_id": "synthetic-race-42",
+            "currency": "TON",
+            "amount": 2000,
+            "created": "2026-09-08 00:00",
+            "status": "sent",
+            "session_token": "synthetic-stale",
+            "tx_url": "https://explorer.invalid/synthetic-42"
+          }
+        ],
+        "overview": "Нет активных заявок. История, доказательства и поддержка — в одном разделе.",
+        "showsPaymentAction": false,
+        "showsTransactionEvidence": true,
+        "showsLoadFailure": false,
+        "showsFalseEmpty": false,
+        "showsLoading": false,
+        "summaryDisplay": "grid",
+        "filter": "all"
+      },
+      "afterObsolete": {
+        "orders": [],
+        "overview": "Статусы заявок временно недоступны. Откройте активность, чтобы повторить.",
+        "showsPaymentAction": false,
+        "showsTransactionEvidence": false,
+        "showsLoadFailure": true,
+        "showsFalseEmpty": false,
+        "showsLoading": false,
+        "summaryDisplay": "none",
+        "filter": "all"
+      }
+    },
+    {
+      "case": "overview-before-history-success",
+      "afterNewest": {
+        "orders": [
+          {
+            "order_id": "synthetic-race-42",
+            "currency": "TON",
+            "amount": 2000,
+            "created": "2026-09-08 00:00",
+            "status": "sent",
+            "session_token": "synthetic-stale",
+            "tx_url": "https://explorer.invalid/synthetic-42"
+          }
+        ],
+        "overview": "Нет активных заявок. История, доказательства и поддержка — в одном разделе.",
+        "showsPaymentAction": false,
+        "showsTransactionEvidence": true,
+        "showsLoadFailure": false,
+        "showsFalseEmpty": false,
+        "showsLoading": false,
+        "summaryDisplay": "grid",
+        "filter": "all"
+      },
+      "afterObsolete": {
+        "orders": [
+          {
+            "order_id": "synthetic-race-42",
+            "currency": "TON",
+            "amount": 2000,
+            "created": "2026-09-08 00:00",
+            "status": "sent",
+            "session_token": "synthetic-stale",
+            "tx_url": "https://explorer.invalid/synthetic-42"
+          }
+        ],
+        "overview": "Требуют внимания: 1 ожидают · 0 в работе. Откройте статусы, доказательства и поддержку.",
+        "showsPaymentAction": false,
+        "showsTransactionEvidence": true,
+        "showsLoadFailure": false,
+        "showsFalseEmpty": false,
+        "showsLoading": false,
+        "summaryDisplay": "grid",
+        "filter": "all"
+      }
+    },
+    {
+      "case": "overview-before-history-failure",
+      "afterNewest": {
+        "orders": [
+          {
+            "order_id": "synthetic-race-42",
+            "currency": "TON",
+            "amount": 2000,
+            "created": "2026-09-08 00:00",
+            "status": "sent",
+            "session_token": "synthetic-stale",
+            "tx_url": "https://explorer.invalid/synthetic-42"
+          }
+        ],
+        "overview": "Нет активных заявок. История, доказательства и поддержка — в одном разделе.",
+        "showsPaymentAction": false,
+        "showsTransactionEvidence": true,
+        "showsLoadFailure": false,
+        "showsFalseEmpty": false,
+        "showsLoading": false,
+        "summaryDisplay": "grid",
+        "filter": "all"
+      },
+      "afterObsolete": {
+        "orders": [
+          {
+            "order_id": "synthetic-race-42",
+            "currency": "TON",
+            "amount": 2000,
+            "created": "2026-09-08 00:00",
+            "status": "sent",
+            "session_token": "synthetic-stale",
+            "tx_url": "https://explorer.invalid/synthetic-42"
+          }
+        ],
+        "overview": "Статусы заявок временно недоступны. Откройте активность, чтобы повторить.",
+        "showsPaymentAction": false,
+        "showsTransactionEvidence": true,
+        "showsLoadFailure": false,
+        "showsFalseEmpty": false,
+        "showsLoading": false,
+        "summaryDisplay": "grid",
+        "filter": "all"
+      }
+    },
+    {
+      "case": "history-before-newer-overview",
+      "afterNewest": {
+        "orders": [],
+        "overview": "Нет активных заявок. История, доказательства и поддержка — в одном разделе.",
+        "showsPaymentAction": false,
+        "showsTransactionEvidence": false,
+        "showsLoadFailure": false,
+        "showsFalseEmpty": false,
+        "showsLoading": true,
+        "summaryDisplay": "",
+        "filter": "all"
+      },
+      "afterObsolete": {
+        "orders": [
+          {
+            "order_id": "synthetic-race-42",
+            "currency": "TON",
+            "amount": 2000,
+            "created": "2026-09-08 00:00",
+            "status": "pending",
+            "session_token": "synthetic-stale"
+          }
+        ],
+        "overview": "Требуют внимания: 1 ожидают · 0 в работе. Откройте статусы, доказательства и поддержку.",
+        "showsPaymentAction": true,
+        "showsTransactionEvidence": false,
+        "showsLoadFailure": false,
+        "showsFalseEmpty": false,
+        "showsLoading": false,
+        "summaryDisplay": "grid",
+        "filter": "all"
+      }
+    },
+    {
+      "case": "filter-during-pending-and-failure",
+      "whileLoading": {
+        "orders": [
+          {
+            "order_id": "synthetic-race-42",
+            "currency": "TON",
+            "amount": 2000,
+            "created": "2026-09-08 00:00",
+            "status": "pending",
+            "session_token": "synthetic-stale"
+          }
+        ],
+        "overview": "Требуют внимания: 1 ожидают · 0 в работе. Откройте статусы, доказательства и поддержку.",
+        "showsPaymentAction": false,
+        "showsTransactionEvidence": false,
+        "showsLoadFailure": false,
+        "showsFalseEmpty": false,
+        "showsLoading": true,
+        "summaryDisplay": "grid",
+        "filter": "all"
+      },
+      "afterFilter": {
+        "orders": [
+          {
+            "order_id": "synthetic-race-42",
+            "currency": "TON",
+            "amount": 2000,
+            "created": "2026-09-08 00:00",
+            "status": "pending",
+            "session_token": "synthetic-stale"
+          }
+        ],
+        "overview": "Требуют внимания: 1 ожидают · 0 в работе. Откройте статусы, доказательства и поддержку.",
+        "showsPaymentAction": true,
+        "showsTransactionEvidence": false,
+        "showsLoadFailure": false,
+        "showsFalseEmpty": false,
+        "showsLoading": false,
+        "summaryDisplay": "grid",
+        "filter": "pending"
+      },
+      "afterFailure": {
+        "orders": [],
+        "overview": "Статусы заявок временно недоступны. Откройте активность, чтобы повторить.",
+        "showsPaymentAction": false,
+        "showsTransactionEvidence": false,
+        "showsLoadFailure": true,
+        "showsFalseEmpty": false,
+        "showsLoading": false,
+        "summaryDisplay": "none",
+        "filter": "pending"
+      },
+      "afterFailureFilter": {
+        "orders": [],
+        "overview": "Статусы заявок временно недоступны. Откройте активность, чтобы повторить.",
+        "showsPaymentAction": false,
+        "showsTransactionEvidence": false,
+        "showsLoadFailure": false,
+        "showsFalseEmpty": true,
+        "showsLoading": false,
+        "summaryDisplay": "none",
+        "filter": "all"
+      }
+    }
+  ],
+  "acceptance": [
+    "Only the latest activity invocation may publish overview/counts/history/evidence/actions, including across loadHistory and loadEcosystemActivity.",
+    "Ownership is checked after awaited response bodies as well as fetch; old success, network failure, HTTP failure, malformed JSON and delayed body rejection are inert.",
+    "Starting a fresh activity read exposes truthful loading state; filters cannot resurrect cached actions or turn error/loading into an empty-success claim.",
+    "Newest success renders with the currently selected valid filter; newest failure retains honest retry state; latest retry and empty-success recover normally.",
+    "All requests retain no-store and existing owner-scoped read-only auth contract; no new request writer, automatic payment/navigation, or support message is added.",
+    "Existing explicit copy/support remain usable after successful refresh; status, evidence and support semantics remain consistent at 320/390/1280px with default browser motion."
+  ],
+  "limitations": [
+    "Synthetic completion ordering proves UI state races only; no backend payment execution or real customer/account data was examined.",
+    "This evidence does not establish human comprehension or Telegram/iOS/WebKit acceptance."
+  ]
+}

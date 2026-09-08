@@ -1,0 +1,9 @@
+{
+  "result": "MUTATION_KILLED",
+  "mutation": "Remove both request ownership guards",
+  "candidateSha256": "6842d35ccb8d7bbbf2cac709cbc02c64d47bff527a5acda9699c4897d8b1da05",
+  "mutantSha256": "c2a4a294525200a3fef4a525e3f98e1df12d80761391f424ff6a4522f24dbd3a",
+  "exitCode": 1,
+  "failure": "obsolete completion must have zero visible state effect",
+  "stderrSha256": "6f381b78b48eebf1e4052241f25d5e7232cfe0377f0aadb71083f9305c4198c2"
+}

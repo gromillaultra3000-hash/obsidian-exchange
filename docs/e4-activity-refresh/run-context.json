@@ -1,0 +1,45 @@
+{
+  "recordedAt": "2026-09-08T01:09:50.529576+00:00",
+  "route": "E4 / ACTIVITY_REFRESH_RESPONSE_ORDERING",
+  "canonicalCriterion": "E4 unified notification/evidence/support centre; truthful status and usability of monetary paths",
+  "accountableOwner": "Project owner; manual continuation 2026-09-08; implementation Codex /root",
+  "baselineCommit": "73223a237dbb16ce9055415ce82c598e9096d5a6",
+  "charterSha256": "d159a3f71ea21c57a4d73ea675f1c5ded76ea504b8c3f186ba166ed9218cfc80",
+  "charterUnchangedFromPriorIteration": true,
+  "capabilities": {
+    "implementation": "Codex primary; only product editor",
+    "acceptance": "Independent /root/support_acceptance; authored browser checks, baseline and next-prerequisite reproductions",
+    "security": "Independent context-poor /root/support_security; diff and adversarial VM checks",
+    "browser": "playwright skill; existing locked playwright-core via disconnected non-root sandboxed Chrome runner",
+    "ops": "Hash-bound atomic HTML replacement, rehearsal, public route and service identity checks",
+    "secrets": "Gitleaks staged scope",
+    "research": "Not needed for this repository-specific UI slice; no external component added"
+  },
+  "surfaceMatrix": {
+    "MiniApp": "REQUIRED: history and overview use one freshest snapshot, filters preserve loading/error state",
+    "site": "READ_ONLY: existing /webapp GET; no separate site behavior change",
+    "TelegramBot": "READ_ONLY: unchanged fixed support entry, no automatic messages",
+    "API": "READ_ONLY: same owner-scoped no-store history GET; synthetic browser fixtures, production public HTML checks only",
+    "admin": "N/A: no operator change",
+    "nativeWallet": "N/A: no custody or signing",
+    "KAIROS_LUMI": "N/A"
+  },
+  "autopilot": {
+    "state": "failed",
+    "MainPID": 0,
+    "reason": "UNCOMMITTED_NEW_FILES",
+    "action": "Leave stopped; no state or config change"
+  },
+  "custodySecretsMoneyWriters": "No changes, credentials, customer reads, messages, signing or money operations; 064A closed authority retained",
+  "boundedDecisions": [
+    "Both existing callers request the same history resource and update the same summary; use one shared latest-invocation owner.",
+    "Guard after response body parsing and on failure; obsolete completions never render.",
+    "Clear prior snapshot/actions/counts when refreshing. Explicit loading/error states prevent filters from recreating obsolete or false-empty UI.",
+    "No API contract or dependency change; no new cancellation/timeout mechanism in this ordering slice."
+  ],
+  "limitations": [
+    "Request start order governs freshness; no server revision/cross-session guarantee is implied.",
+    "Latest pending GET/body remains loading until settlement; bounded deadline is not implemented here.",
+    "Real Telegram/iOS/WebKit, actual screen-reader announcements and human comprehension remain unverified."
+  ]
+}

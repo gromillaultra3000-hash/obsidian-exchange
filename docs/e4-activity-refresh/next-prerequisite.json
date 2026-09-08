@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "e4-activity-refresh-deadline-next-prerequisite.v1",
+  "recordedAt": "2026-09-08T01:09:31.015Z",
+  "reviewer": "Codex independent context-aware acceptance /root/support_acceptance",
+  "nextCanonicalItem": "E4 / ACTIVITY_REFRESH_DEADLINE / bound the latest activity read across fetch and response-body stalls, preserve explicit retry",
+  "canonicalCriterion": "E4 unified notification/evidence/support centre and accessibility/usability of monetary paths",
+  "result": "REPRODUCED_REMAINING_PREREQUISITE",
+  "sourcePath": "/root/relay/webapp.html",
+  "sourceSha256": "6842d35ccb8d7bbbf2cac709cbc02c64d47bff527a5acda9699c4897d8b1da05",
+  "method": "Exact shipped activity helpers in Node VM with synthetic unresolved fetch or JSON-body promise and an instrumented timer scheduler. No real network, account data, navigation or money action.",
+  "observedBehavior": "Latest activity fetch or JSON body can remain unresolved with aria-busy=true and updating statuses. The helper supplies no abort signal and schedules no deadline. Explicit retry can recover, but no bounded unavailable/retry transition exists for the stalled latest invocation.",
+  "reproduction": [
+    {
+      "mode": "fetch",
+      "afterScheduledDeadlinesThroughMs": 30000,
+      "observation": {
+        "settled": false,
+        "scheduledDeadlines": [],
+        "requestHasAbortSignal": false,
+        "loadState": "loading",
+        "ariaBusy": "true",
+        "loadStatus": "Обновляем активность…",
+        "overview": "Обновляем статусы заявок…",
+        "filter": "pending"
+      },
+      "explicitRetryRecovers": true,
+      "stalledOriginalStillUnsettled": true
+    },
+    {
+      "mode": "body",
+      "afterScheduledDeadlinesThroughMs": 30000,
+      "observation": {
+        "settled": false,
+        "scheduledDeadlines": [],
+        "requestHasAbortSignal": false,
+        "loadState": "loading",
+        "ariaBusy": "true",
+        "loadStatus": "Обновляем активность…",
+        "overview": "Обновляем статусы заявок…",
+        "filter": "pending"
+      },
+      "explicitRetryRecovers": true,
+      "stalledOriginalStillUnsettled": true
+    }
+  ],
+  "boundedImplementation": "Add a source-owned deadline spanning fetch and body parsing, cancel/retire obsolete work safely, show truthful unavailable/retry state for latest timeout, and preserve latest-request/filter semantics. Verify both synthetic completion races and isolated real-browser fetch/body behavior without new writers.",
+  "currentSliceDisposition": "Observed remaining limitation only; no timeout/abort changes belong to ACTIVITY_REFRESH_RESPONSE_ORDERING.",
+  "limitations": [
+    "The 30-second scheduler horizon is simulated, not an elapsed real-network claim. There are no timers to trigger in the current helper.",
+    "This evidence cannot establish native browser streaming-body timeout, real Telegram/iOS behavior, or provider availability.",
+    "No E4 gate closure or earlier-stage advancement is implied."
+  ]
+}

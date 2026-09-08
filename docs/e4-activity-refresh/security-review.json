@@ -1,0 +1,92 @@
+{
+  "schemaVersion": "e4-activity-refresh-independent-security-review.v1",
+  "recordedAt": "2026-09-08T01:11:38.866326+00:00",
+  "route": "E4 / ACTIVITY_REFRESH_RESPONSE_ORDERING",
+  "result": "PASS",
+  "reviewer": {
+    "identity": "Codex independent subagent /root/support_security",
+    "role": "context-poor diff/security reviewer",
+    "model": "inherited parent model; exact model revision is not exposed",
+    "productEditor": false,
+    "reviewBase": "73223a237dbb16ce9055415ce82c598e9096d5a6"
+  },
+  "tools": {
+    "node": "v22.22.3",
+    "browser": "152.0.7977.64",
+    "playwright": "1.62.0",
+    "skill": "/root/.codex/skills/security-best-practices/SKILL.md",
+    "skillGuidance": "javascript-general-web-frontend-security.md"
+  },
+  "scope": [
+    "Actual relay/webapp.html diff: common overview/history request owner and explicit loading/error/ready render state",
+    "New activity refresh VM scenarios and browser timing/filter checks",
+    "deploy/e4_activity_refresh_rollout.py writer and rollback boundaries",
+    "Hash-bound focused test, browser, isolation, preflight and rollback receipts"
+  ],
+  "inputsSha256": {
+    "relay/webapp.html": "6842d35ccb8d7bbbf2cac709cbc02c64d47bff527a5acda9699c4897d8b1da05",
+    "tests/e4_review_browser.cjs": "d350edff91375215354d0d12580890256198bad7f61c01bfd0590810ccd2f30c",
+    "tests/e4_activity_refresh_behavior.cjs": "b6cbc79f2d8e8b8f84b14e3caf7eb875af46fe01f1a9460265e1d11a045686a1",
+    "deploy/e4_activity_refresh_rollout.py": "123aae6661fad7786d6d6247991d12ec47561850990e37ca5bc9fd5622a1d1d5",
+    "tests/test_e4_activity_refresh_behavior.py": "ab3798379d4c445ebec27306829c6781e372886bef65de7522fad7c1619e298b",
+    "tests/test_e4_order_support_behavior.py": "b5e5f3b53b484a85c0ece511e96925b5b42d9de94fc62004107922c82c40b988",
+    "tests/test_e4_activity_notifications.py": "8b3be137d6d64f17e1d12aaa203e80bc856abe83e6cc19d7253c83e0b7f6c908",
+    "tests/test_e4_public_support_path.py": "04f36a7270fce9aaa3281ae35f8b093ed40aa841a4053b375c26525b19491769",
+    "tests/test_unified_portfolio_ui.py": "250796a1f514cba3ae701b5f14d45420cf22124bebb43c7dd4c0810c64c7fb54",
+    "tests/test_e4_payment_requisites_copy_behavior.py": "3b0e45d530c32e872ac54222120544e4bd63467cf1e33373d44105b7b8230a3a",
+    "tests/test_e4_payment_instruction_behavior.py": "b425ababa71e51d8f977214303553bd011509d2bb5dd9c8a0bf2ea2ef218b3ea",
+    "tests/test_e4_receive_copy_behavior.py": "bb2738ab5c0a41f496db0dfecdf73918094199b7f2cdff4cb359c414a5bdbb5b",
+    "tests/test_e4_review_browser_runner.py": "10e63f75d216cd5a11a4c6c883db7d15a134d00088a3f6a41b8deb80b375a98b",
+    "tests/test_e4_exchange_review_ui.py": "15da942a4d78a3d1271d04ba642c857d4408e27ede66ea58441710e347325c36",
+    "tests/test_e4_recipient_review_behavior.py": "0dba9cc3e4b4a490b8d88705434968a53b487698a444aa1b512326bd238d5ccf",
+    "tests/test_e4_responsive_navigation.py": "5758be025dd2f1e318c304ee4d771d70dc7ad2fda5506077958098dfe493292d",
+    "tests/test_e4_miniapp_browser_shell.py": "f1266129d2f2c84e9fd7c5847bba0a1b5f0ff27d0e7695249e6554202e6312fd"
+  },
+  "findings": [],
+  "addressedFindings": [],
+  "verification": {
+    "independentVmProbe": "PASS; 288 schedules spanning all three-request overview/history loader mixes, all response permutations, deferred headers/body, latest success/network failure/nonarray body.",
+    "independentEdgeChecks": "PASS; 18 checks including obsolete network/HTTP/parse/malformed outcomes while newest loading/ready, filters during loading/error and recovery, current parser failures/nonarray/null rows.",
+    "directBehaviorHarness": "PASS; all 22 new scenario harness cases independently executed through Node.",
+    "independentMutation": "MUTATION_KILLED; removing both ownership guards fails the zero-visible-effect assertion for an obsolete completion.",
+    "focusedTests": "188 PASS; all 17 input hashes and raw stdout digest verified. Full suite execution performed by primary agent.",
+    "browser": "144 PASS at 320/390/1280; final source/runner hashes match, pageErrors empty. Browser executed by primary/acceptance workflow.",
+    "screenshotsInspected": [
+      "320-activity-loading.png",
+      "390-activity-error.png",
+      "390-activity-recovered.png"
+    ],
+    "isolation": "nobody, Chromium sandbox, private network and protected home; unit inactive/collected with MainPID 0, empty cgroup and exit code 0.",
+    "preflight": "Reviewed matching old/new hashes, exact rendered-template GET 200, POST 405 and active unchanged service identity tuple.",
+    "rollback": "PASS receipt reviewed for same fsynced atomic replacement OLD to NEW to exact OLD, no production touch and temporary cleanup verified.",
+    "diffCheck": "PASS"
+  },
+  "securityAssessment": [
+    "One sequence owns both overview and history updates. The success guard follows JSON completion, and the catch guard rejects obsolete fetch/parser/render failure; stale callbacks do not alter newest loading, successful, or error UI.",
+    "Starting a refresh clears previous rows and summary. Filters respect loading/error state and cannot recreate previous payment links or mistake a failed request for an empty history.",
+    "The current selected filter applies when the newest result arrives; overview and history derive from the same accepted rows rather than independent competing requests.",
+    "Product network scope remains the existing read-only history GET with no-store and unchanged authentication header. No writer, navigation, clipboard, credentials, dependency or dynamic-code sink was added.",
+    "The deployment recipe binds one fixed HTML target and old/new hashes, gate inputs, inactive/failed autopilot and MainPID zero, fsynced exact rollback preimage, atomic replacement and unchanged services; no service or database mutation is introduced."
+  ],
+  "limitations": [
+    "Bounded timing/diff review only; the existing application and E4/earlier gates are not certified by this result.",
+    "Newest means the most recently invoked UI request; this change does not introduce server-side revision or authoritative financial-state validation.",
+    "A stalled newest history request can remain loading; this slice adds no deadline or cancellation. A new explicit refresh obtains a newer owner.",
+    "Malformed nonarray/null-row/parser cases were tested; this is not a complete schema or preexisting action-URL audit.",
+    "No real customer API/data, support message, money, signing, credentials, production or 064A action was performed by this reviewer. Actual Telegram/iOS/WebKit and human/screen-reader acceptance remain unverified.",
+    "Predeployment review; final rollout and runtime verification remain primary-agent responsibility."
+  ],
+  "evidenceSha256": {
+    "docs/e4-activity-refresh/security-probe.cjs": "579b3a635b28f3e56a7bbcc6986c4876ef7d58d2c85aceeecdab69ae0fd0d463",
+    "docs/e4-activity-refresh/security-probe-result.json": "6047782b443678390b79b494617ad9551a518347a610d8c53eb280a6e74b77b3",
+    "docs/e4-activity-refresh/security-behavior-result.json": "9858f1b19fad57476c4c545e66a6b8d4911464c894eeedade76c5beb6431d564",
+    "docs/e4-activity-refresh/security-mutation-result.json": "2d4cf532ae69203449021bf5c6331b35100886f96e2719f046769538faca14cf",
+    "docs/e4-activity-refresh/security-mutation-stderr.txt": "6f381b78b48eebf1e4052241f25d5e7232cfe0377f0aadb71083f9305c4198c2",
+    "docs/e4-activity-refresh/tests.json": "43b72b2f32b48914e1d5eebd11760e1f94aa8b43060471904ea73fd7f0776a81",
+    "docs/e4-activity-refresh/report.json": "ef0e590963cd79e1a8972fc2b10c50f8ff7d89a1ccfccc8a74e4c3c705628289",
+    "docs/e4-activity-refresh/isolation.json": "ba669ad9342c3f0054e48ea70446ddf6f4693b49d94436523c9ff6c226180644",
+    "docs/e4-activity-refresh/preflight.json": "535d4728ab71f4f2d9af6caf4bcf4e09054f12a1f156c17891a7f0b8696fe909",
+    "docs/e4-activity-refresh/rollback-rehearsal.json": "b6fe47f77737d0c70c70d0aab19c4512c2e2e62623492ff1b59872e0b64bf60a",
+    "docs/e4-activity-refresh/ownership-mutation.json": "cf1c8ea7a36a7bab0884b3234e1bdd1116c435e61931102dbdda2e2d9c468373"
+  }
+}
