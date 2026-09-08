@@ -1,0 +1,44 @@
+{
+  "mode": "postgres",
+  "result": "PASS",
+  "productionDataAccessed": false,
+  "inputs": [
+    {
+      "path": "relay/repositories/payment_status_read_store.py",
+      "sha256": "5cbd26d0335c0cf713aa4be9c87999773bbcc37ab89202a554a4811b6702b6f9"
+    },
+    {
+      "path": "relay/core/order_access.py",
+      "sha256": "15d996a1450ff898ef62b3e43c048069c2c4dc60863399bcba144cfd46c69a0f"
+    },
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "1297db5e84e36ddec0cdf09808c871ce55c28cfd7c4ca04bded9bbace5dde2ab"
+    },
+    {
+      "path": "relay/webapp.html",
+      "sha256": "8347b9df45a27b7077dabae8aa3e68dbfa763f0ed67220a93aca7f58ce11a908"
+    },
+    {
+      "path": "tests/e4_payment_status_fixture.py",
+      "sha256": "9da0e3a1d265543307699464aad372cbaf7cf241d0962bb1d4f4466ff2e2aa4f"
+    },
+    {
+      "path": "tests/rehearse_e4_payment_status_read.py",
+      "sha256": "114f89d3a8ddff811d1957aa5113e605b252cb03329a7e5f2739e2912c21efdb"
+    }
+  ],
+  "containerId": "4f7fa8ba188e967050f239b2a8a567413457eb4a668c4efbe371f2893c29eb9e",
+  "image": "postgres@sha256:7456ef82e5f5bc43d997f4781bbd7c0d6389bff397564649a356e206ba473aee",
+  "cases": 26,
+  "postgresVersion": "17.11",
+  "network": "none",
+  "hostPorts": false,
+  "readOnlyQuerySession": true,
+  "containerRemoved": true,
+  "temporaryDirectoryRemoved": true,
+  "retainedDependency": {
+    "path": "/root/output/manual/e4-payment-status-read-20260908/baseline/relay/repositories/order_read_store.py",
+    "sha256": "2cc91c733a8388ac2f643016fe192f7687ef0c44b79305d23fed50dcfd2ca06d"
+  }
+}

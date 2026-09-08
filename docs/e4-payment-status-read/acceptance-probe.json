@@ -1,0 +1,379 @@
+{
+  "schemaVersion": "e4-payment-status-handler-acceptance.v1",
+  "result": "PASS",
+  "method": "Exact handler/helper/Telegram verifier ASTs, exact candidate adapter over retained installed SQLite class, in-memory query_only ledger, real HMAC with synthetic keys; generated exact HTML.",
+  "inputs": [
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "1297db5e84e36ddec0cdf09808c871ce55c28cfd7c4ca04bded9bbace5dde2ab"
+    },
+    {
+      "path": "relay/repositories/payment_status_read_store.py",
+      "sha256": "5cbd26d0335c0cf713aa4be9c87999773bbcc37ab89202a554a4811b6702b6f9"
+    },
+    {
+      "path": "relay/core/order_access.py",
+      "sha256": "15d996a1450ff898ef62b3e43c048069c2c4dc60863399bcba144cfd46c69a0f"
+    },
+    {
+      "path": "relay/core/telegram_freshness.py",
+      "sha256": "40bef427a0daa3069e05565fdb65217836414ed581960b64f1cff5c1c266d601"
+    },
+    {
+      "path": "relay/core/requisites.py",
+      "sha256": "a6c9eb87a236081095eb8213828b4ea33e9296d6f1bb8696d2e91c9733aca507"
+    },
+    {
+      "path": "relay/services/requisite_origin.py",
+      "sha256": "5552f1c274bc2e7721068bf7db69564ca360d5065920cebbb17c022df4335398"
+    },
+    {
+      "path": "relay/core/txid.py",
+      "sha256": "726b98d97696578b0883f5a14eca119f9bc4ce0fd92f409617edf1190129f824"
+    },
+    {
+      "path": "docs/e4-payment-status-read/acceptance-probe.py",
+      "sha256": "0944460d1fb1983cb0f75c44bad09674fd996f74bae218a6698afae6addcf27d"
+    }
+  ],
+  "installedInputs": [
+    {
+      "path": "/opt/obsidian-exchange/relay/repositories/order_read_store.py",
+      "sha256": "2cc91c733a8388ac2f643016fe192f7687ef0c44b79305d23fed50dcfd2ca06d"
+    }
+  ],
+  "cases": [
+    {
+      "name": "pending--foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "exact-pending-absent-opaque-and-numeric",
+      "result": "PASS"
+    },
+    {
+      "name": "pending-stored-foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "exact-pending-stored-opaque-and-numeric",
+      "result": "PASS"
+    },
+    {
+      "name": "pending-sent-foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "exact-pending-sent-opaque-and-numeric",
+      "result": "PASS"
+    },
+    {
+      "name": "paid--foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "exact-paid-absent-opaque-and-numeric",
+      "result": "PASS"
+    },
+    {
+      "name": "paid-stored-foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "exact-paid-stored-opaque-and-numeric",
+      "result": "PASS"
+    },
+    {
+      "name": "paid-sent-foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "exact-paid-sent-opaque-and-numeric",
+      "result": "PASS"
+    },
+    {
+      "name": "sent--foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "exact-sent-absent-opaque-and-numeric",
+      "result": "PASS"
+    },
+    {
+      "name": "sent-stored-foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "exact-sent-stored-opaque-and-numeric",
+      "result": "PASS"
+    },
+    {
+      "name": "sent-sent-foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "exact-sent-sent-opaque-and-numeric",
+      "result": "PASS"
+    },
+    {
+      "name": "expired--foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "exact-expired-absent-opaque-and-numeric",
+      "result": "PASS"
+    },
+    {
+      "name": "expired-stored-foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "exact-expired-stored-opaque-and-numeric",
+      "result": "PASS"
+    },
+    {
+      "name": "expired-sent-foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "exact-expired-sent-opaque-and-numeric",
+      "result": "PASS"
+    },
+    {
+      "name": "failed--foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "exact-failed-absent-opaque-and-numeric",
+      "result": "PASS"
+    },
+    {
+      "name": "failed-stored-foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "exact-failed-stored-opaque-and-numeric",
+      "result": "PASS"
+    },
+    {
+      "name": "failed-sent-foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "exact-failed-sent-opaque-and-numeric",
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled--foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "exact-cancelled-absent-opaque-and-numeric",
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-stored-foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "exact-cancelled-stored-opaque-and-numeric",
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-sent-foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "exact-cancelled-sent-opaque-and-numeric",
+      "result": "PASS"
+    },
+    {
+      "name": "active-opaque-state",
+      "result": "PASS"
+    },
+    {
+      "name": "stale-opaque-state",
+      "result": "PASS"
+    },
+    {
+      "name": "unknown-opaque-state",
+      "result": "PASS"
+    },
+    {
+      "name": "attack-opaque-state",
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-current-only-redirect-and-no-session-closure",
+      "result": "PASS"
+    },
+    {
+      "name": "malformed-or-orphan-pay-''",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "malformed-or-orphan-pay-'xxxxxxxxxxxxxxxxxxxx'",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "malformed-or-orphan-pay-'²'",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "malformed-or-orphan-pay-'１２'",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "malformed-or-orphan-pay-'orphan-fixture'",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "malformed-or-orphan-pay-\"' OR 1=1 --\"",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-proof-absent",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-proof-oversized",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-proof-malformed",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-proof-expired",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-proof-future",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-proof-other-order",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-proof-other-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "api-auth-absent",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "api-auth-foreign-token",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "api-auth-owner-wins-token",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "api-auth-internal-owner-wins-token",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "api-auth-nonascii-key",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "api-auth-invalid-key",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "invalid-telegram-signature",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "opaque-read-error-authorized_snapshot",
+      "status": 503,
+      "result": "PASS"
+    },
+    {
+      "name": "api-read-error-authorized_snapshot",
+      "status": 503,
+      "result": "PASS"
+    },
+    {
+      "name": "opaque-read-error-get_by_token",
+      "status": 503,
+      "result": "PASS"
+    },
+    {
+      "name": "opaque-read-error-authorized_state",
+      "status": 503,
+      "result": "PASS"
+    },
+    {
+      "name": "api-read-error-authorized_state",
+      "status": 503,
+      "result": "PASS"
+    },
+    {
+      "name": "opaque-read-error-session_closed",
+      "status": 503,
+      "result": "PASS"
+    },
+    {
+      "name": "api-read-error-session_closed",
+      "status": 503,
+      "result": "PASS"
+    },
+    {
+      "name": "numeric-session-read-error",
+      "status": 503,
+      "result": "PASS"
+    }
+  ],
+  "count": 69,
+  "generatedPages": 40,
+  "selectQueries": 274,
+  "databaseWritesAllowed": false,
+  "providerOrMoneyCalls": 0,
+  "limitations": [
+    "No ASGI server or production database imported. HTTPException/RedirectResponse are fixture equivalents.",
+    "Payout delay is a declared false fixture; that retained dependency is separately audited.",
+    "No production incident or loaded application-state claim."
+  ]
+}

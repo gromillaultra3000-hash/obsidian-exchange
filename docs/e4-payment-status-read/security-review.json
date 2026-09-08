@@ -1,0 +1,323 @@
+{
+  "schemaVersion": "e4-payment-status-independent-security-review.v1",
+  "recordedAt": "2026-09-08T02:19:31.023559+00:00",
+  "route": "E4 / PAYMENT_STATUS_RUNTIME_READ_CONTRACT",
+  "baselineHead": "49fe2eaec2187f934624f788bde11c3fb73b3904",
+  "result": "PASS",
+  "reviewer": "independent security/diff gate; product and recipe authored by other agents",
+  "skillApplied": "/root/.codex/skills/security-best-practices/SKILL.md (Python/FastAPI and JavaScript frontend guidance already read)",
+  "inputs": [
+    {
+      "path": "deploy/e4_payment_status_read_rollout.py",
+      "sha256": "21a12ffbf22ccef237f7ddef545648d0e0e3a660842b394ac4f31a95b7bd1129"
+    },
+    {
+      "path": "docs/e4-payment-status-read/320-pay-attack.png",
+      "sha256": "703b3bb6d6bbf1dd83003e154aba365871ccc23debe114825e6e2145db45a90c"
+    },
+    {
+      "path": "docs/e4-payment-status-read/320-pay-failed-absent.png",
+      "sha256": "964b04f4a868d741c211972995e1b65c629f707a23b5c1886c4cca45d02e51b7"
+    },
+    {
+      "path": "docs/e4-payment-status-read/320-pay-pending-sent.png",
+      "sha256": "43d527b106756244389409180b2383d39176cf55f6f5c63323173c973d78b2ac"
+    },
+    {
+      "path": "docs/e4-payment-status-read/320-pay-pending-stored.png",
+      "sha256": "1e992afc5b10a9464af6ffb62f5074f359efca96c7ed0b98e7e1b25ae31606e2"
+    },
+    {
+      "path": "docs/e4-payment-status-read/320-pay-stale.png",
+      "sha256": "683a22539c9548a39b8b548bb3b7b8717eec7f74ed646188971736202cf1cb75"
+    },
+    {
+      "path": "docs/e4-payment-status-read/390-pay-active.png",
+      "sha256": "67f672f09b2290506902802e65a6cba0f169b5453248dee42b5b5de6813a17d5"
+    },
+    {
+      "path": "docs/e4-payment-status-read/acceptance-pages.json",
+      "sha256": "d16c28a7aba0f9ed012800c500ed000fb03c914cc529061573fc46bfac3862b9"
+    },
+    {
+      "path": "docs/e4-payment-status-read/acceptance-probe.json",
+      "sha256": "11a19242b143291b8bec11d6f9da29bfafdead0a299c13efe0f1e68f0ed0a576"
+    },
+    {
+      "path": "docs/e4-payment-status-read/acceptance-probe.py",
+      "sha256": "0944460d1fb1983cb0f75c44bad09674fd996f74bae218a6698afae6addcf27d"
+    },
+    {
+      "path": "docs/e4-payment-status-read/acceptance-run-browser.py",
+      "sha256": "df732aa2ec0cf4d70d17eabe9d4743e256677bfa9f3892606af64a29460b1de3"
+    },
+    {
+      "path": "docs/e4-payment-status-read/browser-isolation.json",
+      "sha256": "062e8bcbca7f49105fc5f7d048cf32f567a548e4a2b76061c64ff769b834cbdb"
+    },
+    {
+      "path": "docs/e4-payment-status-read/browser-report.json",
+      "sha256": "b3f105d3363986d748b23a467326e12ecf17758237a2348a29bbcb873aa7b337"
+    },
+    {
+      "path": "docs/e4-payment-status-read/contract.md",
+      "sha256": "57a008303e5d09780f3d68105f4cfad4d323852c05ef2f8c6a83c91c16aae356"
+    },
+    {
+      "path": "docs/e4-payment-status-read/isolated-postgres.json",
+      "sha256": "c512244813522379e0d26ca1426467c4bbe7881e2ec97107a5c6e4baf1060b56"
+    },
+    {
+      "path": "docs/e4-payment-status-read/live-dependency-rehearsal.json",
+      "sha256": "19219b779bcbdd53d6e106613a9ed6724a9a1a6f45125a7be04c830035ab4a06"
+    },
+    {
+      "path": "docs/e4-payment-status-read/ops-baseline.json",
+      "sha256": "1c4381487a41858db3b4da530f37f349d5b64d856fe7c906d0a5cbe486f2c82e"
+    },
+    {
+      "path": "docs/e4-payment-status-read/ops-historical-check-triage.json",
+      "sha256": "663beb28104f32e8937e9d71a005e5a43900300bbf36536e6b39188ef1a5b13a"
+    },
+    {
+      "path": "docs/e4-payment-status-read/ops-plan.md",
+      "sha256": "f046d21b82d83cd0bd95d2658a136b494362ad797f2c8e4440012fdf85873c1c"
+    },
+    {
+      "path": "docs/e4-payment-status-read/ops-public-baseline.json",
+      "sha256": "f64a6f7af6db682a120e1649cfb97d65ab9ec6110fedd5c8859c49516cc583fa"
+    },
+    {
+      "path": "docs/e4-payment-status-read/ops-release-manifest.json",
+      "sha256": "fa87c1c8ee5eca7da4ba090504a93ae6cbda35b252971a38e89f0476f47e6057"
+    },
+    {
+      "path": "docs/e4-payment-status-read/ops-runtime-inspection.json",
+      "sha256": "dd06372a38a13bd47b22ad3ab91728cced971f347f47231fbf4a5cfa9c92b420"
+    },
+    {
+      "path": "docs/e4-payment-status-read/payment-browser-isolation.json",
+      "sha256": "0484a95056f34623bfa17067800a4856b982b1ac7352f6f7a75ce99de1e55d0e"
+    },
+    {
+      "path": "docs/e4-payment-status-read/payment-browser-report.json",
+      "sha256": "c64e7a56d7b0e04dd962de7a58316c2a52f5dd4d3c2594b17e90ad6307d1eb02"
+    },
+    {
+      "path": "docs/e4-payment-status-read/preflight.json",
+      "sha256": "085af2cfca76016f33929793315802be7d37353420e5bd94b8ba0b94c06500db"
+    },
+    {
+      "path": "docs/e4-payment-status-read/rollback-rehearsal.json",
+      "sha256": "fb8b41ae7052feb9ea765d8050bdcf29d0a67edb24d381c16e659896ba2af03b"
+    },
+    {
+      "path": "docs/e4-payment-status-read/secret-scan.json",
+      "sha256": "7ce74bf9ab4a61946bdc933747f0be17e9bf07601add1566ab67dffe7031415e"
+    },
+    {
+      "path": "docs/e4-payment-status-read/security-findings.md",
+      "sha256": "753f627f9eb2d205d51f034b4974453f8877921cf86b0ea83b8bbbd7361df866"
+    },
+    {
+      "path": "docs/e4-payment-status-read/security-ops-probe.json",
+      "sha256": "96c78f40aaa482a53758d38e089bebf6e2d42b0688c99f0d090cbbe2a7bb26da"
+    },
+    {
+      "path": "docs/e4-payment-status-read/security-ops-probe.py",
+      "sha256": "77b73f661f06812c1aafdb049d9b1724c0a9ec9c42380672ca0e3a78c22203c0"
+    },
+    {
+      "path": "docs/e4-payment-status-read/security-probe.json",
+      "sha256": "dbbc9c2a7bf09a5bdd5c7835aa503eb3c66d277727461b2e956e58e1920616aa"
+    },
+    {
+      "path": "docs/e4-payment-status-read/security-probe.py",
+      "sha256": "74ffacfbd0602bf8b7b83c61b1cdb57a17efe81e4581377100773201c4fb173e"
+    },
+    {
+      "path": "docs/e4-payment-status-read/security-tests.json",
+      "sha256": "49bb323c8da1608bc192d3a658f3a8ea3a7150543ffbd008280fe0d159e8bdd7"
+    },
+    {
+      "path": "docs/e4-payment-status-read/tests.json",
+      "sha256": "7513c0177d900ba923edf1d5743bd3c01627a937434058509749a4e6eccf284c"
+    },
+    {
+      "path": "docs/e4-payment-status-read/validation-notes.json",
+      "sha256": "9659e256f8297fea712db6b6e76f41aa4a38fa76aca358344237fddf8d916f98"
+    },
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "1297db5e84e36ddec0cdf09808c871ce55c28cfd7c4ca04bded9bbace5dde2ab"
+    },
+    {
+      "path": "relay/core/db_runtime.py",
+      "sha256": "9e0572dc70d5d883f7009c1f6701bdd8d34ec8fcc26a3d4c7a050a7938212237"
+    },
+    {
+      "path": "relay/core/order_access.py",
+      "sha256": "15d996a1450ff898ef62b3e43c048069c2c4dc60863399bcba144cfd46c69a0f"
+    },
+    {
+      "path": "relay/core/requisites.py",
+      "sha256": "a6c9eb87a236081095eb8213828b4ea33e9296d6f1bb8696d2e91c9733aca507"
+    },
+    {
+      "path": "relay/core/telegram_freshness.py",
+      "sha256": "40bef427a0daa3069e05565fdb65217836414ed581960b64f1cff5c1c266d601"
+    },
+    {
+      "path": "relay/core/txid.py",
+      "sha256": "726b98d97696578b0883f5a14eca119f9bc4ce0fd92f409617edf1190129f824"
+    },
+    {
+      "path": "relay/repositories/order_read_store.py",
+      "sha256": "5651f8400da4b0024b11bc77f03f9cb239ac284766f44586f0673788e1d54506"
+    },
+    {
+      "path": "relay/repositories/payment_status_read_store.py",
+      "sha256": "5cbd26d0335c0cf713aa4be9c87999773bbcc37ab89202a554a4811b6702b6f9"
+    },
+    {
+      "path": "relay/services/requisite_origin.py",
+      "sha256": "5552f1c274bc2e7721068bf7db69564ca360d5065920cebbb17c022df4335398"
+    },
+    {
+      "path": "relay/webapp.html",
+      "sha256": "8347b9df45a27b7077dabae8aa3e68dbfa763f0ed67220a93aca7f58ce11a908"
+    },
+    {
+      "path": "scripts/run_e4_review_browser.py",
+      "sha256": "6f4c9bf3020ae80b323655333a1eb3697eca4d44672ef6d28c679749136c412b"
+    },
+    {
+      "path": "tests/e4_payment_status_browser.cjs",
+      "sha256": "e03053474732580cab118d7cb3465cafa53f3cffa47d5943a7fd593da96c4212"
+    },
+    {
+      "path": "tests/e4_payment_status_fixture.py",
+      "sha256": "9da0e3a1d265543307699464aad372cbaf7cf241d0962bb1d4f4466ff2e2aa4f"
+    },
+    {
+      "path": "tests/e4_review_browser.cjs",
+      "sha256": "e9bef9f242c1ee26d2b2e8d14b2dadd8ca223b9550e33af61365f63678d28228"
+    },
+    {
+      "path": "tests/rehearse_e4_payment_status_read.py",
+      "sha256": "114f89d3a8ddff811d1957aa5113e605b252cb03329a7e5f2739e2912c21efdb"
+    },
+    {
+      "path": "tests/test_e0_3_numeric_pay_token_guard.py",
+      "sha256": "99238ba9bb7e7d6811388f6d9bb7ab055c16e068fff5b0ce24a2604aed85bd85"
+    },
+    {
+      "path": "tests/test_e0_4_authenticated_synthetic_reads.py",
+      "sha256": "d488f5d61b00b3fe9a9188a2c495a87ab95b7f5675675768d5a8282ad6f0065c"
+    },
+    {
+      "path": "tests/test_e4_activity_session_contract.py",
+      "sha256": "03434f2881d793a40c66de6647f23ac112b5710bdca75334a847da2e0cde6600"
+    },
+    {
+      "path": "tests/test_e4_payment_instruction_behavior.py",
+      "sha256": "b425ababa71e51d8f977214303553bd011509d2bb5dd9c8a0bf2ea2ef218b3ea"
+    },
+    {
+      "path": "tests/test_e4_payment_requisites_copy_behavior.py",
+      "sha256": "3b0e45d530c32e872ac54222120544e4bd63467cf1e33373d44105b7b8230a3a"
+    },
+    {
+      "path": "tests/test_e4_payment_status_read_contract.py",
+      "sha256": "7d7ab67d075f95329e0376fe66991acd8fbbfcc288899acc50eb10a692509c26"
+    },
+    {
+      "path": "tests/test_e4_payment_status_read_rollout.py",
+      "sha256": "7e71670a53e87adc84da115048cf863a42925a884fde2c0f9e4933b36cda3f13"
+    },
+    {
+      "path": "tests/test_order_access.py",
+      "sha256": "ebf8941ca0c125d08b6b975924dba5862f07621a0c723e03eefbcab46a44ed58"
+    },
+    {
+      "path": "tests/test_relay_runtime_isolation.py",
+      "sha256": "eeed65198d8762984cbaba3318e53554111dfb132e477460763c1f2d868933be"
+    }
+  ],
+  "supplementaryEvidence": [
+    {
+      "path": "docs/e4-payment-status-read/security-scan-finding.json",
+      "sha256": "49acfbfac9aeddecaefea574ca2928f898e7c52a7291de2c25f1c17a43287cee"
+    },
+    {
+      "path": "docs/e4-payment-status-read/security-scan-disposition.json",
+      "sha256": "ae95b141776b43e54abe6fc8ee9e4d5c16cf8936f3c94f5e617a8c82da06ae3c"
+    }
+  ],
+  "inputSetSha256": "965354951d4549d5b726674982ffe116649ef85c5624dcc5294f4fdd8a0399a1",
+  "findings": [],
+  "resolvedFindings": [
+    "Removed provider polling and payment-transition capability from status GET.",
+    "Escaped embedded JSON and replaced provider-detail interpolation with literal data-value plus fixed copy handler.",
+    "Only current pre-payment sessions offer instructions; stale/unknown/post-payment sessions use unavailable/no-repeat guidance.",
+    "Receipt and session read failures produce503; owner mismatch or invalid proof produces404.",
+    "Removed bearer/arbitrary exception text from unexpected page-error log.",
+    "Preserved public source hash scanner false positive as redacted evidence, verified exact public source digest, changed provenance records without suppression."
+  ],
+  "independentValidation": {
+    "securityAssertions": 194,
+    "boundedSQLiteSelects": 139,
+    "disposableOpsScenarios": 6,
+    "focusedPytest": "74 passed in 1.48s",
+    "scriptInjectionMutation": "Unsafe JSON sink mutant reproduces script breakout; final actual HTML/JS keeps hostile provider text literal.",
+    "deploymentRecipe": "Reviewed all publication/journal/reconciliation/rollback functions. Five partial-publication boundaries and lost restart acknowledgement pass explicit rollback without replay.",
+    "exactRetainedDependenciesVerified": 13,
+    "liveBaselineStillUnchangedAtSeal": true
+  },
+  "reviewedExternalEvidence": {
+    "primaryTests": "174 passed in 9.25s",
+    "miniAppBrowserChecks": 186,
+    "paymentPageBrowserChecks": 92,
+    "actualPostgresCases": 26,
+    "retainedLiveSQLiteCases": 26,
+    "bothBrowserUnitsStoppedAndCgroupsEmpty": true,
+    "stagedGitleaksFindings": 0,
+    "reviewerDirectoryScanFindingsBeforeSeal": 0,
+    "suppressionUsed": false
+  },
+  "authorityAndWriterAssessment": {
+    "telegramOrInternalUIDWinsOverBearer": true,
+    "SQLAuthorityAlwaysBound": true,
+    "numericProofRequiresOwnerScopedOrderBeforeSessionLookup": true,
+    "orphanSessionsDenied": true,
+    "noNewProviderPaymentOrDatabaseWriter": true,
+    "existingPayAuditLoggingPreserved": true,
+    "mainFunctionsChanged": [
+      "_receipt_state",
+      "_session_dead",
+      "api_order",
+      "pay"
+    ],
+    "callbacksWorkersAndMarkOrderPaidASTUnchanged": true
+  },
+  "deploymentAssessment": {
+    "targets": [
+      "relay/repositories/payment_status_read_store.py",
+      "relay/core/order_access.py",
+      "relay-fastapi/main.py",
+      "relay/webapp.html"
+    ],
+    "onlyRelayRestartPermitted": true,
+    "autopilotMustRemainStopped": true,
+    "interruptedDeployRequiresObservationThenExplicitRollback": true,
+    "interruptedRollbackReplayRefused": true,
+    "unknownBytesOrChangedPreimagesRefused": true
+  },
+  "limitations": [
+    "Review uses synthetic ledgers/keys, AST-isolated handlers and separate disposable browser/PG evidence; no authenticated production or customer-data requests were made by this reviewer.",
+    "No production deployment or restart was performed by this reviewer. Isolated rollback probes do not establish a production rollback was executed.",
+    "No real customer incident, provider confirmation, payout success, real Telegram/WebKit/human acceptance, full application audit or E4 closure is inferred.",
+    "Existing callback/worker configuration is preserved; ordinary Relay restart resumes already-enabled background effects, not a zero-write runtime.",
+    "A final metadata-inclusive scan is run after sealing; its raw redacted result stays in output/manual/e4-payment-status-read-20260908/reviewer-dir-gitleaks.json to avoid self-referential bindings."
+  ]
+}

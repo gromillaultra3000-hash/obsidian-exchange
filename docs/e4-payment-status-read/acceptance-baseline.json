@@ -1,0 +1,98 @@
+{
+  "schemaVersion": "e4-payment-status-read-acceptance-baseline.v1",
+  "result": "PREEXISTING_DEPENDENCY_FAILURES_REPRODUCED",
+  "method": "Exact installed class/handler/helper ASTs; real sqlite3 :memory: ledger with PRAGMA query_only=ON; synthetic verified identity. No application import, HTTP request, host DB, provider, wallet or real key access.",
+  "inputs": [
+    {
+      "path": "docs/e4-payment-status-read/acceptance-baseline.py",
+      "sha256": "fc513592addd18789f7c3571c5d4101e1dc1642eeee01ad5d59d6f4fa78f2da1"
+    }
+  ],
+  "installedInputs": [
+    {
+      "path": "/opt/obsidian-exchange/relay-fastapi/main.py",
+      "sha256": "3b75a18fffeabd2d8d2640d463d26eb8f227b010534e48c37edd3888be7013df"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay/repositories/order_read_store.py",
+      "sha256": "2cc91c733a8388ac2f643016fe192f7687ef0c44b79305d23fed50dcfd2ca06d",
+      "requiredMethods": [
+        "authorized_snapshot"
+      ],
+      "installedClassMethods": {
+        "SQLiteOrderReadStore": {
+          "authorized_snapshot": false
+        },
+        "PostgresOrderReadStore": {
+          "authorized_snapshot": false
+        }
+      }
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay/repositories/payment_session_store.py",
+      "sha256": "eb41d099a06beac4251190d10221467bdca4b21db7bc97dba687dd8d40653b8e",
+      "requiredMethods": [
+        "get_by_token",
+        "latest_for_authorized_order",
+        "latest_active_for_authorized_order",
+        "latest_provider_invoice_for_authorized_order"
+      ],
+      "installedClassMethods": {
+        "SQLitePaymentSessionStore": {
+          "get_by_token": false,
+          "latest_for_authorized_order": false,
+          "latest_active_for_authorized_order": false,
+          "latest_provider_invoice_for_authorized_order": false
+        },
+        "PostgresPaymentSessionStore": {
+          "get_by_token": false,
+          "latest_for_authorized_order": false,
+          "latest_active_for_authorized_order": false,
+          "latest_provider_invoice_for_authorized_order": false
+        }
+      }
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay/repositories/receipt_store.py",
+      "sha256": "252ada0ad673dfb60ad3f18913b11aa0a6bfa90d647978af71a97651cc54e123",
+      "requiredMethods": [
+        "authorized_state"
+      ],
+      "installedClassMethods": {
+        "SQLiteReceiptStore": {
+          "authorized_state": false
+        },
+        "PostgresReceiptStore": {
+          "authorized_state": false
+        }
+      }
+    }
+  ],
+  "missingProofModule": true,
+  "apiOrder": {
+    "errorType": "AttributeError",
+    "error": "'SQLiteOrderReadStore' object has no attribute 'authorized_snapshot'",
+    "failsBeforeDatabaseOrProvider": true
+  },
+  "opaquePay": {
+    "handlerExceptionStatus": 500,
+    "failsAt": "payment_session_store.get_by_token"
+  },
+  "receiptHelper": {
+    "actualLegacyState": "sent",
+    "helperReturned": "",
+    "missingAuthorizedMethodSilentlyTreatedAsNoReceipt": true
+  },
+  "sessionHelper": {
+    "actualLegacyLatestState": "failed",
+    "helperReturnedDead": false,
+    "missingAuthorizedMethodSilentlyTreatedAsNotClosed": true
+  },
+  "databaseReadQueries": 2,
+  "databaseWritesAllowed": false,
+  "noUnauthenticatedFallbackPermitted": true,
+  "limitations": [
+    "Installed source and exact isolated behavior are proven, not actual customer incidence or loaded production object state.",
+    "Legacy unscoped methods are used only as synthetic-ledger reference observations; they are not acceptable authorization fallbacks in repaired handlers."
+  ]
+}

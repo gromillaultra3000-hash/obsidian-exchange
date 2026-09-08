@@ -3424,13 +3424,12 @@
                     statusEl.innerHTML = `📋 Трейдер запросил ${verification === 'video' ? 'видео-подтверждение' : 'PDF-чек'}. Откройте чат с ботом — там инструкция и ID сделки.`;
                     if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('warning');
                 }
-                // Сделка закрыта у провайдера, а заявка ещё «ждёт оплаты»:
-                // реквизиты на экране ведут туда, где перевод уже не ждут.
-                if (dead && st === 'pending' && !_receipt) {
+                // Closed, stale or unknown sessions cannot offer another transfer.
+                if (dead && st === 'pending' && _receipt !== 'sent') {
                     hidePaymentInstructions();
                     timerEl.textContent = '—';
                     title.textContent = `Заявка #${orderId} — реквизиты не действуют`;
-                    statusEl.innerHTML = '⚠️ Платёжная сессия закрыта партнёром. <b>Если вы уже перевели деньги — повторно не переводите</b>, пришлите чек в чат. Если ещё нет — создайте новую заявку.';
+                    statusEl.innerHTML = '⚠️ Реквизиты по этой ссылке больше недоступны. <b>Если вы уже перевели деньги — повторно не переводите.</b> Обратитесь в поддержку для проверки статуса.';
                     return;
                 }
                 if (_receipt === 'sent' && st !== 'paid' && st !== 'sent') {

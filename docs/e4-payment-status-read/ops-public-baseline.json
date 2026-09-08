@@ -1,0 +1,23 @@
+{
+  "recordedAt": "2026-09-08T02:04:49.529397+00:00",
+  "result": "OBSERVED_BASELINE_FAILURE",
+  "requests": [
+    {
+      "path": "/api/order/0",
+      "method": "GET",
+      "authenticated": false,
+      "status": 500,
+      "bodyBytes": 2351
+    },
+    {
+      "path": "/pay/0",
+      "method": "GET",
+      "authenticated": false,
+      "status": 500,
+      "bodyBytes": 2351
+    }
+  ],
+  "runtimeMutated": false,
+  "databaseRead": false,
+  "explanation": "No identity or proof supplied; inspected baseline reaches missing authorized_snapshot attribute or missing order_access import before any repository query."
+}

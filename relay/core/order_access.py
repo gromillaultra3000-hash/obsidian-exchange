@@ -29,10 +29,15 @@ def issue(order_id: int, user_id: int, *, now: int | None = None) -> str | None:
 def verify(proof: str, order_id: int, *, now: int | None = None,
            ttl: int = TTL_SECONDS) -> int | None:
     key = _secret()
-    parts = str(proof or "").split(".")
+    value = str(proof or "")
+    if len(value) > 256:
+        return None
+    parts = value.split(".")
     if not key or len(parts) != 5:
         return None
     timestamp, oid, uid, nonce, signature = parts
+    if len(signature) != 64 or any(c not in '0123456789abcdef' for c in signature):
+        return None
     body = f"{timestamp}.{oid}.{uid}.{nonce}"
     expected = hmac.new(key, body.encode(), hashlib.sha256).hexdigest()
     if not hmac.compare_digest(signature, expected):

@@ -84,6 +84,7 @@ from repositories import admin_config_store as _admin_config_store_module
 from repositories import ops_store as _ops_store_module
 from repositories import order_read_store as _order_read_store_module
 from repositories import activity_read_store as _activity_read_store_module
+from repositories.payment_status_read_store import PaymentStatusReadStore
 from repositories import reporting_store as _reporting_store_module
 from repositories import order_workflow_store as _order_workflow_store_module
 from repositories import order_lifecycle_store as _order_lifecycle_store_module
@@ -102,6 +103,7 @@ _user_profiles = _user_profile_store_module.from_environment(sqlite_path=DB_PATH
 _admin_config = _admin_config_store_module.from_environment(sqlite_path=DB_PATH)
 _ops_store = _ops_store_module.from_environment(sqlite_path=DB_PATH)
 _order_reads = _order_read_store_module.from_environment(sqlite_path=DB_PATH)
+_payment_status_reads = PaymentStatusReadStore(_order_reads)
 _reporting = _reporting_store_module.from_environment(sqlite_path=DB_PATH)
 _order_workflow = _order_workflow_store_module.from_environment(sqlite_path=DB_PATH)
 _order_lifecycle = _order_lifecycle_store_module.from_environment(sqlite_path=DB_PATH)
@@ -757,19 +759,13 @@ def _delayed_ids() -> set:
 
 
 def _session_dead(order_id, *, user_id=None, session_token=None) -> bool:
-    """Платёжная сессия закрыта провайдером, а заявка ещё ждёт оплаты.
-
-    Ровно то состояние, в котором клиент смотрит на реквизиты, ведущие в никуда:
-    сделка у провайдера умерла (Declined/Revoked), но заявка живая. Показывать
-    ему в этот момент живые реквизиты — приглашать перевести деньги туда, где их
-    уже никто не ждёт.
-    """
+    """Closed, stale, post-payment or unknown sessions cannot invite a transfer."""
     try:
-        row = _payment_sessions.latest_for_authorized_order(
+        return _payment_status_reads.session_closed(
             int(order_id), user_id=user_id, session_token=session_token)
-        return bool(row) and (row.get("status") or "") == "failed"
     except Exception:
-        return False
+        logger.warning("payment session status unavailable order=%s", order_id)
+        raise HTTPException(status_code=503, detail="Payment status temporarily unavailable")
 
 
 def _payout_delayed(order_id) -> bool:
@@ -802,15 +798,15 @@ def _receipt_state(order_id, *, user_id=None, session_token=None) -> str:
                и кнопка «Оплатить» опасны: по ним платят второй раз.
     Общее у обоих — по этому факту Слой 0 (cleanup_expired_orders) не
     истекает заявку, значит и клиенту нельзя показывать «срок истёк».
-    Ошибка чтения — считаем, что чека нет: лишний таймер честнее
-    выдуманной «оплаты на проверке».
+    Ошибка чтения не доказывает отсутствие чека: возвращаем 503, чтобы
+    не предлагать повторную оплату при недоступных данных.
     """
     try:
-        return _receipts.authorized_state(
+        return _payment_status_reads.authorized_state(
             order_id, user_id=user_id, session_token=session_token)
     except Exception:
-        logger.warning("order_receipts недоступна при проверке чека order=%s", order_id)
-        return ""
+        logger.warning("order_receipts unavailable order=%s", order_id)
+        raise HTTPException(status_code=503, detail="Payment status temporarily unavailable")
 
 
 def _destination_lines(currency, stored):
@@ -3060,58 +3056,28 @@ async def api_order(order_id: int, request: Request):
     # Внутренний server-to-server ключ (бот → /api/order?key=RELAY_SECRET)
     if authority_user_id is None:
         key = request.query_params.get('key', '')
-        if key and SECRET_KEY and SECRET_KEY != 'fallback' and hmac.compare_digest(key, SECRET_KEY):
+        if (key and len(key) <= 256 and key.isascii() and SECRET_KEY
+                and SECRET_KEY != 'fallback' and hmac.compare_digest(key, SECRET_KEY)):
             try:
                 authority_user_id = int(request.query_params.get('user_id', ''))
             except (TypeError, ValueError):
                 authority_user_id = None
     try:
-        row = _order_reads.authorized_snapshot(
+        row = _payment_status_reads.authorized_snapshot(
             order_id, user_id=authority_user_id, session_token=authority_token)
     except ValueError:
         row = None
+    except Exception:
+        raise HTTPException(status_code=503, detail="Payment status temporarily unavailable")
     if not row:
         raise HTTPException(status_code=404)
     status, txid = row["status"], row["paid_btc_tx"]
     verification = row["verification_requested"] or ''
     currency, network = row["currency"], row["network"]
 
-    # Если заявка ещё pending — проверяем Brabus напрямую на случай пропущенного вебхука
-    if status == 'pending':
-        try:
-            sess = _payment_sessions.latest_provider_invoice_for_authorized_order(
-                order_id, "brabus", user_id=authority_user_id,
-                session_token=authority_token, prefix=True)
-            if sess:
-                inv_id, prov = sess["provider_invoice_id"], sess["provider"]
-                variant = prov.split(':', 1)[1] if ':' in prov else 'tbank_deeplink'
-                from providers.brabus import BrabusProvider
-                brabus_status = BrabusProvider(variant=variant).get_status(inv_id)
-                if brabus_status.get('status') == 'paid':
-                    _mark_order_paid(order_id, "brabus", evidence="verified_poll:paid")
-                    status = 'paid'
-                    audit_log("brabus_polled_paid", f"order={order_id} inv={inv_id}")
-                    logger.info(f"[brabus_poll] order {order_id} marked paid via polling")
-        except Exception as e:
-            logger.warning(f"[brabus_poll] order {order_id}: {e}")
-
-    # Аналогично для Vertu (вебхуков нет — только опрос)
-    if status == 'pending':
-        try:
-            sess = _payment_sessions.latest_provider_invoice_for_authorized_order(
-                order_id, "vertu", user_id=authority_user_id,
-                session_token=authority_token)
-            if sess:
-                from providers.vertu import VertuProvider
-                inv_id = sess["provider_invoice_id"]
-                vertu_status = await asyncio.to_thread(VertuProvider().get_status, inv_id)
-                if vertu_status.get('status') == 'paid':
-                    _mark_order_paid(order_id, "vertu", evidence="verified_poll:paid")
-                    status = 'paid'
-                    audit_log("vertu_polled_paid", f"order={order_id} inv={inv_id}")
-                    logger.info(f"[vertu_poll] order {order_id} marked paid via /api/order")
-        except Exception as e:
-            logger.warning(f"[vertu_poll] order {order_id}: {e}")
+    # Status GET reads the canonical ledger only. Provider confirmations are
+    # handled by the existing verified callbacks and background workers; a page
+    # refresh must not activate a payment transition during read-contract repair.
 
     # Готовую ссылку считает сервер: клиентские копии карты обозревателей знали
     # три монеты из шести и для остальных склеивали ссылку из пустого префикса —
@@ -3228,26 +3194,37 @@ async def api_server_stats(request: Request):
 @app.get("/pay/{token}", response_class=HTMLResponse)
 async def pay(token: str, request: Request):
     client_ip = request.client.host
+    if not token or len(token) > 256:
+        raise HTTPException(status_code=404)
     
     # Числовой токен (легаси /pay/{order_id}) — сюда сайт падает, если payment
     # session не создалась. Пробуем найти живую сессию заявки и уйти на неё;
     # иначе — честная страница статуса в фирменном стиле (без фейкового QR).
-    if token.isdigit():
+    if token.isascii() and token.isdigit():
         # Numeric order ids are enumerable. Never exchange one for an opaque
         # payment-session token unless the caller proves the internal relay
         # secret; otherwise this legacy fallback becomes a token-disclosure
         # oracle for every pending order.
-        from core import order_access
         order_id = int(token)
-        authority_user_id = order_access.verify(
-            request.query_params.get("proof", ""), order_id)
+        try:
+            from core import order_access
+            authority_user_id = order_access.verify(
+                request.query_params.get("proof", ""), order_id)
+        except (ImportError, TypeError, ValueError):
+            raise HTTPException(status_code=404)
         if authority_user_id is None:
             raise HTTPException(status_code=404)
-        order = _order_reads.authorized_snapshot(order_id, user_id=authority_user_id)
-        session = _payment_sessions.latest_active_for_authorized_order(
-            order_id, user_id=authority_user_id)
+        try:
+            order = _payment_status_reads.authorized_snapshot(order_id, user_id=authority_user_id)
+        except Exception:
+            raise HTTPException(status_code=503, detail="Payment status temporarily unavailable")
         if not order:
             raise HTTPException(status_code=404)
+        try:
+            session = _payment_status_reads.latest_active_for_authorized_order(
+                order_id, user_id=authority_user_id)
+        except Exception:
+            raise HTTPException(status_code=503, detail="Payment status temporarily unavailable")
         audit_log("payment_page_opened", f"ip={client_ip}")
         if session and session.get("session_token"):
             return RedirectResponse(f"/pay/{session['session_token']}", status_code=302)
@@ -3259,16 +3236,26 @@ async def pay(token: str, request: Request):
         # чеком: обещать по ней выплату нельзя, но и молчать о чеке нельзя —
         # деньги клиент, возможно, отдал.
         _rcpt = _receipt_state(order_id, user_id=authority_user_id)
+        _closed_session = (o_status in (None, '', 'pending') and _session_dead(
+            order_id, user_id=authority_user_id))
         if _rcpt == 'sent':
             if o_status in (None, '', 'pending'):
-                o_status = '_receipt'
+                o_status = '_receipt_unavailable' if _closed_session else '_receipt'
             elif o_status in ('expired', 'failed', 'cancelled'):
                 o_status = '_receipt_closed'
+        elif _rcpt == 'stored' and o_status in ('expired', 'failed', 'cancelled'):
+            o_status = '_receipt_closed'
+        if o_status in (None, '', 'pending') and _closed_session:
+            o_status = '_session_closed'
         _titles = {'_receipt': ('Чек получен — проверяем', 'Заявка не отменена и не истекла. Как только платёж подтвердится, крипта уйдёт на ваш адрес. Обычно до 30 минут.'),
+                   '_session_closed': ('Реквизиты недоступны', 'Не переводите по прежним реквизитам. Если уже оплатили — не платите повторно и обратитесь в поддержку.'),
+                   '_receipt_unavailable': ('Чек получен, реквизиты недоступны', 'Повторно не переводите и новую заявку не создавайте. Обратитесь в поддержку для проверки статуса.'),
                    '_receipt_closed': ('Заявка закрыта, чек у нас', 'Повторно не переводите и новую заявку не создавайте. Напишите в поддержку — разберём вручную по вашему чеку.'),
                    'pending': ('Реквизиты готовятся', 'Платёжный маршрут ещё не выдал реквизиты. Откройте бота — там появится кнопка оплаты, или создайте заявку заново.'),
                    'paid': ('Оплата получена', 'Готовим выплату криптовалюты. Уведомим в Telegram.'),
                    'sent': ('Криптовалюта отправлена', 'Сделка завершена. Спасибо, что выбрали нас!'),
+                   'failed': ('Заявка не выполнена', 'Средства не переводите. Если уже оплатили — не платите повторно и обратитесь в поддержку.'),
+                   'cancelled': ('Заявка отменена', 'Средства не переводите. Если уже оплатили — не платите повторно и обратитесь в поддержку.'),
                    'expired': ('Заявка истекла', 'Средства не переводите — создайте новую заявку с актуальным курсом.')}
         _t, _d = _titles.get(o_status or 'pending', _titles['pending'])
         html = f"""<!DOCTYPE html>
@@ -3313,7 +3300,10 @@ async def pay(token: str, request: Request):
     
     # Новый формат: сессия по токену. Полный жизненный цикл + Apple-минимализм.
     try:
-        session = _payment_sessions.get_by_token(token)
+        try:
+            session = _payment_status_reads.get_by_token(token)
+        except Exception:
+            raise HTTPException(status_code=503, detail="Payment status temporarily unavailable")
         if not session:
             raise HTTPException(status_code=404)
         audit_log("payment_page_opened", f"ip={client_ip}")
@@ -3322,7 +3312,12 @@ async def pay(token: str, request: Request):
         order_id = session['order_id']
 
         # Актуальный статус/txid/валюта — из orders (там живёт жизненный цикл)
-        order = _order_reads.authorized_snapshot(order_id, session_token=token)
+        try:
+            order = _payment_status_reads.authorized_snapshot(order_id, session_token=token)
+        except Exception:
+            raise HTTPException(status_code=503, detail="Payment status temporarily unavailable")
+        if not order:
+            raise HTTPException(status_code=404)
         order_status = (order["status"] if order else session.get('status')) or 'pending'
         txid = order["paid_btc_tx"] if order else None
         currency = (order["currency"] if order else '') or ''
@@ -3416,7 +3411,9 @@ async def pay(token: str, request: Request):
             "dead": (order_status == "pending" and _session_dead(
                 order_id, session_token=token)),
         }
-        cfg_json = _json.dumps(cfg, ensure_ascii=False)
+        cfg_json = (_json.dumps(cfg, ensure_ascii=False)
+                    .replace('&', '\\u0026').replace('<', '\\u003c').replace('>', '\\u003e')
+                    .replace('\u2028', '\\u2028').replace('\u2029', '\\u2029'))
 
         html = f"""<!DOCTYPE html>
 <html lang="ru">
@@ -3492,7 +3489,7 @@ function viewPay(){{
   const rows = [];
   if (C.bank) rows.push(`<div class="row"><span class="k">Банк</span><span class="v">${{esc(C.bank)}}</span></div>`);
   if (C.recipient) rows.push(`<div class="row"><span class="k">Получатель</span><span class="v">${{esc(C.recipient)}}</span></div>`);
-  if (C.detailVal) rows.push(`<div class="row main"><span class="k">${{esc(C.detailLbl)}}</span><span class="v">${{esc(C.detailVal)}}<button class="cp" onclick="cp('${{esc(C.detailVal)}}',this)">Копировать</button></span></div>`);
+  if (C.detailVal) rows.push(`<div class="row main"><span class="k">${{esc(C.detailLbl)}}</span><span class="v">${{esc(C.detailVal)}}<button class="cp" data-value="${{esc(C.detailVal)}}" onclick="cp(this.dataset.value,this)">Копировать</button></span></div>`);
   const reqBlock = rows.length ? `<div class="reqs">${{rows.join('')}}</div>` : '';
   const qrBlock = C.qr ? `<img class="qr" src="${{C.qr}}" alt="QR">` : '';
   const linkBtn = C.payLink ? `<a class="btn" href="${{esc(C.payLink)}}" target="_blank" rel="noopener">Перейти к оплате</a>` : '';
@@ -3562,10 +3559,10 @@ function viewReceipt(){{
   // Сделка у партнёра закрыта — автоматика её уже не подтвердит, решает
   // человек. Обещать «обычно до 30 минут» здесь значит назвать срок, которого
   // никто не держит.
-  if (C.dead) return `<div class="pill wait"><i class="pdot"></i>Чек получен · разбираем вручную</div>
+  if (C.dead) return `<div class="pill wait"><i class="pdot"></i>Чек получен</div>
     <div class="spin"></div>
-    <div class="lbl" style="font-size:15px;color:#e7e7ea;text-align:center">Заявкой занимается сотрудник</div>
-    <div class="hint">Платёжная сессия закрылась на стороне партнёра, а ваш чек у нас. <b>Повторно не переводите и новую заявку не создавайте.</b> Мы напишем в бота, как только будет решение.
+    <div class="lbl" style="font-size:15px;color:#e7e7ea;text-align:center">Нужна проверка статуса</div>
+    <div class="hint">Реквизиты по этой ссылке больше недоступны, а ваш чек у нас. <b>Повторно не переводите и новую заявку не создавайте.</b> Обратитесь в поддержку для проверки статуса.
     ${{SUPPORT}}</div>`;
   return `<div class="pill wait"><i class="pdot"></i>Чек получен · проверяем</div>
     <div class="spin"></div>
@@ -3594,8 +3591,8 @@ function viewReceiptStored(){{
 // перевод по ним уйдёт туда, где его уже никто не ждёт.
 function viewDead(){{
   return `<div class="pill exp"><i class="pdot"></i>Реквизиты больше не действуют</div>
-    <div class="lbl" style="font-size:15px;color:#e7e7ea;text-align:center">Платёжная сессия закрыта</div>
-    <div class="hint">Партнёр закрыл эту сделку. <b>Если вы уже перевели деньги — не переводите повторно</b>, пришлите чек в бота, разберёмся вручную. Если ещё нет — создайте новую заявку, реквизиты выдадим заново.
+    <div class="lbl" style="font-size:15px;color:#e7e7ea;text-align:center">Реквизиты по этой ссылке недоступны</div>
+    <div class="hint">Реквизиты по этой ссылке больше недоступны. <b>Если вы уже перевели деньги — не переводите повторно.</b> Обратитесь в поддержку для проверки статуса.
     ${{SUPPORT}}</div>`;
 }}
 let _timer=null, _localExpired=false;
@@ -3672,7 +3669,7 @@ setInterval(poll, 5000);
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error in /pay/{token}: {e}")
+        logger.error("Payment page unavailable: %s", type(e).__name__)
         raise HTTPException(status_code=500)
 
 # --- Своп криптовалют через Trocador ---

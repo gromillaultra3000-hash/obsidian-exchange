@@ -1,0 +1,263 @@
+{
+  "recordedAt": "2026-09-08T02:16:01.951462+00:00",
+  "result": "TRIAGED_OBSERVED_FAILURES",
+  "route": "E4 / PAYMENT_STATUS_RUNTIME_READ_CONTRACT",
+  "baselineCommit": "49fe2eaec2187f934624f788bde11c3fb73b3904",
+  "isolation": "git archive of only relevant tracked source/tests/docs into disposable /tmp tree; no frozen E0 authority docs changed",
+  "staticTestCommand": [
+    "/opt/lumi/venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "tests/test_e0_3_relay_read_contracts.py",
+    "tests/test_e0_3_relay_capability_graph.py",
+    "--tb=short"
+  ],
+  "staticTestResults": {
+    "baseline49fe2ea": {
+      "exitCode": 1,
+      "passed": 15,
+      "failed": 3,
+      "failedTests": [
+        "test_customer_history_contracts_bind_identity_and_bounds",
+        "test_summary_is_bound_to_exact_current_graph",
+        "test_closed_counts_imports_objects_and_operations_match"
+      ]
+    },
+    "candidate": {
+      "exitCode": 1,
+      "passed": 14,
+      "failed": 4,
+      "failedTests": [
+        "test_customer_history_contracts_bind_identity_and_bounds",
+        "test_summary_is_bound_to_exact_current_graph",
+        "test_closed_counts_imports_objects_and_operations_match",
+        "test_dynamic_sql_surface_is_closed_and_reviewed"
+      ],
+      "stdoutSha256": "ca640337fbde425d76b0e9511bd1e18b67a3c4fd5a9ce6eae7b8428f0e78da41",
+      "summary": "4 failed, 14 passed in 2.10s"
+    }
+  },
+  "archivedSummary": {
+    "canonicalOutputSha256": "25ffe9a8874646064b8e04ea2acdfd759348a9048f92a8ba9a1006d15a2ff0a1",
+    "counts": {
+      "repositoryImports": 17,
+      "factoryBindings": 17,
+      "callEdges": 69,
+      "relationObjects": 22,
+      "directSqlOrConnectionSites": 0,
+      "unresolvedMethods": 0
+    }
+  },
+  "observations": {
+    "baseline49fe2ea": {
+      "mainSha256": "3b75a18fffeabd2d8d2640d463d26eb8f227b010534e48c37edd3888be7013df",
+      "graphCanonicalSha256": "16e1bcdbd9d87b4d9ad5dcc37dcca6da6eb41ce6e4a21711e1507567cd3ad502",
+      "graphStatus": "EXACT_STATIC_GRAPH",
+      "counts": {
+        "repositoryImports": 18,
+        "factoryBindings": 17,
+        "callEdges": 68,
+        "relationObjects": 27,
+        "directSqlOrConnectionSites": 0,
+        "unresolvedMethods": 0
+      },
+      "dynamicSqlEdges": [
+        "ops_store.cleanup_audit",
+        "order_creation_store.recent_duplicate",
+        "order_lifecycle_store.claim_work",
+        "order_read_store.authorized_snapshot",
+        "order_read_store.receipt_order_ids",
+        "payment_session_store.latest_provider_invoice_for_authorized_order",
+        "runtime_schema_store.validate",
+        "sell_order_store.active_vertu_payouts",
+        "sell_order_store.cancel_pending",
+        "sell_settlement_store.claim_notification",
+        "swap_store.get_by_external_id",
+        "swap_store.get_by_token"
+      ],
+      "apiOrderCalls": [
+        "BrabusProvider",
+        "BrabusProvider(variant=variant).get_status",
+        "HTTPException",
+        "VertuProvider",
+        "_mark_order_paid",
+        "_order_reads.authorized_snapshot",
+        "_payment_sessions.latest_provider_invoice_for_authorized_order",
+        "_payout_delayed",
+        "_receipt_state",
+        "_session_dead",
+        "_txid.explorer_url",
+        "app.get",
+        "asyncio.to_thread",
+        "audit_log",
+        "brabus_status.get",
+        "hmac.compare_digest",
+        "int",
+        "logger.info",
+        "logger.warning",
+        "prov.split",
+        "request.headers.get",
+        "request.query_params.get",
+        "request.query_params.get('token', '').strip",
+        "verify_init_data",
+        "vertu_status.get"
+      ],
+      "orderReadSourceSha256": "5651f8400da4b0024b11bc77f03f9cb239ac284766f44586f0673788e1d54506",
+      "boundedLimitLiteralCount": 12,
+      "p3StandaloneHarness": {
+        "exitCode": 0,
+        "stdout": "E0.3 Relay P3 authorized order rehearsal: skipped (TEST_POSTGRES_DSN unset)",
+        "dsnPresent": false,
+        "scriptSha256": "68deb01a2fe463a52f469afef4b6cad47ddbf465c4e8dc17fbf917e88112b047"
+      }
+    },
+    "candidate": {
+      "mainSha256": "1297db5e84e36ddec0cdf09808c871ce55c28cfd7c4ca04bded9bbace5dde2ab",
+      "graphCanonicalSha256": "5c010d0af3a70ac47552b04d928be8a7217b3de0fd190ded1d875e056e083aaf",
+      "graphStatus": "EXACT_STATIC_GRAPH",
+      "counts": {
+        "repositoryImports": 18,
+        "factoryBindings": 17,
+        "callEdges": 59,
+        "relationObjects": 22,
+        "directSqlOrConnectionSites": 0,
+        "unresolvedMethods": 0
+      },
+      "dynamicSqlEdges": [
+        "ops_store.cleanup_audit",
+        "order_creation_store.recent_duplicate",
+        "order_lifecycle_store.claim_work",
+        "order_read_store.receipt_order_ids",
+        "runtime_schema_store.validate",
+        "sell_order_store.active_vertu_payouts",
+        "sell_order_store.cancel_pending",
+        "sell_settlement_store.claim_notification",
+        "swap_store.get_by_external_id",
+        "swap_store.get_by_token"
+      ],
+      "apiOrderCalls": [
+        "HTTPException",
+        "_payment_status_reads.authorized_snapshot",
+        "_payout_delayed",
+        "_receipt_state",
+        "_session_dead",
+        "_txid.explorer_url",
+        "app.get",
+        "hmac.compare_digest",
+        "int",
+        "key.isascii",
+        "len",
+        "request.headers.get",
+        "request.query_params.get",
+        "request.query_params.get('token', '').strip",
+        "verify_init_data"
+      ],
+      "orderReadSourceSha256": "5651f8400da4b0024b11bc77f03f9cb239ac284766f44586f0673788e1d54506",
+      "boundedLimitLiteralCount": 12,
+      "p3StandaloneHarness": {
+        "exitCode": 0,
+        "stdout": "E0.3 Relay P3 authorized order rehearsal: skipped (TEST_POSTGRES_DSN unset)",
+        "dsnPresent": false,
+        "scriptSha256": "68deb01a2fe463a52f469afef4b6cad47ddbf465c4e8dc17fbf917e88112b047"
+      }
+    }
+  },
+  "archivedCandidateBuilder": {
+    "baseline49fe2ea": {
+      "exceptionType": "ValueError",
+      "message": "relay checkout source digest mismatch",
+      "sourceSha256": "3b75a18fffeabd2d8d2640d463d26eb8f227b010534e48c37edd3888be7013df",
+      "requiredSourceSha256": "16dc034f4213f2765bcca0fecd97d62fdeb40a8a0d70e0e94568dfb5e1d6dcfc",
+      "liveBaseSha256": "3b75a18fffeabd2d8d2640d463d26eb8f227b010534e48c37edd3888be7013df",
+      "requiredBaseSha256": "c1ef783e3005f4698540ddc5368ef9a4592612fcf666b403ecbb7c4a359bd7ff",
+      "builderSha256": "8a72533dd65ff6c81760c158924236edc3c3d748961fd1ca4c70fe4d1dbb9d14",
+      "outputCreated": false,
+      "runtimeImported": false
+    },
+    "candidate": {
+      "exceptionType": "ValueError",
+      "message": "relay checkout source digest mismatch",
+      "sourceSha256": "1297db5e84e36ddec0cdf09808c871ce55c28cfd7c4ca04bded9bbace5dde2ab",
+      "requiredSourceSha256": "16dc034f4213f2765bcca0fecd97d62fdeb40a8a0d70e0e94568dfb5e1d6dcfc",
+      "liveBaseSha256": "3b75a18fffeabd2d8d2640d463d26eb8f227b010534e48c37edd3888be7013df",
+      "requiredBaseSha256": "c1ef783e3005f4698540ddc5368ef9a4592612fcf666b403ecbb7c4a359bd7ff",
+      "builderSha256": "8a72533dd65ff6c81760c158924236edc3c3d748961fd1ca4c70fe4d1dbb9d14",
+      "outputCreated": false,
+      "runtimeImported": false
+    }
+  },
+  "classifications": [
+    {
+      "test": "customer_history_contracts_bind_identity_and_bounds",
+      "classification": "PRE_EXISTING_FAILURE",
+      "evidence": "Both baseline and candidate retain identical order_read_store.py and 12 literal query bounds; archived assertion expects 6."
+    },
+    {
+      "tests": [
+        "summary_is_bound_to_exact_current_graph",
+        "closed_counts_imports_objects_and_operations_match"
+      ],
+      "classification": "PRE_EXISTING_ARCHIVED_INVENTORY_DRIFT",
+      "evidence": "Unchanged archived summary already mismatches canonical baseline49fe2ea graph/hash/counts."
+    },
+    {
+      "test": "dynamic_sql_surface_is_closed_and_reviewed",
+      "classification": "EXPECTED_CURRENT_SCOPE_CHANGE",
+      "evidence": "Candidate removes old order_read_store.authorized_snapshot callsites and provider invoice polling from status GET. Its fixed owner read adapter is a direct class instance not recognized by the archived factory-only graph scanner; graph counts do not prove full current capability closure."
+    },
+    {
+      "test": "test_candidate_runtime_matrix_in_fresh_subprocess",
+      "classification": "PRE_EXISTING_ARCHIVED_BUILDER_DIGEST_PIN_FAILURE",
+      "evidence": "Exact archived prepare(relay) rejects both baseline and candidate source before runtime import/output/DB/network. Builder pins unrelated old source16dc034f and old runtimec1ef783e; test runtime body was not rerun, failing builder boundary was executed directly."
+    },
+    {
+      "test": "test_e0_3_relay_p3_authorized_order_rehearsal.py collection",
+      "classification": "STANDALONE_HARNESS_PYTEST_INCOMPATIBILITY",
+      "evidence": "Exact baseline and candidate script exit0 at import when TEST_POSTGRES_DSN is unset. This is a standalone harness skip, not a product assertion pass or failure. Current scoped actual PostgreSQL and live-dependency rehearsals remain required."
+    }
+  ],
+  "runtimeMutated": false,
+  "customerDataRead": false,
+  "databaseRead": false,
+  "frozenE0AuthorityDocumentsChanged": false,
+  "temporaryCheckout": "/tmp/e4-historical-baseline-x8oorpp2",
+  "cleanupPending": false,
+  "inputs": [
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "1297db5e84e36ddec0cdf09808c871ce55c28cfd7c4ca04bded9bbace5dde2ab"
+    },
+    {
+      "path": "relay/repositories/order_read_store.py",
+      "sha256": "5651f8400da4b0024b11bc77f03f9cb239ac284766f44586f0673788e1d54506"
+    },
+    {
+      "path": "scripts/e0_relay_capability_graph.py",
+      "sha256": "e1f48427bc32373839bfa5eb2397c168ed2c3da5d84279b7c924f1c2e6fb6f5d"
+    },
+    {
+      "path": "scripts/e0_4_build_owner_auth_candidate.py",
+      "sha256": "8a72533dd65ff6c81760c158924236edc3c3d748961fd1ca4c70fe4d1dbb9d14"
+    },
+    {
+      "path": "tests/test_e0_3_relay_read_contracts.py",
+      "sha256": "53d40e1ee25f1cd2fd4d604b0030ea90d95c26776ee005f641f3c2fd312c81cc"
+    },
+    {
+      "path": "tests/test_e0_3_relay_capability_graph.py",
+      "sha256": "34c76331ba54e0a943d477248a26a4f7b8cfd285dc1039ba37683e73eb9270f9"
+    },
+    {
+      "path": "tests/test_e0_4_owner_auth_candidate_runtime.py",
+      "sha256": "17ff6fa9b9e8a02e137bcbf1428d5ca14627f4574912be852308f3b28f789f92"
+    },
+    {
+      "path": "tests/test_e0_3_relay_p3_authorized_order_rehearsal.py",
+      "sha256": "68deb01a2fe463a52f469afef4b6cad47ddbf465c4e8dc17fbf917e88112b047"
+    }
+  ],
+  "temporaryCheckoutRemoved": true
+}

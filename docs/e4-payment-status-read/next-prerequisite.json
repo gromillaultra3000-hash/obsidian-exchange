@@ -1,0 +1,68 @@
+{
+  "schemaVersion": "e4-next-prerequisite.v1",
+  "result": "CONFIRMED_BOUNDED_NEXT_PREREQUISITE",
+  "activeRoute": "E4",
+  "completedSlice": "PAYMENT_STATUS_RUNTIME_READ_CONTRACT",
+  "nextPrerequisite": "PAYMENT_STATUS_TERMINAL_REASON_CONSISTENCY",
+  "canonicalNeed": "The E4 customer payment-status surface must explain the canonical order outcome consistently across the API, opaque page and numeric fallback.",
+  "observed": [
+    {
+      "canonicalStatus": "failed",
+      "visiblePill": "Время истекло",
+      "visibleLabel": "Срок оплаты заявки истёк",
+      "noPaymentInstructions": true
+    },
+    {
+      "canonicalStatus": "cancelled",
+      "visiblePill": "Время истекло",
+      "visibleLabel": "Срок оплаты заявки истёк",
+      "noPaymentInstructions": true
+    }
+  ],
+  "mechanism": "The exact opaque pay render computes closed for expired/failed/cancelled, then invokes viewExpired() for every closed order without receipt. The repaired reader faithfully returns failed/cancelled; the page labels both as a time expiry. Numeric fallback now distinguishes those states.",
+  "implementationBoundary": "Change only the payment-page terminal rendering and its focused behavior/browser tests; preserve terminal action suppression, receipt precedence, canonical API status and existing writer behavior. Deliver with bounded operational evidence.",
+  "acceptanceCriterion": "Actual browser fixtures for expired, failed and cancelled show their own canonical terminal meaning; failed/cancelled do not claim expiry. Receipts remain acknowledged and no terminal state exposes payment requisites.",
+  "notCurrentBlocker": "Current read-contract repair returns authorized canonical state and prevents unsafe transfer actions; this remaining presentation mismatch does not invalidate the restored read/auth boundary.",
+  "limits": [
+    "Synthetic database-valid fixtures and exact generated HTML establish behavior; no customer incidence or loaded production-page observation is claimed.",
+    "This is exactly one next E4 prerequisite, not a replacement product route or permission for provider/payment actions."
+  ],
+  "inputs": [
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "1297db5e84e36ddec0cdf09808c871ce55c28cfd7c4ca04bded9bbace5dde2ab"
+    },
+    {
+      "path": "relay/repositories/payment_status_read_store.py",
+      "sha256": "5cbd26d0335c0cf713aa4be9c87999773bbcc37ab89202a554a4811b6702b6f9"
+    },
+    {
+      "path": "docs/e4-payment-status-read/acceptance-probe.py",
+      "sha256": "0944460d1fb1983cb0f75c44bad09674fd996f74bae218a6698afae6addcf27d"
+    },
+    {
+      "path": "docs/e4-payment-status-read/acceptance-probe.json",
+      "sha256": "11a19242b143291b8bec11d6f9da29bfafdead0a299c13efe0f1e68f0ed0a576"
+    },
+    {
+      "path": "docs/e4-payment-status-read/acceptance-pages.json",
+      "sha256": "d16c28a7aba0f9ed012800c500ed000fb03c914cc529061573fc46bfac3862b9"
+    },
+    {
+      "path": "docs/e4-payment-status-read/payment-browser-report.json",
+      "sha256": "c64e7a56d7b0e04dd962de7a58316c2a52f5dd4d3c2594b17e90ad6307d1eb02"
+    },
+    {
+      "path": "docs/e4-payment-status-read/payment-browser-isolation.json",
+      "sha256": "0484a95056f34623bfa17067800a4856b982b1ac7352f6f7a75ce99de1e55d0e"
+    },
+    {
+      "path": "docs/e4-payment-status-read/320-pay-failed-absent.png",
+      "sha256": "964b04f4a868d741c211972995e1b65c629f707a23b5c1886c4cca45d02e51b7"
+    },
+    {
+      "path": "docs/e4-payment-status-read/next-prerequisite-probe.py",
+      "sha256": "cc673f7b3d8f214437c62a32d4d276d4895574f5397bae40a16680f2cf5ac86f"
+    }
+  ]
+}

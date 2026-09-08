@@ -1,0 +1,590 @@
+{
+  "schemaVersion": "e4-payment-status-browser.v1",
+  "sourceSha256": "d16c28a7aba0f9ed012800c500ed000fb03c914cc529061573fc46bfac3862b9",
+  "runnerSha256": "e03053474732580cab118d7cb3465cafa53f3cffa47d5943a7fd593da96c4212",
+  "inputs": [
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "1297db5e84e36ddec0cdf09808c871ce55c28cfd7c4ca04bded9bbace5dde2ab"
+    },
+    {
+      "path": "relay/repositories/payment_status_read_store.py",
+      "sha256": "5cbd26d0335c0cf713aa4be9c87999773bbcc37ab89202a554a4811b6702b6f9"
+    },
+    {
+      "path": "relay/core/order_access.py",
+      "sha256": "15d996a1450ff898ef62b3e43c048069c2c4dc60863399bcba144cfd46c69a0f"
+    },
+    {
+      "path": "relay/core/telegram_freshness.py",
+      "sha256": "40bef427a0daa3069e05565fdb65217836414ed581960b64f1cff5c1c266d601"
+    },
+    {
+      "path": "relay/core/requisites.py",
+      "sha256": "a6c9eb87a236081095eb8213828b4ea33e9296d6f1bb8696d2e91c9733aca507"
+    },
+    {
+      "path": "relay/services/requisite_origin.py",
+      "sha256": "5552f1c274bc2e7721068bf7db69564ca360d5065920cebbb17c022df4335398"
+    },
+    {
+      "path": "relay/core/txid.py",
+      "sha256": "726b98d97696578b0883f5a14eca119f9bc4ce0fd92f409617edf1190129f824"
+    }
+  ],
+  "playwrightVersion": "1.62.0",
+  "checks": [
+    {
+      "width": 320,
+      "name": "pending-absent",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "name": "numeric-pending-absent",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "name": "pending-stored",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "name": "numeric-pending-stored",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "name": "pending-sent",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "name": "numeric-pending-sent",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "name": "paid-absent",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "name": "numeric-paid-absent",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "name": "paid-stored",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "name": "numeric-paid-stored",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "name": "paid-sent",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "name": "numeric-paid-sent",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "name": "sent-absent",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "name": "numeric-sent-absent",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "name": "sent-stored",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "name": "numeric-sent-stored",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "name": "sent-sent",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "name": "numeric-sent-sent",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "name": "expired-absent",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "name": "numeric-expired-absent",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "name": "expired-stored",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "name": "numeric-expired-stored",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "name": "expired-sent",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "name": "numeric-expired-sent",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "name": "failed-absent",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "name": "numeric-failed-absent",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "name": "failed-stored",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "name": "numeric-failed-stored",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "name": "failed-sent",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "name": "numeric-failed-sent",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "name": "cancelled-absent",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "name": "numeric-cancelled-absent",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "name": "cancelled-stored",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "name": "numeric-cancelled-stored",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "name": "cancelled-sent",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "name": "numeric-cancelled-sent",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "name": "active",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "name": "stale",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "name": "unknown",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "name": "attack",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "name": "poll-pending-absent",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "name": "poll-pending-stored",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "name": "poll-pending-sent",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "name": "poll-paid-sent",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "name": "poll-sent-sent",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "name": "503-preservation-and-canonical-transaction-link",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "name": "pending-absent",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "name": "numeric-pending-absent",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "name": "pending-stored",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "name": "numeric-pending-stored",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "name": "pending-sent",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "name": "numeric-pending-sent",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "name": "paid-absent",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "name": "numeric-paid-absent",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "name": "paid-stored",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "name": "numeric-paid-stored",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "name": "paid-sent",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "name": "numeric-paid-sent",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "name": "sent-absent",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "name": "numeric-sent-absent",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "name": "sent-stored",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "name": "numeric-sent-stored",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "name": "sent-sent",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "name": "numeric-sent-sent",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "name": "expired-absent",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "name": "numeric-expired-absent",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "name": "expired-stored",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "name": "numeric-expired-stored",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "name": "expired-sent",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "name": "numeric-expired-sent",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "name": "failed-absent",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "name": "numeric-failed-absent",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "name": "failed-stored",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "name": "numeric-failed-stored",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "name": "failed-sent",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "name": "numeric-failed-sent",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "name": "cancelled-absent",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "name": "numeric-cancelled-absent",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "name": "cancelled-stored",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "name": "numeric-cancelled-stored",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "name": "cancelled-sent",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "name": "numeric-cancelled-sent",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "name": "active",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "name": "stale",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "name": "unknown",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "name": "attack",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "name": "poll-pending-absent",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "name": "poll-pending-stored",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "name": "poll-pending-sent",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "name": "poll-paid-sent",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "name": "poll-sent-sent",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "name": "503-preservation-and-canonical-transaction-link",
+      "result": "PASS"
+    }
+  ],
+  "requests": [
+    {
+      "width": 320,
+      "path": "/api/order/19",
+      "method": "GET",
+      "response": 503
+    },
+    {
+      "width": 320,
+      "path": "/api/order/19",
+      "method": "GET",
+      "response": 200
+    },
+    {
+      "width": 320,
+      "path": "/api/order/19",
+      "method": "GET",
+      "response": 200
+    },
+    {
+      "width": 320,
+      "path": "/api/order/19",
+      "method": "GET",
+      "response": 200
+    },
+    {
+      "width": 320,
+      "path": "/api/order/19",
+      "method": "GET",
+      "response": 200
+    },
+    {
+      "width": 320,
+      "path": "/api/order/19",
+      "method": "GET",
+      "response": 200
+    },
+    {
+      "width": 390,
+      "path": "/api/order/19",
+      "method": "GET",
+      "response": 503
+    },
+    {
+      "width": 390,
+      "path": "/api/order/19",
+      "method": "GET",
+      "response": 200
+    },
+    {
+      "width": 390,
+      "path": "/api/order/19",
+      "method": "GET",
+      "response": 200
+    },
+    {
+      "width": 390,
+      "path": "/api/order/19",
+      "method": "GET",
+      "response": 200
+    },
+    {
+      "width": 390,
+      "path": "/api/order/19",
+      "method": "GET",
+      "response": 200
+    },
+    {
+      "width": 390,
+      "path": "/api/order/19",
+      "method": "GET",
+      "response": 200
+    }
+  ],
+  "blockedRequests": [],
+  "pageErrors": [],
+  "terminalObservations": [
+    {
+      "canonicalStatus": "failed",
+      "visiblePill": "Время истекло",
+      "visibleLabel": "Срок оплаты заявки истёк",
+      "noPaymentInstructions": true
+    },
+    {
+      "canonicalStatus": "cancelled",
+      "visiblePill": "Время истекло",
+      "visibleLabel": "Срок оплаты заявки истёк",
+      "noPaymentInstructions": true
+    }
+  ],
+  "browserVersion": "152.0.7977.64",
+  "result": "PASS"
+}

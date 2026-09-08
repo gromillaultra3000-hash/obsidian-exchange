@@ -1,0 +1,59 @@
+{
+  "recordedAt": "2026-09-08T02:09:52.414614+00:00",
+  "result": "PASS",
+  "route": "E4 / PAYMENT_STATUS_RUNTIME_READ_CONTRACT",
+  "services": {
+    "obsidian-roadmap-autopilot.service": {
+      "MainPID": "0",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Mon 2026-09-07 04:40:24 UTC",
+      "ActiveState": "failed",
+      "SubState": "failed"
+    },
+    "relay-fastapi.service": {
+      "MainPID": "2883897",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Tue 2026-09-08 01:58:52 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    },
+    "exchange-bot.service": {
+      "MainPID": "3877887",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Tue 2026-09-01 06:20:00 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    },
+    "nginx.service": {
+      "MainPID": "3877705",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:56 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    },
+    "obsidian-postgres.service": {
+      "MainPID": "3136948",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Mon 2026-08-24 05:08:51 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    }
+  },
+  "safeRuntimeFlags": {
+    "setting": "RELAY_P3_AUTHORIZED_READ_FUNCTIONS_ENABLED",
+    "present": false,
+    "enabled": false,
+    "observation": "exact active Relay environment; unrelated values discarded without logging"
+  },
+  "runtimeMutated": false,
+  "customerDataRead": false,
+  "databaseRead": false,
+  "constraints": [
+    "The existing order/session/receipt shared files have broad checkout/live drift and must remain exact installed bytes.",
+    "The absent core/order_access module is an additional numeric-pay dependency and is explicitly included as additive source.",
+    "Receipt, order, and session read adapters must use existing installed connection policy; configured P3 authorized-RPC mode is disabled.",
+    "Only Relay requires restart; bot, Nginx and PostgreSQL identities must stay unchanged.",
+    "No live authenticated order/session/receipt probe is permitted; non-authorized nonexistent numeric probes fail before SQL.",
+    "Status GET provider polling is excluded from repaired path; background/callback runtime remains unchanged."
+  ]
+}

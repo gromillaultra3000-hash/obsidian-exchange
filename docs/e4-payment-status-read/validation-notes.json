@@ -1,0 +1,15 @@
+{
+  "recordedAt": "2026-09-08T02:13:19.811305+00:00",
+  "disposablePostgresStartupCorrection": {
+    "observed": "The final 26-case rehearsal connected to the image temporary initialization server and received AdminShutdown when the entrypoint stopped that server. This was a disposable synthetic fixture run.",
+    "correction": "Wait for the official init-complete marker before opening the final query session; write IN_PROGRESS immediately so a failed run cannot leave an old PASS artifact.",
+    "cleanup": "The original exact-container finally block completed removal and absence check; no production connection or state was involved.",
+    "acceptance": "Only the subsequent final-source isolated-postgres.json PASS can satisfy the rollout gate."
+  },
+  "historicalCheckTriage": "See ops-historical-check-triage.json; frozen E0 artifacts are not rewritten as current release authority.",
+  "paymentBrowserFixtureCorrection": {
+    "observed": "The first malicious-copy fixture expected trailing Unicode line/paragraph separators although the existing Python normalization strips outer whitespace; the literal-copy assertion failed. No injected script ran and cleanup passed.",
+    "correction": "Place the separators inside the fixture before END. The browser must copy the entire literal value, including both interior separators.",
+    "finalResult": "92 checks PASS, no page errors; final browser report/isolation bind the exact generated pages and runner."
+  }
+}

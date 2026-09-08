@@ -1,0 +1,25 @@
+{
+  "recordedAt": "2026-09-08T02:17:46.389724+00:00",
+  "result": "FALSE_POSITIVE_PUBLIC_SOURCE_DIGEST",
+  "observedFindingCount": 1,
+  "rule": "generic-api-key",
+  "sourceEvidence": [
+    {
+      "path": "/opt/obsidian-exchange/relay-fastapi/auth.py",
+      "sha256": "cb0c3831f2d862a5519824b317dd537f7e592fdeb678a7d34a083b26436c9746"
+    },
+    {
+      "path": "/root/output/manual/e4-payment-status-read-20260908/superseded-ops-bindings/f12a1ff7c1cdc024baab5d442f9a022ae021a9d46590021a76b2f396ca68734b-ops-release-manifest.json",
+      "sha256": "f12a1ff7c1cdc024baab5d442f9a022ae021a9d46590021a76b2f396ca68734b"
+    }
+  ],
+  "evidence": [
+    {
+      "path": "docs/e4-payment-status-read/security-scan-finding.json",
+      "sha256": "49acfbfac9aeddecaefea574ca2928f898e7c52a7291de2c25f1c17a43287cee"
+    }
+  ],
+  "disposition": "Independently hashed exact installed public Python source and the archived manifest observed before rebinding. The reported value is the source SHA256 next to auth.py, not an authentication value. Final recipe and manifest represent provenance with path/sha256 records. No suppression or credential removal was used; final clean scan is recorded separately.",
+  "suppressionOrWaiverAdded": false,
+  "rawCredentialRetained": false
+}

@@ -1,0 +1,60 @@
+{
+  "schemaVersion": "e4-payment-status-independent-ops-probe.v1",
+  "result": "PASS",
+  "inputs": [
+    {
+      "path": "docs/e4-payment-status-read/security-ops-probe.py",
+      "sha256": "77b73f661f06812c1aafdb049d9b1724c0a9ec9c42380672ca0e3a78c22203c0"
+    },
+    {
+      "path": "tests/test_e4_payment_status_read_rollout.py",
+      "sha256": "7e71670a53e87adc84da115048cf863a42925a884fde2c0f9e4933b36cda3f13"
+    },
+    {
+      "path": "deploy/e4_payment_status_read_rollout.py",
+      "sha256": "21a12ffbf22ccef237f7ddef545648d0e0e3a660842b394ac4f31a95b7bd1129"
+    }
+  ],
+  "cases": [
+    {
+      "publishedFiles": 0,
+      "explicitRollback": "PASS",
+      "reconciliationSubmittedNoRestart": true,
+      "rollbackRestartCount": 1
+    },
+    {
+      "publishedFiles": 1,
+      "explicitRollback": "PASS",
+      "reconciliationSubmittedNoRestart": true,
+      "rollbackRestartCount": 1
+    },
+    {
+      "publishedFiles": 2,
+      "explicitRollback": "PASS",
+      "reconciliationSubmittedNoRestart": true,
+      "rollbackRestartCount": 1
+    },
+    {
+      "publishedFiles": 3,
+      "explicitRollback": "PASS",
+      "reconciliationSubmittedNoRestart": true,
+      "rollbackRestartCount": 1
+    },
+    {
+      "publishedFiles": 4,
+      "explicitRollback": "PASS",
+      "reconciliationSubmittedNoRestart": true,
+      "rollbackRestartCount": 1
+    },
+    {
+      "case": "restart-submitted-acknowledgement-lost",
+      "recordedIntentBeforeSubmission": true,
+      "reconcileDoesNotReplay": true,
+      "explicitRollback": "PASS",
+      "totalRestartCount": 2
+    }
+  ],
+  "scope": "Real deploy/journal/preimage/replacement/rollback functions on disposable files; test fixture mocks all service/public calls and upstream gates.",
+  "productionReadsWritesRestartsNetwork": false,
+  "temporaryDirectoriesRemoved": true
+}

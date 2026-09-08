@@ -1,0 +1,22 @@
+[
+  {
+    "RuleID": "generic-api-key",
+    "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+    "StartLine": 19,
+    "EndLine": 19,
+    "StartColumn": 21,
+    "EndColumn": 96,
+    "Match": "auth.py\": \"REDACTED\"",
+    "Secret": "REDACTED",
+    "File": "docs/e4-payment-status-read/ops-release-manifest.json",
+    "SymlinkFile": "",
+    "Commit": "",
+    "Entropy": 3.9160273,
+    "Author": "",
+    "Email": "",
+    "Date": "",
+    "Message": "",
+    "Tags": [],
+    "Fingerprint": "docs/e4-payment-status-read/ops-release-manifest.json:generic-api-key:19"
+  }
+]

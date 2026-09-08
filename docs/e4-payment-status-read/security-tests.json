@@ -1,0 +1,62 @@
+{
+  "schemaVersion": "e4-payment-status-independent-pytest.v1",
+  "recordedAt": "2026-09-08T02:18:37.261801+00:00",
+  "result": "PASS",
+  "command": [
+    "/opt/lumi/venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "tests/test_e4_payment_status_read_contract.py",
+    "tests/test_e4_payment_status_read_rollout.py",
+    "tests/test_e0_3_numeric_pay_token_guard.py",
+    "tests/test_order_access.py"
+  ],
+  "exitCode": 0,
+  "observedSummary": "74 passed in 1.48s",
+  "inputs": [
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "1297db5e84e36ddec0cdf09808c871ce55c28cfd7c4ca04bded9bbace5dde2ab"
+    },
+    {
+      "path": "relay/repositories/payment_status_read_store.py",
+      "sha256": "5cbd26d0335c0cf713aa4be9c87999773bbcc37ab89202a554a4811b6702b6f9"
+    },
+    {
+      "path": "relay/core/order_access.py",
+      "sha256": "15d996a1450ff898ef62b3e43c048069c2c4dc60863399bcba144cfd46c69a0f"
+    },
+    {
+      "path": "relay/webapp.html",
+      "sha256": "8347b9df45a27b7077dabae8aa3e68dbfa763f0ed67220a93aca7f58ce11a908"
+    },
+    {
+      "path": "deploy/e4_payment_status_read_rollout.py",
+      "sha256": "21a12ffbf22ccef237f7ddef545648d0e0e3a660842b394ac4f31a95b7bd1129"
+    },
+    {
+      "path": "tests/test_e4_payment_status_read_contract.py",
+      "sha256": "7d7ab67d075f95329e0376fe66991acd8fbbfcc288899acc50eb10a692509c26"
+    },
+    {
+      "path": "tests/test_e4_payment_status_read_rollout.py",
+      "sha256": "7e71670a53e87adc84da115048cf863a42925a884fde2c0f9e4933b36cda3f13"
+    },
+    {
+      "path": "tests/test_e0_3_numeric_pay_token_guard.py",
+      "sha256": "99238ba9bb7e7d6811388f6d9bb7ab055c16e068fff5b0ce24a2604aed85bd85"
+    },
+    {
+      "path": "tests/test_order_access.py",
+      "sha256": "ebf8941ca0c125d08b6b975924dba5862f07621a0c723e03eefbcab46a44ed58"
+    },
+    {
+      "path": "tests/e4_payment_status_fixture.py",
+      "sha256": "9da0e3a1d265543307699464aad372cbaf7cf241d0962bb1d4f4466ff2e2aa4f"
+    }
+  ],
+  "scope": "Independent rerun of the authored focused SQL/proof/rollout tests; only disposable fixtures and mocked deployment services."
+}
