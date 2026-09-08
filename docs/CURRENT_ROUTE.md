@@ -11,65 +11,51 @@ non-custodial wallet whose keys never reach the server.
 
 ## Active route
 
-`E4 / ORDER_SUPPORT_CLIPBOARD_INDEPENDENCE / open order support despite clipboard denial, failure or stalled completion, with truthful copy feedback`
+`E4 / ACTIVITY_REFRESH_RESPONSE_ORDERING / preserve the newest activity request against obsolete success and failure`
 
 Owner decision 2026-09-08: continue code-first implementation and reversible
-deployment manually. Leave the autopilot stopped; recovery/restart is deferred
-until the owner requests bedtime work. Its actual state remains failed since
-2026-09-07 04:48:08 UTC (`UNCOMMITTED_NEW_FILES`), MainPID zero. The supervisor
-accepted only two iterations before its third already deployed slice failed
-artifact accounting. Manual changes must be reconciled before a future start;
-do not replay the old receipt or assume its next_step matches this route.
-No supervisor unit/config/state was changed in this manual iteration.
+deployment manually. Leave autopilot stopped until the owner requests bedtime
+work. Actual state is failed / MainPID zero / UNCOMMITTED_NEW_FILES since Sep 7.
+Before any future start, reconcile its stale third-deployment receipt and all
+subsequent manual commits; do not replay its next_step or old authority.
+No supervisor state, configuration or unit was changed by these manual slices.
 
-PAYMENT_REQUISITES_COPY_INTEGRITY is VERIFIED and deployed at
-2026-09-08 00:51 UTC. Requisites remain literal visible text; captured listeners
-replace executable inline interpolation. A separate accessible status reports
-success only after the browser accepts the copy, and reports failure explicitly.
-One global pending token prevents a previous order's late clipboard write from
-overtaking a new order's copy. New instructions wait for actual settlement and
-require a fresh user tap; no copy is automatically queued. Generation, instruction
-validity and DOM identity guards reject obsolete feedback and actions.
+ORDER_SUPPORT_CLIPBOARD_INDEPENDENCE is VERIFIED and deployed at
+2026-09-08 01:04 UTC, implementation `0a9295a`. Support opens synchronously from
+its own click or keyboard activation, with a fixed URL and no order payload.
+Copying the number is separate, with accessible success/failure feedback and
+serialization of order-ID writes. Detached feedback is discarded; live waiting
+messages become fresh-tap instructions after actual settlement, without queuing.
 
-123 focused tests, 120 isolated default-motion Chrome checks at 320/390/1280px,
-and both independent reviews pass. These include an honest write-on-completion
-regression for cross-order overwrite. Earlier two browser action timeouts were
-retained; positively identified orphan Playwright trees were stopped through
-pinned pidfds, recovering about 2 GiB available RAM. Final units/cgroups were
-cleaned. No force clicks, timeout relaxation or reduced-motion fixture was used.
+166 focused tests, 132 isolated Chrome checks at 320/390/1280px, both independent
+reviews, staged Gitleaks and JavaScript syntax pass. Browser ran without network
+as nobody; its unit was collected with MainPID zero and an empty cgroup. Real
+Telegram/iOS/WebKit, human comprehension and screen-reader announcements remain
+unverified. The order-ID lock does not cover other UI/OS clipboard producers;
+a stalled native write keeps further order-ID copies waiting but support usable.
 
-HTML `f10c4ca6...e532c8` is live: GET200/POST405/exact rendered-template match;
-Relay/bot/Nginx remain active with unchanged Sep 1 PID/start identities.
-Exact rollback: `/var/lib/obsidian-exchange/deployment-preimages/e4-payment-requisites-copy-20260908-zdcv4k88/webapp.html`.
-Evidence: `docs/e4-payment-requisites-copy-rollout.v1.json` and its directory.
+HTML `e06b85ed...a4f983` is live, with GET200/POST405/exact template rendering.
+Relay/bot/Nginx retain their active Sep 1 PID/start identities; no restart.
+Rollback: `/var/lib/obsidian-exchange/deployment-preimages/e4-order-support-20260908-qiedmiia/webapp.html`.
+Evidence: `docs/e4-order-support-rollout.v1.json` and its directory.
 No real money/signatures/customer reads/keys/credentials/messages/064A work.
+The previous deployed payment-requisites slice and its evidence are now committed
+as `50fa630`; its runtime was reconciled before the new implementation.
 
-Exactly next: `E4 / ORDER_SUPPORT_CLIPBOARD_INDEPENDENCE`.
-Independent execution of the current copyOrderId/openOrderSupport helpers proves
-that stalled clipboard completion prevents support from opening; clipboard denial
-plus a throwing legacy fallback rejects the support action. The next slice makes
-support access independent of optional copying and keeps copy feedback truthful.
-Evidence: `docs/e4-payment-requisites-copy/next-prerequisite.json`.
+Exactly next: `E4 / ACTIVITY_REFRESH_RESPONSE_ORDERING`.
+Independent exact-helper execution reproduces an older pending history response
+replacing a newer completed one, restoring a payment action and removing evidence;
+an older failure instead erases fresh history. This was reproduced against both
+prior and current HTML. Evidence: `docs/e4-order-support/next-prerequisite.json`.
+This observation concerns UI state; no backend execution was exercised.
 
-E4 remains IN_PROGRESS; no stage transition or earlier gate closure occurred.
-Chrome evidence does not establish human comprehension, real Telegram/iOS/WebKit,
-QR decoding, native streaming-body timeout or live signing acceptance. A submitted
-browser clipboard write cannot be cancelled; serialization controls only this
-UI's writes, not external apps or other clipboard producers. A stalled original
-write keeps subsequent copies disabled with explicit waiting status.
-
-The 2026-09-07 owner authorization for code-first E0–E5 work and reversible
-rollouts remains subject to tests, two reviews, rollback and runtime checks.
-Technical financial preparation is allowed; actual trades/transfers remain owner
-executed, consumed authority remains unusable and terminal archives are immutable.
-Later-stage preparation under an earlier blocker remains KEYLESS_NONPRODUCTION;
-no credential, signature, custody or live authority is inferred from that scope.
-The manual decision above controls execution mode now. Before further edits,
-inspect actual systemd/status as described in `docs/ssh-independent-work.md`.
-
-Earlier prerequisite route: `E0 → E0.3 → B5.3 → 064A`; technical diagnosis follows
-the 2026-09-07 decision while consumed authority stays closed. Older sections
-below are retained as historical evidence.
+E4 stays IN_PROGRESS; no stage transition or earlier gate closure occurred.
+The 2026-09-07 authorization for code-first E0–E5 work and reversible rollouts
+remains subject to tests, two reviews, rollback and runtime checks. Technical
+financial preparation is allowed; actual trades/transfers remain owner-executed.
+Later-stage preparation under an earlier blocker remains KEYLESS_NONPRODUCTION.
+Earlier E0/E0.3/B5.3/064A terminal evidence and consumed authority stay closed;
+no new credential, signature or live authority is inferred from this work.
 
 ### Owner reprioritization — 2026-08-26
 

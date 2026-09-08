@@ -753,6 +753,17 @@ reproduced from the current helpers in the slice's next-prerequisite.json.
 Owner requests manual work for now; autopilot stays stopped until bedtime work
 is explicitly requested. No stage transition or earlier-gate closure is claimed.
 
+2026-09-08: manual ORDER_SUPPORT_CLIPBOARD_INDEPENDENCE is VERIFIED and
+production-deployed at 01:04 UTC (`0a9295a`). Support opens synchronously without
+clipboard dependency; optional number copying has accessible truthful outcome,
+serialized writes and stale-feedback isolation. 166 focused tests, 132 isolated
+Chrome checks and both independent reviews pass; GET200/POST405/template equality
+and unchanged service identities verify rollout. Evidence:
+`docs/e4-order-support-rollout.v1.json`. E4 stays IN_PROGRESS; exactly next is
+ACTIVITY_REFRESH_RESPONSE_ORDERING, independently reproduced against original
+and current HTML: an obsolete success/failure can overwrite newer activity state.
+No stage transition or earlier gate closure; autopilot remains stopped.
+
 ### E5 — нативный некастодиальный кошелёк
 
 E0.4 inventory evidence (2026-08-18): the checkout has a Rust/UniFFI Bitcoin

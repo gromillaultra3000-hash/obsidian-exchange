@@ -5,32 +5,28 @@ Updated: 2026-09-08 UTC
 ## Current goal and status
 
 
-- 2026-09-08 owner chose manual code-first implementation and deployment;
-  leave autopilot stopped until the owner requests bedtime work. Manual
-  E4 / PAYMENT_REQUISITES_COPY_INTEGRITY is VERIFIED and deployed at 00:51 UTC.
-  Literal DOM text/listeners remove the inline-JS data sink; copy success waits
-  for browser completion and errors are explicit. A global pending token
-  serializes this UI's writes across orders, with no auto-enqueue; stale
-  feedback/actions are invalidated. This also fixes independently reproduced
-  old-order overwrite after a newer order's apparent copy success.
-  Final 123 focused tests, 120 default-motion isolated Chrome checks at three
-  widths and both independent reviews PASS. HTML `f10c4ca6...e532c8` is live;
-  GET200/POST405/rendered-template match and Relay/bot/Nginx retain Sep 1
-  PID/start identities. No restart, real money/signatures/customer reads,
-  keys/credentials/messages or 064A activity. Rollback:
-  deployment-preimages/`e4-payment-requisites-copy-20260908-zdcv4k88/webapp.html`.
-  Evidence: `docs/e4-payment-requisites-copy-rollout.v1.json` and its directory.
-  Two earlier browser click timeouts are retained; exact cause is not proven.
-  Identified orphan Playwright trees from Aug 26/Sep 6 (33 pinned processes)
-  were gracefully stopped via pidfds, profiles retained and service identities
-  unchanged, recovering about 2 GiB available RAM. Final browser cleanup PASS.
-  E4 and earlier gates remain open; human/Telegram/iOS/WebKit/live signing are
-  unverified. Clipboard cancellation/external clipboard producers are outside
-  this UI; a stalled original write keeps new copies disabled with visible status.
-  Exactly next: `E4 / ORDER_SUPPORT_CLIPBOARD_INDEPENDENCE / open order support
-  despite clipboard denial, failure or stalled completion, with truthful copy
-  feedback`. Current helpers reproduce support failing to open on pending
-  clipboard or rejection plus throwing fallback; see next-prerequisite.json.
+- 2026-09-08 manual E4 / ORDER_SUPPORT_CLIPBOARD_INDEPENDENCE is VERIFIED
+  and deployed at 01:04 UTC, implementation `0a9295a`. Support opens directly
+  from tap/keyboard without clipboard dependency or automatic order payload.
+  Optional number copying has accessible truthful status, serialized order-ID
+  writes and stale-DOM guards. Live waiters receive a fresh-tap prompt when the
+  previous copy settles; no automatic queue. 166 focused tests, 132 isolated
+  Chrome checks and two independent reviews PASS. HTML `e06b85ed...a4f983` is
+  live with GET200/POST405/exact rendered-template match. Relay/bot/Nginx retain
+  Sep 1 PID/start identities; no restart. Rollback preimage:
+  `deployment-preimages/e4-order-support-20260908-qiedmiia/webapp.html`.
+  Evidence: `docs/e4-order-support-rollout.v1.json`. Browser unit/cgroup cleanup
+  PASS; no real money/signatures/customer reads/keys/credentials/messages/064A.
+  Earlier deployed payment-requisites work reconciled and committed as `50fa630`.
+  Owner wants manual delivery; autopilot stays failed/stopped until bedtime work
+  is explicitly requested. Reconcile all manual commits before any future start.
+  E4/earlier gates remain open; real Telegram/iOS/WebKit/human/screen-reader
+  acceptance unverified. Order-ID lock covers only its own clipboard producer;
+  stalled copy does not prevent support but keeps subsequent order copies waiting.
+  Exactly next: E4 / ACTIVITY_REFRESH_RESPONSE_ORDERING. Independent old/new-source
+  reproduction proves an earlier pending reply can overwrite newer completed
+  history and restore payment UI, while earlier failure erases fresh history.
+  See `docs/e4-order-support/next-prerequisite.json`; backend execution untested.
 
 - 2026-09-08 status audit confirmed Sep 7's three deployed E4 slices: wallet
   review/fees (`d650b8d`), receive-address integrity (`1cbfe1f`) and payment

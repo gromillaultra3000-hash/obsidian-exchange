@@ -1,0 +1,134 @@
+{
+  "schemaVersion": "e4-order-support-rollout.v1",
+  "recordedAt": "2026-09-08T01:05:11.284096+00:00",
+  "activeRoute": "E4 / ORDER_SUPPORT_CLIPBOARD_INDEPENDENCE",
+  "canonicalCriterion": "Unified notification/evidence/support centre; accessibility and usability of monetary paths",
+  "sliceStatus": "VERIFIED",
+  "stageStatus": "IN_PROGRESS",
+  "productionStatus": "VERIFIED",
+  "implementationCommit": "0a9295adcbf36c38a7d72a230a8c79bd5b3ebf5c",
+  "accountableOwner": "Project owner; manual continuation 2026-09-08; implementation Codex /root",
+  "resultingBehavior": [
+    "Support opens immediately from click/keyboard without accessing clipboard; fixed Telegram URL carries no order/customer payload.",
+    "Copy number is a separate explicit action. Accessible feedback awaits completion or explains failure; no legacy fallback or haptic failure can cause another copy.",
+    "Order-ID writes are serialized until actual settlement. Detached responses do not report success; live waiters get a fresh-tap instruction without automatic copying."
+  ],
+  "surfaceMatrix": {
+    "MiniApp": "REQUIRED: history controls and accessible status",
+    "site": "READ_ONLY: existing /webapp GET; no separate site behavior change",
+    "TelegramBot": "READ_ONLY: unchanged fixed support entry, no automatic messages",
+    "API": "READ_ONLY: synthetic history in browser; public HTML health only in production",
+    "admin": "N/A: no operator change",
+    "nativeWallet": "N/A: no custody or signing",
+    "KAIROS_LUMI": "N/A"
+  },
+  "verification": {
+    "focusedTests": 166,
+    "newVMScenarios": 18,
+    "isolatedBrowserChecks": 132,
+    "newGroupedBrowserChecks": 12,
+    "viewports": [
+      320,
+      390,
+      1280
+    ],
+    "reviews": {
+      "contextAwareAcceptance": "PASS",
+      "independentDiffSecurity": "PASS"
+    },
+    "gitleaksVersion": "8.30.0",
+    "stagedSecretsFound": 0,
+    "inlineJavascriptSyntax": "PASS",
+    "browserErrors": 0,
+    "browserUnitStopped": true,
+    "browserCgroupEmpty": true
+  },
+  "deployment": {
+    "recordedAt": "2026-09-08T01:04:28.718358+00:00",
+    "state": "VERIFIED",
+    "target": "/opt/obsidian-exchange/relay/webapp.html",
+    "previousSha256": "f10c4ca6bbe8935822433c300d4286878e1c460255b780ae33dcba16a9e532c8",
+    "deployedSha256": "e06b85edd00f0a877b8e75b848713e46c0f800ff37809e5cd085bcac63a4f983",
+    "rollbackPreimage": "/var/lib/obsidian-exchange/deployment-preimages/e4-order-support-20260908-qiedmiia/webapp.html",
+    "rollbackPreimageSha256": "f10c4ca6bbe8935822433c300d4286878e1c460255b780ae33dcba16a9e532c8",
+    "method": "hash-bound fsynced atomic replacement; no restart",
+    "rollbackExecuted": false,
+    "publicGet": 200,
+    "publicPost": 405,
+    "publicMatchesDeployedTemplate": true,
+    "publicBodySha256": "65536be48dfbc407a539c568641e1f696b07fb2c6f30523fe92cbec0b501dd6f",
+    "url": "https://obsidian-exchange.org/webapp",
+    "services": {
+      "relay-fastapi.service": {
+        "MainPID": "3877703",
+        "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:55 UTC",
+        "ActiveState": "active"
+      },
+      "exchange-bot.service": {
+        "MainPID": "3877887",
+        "ExecMainStartTimestamp": "Tue 2026-09-01 06:20:00 UTC",
+        "ActiveState": "active"
+      },
+      "nginx.service": {
+        "MainPID": "3877705",
+        "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:56 UTC",
+        "ActiveState": "active"
+      }
+    },
+    "serviceIdentityUnchanged": true
+  },
+  "rollback": {
+    "preimage": "/var/lib/obsidian-exchange/deployment-preimages/e4-order-support-20260908-qiedmiia/webapp.html",
+    "expectedLiveSha256": "e06b85edd00f0a877b8e75b848713e46c0f800ff37809e5cd085bcac63a4f983",
+    "restoreSha256": "f10c4ca6bbe8935822433c300d4286878e1c460255b780ae33dcba16a9e532c8",
+    "rehearsal": "PASS",
+    "command": "python3 /root/deploy/e4_order_support_rollout.py rollback",
+    "recovery": "Do not rerun deploy after interruption. Inspect deployment-state.json, live target hash, saved preimage and service/public state; rollback only from the exact candidate hash."
+  },
+  "trustCustodySecretsMoney": "No changes, credentials, customer reads, messages, signing or money operations; 064A closed authority retained",
+  "limitations": [
+    "E4 and earlier gates remain open; this does not authorize a stage transition.",
+    "Real Telegram/iOS/WebKit, screen-reader announcements and human comprehension remain unverified.",
+    "Order-ID serialization covers only that clipboard producer. Other UI/OS producers are outside the lock; native submitted writes are not cancellable.",
+    "An unresolved copy keeps later order-ID copies waiting, but support remains available.",
+    "Older activity responses can overwrite newer history; independently reproduced before and after this slice, deferred to exactly-next item."
+  ],
+  "negativeEvidence": [
+    "Original helper failed three new support synchronous-opening regressions.",
+    "Initial static suite had one obsolete execCommand assertion; updated to accessible status contract.",
+    "Independent acceptance caught stale waiting message; fixed before final tests/reviews/rollout.",
+    "Managed sandbox denied host systemd subprocess access; approved escalation completed preflight/rehearsal."
+  ],
+  "autopilot": {
+    "state": "failed",
+    "MainPID": 0,
+    "reason": "UNCOMMITTED_NEW_FILES",
+    "action": "Leave stopped; no state or config change"
+  },
+  "nextCanonicalItem": "E4 / ACTIVITY_REFRESH_RESPONSE_ORDERING / preserve the newest activity request against obsolete success and failure",
+  "artifacts": {
+    "docs/e4-order-support/320-order-copy-failure.png": "12d41198b5a8e316726752d80352a561a215c619cf43b7fad2b09878f0202af7",
+    "docs/e4-order-support/320-order-copy-success.png": "7d3d8927f38e4ffd9a8d36842c0f3d5acf93458d7b2ff324664d403cd28f783f",
+    "docs/e4-order-support/320-order-support.png": "c241b5f28f8a991ed536c894a9096b664173185f5d178d56ac236999a2fd7cd7",
+    "docs/e4-order-support/390-order-support.png": "cb4b33c8d1506ffdd6286ce3e3e9b193c1b4c299c34d4923a679382de334ef49",
+    "docs/e4-order-support/acceptance-baseline.js": "26d3ca336020908370e5e987a4e951ff2a833ac6ae154d49062f94e8925630fe",
+    "docs/e4-order-support/acceptance-baseline.json": "fcd80f7e90c1217f514f74f9a7568cbce6f758c33679b2b65fe8adc071d413c3",
+    "docs/e4-order-support/acceptance-review.json": "e0d668bbb5d0ebb77d1ffcba9de9c7116e7787393708d997de322aeb10814074",
+    "docs/e4-order-support/baseline-reproduction.json": "f19b037107e7429b75702f1c396861412c6d9e4f585b6c91cae6b0bba6bc97df",
+    "docs/e4-order-support/deployment.json": "774f0bf2e405ab08b3a059e74a995128b8f011ed64a95ce193905a6a95232e1e",
+    "docs/e4-order-support/gitleaks-report.json": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+    "docs/e4-order-support/isolation.json": "fd3f5e93be92808312e02e0484b4c11cf3987b4d853d84b5f2686fb6f077b7fd",
+    "docs/e4-order-support/next-prerequisite-baseline.json": "982510acfaabcc20a8a9f86043e552153dd3b5bfd731d5ebd9dbdcd7ea36c290",
+    "docs/e4-order-support/next-prerequisite.js": "0db6761be7b7a3392cc3caf7a4f56b6fb30fb5b8301a937eba1bd5c65f8cca67",
+    "docs/e4-order-support/next-prerequisite.json": "adffcb7583cec72e0d4114454431626fb2d7221b234c13e85159c2168ee41fd3",
+    "docs/e4-order-support/preflight.json": "d48140a5e1b4fc64ea618cb95977bbacf707ca014256ba203879782ea0cdd099",
+    "docs/e4-order-support/report.json": "e5b0e5c3029e4adce3ef182cfdb1766a5811f3bb57428400ccf4c30ec77dd3da",
+    "docs/e4-order-support/rollback-rehearsal.json": "49605d8fd39b1ea2952771902a15b0524d877287f99c0119cf991b5a547933a6",
+    "docs/e4-order-support/run-context.json": "8a388e3a4899863baa1679c7bc08c2c0e282c73114840579ee2c76fd308b55ee",
+    "docs/e4-order-support/security-behavior-result.json": "259cd5f1e9411f235224652ef527fdfbe9bd3946c9cfbbf7c645f357ccd89bc2",
+    "docs/e4-order-support/security-probe-result.json": "5ee3bea0e97439f040093df47575365d522f98e799bcc111d8429f8ac57ff8b2",
+    "docs/e4-order-support/security-probe.cjs": "125ebb66d438c710fed477c5bf8b7051f7f927ee1bc0d66af5c43b0584343adb",
+    "docs/e4-order-support/security-review.json": "3f9313bd5dcb7231b790136d8ee9a443c80c7adc6d42ef1394b487286d662f0e",
+    "docs/e4-order-support/tests.json": "1e28cb0747557160299840ec27e245ed3f35ba5a57ef4143fcc70b017f332281"
+  }
+}
