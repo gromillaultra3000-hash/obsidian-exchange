@@ -11,44 +11,44 @@ non-custodial wallet whose keys never reach the server.
 
 ## Active route
 
-`E4 / WALLET_HANDOFF_WEBKIT_ACCEPTANCE / verify handoff coordination and reconciliation in isolated WebKit`
+`E4 / WALLET_HANDOFF_DEVICE_ACCEPTANCE / prepare bounded inert device checks and obtain real iOS Telegram observation`
 
-2026-09-08: WALLET_HANDOFF_CROSS_TAB_COORDINATION VERIFIED/deployed, `55808db`.
-Exclusive nonqueued Web Locks cover publication/readback of minimal shared v2
-localStorage evidence and the full SDK promise. Record retention survives closing
-all tabs; no expiry/settlement clearing. Random attempt ID prevents identical-record
-stale acknowledgement. Explicit removal uses the same lock and exact observed
-legacy/shared records; active SDK in another page prevents removal. Async grants
-recheck consumed review generation/deadline and wallet/network binding. Unsupported
-capabilities and storage faults block signing. Legacy session evidence is preserved
-and migrated without overwriting shared evidence. No payload/secrets retained.
+2026-09-08: WALLET_HANDOFF_WEBKIT_ACCEPTANCE / Linux WebKit VERIFIED, `51d620c`.
+Added reusable isolated WebKit launcher and native browser acceptance code. All 26
+real Linux WebKit 26.5 scenarios at 320/390 pass on unchanged product source
+`ee01d3f5...4bfe7e3`: shared locks/storage, competing confirmations, explicit
+reconciliation, legacy evidence, faults and delayed callback invalidation.
+Eleven launcher tests, independent acceptance/launcher/ops reviews and staged
+Gitleaks 8.30.0 pass; npm audit reports zero for playwright-core 1.62.0.
 
-255 tests PASS (15 new cross-tab groups, 18 retained state groups, 18 ops cases
-included), 26 real native Chrome scenarios, syntax/staged Gitleaks8.30.0 zero and
-two independent reviews PASS. Baseline native two-page run reproduced two concurrent
-SDK calls at 320/390; candidate permits one. Real lock contention with no record
-refuses without queued callback or automatic signing after release. Initial draft
-syntax and two obsolete static assertions were fixed; final exact source passes.
+Pinned WebKit revision 2336 plus 18 official Ubuntu packages staged at
+`/tmp/e4-webkit-runtime`; package checksums/signatures and wrapper deltas recorded.
+No host packages installed. Browser runs as nobody with PrivateNetwork,
+ProtectHome, NoNewPrivileges and read-only runtime/library binds. Engine-native
+sandbox is NOT_ATTESTED. Transient service stopped/MainPID0/cgroup empty; temporary
+session removed, pinned test runtime retained. First 4s click timeout did not
+repeat with an 8s action limit; cause remains unproven. No forced click or CSS/
+clock workaround and no product defect established.
 
-HTML-only atomic apply/reconcile PASS; live SHA256 `ee01d3f5...4bfe7e3`. Other 55
-files and Relay3016726/Bot3877887/Nginx3877705/PG3136948 unchanged/no restart.
-Public GET200/POST405/history403/order0+pay0 both404. Rollback:
+Production remains `55808db`; no product mutation or empty redeployment.
+Exact HTML/public/dependency/process reconciliation PASS: other 55 files and
+Relay3016726/Bot3877887/Nginx3877705/PG3136948 unchanged/no restart. Existing rollback:
 `/var/lib/obsidian-exchange/deployment-preimages/e4-wallet-cross-tab-55808db-20260908`.
-Evidence: `docs/e4-wallet-cross-tab-rollout.v1.json` and task directory.
+Evidence: `docs/e4-wallet-webkit-acceptance.v1.json` and task directory.
 
-Exactly next: WALLET_HANDOFF_WEBKIT_ACCEPTANCE — verify actual browser locks,
-shared storage, review cancellation and reconciliation in isolated WebKit using
-inert SDK/API; fix reproduced failures. Chrome evidence does not prove real
-Telegram/iOS/WebKit/assistive/human acceptance. Feature absence now fails closed.
+Exactly next: WALLET_HANDOFF_DEVICE_ACCEPTANCE — prepare bounded inert device
+checks and obtain real iOS Telegram observation. Actual Safari/iOS/Telegram webview,
+SDK reconnect and human accessibility acceptance cannot be inferred from Linux
+WebKit. Device verification must not request secrets or silently authorize a real
+signature/transfer; any real money action remains owner-executed separately.
 
-Guarantee requires upgraded same-origin pages in the same storage partition;
-reload older open pages. Other devices/profiles or storage clearing are outside
-scope. Historical session-only records are preserved but not globally enumerated.
-Manual outcome assertion is not chain evidence. Rollback cannot cancel money
-requests or change existing scripts, and older code ignores shared evidence.
-E4/earlier gates remain open. No real signature/money/customer read/new credentials
-or 064A authority. Autopilot remains failed/MainPID0; do not restart without explicit
-owner request and reconciliation of its stale third receipt/manual commits.
+Full E4/earlier gates remain open. The installed guard coordinates upgraded pages
+within one browser storage partition; old pages must reload, other devices and
+cleared storage are outside scope. Manual outcome assertion is not chain evidence.
+No real signature/money/customer read/new credentials/064A authority. Autopilot
+remains failed/MainPID0; reconcile stale third receipt/manual commits before an
+explicitly requested restart. Product rollback does not cancel wallet requests or
+replace old loaded scripts; older code ignores retained shared evidence.
 
 ### Owner reprioritization — 2026-08-26
 

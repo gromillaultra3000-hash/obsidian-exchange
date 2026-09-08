@@ -5,30 +5,28 @@ Updated: 2026-09-08 UTC
 ## Current goal and status
 
 
-- 2026-09-08 E4 WALLET_HANDOFF_CROSS_TAB_COORDINATION VERIFIED/deployed,
-  `55808db`. Exclusive Web Locks ifAvailable protect shared v2 localStorage record
-  publication and whole SDK promise; no queue/retry/expiry. Random attempt ID
-  prevents stale ack deleting identical new attempt. Clear uses same lock and
-  exact shared/legacy snapshot. Async grant rechecks deadline/generation/account.
-  API/storage absence blocks. Legacy session evidence retained/migrated without
-  overwrite. Only public sender/network/op/order/random ID retained until explicit
-  reconciliation/browser clearing; no payload/secrets. Old tabs must reload.
-  255 tests PASS (15 new cross-tab groups, 18 retained state groups, 18 ops), 26
-  native Chrome cases, two reviews, syntax/staged Gitleaks8.30.0 zero. Baseline
-  two actual pages entered SDK; final excludes second and queues no retry.
-  HTML-only atomic apply/reconcile PASS ee01d3f5...4bfe7e3. Other 55 files and
-  Relay3016726/Bot3877887/Nginx3877705/PG3136948 unchanged/no restart. Public
-  200/405/history403/order0+pay0 both404. Rollback: deployment-preimages/
-  e4-wallet-cross-tab-55808db-20260908; old HTML ignores shared evidence and does
-  not cancel money requests or replace old loaded scripts. Evidence:
-  docs/e4-wallet-cross-tab-rollout.v1.json. Exactly next: E4
-  WALLET_HANDOFF_WEBKIT_ACCEPTANCE — real isolated WebKit/locks/storage tests
-  with inert SDK/API and fix reproduced failures. Same browser partition/upgraded
-  pages only; legacy records not globally enumerated; user assertion not chain
-  proof. Other devices/storage clearing/platform/human and E4/earlier gates open.
-  No real signature/money/customer read/credential/064A authority. Autopilot
-  failed/MainPID0; reconcile stale third receipt/manual commits before owner-
-  requested restart. Initial draft syntax and two stale static assertions fixed.
+- 2026-09-08 E4 WALLET_HANDOFF_WEBKIT_ACCEPTANCE / Linux WebKit VERIFIED,
+  `51d620c`. Added reusable isolated launcher, native browser suite/provenance.
+  26 WebKit 26.5/revision2336 scenarios at 320/390 pass on unchanged ee01d3f5 source;
+  11 launcher tests, independent acceptance/primary-launcher/ops reviews PASS.
+  Staged Gitleaks 8.30.0 zero; npm audit zero for playwright-core 1.62.0 only.
+  18 Ubuntu packages extracted under /tmp/e4-webkit-runtime, checksums/signatures
+  verified; two staged wrapper search-path edits recorded. No host package install.
+  nobody/PrivateNetwork/ProtectHome/NoNewPrivileges/read-only runtime; engine-native
+  sandbox NOT_ATTESTED. Unit stopped/MainPID0/cgroup empty; runtime retained for
+  replay. First 4s action timeout passed at 8s; cause unproven, no forced clicks or
+  product defect. Production still 55808db, no empty redeploy. Exact current HTML,
+  55 dependencies and Relay3016726/Bot3877887/Nginx3877705/PG3136948 unchanged.
+  Evidence: docs/e4-wallet-webkit-acceptance.v1.json. Exactly next: E4
+  WALLET_HANDOFF_DEVICE_ACCEPTANCE — bounded inert device checks + real iOS
+  Telegram observation; Linux WebKit does not establish device/SDK/human acceptance.
+  Product shared v2 Web Locks guard remains same-partition/upgraded-pages only,
+  no automatic retry/time-only clearing, manual assertion not chain evidence.
+  Rollback retained at deployment-preimages/e4-wallet-cross-tab-55808db-20260908;
+  cannot cancel requests/replace old scripts, old code ignores shared evidence.
+  E4/earlier gates open; no real signing/money/customer read/credentials/064A.
+  Autopilot failed/MainPID0; reconcile stale receipt/manual commits before owner-
+  requested restart. No real device keys or actual signing requested.
 
 - 2026-09-08 status audit confirmed Sep 7's three deployed E4 slices: wallet
   review/fees (`d650b8d`), receive-address integrity (`1cbfe1f`) and payment

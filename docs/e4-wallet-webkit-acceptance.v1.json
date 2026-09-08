@@ -1,0 +1,136 @@
+{
+  "schemaVersion": "e4-wallet-webkit-acceptance.v1",
+  "recordedAt": "2026-09-08T22:59:42.008355+00:00",
+  "route": "E4 / WALLET_HANDOFF_WEBKIT_ACCEPTANCE / Linux WebKit",
+  "status": "VERIFIED",
+  "stageStatus": "IN_PROGRESS",
+  "accountableOwner": "Project owner; manual E4 continuation",
+  "implementationCommit": "51d620c7763e08cb61da34b08bc66713718cf696",
+  "deliverable": "Reusable isolated WebKit launcher, native wallet browser scenarios, launcher tests and pinned dependency/runtime provenance",
+  "production": {
+    "productChanges": false,
+    "redeployment": false,
+    "reconcile": "PASS",
+    "sourceSha256": "ee01d3f55a2f97c3f957e9166a02f79cd247f7d924316c666d6d94a754bfe7e3",
+    "publicSha256": "34addbf753b61d796acd991b052805d49f3738e77c0008b3654553cdfccf758b",
+    "preservedDependencies": 55,
+    "servicesUnchanged": [
+      {
+        "unit": "relay-fastapi.service",
+        "WorkingDirectory": "/opt/obsidian-exchange/relay-fastapi",
+        "FragmentPath": "/etc/systemd/system/relay-fastapi.service",
+        "executable": "/opt/obsidian-exchange/relay-venv/bin/python",
+        "pythonScriptTokens": [
+          "/opt/obsidian-exchange/relay-fastapi/main.py"
+        ],
+        "state": {
+          "MainPID": "3016726",
+          "NRestarts": "0",
+          "ExecMainStartTimestamp": "Tue 2026-09-08 03:26:45 UTC",
+          "ActiveState": "active",
+          "SubState": "running"
+        }
+      },
+      {
+        "unit": "exchange-bot.service",
+        "WorkingDirectory": "/opt/obsidian-exchange/bot",
+        "FragmentPath": "/etc/systemd/system/exchange-bot.service",
+        "executable": "/opt/obsidian-exchange/bot/venv/bin/python3",
+        "pythonScriptTokens": [
+          "/opt/obsidian-exchange/bot/main_bot.py"
+        ],
+        "state": {
+          "MainPID": "3877887",
+          "NRestarts": "0",
+          "ExecMainStartTimestamp": "Tue 2026-09-01 06:20:00 UTC",
+          "ActiveState": "active",
+          "SubState": "running"
+        }
+      },
+      {
+        "unit": "nginx.service",
+        "WorkingDirectory": "",
+        "FragmentPath": "/usr/lib/systemd/system/nginx.service",
+        "executable": "/usr/sbin/nginx",
+        "pythonScriptTokens": [],
+        "state": {
+          "MainPID": "3877705",
+          "NRestarts": "0",
+          "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:56 UTC",
+          "ActiveState": "active",
+          "SubState": "running"
+        }
+      },
+      {
+        "unit": "obsidian-postgres.service",
+        "WorkingDirectory": "/opt/obsidian-exchange",
+        "FragmentPath": "/etc/systemd/system/obsidian-postgres.service",
+        "executable": "/usr/bin/docker",
+        "pythonScriptTokens": [],
+        "state": {
+          "MainPID": "3136948",
+          "NRestarts": "0",
+          "ExecMainStartTimestamp": "Mon 2026-08-24 05:08:51 UTC",
+          "ActiveState": "active",
+          "SubState": "running"
+        }
+      }
+    ],
+    "restart": false,
+    "autopilot": "failed/MainPID0; unchanged",
+    "installedProductCommit": "55808db"
+  },
+  "validation": {
+    "launcherTests": 11,
+    "nativeWebKitScenarios": 26,
+    "widths": [
+      320,
+      390
+    ],
+    "webkitVersion": "26.5",
+    "webkitRevision": "2336",
+    "playwrightVersion": "1.62.0",
+    "independentReviews": [
+      "acceptance",
+      "primary launcher review",
+      "ops runtime/provenance review"
+    ],
+    "scanner": {
+      "name": "gitleaks",
+      "version": "8.30.0",
+      "stagedFindings": 0
+    },
+    "npmAuditFindings": 0
+  },
+  "runtime": {
+    "root": "/tmp/e4-webkit-runtime",
+    "packageCount": 18,
+    "hostPackagesInstalled": false,
+    "osIsolation": "nobody, PrivateNetwork, ProtectHome, NoNewPrivileges, read-only runtime/library binds",
+    "engineSandbox": "NOT_ATTESTED",
+    "cleanup": "Transient unit stopped, MainPID0, cgroup empty; disposable session removed; staged runtime retained for replay",
+    "runCommand": "python3 scripts/run_e4_webkit_browser.py --source relay/webapp.html --runner tests/e4_wallet_webkit_browser.cjs --runtime /tmp/e4-webkit-runtime/browsers --library-path /tmp/e4-webkit-runtime/deps/usr/lib/x86_64-linux-gnu --output output/playwright/e4-wallet-webkit-replay-UNIQUE"
+  },
+  "negativeResults": [
+    "Initial sandbox DNS failures resolved through approved host download/audit.",
+    "Missing libraries resolved by verified extracted Ubuntu packages, no host package install.",
+    "First4s action timeout; full26 cases pass with8s action limit, cause unproven. No forced clicks/CSS or clock bypass."
+  ],
+  "limits": [
+    "Linux Playwright WebKit evidence does not establish real Safari/iOS/Telegram, real SDK reconnect or wallet signing.",
+    "No actual signature/money/provider/customer operation or new credential/064A authority.",
+    "Full E4 and earlier gates remain open; native-engine sandbox and all-system CVE clearance not claimed."
+  ],
+  "nextCanonicalItem": "E4 / WALLET_HANDOFF_DEVICE_ACCEPTANCE / prepare bounded inert device checks and obtain real iOS Telegram observation",
+  "evidenceSha256": {
+    "browser-report.json": "079f37d76ac6d7a4ee3bb5989cf681bafac75e36ad2c955720dba49e62bfdfa3",
+    "validation.json": "a0b05cbace387b4c3c6768539b61b6685fc76aa4b1c829f8db0929468a5ac316",
+    "runtime-provenance.json": "184e37cdb9dab042e385a402d37afc39c8d51f6232b8be997f5c7af32113b013",
+    "dependency-audit.json": "37f25ff2b1e3e61e3a9b47a3571c0c454cfa53e1359d4fc929e10c75e73ac13a",
+    "contract.md": "08263074966ce57f3d9abcdf96aa11a9c2154ae6c0dddd86d3d439c129452a15",
+    "primary-launcher-review.json": "8decf7868648f96ba052bf6b379408aa0d23c51bfd8ecca0ab7e07ea67a86110",
+    "acceptance-review.json": "cb75f1a5714c1cf938e1c2bef978ed319d770b413b226dc668745b0a765e9c14",
+    "diff-ops-review.json": "ff69fb7a6d6b5962707ce7b3f3505de6d28e614289779989082b08be22c52a77",
+    "browser-isolation.json": "5b3bb241baefe9e6f874b7a0eed3875e2aa2f598592c9c0cb9a327489832882b"
+  }
+}

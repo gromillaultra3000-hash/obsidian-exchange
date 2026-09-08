@@ -962,6 +962,19 @@ WebKit browser validation and fixes for reproduced failures. Only upgraded pages
 same browser partition are coordinated; old tabs must reload. Real SDK/money,
 other profiles/devices, cleared storage and human/platform gates remain open.
 
+2026-09-08: WALLET_HANDOFF_WEBKIT_ACCEPTANCE / Linux WebKit VERIFIED (`51d620c`).
+Reusable isolated launcher + native acceptance code: 26 WebKit 26.5 scenarios at
+320/390 and 11 launcher tests PASS; independent acceptance/launcher/ops reviews,
+provenance and secret scan pass. Product remains 55808db/ee01d3f5 unchanged;
+HTML/public/55 dependencies/four service identities reconciled, no restart or
+redeploy. Official browser/dependencies staged outside production; no host package
+install. Engine-native sandbox NOT_ATTESTED; recorded OS isolation/cleanup verified.
+First 4s action timeout passed with 8s limit; cause unproven, no product defect claim.
+Evidence: `docs/e4-wallet-webkit-acceptance.v1.json`. E4 IN_PROGRESS. Exactly next:
+WALLET_HANDOFF_DEVICE_ACCEPTANCE — bounded inert device checks and real iOS
+Telegram observation. Linux WebKit does not prove Safari/iOS/Telegram, real SDK or
+human acceptance. No actual money/signature/customer read/new authority.
+
 ### E5 — нативный некастодиальный кошелёк
 
 E0.4 inventory evidence (2026-08-18): the checkout has a Rust/UniFFI Bitcoin
