@@ -5,28 +5,31 @@ Updated: 2026-09-08 UTC
 ## Current goal and status
 
 
-- 2026-09-08 E4 WALLET_HANDOFF_WEBKIT_ACCEPTANCE / Linux WebKit VERIFIED,
-  `51d620c`. Added reusable isolated launcher, native browser suite/provenance.
-  26 WebKit 26.5/revision2336 scenarios at 320/390 pass on unchanged ee01d3f5 source;
-  11 launcher tests, independent acceptance/primary-launcher/ops reviews PASS.
-  Staged Gitleaks 8.30.0 zero; npm audit zero for playwright-core 1.62.0 only.
-  18 Ubuntu packages extracted under /tmp/e4-webkit-runtime, checksums/signatures
-  verified; two staged wrapper search-path edits recorded. No host package install.
-  nobody/PrivateNetwork/ProtectHome/NoNewPrivileges/read-only runtime; engine-native
-  sandbox NOT_ATTESTED. Unit stopped/MainPID0/cgroup empty; runtime retained for
-  replay. First 4s action timeout passed at 8s; cause unproven, no forced clicks or
-  product defect. Production still 55808db, no empty redeploy. Exact current HTML,
-  55 dependencies and Relay3016726/Bot3877887/Nginx3877705/PG3136948 unchanged.
-  Evidence: docs/e4-wallet-webkit-acceptance.v1.json. Exactly next: E4
-  WALLET_HANDOFF_DEVICE_ACCEPTANCE — bounded inert device checks + real iOS
-  Telegram observation; Linux WebKit does not establish device/SDK/human acceptance.
-  Product shared v2 Web Locks guard remains same-partition/upgraded-pages only,
-  no automatic retry/time-only clearing, manual assertion not chain evidence.
-  Rollback retained at deployment-preimages/e4-wallet-cross-tab-55808db-20260908;
-  cannot cancel requests/replace old scripts, old code ignores shared evidence.
-  E4/earlier gates open; no real signing/money/customer read/credentials/064A.
-  Autopilot failed/MainPID0; reconcile stale receipt/manual commits before owner-
-  requested restart. No real device keys or actual signing requested.
+- 2026-09-08 E4 WALLET_HANDOFF_DEVICE_ACCEPTANCE: inert harness
+  PUBLISHED_VERIFIED,233cc57; actual iOS Telegram observation PENDING, E4 open.
+  Four generated static assets at https://obsidian-exchange.org/preview/device-check/;
+  exact production helper extraction with declared CSS/namespaces, inert SDK,
+  no signing/identity/network upload. Local report self-declared/verified:false.
+  Existing bot /preview -> Mini App preview -> footer device-check link is owner
+  entry; direct Telegram URL may be browser, not proof of Mini App context.
+  42 focused pytest +16 Chromium +16 Linux WebKit PASS, independent acceptance/
+  safety and primary ops reviews, exact generator and Gitleaks zero. Initial
+  fixture option/timing issues corrected; WebKit screenshot helper injects body{}
+  CSS, final zero-error CSP run omits screenshots, separate visuals retained.
+  Atomic static release e4-device-check-20260908T2315Z published/reconciled;
+  exact four assets/footer,5 other preview files,56 app inputs/nginx/four services
+  preserved. HEAD200/POST405; no restarts. Old static release retained at
+  e4-preview-favicon-20260826T0926Z. Rollback/reconcile helper and pinned plan:
+  docs/e4-wallet-device-check/rollout.py +plan.json. Evidence:
+  docs/e4-wallet-device-check-publication.v1.json. Next requires owner to perform
+  guided inert test on iPhone via /preview and return report plus observed steps.
+  Do not infer physical-device/human/SDK acceptance from Linux or declared labels.
+  Product guard remains55808db/ee01d3f5, same browser partition/upgraded pages;
+  old pages reload, manual assertion not chain evidence. Product rollback retained
+  at deployment-preimages/e4-wallet-cross-tab-55808db-20260908. Isolated WebKit
+  runtime /tmp/e4-webkit-runtime retained; engine sandbox NOT_ATTESTED, OS isolation
+  verified. No money/signature/customer read/credentials/064A. Autopilot failed/
+  MainPID0; reconcile stale receipt/manual commits before owner-requested restart.
 
 - 2026-09-08 status audit confirmed Sep 7's three deployed E4 slices: wallet
   review/fees (`d650b8d`), receive-address integrity (`1cbfe1f`) and payment

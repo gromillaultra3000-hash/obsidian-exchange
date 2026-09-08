@@ -975,6 +975,20 @@ WALLET_HANDOFF_DEVICE_ACCEPTANCE — bounded inert device checks and real iOS
 Telegram observation. Linux WebKit does not prove Safari/iOS/Telegram, real SDK or
 human acceptance. No actual money/signature/customer read/new authority.
 
+2026-09-08: WALLET_HANDOFF_DEVICE_ACCEPTANCE / inert harness PUBLISHED_VERIFIED
+(`233cc57`), actual device observation PENDING. Four generated diagnostic assets
+with isolated namespaces/inert SDK and readable self-reported local report;
+existing bot /preview Mini App footer provides entry.42 focused tests +16 Chromium
++16 Linux WebKit cases PASS, independent acceptance/safety/ops reviews and secret
+scan. WebKit screenshot utility CSP injection isolated; final zero-error strict
+CSP run without screenshots, no product/CSP change. Static release atomically
+published/reconciled, exact assets/footer,5 other previewfiles/56 appinputs/nginx/
+four service identities preserved, no restart. HEAD200/POST405, old release kept.
+Evidence: `docs/e4-wallet-device-check-publication.v1.json`. E4 IN_PROGRESS.
+Exactly next: owner iPhone /preview -> footer devicecheck -> guided inert checks,
+local report plus observed behavior/context. Real iOS/Telegram/SDK/human acceptance
+not established; direct URL alone not Mini App proof. No money/signature authority.
+
 ### E5 — нативный некастодиальный кошелёк
 
 E0.4 inventory evidence (2026-08-18): the checkout has a Rust/UniFFI Bitcoin

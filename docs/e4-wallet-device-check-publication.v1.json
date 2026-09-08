@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-09-08T23:15:54.456759+00:00",
+  "route": "E4/WALLET_HANDOFF_DEVICE_ACCEPTANCE",
+  "implementationCommit": "233cc57",
+  "harnessStatus": "PUBLISHED_VERIFIED",
+  "physicalDeviceAcceptance": "PENDING_OWNER_OBSERVATION",
+  "fullE4": "IN_PROGRESS",
+  "publicUrl": "https://obsidian-exchange.org/preview/device-check/",
+  "entry": "Existing bot /preview WebAppInfo button -> preview footer device-check link; direct URL does not establish Mini App context",
+  "tests": {
+    "focusedPytest": 42,
+    "chromium": 16,
+    "linuxWebkit": 16,
+    "gitleaks": {
+      "version": "8.30.0",
+      "findings": 0
+    }
+  },
+  "reviews": [
+    "acceptance-review.json",
+    "diff-ops-review.json",
+    "primary-review.json"
+  ],
+  "rollout": {
+    "apply": "APPLY_PASS",
+    "reconcile": "RECONCILE_PASS",
+    "state": "PUBLISHED",
+    "release": "/opt/obsidian-exchange/releases/e4-visible-portfolio-preview/e4-device-check-20260908T2315Z",
+    "previousRelease": "/opt/obsidian-exchange/releases/e4-visible-portfolio-preview/e4-preview-favicon-20260826T0926Z",
+    "originalReleaseUnchanged": true,
+    "exactPublishedAssetBytes": true,
+    "exactFooterOnlyChange": true,
+    "otherPreviewFilesPreserved": 5,
+    "applicationFilesPreserved": 56,
+    "serviceIdentitiesPreserved": 4,
+    "nginxConfigurationUnchanged": true,
+    "serviceRestart": false,
+    "autopilot": "failed/MainPID0",
+    "headStatus": 200,
+    "postStatus": 405,
+    "cacheControl": "no-cache; no-store",
+    "nosniff": true,
+    "productionCspVerified": true
+  },
+  "assets": {
+    "index.html": "789b1c7408755abb253439833525de680697f032d08b4cfc0c7df2be3c2f4ec1",
+    "device-check.css": "475716bb36e1e3a5d920b7c9b327640d7d0e374743ce33e0318b23d95b8d645e",
+    "device-check.js": "9157b481e6b3c55db36b688eece7ebc52bfc471de8f416befd3f7deda7223792",
+    "manifest.json": "b83b5ba5a6563ba226887ece06ece443c8d3c9dc33544f100dadcbf7bf7731be"
+  },
+  "rollbackCommand": "python3 /root/docs/e4-wallet-device-check/rollout.py rollback --plan /root/docs/e4-wallet-device-check/plan.json",
+  "reconcileCommand": "python3 /root/docs/e4-wallet-device-check/rollout.py reconcile --plan /root/docs/e4-wallet-device-check/plan.json",
+  "limitations": [
+    "No physical iOS/Safari/Telegram Mini App observation received",
+    "No real SDK/reconnect/signature/transfer acceptance; SDK inert",
+    "Device report is self-reported and document counters reset on reload; request owner description of observed steps with report",
+    "Linux WebKit engine sandbox NOT_ATTESTED; OS isolation and cleanup verified",
+    "Original production guard remains55808db; this publishes static diagnostics only"
+  ],
+  "next": "Owner opens bot /preview on iPhone, navigates footer link, performs guided inert checks, returns local report plus observed behavior/context",
+  "sha256": {
+    "chromium-browser-isolation.json": "a607dc973178bdbedb634100d0483e91263d3dbe1e594b539dacff5c148b94ae",
+    "primary-review.json": "c3d3f39fd67cb0317fc36c691698ef316752847741d269b5c8e8e26305a66218",
+    "chromium-browser-report.json": "adbb62a7f5184fff3390668d73eae551691ab7566171e552b83cda6eac68e083",
+    "webkit-browser-isolation.json": "65e712332f6d830dc89bc903132a626a9e72b2216f9feb9b762b08078896dcad",
+    "plan.json": "918ca9ece584e272d8772f643ee58bddb6aa21f935259ccfacff078f76bbac20",
+    "ops-baseline.json": "571363dc44350aecdb2603c6cb8aeca3315d3178129c4c3b2054373765947d97",
+    "acceptance-review.json": "55c9af314db1d926973aeed063bb27446881d403d6c9a92c7877ebb004c6bec5",
+    "preflight.json": "8887c0f347d9fcb899512c5d6e7dba3858304de717de8096b0336bae9015b6e9",
+    "diff-ops-review.json": "723541df303c089ef237e4ac60aa4b5cad8acb5105f0af0e5344e6e2e81bad52",
+    "webkit-browser-report.json": "c0b149eb80d67d53fe519cd0e7821e8b9b136122707240213779e6b181248324"
+  },
+  "evidenceScanNote": "First evidence scan flagged the prose Gitleaks result under a generic credential-like JSON field name; verified public scanner-version text only and replaced with structured scanner result. No credential present."
+}

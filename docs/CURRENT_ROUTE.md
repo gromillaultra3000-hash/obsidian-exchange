@@ -11,44 +11,40 @@ non-custodial wallet whose keys never reach the server.
 
 ## Active route
 
-`E4 / WALLET_HANDOFF_DEVICE_ACCEPTANCE / prepare bounded inert device checks and obtain real iOS Telegram observation`
+`E4 / WALLET_HANDOFF_DEVICE_ACCEPTANCE / obtain owner iOS Telegram observation from published inert device page`
 
-2026-09-08: WALLET_HANDOFF_WEBKIT_ACCEPTANCE / Linux WebKit VERIFIED, `51d620c`.
-Added reusable isolated WebKit launcher and native browser acceptance code. All 26
-real Linux WebKit 26.5 scenarios at 320/390 pass on unchanged product source
-`ee01d3f5...4bfe7e3`: shared locks/storage, competing confirmations, explicit
-reconciliation, legacy evidence, faults and delayed callback invalidation.
-Eleven launcher tests, independent acceptance/launcher/ops reviews and staged
-Gitleaks 8.30.0 pass; npm audit reports zero for playwright-core 1.62.0.
+2026-09-08: inert device harness PUBLISHED_VERIFIED, `233cc57`. Generated four
+static assets from production wallet review/attempt helpers, with declared CSS
+externalization and disjoint diagnostic storage/lock namespaces. Inert SDK only;
+no wallet connection, signing, identity collection or report upload. Readable
+local report distinguishes user-declared Mini App/browser environment; verified:false.
 
-Pinned WebKit revision 2336 plus 18 official Ubuntu packages staged at
-`/tmp/e4-webkit-runtime`; package checksums/signatures and wrapper deltas recorded.
-No host packages installed. Browser runs as nobody with PrivateNetwork,
-ProtectHome, NoNewPrivileges and read-only runtime/library binds. Engine-native
-sandbox is NOT_ATTESTED. Transient service stopped/MainPID0/cgroup empty; temporary
-session removed, pinned test runtime retained. First 4s click timeout did not
-repeat with an 8s action limit; cause remains unproven. No forced click or CSS/
-clock workaround and no product defect established.
+42 focused tests +16 Chromium +16 Linux WebKit cases at320/390 PASS; two independent
+product reviews and primary ops review, exact-build check and staged Gitleaks pass.
+Initial fixture option/async timing issues corrected. WebKit screenshot utility
+injects inline body{} CSS; final strict-CSP run omits screenshots with zero errors,
+prior exact-asset visuals retained separately. No product/CSP/dependency workaround.
 
-Production remains `55808db`; no product mutation or empty redeployment.
-Exact HTML/public/dependency/process reconciliation PASS: other 55 files and
-Relay3016726/Bot3877887/Nginx3877705/PG3136948 unchanged/no restart. Existing rollback:
-`/var/lib/obsidian-exchange/deployment-preimages/e4-wallet-cross-tab-55808db-20260908`.
-Evidence: `docs/e4-wallet-webkit-acceptance.v1.json` and task directory.
+Published https://obsidian-exchange.org/preview/device-check/ by atomic preview
+release pointer swap; existing /preview footer links to it. Apply/reconcile PASS,
+GET/HEAD200 and POST405; all four assets and root footer exact, five other preview
+files,56 application inputs, nginx config and four service identities unchanged.
+No restart. Old release retained; rollback/reconcile via
+`docs/e4-wallet-device-check/rollout.py` with its committed plan.json.
+Evidence: `docs/e4-wallet-device-check-publication.v1.json` and task directory.
 
-Exactly next: WALLET_HANDOFF_DEVICE_ACCEPTANCE — prepare bounded inert device
-checks and obtain real iOS Telegram observation. Actual Safari/iOS/Telegram webview,
-SDK reconnect and human accessibility acceptance cannot be inferred from Linux
-WebKit. Device verification must not request secrets or silently authorize a real
-signature/transfer; any real money action remains owner-executed separately.
+Exactly next: owner uses existing bot `/preview` button on iPhone, opens the
+footer device-check link, performs the guided inert checks and returns the local
+report plus observed behavior/context. Direct URL in Telegram may be its browser;
+that does not prove Mini App acceptance. No physical device observation received.
+Full E4 remains IN_PROGRESS; do not infer actual SDK/reconnect/signature, human or
+iOS acceptance from synthetic checks or a user-selected environment label.
 
-Full E4/earlier gates remain open. The installed guard coordinates upgraded pages
-within one browser storage partition; old pages must reload, other devices and
-cleared storage are outside scope. Manual outcome assertion is not chain evidence.
-No real signature/money/customer read/new credentials/064A authority. Autopilot
-remains failed/MainPID0; reconcile stale third receipt/manual commits before an
-explicitly requested restart. Product rollback does not cancel wallet requests or
-replace old loaded scripts; older code ignores retained shared evidence.
+Production guard remains55808db/ee01d3f5: same-partition upgraded pages only, old
+pages must reload; manual outcome assertion is not chain evidence. Production
+rollback retained at deployment-preimages/e4-wallet-cross-tab-55808db-20260908.
+No real money/signature/customer read/new credentials/064A authority. Autopilot
+failed/MainPID0; reconcile stale third receipt/manual commits before explicit restart.
 
 ### Owner reprioritization — 2026-08-26
 
