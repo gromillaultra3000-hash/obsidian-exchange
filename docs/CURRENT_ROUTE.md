@@ -11,48 +11,49 @@ non-custodial wallet whose keys never reach the server.
 
 ## Active route
 
-`E4 / PAYMENT_STATUS_EXPIRY_TIME_FORMAT_CONSISTENCY / parse supported payment-session timestamps without an invalid countdown`
+`E4 / MONEY_FLOW_ACCEPTANCE_COVERAGE / assess executable coverage against the canonical money-flow UX gate`
 
 Owner decision 2026-09-08: continue code-first delivery and reversible rollouts
 manually. Autopilot remains failed / MainPID zero / UNCOMMITTED_NEW_FILES since
 Sep 7. Before any explicitly requested later start, reconcile its stale third
 receipt and all subsequent manual commits. No supervisor setting or unit changed.
 
-PAYMENT_STATUS_PENDING_RECEIPT_EVIDENCE_CONSISTENCY is VERIFIED and deployed at
-2026-09-08 02:59 UTC, implementation `033c567`. Both payment-page forms acknowledge
-a stored file when a pending order has unavailable payment instructions, without
-claiming delivery to the payment partner or confirmed payment. Existing video/PDF
-requests stay visible alongside receipt evidence. Delivered and absent receipts
-remain distinct; unknown receipt values cannot invent a stored file after local
-expiry. Terminal and paid/sent precedence and hidden payment/copy/QR controls
-remain preserved. Prior terminal-reason implementation `bfa8d9e` stays deployed.
+PAYMENT_STATUS_EXPIRY_TIME_FORMAT_CONSISTENCY is VERIFIED and deployed at
+2026-09-08 03:26 UTC, implementation `5751b1d`. The payment countdown accepts
+explicit offsets, Z and legacy naive UTC dates consistently across timezones.
+Invalid calendar dates, malformed or missing values show a neutral unknown-time
+message, without NaN or invented canonical expiry. Local expiry stops its interval
+and keeps status polling enabled. Receipt/verification and terminal/paid/sent
+precedence are unchanged. Prior receipt and terminal fixes remain deployed.
 
-141 focused tests, 17 ops tests, 49 exact synthetic SQLite/handler checks,
-142 isolated Chrome checks and both independent reviews PASS. Security covers
-122 cases; independent interruption/reconcile/rollback probes pass. Only pay
-changed: 155 other functions, API/read/auth/redirect code and Python interpolation
+208 focused tests, 17 ops tests, 30 exact synthetic SQLite/handler checks,
+83 isolated Chrome checks with 27 timezone comparisons and both independent
+reviews PASS. Security covers 318 cases; independent interruption/reconcile/
+rollback probes pass. Only inline expiry helper/timer code changed: numeric pay,
+155 other functions, API/read/auth/redirect code and all Python interpolation
 boundaries remain exact. No repeated PostgreSQL rehearsal was required for this
 presentation-only change; no broader database or project test PASS is inferred.
 Final staged and independent secret scans report zero without suppression.
 
-Only main.py was published, SHA256 `4ee1c62e...`; all 16 retained dependencies
+Only main.py was published, SHA256 `25624ac7...`; all 16 retained dependencies
 remain byte-exact, including HTML and the installed payment-status adapter/proof
 helper. Shared order/session/receipt checkout drift must not be deployed wholesale.
-Relay PID 2977932, start 2026-09-08 02:59:54 UTC, NRestarts 0. Bot 3877887,
+Relay PID 3016726, start 2026-09-08 03:26:45 UTC, NRestarts 0. Bot 3877887,
 Nginx 3877705 and PostgreSQL 3136948 identities are unchanged. Public checks:
 /webapp GET200/POST405/exact template, anonymous history403, proofless
 /api/order/0 and /pay/0 both404. Rollback preimage and metadata retained at
-`/var/lib/obsidian-exchange/deployment-preimages/e4-payment-pending-receipt-20260908-gp41_of5`.
-Evidence: `docs/e4-payment-pending-receipt-rollout.v1.json` and its directory.
+`/var/lib/obsidian-exchange/deployment-preimages/e4-payment-expiry-20260908-3q1v054g`.
+Evidence: `docs/e4-payment-expiry-rollout.v1.json` and its directory.
 
-Exactly next: PAYMENT_STATUS_EXPIRY_TIME_FORMAT_CONSISTENCY. The retained serializer
-emits an aware ISO timestamp with `+00:00` for the supported TIMESTAMPTZ column.
-The payment timer appends `Z`, making that valid timestamp invalid; actual Chrome
-renders `NaN:NaN`. Repair parsing of offset, Z and supported naive UTC forms;
-missing/invalid metadata must not invent an expiry outcome. Preserve canonical
-status, receipt/verification precedence, polling and all API/database/writer code.
-This proves a supported-format mismatch, not a live customer incident. Evidence:
-`docs/e4-payment-pending-receipt/next-prerequisite.json`.
+Exactly next bounded work: MONEY_FLOW_ACCEPTANCE_COVERAGE. Map the canonical E4
+claims (executor/custody/KYC/fees/irreversibility and accidental-tap prevention)
+to site, bot, Mini App and payment-page flows using existing executable tests and
+deployed evidence. Add meaningful executable coverage for demonstrated gaps;
+name a next product fix only when a reproducible failure establishes it. This
+expiry audit identified no additional concrete product defect. Real platform,
+assistive-technology and human-comprehension checks remain open, and missing tests
+are not themselves proof of a product defect. Evidence:
+`docs/e4-payment-expiry/acceptance-next-evaluation.json`.
 
 E4 remains IN_PROGRESS; no earlier gate closure or new money/064A authority.
 No real authenticated production request, customer incident or payment outcome

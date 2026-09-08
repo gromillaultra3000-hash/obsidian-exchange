@@ -1,0 +1,142 @@
+{
+  "beforeServices": {
+    "relay-fastapi.service": {
+      "MainPID": "2977932",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Tue 2026-09-08 02:59:54 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    },
+    "exchange-bot.service": {
+      "MainPID": "3877887",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Tue 2026-09-01 06:20:00 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    },
+    "nginx.service": {
+      "MainPID": "3877705",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:56 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    },
+    "obsidian-postgres.service": {
+      "MainPID": "3136948",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Mon 2026-08-24 05:08:51 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    }
+  },
+  "inputs": [
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "25624ac7bc9174ac9ec35d90402042c62bd344d6c74c1cf730593017a79ae26f"
+    },
+    {
+      "path": "deploy/e4_payment_expiry_rollout.py",
+      "sha256": "875a764852390fe9fe7bcc8db9737275b875c6572d8081c014f342dd24aaac8f"
+    }
+  ],
+  "manifest": [
+    {
+      "path": "docs/e4-payment-expiry/ops-release-manifest.json",
+      "sha256": "5e557c90493ed45df651907554d1df96db6d917cf19c4f4fe8e5adccc0255a36"
+    }
+  ],
+  "rollbackDirectory": "/var/lib/obsidian-exchange/deployment-preimages/e4-payment-expiry-20260908-3q1v054g",
+  "originalMetadata": {
+    "relay-fastapi/main.py": {
+      "uid": 0,
+      "gid": 0,
+      "mode": 420,
+      "atimeNs": 1788836394199691081,
+      "mtimeNs": 1787738836204001133,
+      "xattrs": {}
+    }
+  },
+  "baseline": [
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "4ee1c62ee72734f0f403ec1a438f829fb800989f893dca2b24a184eb5cd1ecf7"
+    }
+  ],
+  "rollbackExecuted": false,
+  "applied": [
+    "relay-fastapi/main.py"
+  ],
+  "runtimeMutated": true,
+  "state": "VERIFIED",
+  "recordedAt": "2026-09-08T03:26:46.969135+00:00",
+  "afterServices": {
+    "relay-fastapi.service": {
+      "MainPID": "3016726",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Tue 2026-09-08 03:26:45 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    },
+    "exchange-bot.service": {
+      "MainPID": "3877887",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Tue 2026-09-01 06:20:00 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    },
+    "nginx.service": {
+      "MainPID": "3877705",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:56 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    },
+    "obsidian-postgres.service": {
+      "MainPID": "3136948",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Mon 2026-08-24 05:08:51 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    }
+  },
+  "publicChecks": [
+    {
+      "path": "/webapp",
+      "method": "GET",
+      "status": 200,
+      "authenticated": false,
+      "publicMatchesDeployedTemplate": true,
+      "inputs": [
+        {
+          "path": "https://obsidian-exchange.org/webapp",
+          "sha256": "0944b4ddf679d021e3347a492404824dc7734a2c40c353e3b769c40cbf90dbf4"
+        }
+      ]
+    },
+    {
+      "path": "/webapp",
+      "method": "POST",
+      "status": 405,
+      "authenticated": false
+    },
+    {
+      "path": "/api/history",
+      "method": "GET",
+      "status": 403,
+      "authenticated": false,
+      "customerRowsReturned": 0
+    },
+    {
+      "path": "/api/order/0",
+      "method": "GET",
+      "status": 404,
+      "authenticated": false
+    },
+    {
+      "path": "/pay/0",
+      "method": "GET",
+      "status": 404,
+      "authenticated": false
+    }
+  ]
+}

@@ -866,6 +866,24 @@ and read/writer boundaries; invalid metadata must not invent expiry. This is a
 synthetic supported-format proof, not a live customer incident. No prior gate
 closure or new money/064A authority; autopilot remains stopped.
 
+2026-09-08: manual PAYMENT_STATUS_EXPIRY_TIME_FORMAT_CONSISTENCY is VERIFIED and
+production-deployed at 03:26 UTC (`5751b1d`). The payment timer handles offset/Z/
+legacy naive UTC timestamps and fractions consistently; invalid or missing dates
+display neutral guidance without NaN or invented canonical expiry. Local expiry
+stops the countdown while preserving polling and outcome/receipt/verification
+precedence. Only inline timer/helper code changed; numeric pay, all Python/API/
+read/auth boundaries and 16 installed dependencies remain exact. 208 focused tests,
+17 ops tests, 30 exact handler checks, 318 security cases, 83 Chrome checks with 27
+timezone comparisons and two independent reviews PASS. Only Relay restarted;
+public checks and retained rollback verified. Evidence:
+`docs/e4-payment-expiry-rollout.v1.json`. E4 remains IN_PROGRESS. No further
+concrete defect was reproduced; exactly next bounded work is
+MONEY_FLOW_ACCEPTANCE_COVERAGE: assess site/bot/Mini App/payment flows against
+the E4 gate using executable and deployed evidence, add meaningful coverage for
+demonstrated gaps, and select a code fix only from reproducible failure. Real
+Telegram/iOS/WebKit, assistive-technology and human-comprehension checks remain
+open. No earlier gate closure or money/064A authority; autopilot remains stopped.
+
 ### E5 — нативный некастодиальный кошелёк
 
 E0.4 inventory evidence (2026-08-18): the checkout has a Rust/UniFFI Bitcoin

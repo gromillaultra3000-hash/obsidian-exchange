@@ -5,35 +5,37 @@ Updated: 2026-09-08 UTC
 ## Current goal and status
 
 
-- 2026-09-08 manual E4 / PAYMENT_STATUS_PENDING_RECEIPT_EVIDENCE_CONSISTENCY is VERIFIED,
-  deployed 02:59 UTC, implementation `033c567`. Both payment-page forms acknowledge
-  stored files with unavailable instructions; video/PDF requests stay visible.
-  Storage/delivery/payment remain distinct; unknown receipt values no longer
-  invent file evidence after expiry. Terminal and paid/sent precedence is preserved.
-  141 focused tests, 17 ops tests, 49 exact SQLite/handler checks, 142 isolated Chrome
-  checks, 122 security cases and both reviews PASS. Independent interrupted publish,
+- 2026-09-08 manual E4 / PAYMENT_STATUS_EXPIRY_TIME_FORMAT_CONSISTENCY is VERIFIED,
+  deployed 03:26 UTC, implementation `5751b1d`. The payment timer handles explicit
+  offsets/Z/legacy naive UTC and fractions consistently across timezones; malformed,
+  missing or impossible dates show neutral guidance without NaN or canonical expiry.
+  Local expiry stops its interval and retains polling; receipt/verification and
+  terminal/paid/sent precedence stay intact. 208 focused tests, 17 ops tests,
+  30 exact SQLite/handler checks, 83 Chrome checks with 27 timezone comparisons,
+  318 independent security cases and both reviews PASS. Independent interrupted publish,
   lost restart acknowledgement, no-replay/reconcile/rollback probes pass; browser
   and temporary harness cleanup verified. Secret scans 0 without suppression.
-  Only pay changed (155 other functions and API/read/auth/redirect code exact);
+  Only inline expiry helper/timer changed (numeric pay, 155 other functions,
+  all Python interpolations and API/read/auth/redirect code exact);
   no repeated PG rehearsal for this presentation-only slice. Only main.py deployed,
   all 16 dependencies including HTML/payment adapter/proof helper remain byte-exact.
   Do not replace checkout order/session/receipt stores wholesale: unrelated drift
   persists. Prior owner-scoped read repair 25dccdd remains deployed; status GET
   still uses the canonical ledger without provider/payment transitions.
-  Relay 2977932/start 2026-09-08 02:59:54 UTC/NRestarts 0; Bot 3877887/Nginx 3877705/
+  Relay 3016726/start 2026-09-08 03:26:45 UTC/NRestarts 0; Bot 3877887/Nginx 3877705/
   Postgres 3136948 unchanged. Public200/405/history403/order0+pay0 both404.
-  Rollback: deployment-preimages/e4-payment-pending-receipt-20260908-gp41_of5.
-  Evidence: docs/e4-payment-pending-receipt-rollout.v1.json. No real authenticated
+  Rollback: deployment-preimages/e4-payment-expiry-20260908-3q1v054g.
+  Evidence: docs/e4-payment-expiry-rollout.v1.json. No real authenticated
   customer read, payment outcome, new money operation/credential/signature/064A
   authority. Routine restart resumes existing workers; zero background database
   or notification effects is not claimed. Autopilot stays failed/MainPID0 by
   owner's instruction; reconcile runner receipts/manual commits before later start.
-  Exactly next: E4 / PAYMENT_STATUS_EXPIRY_TIME_FORMAT_CONSISTENCY. The retained
-  serializer emits +00:00 ISO for supported TIMESTAMPTZ; timer appends Z and actual
-  Chrome displays NaN:NaN. Handle offset/Z/naive UTC and invalid/missing dates without
-  inventing canonical expiry or changing API/database/writer behavior. Proof is
-  synthetic exact serializer/handler/browser, not a live customer incident.
-  Prior terminal-reason implementation bfa8d9e remains deployed.
+  Exactly next: E4 / MONEY_FLOW_ACCEPTANCE_COVERAGE. Map canonical money-flow UX
+  claims to executable/deployed site/bot/Mini App/payment evidence; add meaningful
+  coverage for demonstrated gaps and select a code fix only from reproducible
+  failure. Current expiry audit identifies no additional concrete defect; missing
+  tests do not prove a bug. Evidence: acceptance-next-evaluation.json in task dir.
+  Prior receipt 033c567 and terminal bfa8d9e fixes remain deployed.
   E4 and earlier gates plus Telegram/iOS/WebKit/assistive/human acceptance remain
   open. Historical E0 snapshot assertions/builders remain separately triaged,
   not an overall-project test PASS claim; frozen authority artifacts are unchanged.
