@@ -1,0 +1,75 @@
+{
+  "recordedAt": "2026-09-08T01:47:44.602626+00:00",
+  "result": "PASS",
+  "route": "E4 / ACTIVITY_PAYMENT_SESSION_STATE",
+  "services": {
+    "obsidian-roadmap-autopilot.service": {
+      "MainPID": "0",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Mon 2026-09-07 04:40:24 UTC",
+      "ActiveState": "failed",
+      "SubState": "failed"
+    },
+    "relay-fastapi.service": {
+      "MainPID": "3877703",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:55 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    },
+    "exchange-bot.service": {
+      "MainPID": "3877887",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Tue 2026-09-01 06:20:00 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    },
+    "nginx.service": {
+      "MainPID": "3877705",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:56 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    },
+    "obsidian-postgres.service": {
+      "MainPID": "3136948",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Mon 2026-08-24 05:08:51 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    }
+  },
+  "publicChecks": [
+    {
+      "path": "/webapp",
+      "method": "GET",
+      "status": 200,
+      "authenticated": false,
+      "publicMatchesDeployedTemplate": true,
+      "publicBodySha256": "06d96fb0f20af099ceb06260f5229811b4544a3fa315ce38bef295cd902a5b75"
+    },
+    {
+      "path": "/webapp",
+      "method": "POST",
+      "status": 405,
+      "authenticated": false
+    },
+    {
+      "path": "/api/history",
+      "method": "GET",
+      "status": 403,
+      "authenticated": false,
+      "customerRowsReturned": 0
+    }
+  ],
+  "runtimeMutated": false,
+  "customerDataRead": false,
+  "pythonFilesModifiedAfterRelayStart": [],
+  "notes": [
+    "Relay imports order_read_store at process initialization; Python changes require relay-fastapi.service restart.",
+    "Runtime schema validation precedes background workers and owns no DDL.",
+    "Configured background workers resume ordinary cleanup/payment/sell notifications/provider polls after restart. Rollout probes do not authenticate or call customer/money routes.",
+    "Repository order_read_store has pre-existing broad SQLite/PostgreSQL drift versus live; full replacement is outside bounded slice.",
+    "No production Python source file under relay or relay-fastapi has mtime after current Relay start; mtime scan is heuristic, not loaded-byte proof."
+  ]
+}

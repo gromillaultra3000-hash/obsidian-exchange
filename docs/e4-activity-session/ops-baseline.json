@@ -1,0 +1,38 @@
+{
+  "recordedAt": "2026-09-08T01:47:01.467445+00:00",
+  "result": "BASELINE_CAPTURED",
+  "runtimeMutated": false,
+  "customerDataRead": false,
+  "files": [
+    {
+      "path": "relay-fastapi/main.py",
+      "liveSha256": "e36eede7efcf0a48657ff07fa805e57dbbb516c66a16a5696855f9bca978d1ca",
+      "repositorySha256": "e36eede7efcf0a48657ff07fa805e57dbbb516c66a16a5696855f9bca978d1ca",
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o644",
+      "mtimeNs": 1787738836204001133,
+      "xattrs": []
+    },
+    {
+      "path": "relay/repositories/order_read_store.py",
+      "liveSha256": "2cc91c733a8388ac2f643016fe192f7687ef0c44b79305d23fed50dcfd2ca06d",
+      "repositorySha256": "5651f8400da4b0024b11bc77f03f9cb239ac284766f44586f0673788e1d54506",
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o644",
+      "mtimeNs": 1786974796191260096,
+      "xattrs": []
+    },
+    {
+      "path": "relay/webapp.html",
+      "liveSha256": "5cd9482c174fec4288ace306e0ead463534933fc6b594d7497d88ec5ccb3a623",
+      "repositorySha256": "5cd9482c174fec4288ace306e0ead463534933fc6b594d7497d88ec5ccb3a623",
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o644",
+      "mtimeNs": 1788831818873731606,
+      "xattrs": []
+    }
+  ]
+}

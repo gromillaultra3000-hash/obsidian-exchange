@@ -1,0 +1,24 @@
+{
+  "mode": "postgres",
+  "result": "PASS",
+  "productionDataAccessed": false,
+  "inputs": [
+    {
+      "path": "relay/repositories/activity_read_store.py",
+      "sha256": "32166cac62d1f92f21b1cdcaad46edda968c75832db7311969dff9228cd82f6e"
+    },
+    {
+      "path": "tests/rehearse_e4_activity_session.py",
+      "sha256": "b2aa3cc6c3b91599bb63ce6d3b40651e03f50155a246659b80d2b79a1e9e77b5"
+    }
+  ],
+  "cases": 13,
+  "image": "postgres@sha256:7456ef82e5f5bc43d997f4781bbd7c0d6389bff397564649a356e206ba473aee",
+  "postgresVersion": "17.11",
+  "network": "none",
+  "hostPorts": false,
+  "readOnlyQuerySession": true,
+  "containerId": "a292d8b90592625b9ded8af905276aa116f06c350c73feb3c89f61e22a5dcc9b",
+  "containerRemoved": true,
+  "temporaryDirectoryRemoved": true
+}

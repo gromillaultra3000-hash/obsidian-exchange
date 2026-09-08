@@ -1,0 +1,42 @@
+{
+  "recordedAt": "2026-09-08T01:53:43.840532+00:00",
+  "result": "PASS",
+  "scope": "Independent operational assessment of product changes and observed runtime; recipe author validation is not an independent review of that recipe.",
+  "inputs": [
+    {
+      "path": "relay/repositories/activity_read_store.py",
+      "sha256": "32166cac62d1f92f21b1cdcaad46edda968c75832db7311969dff9228cd82f6e"
+    },
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "3b75a18fffeabd2d8d2640d463d26eb8f227b010534e48c37edd3888be7013df"
+    },
+    {
+      "path": "relay/webapp.html",
+      "sha256": "b2859b9fbe532a6121f2bbd2487e0ef2a0ccee6bf3c54da414ad49b61087cc9d"
+    },
+    {
+      "path": "deploy/e4_activity_session_rollout.py",
+      "sha256": "96b139963f00a78593c7ec5cc0b13d7fde32131287017cae4e99c0151e353138"
+    },
+    {
+      "path": "tests/test_e4_activity_session_rollout.py",
+      "sha256": "a2a2833efae06e7d34f3f3ba829b93a41676489867242eee5dee9456d7bc7113"
+    }
+  ],
+  "findings": [],
+  "observed": [
+    "main.py imports only the additive activity_read_store module and changes the authenticated history read/serialization. Existing startup and background worker code is unchanged.",
+    "New activity module uses live-compatible PostgresOrderReadStore/SQLiteOrderReadStore/_dict and existing _c method; it creates no connection policy, schema migration, or credential.",
+    "The existing live order_read_store.py drift is preserved byte-exact, so unrelated bot/account/cleanup bounds and authorization methods are not shipped.",
+    "Existing payment session fields id/session_token/status were already queried in this runtime.",
+    "Read-only preflight passes exact live baseline and absent new-module checks, public GET200/POST405/unauthorized-history403, and active Relay/bot/Nginx/PostgreSQL.",
+    "New Python module requires one Relay restart. Public HTML is read per request. No bot/Nginx/PostgreSQL restart is needed."
+  ],
+  "limits": [
+    "Production authenticated customer behavior is not probed; actual query/serializer checks use synthetic isolated data.",
+    "A real production restart/rollback was not rehearsed; isolated tests validate the service command boundary and source restoration.",
+    "Restart resumes existing ordinary cleanup, notification and provider background work; probes and deployment do not themselves authenticate or issue financial actions.",
+    "If rollback is interrupted, commands refuse blind replay; independent inspection/manual completion is required."
+  ]
+}

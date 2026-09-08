@@ -3520,6 +3520,7 @@
         function historyStatus(o) {
             const onReview = o.status === 'pending' && o.receipt === 'sent';
             const hasFile = o.status === 'pending' && !!o.receipt;
+            const sessionClosed = o.status === 'pending' && ['failed', 'expired'].includes(o.payment_session_state);
             const stuck = o.status === 'paid' && o.delayed;
             const terminal = ['expired', 'failed', 'cancelled'].includes(o.status);
             const terminalCopy = {
@@ -3528,9 +3529,9 @@
                 cancelled: 'Заявка отменена. Не переводите средства по её реквизитам.',
             };
             return {
-                onReview, hasFile, terminal,
-                emoji: onReview ? '🧾' : (stuck ? '⏳' : ({ pending:'⏳', paid:'✅', sent:'🚀', expired:'⌛', failed:'⚠️', cancelled:'🚫' }[o.status] || '⚡')),
-                label: onReview ? 'Чек на проверке' : (stuck ? 'Выплата задерживается' : ({ pending: 'Ожидание оплаты', paid: 'Оплата получена', sent: 'Отправлено', expired: 'Истекла', failed: 'Закрыта', cancelled: 'Отменена' }[o.status] || o.status)),
+                onReview, hasFile, terminal, sessionClosed,
+                emoji: onReview || (sessionClosed && hasFile) ? '🧾' : (sessionClosed ? '⚠️' : (stuck ? '⏳' : ({ pending:'⏳', paid:'✅', sent:'🚀', expired:'⌛', failed:'⚠️', cancelled:'🚫' }[o.status] || '⚡'))),
+                label: onReview ? 'Чек на проверке' : (sessionClosed ? (hasFile ? 'Чек получен' : 'Сессия оплаты закрыта') : (stuck ? 'Выплата задерживается' : ({ pending: 'Ожидание оплаты', paid: 'Оплата получена', sent: 'Отправлено', expired: 'Истекла', failed: 'Закрыта', cancelled: 'Отменена' }[o.status] || o.status))),
                 advice: terminal ? terminalCopy[o.status]
                     : (onReview ? 'Чек получен. Повторно не оплачивайте заявку.'
                        : (stuck ? 'Оплата получена. Повторно не оплачивайте заявку.' : '')),
@@ -3634,7 +3635,7 @@
                 const state = historyStatus(o);
                 const orderId = String(o.order_id == null ? '' : o.order_id).trim().slice(0, 128);
                 let action = '';
-                if (o.status === 'pending' && o.session_token) {
+                if (o.status === 'pending' && !state.sessionClosed && o.session_token) {
                     const purl = `${location.origin}/pay/${o.session_token}`;
                     action = `<a href="#" class="btn-pay" onclick="tg.openLink('${purl}');return false">${state.hasFile ? '🧾 Открыть заявку' : '💳 Оплатить'}</a>`;
                 } else if (o.status === 'sent' && o.tx_url) {
@@ -3645,6 +3646,9 @@
                     : '';
                 const advice = state.advice
                     ? `<div class="history-advice" style="margin-top:8px;font-size:11px;line-height:1.4;color:${state.terminal ? '#fbbf24' : 'var(--muted)'}">${esc(state.advice)}</div>`
+                    : '';
+                const sessionAdvice = state.sessionClosed
+                    ? '<div class="history-session-advice" style="margin-top:8px;font-size:11px;line-height:1.4;color:#fbbf24">Платёжная сессия закрыта. Не переводите по прежним реквизитам. Если уже оплатили — не платите повторно и обратитесь в поддержку.</div>'
                     : '';
                 const receiptCopy = o.status === 'pending'
                     ? (o.receipt === 'sent' ? 'Чек передан на проверку. Не оплачивайте повторно.'
@@ -3660,7 +3664,7 @@
                 const support = orderId
                     ? `<button type="button" class="history-support-order" aria-label="Открыть поддержку по заявке ${esc(orderId)}" style="margin:10px 0 0 7px;border:1px solid rgba(159,103,255,.35);background:rgba(159,103,255,.08);color:var(--text);border-radius:9px;padding:6px 9px;font-size:11px;cursor:pointer">💬 Поддержка по заявке</button><div class="history-copy-status" role="status" aria-live="polite" aria-atomic="true" style="margin-top:8px;font-size:11px;line-height:1.45;color:var(--muted)">Номер заявки отправьте в поддержку сами. Для копирования нажмите «Копировать №».</div>`
                     : '';
-                return `<div class="history-item ${state.cls}"><span class="h-icon">${state.emoji}</span><div class="h-title">#${esc(o.order_id)} — ${esc(o.currency)}</div><div class="h-meta">${esc(o.amount)} RUB</div><div class="h-status-row"><small>${esc(o.created)}</small><span class="status">${esc(state.label)}</span></div>${advice}${receiptEvidence}${transactionEvidence}${action}${copy}${support}</div>`;
+                return `<div class="history-item ${state.cls}"><span class="h-icon">${state.emoji}</span><div class="h-title">#${esc(o.order_id)} — ${esc(o.currency)}</div><div class="h-meta">${esc(o.amount)} RUB</div><div class="h-status-row"><small>${esc(o.created)}</small><span class="status">${esc(state.label)}</span></div>${advice}${sessionAdvice}${receiptEvidence}${transactionEvidence}${action}${copy}${support}</div>`;
             }).join('');
             list.querySelectorAll('.history-copy-id').forEach(button =>
                 button.addEventListener('click', () => copyOrderId(button.dataset.orderId, button)));

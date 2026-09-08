@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "e4-installed-payment-read-contract-next-prerequisite.v1",
+  "recordedAt": "2026-09-08T01:57:04.705465+00:00",
+  "reviewer": "Codex independent acceptance /root/receipt_acceptance",
+  "result": "REPRODUCED_REMAINING_PREREQUISITE",
+  "nextCanonicalItem": "E4 / PAYMENT_STATUS_RUNTIME_READ_CONTRACT / restore installed owner-scoped read methods required by payment status and page handlers",
+  "canonicalCriterion": "E4 coherent payment journey and understandable status/evidence on monetary paths",
+  "backendEvidence": {
+    "path": "docs/e4-activity-session/next-prerequisite-backend.json",
+    "sha256": "87ccf46304b5e7da9ade399f0a3268af5dcdfcff3608aba651a0433a3fa87283"
+  },
+  "observed": "The retained installed order_read_store classes lack authorized_snapshot; api_order calls it before any repository/provider work and leaves AttributeError unhandled. Installed payment_session_store classes lack get_by_token; the opaque-token pay handler calls it first and maps AttributeError to HTTP500. Both exact baseline and current-candidate handlers reproduce the same result with synthetic inputs and zero database calls.",
+  "currentSliceDisposition": "Pre-existing installed read-contract mismatch, independent of the activity-session change. Current slice adds a separate compatible activity view and preserves these installed dependencies byte-for-byte; no broader repository replacement is folded in.",
+  "boundedImplementation": "Restore only the owner-scoped read contracts needed by payment status/page handlers, including retained runtime-dependency compatibility and synthetic authorized/foreign/unknown subject tests. Preserve ownership checks, read-only behavior and existing money/status transition boundaries; do not replace unrelated repository behavior or use unauthenticated snapshot fallbacks.",
+  "limitations": [
+    "No production authenticated request or customer incident was observed; evidence is exact installed-source reproduction with synthetic identity and no database/provider call.",
+    "Missing-method failures prevent these isolated handlers from reaching later logic; this evidence does not claim a payment was lost, repeated or marked paid.",
+    "The next repair must inspect its immediate receipt/session dependencies before rollout; no financial operation, credential, signature or earlier-gate authority is inferred."
+  ]
+}

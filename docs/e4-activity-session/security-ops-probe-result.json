@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "e4-activity-session-independent-ops-probe.v1",
+  "result": "PASS",
+  "inputs": [
+    {
+      "path": "tests/test_e4_activity_session_rollout.py",
+      "sha256": "a2a2833efae06e7d34f3f3ba829b93a41676489867242eee5dee9456d7bc7113"
+    },
+    {
+      "path": "deploy/e4_activity_session_rollout.py",
+      "sha256": "96b139963f00a78593c7ec5cc0b13d7fde32131287017cae4e99c0151e353138"
+    }
+  ],
+  "cases": [
+    {
+      "publishedFiles": 0,
+      "explicitRollback": "PASS",
+      "reconciliationSubmittedNoRestart": true,
+      "rollbackRestartCount": 1
+    },
+    {
+      "publishedFiles": 1,
+      "explicitRollback": "PASS",
+      "reconciliationSubmittedNoRestart": true,
+      "rollbackRestartCount": 1
+    },
+    {
+      "publishedFiles": 2,
+      "explicitRollback": "PASS",
+      "reconciliationSubmittedNoRestart": true,
+      "rollbackRestartCount": 1
+    },
+    {
+      "publishedFiles": 3,
+      "explicitRollback": "PASS",
+      "reconciliationSubmittedNoRestart": true,
+      "rollbackRestartCount": 1
+    },
+    {
+      "case": "restart-submitted-acknowledgement-lost",
+      "recordedIntentBeforeSubmission": true,
+      "reconcileDoesNotReplay": true,
+      "explicitRollback": "PASS",
+      "totalRestartCount": 2
+    }
+  ],
+  "scope": "Real deploy/journal/preimage/replacement/rollback functions on disposable files; test fixture mocks all service/public calls and upstream gates.",
+  "productionReadsWritesRestartsNetwork": false,
+  "temporaryDirectoriesRemoved": true
+}

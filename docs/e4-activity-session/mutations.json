@@ -1,0 +1,25 @@
+{
+  "result": "MUTATIONS_KILLED",
+  "runs": [
+    {
+      "mutation": "latest_by_timestamp",
+      "result": "KILLED",
+      "mutantSha256": "08d0db07f0dca7f07e54b8357f13eafe8f3a5b27569784dcb5551fcba6fa0d40",
+      "observedState": "invoice_created",
+      "actionTokenPresent": true
+    },
+    {
+      "mutation": "closed_token_leak",
+      "result": "KILLED",
+      "mutantSha256": "5bcb4c5e2f2f793ce5ea307799a7b5e32160532d86d7392967dd5ab35bb812a2",
+      "observedState": "failed",
+      "actionTokenPresent": true
+    },
+    {
+      "mutation": "closed_ui_action",
+      "result": "KILLED",
+      "mutantSha256": "cb332b9e7a802ca6934096e97efbd8035742fe50657facff1f476115ea816fd3",
+      "stderr": "node:internal/assert/utils:77\n    throw err;\n    ^\n\nAssertionError [ERR_ASSERTION]: closed session must suppress even a legacy action token\n    at Object.<anonymous> (/root/tests/e4_activity_session_behavior.cjs:22:12)\n    at Module._compile (node:internal/modules/cjs/loader:1781:14)\n    at Object..js (node:internal/modules/cjs/loader:1913:10)\n    at Module.load (node:internal/modules/cjs/loader:1505:32)\n    at Function._load (node:internal/modules/cjs/loader:1309:12)\n    at wrapModuleLoad (node:internal/modules/cjs/loader:254:19)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)\n    at node:internal/main/run_main_module:36:49 {\n  generatedMessage: false,\n  code: 'ERR_ASSERTION',\n  actual: false,\n  expected: true,\n  operator: '==',\n  diff: 'simple'\n}\n\nNode.js v22.22.3\n"
+    }
+  ]
+}

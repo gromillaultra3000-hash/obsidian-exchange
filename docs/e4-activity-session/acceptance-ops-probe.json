@@ -1,0 +1,54 @@
+{
+  "schemaVersion": "e4-activity-session-acceptance-ops-probe.v1",
+  "result": "PASS",
+  "method": "Imported recipe without main(); journal/files/services/autopilot/public probes/report writes replaced by inert fixtures. Both mutation functions raise if called. No host runtime/network/database access.",
+  "inputs": [
+    {
+      "path": "deploy/e4_activity_session_rollout.py",
+      "sha256": "96b139963f00a78593c7ec5cc0b13d7fde32131287017cae4e99c0151e353138"
+    }
+  ],
+  "cases": [
+    {
+      "state": "PREPARED",
+      "result": "PASS",
+      "guidance": "Use explicit rollback for an interrupted state; do not repeat deploy/restart.",
+      "runtimeMutated": false,
+      "restartOrReplacementCalls": 0,
+      "observationReportsWritten": 1
+    },
+    {
+      "state": "DEPLOY_RESTART_REQUESTED",
+      "result": "PASS",
+      "guidance": "Use explicit rollback for an interrupted state; do not repeat deploy/restart.",
+      "runtimeMutated": false,
+      "restartOrReplacementCalls": 0,
+      "observationReportsWritten": 1
+    },
+    {
+      "state": "ROLLBACK_RESTORING",
+      "result": "PASS",
+      "guidance": "Interrupted rollback requires independent inspection and manual completion of known remaining steps; deploy and rollback replay are both refused.",
+      "runtimeMutated": false,
+      "restartOrReplacementCalls": 0,
+      "observationReportsWritten": 1
+    },
+    {
+      "state": "ROLLBACK_RESTART_REQUESTED",
+      "result": "PASS",
+      "guidance": "Interrupted rollback requires independent inspection and manual completion of known remaining steps; deploy and rollback replay are both refused.",
+      "runtimeMutated": false,
+      "restartOrReplacementCalls": 0,
+      "observationReportsWritten": 1
+    },
+    {
+      "state": "VERIFIED",
+      "result": "PASS",
+      "guidance": "Terminal state verified; no runtime action.",
+      "runtimeMutated": false,
+      "restartOrReplacementCalls": 0,
+      "observationReportsWritten": 1
+    }
+  ],
+  "limits": "Checks observation and interrupted-rollback guidance/no-replay boundaries; deployment and filesystem mechanics use separate primary/operations tests and rehearsal evidence."
+}

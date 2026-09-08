@@ -1,0 +1,238 @@
+{
+  "schemaVersion": "e4-installed-payment-read-contract-reproduction.v1",
+  "result": "PREEXISTING_INSTALLED_CONTRACT_MISMATCH_REPRODUCED",
+  "method": "Read installed Python source files only; execute exact class/function ASTs with a database object that raises on any use and an empty synthetic environment. Execute exact baseline/candidate api_order and pay handlers with synthetic signed-owner result/request. No application import, HTTP request, database, real auth secret, provider, wallet or service action.",
+  "inputs": [
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "3b75a18fffeabd2d8d2640d463d26eb8f227b010534e48c37edd3888be7013df"
+    },
+    {
+      "path": "output/manual/e4-activity-session-20260908/baseline/relay-fastapi/main.py",
+      "sha256": "e36eede7efcf0a48657ff07fa805e57dbbb516c66a16a5696855f9bca978d1ca"
+    }
+  ],
+  "installedSourceEvidence": [
+    {
+      "path": "/opt/obsidian-exchange/relay/repositories/order_read_store.py",
+      "sha256": "2cc91c733a8388ac2f643016fe192f7687ef0c44b79305d23fed50dcfd2ca06d",
+      "classes": [
+        {
+          "name": "SQLiteOrderReadStore",
+          "declaredMethods": [
+            "__init__",
+            "_c",
+            "agreed_quote",
+            "snapshot",
+            "customer_orders",
+            "customer_history",
+            "latest_customer_order_id",
+            "find_customer",
+            "web_customer_orders",
+            "receipt_order_ids",
+            "admin_recent",
+            "export_recent",
+            "customer_aggregates",
+            "provider_success_count",
+            "creation_limit_state",
+            "operator_dashboard",
+            "worker_paid_orders",
+            "active_customer_ids",
+            "pending_usdt_match",
+            "stuck_pending_ids"
+          ]
+        },
+        {
+          "name": "PostgresOrderReadStore",
+          "declaredMethods": [
+            "__init__",
+            "_c",
+            "agreed_quote",
+            "snapshot",
+            "customer_orders",
+            "customer_history",
+            "latest_customer_order_id",
+            "find_customer",
+            "web_customer_orders",
+            "receipt_order_ids",
+            "admin_recent",
+            "export_recent",
+            "customer_aggregates",
+            "provider_success_count",
+            "creation_limit_state",
+            "operator_dashboard",
+            "worker_paid_orders",
+            "active_customer_ids",
+            "pending_usdt_match",
+            "stuck_pending_ids"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay/repositories/payment_session_store.py",
+      "sha256": "eb41d099a06beac4251190d10221467bdca4b21db7bc97dba687dd8d40653b8e",
+      "classes": [
+        {
+          "name": "SQLitePaymentSessionStore",
+          "declaredMethods": [
+            "__init__",
+            "_connect",
+            "create_failed",
+            "create_invoice",
+            "get",
+            "latest_for_order",
+            "recent_for_order",
+            "latest_active_for_order",
+            "token_matches_order",
+            "latest_provider_invoice",
+            "pending_vertu",
+            "transition",
+            "active",
+            "expire"
+          ]
+        },
+        {
+          "name": "PostgresPaymentSessionStore",
+          "declaredMethods": [
+            "__init__",
+            "_connect",
+            "create_failed",
+            "create_invoice",
+            "get",
+            "latest_for_order",
+            "recent_for_order",
+            "latest_active_for_order",
+            "token_matches_order",
+            "latest_provider_invoice",
+            "pending_vertu",
+            "transition",
+            "active",
+            "expire"
+          ]
+        }
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "backendClass": "SQLite",
+      "main": "baseline",
+      "handler": "api_order",
+      "handlerAstSha256": "63e9dc423bc47dbbf9a5600c8f32bde7a082ad1a1de77dfdf833c1a9a9b27846",
+      "outcome": {
+        "errorType": "AttributeError",
+        "error": "'SQLiteOrderReadStore' object has no attribute 'authorized_snapshot'",
+        "handlerMapsToHttp500": false,
+        "unhandledAtHandlerBoundary": true
+      },
+      "databaseCalls": 0,
+      "realIdentityUsed": false
+    },
+    {
+      "backendClass": "SQLite",
+      "main": "baseline",
+      "handler": "pay",
+      "handlerAstSha256": "395e2a087327e62918f314c8072e0aa5eab60f408cd03e550deb6f9ed7ca91e5",
+      "outcome": {
+        "errorType": "HTTPException",
+        "statusCode": 500,
+        "caughtCause": "Error in /pay/synthetic_opaque_session: 'SQLitePaymentSessionStore' object has no attribute 'get_by_token'",
+        "handlerMapsToHttp500": true
+      },
+      "databaseCalls": 0,
+      "realIdentityUsed": false
+    },
+    {
+      "backendClass": "SQLite",
+      "main": "candidate",
+      "handler": "api_order",
+      "handlerAstSha256": "63e9dc423bc47dbbf9a5600c8f32bde7a082ad1a1de77dfdf833c1a9a9b27846",
+      "outcome": {
+        "errorType": "AttributeError",
+        "error": "'SQLiteOrderReadStore' object has no attribute 'authorized_snapshot'",
+        "handlerMapsToHttp500": false,
+        "unhandledAtHandlerBoundary": true
+      },
+      "databaseCalls": 0,
+      "realIdentityUsed": false
+    },
+    {
+      "backendClass": "SQLite",
+      "main": "candidate",
+      "handler": "pay",
+      "handlerAstSha256": "395e2a087327e62918f314c8072e0aa5eab60f408cd03e550deb6f9ed7ca91e5",
+      "outcome": {
+        "errorType": "HTTPException",
+        "statusCode": 500,
+        "caughtCause": "Error in /pay/synthetic_opaque_session: 'SQLitePaymentSessionStore' object has no attribute 'get_by_token'",
+        "handlerMapsToHttp500": true
+      },
+      "databaseCalls": 0,
+      "realIdentityUsed": false
+    },
+    {
+      "backendClass": "Postgres",
+      "main": "baseline",
+      "handler": "api_order",
+      "handlerAstSha256": "63e9dc423bc47dbbf9a5600c8f32bde7a082ad1a1de77dfdf833c1a9a9b27846",
+      "outcome": {
+        "errorType": "AttributeError",
+        "error": "'PostgresOrderReadStore' object has no attribute 'authorized_snapshot'",
+        "handlerMapsToHttp500": false,
+        "unhandledAtHandlerBoundary": true
+      },
+      "databaseCalls": 0,
+      "realIdentityUsed": false
+    },
+    {
+      "backendClass": "Postgres",
+      "main": "baseline",
+      "handler": "pay",
+      "handlerAstSha256": "395e2a087327e62918f314c8072e0aa5eab60f408cd03e550deb6f9ed7ca91e5",
+      "outcome": {
+        "errorType": "HTTPException",
+        "statusCode": 500,
+        "caughtCause": "Error in /pay/synthetic_opaque_session: 'PostgresPaymentSessionStore' object has no attribute 'get_by_token'",
+        "handlerMapsToHttp500": true
+      },
+      "databaseCalls": 0,
+      "realIdentityUsed": false
+    },
+    {
+      "backendClass": "Postgres",
+      "main": "candidate",
+      "handler": "api_order",
+      "handlerAstSha256": "63e9dc423bc47dbbf9a5600c8f32bde7a082ad1a1de77dfdf833c1a9a9b27846",
+      "outcome": {
+        "errorType": "AttributeError",
+        "error": "'PostgresOrderReadStore' object has no attribute 'authorized_snapshot'",
+        "handlerMapsToHttp500": false,
+        "unhandledAtHandlerBoundary": true
+      },
+      "databaseCalls": 0,
+      "realIdentityUsed": false
+    },
+    {
+      "backendClass": "Postgres",
+      "main": "candidate",
+      "handler": "pay",
+      "handlerAstSha256": "395e2a087327e62918f314c8072e0aa5eab60f408cd03e550deb6f9ed7ca91e5",
+      "outcome": {
+        "errorType": "HTTPException",
+        "statusCode": 500,
+        "caughtCause": "Error in /pay/synthetic_opaque_session: 'PostgresPaymentSessionStore' object has no attribute 'get_by_token'",
+        "handlerMapsToHttp500": true
+      },
+      "databaseCalls": 0,
+      "realIdentityUsed": false
+    }
+  ],
+  "databaseAttempts": [],
+  "handlersUnchangedByCurrentSlice": true,
+  "productionDataAccessed": false,
+  "limitations": [
+    "Exact disk source and isolated handler execution are verified; already-loaded production process objects and real user incidence were not inspected.",
+    "api_order raises AttributeError at its handler boundary; no real ASGI response was requested. pay explicitly maps the missing method to HTTP500."
+  ]
+}

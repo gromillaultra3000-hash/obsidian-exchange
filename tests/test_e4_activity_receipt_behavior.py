@@ -42,7 +42,9 @@ def serialize():
                 return {42} if receipt else set()
 
         ctx = {'Request': object, 'verify_init_data': lambda _: {'id': 42},
-               '_order_reads': Reads(), '_delayed_ids': lambda: set(), '_txid': txid}
+               '_order_reads': Reads(), '_delayed_ids': lambda: set(), '_txid': txid,
+               '_activity_read_store_module': SimpleNamespace(
+                   customer_orders=lambda store, uid, limit: store.customer_orders(uid, limit))}
         exec(compile(module, str(path), 'exec'), ctx)
         result = asyncio.run(ctx['api_history'](SimpleNamespace(headers={})))
         assert result[0]['receipt'] == receipt

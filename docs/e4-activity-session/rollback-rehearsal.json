@@ -1,0 +1,34 @@
+{
+  "recordedAt": "2026-09-08T01:52:54.556096+00:00",
+  "result": "PASS",
+  "inputs": [
+    {
+      "path": "relay/repositories/activity_read_store.py",
+      "sha256": "32166cac62d1f92f21b1cdcaad46edda968c75832db7311969dff9228cd82f6e"
+    },
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "3b75a18fffeabd2d8d2640d463d26eb8f227b010534e48c37edd3888be7013df"
+    },
+    {
+      "path": "relay/webapp.html",
+      "sha256": "b2859b9fbe532a6121f2bbd2487e0ef2a0ccee6bf3c54da414ad49b61087cc9d"
+    },
+    {
+      "path": "deploy/e4_activity_session_rollout.py",
+      "sha256": "96b139963f00a78593c7ec5cc0b13d7fde32131287017cae4e99c0151e353138"
+    }
+  ],
+  "productionTouched": false,
+  "cleanupVerified": true,
+  "cases": [
+    "relay/repositories/activity_read_store.py:blind_replay_rejected",
+    "relay/repositories/activity_read_store.py:exact_baseline_restored",
+    "relay-fastapi/main.py:blind_replay_rejected",
+    "relay-fastapi/main.py:exact_baseline_restored",
+    "relay/webapp.html:blind_replay_rejected",
+    "relay/webapp.html:exact_baseline_restored",
+    "fsynced_atomic_journal_replacement"
+  ],
+  "limits": "Atomic file/preimage mechanics only; production restart is not rehearsed."
+}

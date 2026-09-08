@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "e4-activity-session-security-probe.v1",
+  "result": "PASS",
+  "inputs": [
+    {
+      "path": "relay/repositories/activity_read_store.py",
+      "sha256": "32166cac62d1f92f21b1cdcaad46edda968c75832db7311969dff9228cd82f6e"
+    },
+    {
+      "path": "relay/repositories/order_read_store.py",
+      "sha256": "5651f8400da4b0024b11bc77f03f9cb239ac284766f44586f0673788e1d54506"
+    },
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "3b75a18fffeabd2d8d2640d463d26eb8f227b010534e48c37edd3888be7013df"
+    },
+    {
+      "path": "relay/webapp.html",
+      "sha256": "b2859b9fbe532a6121f2bbd2487e0ef2a0ccee6bf3c54da414ad49b61087cc9d"
+    },
+    {
+      "path": "relay/core/txid.py",
+      "sha256": "726b98d97696578b0883f5a14eca119f9bc4ce0fd92f409617edf1190129f824"
+    }
+  ],
+  "syntheticOwnedRows": 15,
+  "singleReadOnlySQLiteStatement": true,
+  "latestSessionUsesIdNotTimestamp": true,
+  "foreignAndOrphanSessionsExcluded": true,
+  "invalidOwnersRejectedBeforeSQL": true,
+  "unknownAndClosedStatesSuppressPaymentLink": true,
+  "signedOwnerIgnoresForeignQueryAuthority": true,
+  "postgresStatementAndParametersCapturedWithoutDatabaseConnection": true,
+  "renderer": {
+    "result": "PASS",
+    "cases": 272
+  },
+  "productionReadWriteNetwork": false
+}

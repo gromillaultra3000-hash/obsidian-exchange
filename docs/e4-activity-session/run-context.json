@@ -1,0 +1,49 @@
+{
+  "recordedAt": "2026-09-08T01:55:06.849728+00:00",
+  "route": "E4 / ACTIVITY_PAYMENT_SESSION_STATE",
+  "canonicalCriterion": "E4 unified notification/evidence/support centre; truthful session status and safe next step",
+  "accountableOwner": "Project owner; manual continue instruction 2026-09-08; implementation Codex /root",
+  "baselineCommit": "72cb3aa41feba66730ca598adc9ebb347053dde5",
+  "charterSha256": "d159a3f71ea21c57a4d73ea675f1c5ded76ea504b8c3f186ba166ed9218cfc80",
+  "charterUnchanged": true,
+  "capabilities": {
+    "implementation": "Primary Codex; isolated activity repository/API/UI, focused tests and disposable backend rehearsals",
+    "acceptance": "Independent /root/receipt_acceptance; browser/contract/next prerequisite and recipe review",
+    "security": "Independent /root/receipt_security; owner/snapshot/adversarial UI and rollback probes; independent recipe review",
+    "ops": "/root/session_ops authored bounded three-file recipe and recovery tests; independent runtime inspection, recipe itself reviewed by other agents",
+    "browser": "Playwright skill; existing nobody/PrivateNetwork/ProtectHome Chrome runner",
+    "scanners": "Gitleaks staged scan, syntax/compile checks; no dependency added",
+    "research": "No external component needed; local pinned PostgreSQL17.11 image reused"
+  },
+  "surfaceMatrix": {
+    "MiniApp": "REQUIRED: session-closure advice, receipt/order precedence, action suppression",
+    "site": "READ_ONLY: same public /webapp; existing account history unchanged",
+    "TelegramBot": "READ_ONLY: shared order repository unchanged; support link retained",
+    "API": "REQUIRED READ_ONLY: signed-owner /api/history with coherent bounded payment_session_state; no new endpoint or writer",
+    "admin": "N/A",
+    "nativeWallet": "N/A",
+    "KAIROS_LUMI": "N/A"
+  },
+  "boundedDecisions": [
+    "New activity_read_store module uses the existing configured repository connection and one owner-correlated SELECT. Highest session id determines token and sanitized status from the same row.",
+    "Known lifecycle enum only; absent/unknown state remains unknown and has no token. Failed/expired latest session has no token and cannot revive older active session.",
+    "Pending closed session shows safe closure/support advice; sent receipt keeps review label, stored receipt shows received-file label; paid/sent/terminal order status takes precedence.",
+    "Preserve deployed shared order_read_store.py byte-exact: checkout has unrelated undeployed changes. Compatibility rehearsal executes new module with retained live dependency.",
+    "Deployment adds module then replaces main/HTML and restarts only Relay; exact preimages and journal prohibit blind deployment/restart replay."
+  ],
+  "autopilot": {
+    "state": "failed",
+    "MainPID": 0,
+    "reason": "UNCOMMITTED_NEW_FILES",
+    "action": "Remain stopped by owner instruction"
+  },
+  "custodySecretsMoneyWriters": "No new writer, authority, credentials or signatures; tests/rehearsals use synthetic data and no customer rows. Production probes are public unauthenticated reads. Routine Relay restart resumes its already-enabled payment/notification background workers; no claim that existing background effects are disabled or zero.",
+  "limitations": [
+    "Real Telegram/iOS/WebKit, screen-reader behavior and human comprehension remain unverified.",
+    "Synthetic failures do not establish actual customer incidence or imply failed funds/order/refund.",
+    "Unknown session metadata is not proof of closure; known nonclosed lifecycle state is not a payment or network confirmation.",
+    "Pre-existing live shared-repository drift remains explicitly preserved, not silently rolled out.",
+    "E4 and earlier gates remain open."
+  ],
+  "validationEnvironment": "LUMI venv supplies pytest; existing Relay venv supplies psycopg3.3.4 for disposable PostgreSQL. Initial PostgreSQL rehearsal interpreter lacked psycopg before any container creation; rerun used existing interpreter, no dependencies installed."
+}

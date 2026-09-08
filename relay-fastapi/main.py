@@ -83,6 +83,7 @@ from repositories import user_profile_store as _user_profile_store_module
 from repositories import admin_config_store as _admin_config_store_module
 from repositories import ops_store as _ops_store_module
 from repositories import order_read_store as _order_read_store_module
+from repositories import activity_read_store as _activity_read_store_module
 from repositories import reporting_store as _reporting_store_module
 from repositories import order_workflow_store as _order_workflow_store_module
 from repositories import order_lifecycle_store as _order_lifecycle_store_module
@@ -3009,7 +3010,7 @@ async def api_history(request: Request):
     if not user:
         raise HTTPException(status_code=403, detail="Откройте приложение через бота Telegram.")
     uid = int(user['id'])
-    rows = _order_reads.customer_orders(uid, limit=30)
+    rows = _activity_read_store_module.customer_orders(_order_reads, uid, limit=30)
     # Отдельным запросом, а не EXISTS в основном: нет таблицы чеков — история
     # остаётся доступной и честно показывает отсутствие receipt metadata.
     try:
@@ -3025,6 +3026,7 @@ async def api_history(request: Request):
     return [{"order_id": r["order_id"], "amount": r["rub_amount"], "currency": r["currency"],
              "status": r["status"], "created": r["created_at"],
              "session_token": r["session_token"], "txid": r["paid_btc_tx"],
+             "payment_session_state": r.get("payment_session_state", "unknown"),
              "receipt": ("sent" if (r["receipt_sent_at"] or '').strip() else "stored") if r["order_id"] in with_receipt else "",
              "delayed": (r["status"] == 'paid' and r["order_id"] in delayed_ids),
              "tx_url": _txid.explorer_url(r["currency"], r["paid_btc_tx"], r["network"]) or ""} for r in rows]

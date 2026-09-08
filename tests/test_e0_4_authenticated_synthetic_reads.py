@@ -169,6 +169,10 @@ def run():
         main.get_user_swaps = lambda user, limit: [f"swaps-owner-{user['id']}"]
         main.get_user_sell_orders = lambda user, limit: [f"sells-owner-{user['id']}"]
         main._order_reads = OrderReads()
+        # This test isolates authentication; activity's real SQL is exercised by
+        # test_e4_activity_session_contract using disposable repositories.
+        main._activity_read_store_module.customer_orders = (
+            lambda store, uid, limit: store.customer_orders(uid, limit))
         main._engagement = EngagementReads()
         main._support_store = SupportReads()
         main._sell_store = SellReads()

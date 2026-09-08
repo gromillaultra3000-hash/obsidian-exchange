@@ -1,0 +1,162 @@
+{
+  "recordedAt": "2026-09-08T01:54:03.072059+00:00",
+  "result": "PASS",
+  "command": [
+    "/opt/lumi/venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "tests/test_e4_activity_deadline_behavior.py",
+    "tests/test_e4_activity_refresh_behavior.py",
+    "tests/test_e4_order_support_behavior.py",
+    "tests/test_e4_activity_notifications.py",
+    "tests/test_e4_public_support_path.py",
+    "tests/test_unified_portfolio_ui.py",
+    "tests/test_e4_payment_requisites_copy_behavior.py",
+    "tests/test_e4_payment_instruction_behavior.py",
+    "tests/test_e4_receive_copy_behavior.py",
+    "tests/test_e4_review_browser_runner.py",
+    "tests/test_e4_exchange_review_ui.py",
+    "tests/test_e4_recipient_review_behavior.py",
+    "tests/test_e4_responsive_navigation.py",
+    "tests/test_e4_miniapp_browser_shell.py",
+    "tests/test_e4_activity_receipt_behavior.py",
+    "tests/test_e4_activity_session_contract.py",
+    "tests/test_e4_activity_session_rollout.py",
+    "tests/test_order_read_store.py",
+    "tests/test_relay_runtime_isolation.py",
+    "tests/test_e0_4_authenticated_synthetic_reads.py"
+  ],
+  "exitCode": 0,
+  "summary": "316 passed in 16.51s",
+  "inlineJavascriptSyntax": "PASS",
+  "stdoutSha256": "10a8d7d6f531ba5ec67e42befb784ae20bc5e60364bd8c4565fc569e04a2d974",
+  "inputs": [
+    {
+      "path": "deploy/e4_activity_session_rollout.py",
+      "sha256": "96b139963f00a78593c7ec5cc0b13d7fde32131287017cae4e99c0151e353138"
+    },
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "3b75a18fffeabd2d8d2640d463d26eb8f227b010534e48c37edd3888be7013df"
+    },
+    {
+      "path": "relay/core/txid.py",
+      "sha256": "726b98d97696578b0883f5a14eca119f9bc4ce0fd92f409617edf1190129f824"
+    },
+    {
+      "path": "relay/repositories/activity_read_store.py",
+      "sha256": "32166cac62d1f92f21b1cdcaad46edda968c75832db7311969dff9228cd82f6e"
+    },
+    {
+      "path": "relay/webapp.html",
+      "sha256": "b2859b9fbe532a6121f2bbd2487e0ef2a0ccee6bf3c54da414ad49b61087cc9d"
+    },
+    {
+      "path": "tests/e4_activity_deadline_behavior.cjs",
+      "sha256": "48b85b7701ede6142e232be00abd0b930c6b54cdcc87feceffdb12dbff20b56f"
+    },
+    {
+      "path": "tests/e4_activity_receipt_behavior.cjs",
+      "sha256": "f9f47288d62bfbeaca5fdc56abcddfa83ef71f62fa922557e57cbed747ee70de"
+    },
+    {
+      "path": "tests/e4_activity_refresh_behavior.cjs",
+      "sha256": "84544256bfc5aef1f2cd7af768f6217d55771be92621ad9572426195ef29696b"
+    },
+    {
+      "path": "tests/e4_activity_session_behavior.cjs",
+      "sha256": "0db5734c643118c71282592b37bc721a3fa323bd9ba13caa2dbf923e69264855"
+    },
+    {
+      "path": "tests/e4_review_browser.cjs",
+      "sha256": "e9bef9f242c1ee26d2b2e8d14b2dadd8ca223b9550e33af61365f63678d28228"
+    },
+    {
+      "path": "tests/rehearse_e4_activity_session.py",
+      "sha256": "b2aa3cc6c3b91599bb63ce6d3b40651e03f50155a246659b80d2b79a1e9e77b5"
+    },
+    {
+      "path": "tests/test_e0_4_authenticated_synthetic_reads.py",
+      "sha256": "d488f5d61b00b3fe9a9188a2c495a87ab95b7f5675675768d5a8282ad6f0065c"
+    },
+    {
+      "path": "tests/test_e4_activity_deadline_behavior.py",
+      "sha256": "8ebeccfd0937ba08752dcbc996f886a4be6cdaf1e429e3885b8f142cab33ca37"
+    },
+    {
+      "path": "tests/test_e4_activity_notifications.py",
+      "sha256": "4e9efc5011741c0d66abd0bf419416947d159a58a71101ae2d9d209e61b0136e"
+    },
+    {
+      "path": "tests/test_e4_activity_receipt_behavior.py",
+      "sha256": "cece0e8c4d2a1ba6cba8d4ce0759e7b6f4d89a4ebc5e4246ea13b0dacaf6dcc3"
+    },
+    {
+      "path": "tests/test_e4_activity_refresh_behavior.py",
+      "sha256": "ab3798379d4c445ebec27306829c6781e372886bef65de7522fad7c1619e298b"
+    },
+    {
+      "path": "tests/test_e4_activity_session_contract.py",
+      "sha256": "03434f2881d793a40c66de6647f23ac112b5710bdca75334a847da2e0cde6600"
+    },
+    {
+      "path": "tests/test_e4_activity_session_rollout.py",
+      "sha256": "a2a2833efae06e7d34f3f3ba829b93a41676489867242eee5dee9456d7bc7113"
+    },
+    {
+      "path": "tests/test_e4_exchange_review_ui.py",
+      "sha256": "15da942a4d78a3d1271d04ba642c857d4408e27ede66ea58441710e347325c36"
+    },
+    {
+      "path": "tests/test_e4_miniapp_browser_shell.py",
+      "sha256": "f1266129d2f2c84e9fd7c5847bba0a1b5f0ff27d0e7695249e6554202e6312fd"
+    },
+    {
+      "path": "tests/test_e4_order_support_behavior.py",
+      "sha256": "b5e5f3b53b484a85c0ece511e96925b5b42d9de94fc62004107922c82c40b988"
+    },
+    {
+      "path": "tests/test_e4_payment_instruction_behavior.py",
+      "sha256": "b425ababa71e51d8f977214303553bd011509d2bb5dd9c8a0bf2ea2ef218b3ea"
+    },
+    {
+      "path": "tests/test_e4_payment_requisites_copy_behavior.py",
+      "sha256": "3b0e45d530c32e872ac54222120544e4bd63467cf1e33373d44105b7b8230a3a"
+    },
+    {
+      "path": "tests/test_e4_public_support_path.py",
+      "sha256": "04f36a7270fce9aaa3281ae35f8b093ed40aa841a4053b375c26525b19491769"
+    },
+    {
+      "path": "tests/test_e4_receive_copy_behavior.py",
+      "sha256": "bb2738ab5c0a41f496db0dfecdf73918094199b7f2cdff4cb359c414a5bdbb5b"
+    },
+    {
+      "path": "tests/test_e4_recipient_review_behavior.py",
+      "sha256": "0dba9cc3e4b4a490b8d88705434968a53b487698a444aa1b512326bd238d5ccf"
+    },
+    {
+      "path": "tests/test_e4_responsive_navigation.py",
+      "sha256": "5758be025dd2f1e318c304ee4d771d70dc7ad2fda5506077958098dfe493292d"
+    },
+    {
+      "path": "tests/test_e4_review_browser_runner.py",
+      "sha256": "10e63f75d216cd5a11a4c6c883db7d15a134d00088a3f6a41b8deb80b375a98b"
+    },
+    {
+      "path": "tests/test_order_read_store.py",
+      "sha256": "afcb6551edb54ce939f4a9be80590e0ca600159e753c6d22611bf6838dc3d138"
+    },
+    {
+      "path": "tests/test_relay_runtime_isolation.py",
+      "sha256": "eeed65198d8762984cbaba3318e53554111dfb132e477460763c1f2d868933be"
+    },
+    {
+      "path": "tests/test_unified_portfolio_ui.py",
+      "sha256": "250796a1f514cba3ae701b5f14d45420cf22124bebb43c7dd4c0810c64c7fb54"
+    }
+  ]
+}

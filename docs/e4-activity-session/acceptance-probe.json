@@ -1,0 +1,621 @@
+{
+  "schemaVersion": "e4-activity-session-independent-acceptance-probe.v1",
+  "result": "BASELINE_REPRODUCED_AND_CANDIDATE_VERIFIED",
+  "reviewer": "Codex independent acceptance /root/receipt_acceptance",
+  "method": "AST-extracted exact legacy and candidate repository/API functions over sqlite3 :memory: fixtures, then exact old/candidate history rendering in Node VM. Marker-specific store types are inert local sentinels; actual SQL and normalization execute. No application import, real account, production database, provider or network action.",
+  "baselineRevision": "72cb3aa",
+  "beforeSha256": {
+    "relay-fastapi/main.py": "e36eede7efcf0a48657ff07fa805e57dbbb516c66a16a5696855f9bca978d1ca",
+    "relay/repositories/order_read_store.py": "5651f8400da4b0024b11bc77f03f9cb239ac284766f44586f0673788e1d54506",
+    "relay/webapp.html": "5cd9482c174fec4288ace306e0ead463534933fc6b594d7497d88ec5ccb3a623",
+    "relay/core/txid.py": "726b98d97696578b0883f5a14eca119f9bc4ce0fd92f409617edf1190129f824"
+  },
+  "afterSha256": {
+    "relay-fastapi/main.py": "3b75a18fffeabd2d8d2640d463d26eb8f227b010534e48c37edd3888be7013df",
+    "relay/repositories/order_read_store.py": "5651f8400da4b0024b11bc77f03f9cb239ac284766f44586f0673788e1d54506",
+    "relay/repositories/activity_read_store.py": "32166cac62d1f92f21b1cdcaad46edda968c75832db7311969dff9228cd82f6e",
+    "relay/webapp.html": "b2859b9fbe532a6121f2bbd2487e0ef2a0ccee6bf3c54da414ad49b61087cc9d",
+    "relay/core/txid.py": "726b98d97696578b0883f5a14eca119f9bc4ce0fd92f409617edf1190129f824"
+  },
+  "cases": [
+    {
+      "case": "failed",
+      "before": [
+        {
+          "order_id": 42,
+          "amount": 2000,
+          "currency": "TON",
+          "status": "pending",
+          "created": "2026-09-08 00:00",
+          "session_token": null,
+          "txid": "",
+          "receipt": "",
+          "delayed": false,
+          "tx_url": ""
+        }
+      ],
+      "after": [
+        {
+          "order_id": 42,
+          "amount": 2000,
+          "currency": "TON",
+          "status": "pending",
+          "created": "2026-09-08 00:00",
+          "session_token": null,
+          "txid": "",
+          "payment_session_state": "failed",
+          "receipt": "",
+          "delayed": false,
+          "tx_url": ""
+        }
+      ],
+      "snapshotSelectCount": 1,
+      "foreignOwnerExcluded": true,
+      "legacyBotSnapshotUnchanged": true,
+      "beforeRendered": {
+        "label": "Ожидание оплаты",
+        "closureAdvice": false,
+        "paymentAction": false,
+        "transactionAction": false,
+        "support": true
+      },
+      "afterRendered": {
+        "label": "Сессия оплаты закрыта",
+        "closureAdvice": true,
+        "paymentAction": false,
+        "transactionAction": false,
+        "support": true
+      }
+    },
+    {
+      "case": "expired",
+      "before": [
+        {
+          "order_id": 42,
+          "amount": 2000,
+          "currency": "TON",
+          "status": "pending",
+          "created": "2026-09-08 00:00",
+          "session_token": null,
+          "txid": "",
+          "receipt": "",
+          "delayed": false,
+          "tx_url": ""
+        }
+      ],
+      "after": [
+        {
+          "order_id": 42,
+          "amount": 2000,
+          "currency": "TON",
+          "status": "pending",
+          "created": "2026-09-08 00:00",
+          "session_token": null,
+          "txid": "",
+          "payment_session_state": "expired",
+          "receipt": "",
+          "delayed": false,
+          "tx_url": ""
+        }
+      ],
+      "snapshotSelectCount": 1,
+      "foreignOwnerExcluded": true,
+      "legacyBotSnapshotUnchanged": true,
+      "beforeRendered": {
+        "label": "Ожидание оплаты",
+        "closureAdvice": false,
+        "paymentAction": false,
+        "transactionAction": false,
+        "support": true
+      },
+      "afterRendered": {
+        "label": "Сессия оплаты закрыта",
+        "closureAdvice": true,
+        "paymentAction": false,
+        "transactionAction": false,
+        "support": true
+      }
+    },
+    {
+      "case": "old-active-latest-failed",
+      "before": [
+        {
+          "order_id": 42,
+          "amount": 2000,
+          "currency": "TON",
+          "status": "pending",
+          "created": "2026-09-08 00:00",
+          "session_token": "synthetic_1",
+          "txid": "",
+          "receipt": "",
+          "delayed": false,
+          "tx_url": ""
+        }
+      ],
+      "after": [
+        {
+          "order_id": 42,
+          "amount": 2000,
+          "currency": "TON",
+          "status": "pending",
+          "created": "2026-09-08 00:00",
+          "session_token": null,
+          "txid": "",
+          "payment_session_state": "failed",
+          "receipt": "",
+          "delayed": false,
+          "tx_url": ""
+        }
+      ],
+      "snapshotSelectCount": 1,
+      "foreignOwnerExcluded": true,
+      "legacyBotSnapshotUnchanged": true,
+      "beforeRendered": {
+        "label": "Ожидание оплаты",
+        "closureAdvice": false,
+        "paymentAction": true,
+        "transactionAction": false,
+        "support": true
+      },
+      "afterRendered": {
+        "label": "Сессия оплаты закрыта",
+        "closureAdvice": true,
+        "paymentAction": false,
+        "transactionAction": false,
+        "support": true
+      }
+    },
+    {
+      "case": "latest-id-dominates-time",
+      "before": [
+        {
+          "order_id": 42,
+          "amount": 2000,
+          "currency": "TON",
+          "status": "pending",
+          "created": "2026-09-08 00:00",
+          "session_token": "synthetic_1",
+          "txid": "",
+          "receipt": "",
+          "delayed": false,
+          "tx_url": ""
+        }
+      ],
+      "after": [
+        {
+          "order_id": 42,
+          "amount": 2000,
+          "currency": "TON",
+          "status": "pending",
+          "created": "2026-09-08 00:00",
+          "session_token": null,
+          "txid": "",
+          "payment_session_state": "failed",
+          "receipt": "",
+          "delayed": false,
+          "tx_url": ""
+        }
+      ],
+      "snapshotSelectCount": 1,
+      "foreignOwnerExcluded": true,
+      "legacyBotSnapshotUnchanged": true,
+      "beforeRendered": {
+        "label": "Ожидание оплаты",
+        "closureAdvice": false,
+        "paymentAction": true,
+        "transactionAction": false,
+        "support": true
+      },
+      "afterRendered": {
+        "label": "Сессия оплаты закрыта",
+        "closureAdvice": true,
+        "paymentAction": false,
+        "transactionAction": false,
+        "support": true
+      }
+    },
+    {
+      "case": "latest-active-recovers",
+      "before": [
+        {
+          "order_id": 42,
+          "amount": 2000,
+          "currency": "TON",
+          "status": "pending",
+          "created": "2026-09-08 00:00",
+          "session_token": "synthetic_2",
+          "txid": "",
+          "receipt": "",
+          "delayed": false,
+          "tx_url": ""
+        }
+      ],
+      "after": [
+        {
+          "order_id": 42,
+          "amount": 2000,
+          "currency": "TON",
+          "status": "pending",
+          "created": "2026-09-08 00:00",
+          "session_token": "synthetic_2",
+          "txid": "",
+          "payment_session_state": "invoice_created",
+          "receipt": "",
+          "delayed": false,
+          "tx_url": ""
+        }
+      ],
+      "snapshotSelectCount": 1,
+      "foreignOwnerExcluded": true,
+      "legacyBotSnapshotUnchanged": true,
+      "beforeRendered": {
+        "label": "Ожидание оплаты",
+        "closureAdvice": false,
+        "paymentAction": true,
+        "transactionAction": false,
+        "support": true
+      },
+      "afterRendered": {
+        "label": "Ожидание оплаты",
+        "closureAdvice": false,
+        "paymentAction": true,
+        "transactionAction": false,
+        "support": true
+      }
+    },
+    {
+      "case": "unknown-status",
+      "before": [
+        {
+          "order_id": 42,
+          "amount": 2000,
+          "currency": "TON",
+          "status": "pending",
+          "created": "2026-09-08 00:00",
+          "session_token": "synthetic_1",
+          "txid": "",
+          "receipt": "",
+          "delayed": false,
+          "tx_url": ""
+        }
+      ],
+      "after": [
+        {
+          "order_id": 42,
+          "amount": 2000,
+          "currency": "TON",
+          "status": "pending",
+          "created": "2026-09-08 00:00",
+          "session_token": null,
+          "txid": "",
+          "payment_session_state": "unknown",
+          "receipt": "",
+          "delayed": false,
+          "tx_url": ""
+        }
+      ],
+      "snapshotSelectCount": 1,
+      "foreignOwnerExcluded": true,
+      "legacyBotSnapshotUnchanged": true,
+      "beforeRendered": {
+        "label": "Ожидание оплаты",
+        "closureAdvice": false,
+        "paymentAction": true,
+        "transactionAction": false,
+        "support": true
+      },
+      "afterRendered": {
+        "label": "Ожидание оплаты",
+        "closureAdvice": false,
+        "paymentAction": false,
+        "transactionAction": false,
+        "support": true
+      }
+    },
+    {
+      "case": "no-session",
+      "before": [
+        {
+          "order_id": 42,
+          "amount": 2000,
+          "currency": "TON",
+          "status": "pending",
+          "created": "2026-09-08 00:00",
+          "session_token": null,
+          "txid": "",
+          "receipt": "",
+          "delayed": false,
+          "tx_url": ""
+        }
+      ],
+      "after": [
+        {
+          "order_id": 42,
+          "amount": 2000,
+          "currency": "TON",
+          "status": "pending",
+          "created": "2026-09-08 00:00",
+          "session_token": null,
+          "txid": "",
+          "payment_session_state": "unknown",
+          "receipt": "",
+          "delayed": false,
+          "tx_url": ""
+        }
+      ],
+      "snapshotSelectCount": 1,
+      "foreignOwnerExcluded": true,
+      "legacyBotSnapshotUnchanged": true,
+      "beforeRendered": {
+        "label": "Ожидание оплаты",
+        "closureAdvice": false,
+        "paymentAction": false,
+        "transactionAction": false,
+        "support": true
+      },
+      "afterRendered": {
+        "label": "Ожидание оплаты",
+        "closureAdvice": false,
+        "paymentAction": false,
+        "transactionAction": false,
+        "support": true
+      }
+    },
+    {
+      "case": "closed-stored-receipt",
+      "before": [
+        {
+          "order_id": 42,
+          "amount": 2000,
+          "currency": "TON",
+          "status": "pending",
+          "created": "2026-09-08 00:00",
+          "session_token": null,
+          "txid": "",
+          "receipt": "stored",
+          "delayed": false,
+          "tx_url": ""
+        }
+      ],
+      "after": [
+        {
+          "order_id": 42,
+          "amount": 2000,
+          "currency": "TON",
+          "status": "pending",
+          "created": "2026-09-08 00:00",
+          "session_token": null,
+          "txid": "",
+          "payment_session_state": "failed",
+          "receipt": "stored",
+          "delayed": false,
+          "tx_url": ""
+        }
+      ],
+      "snapshotSelectCount": 1,
+      "foreignOwnerExcluded": true,
+      "legacyBotSnapshotUnchanged": true,
+      "beforeRendered": {
+        "label": "Ожидание оплаты",
+        "closureAdvice": false,
+        "paymentAction": false,
+        "transactionAction": false,
+        "support": true
+      },
+      "afterRendered": {
+        "label": "Чек получен",
+        "closureAdvice": true,
+        "paymentAction": false,
+        "transactionAction": false,
+        "support": true
+      }
+    },
+    {
+      "case": "closed-sent-receipt",
+      "before": [
+        {
+          "order_id": 42,
+          "amount": 2000,
+          "currency": "TON",
+          "status": "pending",
+          "created": "2026-09-08 00:00",
+          "session_token": null,
+          "txid": "",
+          "receipt": "sent",
+          "delayed": false,
+          "tx_url": ""
+        }
+      ],
+      "after": [
+        {
+          "order_id": 42,
+          "amount": 2000,
+          "currency": "TON",
+          "status": "pending",
+          "created": "2026-09-08 00:00",
+          "session_token": null,
+          "txid": "",
+          "payment_session_state": "failed",
+          "receipt": "sent",
+          "delayed": false,
+          "tx_url": ""
+        }
+      ],
+      "snapshotSelectCount": 1,
+      "foreignOwnerExcluded": true,
+      "legacyBotSnapshotUnchanged": true,
+      "beforeRendered": {
+        "label": "Чек на проверке",
+        "closureAdvice": false,
+        "paymentAction": false,
+        "transactionAction": false,
+        "support": true
+      },
+      "afterRendered": {
+        "label": "Чек на проверке",
+        "closureAdvice": true,
+        "paymentAction": false,
+        "transactionAction": false,
+        "support": true
+      }
+    },
+    {
+      "case": "paid-order-precedence",
+      "before": [
+        {
+          "order_id": 42,
+          "amount": 2000,
+          "currency": "TON",
+          "status": "paid",
+          "created": "2026-09-08 00:00",
+          "session_token": null,
+          "txid": "",
+          "receipt": "stored",
+          "delayed": false,
+          "tx_url": ""
+        }
+      ],
+      "after": [
+        {
+          "order_id": 42,
+          "amount": 2000,
+          "currency": "TON",
+          "status": "paid",
+          "created": "2026-09-08 00:00",
+          "session_token": null,
+          "txid": "",
+          "payment_session_state": "failed",
+          "receipt": "stored",
+          "delayed": false,
+          "tx_url": ""
+        }
+      ],
+      "snapshotSelectCount": 1,
+      "foreignOwnerExcluded": true,
+      "legacyBotSnapshotUnchanged": true,
+      "beforeRendered": {
+        "label": "Оплата получена",
+        "closureAdvice": false,
+        "paymentAction": false,
+        "transactionAction": false,
+        "support": true
+      },
+      "afterRendered": {
+        "label": "Оплата получена",
+        "closureAdvice": false,
+        "paymentAction": false,
+        "transactionAction": false,
+        "support": true
+      }
+    },
+    {
+      "case": "sent-order-precedence",
+      "before": [
+        {
+          "order_id": 42,
+          "amount": 2000,
+          "currency": "TON",
+          "status": "sent",
+          "created": "2026-09-08 00:00",
+          "session_token": null,
+          "txid": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "receipt": "sent",
+          "delayed": false,
+          "tx_url": "https://tonviewer.com/transaction/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ],
+      "after": [
+        {
+          "order_id": 42,
+          "amount": 2000,
+          "currency": "TON",
+          "status": "sent",
+          "created": "2026-09-08 00:00",
+          "session_token": null,
+          "txid": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_session_state": "failed",
+          "receipt": "sent",
+          "delayed": false,
+          "tx_url": "https://tonviewer.com/transaction/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ],
+      "snapshotSelectCount": 1,
+      "foreignOwnerExcluded": true,
+      "legacyBotSnapshotUnchanged": true,
+      "beforeRendered": {
+        "label": "Отправлено",
+        "closureAdvice": false,
+        "paymentAction": false,
+        "transactionAction": true,
+        "support": true
+      },
+      "afterRendered": {
+        "label": "Отправлено",
+        "closureAdvice": false,
+        "paymentAction": false,
+        "transactionAction": true,
+        "support": true
+      }
+    },
+    {
+      "case": "cancelled-order-precedence",
+      "before": [
+        {
+          "order_id": 42,
+          "amount": 2000,
+          "currency": "TON",
+          "status": "cancelled",
+          "created": "2026-09-08 00:00",
+          "session_token": null,
+          "txid": "",
+          "receipt": "stored",
+          "delayed": false,
+          "tx_url": ""
+        }
+      ],
+      "after": [
+        {
+          "order_id": 42,
+          "amount": 2000,
+          "currency": "TON",
+          "status": "cancelled",
+          "created": "2026-09-08 00:00",
+          "session_token": null,
+          "txid": "",
+          "payment_session_state": "failed",
+          "receipt": "stored",
+          "delayed": false,
+          "tx_url": ""
+        }
+      ],
+      "snapshotSelectCount": 1,
+      "foreignOwnerExcluded": true,
+      "legacyBotSnapshotUnchanged": true,
+      "beforeRendered": {
+        "label": "Отменена",
+        "closureAdvice": false,
+        "paymentAction": false,
+        "transactionAction": false,
+        "support": true
+      },
+      "afterRendered": {
+        "label": "Отменена",
+        "closureAdvice": false,
+        "paymentAction": false,
+        "transactionAction": false,
+        "support": true
+      }
+    }
+  ],
+  "verified": [
+    "One SELECT binds latest session status/token by id chronology and excludes other owners.",
+    "Failed/expired/unknown state never revives a token from an older row.",
+    "The existing legacy customer_orders function and its named-field bot snapshots remain unchanged.",
+    "Order and receipt semantics are unchanged while closure advice and action suppression agree with latest session metadata.",
+    "Known active latest state recovers normally; unknown and missing state never become a closure claim."
+  ],
+  "limitations": [
+    "This independent probe executes SQLite SQL and exact normalization; PostgreSQL execution and runtime dependencies are separately checked by primary/operations evidence.",
+    "It is not browser-layout, human-comprehension or production customer-data evidence."
+  ]
+}

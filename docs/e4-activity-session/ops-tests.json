@@ -1,0 +1,48 @@
+{
+  "recordedAt": "2026-09-08T01:53:43.840316+00:00",
+  "result": "PASS",
+  "inputs": [
+    {
+      "path": "relay/repositories/activity_read_store.py",
+      "sha256": "32166cac62d1f92f21b1cdcaad46edda968c75832db7311969dff9228cd82f6e"
+    },
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "3b75a18fffeabd2d8d2640d463d26eb8f227b010534e48c37edd3888be7013df"
+    },
+    {
+      "path": "relay/webapp.html",
+      "sha256": "b2859b9fbe532a6121f2bbd2487e0ef2a0ccee6bf3c54da414ad49b61087cc9d"
+    },
+    {
+      "path": "deploy/e4_activity_session_rollout.py",
+      "sha256": "96b139963f00a78593c7ec5cc0b13d7fde32131287017cae4e99c0151e353138"
+    },
+    {
+      "path": "tests/test_e4_activity_session_rollout.py",
+      "sha256": "a2a2833efae06e7d34f3f3ba829b93a41676489867242eee5dee9456d7bc7113"
+    }
+  ],
+  "command": [
+    "/opt/lumi/venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "/root/tests/test_e4_activity_session_rollout.py"
+  ],
+  "passed": 14,
+  "failed": 0,
+  "runtimeMutated": false,
+  "productionServicesCalled": false,
+  "coverage": [
+    "known-baseline deployment and exact rollback, preserving uid/gid/mode/mtime/xattrs",
+    "four interruptions before and between publication/restart, observation without mutation, deploy replay rejection and explicit rollback",
+    "preflight source/service/preserved dependency drift rejection",
+    "unknown live bytes and changed rollback preimage rejection",
+    "interrupted rollback replay rejection and correct manual reconciliation guidance",
+    "old main restored and Relay restarted before additive module deletion",
+    "symlink/wrong expected digest rejection",
+    "active autopilot guard"
+  ],
+  "environmentNote": "System and application Python environments lack pytest; existing /opt/lumi/venv test interpreter was used without installing dependencies."
+}

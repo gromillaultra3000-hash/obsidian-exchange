@@ -1,0 +1,21 @@
+{
+  "mode": "legacy",
+  "result": "PASS",
+  "productionDataAccessed": false,
+  "inputs": [
+    {
+      "path": "relay/repositories/activity_read_store.py",
+      "sha256": "32166cac62d1f92f21b1cdcaad46edda968c75832db7311969dff9228cd82f6e"
+    },
+    {
+      "path": "tests/rehearse_e4_activity_session.py",
+      "sha256": "b2aa3cc6c3b91599bb63ce6d3b40651e03f50155a246659b80d2b79a1e9e77b5"
+    }
+  ],
+  "cases": 13,
+  "retainedDependency": {
+    "path": "/root/output/manual/e4-activity-session-20260908/baseline/relay/repositories/order_read_store.py",
+    "sha256": "2cc91c733a8388ac2f643016fe192f7687ef0c44b79305d23fed50dcfd2ca06d"
+  },
+  "temporaryDirectoryRemoved": true
+}

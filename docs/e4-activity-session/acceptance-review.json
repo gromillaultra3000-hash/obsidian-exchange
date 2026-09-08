@@ -1,0 +1,346 @@
+{
+  "schemaVersion": "e4-activity-session-acceptance-review.v1",
+  "recordedAt": "2026-09-08T01:58:13.586524+00:00",
+  "reviewer": {
+    "identity": "Codex independent contextual acceptance /root/receipt_acceptance",
+    "role": "Separate from product implementation and rollout recipe author; independently reviews both product and operational recipe",
+    "actualTools": [
+      "Source/repository/runtime-source inspection with rg/sed and AST extraction; independent SQLite in-memory and Node VM old/candidate probes",
+      "Playwright skill retained; authored added actual-browser checks; primary executed unchanged isolated launcher",
+      "view_image inspected three final 320px session cards; SHA-256 checks verified raw/copied browser evidence and complete test output",
+      "Imported rollout recipe with inert runtime substitutes for five independent observation/no-replay probes"
+    ],
+    "edits": "Browser runner and own acceptance/next-prerequisite artifacts only; no product/runtime/customer/money/message action"
+  },
+  "route": "E4 / ACTIVITY_PAYMENT_SESSION_STATE",
+  "result": "PASS",
+  "inputs": [
+    {
+      "path": "deploy/e4_activity_session_rollout.py",
+      "sha256": "96b139963f00a78593c7ec5cc0b13d7fde32131287017cae4e99c0151e353138"
+    },
+    {
+      "path": "docs/e4-activity-session/320-activity-session-absent-receipt.png",
+      "sha256": "3438e7898f4ced4d6abbe61e7e261bca034f5b5665f18890c1c48e017d107e46"
+    },
+    {
+      "path": "docs/e4-activity-session/320-activity-session-sent-receipt.png",
+      "sha256": "0be73bdfad715889ba6a8b8edb4c149f95920fb7357f44a5dff0a53ec4c0c57e"
+    },
+    {
+      "path": "docs/e4-activity-session/320-activity-session-stored-receipt.png",
+      "sha256": "b228d7f6caf335976241a7a07ed29faa534e72cec56be9e7c24cd66a6522f904"
+    },
+    {
+      "path": "docs/e4-activity-session/390-activity-session-absent-receipt.png",
+      "sha256": "bc4c1da9d6198b8be029c600500c53ba517ea86b0a91c76116e1b078f17ec18a"
+    },
+    {
+      "path": "docs/e4-activity-session/acceptance-ops-probe.json",
+      "sha256": "78ad9bc7803c9d741ce12ccc9accc446e40d7a0816975530a7cd79ee022f572f"
+    },
+    {
+      "path": "docs/e4-activity-session/acceptance-ops-probe.py",
+      "sha256": "4150533300acacbfac23487237003adae05f1f740f6dd0d09e80e47838eb2da0"
+    },
+    {
+      "path": "docs/e4-activity-session/acceptance-probe.json",
+      "sha256": "59ed091b1ec3577d91d358900abc73c494872ea44e59a5b4a88bc7bb1c988d9d"
+    },
+    {
+      "path": "docs/e4-activity-session/acceptance-probe.py",
+      "sha256": "0956e67aba1f4d1a68ba391fea34d0fb9c07d63e14438713e7ae6aa668b5e3b9"
+    },
+    {
+      "path": "docs/e4-activity-session/isolation.json",
+      "sha256": "f3f29b91b0e425fe7267e1f8eb8c72f3ada919df2f4e738b0ab296c11fb1c34b"
+    },
+    {
+      "path": "docs/e4-activity-session/legacy-rehearsal.json",
+      "sha256": "7ebc6214b49c070e81326cc7948403d8b8afb07f8ced7893caeb4a5fe0059882"
+    },
+    {
+      "path": "docs/e4-activity-session/mutations.json",
+      "sha256": "fb3446a031300eb63e112beefc5b0c3c1c3a9e974fd3736e7ee3d8ab9f283fd6"
+    },
+    {
+      "path": "docs/e4-activity-session/next-prerequisite-backend.json",
+      "sha256": "87ccf46304b5e7da9ade399f0a3268af5dcdfcff3608aba651a0433a3fa87283"
+    },
+    {
+      "path": "docs/e4-activity-session/next-prerequisite-backend.py",
+      "sha256": "101d88f99426b4522d210f38f71575faa7d27f28fb0827e8c50b612068f138ba"
+    },
+    {
+      "path": "docs/e4-activity-session/next-prerequisite.json",
+      "sha256": "ffe19244284875bf7d00606ebf35914700b8ca8b1382aa241455893fd34c79c2"
+    },
+    {
+      "path": "docs/e4-activity-session/ops-baseline.json",
+      "sha256": "252810639816bab867faabca188f5240c8f2012b5dd26f06999446b12cd6220a"
+    },
+    {
+      "path": "docs/e4-activity-session/ops-plan.md",
+      "sha256": "58b04bdf4709a0185c1fddcc9f481aa27f6d11e6e5faad4a9f770263a6d87cc7"
+    },
+    {
+      "path": "docs/e4-activity-session/ops-release-manifest.json",
+      "sha256": "c1bb0bcca6c705193b5638610247c02aaec859020065bddcb379c89950511500"
+    },
+    {
+      "path": "docs/e4-activity-session/ops-runtime-inspection.json",
+      "sha256": "a845b9340b656d8798baaff57f12b5558b4fb88a03f0455af633cc8a133d481f"
+    },
+    {
+      "path": "docs/e4-activity-session/ops-tests.json",
+      "sha256": "21640211f5236b239fc8667fa093e5a7ce7266f1a8f676a52dd2c843cb693604"
+    },
+    {
+      "path": "docs/e4-activity-session/postgres-rehearsal.json",
+      "sha256": "30f7a049ae2b119afc062bd7718ee086e8b8d64118c4da1a2369ebd3def41f1a"
+    },
+    {
+      "path": "docs/e4-activity-session/preflight.json",
+      "sha256": "81c939b42d253984c4496a27d5c9ddcb51d7aa93c9c37c73c02676b1946a7d49"
+    },
+    {
+      "path": "docs/e4-activity-session/report.json",
+      "sha256": "eaca5619c91841a885cae03738ffeeeda357ac3f035ae87b34300913761e03f8"
+    },
+    {
+      "path": "docs/e4-activity-session/rollback-rehearsal.json",
+      "sha256": "32c6455d3fd71eaa14fa61d9ad87cd1c2264f3075b8e69e67724cb464e1b1610"
+    },
+    {
+      "path": "docs/e4-activity-session/tests.json",
+      "sha256": "cac29535d75ff70eeb76331b5e3aab5376ce93a7cc4d01884c0253e509fbbeaf"
+    },
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "3b75a18fffeabd2d8d2640d463d26eb8f227b010534e48c37edd3888be7013df"
+    },
+    {
+      "path": "relay/core/txid.py",
+      "sha256": "726b98d97696578b0883f5a14eca119f9bc4ce0fd92f409617edf1190129f824"
+    },
+    {
+      "path": "relay/repositories/activity_read_store.py",
+      "sha256": "32166cac62d1f92f21b1cdcaad46edda968c75832db7311969dff9228cd82f6e"
+    },
+    {
+      "path": "relay/webapp.html",
+      "sha256": "b2859b9fbe532a6121f2bbd2487e0ef2a0ccee6bf3c54da414ad49b61087cc9d"
+    },
+    {
+      "path": "scripts/run_e4_review_browser.py",
+      "sha256": "6f4c9bf3020ae80b323655333a1eb3697eca4d44672ef6d28c679749136c412b"
+    },
+    {
+      "path": "tests/e4_activity_deadline_behavior.cjs",
+      "sha256": "48b85b7701ede6142e232be00abd0b930c6b54cdcc87feceffdb12dbff20b56f"
+    },
+    {
+      "path": "tests/e4_activity_receipt_behavior.cjs",
+      "sha256": "f9f47288d62bfbeaca5fdc56abcddfa83ef71f62fa922557e57cbed747ee70de"
+    },
+    {
+      "path": "tests/e4_activity_refresh_behavior.cjs",
+      "sha256": "84544256bfc5aef1f2cd7af768f6217d55771be92621ad9572426195ef29696b"
+    },
+    {
+      "path": "tests/e4_activity_session_behavior.cjs",
+      "sha256": "0db5734c643118c71282592b37bc721a3fa323bd9ba13caa2dbf923e69264855"
+    },
+    {
+      "path": "tests/e4_review_browser.cjs",
+      "sha256": "e9bef9f242c1ee26d2b2e8d14b2dadd8ca223b9550e33af61365f63678d28228"
+    },
+    {
+      "path": "tests/rehearse_e4_activity_session.py",
+      "sha256": "b2aa3cc6c3b91599bb63ce6d3b40651e03f50155a246659b80d2b79a1e9e77b5"
+    },
+    {
+      "path": "tests/test_e0_4_authenticated_synthetic_reads.py",
+      "sha256": "d488f5d61b00b3fe9a9188a2c495a87ab95b7f5675675768d5a8282ad6f0065c"
+    },
+    {
+      "path": "tests/test_e4_activity_deadline_behavior.py",
+      "sha256": "8ebeccfd0937ba08752dcbc996f886a4be6cdaf1e429e3885b8f142cab33ca37"
+    },
+    {
+      "path": "tests/test_e4_activity_notifications.py",
+      "sha256": "4e9efc5011741c0d66abd0bf419416947d159a58a71101ae2d9d209e61b0136e"
+    },
+    {
+      "path": "tests/test_e4_activity_receipt_behavior.py",
+      "sha256": "cece0e8c4d2a1ba6cba8d4ce0759e7b6f4d89a4ebc5e4246ea13b0dacaf6dcc3"
+    },
+    {
+      "path": "tests/test_e4_activity_refresh_behavior.py",
+      "sha256": "ab3798379d4c445ebec27306829c6781e372886bef65de7522fad7c1619e298b"
+    },
+    {
+      "path": "tests/test_e4_activity_session_contract.py",
+      "sha256": "03434f2881d793a40c66de6647f23ac112b5710bdca75334a847da2e0cde6600"
+    },
+    {
+      "path": "tests/test_e4_activity_session_rollout.py",
+      "sha256": "a2a2833efae06e7d34f3f3ba829b93a41676489867242eee5dee9456d7bc7113"
+    },
+    {
+      "path": "tests/test_e4_exchange_review_ui.py",
+      "sha256": "15da942a4d78a3d1271d04ba642c857d4408e27ede66ea58441710e347325c36"
+    },
+    {
+      "path": "tests/test_e4_miniapp_browser_shell.py",
+      "sha256": "f1266129d2f2c84e9fd7c5847bba0a1b5f0ff27d0e7695249e6554202e6312fd"
+    },
+    {
+      "path": "tests/test_e4_order_support_behavior.py",
+      "sha256": "b5e5f3b53b484a85c0ece511e96925b5b42d9de94fc62004107922c82c40b988"
+    },
+    {
+      "path": "tests/test_e4_payment_instruction_behavior.py",
+      "sha256": "b425ababa71e51d8f977214303553bd011509d2bb5dd9c8a0bf2ea2ef218b3ea"
+    },
+    {
+      "path": "tests/test_e4_payment_requisites_copy_behavior.py",
+      "sha256": "3b0e45d530c32e872ac54222120544e4bd63467cf1e33373d44105b7b8230a3a"
+    },
+    {
+      "path": "tests/test_e4_public_support_path.py",
+      "sha256": "04f36a7270fce9aaa3281ae35f8b093ed40aa841a4053b375c26525b19491769"
+    },
+    {
+      "path": "tests/test_e4_receive_copy_behavior.py",
+      "sha256": "bb2738ab5c0a41f496db0dfecdf73918094199b7f2cdff4cb359c414a5bdbb5b"
+    },
+    {
+      "path": "tests/test_e4_recipient_review_behavior.py",
+      "sha256": "0dba9cc3e4b4a490b8d88705434968a53b487698a444aa1b512326bd238d5ccf"
+    },
+    {
+      "path": "tests/test_e4_responsive_navigation.py",
+      "sha256": "5758be025dd2f1e318c304ee4d771d70dc7ad2fda5506077958098dfe493292d"
+    },
+    {
+      "path": "tests/test_e4_review_browser_runner.py",
+      "sha256": "10e63f75d216cd5a11a4c6c883db7d15a134d00088a3f6a41b8deb80b375a98b"
+    },
+    {
+      "path": "tests/test_order_read_store.py",
+      "sha256": "afcb6551edb54ce939f4a9be80590e0ca600159e753c6d22611bf6838dc3d138"
+    },
+    {
+      "path": "tests/test_relay_runtime_isolation.py",
+      "sha256": "eeed65198d8762984cbaba3318e53554111dfb132e477460763c1f2d868933be"
+    },
+    {
+      "path": "tests/test_unified_portfolio_ui.py",
+      "sha256": "250796a1f514cba3ae701b5f14d45420cf22124bebb43c7dd4c0810c64c7fb54"
+    }
+  ],
+  "acceptanceResults": [
+    "A separate activity_read_store view uses the configured existing repository connection and a single owner-correlated SELECT. The maximum session id chooses token and status from the same row, even when creation timestamps conflict.",
+    "Only the known lifecycle enum is serialized; no session, null/empty or unrecognized state becomes unknown. Failed, expired and unknown latest state have no token; an older active token cannot reappear.",
+    "Pending failed/expired sessions show closure/support advice and suppress even an injected legacy action token. No failed-funds, failed-order, refund or automatic retry claim is introduced.",
+    "Sent receipt keeps the review label, stored receipt gets the received-file label, and both retain receipt evidence plus closure advice. Paid/sent/terminal order states dominate old session closure metadata; delayed-paid and transaction evidence remain intact.",
+    "Unknown/missing session metadata never creates a closure claim. Existing legacy missing-field UI behavior remains compatible, while the new backend omits tokens for unknown state.",
+    "At 320,390,1280px actual refresh/filter controls render all closure/receipt variants, known nonclosed/unknown/missing states and nonpending order precedence; support is keyboard-usable and cards fit their width.",
+    "Inspected 320px cards show legible closure guidance and support with no payment action. The long no-receipt status and date wrap without overlap; receipt variants retain clear labels.",
+    "Legacy customer_orders and bot field projections remain unchanged. The actual retained installed dependency and disposable PostgreSQL17.11 both pass the new view contract."
+  ],
+  "independentEvidence": {
+    "productProbe": "docs/e4-activity-session/acceptance-probe.json",
+    "productCases": 12,
+    "method": "Actual legacy/new SQL and API serialization on :memory: data followed by exact old/new rendering; foreign owner excluded, one snapshot SELECT, no provider/runtime calls.",
+    "opsProbe": "docs/e4-activity-session/acceptance-ops-probe.json",
+    "opsCases": 5,
+    "methodOps": "All runtime calls replaced by inert fixtures and mutation functions forbidden; observe interrupted deployment/rollback/terminal journals without replay."
+  },
+  "operationalReview": {
+    "result": "PASS",
+    "recipe": "deploy/e4_activity_session_rollout.py",
+    "authorIndependent": true,
+    "scope": "Add module, replace main/HTML, restart Relay once after binding all gates; existing order_read_store live digest preserved.",
+    "verifiedDesign": [
+      "Local flock plus stopped-autopilot guard; exact original/candidate/recipe manifest and input-bound gates reject drift before publication.",
+      "Private fsynced preimages and ownership/mode/mtime/xattrs recorded before module-main-HTML publication; journal persists mutation/restart intent before action.",
+      "Interrupted deploy is observed without replay; explicit rollback accepts only known original/candidate bytes and exact preimages.",
+      "Rollback restores old main/HTML, restarts and verifies Relay before deleting the exact additive module. Bot/Nginx/PostgreSQL service identities are required to remain unchanged.",
+      "Runtime probes use only public GET/POST webapp and unauthenticated history403; no real customer identity or provider/payment request is sent."
+    ],
+    "correctedFinding": {
+      "issue": "Initial reconcile guidance recommended explicit rollback even for ROLLBACK_* journals, although rollback rejects those states.",
+      "resolution": "Guidance now requires independent inspection/manual completion for interrupted rollback while preserving no-blind-replay guards; five independent acceptance probes and author regression cover this."
+    },
+    "preflight": "PASS on exact live baseline, absent new module, active services, stopped autopilot and GET200/POST405/unauthenticated history403.",
+    "rehearsal": "Seven atomic publication/restoration/journal observations pass; fourteen isolated operational tests cover interruption, drift, replay and rollback ordering.",
+    "limits": "Production restart/rollback not rehearsed. If rollback itself is interrupted, independent inspection/manual completion is required; no automatic repeat is authorized. Restart resumes unchanged ordinary runtime workers."
+  },
+  "verification": {
+    "focusedTests": 316,
+    "focusedResult": "PASS",
+    "rawStdoutSha256Verified": "10a8d7d6f531ba5ec67e42befb784ae20bc5e60364bd8c4565fc569e04a2d974",
+    "browserChecks": 186,
+    "newBrowserChecks": 12,
+    "browserWidths": [
+      320,
+      390,
+      1280
+    ],
+    "browserResult": "PASS",
+    "pageErrors": [],
+    "isolation": {
+      "user": "nobody",
+      "chromiumSandbox": true,
+      "privateNetwork": true,
+      "protectHome": true,
+      "unit": "e4-review-browser-16bda1ee6f0b47c6b4a820767cb23b60",
+      "unitStopped": true,
+      "stopObservation": {
+        "MainPID": "0",
+        "LoadState": "not-found",
+        "ActiveState": "inactive",
+        "cgroupEmpty": true
+      },
+      "sourceSha256": "b2859b9fbe532a6121f2bbd2487e0ef2a0ccee6bf3c54da414ad49b61087cc9d",
+      "runnerSha256": "e9bef9f242c1ee26d2b2e8d14b2dadd8ca223b9550e33af61365f63678d28228",
+      "processExitCode": 0
+    },
+    "nativeCleanup": {
+      "serverClosed": true,
+      "socketsRemaining": 0,
+      "individualSocketCloseEventsAwaited": true
+    },
+    "unchangedBrowserLimits": "Default motion, existing 5000ms action/cleanup and 120s unit cap; no forced click or timeout relaxation.",
+    "legacyDependencyCases": 13,
+    "postgresCases": 13,
+    "postgresVersion": "17.11",
+    "postgresReadSessionReadOnly": true,
+    "postgresIsolation": "Pinned image, network none, no host ports, disposable Unix socket; container and temporary directory removed.",
+    "mutantsKilled": [
+      "latest_by_timestamp",
+      "closed_token_leak",
+      "closed_ui_action"
+    ]
+  },
+  "findings": [],
+  "nextPrerequisite": {
+    "item": "E4 / PAYMENT_STATUS_RUNTIME_READ_CONTRACT / restore installed owner-scoped read methods required by payment status and page handlers",
+    "evidence": "docs/e4-activity-session/next-prerequisite.json",
+    "reproduction": "docs/e4-activity-session/next-prerequisite-backend.json",
+    "cases": 8,
+    "observed": "Exact installed SQLite/PostgreSQL order classes lack authorized_snapshot; api_order raises AttributeError before repository/provider work. Exact installed payment-session classes lack get_by_token; opaque-token pay maps the missing method to HTTP500. Both baseline and candidate handler ASTs are identical and reproduce the same failures with synthetic identity and zero database calls.",
+    "disposition": "One pre-existing installed payment read-contract prerequisite for the next canonical E4 slice. These handlers/dependencies are not changed by the current activity view; no broader repository rollout is included.",
+    "incidence": "No live authenticated request, loaded-process inspection or customer incident is claimed."
+  },
+  "limitations": [
+    "Product acceptance uses synthetic backend data and isolated Chrome; real Telegram/iOS/WebKit, screen readers and human comprehension remain unverified.",
+    "Session closure is distinct from order outcome and payment/chain confirmation. The implementation neither declares lost funds nor initiates a new payment.",
+    "Known pre-existing installed payment handler/read-method mismatch remains explicitly recorded for the next slice; this PASS covers the activity view and its bounded rollout, not the entire payment system.",
+    "The rollout requires a Relay restart, which resumes its existing cleanup/notification/provider workers. No claim of zero ordinary background effects is made.",
+    "Exact installed disk source and isolated handler behavior were reviewed; production-loaded object state and authenticated customer flows were not inspected.",
+    "Production replacement/runtime verification is primary-agent work. E4 and earlier gates remain open."
+  ]
+}

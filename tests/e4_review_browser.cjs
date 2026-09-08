@@ -1350,6 +1350,82 @@ async function main() {
         await supportCount(supportBeforeReceipt + 1);
         assert.equal(await activityList.evaluate(el => el.scrollWidth <= el.clientWidth), true);
         report.checks.push(`${viewport.width}: sent without tx_url makes no transaction claim; delayed paid retains status/advice, filter changes retire old evidence and current keyboard support remains usable`);
+        const sessionAdvice = 'Платёжная сессия закрыта. Не переводите по прежним реквизитам. Если уже оплатили — не платите повторно и обратитесь в поддержку.';
+        await page.locator('[data-history-filter="all"]').click();
+        for (const [stateIndex, payment_session_state] of ['failed', 'expired'].entries()) {
+            const receipts = ['', 'stored', 'sent'];
+            const fixtures = receipts.map((receipt, index) => ({order_id: 5200 + stateIndex * 10 + index,
+                amount: 2000, currency: 'TON', status: 'pending', created: '2026-09-08 00:00',
+                receipt, delayed: false, payment_session_state,
+                // The current API suppresses closed-session tokens. A legacy
+                // token injected here proves the UI cannot revive its action.
+                session_token: 'synthetic_legacy_active_session', txid: '', tx_url: ''}));
+            const read = await beginActivity(); await replyActivity(read, fixtures);
+            assert.equal(await activityList.locator('.history-item').count(), 3);
+            for (const [index, receipt] of receipts.entries()) {
+                const card = activityList.locator('.history-item').nth(index);
+                assert.equal(await card.locator('.status').textContent(), receipt === 'sent'
+                    ? 'Чек на проверке' : receipt === 'stored' ? 'Чек получен' : 'Сессия оплаты закрыта');
+                assert.equal(await card.locator('.history-session-advice').textContent(), sessionAdvice);
+                assert.equal(await card.locator('.btn-pay').count(), 0,
+                    'a known closed session must suppress even a retained legacy token');
+                assert.equal(await card.locator('.history-receipt-evidence').count(), receipt ? 1 : 0);
+                if (receipt) assert.equal(await card.locator('.history-receipt-evidence').textContent(), pendingReceiptCopy[receipt]);
+                assert.equal(await card.locator('.history-support-order').isEnabled(), true);
+                assert.equal(await card.evaluate(el => el.scrollWidth <= el.clientWidth), true);
+            }
+            if (payment_session_state === 'failed') {
+                for (const [index, receipt] of receipts.entries()) {
+                    const card = activityList.locator('.history-item').nth(index);
+                    await card.scrollIntoViewIfNeeded();
+                    await card.screenshot({path: path.join(outputDir,
+                        `${viewport.width}-activity-session-${receipt || 'absent'}-receipt.png`)});
+                }
+            }
+            await page.locator('[data-history-filter="sent"]').click();
+            assert.equal(await activityList.locator('.history-session-advice').count(), 0);
+            await page.locator('[data-history-filter="pending"]').click();
+            assert.equal(await activityList.locator('.history-session-advice').count(), 3);
+            assert.equal(await activityList.locator('.btn-pay').count(), 0);
+            const beforeSupport = await page.evaluate(() => window.__supportOpenings.length);
+            await orderSupport.focus(); await page.keyboard.press('Enter');
+            await supportCount(beforeSupport + 1);
+            await page.locator('[data-history-filter="all"]').click();
+            report.checks.push(`${viewport.width}: pending ${payment_session_state} session with absent/stored/sent receipt keeps receipt precedence, closure advice and keyboard support; retained legacy token has no action across filters`);
+        }
+        const nonclosedStates = ['created', 'invoice_created', 'awaiting_payment', 'payment_detected',
+            'confirming', 'payout_queued', 'payout_sent', 'completed', 'unknown', undefined];
+        const nonclosedRead = await beginActivity();
+        await replyActivity(nonclosedRead, nonclosedStates.map((state, index) => ({
+            order_id: 5300 + index, amount: 2000, currency: 'TON', status: 'pending',
+            receipt: '', delayed: false, created: '2026-09-08 00:00', payment_session_state: state,
+            session_token: state === 'unknown' ? null : 'synthetic_current_session', txid: '', tx_url: ''})));
+        for (const [index, state] of nonclosedStates.entries()) {
+            const card = activityList.locator('.history-item').nth(index);
+            assert.equal(await card.locator('.status').textContent(), 'Ожидание оплаты');
+            assert.equal(await card.locator('.history-session-advice').count(), 0);
+            assert.equal(await card.locator('.btn-pay').count(), state === 'unknown' ? 0 : 1);
+            assert.equal(await card.evaluate(el => el.scrollWidth <= el.clientWidth), true);
+        }
+        report.checks.push(`${viewport.width}: known nonclosed states and unknown/missing metadata never become a closed-session claim; unknown without token has no payment action and legacy missing-field token remains compatible`);
+        const terminalRead = await beginActivity();
+        const finalStates = ['paid', 'sent', 'expired', 'failed', 'cancelled'];
+        await replyActivity(terminalRead, finalStates.map((status, index) => ({
+            order_id: 5400 + index, amount: 2000, currency: 'TON', status,
+            receipt: 'sent', delayed: status === 'paid', created: '2026-09-08 00:00',
+            payment_session_state: 'failed', session_token: 'synthetic_obsolete_session',
+            txid: status === 'sent' ? 'a'.repeat(64) : '',
+            tx_url: status === 'sent' ? 'https://tonviewer.com/transaction/' + 'a'.repeat(64) : ''})));
+        for (const [index, status] of finalStates.entries()) {
+            const card = activityList.locator('.history-item').nth(index);
+            assert.equal(await card.locator('.status').textContent(), status === 'paid' ? 'Выплата задерживается' : receiptLabels[status]);
+            assert.equal(await card.locator('.history-session-advice').count(), 0);
+            assert.equal(await card.locator('.history-receipt-evidence').textContent(), historicalReceiptCopy.sent);
+            assert.equal(await card.locator('.history-transaction-evidence').count(), status === 'sent' ? 1 : 0);
+            assert.equal(await card.locator('.btn-pay').count(), status === 'sent' ? 1 : 0);
+            assert.equal(await card.evaluate(el => el.scrollWidth <= el.clientWidth), true);
+        }
+        report.checks.push(`${viewport.width}: paid/sent/terminal order outcomes dominate old failed-session metadata; historical receipt, current transaction evidence and delayed-paid warning remain intact`);
         await context.close();
         }
         await nativeActivityDeadlineChecks(browser);

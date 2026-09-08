@@ -1,0 +1,225 @@
+{
+  "schemaVersion": "e4-activity-session-security-review.v1",
+  "recordedAt": "2026-09-08T01:57:15.363492+00:00",
+  "reviewer": "Codex independent context-poor diff/security gate /root/receipt_security",
+  "reviewerIndependence": "Authored only security probes/reports; product and deployment recipe authored by other agents",
+  "skill": "/root/.codex/skills/security-best-practices/SKILL.md",
+  "skillReferences": [
+    "javascript-general-web-frontend-security.md",
+    "python-fastapi-web-server-security.md"
+  ],
+  "toolVersions": {
+    "node": "22.22.3",
+    "python": "3.12.3",
+    "gitleaks": "8.30.0",
+    "reviewedChrome": "152.0.7977.64",
+    "reviewedPlaywright": "1.62.0"
+  },
+  "route": "E4 / ACTIVITY_PAYMENT_SESSION_STATE",
+  "baselineCommit": "72cb3aa41feba66730ca598adc9ebb347053dde5",
+  "result": "PASS",
+  "findings": [],
+  "blockingFindings": [],
+  "inputs": [
+    {
+      "path": "relay/repositories/activity_read_store.py",
+      "sha256": "32166cac62d1f92f21b1cdcaad46edda968c75832db7311969dff9228cd82f6e"
+    },
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "3b75a18fffeabd2d8d2640d463d26eb8f227b010534e48c37edd3888be7013df"
+    },
+    {
+      "path": "relay/webapp.html",
+      "sha256": "b2859b9fbe532a6121f2bbd2487e0ef2a0ccee6bf3c54da414ad49b61087cc9d"
+    },
+    {
+      "path": "deploy/e4_activity_session_rollout.py",
+      "sha256": "96b139963f00a78593c7ec5cc0b13d7fde32131287017cae4e99c0151e353138"
+    },
+    {
+      "path": "relay/repositories/order_read_store.py",
+      "sha256": "5651f8400da4b0024b11bc77f03f9cb239ac284766f44586f0673788e1d54506"
+    },
+    {
+      "path": "relay/core/txid.py",
+      "sha256": "726b98d97696578b0883f5a14eca119f9bc4ce0fd92f409617edf1190129f824"
+    },
+    {
+      "path": "relay/core/db_runtime.py",
+      "sha256": "9e0572dc70d5d883f7009c1f6701bdd8d34ec8fcc26a3d4c7a050a7938212237"
+    },
+    {
+      "path": "relay/services/state_machine.py",
+      "sha256": "0582042d29f4d1fe78fb33b58a84dc5538e49b4142b036ad7ddec9fb3886557e"
+    },
+    {
+      "path": "tests/test_e4_activity_session_contract.py",
+      "sha256": "03434f2881d793a40c66de6647f23ac112b5710bdca75334a847da2e0cde6600"
+    },
+    {
+      "path": "tests/e4_activity_session_behavior.cjs",
+      "sha256": "0db5734c643118c71282592b37bc721a3fa323bd9ba13caa2dbf923e69264855"
+    },
+    {
+      "path": "tests/test_e4_activity_session_rollout.py",
+      "sha256": "a2a2833efae06e7d34f3f3ba829b93a41676489867242eee5dee9456d7bc7113"
+    },
+    {
+      "path": "tests/test_e4_activity_receipt_behavior.py",
+      "sha256": "cece0e8c4d2a1ba6cba8d4ce0759e7b6f4d89a4ebc5e4246ea13b0dacaf6dcc3"
+    },
+    {
+      "path": "tests/test_e0_4_authenticated_synthetic_reads.py",
+      "sha256": "d488f5d61b00b3fe9a9188a2c495a87ab95b7f5675675768d5a8282ad6f0065c"
+    },
+    {
+      "path": "tests/e4_review_browser.cjs",
+      "sha256": "e9bef9f242c1ee26d2b2e8d14b2dadd8ca223b9550e33af61365f63678d28228"
+    },
+    {
+      "path": "scripts/run_e4_review_browser.py",
+      "sha256": "6f4c9bf3020ae80b323655333a1eb3697eca4d44672ef6d28c679749136c412b"
+    },
+    {
+      "path": "tests/rehearse_e4_activity_session.py",
+      "sha256": "b2aa3cc6c3b91599bb63ce6d3b40651e03f50155a246659b80d2b79a1e9e77b5"
+    },
+    {
+      "path": "docs/e4-activity-session/tests.json",
+      "sha256": "cac29535d75ff70eeb76331b5e3aab5376ce93a7cc4d01884c0253e509fbbeaf"
+    },
+    {
+      "path": "docs/e4-activity-session/report.json",
+      "sha256": "eaca5619c91841a885cae03738ffeeeda357ac3f035ae87b34300913761e03f8"
+    },
+    {
+      "path": "docs/e4-activity-session/isolation.json",
+      "sha256": "f3f29b91b0e425fe7267e1f8eb8c72f3ada919df2f4e738b0ab296c11fb1c34b"
+    },
+    {
+      "path": "docs/e4-activity-session/ops-release-manifest.json",
+      "sha256": "c1bb0bcca6c705193b5638610247c02aaec859020065bddcb379c89950511500"
+    },
+    {
+      "path": "docs/e4-activity-session/preflight.json",
+      "sha256": "81c939b42d253984c4496a27d5c9ddcb51d7aa93c9c37c73c02676b1946a7d49"
+    },
+    {
+      "path": "docs/e4-activity-session/rollback-rehearsal.json",
+      "sha256": "32c6455d3fd71eaa14fa61d9ad87cd1c2264f3075b8e69e67724cb464e1b1610"
+    },
+    {
+      "path": "docs/e4-activity-session/legacy-rehearsal.json",
+      "sha256": "7ebc6214b49c070e81326cc7948403d8b8afb07f8ced7893caeb4a5fe0059882"
+    },
+    {
+      "path": "docs/e4-activity-session/postgres-rehearsal.json",
+      "sha256": "30f7a049ae2b119afc062bd7718ee086e8b8d64118c4da1a2369ebd3def41f1a"
+    },
+    {
+      "path": "docs/e4-activity-session/ops-tests.json",
+      "sha256": "21640211f5236b239fc8667fa093e5a7ce7266f1a8f676a52dd2c843cb693604"
+    },
+    {
+      "path": "docs/e4-activity-session/run-context.json",
+      "sha256": "c461f085ae62c29aaf645f914994c1e164ed8a57d4423054aa8ea417cd5e6fc3"
+    },
+    {
+      "path": "docs/e4-activity-session/mutations.json",
+      "sha256": "fb3446a031300eb63e112beefc5b0c3c1c3a9e974fd3736e7ee3d8ab9f283fd6"
+    },
+    {
+      "path": "docs/e4-activity-session/gitleaks-report.json",
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "path": "docs/e4-activity-session/security-probe.py",
+      "sha256": "96cbe2e74809eb0f6a42942e87015d5f30c4d6c2a6a29b04481b9c0fc9a69203"
+    },
+    {
+      "path": "docs/e4-activity-session/security-probe-result.json",
+      "sha256": "957a41bca79eec37550261be2c2fad4ec7a0e68b4e75ad32096b50dc17a4967d"
+    },
+    {
+      "path": "docs/e4-activity-session/security-ops-probe.py",
+      "sha256": "6fe558627736f6417517cc5c25c3ce1650bf50aab397e988f86a53c59bff2c3c"
+    },
+    {
+      "path": "docs/e4-activity-session/security-ops-probe-result.json",
+      "sha256": "48943868aa01f3c2b698ed6053120f7d782518ac0bc9e0b4154e92ee0a15689e"
+    }
+  ],
+  "inputSetSha256": "cf80b96f6e5d84b5f9917f637b186bdb8ee2004a8bd796ea7ff1091ceab40c8b",
+  "reviewedScope": [
+    "New activity_read_store.py: owner validation, accepted store classes, fixed placeholders, one owner-correlated latest-session SELECT, bounded status enum and suppression of closed/unknown session links",
+    "api_history: unchanged signed-header authentication and owner source; additive activity-reader call and public state projection; no per-row provider/session/action polling",
+    "historyStatus/renderHistoryOrders: pending-only closed-session label/advice, receipt/order precedence and stale-link suppression with unchanged support/evidence/deadline behavior",
+    "Independent full review of deploy/e4_activity_session_rollout.py, its tests, manifest/preflight/rehearsal and explicit partial-publication rollback behavior",
+    "Final primary tests, real isolated PostgreSQL and exact retained-live dependency rehearsals, browser report/cleanup and redacted staged scan"
+  ],
+  "conclusions": [
+    "The signed Telegram subject is the sole history owner. Query user_id or foreign session proof cannot switch owners; invalid owners are rejected before SQL.",
+    "The latest session is selected by highest id within the same owner-scoped SQL statement as its order and link. Older active rows cannot revive a closed or unknown latest session.",
+    "Failed and expired metadata describe session closure only. Missing, null and unrecognized status remain unknown without a link; no payment, refund, order-failure or network-finality claim is inferred.",
+    "Receipt-sent, paid/sent and terminal order status retain precedence. The new closure advice is a constant string and still suppresses a stale closed-session link supplied by an inconsistent client row.",
+    "The new reader reuses configured connection authority; it adds no provider request, writer, credential, permission, dependency, polling or automatic retry.",
+    "A separate reader avoids publishing unrelated checkout drift into the shared bot repository. Compatibility with the exact preserved live helper is independently evidenced.",
+    "The deployment recipe publishes only module/main/HTML, preserves the shared repository hash, retains fsynced byte/metadata preimages, restarts Relay only and prohibits blind replay after uncertainty.",
+    "Rollback retains the additive module until old main has been restored and Relay restarted. Independent probes restored all partial states and a submitted-restart/lost-acknowledgement state exactly.",
+    "Autopilot remains failed with MainPID zero; this reviewer performed no production/customer reads, mutations, service restarts, provider calls or network probes."
+  ],
+  "verification": {
+    "independentDataProbe": "15 owned synthetic rows; one query-only SQLite SELECT; foreign/orphan exclusion; reversed timestamp/id ordering; invalid owner rejection; known/unknown/closed status handling; signed owner ignores foreign query authority; 272 exact-source UI combinations PASS",
+    "independentPGScope": "Captured parameterized PostgreSQL statement and arguments without opening a connection; actual PostgreSQL execution is separately evidenced by the reviewed primary rehearsal",
+    "independentTests": "83 activity-contract/receipt tests PASS in 5.88s; 14 deployment tests PASS in 0.70s",
+    "independentFaultProbe": "Explicit exact rollback after 0/1/2/3 published files and restart-submitted/acknowledgement-lost; observe-only reconciliation submitted no restart; all temporary directories removed",
+    "primaryFocusedTests": "316 PASS; all recorded input hashes and raw test-output SHA256 independently checked",
+    "browser": "186 PASS; final source/runner hashes match; zero page errors, zero native sockets, collected/inactive unit, MainPID zero and empty cgroup",
+    "databaseRehearsals": "13 cases against retained exact live dependency and 13 cases on PostgreSQL 17.11 in pinned networkless container with actual read-only query session; container and temporary directory removed",
+    "mutations": "Three recorded mutants killed: timestamp-selected session, closed-session link exposure and closed-session UI action",
+    "preflight": "Baseline public GET200/POST405 and unauthenticated history GET403; no customer rows; exact preserved shared dependency and active service identities; rollback rehearsal PASS",
+    "scanner": "Actual staged Gitleaks report contains zero findings; independent review-directory scan PASS with zero findings"
+  },
+  "outOfScopeObservations": [
+    {
+      "id": "SESSION-LEGACY-READ-DRIFT",
+      "classification": "Pre-existing compatibility issue outside this activity slice",
+      "observation": "Read-only inspection confirms deployed main calls authorized_snapshot and authorized latest-session helpers absent from its deployed shared repository versions. The new activity reader uses compatible _c/_dict instead and does not modify those other call paths.",
+      "runtimeSourceProvenance": [
+        {
+          "path": "/opt/obsidian-exchange/relay/repositories/order_read_store.py",
+          "sha256": "2cc91c733a8388ac2f643016fe192f7687ef0c44b79305d23fed50dcfd2ca06d"
+        },
+        {
+          "path": "/opt/obsidian-exchange/relay/repositories/payment_session_store.py",
+          "sha256": "eb41d099a06beac4251190d10221467bdca4b21db7bc97dba687dd8d40653b8e"
+        }
+      ],
+      "disposition": "Primary assigns separate next E4 read-contract compatibility work. This PASS does not certify /api/order, /pay or all payment surfaces."
+    }
+  ],
+  "limitations": [
+    "This is an activity-only security/diff and deployment-recipe review, not a full application audit or full E4 acceptance.",
+    "Synthetic fixtures and public unauthenticated probes do not prove actual customer incidence, payment outcomes, human comprehension, Telegram/iOS/WebKit or screen-reader behavior.",
+    "Production readiness of authenticated SQL is supported by exact-byte isolated rehearsals; no live customer query was executed by the reviewer.",
+    "Routine authorized Relay restart resumes existing enabled payment/notification workers. This review does not claim their existing effects are disabled or zero.",
+    "Deployment remains the primary operator action; runtime application/post-deploy verification are not claimed by this pre-deploy gate."
+  ],
+  "reviewerDirectoryScan": {
+    "command": [
+      "gitleaks",
+      "dir",
+      "docs/e4-activity-session",
+      "--redact",
+      "--report-format",
+      "json",
+      "--report-path",
+      "output/manual/e4-activity-session-20260908/reviewer-dir-gitleaks.json"
+    ],
+    "result": "PASS",
+    "findings": 0,
+    "reportPath": "output/manual/e4-activity-session-20260908/reviewer-dir-gitleaks.json"
+  },
+  "productionMutationsByReviewer": false
+}
