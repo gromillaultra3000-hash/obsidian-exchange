@@ -1,0 +1,69 @@
+{
+  "recordedAt": "2026-09-08T02:53:05.417287+00:00",
+  "result": "PASS",
+  "command": [
+    "/opt/lumi/venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "tests/test_e4_payment_pending_receipt_behavior.py",
+    "tests/test_e4_payment_terminal_behavior.py",
+    "tests/test_e4_payment_status_read_contract.py",
+    "tests/test_order_access.py",
+    "tests/test_e0_3_numeric_pay_token_guard.py",
+    "tests/test_e4_payment_instruction_behavior.py",
+    "tests/test_e4_payment_requisites_copy_behavior.py",
+    "tests/test_relay_runtime_isolation.py",
+    "tests/test_e0_4_authenticated_synthetic_reads.py"
+  ],
+  "exitCode": 0,
+  "summary": "141 passed in 9.04s",
+  "inputs": [
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "4ee1c62ee72734f0f403ec1a438f829fb800989f893dca2b24a184eb5cd1ecf7"
+    },
+    {
+      "path": "tests/e4_payment_terminal_behavior.cjs",
+      "sha256": "efaecfef55af7587c3a4656a2f1e545195bbbac809415a783c492d659d996bb9"
+    },
+    {
+      "path": "tests/test_e4_payment_terminal_behavior.py",
+      "sha256": "f3ae7ad4661d904ae206441e29b13f574861b11a191d965e59d3b908d19a6d77"
+    },
+    {
+      "path": "tests/test_e4_payment_status_read_contract.py",
+      "sha256": "7d7ab67d075f95329e0376fe66991acd8fbbfcc288899acc50eb10a692509c26"
+    },
+    {
+      "path": "tests/test_order_access.py",
+      "sha256": "ebf8941ca0c125d08b6b975924dba5862f07621a0c723e03eefbcab46a44ed58"
+    },
+    {
+      "path": "tests/test_e0_3_numeric_pay_token_guard.py",
+      "sha256": "99238ba9bb7e7d6811388f6d9bb7ab055c16e068fff5b0ce24a2604aed85bd85"
+    },
+    {
+      "path": "tests/test_e4_payment_instruction_behavior.py",
+      "sha256": "b425ababa71e51d8f977214303553bd011509d2bb5dd9c8a0bf2ea2ef218b3ea"
+    },
+    {
+      "path": "tests/test_e4_payment_requisites_copy_behavior.py",
+      "sha256": "3b0e45d530c32e872ac54222120544e4bd63467cf1e33373d44105b7b8230a3a"
+    },
+    {
+      "path": "tests/test_relay_runtime_isolation.py",
+      "sha256": "eeed65198d8762984cbaba3318e53554111dfb132e477460763c1f2d868933be"
+    },
+    {
+      "path": "tests/test_e0_4_authenticated_synthetic_reads.py",
+      "sha256": "d488f5d61b00b3fe9a9188a2c495a87ab95b7f5675675768d5a8282ad6f0065c"
+    },
+    {
+      "path": "tests/test_e4_payment_pending_receipt_behavior.py",
+      "sha256": "0d94fc59e5da0cdb405d5c49e1ca189c4d74da37680263c4ba8a6b4b3d445449"
+    }
+  ]
+}

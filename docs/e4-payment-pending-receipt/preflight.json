@@ -1,0 +1,114 @@
+{
+  "recordedAt": "2026-09-08T02:52:41.040286+00:00",
+  "result": "PASS",
+  "inputs": [
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "4ee1c62ee72734f0f403ec1a438f829fb800989f893dca2b24a184eb5cd1ecf7"
+    },
+    {
+      "path": "deploy/e4_payment_pending_receipt_rollout.py",
+      "sha256": "302ec469faf1523393228879a144c9c3151d027b37ca0c66d2319a4d7bb59940"
+    }
+  ],
+  "manifest": [
+    {
+      "path": "docs/e4-payment-pending-receipt/ops-release-manifest.json",
+      "sha256": "8fe2229420716f7cee083896030d8784498750a06cd7f61aedcafc47a89214c0"
+    }
+  ],
+  "services": {
+    "relay-fastapi.service": {
+      "MainPID": "2945610",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Tue 2026-09-08 02:38:15 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    },
+    "exchange-bot.service": {
+      "MainPID": "3877887",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Tue 2026-09-01 06:20:00 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    },
+    "nginx.service": {
+      "MainPID": "3877705",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:56 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    },
+    "obsidian-postgres.service": {
+      "MainPID": "3136948",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Mon 2026-08-24 05:08:51 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    }
+  },
+  "publicChecks": [
+    {
+      "path": "/webapp",
+      "method": "GET",
+      "status": 200,
+      "authenticated": false,
+      "publicMatchesDeployedTemplate": true,
+      "inputs": [
+        {
+          "path": "https://obsidian-exchange.org/webapp",
+          "sha256": "0944b4ddf679d021e3347a492404824dc7734a2c40c353e3b769c40cbf90dbf4"
+        }
+      ]
+    },
+    {
+      "path": "/webapp",
+      "method": "POST",
+      "status": 405,
+      "authenticated": false
+    },
+    {
+      "path": "/api/history",
+      "method": "GET",
+      "status": 403,
+      "authenticated": false,
+      "customerRowsReturned": 0
+    },
+    {
+      "path": "/api/order/0",
+      "method": "GET",
+      "status": 404,
+      "authenticated": false
+    },
+    {
+      "path": "/pay/0",
+      "method": "GET",
+      "status": 404,
+      "authenticated": false
+    }
+  ],
+  "autopilot": {
+    "MainPID": "0",
+    "NRestarts": "0",
+    "ExecMainStartTimestamp": "Mon 2026-09-07 04:40:24 UTC",
+    "ActiveState": "failed",
+    "SubState": "failed"
+  },
+  "presentationScope": {
+    "outsideNumericPresentationAndInlineScriptByteExact": true,
+    "pythonInterpolationsOutsideNumericPresentationExact": true,
+    "numericPresentationUsesOnlyLocalNamesAndPureDisplayCalls": true,
+    "apiDatabaseAuthenticationAndRedirectCodeUnchanged": true,
+    "inputs": [
+      {
+        "path": "output/manual/e4-payment-pending-receipt-20260908/baseline/relay-fastapi/main.py",
+        "sha256": "a399f55e9efb4e5092a072cf30baf6f2c6791ddbcb5dcdbee210526d8665ffc5"
+      },
+      {
+        "path": "relay-fastapi/main.py",
+        "sha256": "4ee1c62ee72734f0f403ec1a438f829fb800989f893dca2b24a184eb5cd1ecf7"
+      }
+    ]
+  },
+  "runtimeMutated": false
+}

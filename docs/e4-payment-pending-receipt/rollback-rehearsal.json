@@ -1,0 +1,22 @@
+{
+  "recordedAt": "2026-09-08T02:52:40.717098+00:00",
+  "result": "PASS",
+  "inputs": [
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "4ee1c62ee72734f0f403ec1a438f829fb800989f893dca2b24a184eb5cd1ecf7"
+    },
+    {
+      "path": "deploy/e4_payment_pending_receipt_rollout.py",
+      "sha256": "302ec469faf1523393228879a144c9c3151d027b37ca0c66d2319a4d7bb59940"
+    }
+  ],
+  "productionTouched": false,
+  "cleanupVerified": true,
+  "cases": [
+    "relay-fastapi/main.py:blind_replay_rejected",
+    "relay-fastapi/main.py:exact_baseline_restored",
+    "fsynced_atomic_journal_replacement"
+  ],
+  "limits": "Atomic file/preimage mechanics only; production restart is not rehearsed."
+}

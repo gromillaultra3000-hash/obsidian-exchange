@@ -3242,9 +3242,10 @@ async def pay(token: str, request: Request):
             if o_status in (None, '', 'pending'):
                 o_status = '_receipt_unavailable' if _closed_session else '_receipt'
         if o_status in (None, '', 'pending') and _closed_session:
-            o_status = '_session_closed'
+            o_status = '_receipt_stored_unavailable' if _rcpt == 'stored' else '_session_closed'
         _titles = {'_receipt': ('Чек получен — проверяем', 'Заявка не отменена и не истекла. Как только платёж подтвердится, крипта уйдёт на ваш адрес. Обычно до 30 минут.'),
                    '_session_closed': ('Реквизиты недоступны', 'Не переводите по прежним реквизитам. Если уже оплатили — не платите повторно и обратитесь в поддержку.'),
+                   '_receipt_stored_unavailable': ('Файл чека получен', 'Реквизиты недоступны. Платёжному партнёру файл пока не передан. Повторно не переводите и новую заявку не создавайте. Обратитесь в поддержку для проверки статуса.'),
                    '_receipt_unavailable': ('Чек получен, реквизиты недоступны', 'Повторно не переводите и новую заявку не создавайте. Обратитесь в поддержку для проверки статуса.'),
                    'pending': ('Реквизиты готовятся', 'Платёжный маршрут ещё не выдал реквизиты. Откройте бота — там появится кнопка оплаты, или создайте заявку заново.'),
                    'paid': ('Оплата получена', 'Готовим выплату криптовалюты. Уведомим в Telegram.'),
@@ -3621,10 +3622,21 @@ function render(){{
   else if (C.receipt==='sent') v.innerHTML=viewReceipt();
   // Мёртвая сессия важнее живого таймера: срок ещё идёт, а платить уже некуда.
   else if (C.dead) v.innerHTML=viewDead();
-  else if (_localExpired && C.receipt) v.innerHTML=viewReceiptStored();
+  else if (_localExpired && C.receipt==='stored') v.innerHTML=viewReceiptStored();
   else if (_localExpired) v.innerHTML=viewExpired();
   // 'stored' до истечения срока — реквизиты показываем: клиент мог ещё не платить.
   else {{ v.innerHTML=viewPay(); startTimer(); }}
+  // Keep file evidence alongside unavailable instructions or a verification
+  // request. Neither receipt storage nor delivery confirms the order's payment.
+  if (C.status==='pending' && C.dead &&
+      (C.receipt==='stored' || (C.receipt==='sent' && C.verification))) {{
+    const receiptNote = C.receipt==='stored'
+      ? 'Файл чека получен, но платёжному партнёру пока не передан.'
+      : 'Чек получен и передан платёжному партнёру.';
+    const advice = C.verification
+      ? `<b>Повторно не переводите и новую заявку не создавайте.</b> ${{SUPPORT}}` : '';
+    v.innerHTML += `<div class="hint pending-receipt-evidence">${{receiptNote}} ${{advice}}</div>`;
+  }}
 }}
 function startTimer(){{
   if(!C.expiresAt) return;

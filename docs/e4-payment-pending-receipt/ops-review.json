@@ -1,0 +1,151 @@
+{
+  "recordedAt": "2026-09-08T02:53:22.816241+00:00",
+  "result": "PASS",
+  "route": "E4 / PAYMENT_STATUS_PENDING_RECEIPT_EVIDENCE_CONSISTENCY",
+  "reviewer": "session_ops",
+  "independence": "Operational assessment independent of product author. This agent authored the recipe and its tests; acceptance and security agents independently review the recipe before production deployment.",
+  "inputs": [
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "4ee1c62ee72734f0f403ec1a438f829fb800989f893dca2b24a184eb5cd1ecf7"
+    },
+    {
+      "path": "deploy/e4_payment_pending_receipt_rollout.py",
+      "sha256": "302ec469faf1523393228879a144c9c3151d027b37ca0c66d2319a4d7bb59940"
+    },
+    {
+      "path": "tests/test_e4_payment_pending_receipt_rollout.py",
+      "sha256": "e24b0b1406c1960adc91041c52afea9e337eda38f8f4f8f571bbe82d9dcaed64"
+    },
+    {
+      "path": "docs/e4-payment-pending-receipt/ops-baseline.json",
+      "sha256": "1b5879466d8838f328ca27c7a63a9882f715303246f46f78b6e6a6ec8ed00a43"
+    },
+    {
+      "path": "docs/e4-payment-pending-receipt/ops-release-manifest.json",
+      "sha256": "8fe2229420716f7cee083896030d8784498750a06cd7f61aedcafc47a89214c0"
+    },
+    {
+      "path": "docs/e4-payment-pending-receipt/preflight.json",
+      "sha256": "f22283114e5a5435546e44b3c3b149b568ca65dbe7dd9104b1d88995b51fb00f"
+    },
+    {
+      "path": "docs/e4-payment-pending-receipt/rollback-rehearsal.json",
+      "sha256": "009d703704d4965830c54c7276e295e736a8d2f4698f7b3cee003a7a4f34812c"
+    },
+    {
+      "path": "docs/e4-payment-pending-receipt/ops-tests.json",
+      "sha256": "daf3eecaecc3ba2f3ecf8d0bb32347e0a6c47a106ef93f9205deb8c60c0292a2"
+    },
+    {
+      "path": "docs/e4-payment-pending-receipt/ops-scope-proof.json",
+      "sha256": "e5d562e9726207f4dc8cf45abdd2ef4c49175ac981b065af6b3db8d5293708a6"
+    }
+  ],
+  "targetCount": 1,
+  "preservedCount": 16,
+  "baselineExact": true,
+  "preservedExact": true,
+  "preflightResult": "PASS",
+  "autopilot": {
+    "MainPID": "0",
+    "NRestarts": "0",
+    "ExecMainStartTimestamp": "Mon 2026-09-07 04:40:24 UTC",
+    "ActiveState": "failed",
+    "SubState": "failed"
+  },
+  "serviceIdentityBaseline": {
+    "relay-fastapi.service": {
+      "MainPID": "2945610",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Tue 2026-09-08 02:38:15 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    },
+    "exchange-bot.service": {
+      "MainPID": "3877887",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Tue 2026-09-01 06:20:00 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    },
+    "nginx.service": {
+      "MainPID": "3877705",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:56 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    },
+    "obsidian-postgres.service": {
+      "MainPID": "3136948",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Mon 2026-08-24 05:08:51 UTC",
+      "ActiveState": "active",
+      "SubState": "running"
+    }
+  },
+  "publicChecks": [
+    {
+      "path": "/webapp",
+      "method": "GET",
+      "status": 200,
+      "authenticated": false,
+      "publicMatchesDeployedTemplate": true,
+      "inputs": [
+        {
+          "path": "https://obsidian-exchange.org/webapp",
+          "sha256": "0944b4ddf679d021e3347a492404824dc7734a2c40c353e3b769c40cbf90dbf4"
+        }
+      ]
+    },
+    {
+      "path": "/webapp",
+      "method": "POST",
+      "status": 405,
+      "authenticated": false
+    },
+    {
+      "path": "/api/history",
+      "method": "GET",
+      "status": 403,
+      "authenticated": false,
+      "customerRowsReturned": 0
+    },
+    {
+      "path": "/api/order/0",
+      "method": "GET",
+      "status": 404,
+      "authenticated": false
+    },
+    {
+      "path": "/pay/0",
+      "method": "GET",
+      "status": 404,
+      "authenticated": false
+    }
+  ],
+  "preExistingRepositoryDriftExcluded": [
+    "relay/repositories/order_read_store.py",
+    "relay/repositories/payment_session_store.py",
+    "relay/repositories/receipt_store.py"
+  ],
+  "rollout": [
+    "Primary deployer runs deploy once after final focused tests, exact browser evidence and both independent reviews PASS and bind the candidate/recipe.",
+    "Only main.py is atomically replaced with exact live uid/gid/mode/mtime/xattrs; private fsynced preimages and metadata precede publication.",
+    "Only Relay is restarted; bot/nginx/Postgres identities must stay unchanged. Public probes use no authentication or customer records."
+  ],
+  "interruptionPolicy": [
+    "Reconcile observes known old/candidate bytes and service/journal state, without replay.",
+    "Explicit rollback is allowed only before rollback has started, using verified preimages and known live bytes.",
+    "Interrupted ROLLBACK states require independent inspection and manual completion; automatic replay is refused."
+  ],
+  "rollback": "Restore only previous main.py and metadata, restart only Relay, verify public responses and16 preserved files.",
+  "runtimeMutated": false,
+  "customerDataRead": false,
+  "databaseRead": false,
+  "blockers": [],
+  "limits": [
+    "No production restart or rollback executed by this agent.",
+    "No database/container rehearsal is needed for the source-bounded presentation change."
+  ]
+}

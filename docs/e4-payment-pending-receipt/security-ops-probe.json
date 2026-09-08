@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "e4-payment-pending-receipt-independent-ops-probe.v1",
+  "result": "PASS",
+  "inputs": [
+    {
+      "path": "docs/e4-payment-pending-receipt/security-ops-probe.py",
+      "sha256": "1e96af8acd359b9bbb9e821a679806f71bd4ef5c34056766cf3ac23f94b207a4"
+    },
+    {
+      "path": "deploy/e4_payment_pending_receipt_rollout.py",
+      "sha256": "302ec469faf1523393228879a144c9c3151d027b37ca0c66d2319a4d7bb59940"
+    },
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "4ee1c62ee72734f0f403ec1a438f829fb800989f893dca2b24a184eb5cd1ecf7"
+    }
+  ],
+  "cases": [
+    {
+      "case": "normal-round-trip",
+      "result": "PASS",
+      "reconciliationSubmittedNoRestart": true,
+      "exactOriginalBytesMetadataRestored": true,
+      "preservedFileUnchanged": true,
+      "restartCount": 2
+    },
+    {
+      "case": "before-publication",
+      "result": "PASS",
+      "reconciliationSubmittedNoRestart": true,
+      "exactOriginalBytesMetadataRestored": true,
+      "preservedFileUnchanged": true,
+      "restartCount": 1
+    },
+    {
+      "case": "after-publication",
+      "result": "PASS",
+      "reconciliationSubmittedNoRestart": true,
+      "exactOriginalBytesMetadataRestored": true,
+      "preservedFileUnchanged": true,
+      "restartCount": 1
+    },
+    {
+      "case": "restart-acknowledgement-lost",
+      "result": "PASS",
+      "reconciliationSubmittedNoRestart": true,
+      "exactOriginalBytesMetadataRestored": true,
+      "preservedFileUnchanged": true,
+      "restartCount": 2
+    }
+  ],
+  "temporaryDirectoriesRemoved": true,
+  "productionReadsWritesNetworkRestarts": false,
+  "scope": "Actual single-file journal, publication, reconciliation and rollback functions on disposable files; only upstream gates and service/public observations are mocked."
+}

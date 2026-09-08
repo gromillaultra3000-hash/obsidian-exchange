@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "e4-pending-receipt-independent-security-probe.v1",
+  "result": "PASS",
+  "baselineHead": "b848d6f429f5b4f79478b41849c70a73d793ce1b",
+  "inputs": [
+    {
+      "path": "docs/e4-payment-pending-receipt/security-probe.py",
+      "sha256": "b10414a3b24474353324e106bbbb41bd410e196b9ca8315414c09d0ae102b1bc"
+    },
+    {
+      "path": "relay/core/requisites.py",
+      "sha256": "a6c9eb87a236081095eb8213828b4ea33e9296d6f1bb8696d2e91c9733aca507"
+    },
+    {
+      "path": "relay/services/requisite_origin.py",
+      "sha256": "5552f1c274bc2e7721068bf7db69564ca360d5065920cebbb17c022df4335398"
+    },
+    {
+      "path": "relay/core/txid.py",
+      "sha256": "726b98d97696578b0883f5a14eca119f9bc4ce0fd92f409617edf1190129f824"
+    },
+    {
+      "path": "relay/core/order_access.py",
+      "sha256": "15d996a1450ff898ef62b3e43c048069c2c4dc60863399bcba144cfd46c69a0f"
+    },
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "4ee1c62ee72734f0f403ec1a438f829fb800989f893dca2b24a184eb5cd1ecf7"
+    }
+  ],
+  "executedSourceSha256": "4ee1c62ee72734f0f403ec1a438f829fb800989f893dca2b24a184eb5cd1ecf7",
+  "cases": 122,
+  "passingCases": 122,
+  "failingCases": 0,
+  "failures": [],
+  "securityChecks": {
+    "scriptJSONEscapingPreserved": true,
+    "copyUsesQuotedLiteralDataAndConstantHandler": true,
+    "injectedCodeExecuted": false,
+    "pollsOnlyStatusGET": true,
+    "authReadRedirectSerializationAndOtherFunctionsASTUnchanged": true,
+    "numericPresentationPureLocalOperationsOnly": true,
+    "adapterProofMiniAppBytesUnchanged": true
+  },
+  "scope": "Exact AST-isolated pay page with synthetic provider data, actual inline JavaScript in Node VM, numeric proof replaced by an inert verifier. No application import, database, provider, host credentials, production request or service operation.",
+  "productionReadsWritesNetworkRestarts": false
+}

@@ -1,0 +1,33 @@
+{
+  "recordedAt": "2026-09-08T02:53:22.814128+00:00",
+  "result": "PASS",
+  "route": "E4 / PAYMENT_STATUS_PENDING_RECEIPT_EVIDENCE_CONSISTENCY",
+  "inputs": [
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "4ee1c62ee72734f0f403ec1a438f829fb800989f893dca2b24a184eb5cd1ecf7"
+    },
+    {
+      "path": "deploy/e4_payment_pending_receipt_rollout.py",
+      "sha256": "302ec469faf1523393228879a144c9c3151d027b37ca0c66d2319a4d7bb59940"
+    }
+  ],
+  "proof": {
+    "outsideNumericPresentationAndInlineScriptByteExact": true,
+    "pythonInterpolationsOutsideNumericPresentationExact": true,
+    "numericPresentationUsesOnlyLocalNamesAndPureDisplayCalls": true,
+    "apiDatabaseAuthenticationAndRedirectCodeUnchanged": true,
+    "inputs": [
+      {
+        "path": "output/manual/e4-payment-pending-receipt-20260908/baseline/relay-fastapi/main.py",
+        "sha256": "a399f55e9efb4e5092a072cf30baf6f2c6791ddbcb5dcdbee210526d8665ffc5"
+      },
+      {
+        "path": "relay-fastapi/main.py",
+        "sha256": "4ee1c62ee72734f0f403ec1a438f829fb800989f893dca2b24a184eb5cd1ecf7"
+      }
+    ]
+  },
+  "postgresRehearsalRequired": false,
+  "reason": "Exact source outside numeric display block and inline payment script is unchanged; remaining Python interpolation AST is identical. Numeric block uses only existing local display names and pure display calls. All database/auth dependencies stay exact live bytes."
+}

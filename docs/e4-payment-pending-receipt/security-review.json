@@ -1,0 +1,282 @@
+{
+  "schemaVersion": "e4-pending-receipt-independent-security-review.v1",
+  "recordedAt": "2026-09-08T02:56:40.113464+00:00",
+  "route": "E4 / PAYMENT_STATUS_PENDING_RECEIPT_EVIDENCE_CONSISTENCY",
+  "baselineHead": "b848d6f429f5b4f79478b41849c70a73d793ce1b",
+  "result": "PASS",
+  "reviewer": "Independent security/diff reviewer; product and deployment recipe authored by other agents.",
+  "skillApplied": "Continuation of previously read security-best-practices Python/FastAPI and JavaScript guidance.",
+  "inputs": [
+    {
+      "path": "deploy/e4_payment_pending_receipt_rollout.py",
+      "sha256": "302ec469faf1523393228879a144c9c3151d027b37ca0c66d2319a4d7bb59940"
+    },
+    {
+      "path": "deploy/postgres/007_payment_sessions.sql",
+      "sha256": "12f598e6d4284f18ee0d91630955f0e075a1c3179fbb35a617dfaede2d7e7be3"
+    },
+    {
+      "path": "docs/e4-payment-pending-receipt/320-numeric-pending-stored-unavailable-none.png",
+      "sha256": "05b8314c94623d3659f69210ada5a8dc1dcc0f38529903ad2e411b16a0e37b8d"
+    },
+    {
+      "path": "docs/e4-payment-pending-receipt/320-pending-stored-unavailable-none.png",
+      "sha256": "45121c15de349665566cd5e22bedeec2f4206d3838eb66a97aefca4298405310"
+    },
+    {
+      "path": "docs/e4-payment-pending-receipt/320-pending-stored-unavailable-video.png",
+      "sha256": "80382d69b3dee77084a1ae08ffe6cef526ba693b90fae4c9dc80b74f05b4a021"
+    },
+    {
+      "path": "docs/e4-payment-pending-receipt/acceptance-pages.json",
+      "sha256": "368e6677770b02265d6e9f440a33b76ec77a6da98b3af8f8a39c7e0ec205ccc5"
+    },
+    {
+      "path": "docs/e4-payment-pending-receipt/acceptance-probe.json",
+      "sha256": "d71b354a09471873c979037112b5057b6c86539d5698fd1f74b1ecc3889a374e"
+    },
+    {
+      "path": "docs/e4-payment-pending-receipt/acceptance-probe.py",
+      "sha256": "aff55fc26ef37354bf3ae52839b8cd8b5b2f6cd40730e0d6af32c56fcdc00925"
+    },
+    {
+      "path": "docs/e4-payment-pending-receipt/acceptance-run-browser.py",
+      "sha256": "a10a0fb558193825d7f7b7792d6c4661d8907b7d50a36e8e37f25a2a4f27bbf2"
+    },
+    {
+      "path": "docs/e4-payment-pending-receipt/acceptance-surface.json",
+      "sha256": "4a441b295622af685c448900219c1d41eed07b7cac414997e02205499e52349e"
+    },
+    {
+      "path": "docs/e4-payment-pending-receipt/acceptance-surface.py",
+      "sha256": "b68fbd64e0b294af7174b13add87a7cc012f44f829585267b7c4b49f68dcfcb5"
+    },
+    {
+      "path": "docs/e4-payment-pending-receipt/contract.md",
+      "sha256": "51773ad317dba9c8ad2a856e179ed622ddc43a3987e734bf32f1a35a36c4b37a"
+    },
+    {
+      "path": "docs/e4-payment-pending-receipt/ops-baseline.json",
+      "sha256": "1b5879466d8838f328ca27c7a63a9882f715303246f46f78b6e6a6ec8ed00a43"
+    },
+    {
+      "path": "docs/e4-payment-pending-receipt/ops-release-manifest.json",
+      "sha256": "8fe2229420716f7cee083896030d8784498750a06cd7f61aedcafc47a89214c0"
+    },
+    {
+      "path": "docs/e4-payment-pending-receipt/ops-review.json",
+      "sha256": "ddd717c8c39b4d4475a77244d728e47d046efd27b75c45422d49b44978d25d7f"
+    },
+    {
+      "path": "docs/e4-payment-pending-receipt/ops-scope-proof.json",
+      "sha256": "e5d562e9726207f4dc8cf45abdd2ef4c49175ac981b065af6b3db8d5293708a6"
+    },
+    {
+      "path": "docs/e4-payment-pending-receipt/ops-tests.json",
+      "sha256": "daf3eecaecc3ba2f3ecf8d0bb32347e0a6c47a106ef93f9205deb8c60c0292a2"
+    },
+    {
+      "path": "docs/e4-payment-pending-receipt/payment-browser-isolation.json",
+      "sha256": "7cb23cd435059eb87977cb4e88c0576bd0b6ffff869f55411389558246e31730"
+    },
+    {
+      "path": "docs/e4-payment-pending-receipt/payment-browser-report.json",
+      "sha256": "cab463e26422456b1b9dc62e0f8dddae5fc21bd5b6f780279d133e07ee514cee"
+    },
+    {
+      "path": "docs/e4-payment-pending-receipt/preflight.json",
+      "sha256": "f22283114e5a5435546e44b3c3b149b568ca65dbe7dd9104b1d88995b51fb00f"
+    },
+    {
+      "path": "docs/e4-payment-pending-receipt/rollback-rehearsal.json",
+      "sha256": "009d703704d4965830c54c7276e295e736a8d2f4698f7b3cee003a7a4f34812c"
+    },
+    {
+      "path": "docs/e4-payment-pending-receipt/secret-scan-findings.json",
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "path": "docs/e4-payment-pending-receipt/secret-scan.json",
+      "sha256": "57b957541f0b0ab2a1410886057b3c13761ad6ebbe6e16794147eabb5089a71b"
+    },
+    {
+      "path": "docs/e4-payment-pending-receipt/security-baseline.json",
+      "sha256": "2c69cab23b0c1d4931dbbd46ba16c96b2008bc73f431a55e9aa4c6954c808260"
+    },
+    {
+      "path": "docs/e4-payment-pending-receipt/security-ops-probe.json",
+      "sha256": "0fa3ad359d2094080dd98e70a5b301180451498465911a0d55e89f44693fba8b"
+    },
+    {
+      "path": "docs/e4-payment-pending-receipt/security-ops-probe.py",
+      "sha256": "1e96af8acd359b9bbb9e821a679806f71bd4ef5c34056766cf3ac23f94b207a4"
+    },
+    {
+      "path": "docs/e4-payment-pending-receipt/security-probe.json",
+      "sha256": "643d32f979d67b96537472866ca5444bfbcbf5e97e2629627a5b4ef2389b9a82"
+    },
+    {
+      "path": "docs/e4-payment-pending-receipt/security-probe.py",
+      "sha256": "b10414a3b24474353324e106bbbb41bd410e196b9ca8315414c09d0ae102b1bc"
+    },
+    {
+      "path": "docs/e4-payment-pending-receipt/tests.json",
+      "sha256": "656a6bcce2bcab6209db0816a561ccda8f28a107ee219711de028407c20902c4"
+    },
+    {
+      "path": "relay-fastapi/main.py",
+      "sha256": "4ee1c62ee72734f0f403ec1a438f829fb800989f893dca2b24a184eb5cd1ecf7"
+    },
+    {
+      "path": "relay/core/order_access.py",
+      "sha256": "15d996a1450ff898ef62b3e43c048069c2c4dc60863399bcba144cfd46c69a0f"
+    },
+    {
+      "path": "relay/core/requisites.py",
+      "sha256": "a6c9eb87a236081095eb8213828b4ea33e9296d6f1bb8696d2e91c9733aca507"
+    },
+    {
+      "path": "relay/core/telegram_freshness.py",
+      "sha256": "40bef427a0daa3069e05565fdb65217836414ed581960b64f1cff5c1c266d601"
+    },
+    {
+      "path": "relay/core/txid.py",
+      "sha256": "726b98d97696578b0883f5a14eca119f9bc4ce0fd92f409617edf1190129f824"
+    },
+    {
+      "path": "relay/repositories/payment_status_read_store.py",
+      "sha256": "5cbd26d0335c0cf713aa4be9c87999773bbcc37ab89202a554a4811b6702b6f9"
+    },
+    {
+      "path": "relay/services/requisite_origin.py",
+      "sha256": "5552f1c274bc2e7721068bf7db69564ca360d5065920cebbb17c022df4335398"
+    },
+    {
+      "path": "scripts/run_e4_review_browser.py",
+      "sha256": "6f4c9bf3020ae80b323655333a1eb3697eca4d44672ef6d28c679749136c412b"
+    },
+    {
+      "path": "tests/e4_payment_pending_receipt_browser.cjs",
+      "sha256": "f8ee5388d51fde79f6fc29e6c90382fb5db95c3f3c42a406363fd0dfaf79ad4c"
+    },
+    {
+      "path": "tests/e4_payment_terminal_behavior.cjs",
+      "sha256": "efaecfef55af7587c3a4656a2f1e545195bbbac809415a783c492d659d996bb9"
+    },
+    {
+      "path": "tests/test_e0_3_numeric_pay_token_guard.py",
+      "sha256": "99238ba9bb7e7d6811388f6d9bb7ab055c16e068fff5b0ce24a2604aed85bd85"
+    },
+    {
+      "path": "tests/test_e0_4_authenticated_synthetic_reads.py",
+      "sha256": "d488f5d61b00b3fe9a9188a2c495a87ab95b7f5675675768d5a8282ad6f0065c"
+    },
+    {
+      "path": "tests/test_e4_payment_instruction_behavior.py",
+      "sha256": "b425ababa71e51d8f977214303553bd011509d2bb5dd9c8a0bf2ea2ef218b3ea"
+    },
+    {
+      "path": "tests/test_e4_payment_pending_receipt_behavior.py",
+      "sha256": "0d94fc59e5da0cdb405d5c49e1ca189c4d74da37680263c4ba8a6b4b3d445449"
+    },
+    {
+      "path": "tests/test_e4_payment_pending_receipt_rollout.py",
+      "sha256": "e24b0b1406c1960adc91041c52afea9e337eda38f8f4f8f571bbe82d9dcaed64"
+    },
+    {
+      "path": "tests/test_e4_payment_requisites_copy_behavior.py",
+      "sha256": "3b0e45d530c32e872ac54222120544e4bd63467cf1e33373d44105b7b8230a3a"
+    },
+    {
+      "path": "tests/test_e4_payment_status_read_contract.py",
+      "sha256": "7d7ab67d075f95329e0376fe66991acd8fbbfcc288899acc50eb10a692509c26"
+    },
+    {
+      "path": "tests/test_e4_payment_terminal_behavior.py",
+      "sha256": "f3ae7ad4661d904ae206441e29b13f574861b11a191d965e59d3b908d19a6d77"
+    },
+    {
+      "path": "tests/test_order_access.py",
+      "sha256": "ebf8941ca0c125d08b6b975924dba5862f07621a0c723e03eefbcab46a44ed58"
+    },
+    {
+      "path": "tests/test_relay_runtime_isolation.py",
+      "sha256": "eeed65198d8762984cbaba3318e53554111dfb132e477460763c1f2d868933be"
+    }
+  ],
+  "inputSetSha256": "97677021a6798daa65626709de5dc72cec31d0cc7068719df4847cdb0f6c9487",
+  "findings": [],
+  "resolvedObservations": [
+    "Pending orders with a stored receipt and unavailable requisites hid the file fact on numeric and opaque payment pages. The file fact is now explicit without treating storage as provider delivery or payment confirmation.",
+    "An unknown nonempty receipt value reached the stored-file view after local expiry. The predicate now requires the exact stored enum.",
+    "Unavailable-session receipt evidence is additive to the existing verification request; a delivered receipt is not relabelled as stored."
+  ],
+  "productAssessment": {
+    "onlyChangedProductFile": "relay-fastapi/main.py",
+    "numericPendingStoredUnavailableFactVisible": true,
+    "opaqueStoredFactVisibleWithVerificationAndTimer": true,
+    "verificationInstructionsPreserved": true,
+    "noUnprovedPaymentDeliveryReviewPayoutOrStaffAssignmentPromiseForStoredFile": true,
+    "unknownReceiptCreatesNoReceivedFileClaim": true,
+    "terminalPaidSentPrecedencePreserved": true,
+    "unavailableRequisitesHaveNoPaymentCopyQRControls": true,
+    "supportRouteStaticAndNoRepeatGuidancePresent": true,
+    "addedReceiptTextAndAdviceUseOnlyFixedStrings": true,
+    "JSONScriptEscapingAndQuotedDataValueCopyHandlerUnchanged": true,
+    "authReadSQLRedirectSerializationAndOtherFunctionCodeUnchanged": true,
+    "numericChangesRestrictedToPureLocalDisplayOperations": true,
+    "adapterProofAndMiniAppBytesUnchanged": true,
+    "noNewMoneyProviderDatabaseOrMessagingWriter": true
+  },
+  "independentValidation": {
+    "actualPayHTMLAndNodeVMCaseCount": 122,
+    "baselineFailingCases": 12,
+    "baselinePreservedControls": 110,
+    "opaquePendingReceiptVerificationDeadTimerCases": 48,
+    "numericPendingReceiptVerificationSessionCases": 24,
+    "opaqueTerminalPaidSentPrecedenceCases": 45,
+    "statusPollTransitionCases": 5,
+    "hostileProviderPayloadRemainsLiteral": true,
+    "pollsUseOnlyExistingStatusGET": true,
+    "independentOpsScenarios": 4,
+    "opsCases": [
+      "normal single-file publish and rollback",
+      "interruption before publication",
+      "interruption after publication before restart",
+      "lost restart acknowledgement"
+    ],
+    "opsResult": "Exact baseline/candidate source in disposable files; real presentation-scope guard, journal/publication/reconciliation/rollback; observation never replays a restart and explicit rollback restores original bytes/metadata.",
+    "temporaryDirectoriesRemoved": true,
+    "opsReuse": "Reviewed bounded diff from the previously reviewed single-file recipe; updated release paths/baseline, browser binding and array provenance preserve its mutation/recovery boundaries."
+  },
+  "reviewedExternalEvidence": {
+    "focusedTests": "141 passed in 9.04s",
+    "recipeTestsPassed": 17,
+    "exactBrowserChecks": 142,
+    "browserPageErrors": 0,
+    "browserUnitStoppedAndCgroupEmpty": true,
+    "preflightRollbackAndScopeProof": "PASS; exact source/recipe/manifest/input bindings checked.",
+    "retainedRuntimeDependencyBindings": 16,
+    "stagedGitleaksFindings": 0,
+    "suppressionUsed": false
+  },
+  "deploymentAssessment": {
+    "singleMainFilePublication": true,
+    "onlyRelayRestartPermitted": true,
+    "autopilotMustRemainStopped": true,
+    "privateFsyncedPreimagesAndMetadata": true,
+    "candidateAndEvidenceBoundBeforePublish": true,
+    "outsidePresentationByteScopeAndPythonInterpolationGuard": true,
+    "unknownRuntimeBytesOrChangedPreimageRefused": true,
+    "interruptedDeployRequiresObservationThenExplicitRollback": true,
+    "interruptedRollbackReplayRefused": true
+  },
+  "limitations": [
+    "The independent probes use synthetic provider fields, AST-isolated handlers, Node VM and disposable files with fake service/public observations. This reviewer made no production HTTP/customer/database requests, used no real proof key and performed no service mutation.",
+    "Browser evidence is separately authored and hash-bound. No real Telegram/WebKit, human comprehension, customer incident, provider confirmation, payment/refund or payout outcome is inferred.",
+    "The change does not alter SQL/authentication contracts; no PostgreSQL rehearsal or broader security research was repeated.",
+    "Existing audit logging and background worker behavior are preserved. A normal Relay restart resumes those pre-existing effects.",
+    "Separate timestamp-format observations and next-prerequisite artifacts are not repaired by or claimed as acceptance of this receipt slice.",
+    "The complete metadata directory is scanned after sealing; the redacted result is retained outside the review to avoid self-reference."
+  ]
+}

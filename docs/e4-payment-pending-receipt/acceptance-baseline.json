@@ -1,0 +1,284 @@
+{
+  "schemaVersion": "e4-payment-pending-receipt-handler-acceptance.v1",
+  "result": "BASELINE_PENDING_RECEIPT_OMISSION_REPRODUCED",
+  "method": "Exact api_order/pay/helper ASTs over real query_only SQLite with retained installed class and unchanged adapter. Synthetic Telegram/proof HMAC only. Baseline emits no duplicate page bundle.",
+  "inputs": [
+    {
+      "path": "relay/repositories/payment_status_read_store.py",
+      "sha256": "5cbd26d0335c0cf713aa4be9c87999773bbcc37ab89202a554a4811b6702b6f9"
+    },
+    {
+      "path": "relay/core/order_access.py",
+      "sha256": "15d996a1450ff898ef62b3e43c048069c2c4dc60863399bcba144cfd46c69a0f"
+    },
+    {
+      "path": "relay/core/telegram_freshness.py",
+      "sha256": "40bef427a0daa3069e05565fdb65217836414ed581960b64f1cff5c1c266d601"
+    },
+    {
+      "path": "relay/core/requisites.py",
+      "sha256": "a6c9eb87a236081095eb8213828b4ea33e9296d6f1bb8696d2e91c9733aca507"
+    },
+    {
+      "path": "relay/services/requisite_origin.py",
+      "sha256": "5552f1c274bc2e7721068bf7db69564ca360d5065920cebbb17c022df4335398"
+    },
+    {
+      "path": "relay/core/txid.py",
+      "sha256": "726b98d97696578b0883f5a14eca119f9bc4ce0fd92f409617edf1190129f824"
+    },
+    {
+      "path": "output/manual/e4-payment-pending-receipt-20260908/baseline/relay-fastapi/main.py",
+      "sha256": "a399f55e9efb4e5092a072cf30baf6f2c6791ddbcb5dcdbee210526d8665ffc5"
+    },
+    {
+      "path": "docs/e4-payment-pending-receipt/acceptance-probe.py",
+      "sha256": "aff55fc26ef37354bf3ae52839b8cd8b5b2f6cd40730e0d6af32c56fcdc00925"
+    },
+    {
+      "path": "deploy/postgres/007_payment_sessions.sql",
+      "sha256": "12f598e6d4284f18ee0d91630955f0e075a1c3179fbb35a617dfaede2d7e7be3"
+    }
+  ],
+  "installedInputs": [
+    {
+      "path": "/opt/obsidian-exchange/relay/repositories/order_read_store.py",
+      "sha256": "2cc91c733a8388ac2f643016fe192f7687ef0c44b79305d23fed50dcfd2ca06d"
+    }
+  ],
+  "cases": [
+    {
+      "name": "pending-absent-active-none-foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "pending-absent-active-none-exact-api-and-page",
+      "result": "PASS"
+    },
+    {
+      "name": "pending-absent-active-video-foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "pending-absent-active-video-exact-api-and-page",
+      "result": "PASS"
+    },
+    {
+      "name": "pending-absent-active-pdf-foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "pending-absent-active-pdf-exact-api-and-page",
+      "result": "PASS"
+    },
+    {
+      "name": "pending-absent-unavailable-none-foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "pending-absent-unavailable-none-exact-api-and-page",
+      "result": "PASS"
+    },
+    {
+      "name": "pending-absent-unavailable-video-foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "pending-absent-unavailable-video-exact-api-and-page",
+      "result": "PASS"
+    },
+    {
+      "name": "pending-absent-unavailable-pdf-foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "pending-absent-unavailable-pdf-exact-api-and-page",
+      "result": "PASS"
+    },
+    {
+      "name": "pending-stored-active-none-foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "pending-stored-active-none-exact-api-and-page",
+      "result": "PASS"
+    },
+    {
+      "name": "pending-stored-active-video-foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "pending-stored-active-video-exact-api-and-page",
+      "result": "PASS"
+    },
+    {
+      "name": "pending-stored-active-pdf-foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "pending-stored-active-pdf-exact-api-and-page",
+      "result": "PASS"
+    },
+    {
+      "name": "pending-stored-unavailable-none-foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "pending-stored-unavailable-none-exact-api-and-page",
+      "result": "PASS"
+    },
+    {
+      "name": "pending-stored-unavailable-video-foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "pending-stored-unavailable-video-exact-api-and-page",
+      "result": "PASS"
+    },
+    {
+      "name": "pending-stored-unavailable-pdf-foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "pending-stored-unavailable-pdf-exact-api-and-page",
+      "result": "PASS"
+    },
+    {
+      "name": "pending-sent-active-none-foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "pending-sent-active-none-exact-api-and-page",
+      "result": "PASS"
+    },
+    {
+      "name": "pending-sent-active-video-foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "pending-sent-active-video-exact-api-and-page",
+      "result": "PASS"
+    },
+    {
+      "name": "pending-sent-active-pdf-foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "pending-sent-active-pdf-exact-api-and-page",
+      "result": "PASS"
+    },
+    {
+      "name": "pending-sent-unavailable-none-foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "pending-sent-unavailable-none-exact-api-and-page",
+      "result": "PASS"
+    },
+    {
+      "name": "pending-sent-unavailable-video-foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "pending-sent-unavailable-video-exact-api-and-page",
+      "result": "PASS"
+    },
+    {
+      "name": "pending-sent-unavailable-pdf-foreign-owner",
+      "status": 404,
+      "result": "PASS"
+    },
+    {
+      "name": "pending-sent-unavailable-pdf-exact-api-and-page",
+      "result": "PASS"
+    },
+    {
+      "name": "expired-stored-canonical-regression",
+      "result": "PASS"
+    },
+    {
+      "name": "expired-sent-canonical-regression",
+      "result": "PASS"
+    },
+    {
+      "name": "failed-stored-canonical-regression",
+      "result": "PASS"
+    },
+    {
+      "name": "failed-sent-canonical-regression",
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-stored-canonical-regression",
+      "result": "PASS"
+    },
+    {
+      "name": "cancelled-sent-canonical-regression",
+      "result": "PASS"
+    },
+    {
+      "name": "paid-absent-canonical-regression",
+      "result": "PASS"
+    },
+    {
+      "name": "paid-stored-canonical-regression",
+      "result": "PASS"
+    },
+    {
+      "name": "paid-sent-canonical-regression",
+      "result": "PASS"
+    },
+    {
+      "name": "sent-absent-canonical-regression",
+      "result": "PASS"
+    },
+    {
+      "name": "sent-stored-canonical-regression",
+      "result": "PASS"
+    },
+    {
+      "name": "sent-sent-canonical-regression",
+      "result": "PASS"
+    },
+    {
+      "name": "aware-datetime-uses-exact-retained-serializer",
+      "result": "PASS"
+    }
+  ],
+  "count": 49,
+  "generatedPages": 34,
+  "baselinePagesRetained": false,
+  "numericStoredReceiptMismatches": [
+    "pending-stored-unavailable-none"
+  ],
+  "selectQueries": 283,
+  "databaseWritesAllowed": false,
+  "providerOrMoneyCalls": 0,
+  "awareExpiryProbe": {
+    "supportedColumn": "payment_sessions.expires_at TIMESTAMPTZ",
+    "exactRetainedSerializerResult": "2099-01-01T00:00:00+00:00",
+    "method": "datetime(2099,1,1,tzinfo=UTC) through installed order-store _value; resulting string through the exact pay handler. No PostgreSQL runtime or host data."
+  },
+  "limits": [
+    "No application/ASGI import, live account/database/provider, real authority or production actions.",
+    "Current exact HTML is rendered by separate actual-browser evidence; baseline opaque omission is already proven by the previous sealed terminal-slice next prerequisite.",
+    "Database/API/read behavior is unchanged, so PostgreSQL is not rerun for this presentation change."
+  ]
+}
