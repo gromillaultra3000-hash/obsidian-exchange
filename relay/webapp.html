@@ -1857,6 +1857,7 @@
             const amount = document.getElementById('w-amount').value;
             const comment = (document.getElementById('w-comment').value || '').trim();
             const say = (t) => { if (msg) msg.textContent = t; };
+            if (walletHandoffPending) { say('Дождитесь ответа кошелька на предыдущий запрос. Не повторяйте перевод.'); return; }
             if (!tcUI) { say('Кошелёк недоступен'); return; }
             closeExchangeReview();
             const preparation = exchangeReviewPreparationGeneration;
@@ -1870,6 +1871,7 @@
                 });
                 const d = await r.json().catch(() => ({}));
                 if (preparation !== exchangeReviewPreparationGeneration) return;
+                if (walletHandoffPending) { say('Дождитесь ответа кошелька на предыдущий запрос. Не повторяйте перевод.'); return; }
                 if (!r.ok || !d.ok || !d.request) { say(d.message || 'Не получилось'); return; }
                 say('Проверьте условия перед подписью в кошельке.');
                 openExchangeReview({
@@ -1887,9 +1889,15 @@
                     ],
                     risk: 'После подписи в кошельке перевод в сети TON нельзя отменить. Проверьте адрес, сумму и комментарий в окне кошелька.',
                     onConfirm: async () => {
+                        if (walletHandoffPending) { say('Дождитесь ответа кошелька на предыдущий запрос. Не повторяйте перевод.'); return; }
                         try {
                             say('Подтвердите в кошельке: ' + d.amount + ' TON → ' + walletShorten(d.address));
-                            await tcUI.sendTransaction(d.request);
+                            walletHandoffPending = true;
+                            try {
+                                await tcUI.sendTransaction(d.request);
+                            } finally {
+                                walletHandoffPending = false;
+                            }
                             say('✅ Подписано. Операция появится в списке, когда её увидит сеть.');
                             if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
                             setTimeout(loadWallets, 4000);
@@ -2143,6 +2151,7 @@
         let exchangeReviewCommit = null;
         // Pending wallet responses belong to one review attempt only.
         let exchangeReviewPreparationGeneration = 0;
+        let walletHandoffPending = false;
         let exchangeReviewRestoreFocus = null;
         let exchangeReviewExpiresAt = 0;
         let exchangeReviewExpiryTimer = null;
@@ -2369,6 +2378,7 @@
 
         async function walletPay(sellId, btn) {
             const say = (t) => { if (btn) { btn.textContent = t; } };
+            if (walletHandoffPending) { say('Дождитесь ответа кошелька на предыдущий запрос. Не повторяйте перевод.'); return; }
             if (!tcUI) { say('Кошелёк недоступен'); return; }
             closeExchangeReview();
             const preparation = exchangeReviewPreparationGeneration;
@@ -2382,6 +2392,7 @@
                 });
                 const d = await r.json().catch(() => ({}));
                 if (preparation !== exchangeReviewPreparationGeneration) return;
+                if (walletHandoffPending) { say('Дождитесь ответа кошелька на предыдущий запрос. Не повторяйте перевод.'); return; }
                 if (!r.ok || !d.ok || !d.request) {
                     say(d.message || 'Не получилось — попробуйте позже');
                     return;
@@ -2402,11 +2413,17 @@
                     ],
                     risk: 'После подписи перевод в сети TON нельзя отменить. Заявка будет считаться оплаченной только после подтверждения в сети.',
                     onConfirm: async () => {
+                        if (walletHandoffPending) { say('Дождитесь ответа кошелька на предыдущий запрос. Не повторяйте перевод.'); return; }
                         try {
                             say('Подтвердите в кошельке…');
                             // Запрос уходит в кошелёк КАК ПРИШЁЛ: подменять адрес или сумму
                             // на фронте нечем и незачем — подписывать всё равно клиенту.
-                            await tcUI.sendTransaction(d.request);
+                            walletHandoffPending = true;
+                            try {
+                                await tcUI.sendTransaction(d.request);
+                            } finally {
+                                walletHandoffPending = false;
+                            }
                             // Подпись — не поступление денег: сервер лишь отмечает время,
                             // заявку закроет проверка блокчейна.
                             await fetch('/api/wallet/send-signed', {

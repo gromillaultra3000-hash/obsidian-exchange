@@ -1,0 +1,33 @@
+{
+  "recordedAt": "2026-09-08T22:08:42.461203+00:00",
+  "result": "PREFLIGHT_PASS",
+  "sourceSha256": "9a2d4a4aa1734a7f4e9928e0e5c2b1a529dc19577d89e84b2fd949fcb69f0b1d",
+  "newTests": {
+    "pass": 42,
+    "baselineFail": 36,
+    "baselinePass": 6,
+    "evidence": "docs/e4-wallet-handoff/acceptance-review.json"
+  },
+  "regressionCommand": "/opt/lumi/venv/bin/python -m pytest -q -p no:cacheprovider tests/test_e4_wallet_preparation.py tests/test_e4_recipient_review_behavior.py tests/test_e4_exchange_review_ui.py tests/test_e4_money_flow_outcome.py tests/test_e4_review_browser_runner.py tests/test_e4_miniapp_browser_shell.py tests/test_relay_runtime_isolation.py",
+  "regressionResult": "199 passed in 11.74s",
+  "browser": {
+    "pass": 24,
+    "evidence": "docs/e4-wallet-handoff/browser-report.json",
+    "boundary": "Full shipped HTML; direct wallet-function entry; native DOM/fetch; intercepted API, inert settling SDK; genuine review clicks",
+    "isolation": "nobody / Chromium sandbox / PrivateNetwork / ProtectHome; cleanup verified"
+  },
+  "reviews": [
+    "docs/e4-wallet-handoff/acceptance-review.json",
+    "docs/e4-wallet-handoff/diff-ops-review.json"
+  ],
+  "secretScan": {
+    "version": "8.30.0",
+    "findings": 0,
+    "suppression": false
+  },
+  "limitations": [
+    "Lock is current-document only, no cross-tab/reload coverage",
+    "Rejected SDK promise does not prove absent chain transfer",
+    "No real wallet/platform/human acceptance"
+  ]
+}

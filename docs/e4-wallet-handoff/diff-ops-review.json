@@ -1,0 +1,58 @@
+{
+  "reviewer": "independent-agent /root/handoff_diff_ops",
+  "reviewed_at": "2026-09-08T22:06:43.122466+00:00",
+  "scope": "E4 WALLET_PENDING_HANDOFF_SERIALIZATION: current frontend diff and bounded rollout helper",
+  "verdict": "PASS",
+  "inputs": {
+    "relay/webapp.html": "9a2d4a4aa1734a7f4e9928e0e5c2b1a529dc19577d89e84b2fd949fcb69f0b1d",
+    "docs/e4-wallet-handoff/rollout.py": "ad863895a47c5bb834dda3c904ea31fa4f3338be5d6ce7862e1c0a65d5d4d22d",
+    "docs/e4-wallet-handoff/ops-baseline.json": "37cd1a276f80f07d2889c895fa88bf4a0ea3ca771df5509217fe2b7aa0014c52",
+    "tests/e4_wallet_handoff_browser.cjs": "d1b9359f5c85eefad684be719dab9fd316f57badc00966fb1801dbb2c87a1509",
+    "output/playwright/e4-wallet-handoff-host-20260908/report.json": "f629973dbca3c3dafb04484eac67141b3c0acf36a324c336621e433f2fe6fc29",
+    "output/playwright/e4-wallet-handoff-host-20260908/isolation.json": "9925fbaca37e8acbec8b8a3045553b52a9c2011590f6063d7962d3cac26ce585"
+  },
+  "base_commit": "7fe033a4c4e76dc7f67613e13d83b17a6d3d6eba",
+  "diff_sha256": "4f40da3a960c6bc36d8b2f1060275023d5658bc577d643cbc99e5f5873e3e497",
+  "findings": [],
+  "verified": [
+    "One shared boolean serializes walletTransfer and walletPay in the current JS realm.",
+    "Entry, response-JSON and confirmation guards prevent preparing or dispatching another SDK handoff while unresolved.",
+    "No asynchronous gap exists between confirmation guard and lock acquisition.",
+    "Lock remains held across unresolved SDK await; close, invalidation, same-document UI navigation and review replacement do not release it.",
+    "Inner finally releases on fulfilled/rejected promise or synchronous SDK exception; send-signed remains outside SDK lock.",
+    "Original d.request is passed directly and unchanged; no retry, timer-based unlock, signed-broadcast automation or backend mutation was introduced.",
+    "Rollout checks scope, file hashes and metadata; preserves verified backup before atomic replacement and verifies runtime/public state."
+  ],
+  "local_ops_rehearsal": {
+    "result": "11 passed in 0.38s",
+    "command": "/opt/lumi/venv/bin/python -m pytest -q /tmp/test_e4_handoff_ops_review.py",
+    "harness_sha256": "627d91b3e9f632f11c36cf1502cc9893d92fc6b03dab607f62831ec9119938ed",
+    "cases": [
+      "apply/reconcile/rollback exact bytes and metadata",
+      "candidate digest drift",
+      "live file drift",
+      "other live input drift",
+      "invalid scope",
+      "existing backup",
+      "metadata drift",
+      "atomic replace failure preserves baseline and backup and removes temporary file",
+      "post-write public failure recoverable via reconcile and rollback",
+      "out-of-function scope drift rejected",
+      "corrupted backup rejected"
+    ],
+    "limitations": "Production runtime/public functions were mocked; real filesystem operations ran only in pytest temporary directories. No production changes made."
+  },
+  "remaining_acceptance_gap": "Current lock is scoped to the loaded page. Reload/cross-tab handoffs and reconciliation of ambiguous SDK rejection remain outside this slice; assess their E4 priority before claiming broader duplicate-payment prevention.",
+  "browser_harness_review": {
+    "verdict": "PASS",
+    "cases": 24,
+    "viewports": [
+      320,
+      390
+    ],
+    "disposition": "Browser harness exercises four ordered action pairs and three SDK outcomes per viewport against exact source; asserts one SDK call, no pending preparation or send-signed request, stale confirmation suppression, timer/close/invalidation resistance, pending guidance, exact request structural equality, no automatic retry and fresh unchecked review after settlement. API and SDK are inert fixtures; no production wallet proof is claimed.",
+    "isolation_receipt": "PASS: nobody, Chromium sandbox, private network, protectHome, unit stopped with empty cgroup and process exit 0.",
+    "limits": "Page reload resets each test case, but reload while a handoff remains pending and cross-document continuity are not tested. Browser clone equality tests request content; original d.request identity is additionally established by source review. Delayed JSON and delayed send-signed cases are outside this bounded browser harness."
+  },
+  "next_e4_step": "WALLET_HANDOFF_REENTRY_COVERAGE: test reload/re-entry outcome guidance before selecting a fix; the current in-memory lock does not span documents."
+}
