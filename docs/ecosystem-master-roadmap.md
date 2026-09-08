@@ -884,6 +884,20 @@ demonstrated gaps, and select a code fix only from reproducible failure. Real
 Telegram/iOS/WebKit, assistive-technology and human-comprehension checks remain
 open. No earlier gate closure or money/064A authority; autopilot remains stopped.
 
+2026-09-08: MONEY_FLOW_ACCEPTANCE_COVERAGE / ORDER_UNCERTAIN_OUTCOME is VERIFIED
+and deployed (`8846bbd`). Cross-surface matrix separates source observations,
+inert handler execution and deployed evidence. BUY/SELL transport/decode/gateway
+uncertainty no longer claims no order or invites repeat; explicit rejection is
+literal wrapped text and success requires valid identity. 115 focused tests,
+eight exact inert site/bot cases, 48 native Chrome cases and both independent
+reviews PASS. HTML-only atomic rollout/reconcile with rollback preimage; retained
+files and all service identities unchanged, public checks pass, no restart.
+Evidence: `docs/e4-money-flow-coverage-rollout.v1.json`. E4 remains IN_PROGRESS.
+Exactly next: WALLET_REVIEW_PREPARATION_CANCELLATION — deferred synthetic probes
+reproduce old preparation reopening an explicitly cancelled review. Invalidate
+cancelled/superseded preparation; no real wallet call or signature is authorized
+by these fixtures. Full platform/human and earlier gate acceptance remain open.
+
 ### E5 — нативный некастодиальный кошелёк
 
 E0.4 inventory evidence (2026-08-18): the checkout has a Rust/UniFFI Bitcoin

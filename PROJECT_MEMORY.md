@@ -5,40 +5,32 @@ Updated: 2026-09-08 UTC
 ## Current goal and status
 
 
-- 2026-09-08 manual E4 / PAYMENT_STATUS_EXPIRY_TIME_FORMAT_CONSISTENCY is VERIFIED,
-  deployed 03:26 UTC, implementation `5751b1d`. The payment timer handles explicit
-  offsets/Z/legacy naive UTC and fractions consistently across timezones; malformed,
-  missing or impossible dates show neutral guidance without NaN or canonical expiry.
-  Local expiry stops its interval and retains polling; receipt/verification and
-  terminal/paid/sent precedence stay intact. 208 focused tests, 17 ops tests,
-  30 exact SQLite/handler checks, 83 Chrome checks with 27 timezone comparisons,
-  318 independent security cases and both reviews PASS. Independent interrupted publish,
-  lost restart acknowledgement, no-replay/reconcile/rollback probes pass; browser
-  and temporary harness cleanup verified. Secret scans 0 without suppression.
-  Only inline expiry helper/timer changed (numeric pay, 155 other functions,
-  all Python interpolations and API/read/auth/redirect code exact);
-  no repeated PG rehearsal for this presentation-only slice. Only main.py deployed,
-  all 16 dependencies including HTML/payment adapter/proof helper remain byte-exact.
-  Do not replace checkout order/session/receipt stores wholesale: unrelated drift
-  persists. Prior owner-scoped read repair 25dccdd remains deployed; status GET
-  still uses the canonical ledger without provider/payment transitions.
-  Relay 3016726/start 2026-09-08 03:26:45 UTC/NRestarts 0; Bot 3877887/Nginx 3877705/
-  Postgres 3136948 unchanged. Public200/405/history403/order0+pay0 both404.
-  Rollback: deployment-preimages/e4-payment-expiry-20260908-3q1v054g.
-  Evidence: docs/e4-payment-expiry-rollout.v1.json. No real authenticated
-  customer read, payment outcome, new money operation/credential/signature/064A
-  authority. Routine restart resumes existing workers; zero background database
-  or notification effects is not claimed. Autopilot stays failed/MainPID0 by
-  owner's instruction; reconcile runner receipts/manual commits before later start.
-  Exactly next: E4 / MONEY_FLOW_ACCEPTANCE_COVERAGE. Map canonical money-flow UX
-  claims to executable/deployed site/bot/Mini App/payment evidence; add meaningful
-  coverage for demonstrated gaps and select a code fix only from reproducible
-  failure. Current expiry audit identifies no additional concrete defect; missing
-  tests do not prove a bug. Evidence: acceptance-next-evaluation.json in task dir.
-  Prior receipt 033c567 and terminal bfa8d9e fixes remain deployed.
-  E4 and earlier gates plus Telegram/iOS/WebKit/assistive/human acceptance remain
-  open. Historical E0 snapshot assertions/builders remain separately triaged,
-  not an overall-project test PASS claim; frozen authority artifacts are unchanged.
+- 2026-09-08 E4 MONEY_FLOW_ACCEPTANCE_COVERAGE / ORDER_UNCERTAIN_OUTCOME is
+  VERIFIED and production-deployed, implementation `8846bbd`. Only Mini App
+  submitBuyOrder/submitSellOrder changed: uncertain responses no longer imply
+  noncreation or invite retry; explicit refusal is literal and wraps at 320px;
+  success requires true plus positive safe integer id. No automatic repeat or
+  backend idempotency change; a user can still manually submit another review.
+  115 focused tests, 8 inert exact site/bot cases, 48 native Chrome cases and
+  two independent reviews PASS; gitleaks 8.30.0 zero without suppression.
+  Browser overflow fixed; fake Telegram openLink corrected; final exact source
+  7a99bd3c...77ecac2 passes with sandbox/private network/cleanup verified.
+  HTML-only atomic rollout and reconciliation PASS; all inventoried dependencies
+  and Relay 3016726/Bot 3877887/Nginx 3877705/Postgres 3136948 unchanged.
+  Public200/405/history403/order0+pay0 both404. No services restarted.
+  Rollback: deployment-preimages/e4-money-flow-8846bbd-20260908.
+  Evidence: docs/e4-money-flow-coverage-rollout.v1.json. Prior 5751b1d expiry,
+  033c567 receipt, bfa8d9e terminal and 25dccdd owner-read fixes stay deployed.
+  Checkout stores still drift: do not replace wholesale. No real authenticated
+  customer read, money/credential/signature/064A authority was used.
+  Exactly next: E4 WALLET_REVIEW_PREPARATION_CANCELLATION. Deferred synthetic
+  walletTransfer/walletPay probes reopen a cancelled review when an older
+  preparation resolves late; invalidate cancellation/supersession. Separate
+  unresolved-handoff overlap and pre-existing SELL cancellation-CAS observation
+  remain recorded, not fixed or evidence of real wallet/money execution.
+  E4/earlier gates and real Telegram/iOS/WebKit/assistive/human acceptance remain
+  open. Autopilot failed/MainPID0 by owner direction; reconcile stale runner
+  third receipt and all manual commits before any explicitly requested restart.
 
 - 2026-09-08 status audit confirmed Sep 7's three deployed E4 slices: wallet
   review/fees (`d650b8d`), receive-address integrity (`1cbfe1f`) and payment

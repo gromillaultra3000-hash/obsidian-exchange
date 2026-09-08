@@ -1,0 +1,151 @@
+{
+  "schemaVersion": "e4-money-flow-coverage-rollout.v1",
+  "recordedAt": "2026-09-08T21:53:47.320958+00:00",
+  "accountableOwner": "project owner; manual continuation under current authorized reversible E4 scope",
+  "route": "E4 / MONEY_FLOW_ACCEPTANCE_COVERAGE / ORDER_UNCERTAIN_OUTCOME",
+  "status": "VERIFIED",
+  "stageStatus": "IN_PROGRESS",
+  "implementationCommit": "8846bbdd20c96e9b87a6c4939bcec5f13e8aa7c8",
+  "production": {
+    "result": "APPLY_PASS; RECONCILE_PASS",
+    "target": "/opt/obsidian-exchange/relay/webapp.html",
+    "liveSha256": "7a99bd3c75d623f24c3c8807cadeaa5b670258ab3345f713f0136792c77ecac2",
+    "publicSha256": "7091555b452a0920db6af8c7dc5dd446d4b8ec20fbf74735103bd6c853fa1416",
+    "publicTemplateExact": true,
+    "preservedFileCount": 55,
+    "unitsUnchanged": [
+      {
+        "unit": "relay-fastapi.service",
+        "WorkingDirectory": "/opt/obsidian-exchange/relay-fastapi",
+        "FragmentPath": "/etc/systemd/system/relay-fastapi.service",
+        "executable": "/opt/obsidian-exchange/relay-venv/bin/python",
+        "pythonScriptTokens": [
+          "/opt/obsidian-exchange/relay-fastapi/main.py"
+        ],
+        "state": {
+          "MainPID": "3016726",
+          "NRestarts": "0",
+          "ExecMainStartTimestamp": "Tue 2026-09-08 03:26:45 UTC",
+          "ActiveState": "active",
+          "SubState": "running"
+        }
+      },
+      {
+        "unit": "exchange-bot.service",
+        "WorkingDirectory": "/opt/obsidian-exchange/bot",
+        "FragmentPath": "/etc/systemd/system/exchange-bot.service",
+        "executable": "/opt/obsidian-exchange/bot/venv/bin/python3",
+        "pythonScriptTokens": [
+          "/opt/obsidian-exchange/bot/main_bot.py"
+        ],
+        "state": {
+          "MainPID": "3877887",
+          "NRestarts": "0",
+          "ExecMainStartTimestamp": "Tue 2026-09-01 06:20:00 UTC",
+          "ActiveState": "active",
+          "SubState": "running"
+        }
+      },
+      {
+        "unit": "nginx.service",
+        "WorkingDirectory": "",
+        "FragmentPath": "/usr/lib/systemd/system/nginx.service",
+        "executable": "/usr/sbin/nginx",
+        "pythonScriptTokens": [],
+        "state": {
+          "MainPID": "3877705",
+          "NRestarts": "0",
+          "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:56 UTC",
+          "ActiveState": "active",
+          "SubState": "running"
+        }
+      },
+      {
+        "unit": "obsidian-postgres.service",
+        "WorkingDirectory": "/opt/obsidian-exchange",
+        "FragmentPath": "/etc/systemd/system/obsidian-postgres.service",
+        "executable": "/usr/bin/docker",
+        "pythonScriptTokens": [],
+        "state": {
+          "MainPID": "3136948",
+          "NRestarts": "0",
+          "ExecMainStartTimestamp": "Mon 2026-08-24 05:08:51 UTC",
+          "ActiveState": "active",
+          "SubState": "running"
+        }
+      }
+    ],
+    "restarted": false,
+    "autopilot": "failed / MainPID 0; not restarted",
+    "checks": {
+      "GET /webapp": 200,
+      "POST /webapp": 405,
+      "anonymous GET /api/history": 403,
+      "proofless GET /api/order/0": 404,
+      "proofless GET /pay/0": 404
+    }
+  },
+  "rollback": {
+    "backup": "/var/lib/obsidian-exchange/deployment-preimages/e4-money-flow-8846bbd-20260908",
+    "plan": "docs/e4-money-flow-coverage/verified-plan.json",
+    "command": "python3 docs/e4-money-flow-coverage/rollout.py rollback --plan docs/e4-money-flow-coverage/verified-plan.json --backup /var/lib/obsidian-exchange/deployment-preimages/e4-money-flow-8846bbd-20260908",
+    "rehearsal": "independent temporary apply/reconcile/rollback and post-write failure recovery PASS; no production rollback performed"
+  },
+  "validation": {
+    "focusedTests": 115,
+    "exactInertSiteBotCases": 8,
+    "nativeChromeCases": 48,
+    "reviews": 2,
+    "secretScan": "gitleaks 8.30.0; explicit scope and staged diff; zero findings without suppression"
+  },
+  "boundaries": [
+    "Only submitBuyOrder and submitSellOrder changed; request payloads and successful handoffs retained.",
+    "No idempotency backend change: user can still manually submit a new reviewed request; no automatic repeat is introduced.",
+    "No real authenticated customer read, wallet/provider/payment operation or new credential/064A authority.",
+    "Site/bot/payment coverage has explicit static, inert and runtime distinctions; E4 and human/platform acceptance remain open.",
+    "Synthetic wallet stale-preparation and unresolved-handoff findings are separately bounded; no real wallet execution claimed."
+  ],
+  "nextCanonicalItem": "E4 / WALLET_REVIEW_PREPARATION_CANCELLATION / prevent a superseded or cancelled asynchronous wallet preparation from reopening review",
+  "evidence": [
+    {
+      "path": "docs/e4-money-flow-coverage/tests.json",
+      "sha256": "effc47b8a7fad766ca71ac1f28a6a2e3410a749a5e6a0ce95ec0b7fa8cd094f9"
+    },
+    {
+      "path": "docs/e4-money-flow-coverage/browser-report.json",
+      "sha256": "7976bbca672daebb8ad39c36967323e2a8df804a46c598b537883e3a7cb534d4"
+    },
+    {
+      "path": "docs/e4-money-flow-coverage/browser-isolation.json",
+      "sha256": "ac67860e5f97a01d5651aeb82aac18d52989193e6bba20c012aa28562e4060a2"
+    },
+    {
+      "path": "docs/e4-money-flow-coverage/acceptance-coverage-matrix.json",
+      "sha256": "9e78e0169b09bffebcb8479522ed2c487a1cb9f177cea01daee4bdf4fad5dacf"
+    },
+    {
+      "path": "docs/e4-money-flow-coverage/miniapp-coverage.json",
+      "sha256": "94616fdcaa2f38eb01aa423669f43a858350ea9d1b2c3b34ed5304cbb6c02def"
+    },
+    {
+      "path": "docs/e4-money-flow-coverage/acceptance-surface-probe.json",
+      "sha256": "6b5884bbb0b2c5e98c42b5d8960f769742a9a301915af79ac0b5c0bc7604c43e"
+    },
+    {
+      "path": "docs/e4-money-flow-coverage/final-acceptance-review.json",
+      "sha256": "960eb373126372eaee29af11b13f643c7d10d800392a3202b4ed6c83da4911ba"
+    },
+    {
+      "path": "docs/e4-money-flow-coverage/final-diff-ops-review.json",
+      "sha256": "212031e0b9567702ddc1fefb02da9936ca524c5223c835e0e02a8154c764dad2"
+    },
+    {
+      "path": "docs/e4-money-flow-coverage/verified-plan.json",
+      "sha256": "40690fbe0b1600274213e0a28b0b8dcfa0092a77696c1a91b10fbd30cfd659aa"
+    },
+    {
+      "path": "docs/e4-money-flow-coverage/final-validation.json",
+      "sha256": "71404d4af817699fb44b677fd8cfba271521c3eb6965ad9bb5834e212638ebf7"
+    }
+  ]
+}
