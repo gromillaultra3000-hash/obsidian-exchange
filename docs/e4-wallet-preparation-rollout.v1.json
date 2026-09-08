@@ -1,0 +1,146 @@
+{
+  "schemaVersion": "e4-wallet-preparation-rollout.v1",
+  "recordedAt": "2026-09-08T22:02:42.242109+00:00",
+  "accountableOwner": "Project owner; authorized manual reversible E4 continuation",
+  "route": "E4 / WALLET_REVIEW_PREPARATION_CANCELLATION",
+  "status": "VERIFIED",
+  "stageStatus": "IN_PROGRESS",
+  "implementationCommit": "82eb191d41bae97b7d33e9bb62c333c57df824db",
+  "production": {
+    "apply": "PASS",
+    "reconcile": "PASS",
+    "target": "/opt/obsidian-exchange/relay/webapp.html",
+    "liveSha256": "0499c7a11f58d8450d6475f10da2c6d9e74851ddf0fc01b6eaa69adfe92af9e7",
+    "publicSha256": "f783e10f973914962fa0578724b3e7f98fd4c2384f4f79e5be75365eb41b3ee9",
+    "exactPublicTemplate": true,
+    "otherFilesPreserved": 55,
+    "servicesUnchanged": [
+      {
+        "unit": "relay-fastapi.service",
+        "WorkingDirectory": "/opt/obsidian-exchange/relay-fastapi",
+        "FragmentPath": "/etc/systemd/system/relay-fastapi.service",
+        "executable": "/opt/obsidian-exchange/relay-venv/bin/python",
+        "pythonScriptTokens": [
+          "/opt/obsidian-exchange/relay-fastapi/main.py"
+        ],
+        "state": {
+          "MainPID": "3016726",
+          "NRestarts": "0",
+          "ExecMainStartTimestamp": "Tue 2026-09-08 03:26:45 UTC",
+          "ActiveState": "active",
+          "SubState": "running"
+        }
+      },
+      {
+        "unit": "exchange-bot.service",
+        "WorkingDirectory": "/opt/obsidian-exchange/bot",
+        "FragmentPath": "/etc/systemd/system/exchange-bot.service",
+        "executable": "/opt/obsidian-exchange/bot/venv/bin/python3",
+        "pythonScriptTokens": [
+          "/opt/obsidian-exchange/bot/main_bot.py"
+        ],
+        "state": {
+          "MainPID": "3877887",
+          "NRestarts": "0",
+          "ExecMainStartTimestamp": "Tue 2026-09-01 06:20:00 UTC",
+          "ActiveState": "active",
+          "SubState": "running"
+        }
+      },
+      {
+        "unit": "nginx.service",
+        "WorkingDirectory": "",
+        "FragmentPath": "/usr/lib/systemd/system/nginx.service",
+        "executable": "/usr/sbin/nginx",
+        "pythonScriptTokens": [],
+        "state": {
+          "MainPID": "3877705",
+          "NRestarts": "0",
+          "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:56 UTC",
+          "ActiveState": "active",
+          "SubState": "running"
+        }
+      },
+      {
+        "unit": "obsidian-postgres.service",
+        "WorkingDirectory": "/opt/obsidian-exchange",
+        "FragmentPath": "/etc/systemd/system/obsidian-postgres.service",
+        "executable": "/usr/bin/docker",
+        "pythonScriptTokens": [],
+        "state": {
+          "MainPID": "3136948",
+          "NRestarts": "0",
+          "ExecMainStartTimestamp": "Mon 2026-08-24 05:08:51 UTC",
+          "ActiveState": "active",
+          "SubState": "running"
+        }
+      }
+    ],
+    "restart": false,
+    "autopilot": "failed / MainPID 0; unchanged",
+    "publicChecks": {
+      "GET /webapp": 200,
+      "POST /webapp": 405,
+      "anonymous GET /api/history": 403,
+      "proofless GET /api/order/0": 404,
+      "proofless GET /pay/0": 404
+    }
+  },
+  "validation": {
+    "newRaceTests": 84,
+    "baselineFailures": 76,
+    "baselinePasses": 8,
+    "regressionTests": 115,
+    "nativeChromeScenarios": 48,
+    "independentReviews": 2,
+    "diffReviewerTests": 135,
+    "secretScan": "gitleaks 8.30.0 explicit candidate scope and staged diff; zero without suppression"
+  },
+  "rollback": {
+    "backup": "/var/lib/obsidian-exchange/deployment-preimages/e4-wallet-preparation-82eb191-20260908",
+    "command": "python3 docs/e4-wallet-preparation/rollout.py rollback --plan docs/e4-wallet-preparation/plan.json --backup /var/lib/obsidian-exchange/deployment-preimages/e4-wallet-preparation-82eb191-20260908",
+    "verified": "independent local apply/reconcile/rollback; exact production preimage bytes and metadata; no production rollback needed"
+  },
+  "boundaries": [
+    "Five functions plus exact generation declaration only; both wallet onConfirm closures unchanged.",
+    "No real wallet signature, money/provider operation, customer authenticated request, new credential or 064A authority.",
+    "Browser uses exact page and native fetch/review DOM with direct wallet-function entry; inert intercepted responses and rejecting SDK boundary.",
+    "No new Escape cancellation control while review is hidden. Already confirmed unresolved handoff overlap remains a separate item.",
+    "E4 and earlier gates, Telegram/iOS/WebKit/assistive/human acceptance remain open."
+  ],
+  "nextCanonicalItem": "E4 / WALLET_PENDING_HANDOFF_SERIALIZATION / prevent a second SDK handoff while the first outcome is unresolved",
+  "evidence": [
+    {
+      "path": "docs/e4-wallet-preparation/acceptance-review.json",
+      "sha256": "bd0fce6b5e08b4c01dcc37e54da4e9d18ccb69d46b42614112df155229c1bc9f"
+    },
+    {
+      "path": "docs/e4-wallet-preparation/browser-report.json",
+      "sha256": "164fdc06d0aba5b1c98a759b31da181cc9f00f96a8df70e28dc7dbfb69eb22ac"
+    },
+    {
+      "path": "docs/e4-wallet-preparation/browser-isolation.json",
+      "sha256": "4986539fd63194c8631a767ba13aad153c160f52cbcfa8919d54bb04dd1c892e"
+    },
+    {
+      "path": "docs/e4-wallet-preparation/diff-ops-review.json",
+      "sha256": "16efcc16b2d2bcc4e8e95155d8a4579ee622ee5496d5dd0f3fa2bba957a38490"
+    },
+    {
+      "path": "docs/e4-wallet-preparation/reviewer-local-rehearsal.json",
+      "sha256": "174fa2ed4740ad5d2bf9a3eff4d269650f4831828f7e49e85120c362b0215a2a"
+    },
+    {
+      "path": "docs/e4-wallet-preparation/validation.json",
+      "sha256": "123245ba4023461bca8416f66d57399262083864d16048fa202e3c269ea4a43b"
+    },
+    {
+      "path": "docs/e4-wallet-preparation/contract.md",
+      "sha256": "823f4da87e39f1db3fa5c969d900bbe66ec61f303735c41ece7fccf7d37b7166"
+    },
+    {
+      "path": "docs/e4-wallet-preparation/plan.json",
+      "sha256": "422f564c0c1aece5163cd13e6b78cc515771bc57fcfd25c5d462dc68eae3c433"
+    }
+  ]
+}

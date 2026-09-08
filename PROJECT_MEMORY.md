@@ -5,32 +5,29 @@ Updated: 2026-09-08 UTC
 ## Current goal and status
 
 
-- 2026-09-08 E4 MONEY_FLOW_ACCEPTANCE_COVERAGE / ORDER_UNCERTAIN_OUTCOME is
-  VERIFIED and production-deployed, implementation `8846bbd`. Only Mini App
-  submitBuyOrder/submitSellOrder changed: uncertain responses no longer imply
-  noncreation or invite retry; explicit refusal is literal and wraps at 320px;
-  success requires true plus positive safe integer id. No automatic repeat or
-  backend idempotency change; a user can still manually submit another review.
-  115 focused tests, 8 inert exact site/bot cases, 48 native Chrome cases and
-  two independent reviews PASS; gitleaks 8.30.0 zero without suppression.
-  Browser overflow fixed; fake Telegram openLink corrected; final exact source
-  7a99bd3c...77ecac2 passes with sandbox/private network/cleanup verified.
-  HTML-only atomic rollout and reconciliation PASS; all inventoried dependencies
-  and Relay 3016726/Bot 3877887/Nginx 3877705/Postgres 3136948 unchanged.
-  Public200/405/history403/order0+pay0 both404. No services restarted.
-  Rollback: deployment-preimages/e4-money-flow-8846bbd-20260908.
-  Evidence: docs/e4-money-flow-coverage-rollout.v1.json. Prior 5751b1d expiry,
-  033c567 receipt, bfa8d9e terminal and 25dccdd owner-read fixes stay deployed.
-  Checkout stores still drift: do not replace wholesale. No real authenticated
-  customer read, money/credential/signature/064A authority was used.
-  Exactly next: E4 WALLET_REVIEW_PREPARATION_CANCELLATION. Deferred synthetic
-  walletTransfer/walletPay probes reopen a cancelled review when an older
-  preparation resolves late; invalidate cancellation/supersession. Separate
-  unresolved-handoff overlap and pre-existing SELL cancellation-CAS observation
-  remain recorded, not fixed or evidence of real wallet/money execution.
-  E4/earlier gates and real Telegram/iOS/WebKit/assistive/human acceptance remain
-  open. Autopilot failed/MainPID0 by owner direction; reconcile stale runner
-  third receipt and all manual commits before any explicitly requested restart.
+- 2026-09-08 E4 WALLET_REVIEW_PREPARATION_CANCELLATION is VERIFIED and deployed,
+  implementation `82eb191`. Shared review generation invalidates late wallet
+  preparation success/errors after cancel, expiry, replacement review or newer
+  preparation. Starting preparation closes prior review/acknowledgement. Both
+  signing closures and API payloads unchanged. 84 race tests PASS (baseline 76
+  FAIL/8 PASS), 115 regressions, 48 native Chrome cases and two independent
+  reviews PASS; diff reviewer additionally ran 135 focused tests. Gitleaks 8.30.0
+  explicit/staged scans zero without suppression. Inert SDK/fetch browser uses
+  sandbox/private network with cleanup verified; no real signature or money call.
+  HTML-only atomic rollout + reconciliation PASS, live 0499c7a1...e92af9e7.
+  Other 55 inventoried files and Relay3016726/Bot3877887/Nginx3877705/PG3136948
+  unchanged; no restart. Public200/405/history403/order0+pay0 both404.
+  Rollback: deployment-preimages/e4-wallet-preparation-82eb191-20260908.
+  Evidence: docs/e4-wallet-preparation-rollout.v1.json.
+  Exactly next: E4 WALLET_PENDING_HANDOFF_SERIALIZATION. Existing synthetic
+  deferred SDK probes show a second acknowledged handoff while the first is
+  unresolved. Preparation invalidation does not fix this; avoid blind retry.
+  Hidden pending preparation adds no Escape control. Real Telegram/iOS/WebKit/
+  assistive/human acceptance and earlier gates remain open. No customer read,
+  new credential/signature/064A authority. Prior 8846bbd order-outcome, 5751b1d
+  expiry, 033c567 receipt, bfa8d9e terminal and 25dccdd owner-read fixes stay
+  deployed. Stores drift; do not replace wholesale. Autopilot failed/MainPID0
+  by owner direction; reconcile stale third receipt/manual commits before start.
 
 - 2026-09-08 status audit confirmed Sep 7's three deployed E4 slices: wallet
   review/fees (`d650b8d`), receive-address integrity (`1cbfe1f`) and payment

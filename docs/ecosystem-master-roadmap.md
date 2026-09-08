@@ -898,6 +898,18 @@ reproduce old preparation reopening an explicitly cancelled review. Invalidate
 cancelled/superseded preparation; no real wallet call or signature is authorized
 by these fixtures. Full platform/human and earlier gate acceptance remain open.
 
+2026-09-08: WALLET_REVIEW_PREPARATION_CANCELLATION is VERIFIED and deployed
+(`82eb191`). Late preparation responses cannot reopen cancelled/superseded
+reviews or overwrite current preparation feedback. Signing callbacks and API
+payloads unchanged. 84 race tests PASS (76 baseline failures), 115 regressions,
+48 native Chrome scenarios and two independent reviews PASS. HTML-only atomic
+rollout/reconciliation with exact rollback preimage; 55 dependencies and all
+service identities unchanged, no restart. Public checks pass. Evidence:
+`docs/e4-wallet-preparation-rollout.v1.json`. E4 remains IN_PROGRESS. Exactly
+next: WALLET_PENDING_HANDOFF_SERIALIZATION — independently reproduced synthetic
+overlap of two acknowledged unresolved SDK calls remains separately bounded.
+No real wallet/money result or new authority; platform/human acceptance open.
+
 ### E5 — нативный некастодиальный кошелёк
 
 E0.4 inventory evidence (2026-08-18): the checkout has a Rust/UniFFI Bitcoin
