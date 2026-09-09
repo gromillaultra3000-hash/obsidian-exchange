@@ -1,0 +1,219 @@
+{
+  "sourceSha256": "145d60c292db76b440f47a2f17b3eecbc2fcbe5f6c4ca060c0fc59c435e8ffb1",
+  "runnerSha256": "5d47e6a65c6fb299747e7a4f34c819d04097e9a8348651685b675e7fe070b164",
+  "playwrightVersion": "1.62.0",
+  "checks": [
+    {
+      "width": 320,
+      "scenario": "fresh",
+      "result": "PASS",
+      "noWrites": true,
+      "noHorizontalOverflow": true
+    },
+    {
+      "width": 320,
+      "scenario": "fresh-submit",
+      "result": "PASS",
+      "explicitSyntheticPost": 1,
+      "unchangedBody": true
+    },
+    {
+      "width": 320,
+      "scenario": "unavailable-submit",
+      "result": "PASS",
+      "explicitSyntheticPost": 1,
+      "unchangedBody": true
+    },
+    {
+      "width": 320,
+      "scenario": "zero-rate",
+      "result": "PASS",
+      "noWrites": true,
+      "noHorizontalOverflow": true
+    },
+    {
+      "width": 320,
+      "scenario": "string-rate",
+      "result": "PASS",
+      "noWrites": true,
+      "noHorizontalOverflow": true
+    },
+    {
+      "width": 320,
+      "scenario": "missing-rate",
+      "result": "PASS",
+      "noWrites": true,
+      "noHorizontalOverflow": true
+    },
+    {
+      "width": 320,
+      "scenario": "missing-fee",
+      "result": "PASS",
+      "noWrites": true,
+      "noHorizontalOverflow": true
+    },
+    {
+      "width": 320,
+      "scenario": "invalid-fee",
+      "result": "PASS",
+      "noWrites": true,
+      "noHorizontalOverflow": true
+    },
+    {
+      "width": 320,
+      "scenario": "stale-ts",
+      "result": "PASS",
+      "noWrites": true,
+      "noHorizontalOverflow": true
+    },
+    {
+      "width": 320,
+      "scenario": "future-ts",
+      "result": "PASS",
+      "noWrites": true,
+      "noHorizontalOverflow": true
+    },
+    {
+      "width": 320,
+      "scenario": "http-error",
+      "result": "PASS",
+      "noWrites": true,
+      "noHorizontalOverflow": true
+    },
+    {
+      "width": 390,
+      "scenario": "fresh",
+      "result": "PASS",
+      "noWrites": true,
+      "noHorizontalOverflow": true
+    },
+    {
+      "width": 390,
+      "scenario": "fresh-submit",
+      "result": "PASS",
+      "explicitSyntheticPost": 1,
+      "unchangedBody": true
+    },
+    {
+      "width": 390,
+      "scenario": "unavailable-submit",
+      "result": "PASS",
+      "explicitSyntheticPost": 1,
+      "unchangedBody": true
+    },
+    {
+      "width": 390,
+      "scenario": "zero-rate",
+      "result": "PASS",
+      "noWrites": true,
+      "noHorizontalOverflow": true
+    },
+    {
+      "width": 390,
+      "scenario": "string-rate",
+      "result": "PASS",
+      "noWrites": true,
+      "noHorizontalOverflow": true
+    },
+    {
+      "width": 390,
+      "scenario": "missing-rate",
+      "result": "PASS",
+      "noWrites": true,
+      "noHorizontalOverflow": true
+    },
+    {
+      "width": 390,
+      "scenario": "missing-fee",
+      "result": "PASS",
+      "noWrites": true,
+      "noHorizontalOverflow": true
+    },
+    {
+      "width": 390,
+      "scenario": "invalid-fee",
+      "result": "PASS",
+      "noWrites": true,
+      "noHorizontalOverflow": true
+    },
+    {
+      "width": 390,
+      "scenario": "stale-ts",
+      "result": "PASS",
+      "noWrites": true,
+      "noHorizontalOverflow": true
+    },
+    {
+      "width": 390,
+      "scenario": "future-ts",
+      "result": "PASS",
+      "noWrites": true,
+      "noHorizontalOverflow": true
+    },
+    {
+      "width": 390,
+      "scenario": "http-error",
+      "result": "PASS",
+      "noWrites": true,
+      "noHorizontalOverflow": true
+    }
+  ],
+  "writes": [],
+  "expectedConfirmations": [
+    {
+      "width": 320,
+      "scenario": "fresh-submit",
+      "body": {
+        "currency": "BTC",
+        "amount": 12500,
+        "address": "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+        "network": "MAINNET",
+        "pay_method": "sbp",
+        "dest_tag": "",
+        "no_tag": false
+      }
+    },
+    {
+      "width": 320,
+      "scenario": "unavailable-submit",
+      "body": {
+        "currency": "BTC",
+        "amount": 12500,
+        "address": "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+        "network": "MAINNET",
+        "pay_method": "sbp",
+        "dest_tag": "",
+        "no_tag": false
+      }
+    },
+    {
+      "width": 390,
+      "scenario": "fresh-submit",
+      "body": {
+        "currency": "BTC",
+        "amount": 12500,
+        "address": "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+        "network": "MAINNET",
+        "pay_method": "sbp",
+        "dest_tag": "",
+        "no_tag": false
+      }
+    },
+    {
+      "width": 390,
+      "scenario": "unavailable-submit",
+      "body": {
+        "currency": "BTC",
+        "amount": 12500,
+        "address": "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+        "network": "MAINNET",
+        "pay_method": "sbp",
+        "dest_tag": "",
+        "no_tag": false
+      }
+    }
+  ],
+  "pageErrors": [],
+  "browserVersion": "152.0.7977.64",
+  "result": "PASS"
+}

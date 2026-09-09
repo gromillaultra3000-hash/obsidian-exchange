@@ -1,0 +1,19 @@
+{
+  "sourceSHA256": "145d60c292db76b440f47a2f17b3eecbc2fcbe5f6c4ca060c0fc59c435e8ffb1",
+  "inlineScriptsSyntaxChecked": 2,
+  "pytest": {
+    "command": "/opt/lumi/venv/bin/python -m pytest -q tests/test_e4_exchange_review_ui.py tests/test_e4_recipient_review_behavior.py tests/test_e4_money_flow_outcome.py tests/test_e4_wallet_cross_tab.py tests/test_e4_wallet_handoff.py",
+    "passed": 144
+  },
+  "initialFailure": "36 legacy assertions failed because narrow VM did not extract new helper and static callback assertion expected old syntax. Updated real-helper extraction and callback assertion; all original scenarios retained and passed.",
+  "adversarialPytest": {
+    "passed": 1,
+    "internalScenarios": 55
+  },
+  "visual": {
+    "width": 320,
+    "file": "output/playwright/e4-buy-estimate-final-green/320-estimate-visible.png",
+    "result": "Readable amount, tariff, rate and indicative disclaimer; no clipping within scrollable dialog",
+    "sha256": "f02169f831c5c8992ed4d20784893f64e3a56fa81c764b82e8d513dd858a6c72"
+  }
+}

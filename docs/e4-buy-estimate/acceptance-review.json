@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "e4-buy-estimate-acceptance-review.v1",
+  "reviewer": "/root/e4_gap_review",
+  "timestamp": "2026-09-09T00:20:54.624198+00:00",
+  "result": "PASS",
+  "scope": [
+    "relay/webapp.html rates snapshot/loadRates helper",
+    "openExchangeReview optional deadline",
+    "beginBuyOrder indicative estimate",
+    "docs/e4-buy-estimate/contract.md"
+  ],
+  "sourceSha256": "145d60c292db76b440f47a2f17b3eecbc2fcbe5f6c4ca060c0fc59c435e8ffb1",
+  "browserRunnerSha256": "5d47e6a65c6fb299747e7a4f34c819d04097e9a8348651685b675e7fe070b164",
+  "browserEvidence": "output/playwright/e4-buy-estimate-confirm-green",
+  "baselineEvidence": "output/playwright/e4-buy-estimate-confirm-red",
+  "browserCases": 22,
+  "adversarialChecks": 55,
+  "adversarialCommand": "node tests/e4_buy_estimate_adversarial.cjs",
+  "findings": [],
+  "acceptance": [
+    "conditional custody disclosure retained",
+    "indicative amount/rate/fee shown in review; no fixed quote claim",
+    "invalid/missing/stale/future response estimates explicitly unavailable",
+    "receipt<60s and response<120s bounds do not imply market quote freshness",
+    "ordered full tiers and numeric/rounding landmines pass",
+    "latest response wins; failure clears snapshot and timeout aborts",
+    "open acknowledged snapshot does not mutate on refresh",
+    "rollback clock and no-timer expiry prevent submit",
+    "unavailable preserves two-minute review and explicit unpaid order creation",
+    "fresh and unavailable each issue exactly one expected synthetic POST after explicit confirmation at both widths",
+    "320px screenshot visually inspected readable wrapping",
+    "existing wallet two-minute defaults unchanged by optional deadline"
+  ],
+  "limitations": [],
+  "fixtureCorrection": "Initial expanded browser run reopened after loadRates reset its synthetic recipient via existing applyOfferings; fixture now refills recipient and requires visible modal. No product workaround."
+}

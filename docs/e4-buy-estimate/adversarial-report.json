@@ -1,0 +1,8 @@
+{
+  "result": "PASS",
+  "checks": 55,
+  "pytestWrapperPassed": 1,
+  "sourceSHA256": "145d60c292db76b440f47a2f17b3eecbc2fcbe5f6c4ca060c0fc59c435e8ffb1",
+  "runnerSHA256": "00353b1ac4d83db3f462a733f8c780972ba35910d687b97a7fee864d44636297",
+  "command": "node tests/e4_buy_estimate_adversarial.cjs relay/webapp.html"
+}

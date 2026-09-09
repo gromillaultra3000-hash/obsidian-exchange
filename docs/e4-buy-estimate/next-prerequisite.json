@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "e4-next-prerequisite.v1",
+  "criterion": "SELL_REVIEW_ESTIMATE_FRESHNESS",
+  "status": "OBSERVED_UNCLOSED",
+  "sourceSha256": "145d60c292db76b440f47a2f17b3eecbc2fcbe5f6c4ca060c0fc59c435e8ffb1",
+  "evidence": [
+    "relay/webapp.html:2051 loads Sell options only when cache empty",
+    "relay/webapp.html:2083 caches Sell rates without time bound",
+    "relay/webapp.html:2140 computes payout without age check",
+    "relay/webapp.html:2500 copies payout into confirmation"
+  ],
+  "reproductionCommand": "node - <<'JS'\nconst fs=require('fs'),vm=require('vm');const s=fs.readFileSync('relay/webapp.html','utf8');\nconst elements={};const get=id=>elements[id]||(elements[id]={value:'',textContent:'',style:{}});\nget('sell-currency').value='BTC';get('sell-amount').value='0.01';\nlet now=Date.now();const ctx=vm.createContext({document:{getElementById:get},sellOptions:{BTC:{rate:4550000,market:5000000,min:0.0001,network:'MAINNET',fee_percent:9}},Date:{now:()=>now}});\nvm.runInContext(s.slice(s.indexOf('function sellCalc()'),s.indexOf('function sellPayoutWay()')),ctx);\nvm.runInContext('sellCalc()',ctx);const initial=elements['sell-payout'].textContent;now+=86400000;vm.runInContext('sellCalc()',ctx);\nconsole.log(JSON.stringify({criterion:'SELL_REVIEW_ESTIMATE_FRESHNESS',initial,after24h:elements['sell-payout'].textContent,unchanged:initial===elements['sell-payout'].textContent,source:'relay/webapp.html:2045,2083,2140,2500',writes:0}));\nJS",
+  "result": {
+    "initial": "45 500 ₽",
+    "after24h": "45 500 ₽",
+    "unchanged": true,
+    "writes": 0
+  },
+  "scope": "Read-only extracted real sellCalc with synthetic DOM/rate/time; no API or money. No implementation in current slice.",
+  "next": "Assess and implement bounded truthful Sell review estimate freshness; preserve actual server order calculation."
+}

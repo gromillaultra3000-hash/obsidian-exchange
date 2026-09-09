@@ -1,0 +1,31 @@
+{
+  "result": "PASS",
+  "reviewer": "independent buy_custody_ops agent",
+  "recordedAt": "2026-09-09T00:18:08.754905+00:00",
+  "route": "E4/BUY_REVIEW_RECEIVE_ESTIMATE_DISCLOSURE",
+  "baseline_sha": "89c8b728d3db3352929755a7b72f79cb62761d99c9b19e1d2e43a4b8fe3558fa",
+  "candidate_sha": "145d60c292db76b440f47a2f17b3eecbc2fcbe5f6c4ca060c0fc59c435e8ffb1",
+  "rollout_sha": "fc25cd87542e1cc47d40a11a6b2aa7b2f980cb21100f6c37097b536b5327cdc5",
+  "helper_sha": "d2097d220500618ae684a46ac7e3eaf3caaa989a6915fed4301c6ce3f3b5fa7d",
+  "inventory_sha": "25d1ed4140449301acbf4a235d2cc5ba2c311a00804cfee3bc41faec470bcdeb",
+  "scope": [
+    "loadRates snapshot and buyReviewEstimate helper block",
+    "openExchangeReview optional snapshot expiry",
+    "beginBuyOrder estimate disclosure"
+  ],
+  "findings": [],
+  "assessment": [
+    "Frozen review estimate computes amount*(1-tariff/100)/rate using validated numeric server rate and complete increasing exclusive tier bounds. Invalid, unavailable, expired, overflow and rounded-zero estimates fail to explicit unavailable disclosure.",
+    "Response and local received timestamps bound age; wording avoids claiming market-source freshness or binding quote. Storefront tariff wording accommodates server order repricing and optional USDT commission override.",
+    "Review snapshots remain stable under background updates. Snapshot deadline bounds existing acknowledgement expiry; Buy callback independently guards elapsed expiry and clock rollback. Other callers retain default two-minute window.",
+    "Final guards validate snapshot object shape before timestamp access and reject JSON completion after an aborted request.",
+    "All bytes outside rates snapshot/helper region, openExchangeReview and beginBuyOrder unchanged. calculateFee, submitBuyOrder payload, backend, fees and custodial execution unchanged.",
+    "Shared reviewed helper enforces candidate/inventory/wrapper/helper digest pins, metadata/xattrs, unrelated input hashes, unchanged runtime state and inactive autopilot; atomic replacement with exact backup/rollback.",
+    "Read-only prepare verified public HTML against production with bot placeholder substitution and 56-file inventory; 13 local guard/rehearsal checks passed."
+  ],
+  "public_baseline_sha": "81887e2653239bcdfada0f3160bf0a5862024e34af0791614ebc20d22f308820",
+  "live_input_count": 56,
+  "service_count": 4,
+  "production_mutated": false,
+  "verification": "docs/e4-buy-estimate/rollout-checks.json"
+}

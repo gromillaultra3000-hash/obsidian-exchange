@@ -1,0 +1,21 @@
+{
+  "reviewer": "primary /root independent of rollout author /root/buy_custody_ops",
+  "recordedAt": "2026-09-09T00:19:32.681605+00:00",
+  "scope": "New rollout wrapper, imported atomic helper, pinned plan, local rehearsal code/results",
+  "result": "PASS",
+  "findings": [],
+  "verified": [
+    "Exact-byte invariance outside three scoped regions; candidate bound by SHA",
+    "Candidate/helper/wrapper/inventory digests match plan",
+    "Snapshot helper bounded separately; existing calculateFee/submitBuyOrder untouched",
+    "Reviewed13 local scope/drift/writer/metadata/reconcile/rollback checks",
+    "Backup precedes atomic apply; public exact-byte and unrelated-input/service identity rechecks"
+  ],
+  "inputSHA256": {
+    "docs/e4-buy-estimate/rollout.py": "fc25cd87542e1cc47d40a11a6b2aa7b2f980cb21100f6c37097b536b5327cdc5",
+    "docs/e4-buy-estimate/check-rollout.py": "be41db131c6181297e383c88421a97170128d822ff4ca6f01797ec0b93f495af",
+    "docs/e4-buy-estimate/rollout-checks.json": "730a486bb30f960d847fbf29f3183f8f78a05679a27ce692c05cf16d87175c4b",
+    "docs/e4-buy-estimate/plan.json": "6ededaf9911b86f7cd42313f6f438598c25b27b32faf28ea054fd7a301217e1a",
+    "docs/e4-wallet-cross-tab/rollout.py": "d2097d220500618ae684a46ac7e3eaf3caaa989a6915fed4301c6ce3f3b5fa7d"
+  }
+}

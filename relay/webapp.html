@@ -1215,19 +1215,67 @@
             el.textContent = (coins.length ? coins.join(', ') + ': ' : '') + steps + '.';
         }
 
-        // Live расчёт крипты
+        // Indicative Buy review snapshot; response age is not market-source age.
         let cachedRates = {};
+        let buyRateSnapshot = null;
+        let buyRatesRequest = 0;
+        function buyReviewEstimate(amount, currency, now = Date.now()) {
+            const snapshot = buyRateSnapshot;
+            if (!snapshot || !Number.isFinite(amount) || amount <= 0 || !Number.isFinite(now)) return null;
+            const data = snapshot.data;
+            if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
+            const receivedAt = snapshot.receivedAt;
+            if (!Number.isFinite(receivedAt) || !Number.isSafeInteger(data.ts) || data.ts <= 0) return null;
+            const responseAt = data.ts * 1000;
+            const expiresAt = Math.min(receivedAt + 60000, responseAt + 120000);
+            if (now < receivedAt || now < responseAt || now >= expiresAt) return null;
+            const rate = data[currency];
+            const tiers = data.commission_tiers;
+            if (typeof rate !== 'number' || !Number.isFinite(rate) || rate <= 0
+                || !Array.isArray(tiers) || !tiers.length || tiers.length > 32) return null;
+            let previous = 0;
+            let fee = null;
+            for (let index = 0; index < tiers.length; index++) {
+                const tier = tiers[index];
+                if (!tier || typeof tier.percent !== 'number' || !Number.isFinite(tier.percent)
+                    || tier.percent < 0 || tier.percent >= 100) return null;
+                const last = index === tiers.length - 1;
+                if (last ? tier.to_rub !== null
+                    : (typeof tier.to_rub !== 'number' || !Number.isFinite(tier.to_rub) || tier.to_rub <= previous)) return null;
+                if (fee === null && (last || amount < tier.to_rub)) fee = tier.percent;
+                previous = tier.to_rub;
+            }
+            const receive = amount * (1 - fee / 100) / rate;
+            if (!Number.isFinite(receive) || receive <= 0 || receive > Number.MAX_SAFE_INTEGER) return null;
+            const digits = {USDT: 2, LTC: 4, ETH: 5}[currency] ?? 6;
+            const rounded = receive.toFixed(digits);
+            if (Number(rounded) <= 0) return null;
+            return {fee, receiveText: rounded + ' ' + currency,
+                rateText: rate.toLocaleString('ru-RU', {maximumSignificantDigits: 12}) + ' ₽ за 1 ' + currency,
+                receivedAt, expiresAt};
+        }
         async function loadRates() {
+            const generation = ++buyRatesRequest;
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 8000);
             try {
-                const r = await fetch('/api/rates');
-                cachedRates = await r.json();
+                const r = await fetch('/api/rates', {cache: 'no-store', signal: controller.signal});
+                if (!r.ok) throw new Error('Rates unavailable');
+                const data = await r.json();
+                if (generation !== buyRatesRequest) return;
+                if (controller.signal.aborted) throw new Error('Rates timed out');
+                if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('Invalid rates');
+                cachedRates = data;
+                buyRateSnapshot = {data, receivedAt: Date.now()};
                 // Тарифы и список открытых направлений — из того же ответа,
                 // чтобы витрина Mini App не расходилась с расчётом на сервере.
                 if (cachedRates.commission_tiers) window.__oeTiers = cachedRates.commission_tiers;
                 if (cachedRates.offerings) applyOfferings(cachedRates.offerings);
                 renderFeeFaq();
                 calculateFee();
-            } catch(e) {}
+            } catch(e) {
+                if (generation === buyRatesRequest) buyRateSnapshot = null;
+            } finally { clearTimeout(timeout); }
         }
         loadRates();
         setInterval(loadRates, 30000); // обновляем раз в 30с
@@ -2368,7 +2416,7 @@
             exchangeReviewRestoreFocus = null;
             if (restore && document.contains(restore) && !restore.disabled) restore.focus();
         }
-        function openExchangeReview({title, description = 'Заявка ещё не создана. Ничего не списывается до следующего подтверждения.', confirmLabel = 'Подтвердить и создать', rows, risk, onConfirm}) {
+        function openExchangeReview({title, description = 'Заявка ещё не создана. Ничего не списывается до следующего подтверждения.', confirmLabel = 'Подтвердить и создать', rows, risk, onConfirm, expiresAt = null}) {
             exchangeReviewPreparationGeneration++;
             const modal = document.getElementById('exchange-review');
             const heading = document.getElementById('exchange-review-title');
@@ -2390,12 +2438,16 @@
             exchangeReviewCommit = onConfirm;
             clearExchangeReviewExpiry();
             exchangeReviewExpiresAt = Date.now() + exchangeReviewAckWindowMs;
-            freshness.textContent = 'Подтверждение доступно 2 минуты. Если время истечёт, откройте проверку заново.';
+            if (expiresAt !== null) exchangeReviewExpiresAt = Math.min(exchangeReviewExpiresAt,
+                Number.isFinite(expiresAt) ? expiresAt : 0);
+            freshness.textContent = expiresAt === null
+                ? 'Подтверждение доступно 2 минуты. Если время истечёт, откройте проверку заново.'
+                : 'Расчёт сохранён для этой проверки. После истечения времени откройте условия заново.';
             exchangeReviewExpiryTimer = setTimeout(() => {
                 if (modal.style.display === 'flex' && Date.now() >= exchangeReviewExpiresAt) {
                     invalidateExchangeReview();
                 }
-            }, exchangeReviewAckWindowMs + 50);
+            }, Math.max(0, exchangeReviewExpiresAt - Date.now()) + 50);
             exchangeReviewRestoreFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
             modal.style.display = 'flex';
             updateExchangeReviewConfirm();
@@ -3393,19 +3445,29 @@
             const noTag = tagVisible && !!(ntEl && ntEl.checked);
             const network = selectedNetwork();
             const payLabel = payMethod === 'card' ? 'банковская карта' : 'СБП';
+            const estimate = buyReviewEstimate(amount, currency);
             openExchangeReview({
                 title: 'Покупка ' + currency + ' за ' + amount.toLocaleString('ru-RU') + ' ₽',
                 rows: [
                     {label: 'Маршрут и исполнитель', value: 'ObsidianExchange · private lane · без KYC'},
                     {label: 'Кто хранит полученные средства', value: 'В личном кошельке ключами управляете вы. Если это адрес биржи или другого сервиса, средства хранит этот сервис; его правила доступа и KYC действуют отдельно. ObsidianExchange не получает ключи кошелька получателя.'},
-                    {label: 'Комиссия и расчёт', value: ((document.getElementById('fee-value') || {}).textContent || '—') + ' · итоговая сумма указана выше'},
+                    {label: 'Комиссия и расчёт', value: estimate ? estimate.fee + '% · тариф витрины' : 'Тариф для расчёта недоступен'},
+                    {label: 'Ориентировочно к получению', value: estimate ? '≈ ' + estimate.receiveText : 'Предварительный расчёт недоступен. Курс и сумму покажет созданная заявка.'},
+                    ...(estimate ? [{label: 'Курс для расчёта', value: estimate.rateText + '\nЭто ориентир по ответу сервера, а не фиксированный курс. Сумма в заявке может отличаться.'}] : []),
                     {label: 'Валюта и сеть', value: currency + (network ? ' · ' + network : '')},
                     {label: 'Адрес получателя', value: address},
                     ...(tagVisible ? [{label: 'Тег / memo', value: noTag ? 'Без тега — подтверждено в форме' : (destTag || 'Не указан — проверьте, нужен ли тег получателю')}] : []),
                     {label: 'Способ оплаты', value: payLabel}
                 ],
                 risk: 'После создания появятся реквизиты для оплаты. Не переводите деньги вне заявки. Проверьте адрес, сеть и тег / memo получателя: после отправки выплаты в блокчейн отменить перевод нельзя.',
-                onConfirm: () => submitBuyOrder({currency, amount, address, payMethod, destTag, noTag, network})
+                expiresAt: estimate ? estimate.expiresAt : null,
+                onConfirm: () => {
+                    if (estimate && (Date.now() < estimate.receivedAt || Date.now() >= estimate.expiresAt)) {
+                        resultEl.textContent = 'Время расчёта истекло. Откройте условия покупки заново.';
+                        return;
+                    }
+                    return submitBuyOrder({currency, amount, address, payMethod, destTag, noTag, network});
+                }
             });
         }
 

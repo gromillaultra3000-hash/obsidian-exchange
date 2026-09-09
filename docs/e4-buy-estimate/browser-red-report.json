@@ -1,0 +1,12 @@
+{
+  "sourceSha256": "89c8b728d3db3352929755a7b72f79cb62761d99c9b19e1d2e43a4b8fe3558fa",
+  "runnerSha256": "5d47e6a65c6fb299747e7a4f34c819d04097e9a8348651685b675e7fe070b164",
+  "playwrightVersion": "1.62.0",
+  "checks": [],
+  "writes": [],
+  "expectedConfirmations": [],
+  "pageErrors": [],
+  "browserVersion": "152.0.7977.64",
+  "result": "FAIL",
+  "error": "AssertionError [ERR_ASSERTION]: receive calculation must be inside review\n    at main (/tmp/e4-review-browser-90oxmn3e/runner.cjs:62:24)"
+}
