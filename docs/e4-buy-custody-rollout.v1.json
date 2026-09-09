@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-09-09T00:12:43.778263+00:00",
+  "route": "E4/BUY_RECIPIENT_CUSTODY_DISCLOSURE",
+  "status": "VERIFIED",
+  "fullE4": "IN_PROGRESS",
+  "implementationCommit": "fa13d93066dfb428b8be4326b0aa9c6b8c55d9d3",
+  "change": "Exactly two static Buy review strings: conditional recipient custody and irreversible blockchain payout disclosure",
+  "tests": {
+    "existingPytestPassed": 101,
+    "syntaxCheckedInlineScripts": 2,
+    "chromiumWidths": [
+      320,
+      390,
+      1280
+    ],
+    "chromiumCasesPassed": 3,
+    "baselineRegression": "False self-custody claim reproduced with same final runner",
+    "rolloutRehearsalChecksPassed": 13,
+    "gitleaksVersion": "8.30.0",
+    "gitleaksFindings": 0
+  },
+  "reviews": [
+    "docs/e4-buy-custody/acceptance-review.json",
+    "docs/e4-buy-custody/diff-ops-review.json",
+    "docs/e4-buy-custody/primary-ops-review.json"
+  ],
+  "rollout": {
+    "apply": "APPLY_PASS",
+    "reconcile": "RECONCILE_PASS",
+    "liveSHA256": "89c8b728d3db3352929755a7b72f79cb62761d99c9b19e1d2e43a4b8fe3558fa",
+    "publicSHA256": "81887e2653239bcdfada0f3160bf0a5862024e34af0791614ebc20d22f308820",
+    "previousSHA256": "ee01d3f55a2f97c3f957e9166a02f79cd247f7d924316c666d6d94a754bfe7e3",
+    "publicURL": "https://obsidian-exchange.org/webapp",
+    "publicStatus": 200,
+    "unrelatedApplicationInputsPreserved": 55,
+    "serviceStatesPreserved": 4,
+    "restart": false,
+    "rollbackPreimage": "/var/lib/obsidian-exchange/deployment-preimages/e4-buy-custody-20260909T0011Z",
+    "autopilot": "failed/MainPID0"
+  },
+  "rollbackCommand": "python3 docs/e4-buy-custody/rollout.py rollback --plan docs/e4-buy-custody/plan.json --backup /var/lib/obsidian-exchange/deployment-preimages/e4-buy-custody-20260909T0011Z",
+  "ownerDeviceAcceptance": "Accepted on 2026-09-09; report not required, not reopened by this slice",
+  "next": "E4/BUY_REVIEW_RECEIVE_ESTIMATE_DISCLOSURE",
+  "evidenceSHA256": {
+    "docs/e4-buy-custody/acceptance-review.json": "bdb00186adbadda3a1b09a5c0f715d23379b7d2932977f40bbe832821f1aecce",
+    "docs/e4-buy-custody/browser-green-isolation.json": "0fff4eac854eadba937a59f9c6ecdd1622bec6b88ccf4cf1daca598eccc5bee5",
+    "docs/e4-buy-custody/browser-green-report.json": "9f1a8ecb898cd3b635ce162abfa8a06e07e05782e61db0aa1073b24170296243",
+    "docs/e4-buy-custody/browser-red-isolation.json": "7c85222a5cd651b58856cf72d69cb65363c5b3c9f00e8fc9f988315ae468edbc",
+    "docs/e4-buy-custody/browser-red-report.json": "04fc0117678d74d649816fa413fb301785e71c70151e97b7be88baee74b13fcc",
+    "docs/e4-buy-custody/diff-ops-review.json": "e934b054574c71fc08aa808c3125a11053af11517f2efce573dc1ac83d41f684",
+    "docs/e4-buy-custody/next-prerequisite.json": "b341bbdde5d849013341446ed552a394da99662254e75a658a40c65fe83d36ac",
+    "docs/e4-buy-custody/ops-baseline.json": "964e6c506442a61fcd2307044a1613265dbd09033ec11d9ca38e71e25cef535e",
+    "docs/e4-buy-custody/plan.json": "b1c1bb72946a83dc1eb39a9202eab17a264de182dc4107fcd37a45d8f94d3af7",
+    "docs/e4-buy-custody/primary-checks.json": "262d436090328236df5590da844ebbf6bf4191a53d30c31d4f8c15cbd371c8f9",
+    "docs/e4-buy-custody/primary-ops-review.json": "a2bc6d3e3ce9e49d35faa7e55f7f5883f00c62d40e6bee99db9af921f32f66fa",
+    "docs/e4-buy-custody/rollout-checks.json": "76f9f6ab9abb37e0648635d99fa80d1963419f9f11bc1214a69c2054406afa4b"
+  }
+}

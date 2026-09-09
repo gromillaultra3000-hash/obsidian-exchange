@@ -11,7 +11,23 @@ non-custodial wallet whose keys never reach the server.
 
 ## Active route
 
-`E4 / remaining action UX acceptance criteria / assess the next unmet E4 criterion after accepted device check`
+`E4 / BUY_REVIEW_RECEIVE_ESTIMATE_DISCLOSURE / show indicative receive amount and rate inside Buy review with truthful availability and freshness`
+
+2026-09-09: BUY_RECIPIENT_CUSTODY_DISCLOSURE VERIFIED and deployed, `fa13d93`.
+Buy review distinguishes own-wallet key control from exchange/service custody
+and separate KYC; explicitly states that blockchain payout cannot be cancelled.
+Exactly two text replacements; submission/acknowledgement/payload unchanged.
+101 existing tests, 3 native Chrome widths (320/390/1280), 13 local rollout checks,
+two independent reviews, primary ops review and secret scan PASS. Baseline false
+self-custody assertion reproduced. Atomic HTML-only apply/reconcile PASS, exact
+public bytes, 55 other application inputs and 4 service identities preserved;
+no restart. Current HTML SHA256 `89c8b728...58fa`; wallet guard logic unchanged.
+Evidence: `docs/e4-buy-custody-rollout.v1.json`. Rollback is retained under
+`deployment-preimages/e4-buy-custody-20260909T0011Z`.
+Exactly next: BUY_REVIEW_RECEIVE_ESTIMATE_DISCLOSURE. The Buy dialog currently
+shows fee percent and says the total is above; approximate receive amount/rate
+are only in the background form. Show an indicative calculation in the review
+with explicit unavailable/freshness semantics, never as a binding quote.
 
 2026-09-08: inert device harness PUBLISHED_VERIFIED, `233cc57`. Generated four
 static assets from production wallet review/attempt helpers, with declared CSS
@@ -39,10 +55,10 @@ on a friend's phone and explicitly confirmed iPhone / Telegram / bot `/preview`
 entry. The owner accepted this direct observation as sufficient evidence and
 removed the local-report requirement; it is not an open limitation or blocker.
 Evidence: `docs/e4-wallet-device-owner-acceptance.v1.json` (owner conversation).
-Full E4 remains IN_PROGRESS. Exactly next: assess the remaining canonical E4
-action UX criteria and select the first unmet bounded implementation item.
+This completed prerequisite led to the custody disclosure slice above.
+Full E4 remains IN_PROGRESS; the active next item is specified above.
 
-Production guard remains55808db/ee01d3f5: same-partition upgraded pages only, old
+Wallet guard implementation remains55808db (current HTML89c8b728): same-partition upgraded pages only, old
 pages must reload; manual outcome assertion is not chain evidence. Production
 rollback retained at deployment-preimages/e4-wallet-cross-tab-55808db-20260908.
 No real money/signature/customer read/new credentials/064A authority. Autopilot

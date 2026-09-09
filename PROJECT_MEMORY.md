@@ -4,14 +4,25 @@ Updated: 2026-09-09 UTC
 
 ## Current goal and status
 
+- 2026-09-09 E4/BUY_RECIPIENT_CUSTODY_DISCLOSURE VERIFIED/deployed fa13d93.
+  Buy review now distinguishes own-wallet vs provider custody/KYC and irreversible
+  blockchain payout. Two static strings only; current HTML89c8b728...58fa,
+  wallet guard55808db unchanged.101 existing tests,3 Chrome widths,13 local
+  rollback/guard checks,two independent reviews and Gitleaks zero. Atomic HTML
+  apply/reconcile PASS;55 other app inputs/four service states preserved,no restart.
+  Rollback: deployment-preimages/e4-buy-custody-20260909T0011Z. Evidence:
+  docs/e4-buy-custody-rollout.v1.json. Full E4 IN_PROGRESS; exactly next
+  BUY_REVIEW_RECEIVE_ESTIMATE_DISCLOSURE: dialog lacks indicative receive amount
+  and rate, refers to background total; implement truthful unavailable/freshness
+  semantics. Autopilot remains failed/MainPID0; no money/signature/new authority.
+
 - 2026-09-09 E4/WALLET_HANDOFF_DEVICE_ACCEPTANCE VERIFIED for the inert
   interface check by direct owner observation: no issues on a friend's iPhone,
   Telegram Mini App entered through bot /preview, context explicitly confirmed.
   Owner accepts this evidence and removes the local-report requirement; do not
   retain missing report as a limitation/blocker or request the check again.
   Evidence: docs/e4-wallet-device-owner-acceptance.v1.json. Full E4 IN_PROGRESS.
-  Next: assess remaining canonical E4 action UX criteria for the next bounded
-  implementation item. Public diagnostic GET200 / exact published HTML verified
+  The subsequent assessment selected the disclosure slice above. Public diagnostic GET200 / exact published HTML verified
   today; autopilot failed/MainPID0. No deployment or restart in this update.
 
 - 2026-09-08 E4 WALLET_HANDOFF_DEVICE_ACCEPTANCE: inert harness

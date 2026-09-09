@@ -999,6 +999,19 @@ Sep 8 pending device/report prerequisite. Evidence:
 Exactly next: assess remaining canonical E4 action UX criteria and select the
 first unmet bounded implementation item. No runtime change in this acceptance.
 
+2026-09-09: BUY_RECIPIENT_CUSTODY_DISCLOSURE VERIFIED/deployed (`fa13d93`).
+Buy review now distinguishes own-wallet and external-service recipient custody
+and KYC, with explicit irreversible blockchain payout text. Two static strings
+only; no payload, consent or writer changes.101 existing tests, 3 native Chrome
+widths,13 local rollout/rollback checks and two independent reviews PASS;
+baseline false self-custody claim reproduced. Atomic HTML-only apply/reconcile,
+public exact bytes and55 unrelated inputs/four services preserved; no restart.
+Evidence: `docs/e4-buy-custody-rollout.v1.json`. E4 remains IN_PROGRESS.
+Exactly next: BUY_REVIEW_RECEIVE_ESTIMATE_DISCLOSURE — the review copies only
+fee percent and refers to a total outside its modal; surface indicative receive
+amount/rate with truthful unavailable/freshness semantics. Owner iPhone acceptance
+remains complete with no local-report prerequisite.
+
 ### E5 — нативный некастодиальный кошелёк
 
 E0.4 inventory evidence (2026-08-18): the checkout has a Rust/UniFFI Bitcoin
