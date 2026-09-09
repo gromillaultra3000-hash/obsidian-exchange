@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "e4-next-prerequisite.v1",
+  "criterion": "BUY_RECIPIENT_REFRESH_PRESERVATION",
+  "status": "OBSERVED_UNCLOSED",
+  "sourceSha256": "691f2a79f1a54f712c784b60f46344af6d972fa88a6d81b511752378da4d68c3",
+  "evidence": [
+    "loadRates repeats every30seconds and calls applyOfferings",
+    "applyOfferings:1382 calls onCurrencyChange even if current currency unchanged",
+    "onCurrencyChange:1399 calls updateAddressPlaceholder:1412",
+    "updateAddressPlaceholder:3418 unconditionally copies lastAddress_currency_network into address field"
+  ],
+  "reproductionCommand": "node - <<'JS'\nconst fs=require('fs'),vm=require('vm');const source=fs.readFileSync('relay/webapp.html','utf8');\nconst current='bc1'+'q'.repeat(87),saved='bc1'+'p'.repeat(87);const nodes={currency:{value:'BTC'},address:{value:current}};\nconst context=vm.createContext({document:{getElementById:id=>nodes[id]},selectedNetwork:()=> 'MAINNET',localStorage:{getItem:()=>saved},validateAddress(){},updateTagField(){},tcRefresh(){}});\nconst start=source.indexOf('function updateAddressPlaceholder()');const end=source.indexOf('\\n        }',start);\nvm.runInContext(source.slice(start,end+10),context);vm.runInContext('updateAddressPlaceholder()',context);\nconsole.log(JSON.stringify({criterion:'BUY_RECIPIENT_REFRESH_PRESERVATION',typedRecipient:current,cachedRecipient:saved,afterRefreshHelper:nodes.address.value,replacedTypedRecipient:nodes.address.value!==current,writes:0}));\nJS",
+  "result": {
+    "typedRecipient": "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+    "cachedRecipient": "bc1ppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp",
+    "afterRefreshHelper": "bc1ppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp",
+    "replacedTypedRecipient": true,
+    "writes": 0
+  },
+  "scope": "Read-only actual helper extraction with synthetic recipient/cache; no APIs or money. Prior Buy browser fixture also observed refresh clearing manually entered address with empty cache.",
+  "next": "Bounded Buy form refresh preservation: retain current user-entered destination and selected network while refreshing rates/offerings; explicit currency/network edits remain separate."
+}

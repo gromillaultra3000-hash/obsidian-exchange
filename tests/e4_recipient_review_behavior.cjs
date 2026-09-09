@@ -176,7 +176,7 @@ function harness(options = {}) {
     const attempt = source.includes('const walletAttemptStorageKey') ? oneRegion(
         /^        const walletAttemptStorageKey[^]*?(?=^        let exchangeReviewCommit)/m,
         'wallet attempt state') : '';
-    vm.runInContext('let buyRateSnapshot = null;\n' + functionSource('buyReviewEstimate') + '\n' + declarations + '\n' + attempt + '\n' + functions.map(functionSource).join('\n') + '\n' + wiring,
+    vm.runInContext('let buyRateSnapshot = null; let sellEstimateSnapshot = null; let sellOrderPending = false;\n' + functionSource('sellSnapshotInfo') + '\n' + functionSource('sellReviewEstimate') + '\n' + functionSource('buyReviewEstimate') + '\n' + declarations + '\n' + attempt + '\n' + functions.map(functionSource).join('\n') + '\n' + wiring,
         context, {filename: sourcePath, timeout: 1000});
     if (attempt) vm.runInContext(oneRegion(
         /^        \(function wireWalletAttemptNotice\(\) \{[^]*?^        \}\)\(\);/m,

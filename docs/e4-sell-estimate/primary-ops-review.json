@@ -1,0 +1,21 @@
+{
+  "reviewer": "primary /root independent of rollout author /root/buy_custody_ops",
+  "recordedAt": "2026-09-09T00:30:18.526033+00:00",
+  "result": "PASS",
+  "scope": "scoped wrapper/imported helper/pinned plan/local rollback rehearsal",
+  "findings": [],
+  "verified": [
+    "All four plan artifact hashes match",
+    "Only Sell declaration/entry region, two new helpers, three Sell functions and exact calculation box may change",
+    "Shared review and submitSellOrder bytes preserved",
+    "14 local scope/drift/writer/metadata/apply/reconcile/exact-rollback checks reviewed",
+    "Atomic replacement only after saved original bytes/metadata; public,55 unrelated files/four service identities checked"
+  ],
+  "inputSHA256": {
+    "docs/e4-sell-estimate/rollout.py": "e149e2ce0229e097826a87ade640999bd34bc3d3b6768bddb0bb37bd48d05f7c",
+    "docs/e4-sell-estimate/check-rollout.py": "8e1129333f926f89552977444900007cfa0f466165cae49819d8d6d8f5a48f89",
+    "docs/e4-sell-estimate/rollout-checks.json": "288db0770e0062beebe5f5fb40eff6feab51ebf9aa4c7fcdcf8468ea5575b8e5",
+    "docs/e4-sell-estimate/plan.json": "a7cf0f6745c944c5dd740abcb462000859b0062099ec84c0d1daa4df4900df52",
+    "docs/e4-wallet-cross-tab/rollout.py": "d2097d220500618ae684a46ac7e3eaf3caaa989a6915fed4301c6ce3f3b5fa7d"
+  }
+}

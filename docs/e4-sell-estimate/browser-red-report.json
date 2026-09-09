@@ -1,0 +1,12 @@
+{
+  "sourceSha256": "145d60c292db76b440f47a2f17b3eecbc2fcbe5f6c4ca060c0fc59c435e8ffb1",
+  "runnerSha256": "89509ab5d60febad951b7a891d6ac94f2fb8440eb5b5271ac22435edfc656f16",
+  "playwrightVersion": "1.62.0",
+  "checks": [],
+  "unexpectedWrites": [],
+  "confirmations": [],
+  "pageErrors": [],
+  "browserVersion": "152.0.7977.64",
+  "result": "FAIL",
+  "error": "AssertionError [ERR_ASSERTION]: stale/malformed payout must not be shown as current\n    at main (/tmp/e4-review-browser-1agcfhsn/runner.cjs:129:24)"
+}

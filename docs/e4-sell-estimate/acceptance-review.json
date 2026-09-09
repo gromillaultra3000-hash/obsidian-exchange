@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "e4-sell-estimate-acceptance-review.v1",
+  "reviewer": "/root/e4_gap_review",
+  "timestamp": "2026-09-09T00:31:50.961778+00:00",
+  "result": "PASS",
+  "sourceSha256": "691f2a79f1a54f712c784b60f46344af6d972fa88a6d81b511752378da4d68c3",
+  "runnerSha256": "89509ab5d60febad951b7a891d6ac94f2fb8440eb5b5271ac22435edfc656f16",
+  "scope": [
+    "relay/webapp.html Sell option receipt/rate helpers and form rendering",
+    "Sell review receipt-bound indicative payout/fee",
+    "option refresh preservation and pending-order exclusion",
+    "docs/e4-sell-estimate/contract.md"
+  ],
+  "browserEvidence": "output/playwright/e4-sell-estimate-final-green",
+  "baselineEvidence": "output/playwright/e4-sell-estimate-final-red",
+  "browserCases": 22,
+  "adversarialChecks": 38,
+  "adversarialCommand": "node tests/e4_sell_estimate_adversarial.cjs",
+  "findings": [
+    {
+      "id": "REFRESH_REENABLES_PENDING_SUBMIT",
+      "origin": "independent diff/ops reviewer",
+      "disposition": "Fixed by per-page pending flag; both viewport pending-submit browser cases prove refresh and direct reentry cannot open review or POST twice."
+    }
+  ],
+  "acceptance": [
+    "server net rate used without double-deducting fee",
+    "per-coin numeric fee and rate; missing market allowed",
+    "receipt age only, no market-source freshness claim",
+    "stale/malformed unavailable disclosure",
+    "latest success/failure response ordering and response-time form inputs preserved",
+    "removed currency/method/bank empty, no implicit recipient-route substitution",
+    "captured review strings immutable during refresh and expired consent blocked without timer callback",
+    "fresh and stale unavailable each permit one explicitly confirmed mock request with unchanged body",
+    "pending-submit refresh exclusion and post-response release",
+    "320px screenshot visually inspected legible payout/fee/rate/recipient; no horizontal overflow"
+  ],
+  "negativeResults": [
+    "Original HTML fails stale payout disclosure at first320 case; expected regression red."
+  ],
+  "limitations": []
+}

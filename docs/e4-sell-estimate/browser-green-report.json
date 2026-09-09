@@ -1,0 +1,203 @@
+{
+  "sourceSha256": "691f2a79f1a54f712c784b60f46344af6d972fa88a6d81b511752378da4d68c3",
+  "runnerSha256": "89509ab5d60febad951b7a891d6ac94f2fb8440eb5b5271ac22435edfc656f16",
+  "playwrightVersion": "1.62.0",
+  "checks": [
+    {
+      "width": 320,
+      "scenario": "stale",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "scenario": "fresh",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "scenario": "malformed-rate",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "scenario": "malformed-fee",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "scenario": "refresh-preserve",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "scenario": "refresh-race",
+      "result": "PASS",
+      "staleSuccessAndFailureIgnored": true,
+      "responseTimeInputsPreserved": true
+    },
+    {
+      "width": 320,
+      "scenario": "removed-selection",
+      "result": "PASS",
+      "noSilentSubstitution": true
+    },
+    {
+      "width": 320,
+      "scenario": "refresh-failure",
+      "result": "PASS",
+      "disabledAfterFailure": true
+    },
+    {
+      "width": 320,
+      "scenario": "fresh-submit",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "scenario": "stale-submit",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "scenario": "pending-submit",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "scenario": "stale",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "scenario": "fresh",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "scenario": "malformed-rate",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "scenario": "malformed-fee",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "scenario": "refresh-preserve",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "scenario": "refresh-race",
+      "result": "PASS",
+      "staleSuccessAndFailureIgnored": true,
+      "responseTimeInputsPreserved": true
+    },
+    {
+      "width": 390,
+      "scenario": "removed-selection",
+      "result": "PASS",
+      "noSilentSubstitution": true
+    },
+    {
+      "width": 390,
+      "scenario": "refresh-failure",
+      "result": "PASS",
+      "disabledAfterFailure": true
+    },
+    {
+      "width": 390,
+      "scenario": "fresh-submit",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "scenario": "stale-submit",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "scenario": "pending-submit",
+      "result": "PASS"
+    }
+  ],
+  "unexpectedWrites": [],
+  "confirmations": [
+    {
+      "width": 320,
+      "scenario": "fresh-submit",
+      "body": {
+        "currency": "BTC",
+        "amount": 0.01,
+        "phone": "4111111111111111",
+        "method": "card",
+        "bank": "bank-b",
+        "full_name": "Тестовый Получатель"
+      }
+    },
+    {
+      "width": 320,
+      "scenario": "stale-submit",
+      "body": {
+        "currency": "BTC",
+        "amount": 0.01,
+        "phone": "4111111111111111",
+        "method": "card",
+        "bank": "bank-b",
+        "full_name": "Тестовый Получатель"
+      }
+    },
+    {
+      "width": 320,
+      "scenario": "pending-submit",
+      "body": {
+        "currency": "BTC",
+        "amount": 0.01,
+        "phone": "4111111111111111",
+        "method": "card",
+        "bank": "bank-b",
+        "full_name": "Тестовый Получатель"
+      }
+    },
+    {
+      "width": 390,
+      "scenario": "fresh-submit",
+      "body": {
+        "currency": "BTC",
+        "amount": 0.01,
+        "phone": "4111111111111111",
+        "method": "card",
+        "bank": "bank-b",
+        "full_name": "Тестовый Получатель"
+      }
+    },
+    {
+      "width": 390,
+      "scenario": "stale-submit",
+      "body": {
+        "currency": "BTC",
+        "amount": 0.01,
+        "phone": "4111111111111111",
+        "method": "card",
+        "bank": "bank-b",
+        "full_name": "Тестовый Получатель"
+      }
+    },
+    {
+      "width": 390,
+      "scenario": "pending-submit",
+      "body": {
+        "currency": "BTC",
+        "amount": 0.01,
+        "phone": "4111111111111111",
+        "method": "card",
+        "bank": "bank-b",
+        "full_name": "Тестовый Получатель"
+      }
+    }
+  ],
+  "pageErrors": [],
+  "browserVersion": "152.0.7977.64",
+  "result": "PASS"
+}

@@ -1,0 +1,43 @@
+{
+  "result": "PASS",
+  "reviewer": "independent buy_custody_ops agent",
+  "recordedAt": "2026-09-09T00:29:42.716280+00:00",
+  "route": "E4/SELL_REVIEW_ESTIMATE_FRESHNESS",
+  "baseline_sha": "145d60c292db76b440f47a2f17b3eecbc2fcbe5f6c4ca060c0fc59c435e8ffb1",
+  "candidate_sha": "691f2a79f1a54f712c784b60f46344af6d972fa88a6d81b511752378da4d68c3",
+  "rollout_sha": "e149e2ce0229e097826a87ade640999bd34bc3d3b6768bddb0bb37bd48d05f7c",
+  "helper_sha": "d2097d220500618ae684a46ac7e3eaf3caaa989a6915fed4301c6ce3f3b5fa7d",
+  "inventory_sha": "1e514cdd1f67009caa5960ec1aa91b86beac018618fb4b80c389868714aef1d4",
+  "scope": [
+    "sellOptions state and sellSide entry refresh",
+    "sellSnapshotInfo and sellReviewEstimate helpers",
+    "loadSellOptions and sellCalc",
+    "createSellOrder snapshot disclosure",
+    "sell-calc-box indicative status and refresh control"
+  ],
+  "findings": [
+    {
+      "id": "SELL_REFRESH_INFLIGHT_REENABLE",
+      "severity": "P1",
+      "status": "FIXED",
+      "trigger": "Successful options refresh or Sell tab re-entry during pending sell order creation re-enabled sell-submit before the first POST completed.",
+      "impact": "A second review and confirmation could create a duplicate unpaid order.",
+      "resolution": "sellOrderPending spans awaited unchanged submitSellOrder; createSellOrder entry and confirmation callback reject reentry; options refresh preserves disabled while pending.",
+      "verification": "Final product diff inspected; targeted behavioral verification owned by primary agent."
+    }
+  ],
+  "assessment": [
+    "Sell server rate is net RUB per coin; estimate multiplies amount*rate without deducting commission twice. Selected-coin fee_percent replaces global fee_label range. Missing market breakdown does not invalidate an otherwise valid rate and fee.",
+    "Receipt age is bounded to 60 seconds; endpoint has no server timestamp and UI does not claim market-source freshness or binding quote. Nonfinite, malformed, overflow and rounded-zero values suppress numeric estimate.",
+    "No-store requests have timeout/aborted-response and latest-generation guards. Failure clears snapshot and disables form submission. Expiry timer and visibility reentry clear stale form amount, fee and breakdown.",
+    "Select rebuilding preserves response-time choices, inserts empty placeholder for removed choices, and does not edit recipient fields. Empty payout-method guard prevents silently switching removed recipient route.",
+    "Review freezes fresh payout/fee/net rate and expiration, or explicitly discloses unavailable estimate. Existing shared review deadline handles expiration; Sell callback checks deadline and clock rollback.",
+    "Only agreed state/helper/form/review scopes changed. Shared review machinery, buy surface, submitSellOrder request payload and backend untouched.",
+    "Read-only production preflight passed with 56 live inputs and 4 unchanged services. Fourteen local scope/drift/atomic apply/reconcile/rollback checks passed."
+  ],
+  "public_baseline_sha": "0875e6c58285e2de6acd274433ae5ca8ef1bca88e9ab018db6d860f6e42f19af",
+  "live_input_count": 56,
+  "service_count": 4,
+  "production_mutated": false,
+  "verification": "docs/e4-sell-estimate/rollout-checks.json"
+}

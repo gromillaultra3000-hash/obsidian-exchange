@@ -1,0 +1,15 @@
+{
+  "sourceSHA256": "691f2a79f1a54f712c784b60f46344af6d972fa88a6d81b511752378da4d68c3",
+  "inlineScriptsSyntaxChecked": 2,
+  "pytest": {
+    "command": "/opt/lumi/venv/bin/python -m pytest -q --tb=short tests/test_e4_exchange_review_ui.py tests/test_e4_recipient_review_behavior.py tests/test_e4_money_flow_outcome.py tests/test_e4_wallet_cross_tab.py tests/test_e4_wallet_handoff.py tests/test_e4_buy_estimate_adversarial.py",
+    "passed": 145
+  },
+  "legacyFixtureUpdate": "Extract actual new Sell helpers with null snapshot and pending=false; retain all existing recipient/wallet/buy scenarios and adjust callback syntax assertion",
+  "visual": {
+    "width": 320,
+    "result": "PASS: payout/fee/rate and recipient visible with readable wrapping in scrollable modal",
+    "file": "output/playwright/e4-sell-estimate-final-green/320-fresh.png",
+    "sha256": "df5bea6acb21ff30f7d4136abb0713d095b6767af861672b056bd912bd43f38f"
+  }
+}

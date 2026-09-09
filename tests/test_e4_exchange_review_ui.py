@@ -14,7 +14,7 @@ def test_exchange_actions_open_a_clear_review_before_the_write_request():
     assert "function beginBuyOrder" in webapp
     assert "function createSellOrder" in webapp
     assert "return submitBuyOrder({currency, amount, address, payMethod, destTag, noTag, network});" in webapp
-    assert "onConfirm: () => submitSellOrder" in webapp
+    assert "await submitSellOrder({cur, amt, way, phone, bank, fullName});" in webapp
     assert "Я проверил(а) маршрут, сумму, сеть и реквизиты" in webapp
     assert "localStorage.setItem('lastAddress_' + currency + '_' + network, address)" in webapp
 
