@@ -11,7 +11,27 @@ non-custodial wallet whose keys never reach the server.
 
 ## Active route
 
-`E4 / TONCONNECT_CONNECTION_INTENT_LIFETIME / preserve originating intent across preparation retirement and reject obsolete SDK callbacks`
+`E4 / TONCONNECT_VERIFICATION_WAIT_RECOVERY / bound stalled verification and allow safe explicit retry`
+
+2026-09-09: TONCONNECT_CONNECTION_INTENT_LIFETIME VERIFIED/deployed (`ec0c9d7`).
+Persistent connection intent matches exact server challenge to original recipient
+state after preparation retirement. Unowned/mismatched callbacks cannot affect
+newer intent or verification;matching intent consumed before await. No-store GET
+and same-page challenge reuse rejection;failed handoff clears only owned intent.
+Manual entry preserved;unowned SDK restoration no longer autoassigns recipient.
+149 existing pytest,25 legacy frontend/69 backend checks,22 adversarial checks,
+90 Chrome cases (22new+30binding+38preparation) at320/390,17 rollout checks and
+two reviews PASS;Gitleaks zero. Backend random nonce/proof payload semantics
+inspected,unchanged. HTML-only apply/reconcile/public exact;57 other inputs and
+four services preserved,no restart. HTML `43295c72...bedcbba9`; evidence:
+`docs/e4-tonconnect-intent-rollout.v1.json`. Rollback retained at
+`deployment-preimages/e4-tonconnect-intent-20260909T0119Z`.
+E4 IN_PROGRESS. Exactly next: TONCONNECT_VERIFICATION_WAIT_RECOVERY — stalled
+verification has no deadline and leaves tcPending blocking new preparation.
+Actual-helper fake-clock reproduction independently confirmed:1hour elapsed,
+no deadline/no retry request,no real network/signature/money. Evidence:
+`docs/e4-tonconnect-intent/next-prerequisite.json`. Owner iPhone acceptance
+remains complete with no local report prerequisite.
 
 2026-09-09: TONCONNECT_PREPARATION_ROUTE_BINDING VERIFIED/deployed (`fc90a99`).
 Preparation serialized and bound to recipient intent across payload JSON,disconnect
@@ -25,7 +45,7 @@ HTML-only apply/reconcile/public exact,56 other live inputs (including pinned SD
 and four services preserved,no restart. HTML `537671a0...68258e3`; evidence:
 `docs/e4-tonconnect-preparation-rollout.v1.json`. Rollback:
 `deployment-preimages/e4-tonconnect-preparation-20260909T0109Z`.
-E4 IN_PROGRESS. Exactly next: TONCONNECT_CONNECTION_INTENT_LIFETIME — after
+That connection-lifetime prerequisite is now resolved above. Previously,after
 preparation token retires,a later SDK status can verify against a newer recipient.
 Actual-helper reproduction independently confirmed; no real network/signatures/
 money: `docs/e4-tonconnect-preparation/next-prerequisite.json`. This slice covers
@@ -141,7 +161,7 @@ Evidence: `docs/e4-wallet-device-owner-acceptance.v1.json` (owner conversation).
 This completed prerequisite led to the custody disclosure slice above.
 Full E4 remains IN_PROGRESS; the active next item is specified above.
 
-Wallet guard implementation remains55808db (current HTML537671a0): same-partition upgraded pages only, old
+Wallet guard implementation remains55808db (current HTML43295c72): same-partition upgraded pages only, old
 pages must reload; manual outcome assertion is not chain evidence. Production
 rollback retained at deployment-preimages/e4-wallet-cross-tab-55808db-20260908.
 No real money/signature/customer read/new credentials/064A authority. Autopilot

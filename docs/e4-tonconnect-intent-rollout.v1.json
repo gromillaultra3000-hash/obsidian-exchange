@@ -1,0 +1,82 @@
+{
+  "schemaVersion": "e4-tonconnect-intent-rollout.v1",
+  "recordedAt": "2026-09-09T01:20:48.178120+00:00",
+  "route": "E4 / TONCONNECT_CONNECTION_INTENT_LIFETIME",
+  "status": "VERIFIED",
+  "fullE4": "IN_PROGRESS",
+  "implementationCommit": "ec0c9d75881d093bd6bd4afa9e6f7d0c9d18e084",
+  "behavior": [
+    "Separate connection intent survives preparation retirement and binds exact server challenge to original recipient state",
+    "Unowned/missing/mismatched callbacks have no sideeffects and cannot cancel a newer intent or verification",
+    "Matching current intent consumed once before verification;duplicates ignored,existing response-time guard retained",
+    "Fresh challenge GET no-store,same-page issued challenge reuse rejected;failed handoff clears only owned intent",
+    "Unsolicited/restored SDK state cannot autoassign recipient;manual entry remains available"
+  ],
+  "verification": {
+    "existingPytestPassed": 149,
+    "legacyTonFrontendChecksPassed": 25,
+    "legacyTonBackendChecksPassed": 69,
+    "adversarialChecksPassed": 22,
+    "newNativeBrowserScenariosPassed": 22,
+    "priorBindingBrowserScenariosPassed": 30,
+    "priorPreparationBrowserScenariosPassed": 38,
+    "totalNativeBrowserScenariosPassed": 90,
+    "browserWidths": [
+      320,
+      390
+    ],
+    "sameRunnerBaselineRegression": "REPRODUCED",
+    "inlineScriptSyntaxChecksPassed": 2,
+    "localRolloutChecksPassed": 17,
+    "independentReviews": [
+      "docs/e4-tonconnect-intent/acceptance-review.json",
+      "docs/e4-tonconnect-intent/diff-ops-review.json"
+    ],
+    "primaryOpsReview": "docs/e4-tonconnect-intent/primary-ops-review.json",
+    "nonceReview": "docs/e4-tonconnect-intent/nonce-review.json",
+    "stagedSecretScan": {
+      "tool": "gitleaks",
+      "version": "8.30.0",
+      "findings": 0
+    }
+  },
+  "production": {
+    "apply": "APPLY_PASS",
+    "reconcile": "RECONCILE_PASS",
+    "liveSHA256": "43295c726ddc86a05835314196b022f92593c0d842e060da7c908b52bedcbba9",
+    "previousSHA256": "537671a07f77b520a8445213f604974829a2abf86d926325174b766a368258e3",
+    "publicSHA256": "ef4c292ae8331af5d59f3fb00242f055a5cd7f5b2eec332cf5046c3c52e405b1",
+    "publicStatus": 200,
+    "publicExactBytes": true,
+    "otherLiveInputsPreserved": 57,
+    "additionalProtectedInputs": "SDK and backend nonce module pinned to inspected semantics;58 total inputs",
+    "serviceIdentitiesPreserved": 4,
+    "restart": false,
+    "backup": "/var/lib/obsidian-exchange/deployment-preimages/e4-tonconnect-intent-20260909T0119Z",
+    "rollbackCommand": "python3 docs/e4-tonconnect-intent/rollout.py rollback --plan docs/e4-tonconnect-intent/plan.json --backup /var/lib/obsidian-exchange/deployment-preimages/e4-tonconnect-intent-20260909T0119Z",
+    "autopilot": "failed / MainPID=0; not restarted"
+  },
+  "ownerDeviceAcceptance": "Already accepted by owner;no local report prerequisite or limitation",
+  "next": "TONCONNECT_VERIFICATION_WAIT_RECOVERY",
+  "nextEvidence": "docs/e4-tonconnect-intent/next-prerequisite.json",
+  "evidenceSHA256": {
+    "docs/e4-tonconnect-intent/acceptance-review.json": "339bbd0e6075ad2d50cdc3c94d7083a0ad358ecce497e59c38c0bf37a9d2bfd5",
+    "docs/e4-tonconnect-intent/adversarial-report.json": "e4e7a673142df35cf3bc3411d04e7b947265b443086c7a888ddba89cb772ae19",
+    "docs/e4-tonconnect-intent/browser-green-isolation.json": "e2c0e199b8a5f7670e73a5db713ff5170527afa2cb71f95ac28a377414b44fc8",
+    "docs/e4-tonconnect-intent/browser-green-report.json": "4be0305995f75bf9bdec60d03841e110e76acb35c1029c1c45cef173b6310730",
+    "docs/e4-tonconnect-intent/browser-red-isolation.json": "f6478a9342cfd96da607370525dd9c255fcd5f66967dc3d3e5e87830b7dbe563",
+    "docs/e4-tonconnect-intent/browser-red-report.json": "4e4fb6736983d0ee35024c980812512d3bbdccb791d5f9c142c188a61454f5be",
+    "docs/e4-tonconnect-intent/diff-ops-review.json": "546ed39943dea90739e0fa0529624bb4e284e39c52db1523dd0244833b191226",
+    "docs/e4-tonconnect-intent/legacy-binding-isolation.json": "bc900f56187dd5f1af877ab714cdb291c91855f29ea44df5248ff8463ba67378",
+    "docs/e4-tonconnect-intent/legacy-binding-report.json": "ddd1a2f4045d4c824646f3bccbee4751a4587aaecca89f16766ae7506e947e6c",
+    "docs/e4-tonconnect-intent/legacy-preparation-isolation.json": "5651e18ffa38902bcecd21ffd35596bd73c5e45b7d24b732a96169d5f44ba912",
+    "docs/e4-tonconnect-intent/legacy-preparation-report.json": "c701029eade661d1ecfef323d71558b9c1abd0cfb06cd602980430c2590dedd5",
+    "docs/e4-tonconnect-intent/next-prerequisite.json": "2f6dc033dfa9eaa4c14c4eaf767b6891bc904c78cec6230daaeac872fe277c90",
+    "docs/e4-tonconnect-intent/nonce-review.json": "4cfc19e0ffa5a7a2fba382bf02ada7b5f7f6ca75b655f5691039420761c5fcf4",
+    "docs/e4-tonconnect-intent/ops-baseline.json": "cd70866786c0389a819c1b0b190874a1f5867daf57ccf8707023687585cd486f",
+    "docs/e4-tonconnect-intent/plan.json": "4c71e055ce54a264a10f887f8e65346f1fde7d4d25e81fc6429c42070f327c96",
+    "docs/e4-tonconnect-intent/primary-checks.json": "cb54970566ae7f1c05f69e9aaabc1455892f401da89689c3bb891ec4e461c5f7",
+    "docs/e4-tonconnect-intent/primary-ops-review.json": "a222a59ef8c02a4463fca87718ee0a79ebc4a3277e2ddd35b64c74f9bf2e8aa8",
+    "docs/e4-tonconnect-intent/rollout-checks.json": "14f639ae67edf3f79a3635af466988d8f977792760262cf1da705ead2fc61b21"
+  }
+}

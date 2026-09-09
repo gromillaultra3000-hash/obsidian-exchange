@@ -4,24 +4,24 @@ Updated: 2026-09-09 UTC
 
 ## Current goal and status
 
-- 2026-09-09 E4/TONCONNECT_PREPARATION_ROUTE_BINDING VERIFIED/deployed fc90a99.
-  Preparation bound to recipient intent through payload/disconnect/modal waits;
-  serialized,8s payload deadline,owned cleanup and retry. Expected own disconnect
-  rebinds only unchanged intent. Obsolete SDK callbacks while prep is pending
-  cannot start verify;obsolete awaited modal closes. Three review findings fixed;
-  real SDK async/embedded semantics inspected and pinned as57th runtime input.
-  148 existing pytest,25 legacy frontend/69 backend checks,19 adversarial checks,
-  38 Chrome scenarios,17 rollback checks,two reviews PASS;Gitleaks zero.
-  HTML537671a0...68258e3;apply/reconcile/public exact,56 other inputs/four services
-  unchanged,no restart. Rollback: deployment-preimages/e4-tonconnect-preparation-20260909T0109Z. Evidence:
-  docs/e4-tonconnect-preparation-rollout.v1.json. Full E4 IN_PROGRESS; exactly next
-  TONCONNECT_CONNECTION_INTENT_LIFETIME: after preparation retires,late SDK status
-  lacks original intent and can verify against newer recipient. Independently
-  reproduced with actual helpers; docs/e4-tonconnect-preparation/next-prerequisite.json.
-  Current PASS covers active preparation only; post-retirement callbacks remain open.
-  Prior verification/Buy-refresh/Sell/Buy slices remain verified via receipts
-  (fb99228/e3befd7/19d59ed/06df1bf/fa13d93). Autopilot failed/MainPID0;
-  reconcile stale supervisor receipts before explicit start. No new money authority.
+- 2026-09-09 E4/TONCONNECT_CONNECTION_INTENT_LIFETIME VERIFIED/deployed ec0c9d7.
+  Intent survives preparation retirement;exact proof challenge binds original
+  recipient. Unowned/restored/mismatched callbacks cannot assign or interrupt
+  newer work;matching intent consumed before await,duplicates ignored. No-store
+  challenge GET and samepage reuse rejection. Existing response guard retained.
+  149 existing pytest,25 legacy frontend/69 backend checks,22 adversarial checks,
+  90 Chrome cases (22new+30binding+38preparation),17 rollback checks,two reviews
+  PASS;Gitleaks zero. HTML43295c72...bedcbba9;apply/reconcile/public exact,
+  57 other inputs (SDK+nonce module pinned)/four services preserved,no restart.
+  Rollback: deployment-preimages/e4-tonconnect-intent-20260909T0119Z. Evidence:
+  docs/e4-tonconnect-intent-rollout.v1.json. Full E4 IN_PROGRESS; exactly next
+  TONCONNECT_VERIFICATION_WAIT_RECOVERY: stalledverify lacks deadline,tcPending
+  blocks further connection preparation indefinitely. Independently reproduced
+  with actual helpers/fakeclock1hour/no real network or money; slice next-prerequisite.json.
+  Prior preparation/verification/Buy/Sell slices remain verified via receipts
+  (fc90a99/fb99228/e3befd7/19d59ed/06df1bf/fa13d93). Server proof verification
+  and replay semantics unchanged. Autopilot failed/MainPID0;reconcile stale
+  supervisor receipts before explicit start. No new money authority.
 
 - 2026-09-09 E4/WALLET_HANDOFF_DEVICE_ACCEPTANCE VERIFIED for the inert
   interface check by direct owner observation: no issues on a friend's iPhone,
