@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-09-09T00:34:12.759305+00:00",
+  "route": "E4/SELL_REVIEW_ESTIMATE_FRESHNESS",
+  "status": "VERIFIED",
+  "fullE4": "IN_PROGRESS",
+  "implementationCommit": "19d59edff685eb832c1f3b49913a586d87603829",
+  "behavior": "Sell form/review use a bounded receipt-age snapshot and server net rate, with selected-coin fee and explicit indicative/unavailable copy. Refresh preserves inputs; removed selections require reselection; pending order creation excludes repeated entry/confirmation.",
+  "freshnessSemantics": {
+    "localReceiptMaxMs": 60000,
+    "marketSourceFreshnessClaimed": false,
+    "requestTimeoutMs": 8000,
+    "staleEstimateMayCreateUnpaidOrder": true,
+    "latestFetchFailureDisablesSubmit": true
+  },
+  "tests": {
+    "existingPytestPassed": 145,
+    "adversarialScenariosPassed": 38,
+    "inlineScriptsSyntaxChecked": 2,
+    "chromiumCasesPassed": 22,
+    "chromiumWidths": [
+      320,
+      390
+    ],
+    "sameRunnerBaselineRegression": "Stale payout remains after24h on original HTML",
+    "rolloutRehearsalChecksPassed": 14,
+    "gitleaksVersion": "8.30.0",
+    "gitleaksFindings": 0
+  },
+  "reviewFinding": {
+    "id": "SELL_REFRESH_INFLIGHT_REENABLE",
+    "severity": "P1",
+    "disposition": "FIXED and verified in final browser at both widths; snapshot refresh preserves disabled state and pending flag prevents repeated review/submit"
+  },
+  "reviews": [
+    "docs/e4-sell-estimate/acceptance-review.json",
+    "docs/e4-sell-estimate/diff-ops-review.json",
+    "docs/e4-sell-estimate/primary-ops-review.json"
+  ],
+  "rollout": {
+    "apply": "APPLY_PASS",
+    "reconcile": "RECONCILE_PASS",
+    "liveSHA256": "691f2a79f1a54f712c784b60f46344af6d972fa88a6d81b511752378da4d68c3",
+    "publicSHA256": "186b535e52b18b99eca11ee027f10bed4df70459caca268854e9a1cf4df2db7b",
+    "previousSHA256": "145d60c292db76b440f47a2f17b3eecbc2fcbe5f6c4ca060c0fc59c435e8ffb1",
+    "publicURL": "https://obsidian-exchange.org/webapp",
+    "publicStatus": 200,
+    "unrelatedApplicationInputsPreserved": 55,
+    "serviceStatesPreserved": 4,
+    "restart": false,
+    "rollbackPreimage": "/var/lib/obsidian-exchange/deployment-preimages/e4-sell-estimate-20260909T0032Z",
+    "autopilot": "failed/MainPID0"
+  },
+  "rollbackCommand": "python3 docs/e4-sell-estimate/rollout.py rollback --plan docs/e4-sell-estimate/plan.json --backup /var/lib/obsidian-exchange/deployment-preimages/e4-sell-estimate-20260909T0032Z",
+  "next": "E4/BUY_RECIPIENT_REFRESH_PRESERVATION",
+  "ownerDeviceAcceptance": "Remains accepted; no report prerequisite",
+  "evidenceSHA256": {
+    "docs/e4-sell-estimate/acceptance-review.json": "101e0ee8048525c7e6b9b3bfc6382b9a5ac461f937255ebccfe3c89da8c83fa5",
+    "docs/e4-sell-estimate/adversarial-report.json": "67f3ddface295ef9e5c4dc00e54242e6d2dcd7308a2fb9fc6f041250530c7bba",
+    "docs/e4-sell-estimate/browser-green-isolation.json": "99744fa9d3bc08af8829d5e4fe615d6e76c7fdac50a497cd1977244de8bff2f4",
+    "docs/e4-sell-estimate/browser-green-report.json": "3a93c3dd25e5de4bbd5c13622ba8e9d88921c591293637d43f004bace8a6f4b6",
+    "docs/e4-sell-estimate/browser-red-isolation.json": "ac9e93bcf4a517c47b2a806d0671b248d4c805c7df201600cdb4fb36e9d1acd1",
+    "docs/e4-sell-estimate/browser-red-report.json": "1bbc1554ef010cb9bf971ea6935270d86a6b895b839230ef46b30c0987f24e64",
+    "docs/e4-sell-estimate/diff-ops-review.json": "d58632307447b33715897431e13a26dfea44593841303f6e1a5114c2d89ca2d7",
+    "docs/e4-sell-estimate/next-prerequisite.json": "971af3e80f8a4e3ed7d4f0358ff80624c65a3d32443233cb4f93b05f6f7b7c30",
+    "docs/e4-sell-estimate/ops-baseline.json": "1e514cdd1f67009caa5960ec1aa91b86beac018618fb4b80c389868714aef1d4",
+    "docs/e4-sell-estimate/plan.json": "a7cf0f6745c944c5dd740abcb462000859b0062099ec84c0d1daa4df4900df52",
+    "docs/e4-sell-estimate/primary-checks.json": "26e03c062420bc111361e43eebf2f6fde64f2cb241b238931ddf4c23a9812750",
+    "docs/e4-sell-estimate/primary-ops-review.json": "647ccef50d5531d0fd0a15bffdf0bd888ed9b548b68a3513958cf0c432d10529",
+    "docs/e4-sell-estimate/rollout-checks.json": "288db0770e0062beebe5f5fb40eff6feab51ebf9aa4c7fcdcf8468ea5575b8e5"
+  }
+}

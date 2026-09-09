@@ -4,30 +4,21 @@ Updated: 2026-09-09 UTC
 
 ## Current goal and status
 
-- 2026-09-09 E4/BUY_REVIEW_RECEIVE_ESTIMATE_DISCLOSURE VERIFIED/deployed06df1bf.
-  Buy modal includes indicative receive/rate/storefront tariff; snapshot60s receipt/
-  120s API-response age,8s abort/latest-wins, strict numbers/tiers, frozen values,
-  expiry/clock rollback guards. No market-source freshness or binding quote claim;
-  unavailable estimate explicit and unpaid order creation preserved.144 existing
-  tests+55 adversarial checks+22 Chrome cases+13 rollback checks,two reviews PASS,
-  Gitleaks zero. HTML145d60c2...35e8ffb1; public exact apply/reconcile,55 other app
-  inputs/four services preserved,no restart. Rollback:
-  deployment-preimages/e4-buy-estimate-20260909T0021Z. Evidence:
-  docs/e4-buy-estimate-rollout.v1.json. Full E4 IN_PROGRESS; exactly next
-  SELL_REVIEW_ESTIMATE_FRESHNESS: cached Sell payout unchanged after24h with no
-  age/stale disclosure. Autopilot failed/MainPID0; owner device acceptance closed.
-
-- 2026-09-09 E4/BUY_RECIPIENT_CUSTODY_DISCLOSURE VERIFIED/deployed fa13d93.
-  Buy review now distinguishes own-wallet vs provider custody/KYC and irreversible
-  blockchain payout. Two static strings only; current HTML89c8b728...58fa,
-  wallet guard55808db unchanged.101 existing tests,3 Chrome widths,13 local
-  rollback/guard checks,two independent reviews and Gitleaks zero. Atomic HTML
-  apply/reconcile PASS;55 other app inputs/four service states preserved,no restart.
-  Rollback: deployment-preimages/e4-buy-custody-20260909T0011Z. Evidence:
-  docs/e4-buy-custody-rollout.v1.json. Full E4 IN_PROGRESS; exactly next
-  BUY_REVIEW_RECEIVE_ESTIMATE_DISCLOSURE: dialog lacks indicative receive amount
-  and rate, refers to background total; implement truthful unavailable/freshness
-  semantics. Autopilot remains failed/MainPID0; no money/signature/new authority.
+- 2026-09-09 E4/SELL_REVIEW_ESTIMATE_FRESHNESS VERIFIED/deployed19d59ed.
+  Sell form/review now bound receipt age60s, calculate with server net rate and
+  selected-coin fee; clear stale numbers, offer refresh, preserve inputs, require
+  reselection for removed options. Review deadline and pending-submit guard;
+  independent P1 refresh-reenabled-pending-submit finding fixed/browser verified.
+  145 existing tests,38 adversarial checks,22 Chrome cases,14 rollback checks,
+  two reviews and Gitleaks zero. HTML691f2a79...da4d68c3; public exact apply/
+  reconcile,55 other inputs/four services preserved,no restart. Rollback:
+  deployment-preimages/e4-sell-estimate-20260909T0032Z. Evidence:
+  docs/e4-sell-estimate-rollout.v1.json. Full E4 IN_PROGRESS; exactly next
+  BUY_RECIPIENT_REFRESH_PRESERVATION: automatic rates/offering refresh replaces
+  typed recipient with saved prior address; concrete reproduction in slice
+  next-prerequisite.json. Predecessor Buy custody/estimate slices remain verified
+  (fa13d93/06df1bf; their rollout receipts retain evidence). No market-source
+  freshness/binding-quote claim. Autopilot failed/MainPID0; no new money authority.
 
 - 2026-09-09 E4/WALLET_HANDOFF_DEVICE_ACCEPTANCE VERIFIED for the inert
   interface check by direct owner observation: no issues on a friend's iPhone,

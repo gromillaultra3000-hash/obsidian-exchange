@@ -1024,6 +1024,19 @@ SELL_REVIEW_ESTIMATE_FRESHNESS — cached Sell payout is unchanged after24hours 
 read-only reproduction and has no age/unavailable disclosure. Owner iPhone acceptance
 remains complete, no report required.
 
+2026-09-09: SELL_REVIEW_ESTIMATE_FRESHNESS VERIFIED/deployed (`19d59ed`).
+Form/review bound local receipt age60s, use server net rate+selected-coin fee,
+show indicative/unavailable states and preserve inputs on refresh; removed
+selections require reselection. Captured deadline and pending-submit guard retain
+explicit consent; review-discovered refresh reenable race fixed and tested.
+145 existing tests,38 adversarial checks,22 Chrome cases,14 rollback checks and
+two independent reviews PASS. Atomic HTML apply/reconcile/public exact bytes;
+55 other inputs/four services preserved,no restart. Evidence:
+`docs/e4-sell-estimate-rollout.v1.json`. E4 IN_PROGRESS. Exactly next:
+BUY_RECIPIENT_REFRESH_PRESERVATION — periodic rates/offering refresh overwrites
+typed Buy recipient with saved prior address; reproduction in slice evidence.
+Owner iPhone acceptance remains complete, no report required.
+
 ### E5 — нативный некастодиальный кошелёк
 
 E0.4 inventory evidence (2026-08-18): the checkout has a Rust/UniFFI Bitcoin

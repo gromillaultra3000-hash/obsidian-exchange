@@ -11,7 +11,24 @@ non-custodial wallet whose keys never reach the server.
 
 ## Active route
 
-`E4 / SELL_REVIEW_ESTIMATE_FRESHNESS / bound cached Sell estimate age and disclose unavailable or indicative payout before confirmation`
+`E4 / BUY_RECIPIENT_REFRESH_PRESERVATION / preserve entered recipient during background Buy rates/offering refresh`
+
+2026-09-09: SELL_REVIEW_ESTIMATE_FRESHNESS VERIFIED/deployed `19d59ed`.
+Sell uses server net rate and selected-coin fee,60s receipt age (no market-source
+freshness claim), explicit indicative/unavailable states, refresh button and
+latest-wins8s GET. Reentry/refresh preserves current inputs; removed selections
+become empty. Captured review expiry and pending-submit guard protect consent.
+Independent review found refresh could re-enable a pending submit; fixed and
+verified at both widths.145 existing tests,38 adversarial checks,22 Chrome cases,
+14 rollback checks and two reviews PASS; Gitleaks zero. HTML-only apply/reconcile,
+public exact bytes,55 other files/four services preserved; no restart.
+Current HTML `691f2a79...da4d68c3`; evidence:
+`docs/e4-sell-estimate-rollout.v1.json`. Rollback retained at
+`deployment-preimages/e4-sell-estimate-20260909T0032Z`.
+Exactly next: BUY_RECIPIENT_REFRESH_PRESERVATION. Automatic Buy loadRates calls
+applyOfferings/onCurrencyChange/updateAddressPlaceholder and overwrites the typed
+recipient with a previously saved address. Read-only reproduction and prior native
+fixture observation: `docs/e4-sell-estimate/next-prerequisite.json`.
 
 2026-09-09: BUY_REVIEW_RECEIVE_ESTIMATE_DISCLOSURE VERIFIED/deployed `06df1bf`.
 Buy dialog now includes indicative receive amount/rate and standard storefront
@@ -26,9 +43,8 @@ bytes,55 other application inputs/four services unchanged; no restart.
 Current HTML SHA256 `145d60c2...35e8ffb1`. Evidence:
 `docs/e4-buy-estimate-rollout.v1.json`; rollback retained at
 `deployment-preimages/e4-buy-estimate-20260909T0021Z`.
-Exactly next: SELL_REVIEW_ESTIMATE_FRESHNESS. Independent read-only reproduction
-shows the same cached45,500RUB payout after24hours; Sell has no snapshot age or
-explicit stale state. Evidence: `docs/e4-buy-estimate/next-prerequisite.json`.
+That slice identified stale Sell estimates; the deployment above resolves that
+prerequisite. Earlier evidence: `docs/e4-buy-estimate/next-prerequisite.json`.
 
 2026-09-09: BUY_RECIPIENT_CUSTODY_DISCLOSURE VERIFIED and deployed, `fa13d93`.
 Buy review distinguishes own-wallet key control from exchange/service custody
@@ -73,7 +89,7 @@ Evidence: `docs/e4-wallet-device-owner-acceptance.v1.json` (owner conversation).
 This completed prerequisite led to the custody disclosure slice above.
 Full E4 remains IN_PROGRESS; the active next item is specified above.
 
-Wallet guard implementation remains55808db (current HTML145d60c2): same-partition upgraded pages only, old
+Wallet guard implementation remains55808db (current HTML691f2a79): same-partition upgraded pages only, old
 pages must reload; manual outcome assertion is not chain evidence. Production
 rollback retained at deployment-preimages/e4-wallet-cross-tab-55808db-20260908.
 No real money/signature/customer read/new credentials/064A authority. Autopilot
