@@ -1,0 +1,21 @@
+{
+  "reviewer": "primary /root independent of rollout author /root/buy_custody_ops",
+  "recordedAt": "2026-09-09T01:26:42.861934+00:00",
+  "result": "PASS",
+  "findings": [],
+  "verified": [
+    "Final completion-clock candidate and artifact pins match",
+    "Scope only tcHandleWallet,unchanged requestbody and responseapplication inspected",
+    "17 scope/drift/writer/atomic apply/reconcile/exact rollback checks inspected",
+    "Losing promise only returnsdata;outerfinally only pending-release point",
+    "Backend remember association before response independently inspected;no cancellation promise",
+    "58 live inputs/fourservice checks,backupmetadata before atomic publication,public exact/reconcile"
+  ],
+  "inputSHA256": {
+    "docs/e4-tonconnect-timeout/rollout.py": "e952131d870f3021cc8fe2a129ed934795f89de43654e9eebe2216b05eed9c92",
+    "docs/e4-tonconnect-timeout/check-rollout.py": "7c03325580e27bbee6397cf03582bf00bb32bc15004fc857f99470fd99390889",
+    "docs/e4-tonconnect-timeout/rollout-checks.json": "e6ed2ca8b61cc6fd81badbc8a960ef05b26db09e0bfd15fa4dfb3ebe85c730bd",
+    "docs/e4-tonconnect-timeout/plan.json": "7e5e3e319e9ba72fc2c6bc3b9c0e02651fd2d60f87a31f9c5a9195865b85b136",
+    "docs/e4-wallet-cross-tab/rollout.py": "d2097d220500618ae684a46ac7e3eaf3caaa989a6915fed4301c6ce3f3b5fa7d"
+  }
+}

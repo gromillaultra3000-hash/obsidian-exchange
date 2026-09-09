@@ -10,7 +10,7 @@ function setup() {
     const nodes = {currency: {value: 'TON'}, network: {value: 'MAINNET'}, address: {value: initial}, dest_tag: {value: 'old memo'},
         no_tag: {checked: false}, 'tc-msg': {textContent: '', className: ''}};
     const pending = [], counts = {profiles: 0, validations: 0};
-    const context = vm.createContext({document: {getElementById: id => nodes[id]}, tg: {initData: ''},
+    const context = vm.createContext({document: {getElementById: id => nodes[id]}, tg: {initData: ''}, AbortController, setTimeout, clearTimeout,
         window: {TON_CONNECT_UI: {}, __oeOfferings: [{code: 'TON', networks: [{code: 'MAINNET', label: 'TON'}], wallet_connect: true, tag_name: 'memo'}]},
         validateAddress() {counts.validations++;}, updateTagField() {}, loadWallets() {counts.profiles++;},
         fetch(url, options) {assert.equal(url, '/api/tonconnect/verify'); assert.equal(options.method, 'POST');

@@ -1,0 +1,19 @@
+{
+  "sourceSHA256": "34e98784ee7ca2a744bbf4490b8f102357dc04c954105709436bef3eee497d55",
+  "inlineScriptsSyntaxChecked": 2,
+  "legacyStandalone": {
+    "test_tonconnect_frontend.py": {
+      "result": "PASS",
+      "checks": 25
+    },
+    "test_tonconnect.py": {
+      "result": "PASS",
+      "checks": 69
+    }
+  },
+  "fixtureAdaptation": "Supply native AbortController and timer primitives to prior extracted verification fixture",
+  "pytest": {
+    "passed": 150,
+    "scope": "previous eight E4 suites plus TON binding/preparation/intent adversarial;final completion-clock candidate"
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "result": "PASS",
+  "reviewer": "independent buy_custody_ops agent",
+  "recordedAt": "2026-09-09T01:25:02.829499+00:00",
+  "route": "E4/TONCONNECT_VERIFICATION_WAIT_RECOVERY",
+  "baseline_sha": "43295c726ddc86a05835314196b022f92593c0d842e060da7c908b52bedcbba9",
+  "candidate_sha": "34e98784ee7ca2a744bbf4490b8f102357dc04c954105709436bef3eee497d55",
+  "rollout_sha": "e952131d870f3021cc8fe2a129ed934795f89de43654e9eebe2216b05eed9c92",
+  "helper_sha": "d2097d220500618ae684a46ac7e3eaf3caaa989a6915fed4301c6ce3f3b5fa7d",
+  "inventory_sha": "f13460347c408092bf0be76c3e1914818e563bdd0ee240606c4a2d94cbb2cc48",
+  "scope": [
+    "tcHandleWallet finite response/body verification wait and timeout feedback"
+  ],
+  "findings": [],
+  "assessment": [
+    "Promise.race covers both fetch and JSON body parsing. The timeout marks expired before abort; an explicit expired guard prevents a simultaneously resolved body from applying success.",
+    "Completion-time clock guard additionally rejects elapsed time >=8 seconds or wall-clock rollback before any recipient application, even when hidden-tab timer delivery is delayed. It marks expired and aborts before throwing into current-only timeout feedback.",
+    "The losing response operation only produces data; it has no recipient mutation, UI message, pending release or timer cleanup. Its later resolution/rejection cannot apply an obsolete address or affect a new verification.",
+    "Single outer finally clears the timer and releases tcPending after timeout, allowing a new explicit preparation. Consumed persistent connection intent and recipient-state guards remain intact; stale timeout feedback is suppressed.",
+    "Current timeout feedback reports excessive wait and manual/explicit reconnect options. It does not claim server cancellation or absent wallet association.",
+    "Backend verify endpoint remembers a successfully verified wallet association before returning its response; browser timeout or abort does not cancel or order this server-side profile write. This UI-only recovery does not change backend association semantics.",
+    "Only tcHandleWallet changes; verification request body, strict success checks, preparation/intent machinery, other form flows and backend untouched.",
+    "Read-only production preflight passed with 58 live inputs and 4 unchanged services. Seventeen local scope/drift/atomic apply/reconcile/rollback checks passed."
+  ],
+  "backend_limit": {
+    "endpoint": "relay-fastapi/main.py:2389",
+    "association": "relay-fastapi/main.py:2407",
+    "storage": "relay/repositories/wallet_store.py:26",
+    "description": "Successful verification may still update the profile wallet association even when its response arrives after browser timeout; no cancellation guarantee is made."
+  },
+  "public_baseline_sha": "ef4c292ae8331af5d59f3fb00242f055a5cd7f5b2eec332cf5046c3c52e405b1",
+  "live_input_count": 58,
+  "service_count": 4,
+  "production_mutated": false,
+  "verification": "docs/e4-tonconnect-timeout/rollout-checks.json"
+}

@@ -1698,14 +1698,38 @@
             const isCurrent = () => tcRecipientState() === recipientState;
             tcPending = true;
             tcSay('Проверяем подпись…');
+            const controller = new AbortController();
+            let timer = null;
+            let expired = false;
+            const started = Date.now();
             try {
-                const res = await fetch('/api/tonconnect/verify', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json',
-                               'X-Telegram-Init-Data': tg.initData || '' },
-                    body: JSON.stringify({ account: w.account, proof: proof })
+                // Race the entire response/body wait, even if abort is ignored.
+                // The losing operation only produces data; it never applies UI state.
+                const deadline = new Promise((_, reject) => {
+                    timer = setTimeout(() => {
+                        expired = true;
+                        controller.abort();
+                        reject(new Error('Verification wait expired'));
+                    }, 8000);
                 });
-                const data = await res.json().catch(() => ({}));
+                const response = (async () => {
+                    const res = await fetch('/api/tonconnect/verify', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json',
+                                   'X-Telegram-Init-Data': tg.initData || '' },
+                        body: JSON.stringify({ account: w.account, proof: proof }),
+                        signal: controller.signal
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    return { res, data };
+                })();
+                const { res, data } = await Promise.race([response, deadline]);
+                const completed = Date.now();
+                if (expired || completed < started || completed - started >= 8000) {
+                    expired = true;
+                    controller.abort();
+                    throw new Error('Verification wait expired');
+                }
                 if (!isCurrent()) return;
                 if (res.ok && data && data.verified === true && typeof data.address === 'string'
                     && data.address.trim() && data.address.length <= 256) {
@@ -1732,8 +1756,11 @@
                           ' Адрес можно ввести вручную.', 'invalid');
                 }
             } catch (e) {
-                if (isCurrent()) tcSay('Не удалось проверить подпись. Введите адрес вручную.', 'invalid');
+                if (isCurrent()) tcSay(expired
+                    ? 'Проверка заняла слишком много времени. Подключите кошелёк ещё раз или введите адрес вручную.'
+                    : 'Не удалось проверить подпись. Введите адрес вручную.', 'invalid');
             } finally {
+                if (timer !== null) clearTimeout(timer);
                 tcPending = false;
             }
         }

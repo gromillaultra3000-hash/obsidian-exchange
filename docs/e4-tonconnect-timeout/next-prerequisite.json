@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "e4-next-prerequisite.v1",
+  "criterion": "TONCONNECT_SDK_HANDOFF_WAIT_RECOVERY",
+  "status": "OBSERVED_UNCLOSED",
+  "sourceSha256": "34e98784ee7ca2a744bbf4490b8f102357dc04c954105709436bef3eee497d55",
+  "source": "relay/webapp.html tcConnect SDK disconnect/openModal waits",
+  "reproductionCommand": "node docs/e4-tonconnect-timeout/reproduce-next.cjs",
+  "reproductionSha256": "4de61f6d3ed9c3dbb08ade3d9b58948b6af941a3037cbeb30e1c83d93962cd95",
+  "result": {
+    "criterion": "TONCONNECT_SDK_HANDOFF_WAIT_RECOVERY",
+    "cases": [
+      {
+        "stage": "disconnect",
+        "simulatedElapsedMs": 3600000,
+        "preparationPending": true,
+        "connectButtonDisabled": true,
+        "activeDeadlineTimers": 0,
+        "newPreparationRequestsAfterRetry": 0
+      },
+      {
+        "stage": "modal-opening",
+        "simulatedElapsedMs": 3600000,
+        "preparationPending": true,
+        "connectButtonDisabled": true,
+        "activeDeadlineTimers": 0,
+        "newPreparationRequestsAfterRetry": 0
+      }
+    ],
+    "realNetworkCalls": 0,
+    "walletSignatures": 0,
+    "moneyWrites": 0
+  },
+  "boundaries": "Actual helper,fakeclock and SDK waits,no real network/signatures/money",
+  "finding": "SDK disconnect or modal-opening promise can remain pending indefinitely with disabled connect button and no deadline",
+  "next": "Bound SDK handoff waits and release owned preparation for explicit retry while rejecting late obsolete callbacks"
+}

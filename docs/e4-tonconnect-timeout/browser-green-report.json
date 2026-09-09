@@ -1,0 +1,81 @@
+{
+  "sourceSha256": "34e98784ee7ca2a744bbf4490b8f102357dc04c954105709436bef3eee497d55",
+  "runnerSha256": "707a6d4fe5c5a74bd23ca517192929798663c090ed97f6b16a1e95d68bb1108b",
+  "playwrightVersion": "1.62.0",
+  "checks": [
+    {
+      "width": 320,
+      "scenario": "timeout-retry",
+      "result": "PASS",
+      "payloadReads": 2,
+      "verificationRequests": 2
+    },
+    {
+      "width": 320,
+      "scenario": "body-late",
+      "result": "PASS",
+      "payloadReads": 2,
+      "verificationRequests": 2
+    },
+    {
+      "width": 320,
+      "scenario": "edit-timeout",
+      "result": "PASS",
+      "payloadReads": 1,
+      "verificationRequests": 1
+    },
+    {
+      "width": 320,
+      "scenario": "disconnect-timeout",
+      "result": "PASS",
+      "payloadReads": 1,
+      "verificationRequests": 1
+    },
+    {
+      "width": 320,
+      "scenario": "fresh",
+      "result": "PASS",
+      "payloadReads": 1,
+      "verificationRequests": 1
+    },
+    {
+      "width": 390,
+      "scenario": "timeout-retry",
+      "result": "PASS",
+      "payloadReads": 2,
+      "verificationRequests": 2
+    },
+    {
+      "width": 390,
+      "scenario": "body-late",
+      "result": "PASS",
+      "payloadReads": 2,
+      "verificationRequests": 2
+    },
+    {
+      "width": 390,
+      "scenario": "edit-timeout",
+      "result": "PASS",
+      "payloadReads": 1,
+      "verificationRequests": 1
+    },
+    {
+      "width": 390,
+      "scenario": "disconnect-timeout",
+      "result": "PASS",
+      "payloadReads": 1,
+      "verificationRequests": 1
+    },
+    {
+      "width": 390,
+      "scenario": "fresh",
+      "result": "PASS",
+      "payloadReads": 1,
+      "verificationRequests": 1
+    }
+  ],
+  "unexpectedWrites": [],
+  "pageErrors": [],
+  "browserVersion": "152.0.7977.64",
+  "result": "PASS"
+}

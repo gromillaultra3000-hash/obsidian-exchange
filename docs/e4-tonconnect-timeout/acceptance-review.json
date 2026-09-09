@@ -1,0 +1,74 @@
+{
+  "reviewer": "/root/e4_gap_review",
+  "at": "2026-09-09T01:28:01.634562+00:00",
+  "result": "PASS",
+  "criterion": "TONCONNECT_VERIFICATION_WAIT_RECOVERY",
+  "sourceSha256": "34e98784ee7ca2a744bbf4490b8f102357dc04c954105709436bef3eee497d55",
+  "runnerSha256": "707a6d4fe5c5a74bd23ca517192929798663c090ed97f6b16a1e95d68bb1108b",
+  "browser": {
+    "green": "output/playwright/e4-tonconnect-timeout-green",
+    "red": "output/playwright/e4-tonconnect-timeout-red",
+    "checks": 10,
+    "widths": [
+      320,
+      390
+    ],
+    "baselineSha256": "43295c726ddc86a05835314196b022f92593c0d842e060da7c908b52bedcbba9",
+    "baselineFailure": "deadline must release pending verification",
+    "sameRunner": true,
+    "unexpectedWrites": [],
+    "pageErrors": []
+  },
+  "adversarial": {
+    "command": "node tests/e4_tonconnect_timeout_adversarial.cjs",
+    "result": "PASS",
+    "checks": 10,
+    "cases": [
+      "noncooperative headers/body late success/error during new pending retry",
+      "edited/disconnected stale timeout quiet",
+      "normal success and timer cleanup",
+      "completion at 8000/9000 ms before timer dispatch rejected",
+      "clock rollback rejected"
+    ]
+  },
+  "review": [
+    "Whole response/body race releases tcPending even when abort ignored.",
+    "Transport loser produces data only; no UI or finalizer side effects after fresh retry.",
+    "Expired set before abort; completion-clock guard rejects delayed dispatch and rollback.",
+    "Existing exact nonce, strict verified response, recipient generation guards retained.",
+    "Legacy binding fixture only injects native AbortController/setTimeout/clearTimeout; assertions retained."
+  ],
+  "scopeLimits": [
+    "Browser timeout cannot cancel or reverse server profile association.",
+    "Physical owner acceptance stays closed; no device report prerequisite.",
+    "Full E4 remains in progress."
+  ],
+  "next": {
+    "criterion": "TONCONNECT_SDK_HANDOFF_WAIT_RECOVERY",
+    "command": "node docs/e4-tonconnect-timeout/reproduce-next.cjs",
+    "independentResult": {
+      "criterion": "TONCONNECT_SDK_HANDOFF_WAIT_RECOVERY",
+      "cases": [
+        {
+          "stage": "disconnect",
+          "simulatedElapsedMs": 3600000,
+          "preparationPending": true,
+          "connectButtonDisabled": true,
+          "activeDeadlineTimers": 0,
+          "newPreparationRequestsAfterRetry": 0
+        },
+        {
+          "stage": "modal-opening",
+          "simulatedElapsedMs": 3600000,
+          "preparationPending": true,
+          "connectButtonDisabled": true,
+          "activeDeadlineTimers": 0,
+          "newPreparationRequestsAfterRetry": 0
+        }
+      ],
+      "realNetworkCalls": 0,
+      "walletSignatures": 0,
+      "moneyWrites": 0
+    }
+  }
+}
