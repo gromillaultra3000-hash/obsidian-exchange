@@ -11,7 +11,26 @@ non-custodial wallet whose keys never reach the server.
 
 ## Active route
 
-`E4 / TONCONNECT_PREPARATION_ROUTE_BINDING / discard obsolete wallet connection preparation before opening its modal`
+`E4 / TONCONNECT_CONNECTION_INTENT_LIFETIME / preserve originating intent across preparation retirement and reject obsolete SDK callbacks`
+
+2026-09-09: TONCONNECT_PREPARATION_ROUTE_BINDING VERIFIED/deployed (`fc90a99`).
+Preparation serialized and bound to recipient intent across payload JSON,disconnect
+and modal opening;8s payload abort,strict response gate,owned cleanup/retry. Own
+null disconnect can rebind only unchanged intent. Stale SDK status during pending
+preparation cannot start verification; obsolete awaited opening closes. Actual SDK
+async discovery/embedded behavior inspected; three review findings fixed.
+148 existing pytest,25 legacy frontend/69 backend checks,19 adversarial checks,
+38 Chrome scenarios at320/390,17 rollout checks and two reviews PASS;Gitleaks zero.
+HTML-only apply/reconcile/public exact,56 other live inputs (including pinned SDK)
+and four services preserved,no restart. HTML `537671a0...68258e3`; evidence:
+`docs/e4-tonconnect-preparation-rollout.v1.json`. Rollback:
+`deployment-preimages/e4-tonconnect-preparation-20260909T0109Z`.
+E4 IN_PROGRESS. Exactly next: TONCONNECT_CONNECTION_INTENT_LIFETIME — after
+preparation token retires,a later SDK status can verify against a newer recipient.
+Actual-helper reproduction independently confirmed; no real network/signatures/
+money: `docs/e4-tonconnect-preparation/next-prerequisite.json`. This slice covers
+active preparation,not all callbacks after retirement. Owner iPhone acceptance
+remains complete with no local report prerequisite.
 
 2026-09-09: TONCONNECT_VERIFY_RESPONSE_RECIPIENT_BINDING VERIFIED/deployed (`fb99228`).
 Verification completion binds valid TON route,exact recipient/memo/no-tag and
@@ -24,7 +43,7 @@ Gitleaks zero. HTML-only apply/reconcile/public exact,55 other inputs/four servi
 unchanged,no restart. HTML `8815f80d...0ed87a07`; evidence:
 `docs/e4-tonconnect-binding-rollout.v1.json`. Rollback retained at
 `deployment-preimages/e4-tonconnect-binding-20260909T0058Z`.
-E4 IN_PROGRESS. Exactly next: TONCONNECT_PREPARATION_ROUTE_BINDING — a late
+That preparation prerequisite is now resolved above. The prior observation: a late
 payload response in tcConnect opens the TON wallet modal after a switch to BTC.
 Actual-handler deferred-response reproduction independently confirmed, no real
 network/signature/money: `docs/e4-tonconnect-binding/next-prerequisite.json`.
@@ -122,7 +141,7 @@ Evidence: `docs/e4-wallet-device-owner-acceptance.v1.json` (owner conversation).
 This completed prerequisite led to the custody disclosure slice above.
 Full E4 remains IN_PROGRESS; the active next item is specified above.
 
-Wallet guard implementation remains55808db (current HTML8815f80d): same-partition upgraded pages only, old
+Wallet guard implementation remains55808db (current HTML537671a0): same-partition upgraded pages only, old
 pages must reload; manual outcome assertion is not chain evidence. Production
 rollback retained at deployment-preimages/e4-wallet-cross-tab-55808db-20260908.
 No real money/signature/customer read/new credentials/064A authority. Autopilot

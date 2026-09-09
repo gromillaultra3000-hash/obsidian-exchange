@@ -1,0 +1,77 @@
+{
+  "schemaVersion": "e4-tonconnect-preparation-rollout.v1",
+  "recordedAt": "2026-09-09T01:10:30.112742+00:00",
+  "route": "E4 / TONCONNECT_PREPARATION_ROUTE_BINDING",
+  "status": "VERIFIED",
+  "fullE4": "IN_PROGRESS",
+  "implementationCommit": "fc90a99b9fabe43db31945c67b8ce144b39152ef",
+  "behavior": [
+    "Serialized preparation bound to initiating valid TON route,exact recipient and generation; duplicate or pending-verify calls rejected",
+    "Recheck after init,payload JSON,disconnect,and awaited modal opening;obsolete owned opening closes and clears parameters",
+    "HTTP-success bounded string payload,8second abort including body,late-abort rejection and current failure feedback",
+    "Own disconnect rebinds only unchanged intent; failed/still-connected disconnect cannot open modal",
+    "SDK status while obsolete preparation remains pending cannot start proof verification;valid current handoff retains ready proof"
+  ],
+  "verification": {
+    "existingPytestPassed": 148,
+    "legacyTonFrontendChecksPassed": 25,
+    "legacyTonBackendChecksPassed": 69,
+    "adversarialChecksPassed": 19,
+    "nativeBrowserScenariosPassed": 38,
+    "browserWidths": [
+      320,
+      390
+    ],
+    "sameRunnerBaselineRegression": "REPRODUCED",
+    "inlineScriptSyntaxChecksPassed": 2,
+    "localRolloutChecksPassed": 17,
+    "independentReviews": [
+      "docs/e4-tonconnect-preparation/acceptance-review.json",
+      "docs/e4-tonconnect-preparation/diff-ops-review.json"
+    ],
+    "primaryOpsReview": "docs/e4-tonconnect-preparation/primary-ops-review.json",
+    "sdkReview": "docs/e4-tonconnect-preparation/sdk-review.json",
+    "reviewFindings": "3 fixed: aborted-body feedback,deferred-modal cleanup,pending embedded callback",
+    "stagedSecretScan": {
+      "tool": "gitleaks",
+      "version": "8.30.0",
+      "findings": 0
+    }
+  },
+  "production": {
+    "apply": "APPLY_PASS",
+    "reconcile": "RECONCILE_PASS",
+    "liveSHA256": "537671a07f77b520a8445213f604974829a2abf86d926325174b766a368258e3",
+    "previousSHA256": "8815f80d9f1a2f11fc29737d3227e8d494d5a673e9b5f6b459ae3c8a0ed87a07",
+    "publicSHA256": "f8910624acef1b71f68488dd805326279cc358b1a3b71b73c8e498c390bde957",
+    "publicStatus": 200,
+    "publicExactBytes": true,
+    "otherLiveInputsPreserved": 56,
+    "additionalProtectedInput": "vendored TON Connect SDK pinned after inspected async semantics",
+    "serviceIdentitiesPreserved": 4,
+    "restart": false,
+    "backup": "/var/lib/obsidian-exchange/deployment-preimages/e4-tonconnect-preparation-20260909T0109Z",
+    "rollbackCommand": "python3 docs/e4-tonconnect-preparation/rollout.py rollback --plan docs/e4-tonconnect-preparation/plan.json --backup /var/lib/obsidian-exchange/deployment-preimages/e4-tonconnect-preparation-20260909T0109Z",
+    "autopilot": "failed / MainPID=0; not restarted"
+  },
+  "ownerDeviceAcceptance": "Already accepted by owner;no local report prerequisite or limitation",
+  "scopeBoundary": "Guard covers active preparation and awaited handoff. Late SDK callbacks after preparation retirement still lack persistent originating intent; not declared solved.",
+  "next": "TONCONNECT_CONNECTION_INTENT_LIFETIME",
+  "nextEvidence": "docs/e4-tonconnect-preparation/next-prerequisite.json",
+  "evidenceSHA256": {
+    "docs/e4-tonconnect-preparation/acceptance-review.json": "1bfca63573d7afb6749a1842274ac68fbf08280785db4501a5dbee113df3db49",
+    "docs/e4-tonconnect-preparation/adversarial-report.json": "eb79089c737e44d9605dadb4e00264a0611ac6f31b50ab9fd4149da7d81f7616",
+    "docs/e4-tonconnect-preparation/browser-green-isolation.json": "cd271ac7c38e6d769a48f0b7a36bfebddbadae34fb616f2f821f72f439a5ef02",
+    "docs/e4-tonconnect-preparation/browser-green-report.json": "f7770ed4becfe4a7b1f52ffb2e1aaebe2bbe21db5b1000fe80dd1b73578a2c96",
+    "docs/e4-tonconnect-preparation/browser-red-isolation.json": "b151c4a5755dd32c4d2e4ad2e094a6258532960521ebaab8d699f81287ae21c1",
+    "docs/e4-tonconnect-preparation/browser-red-report.json": "b85f6662c2cdebb9d8aa388963b12e2c200bc9f83354ad11feced48c84132de5",
+    "docs/e4-tonconnect-preparation/diff-ops-review.json": "8681e86fb8622577fa428cc8da457c11b6cbc9ae3e6c74dec655dd5e5597d2bc",
+    "docs/e4-tonconnect-preparation/next-prerequisite.json": "599e5c856c9ab6fbc6d2691e382dfc0b68664b507117d8ffd5d875dd34087383",
+    "docs/e4-tonconnect-preparation/ops-baseline.json": "dedb2a36d1c2448c36d7369ac745f961abc44fa08b7b7563db98da0897239f8c",
+    "docs/e4-tonconnect-preparation/plan.json": "73c692b523fe26a84748e8a2afb52aab1e334318c9cf3ff4c3058a642a78c284",
+    "docs/e4-tonconnect-preparation/primary-checks.json": "2ac605131e4f89ffef2a4fff46b87a3a71dcce2dfd5fbb14ae30989457a84b56",
+    "docs/e4-tonconnect-preparation/primary-ops-review.json": "767793857b4c3db777c5a5166b0eb32fb5bd22645ee3a4e32c5d5bace620fadf",
+    "docs/e4-tonconnect-preparation/rollout-checks.json": "dfd3d54080eece22925e1855296762199cb190186156daf4a9e3dd5d9cb8c5ae",
+    "docs/e4-tonconnect-preparation/sdk-review.json": "7dc2b797f02da6310fe2ea81b3a161b422da43301dbfc10a87ca9b66ddb5c41e"
+  }
+}

@@ -1070,6 +1070,25 @@ Actual-handler deferred-response reproduction independently confirmed, no real
 network/signature/money: `docs/e4-tonconnect-binding/next-prerequisite.json`.
 Owner iPhone acceptance remains complete; no local report required.
 
+2026-09-09: TONCONNECT_PREPARATION_ROUTE_BINDING VERIFIED/deployed (`fc90a99`).
+Preparation serialized and bound to recipient intent across payload JSON,disconnect
+and modal opening;8s payload abort,strict response gate,owned cleanup/retry. Own
+null disconnect can rebind only unchanged intent. Stale SDK status during pending
+preparation cannot start verification; obsolete awaited opening closes. Actual SDK
+async discovery/embedded behavior inspected; three review findings fixed.
+148 existing pytest,25 legacy frontend/69 backend checks,19 adversarial checks,
+38 Chrome scenarios at320/390,17 rollout checks and two reviews PASS;Gitleaks zero.
+HTML-only apply/reconcile/public exact,56 other live inputs (including pinned SDK)
+and four services preserved,no restart. HTML `537671a0...68258e3`; evidence:
+`docs/e4-tonconnect-preparation-rollout.v1.json`. Rollback:
+`deployment-preimages/e4-tonconnect-preparation-20260909T0109Z`.
+E4 IN_PROGRESS. Exactly next: TONCONNECT_CONNECTION_INTENT_LIFETIME — after
+preparation token retires,a later SDK status can verify against a newer recipient.
+Actual-helper reproduction independently confirmed; no real network/signatures/
+money: `docs/e4-tonconnect-preparation/next-prerequisite.json`. This slice covers
+active preparation,not all callbacks after retirement. Owner iPhone acceptance
+remains complete with no local report prerequisite.
+
 ### E5 — нативный некастодиальный кошелёк
 
 E0.4 inventory evidence (2026-08-18): the checkout has a Rust/UniFFI Bitcoin
