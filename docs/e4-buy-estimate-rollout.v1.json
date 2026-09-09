@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-09-09T00:22:45.016509+00:00",
+  "route": "E4/BUY_REVIEW_RECEIVE_ESTIMATE_DISCLOSURE",
+  "status": "VERIFIED",
+  "fullE4": "IN_PROGRESS",
+  "implementationCommit": "06df1bf2571b09a97453f56faa130c0ab8215217",
+  "behavior": "Buy review shows indicative receive amount/rate/standard tariff, frozen per review; invalid or aged response displays unavailable; valid estimate caps consent expiry; actual order remains independently calculated",
+  "freshnessSemantics": {
+    "localReceiptMaxMs": 60000,
+    "responseTimestampMaxMs": 120000,
+    "marketSourceFreshnessClaimed": false,
+    "rateRequestTimeoutMs": 8000,
+    "unavailableEstimateMayCreateUnpaidOrder": true
+  },
+  "tests": {
+    "existingPytestPassed": 144,
+    "adversarialPytestWrapperPassed": 1,
+    "adversarialScenariosPassed": 55,
+    "inlineScriptsSyntaxChecked": 2,
+    "chromiumCasesPassed": 22,
+    "chromiumWidths": [
+      320,
+      390
+    ],
+    "sameRunnerBaselineRegression": "Missing in-modal estimate reproduced",
+    "rolloutRehearsalChecksPassed": 13,
+    "gitleaksVersion": "8.30.0",
+    "gitleaksFindings": 0
+  },
+  "reviews": [
+    "docs/e4-buy-estimate/acceptance-review.json",
+    "docs/e4-buy-estimate/diff-ops-review.json",
+    "docs/e4-buy-estimate/primary-ops-review.json"
+  ],
+  "rollout": {
+    "apply": "APPLY_PASS",
+    "reconcile": "RECONCILE_PASS",
+    "liveSHA256": "145d60c292db76b440f47a2f17b3eecbc2fcbe5f6c4ca060c0fc59c435e8ffb1",
+    "publicSHA256": "0875e6c58285e2de6acd274433ae5ca8ef1bca88e9ab018db6d860f6e42f19af",
+    "previousSHA256": "89c8b728d3db3352929755a7b72f79cb62761d99c9b19e1d2e43a4b8fe3558fa",
+    "publicURL": "https://obsidian-exchange.org/webapp",
+    "publicStatus": 200,
+    "unrelatedApplicationInputsPreserved": 55,
+    "serviceStatesPreserved": 4,
+    "restart": false,
+    "rollbackPreimage": "/var/lib/obsidian-exchange/deployment-preimages/e4-buy-estimate-20260909T0021Z",
+    "autopilot": "failed/MainPID0"
+  },
+  "rollbackCommand": "python3 docs/e4-buy-estimate/rollout.py rollback --plan docs/e4-buy-estimate/plan.json --backup /var/lib/obsidian-exchange/deployment-preimages/e4-buy-estimate-20260909T0021Z",
+  "next": "E4/SELL_REVIEW_ESTIMATE_FRESHNESS",
+  "ownerDeviceAcceptance": "Remains accepted; no local-report prerequisite",
+  "evidenceSHA256": {
+    "docs/e4-buy-estimate/acceptance-review.json": "2ff6bd801c9a69ee06208c9d33ef7171a10f7589720ab04125136e8afe5c6746",
+    "docs/e4-buy-estimate/adversarial-report.json": "fd00c1349165666af995830338ddd250ca888d007405d084940832bac336d027",
+    "docs/e4-buy-estimate/browser-green-isolation.json": "4f51c84369a0a9b06ab4a8c10579245e8b6937b798f86883fea7f6abe868bf94",
+    "docs/e4-buy-estimate/browser-green-report.json": "43f4f41a7bb67e3ae5b31ae1fb2350a1744ca95fa670d1e50738aacc004c5276",
+    "docs/e4-buy-estimate/browser-red-isolation.json": "bcb049756b916a10fbd01587a7ba032d473e7912267ca55501fbdaeda2e57026",
+    "docs/e4-buy-estimate/browser-red-report.json": "45725264c66c393d3864ccf92765b4c1feb36ae8dfed75739d470d23f6da3a31",
+    "docs/e4-buy-estimate/diff-ops-review.json": "b36f4dafbf17491f511b9b7ebf46c8076f7bcf3c4a0422d4a15b3e7467b1e13b",
+    "docs/e4-buy-estimate/next-prerequisite.json": "a45bcd6c7060f43b26327d2267d6fe317e05b7f161efa20493e45403aba914d4",
+    "docs/e4-buy-estimate/ops-baseline.json": "25d1ed4140449301acbf4a235d2cc5ba2c311a00804cfee3bc41faec470bcdeb",
+    "docs/e4-buy-estimate/plan.json": "6ededaf9911b86f7cd42313f6f438598c25b27b32faf28ea054fd7a301217e1a",
+    "docs/e4-buy-estimate/primary-checks.json": "9c9e4bb036bdd8ca60179a5704d01614fec3253b096af1cf36e7544912cd8cac",
+    "docs/e4-buy-estimate/primary-ops-review.json": "376566ad4893db5a9d742cc686a58b466eb07ccbd1c57b3327632396cc40c13c",
+    "docs/e4-buy-estimate/rollout-checks.json": "730a486bb30f960d847fbf29f3183f8f78a05679a27ce692c05cf16d87175c4b"
+  }
+}

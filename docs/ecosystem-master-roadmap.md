@@ -1012,6 +1012,18 @@ fee percent and refers to a total outside its modal; surface indicative receive
 amount/rate with truthful unavailable/freshness semantics. Owner iPhone acceptance
 remains complete with no local-report prerequisite.
 
+2026-09-09: BUY_REVIEW_RECEIVE_ESTIMATE_DISCLOSURE VERIFIED/deployed (`06df1bf`).
+In-modal indicative receive/rate/tariff with validated snapshot, explicit unavailable
+state, bounded local/API response age and snapshot-bound consent expiry. Open values
+remain frozen; actual order pricing independent, no market-source freshness claim.
+144 existing tests,55 adversarial checks,22 Chrome cases,13 rollback checks and two
+independent reviews PASS. Atomic HTML apply/reconcile/public exact bytes;55 unrelated
+inputs/four service identities unchanged, no restart. Evidence:
+`docs/e4-buy-estimate-rollout.v1.json`. Full E4 IN_PROGRESS. Exactly next:
+SELL_REVIEW_ESTIMATE_FRESHNESS — cached Sell payout is unchanged after24hours in
+read-only reproduction and has no age/unavailable disclosure. Owner iPhone acceptance
+remains complete, no report required.
+
 ### E5 — нативный некастодиальный кошелёк
 
 E0.4 inventory evidence (2026-08-18): the checkout has a Rust/UniFFI Bitcoin

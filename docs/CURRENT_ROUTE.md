@@ -11,7 +11,24 @@ non-custodial wallet whose keys never reach the server.
 
 ## Active route
 
-`E4 / BUY_REVIEW_RECEIVE_ESTIMATE_DISCLOSURE / show indicative receive amount and rate inside Buy review with truthful availability and freshness`
+`E4 / SELL_REVIEW_ESTIMATE_FRESHNESS / bound cached Sell estimate age and disclose unavailable or indicative payout before confirmation`
+
+2026-09-09: BUY_REVIEW_RECEIVE_ESTIMATE_DISCLOSURE VERIFIED/deployed `06df1bf`.
+Buy dialog now includes indicative receive amount/rate and standard storefront
+tariff. Strict snapshot validation,60s local receipt/120s response age,8s abort,
+latest-request-wins and expiry/clock rollback guards; no market-source freshness
+or binding quote claim. Open review values are frozen. Unavailable estimate is
+explicit and may still create an unpaid order with the existing payload.
+144 existing tests,55 adversarial checks,22 native Chrome cases at320/390,
+13 local rollout checks and two independent reviews PASS. Baseline regression
+reproduced with identical runner. HTML-only apply/reconcile PASS, exact public
+bytes,55 other application inputs/four services unchanged; no restart.
+Current HTML SHA256 `145d60c2...35e8ffb1`. Evidence:
+`docs/e4-buy-estimate-rollout.v1.json`; rollback retained at
+`deployment-preimages/e4-buy-estimate-20260909T0021Z`.
+Exactly next: SELL_REVIEW_ESTIMATE_FRESHNESS. Independent read-only reproduction
+shows the same cached45,500RUB payout after24hours; Sell has no snapshot age or
+explicit stale state. Evidence: `docs/e4-buy-estimate/next-prerequisite.json`.
 
 2026-09-09: BUY_RECIPIENT_CUSTODY_DISCLOSURE VERIFIED and deployed, `fa13d93`.
 Buy review distinguishes own-wallet key control from exchange/service custody
@@ -24,10 +41,8 @@ public bytes, 55 other application inputs and 4 service identities preserved;
 no restart. Current HTML SHA256 `89c8b728...58fa`; wallet guard logic unchanged.
 Evidence: `docs/e4-buy-custody-rollout.v1.json`. Rollback is retained under
 `deployment-preimages/e4-buy-custody-20260909T0011Z`.
-Exactly next: BUY_REVIEW_RECEIVE_ESTIMATE_DISCLOSURE. The Buy dialog currently
-shows fee percent and says the total is above; approximate receive amount/rate
-are only in the background form. Show an indicative calculation in the review
-with explicit unavailable/freshness semantics, never as a binding quote.
+The missing in-modal Buy estimate identified after that slice is resolved by
+the subsequent deployment above.
 
 2026-09-08: inert device harness PUBLISHED_VERIFIED, `233cc57`. Generated four
 static assets from production wallet review/attempt helpers, with declared CSS
@@ -58,7 +73,7 @@ Evidence: `docs/e4-wallet-device-owner-acceptance.v1.json` (owner conversation).
 This completed prerequisite led to the custody disclosure slice above.
 Full E4 remains IN_PROGRESS; the active next item is specified above.
 
-Wallet guard implementation remains55808db (current HTML89c8b728): same-partition upgraded pages only, old
+Wallet guard implementation remains55808db (current HTML145d60c2): same-partition upgraded pages only, old
 pages must reload; manual outcome assertion is not chain evidence. Production
 rollback retained at deployment-preimages/e4-wallet-cross-tab-55808db-20260908.
 No real money/signature/customer read/new credentials/064A authority. Autopilot

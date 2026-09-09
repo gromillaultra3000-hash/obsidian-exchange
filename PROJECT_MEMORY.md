@@ -4,6 +4,19 @@ Updated: 2026-09-09 UTC
 
 ## Current goal and status
 
+- 2026-09-09 E4/BUY_REVIEW_RECEIVE_ESTIMATE_DISCLOSURE VERIFIED/deployed06df1bf.
+  Buy modal includes indicative receive/rate/storefront tariff; snapshot60s receipt/
+  120s API-response age,8s abort/latest-wins, strict numbers/tiers, frozen values,
+  expiry/clock rollback guards. No market-source freshness or binding quote claim;
+  unavailable estimate explicit and unpaid order creation preserved.144 existing
+  tests+55 adversarial checks+22 Chrome cases+13 rollback checks,two reviews PASS,
+  Gitleaks zero. HTML145d60c2...35e8ffb1; public exact apply/reconcile,55 other app
+  inputs/four services preserved,no restart. Rollback:
+  deployment-preimages/e4-buy-estimate-20260909T0021Z. Evidence:
+  docs/e4-buy-estimate-rollout.v1.json. Full E4 IN_PROGRESS; exactly next
+  SELL_REVIEW_ESTIMATE_FRESHNESS: cached Sell payout unchanged after24h with no
+  age/stale disclosure. Autopilot failed/MainPID0; owner device acceptance closed.
+
 - 2026-09-09 E4/BUY_RECIPIENT_CUSTODY_DISCLOSURE VERIFIED/deployed fa13d93.
   Buy review now distinguishes own-wallet vs provider custody/KYC and irreversible
   blockchain payout. Two static strings only; current HTML89c8b728...58fa,
