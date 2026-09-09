@@ -1,0 +1,499 @@
+{
+  "sourceSha256": "8815f80d9f1a2f11fc29737d3227e8d494d5a673e9b5f6b459ae3c8a0ed87a07",
+  "runnerSha256": "f027602d2840e96cb84a8edabf0efd00439f686db4146e2d46e7a1ab03356d15",
+  "playwrightVersion": "1.62.0",
+  "checks": [
+    {
+      "width": 320,
+      "scenario": "route",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "scenario": "success",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "scenario": "same-route-refresh",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "scenario": "address",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "scenario": "memo",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "scenario": "no-tag",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "scenario": "away-back",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "scenario": "disconnect",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "scenario": "non-ton",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "scenario": "json-delay",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "scenario": "stale-error",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "scenario": "error",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "scenario": "http-error",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "scenario": "malformed-address",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "scenario": "nonboolean-verified",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "scenario": "route",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "scenario": "success",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "scenario": "same-route-refresh",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "scenario": "address",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "scenario": "memo",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "scenario": "no-tag",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "scenario": "away-back",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "scenario": "disconnect",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "scenario": "non-ton",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "scenario": "json-delay",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "scenario": "stale-error",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "scenario": "error",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "scenario": "http-error",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "scenario": "malformed-address",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "scenario": "nonboolean-verified",
+      "result": "PASS"
+    }
+  ],
+  "unexpectedWrites": [],
+  "verificationRequests": [
+    {
+      "width": 320,
+      "scenario": "route",
+      "body": {
+        "account": {
+          "address": "synthetic-account"
+        },
+        "proof": {
+          "synthetic": true
+        }
+      }
+    },
+    {
+      "width": 320,
+      "scenario": "success",
+      "body": {
+        "account": {
+          "address": "synthetic-account"
+        },
+        "proof": {
+          "synthetic": true
+        }
+      }
+    },
+    {
+      "width": 320,
+      "scenario": "same-route-refresh",
+      "body": {
+        "account": {
+          "address": "synthetic-account"
+        },
+        "proof": {
+          "synthetic": true
+        }
+      }
+    },
+    {
+      "width": 320,
+      "scenario": "address",
+      "body": {
+        "account": {
+          "address": "synthetic-account"
+        },
+        "proof": {
+          "synthetic": true
+        }
+      }
+    },
+    {
+      "width": 320,
+      "scenario": "memo",
+      "body": {
+        "account": {
+          "address": "synthetic-account"
+        },
+        "proof": {
+          "synthetic": true
+        }
+      }
+    },
+    {
+      "width": 320,
+      "scenario": "no-tag",
+      "body": {
+        "account": {
+          "address": "synthetic-account"
+        },
+        "proof": {
+          "synthetic": true
+        }
+      }
+    },
+    {
+      "width": 320,
+      "scenario": "away-back",
+      "body": {
+        "account": {
+          "address": "synthetic-account"
+        },
+        "proof": {
+          "synthetic": true
+        }
+      }
+    },
+    {
+      "width": 320,
+      "scenario": "disconnect",
+      "body": {
+        "account": {
+          "address": "synthetic-account"
+        },
+        "proof": {
+          "synthetic": true
+        }
+      }
+    },
+    {
+      "width": 320,
+      "scenario": "json-delay",
+      "body": {
+        "account": {
+          "address": "synthetic-account"
+        },
+        "proof": {
+          "synthetic": true
+        }
+      }
+    },
+    {
+      "width": 320,
+      "scenario": "stale-error",
+      "body": {
+        "account": {
+          "address": "synthetic-account"
+        },
+        "proof": {
+          "synthetic": true
+        }
+      }
+    },
+    {
+      "width": 320,
+      "scenario": "error",
+      "body": {
+        "account": {
+          "address": "synthetic-account"
+        },
+        "proof": {
+          "synthetic": true
+        }
+      }
+    },
+    {
+      "width": 320,
+      "scenario": "http-error",
+      "body": {
+        "account": {
+          "address": "synthetic-account"
+        },
+        "proof": {
+          "synthetic": true
+        }
+      }
+    },
+    {
+      "width": 320,
+      "scenario": "malformed-address",
+      "body": {
+        "account": {
+          "address": "synthetic-account"
+        },
+        "proof": {
+          "synthetic": true
+        }
+      }
+    },
+    {
+      "width": 320,
+      "scenario": "nonboolean-verified",
+      "body": {
+        "account": {
+          "address": "synthetic-account"
+        },
+        "proof": {
+          "synthetic": true
+        }
+      }
+    },
+    {
+      "width": 390,
+      "scenario": "route",
+      "body": {
+        "account": {
+          "address": "synthetic-account"
+        },
+        "proof": {
+          "synthetic": true
+        }
+      }
+    },
+    {
+      "width": 390,
+      "scenario": "success",
+      "body": {
+        "account": {
+          "address": "synthetic-account"
+        },
+        "proof": {
+          "synthetic": true
+        }
+      }
+    },
+    {
+      "width": 390,
+      "scenario": "same-route-refresh",
+      "body": {
+        "account": {
+          "address": "synthetic-account"
+        },
+        "proof": {
+          "synthetic": true
+        }
+      }
+    },
+    {
+      "width": 390,
+      "scenario": "address",
+      "body": {
+        "account": {
+          "address": "synthetic-account"
+        },
+        "proof": {
+          "synthetic": true
+        }
+      }
+    },
+    {
+      "width": 390,
+      "scenario": "memo",
+      "body": {
+        "account": {
+          "address": "synthetic-account"
+        },
+        "proof": {
+          "synthetic": true
+        }
+      }
+    },
+    {
+      "width": 390,
+      "scenario": "no-tag",
+      "body": {
+        "account": {
+          "address": "synthetic-account"
+        },
+        "proof": {
+          "synthetic": true
+        }
+      }
+    },
+    {
+      "width": 390,
+      "scenario": "away-back",
+      "body": {
+        "account": {
+          "address": "synthetic-account"
+        },
+        "proof": {
+          "synthetic": true
+        }
+      }
+    },
+    {
+      "width": 390,
+      "scenario": "disconnect",
+      "body": {
+        "account": {
+          "address": "synthetic-account"
+        },
+        "proof": {
+          "synthetic": true
+        }
+      }
+    },
+    {
+      "width": 390,
+      "scenario": "json-delay",
+      "body": {
+        "account": {
+          "address": "synthetic-account"
+        },
+        "proof": {
+          "synthetic": true
+        }
+      }
+    },
+    {
+      "width": 390,
+      "scenario": "stale-error",
+      "body": {
+        "account": {
+          "address": "synthetic-account"
+        },
+        "proof": {
+          "synthetic": true
+        }
+      }
+    },
+    {
+      "width": 390,
+      "scenario": "error",
+      "body": {
+        "account": {
+          "address": "synthetic-account"
+        },
+        "proof": {
+          "synthetic": true
+        }
+      }
+    },
+    {
+      "width": 390,
+      "scenario": "http-error",
+      "body": {
+        "account": {
+          "address": "synthetic-account"
+        },
+        "proof": {
+          "synthetic": true
+        }
+      }
+    },
+    {
+      "width": 390,
+      "scenario": "malformed-address",
+      "body": {
+        "account": {
+          "address": "synthetic-account"
+        },
+        "proof": {
+          "synthetic": true
+        }
+      }
+    },
+    {
+      "width": 390,
+      "scenario": "nonboolean-verified",
+      "body": {
+        "account": {
+          "address": "synthetic-account"
+        },
+        "proof": {
+          "synthetic": true
+        }
+      }
+    }
+  ],
+  "pageErrors": [],
+  "browserVersion": "152.0.7977.64",
+  "result": "PASS"
+}

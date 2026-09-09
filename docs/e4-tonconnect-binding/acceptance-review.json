@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "e4-tonconnect-binding-acceptance-review.v1",
+  "reviewer": "/root/e4_gap_review",
+  "timestamp": "2026-09-09T00:57:24.765064+00:00",
+  "result": "PASS",
+  "sourceSha256": "8815f80d9f1a2f11fc29737d3227e8d494d5a673e9b5f6b459ae3c8a0ed87a07",
+  "runnerSha256": "f027602d2840e96cb84a8edabf0efd00439f686db4146e2d46e7a1ab03356d15",
+  "scope": [
+    "tcHandleWallet response application",
+    "tcRecipientState/generation and native input/change capture",
+    "explicit programmatic invalidation in route/address-book helpers",
+    "docs/e4-tonconnect-binding/contract.md",
+    "tests/test_tonconnect_frontend.py fixture integration"
+  ],
+  "browserEvidence": "output/playwright/e4-tonconnect-binding-final-green",
+  "baselineEvidence": "output/playwright/e4-tonconnect-binding-final-red",
+  "browserCases": 30,
+  "adversarialChecks": 34,
+  "adversarialCommand": "node tests/e4_tonconnect_binding_adversarial.cjs",
+  "findings": [],
+  "acceptance": [
+    "native same-route verification succeeds and unchanged background refresh remains eligible",
+    "new route/address/memo/no_tag, away-back edits and disconnect retire late success/error without side effects",
+    "JSON body delivery delay is checked before application",
+    "nonTON callback begins no verification request",
+    "HTTPok and verified exactlytrue plus bounded nonempty string address required",
+    "successful replacement clears oldmemo and sets no_tag",
+    "extracted helper tests cover invalid address types/size, programmatic state changes, SDKreplacement, capability removal, unlistednetwork and no staleprofile/validation sideeffects",
+    "legacy fixture uses actual ASSETS networks,res.ok and extracted binding helpers, not a permissive guard stub",
+    "original-page real DOM regression proves staleTONaddress overwrites new BTCrecipient; finalpage keeps input and feedback",
+    "no real SDK, proof/signature, external API or moneywriter in acceptance runs"
+  ],
+  "nextPrerequisiteReview": {
+    "criterion": "TONCONNECT_PREPARATION_ROUTE_BINDING",
+    "command": "node docs/e4-tonconnect-binding/reproduce-next.cjs",
+    "independentResult": "CONFIRMED: deferred synthetic payload resumes actual tcConnect and opens modal after user changed TON to BTC/newrecipient; zero real network/signature/money."
+  },
+  "limitations": []
+}

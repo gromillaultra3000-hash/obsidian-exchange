@@ -1,0 +1,19 @@
+{
+  "sourceSHA256": "8815f80d9f1a2f11fc29737d3227e8d494d5a673e9b5f6b459ae3c8a0ed87a07",
+  "inlineScriptsSyntaxChecked": 2,
+  "pytest": {
+    "passed": 147,
+    "scope": "exchange_review_ui,recipient_review_behavior,money_flow_outcome,wallet_cross_tab,wallet_handoff,buy_estimate_adversarial,sell_estimate_adversarial,buy_refresh_adversarial"
+  },
+  "legacyTonConnect": {
+    "frontendStandalone": "PASS",
+    "backendStandalone": "PASS",
+    "initialHarnessFailure": "Frontend extracted handler lacked new helper state; adapted fixture to actual helpers, registry networks and HTTP ok field; reran successfully",
+    "backendNetwork": "stubbed; synthetic test keys only"
+  },
+  "visual": {
+    "width": 320,
+    "file": "output/playwright/e4-tonconnect-binding-green/320-verified.png",
+    "observation": "Verified-address text and recipient field visible in native browser capture; no layout changes in product diff"
+  }
+}

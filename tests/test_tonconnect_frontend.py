@@ -93,6 +93,7 @@ from core import assets as ASSETS  # noqa: E402
 # на следующей же сети, и тест позеленел бы на разошедшемся фронте.
 OFFERINGS = json.dumps([
     {"code": c,
+     "networks": [{"code": n} for n in ASSETS.networks_for(c)],
      "tag_name": ASSETS.TAGGED_CURRENCIES.get(c, ""),
      "tag_kind": ASSETS.tag_kind(c) or "",
      "tag_sep": ASSETS.tag_separator(c) or "",
@@ -128,14 +129,16 @@ function fetch(url, opts) {
   _fetchCalls.push(url);
   const r = _fetchReply[url];
   if (r === 'boom') return Promise.reject(new Error('сеть'));
-  return Promise.resolve({ json: () => Promise.resolve(r || {}) });
+  return Promise.resolve({ ok: true, json: () => Promise.resolve(r || {}) });
 }
 """
 
 body = ("const __OFF = %s;\nwindow.__oeOfferings = __OFF;\n"
-        "let tcUI = null;\nlet tcPending = false;\n" % OFFERINGS) + "\n".join(
+        "let tcUI = null;\nlet tcPending = false;\nlet tcRecipientGeneration = 0;\n"
+        "_els.network.value = __OFF.find(o => o.code === 'TON').networks[0].code;\n" % OFFERINGS) + "\n".join(
     extract_function(src, n) for n in
-    ("currentOffering", "tcAvailable", "tcSay", "tcRefresh", "tcHandleWallet"))
+    ("currentOffering", "buyRouteSignature", "tcInvalidateRecipient", "tcRecipientState",
+     "tcAvailable", "tcSay", "tcRefresh", "tcHandleWallet"))
 
 
 def run_js(scenario):

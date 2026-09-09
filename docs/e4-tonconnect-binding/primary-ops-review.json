@@ -1,0 +1,20 @@
+{
+  "reviewer": "primary /root independent of rollout author /root/buy_custody_ops",
+  "recordedAt": "2026-09-09T00:55:18.769510+00:00",
+  "result": "PASS",
+  "findings": [],
+  "verified": [
+    "Artifact digests match pinned plan",
+    "Scope only state/helper/listener block,tcHandleWallet,and three exact invalidation additions",
+    "Submission/review/Sell/backend unchanged",
+    "17 local scope/drift/writer/metadata/apply/reconcile/exact rollback checks inspected",
+    "Backup before atomic replacement,public equality and55 unrelated inputs/four service state checks"
+  ],
+  "inputSHA256": {
+    "docs/e4-tonconnect-binding/rollout.py": "313308b2838eba089219d1ee830c05bcb556ea3fa272c786a5e93f5d3ae2a136",
+    "docs/e4-tonconnect-binding/check-rollout.py": "a5c9a032a8934ec1ddc41103e57379fe048a3636f3af80f5f5087815dbd3bc74",
+    "docs/e4-tonconnect-binding/rollout-checks.json": "4041d4854515493a9ac95ced02ac54a0be39445a939924f815f817bf55891c01",
+    "docs/e4-tonconnect-binding/plan.json": "4ee1cfb273d8df56d02cfbba925242126e66f57ae49594c64d13f4f9f6e6d081",
+    "docs/e4-wallet-cross-tab/rollout.py": "d2097d220500618ae684a46ac7e3eaf3caaa989a6915fed4301c6ce3f3b5fa7d"
+  }
+}

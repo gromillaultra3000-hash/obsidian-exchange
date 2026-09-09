@@ -1457,6 +1457,7 @@
             const available = buyRouteSignature(select.value, selectedNetwork()) !== null;
             if (!available) {
                 if (previous) {
+                    tcInvalidateRecipient();
                     document.getElementById('address').value = '';
                     document.getElementById('dest_tag').value = '';
                     document.getElementById('no_tag').checked = false;
@@ -1534,6 +1535,7 @@
                     + 'font-size:12px;font-weight:600;color:#e2e8f0;'
                     + 'background:rgba(159,103,255,.12);border:1px solid rgba(159,103,255,.35)';
                 b.onclick = () => {
+                    tcInvalidateRecipient();
                     const inp = document.getElementById('address');
                     inp.value = a.address;
                     validateAddress();
@@ -1613,6 +1615,32 @@
         // а не в тупик.
         let tcUI = null;
         let tcPending = false;
+        let tcRecipientGeneration = 0;
+
+        function tcInvalidateRecipient() {
+            tcRecipientGeneration += 1;
+            tcSay('');
+        }
+
+        function tcRecipientState() {
+            const currency = document.getElementById('currency').value;
+            const network = document.getElementById('network').value;
+            const offering = currentOffering();
+            const route = buyRouteSignature(currency, network);
+            if (currency !== 'TON' || !route || !offering || offering.wallet_connect !== true) return null;
+            return JSON.stringify([tcRecipientGeneration, route,
+                document.getElementById('address').value,
+                document.getElementById('dest_tag').value,
+                document.getElementById('no_tag').checked]);
+        }
+
+        for (const event of ['input', 'change']) {
+            document.addEventListener(event, e => {
+                if (e.target && ['currency', 'network', 'address', 'dest_tag', 'no_tag'].includes(e.target.id)) {
+                    tcInvalidateRecipient();
+                }
+            }, true);
+        }
 
         function tcAvailable() {
             const o = currentOffering();
@@ -1639,7 +1667,12 @@
         // Факт подключения кошелька сам по себе ничего не доказывает: подпись
         // проверяется ключом счёта из блокчейна, и только сервер это видел.
         async function tcHandleWallet(w) {
+            // Every SDK status event invalidates an older verification, including disconnect.
+            tcInvalidateRecipient();
             if (!w || tcPending) return;
+            const recipientState = tcRecipientState();
+            if (!recipientState) return;
+            const isCurrent = () => tcRecipientState() === recipientState;
             const proof = w.connectItems && w.connectItems.tonProof
                           && w.connectItems.tonProof.proof;
             if (!proof) {
@@ -1656,7 +1689,9 @@
                     body: JSON.stringify({ account: w.account, proof: proof })
                 });
                 const data = await res.json().catch(() => ({}));
-                if (data && data.verified && data.address) {
+                if (!isCurrent()) return;
+                if (res.ok && data && data.verified === true && typeof data.address === 'string'
+                    && data.address.trim() && data.address.length <= 256) {
                     const inp = document.getElementById('address');
                     inp.value = data.address;
                     validateAddress();
@@ -1665,6 +1700,7 @@
                     // который теперь известен, но галочку оставляем видимой —
                     // снять её можно, и сервер всё равно перепроверит.
                     const nt = document.getElementById('no_tag');
+                    document.getElementById('dest_tag').value = '';
                     if (nt) nt.checked = true;
                     updateTagField();
                     tcSay('Адрес подставлен из кошелька и подтверждён подписью.', 'valid');
@@ -1679,7 +1715,7 @@
                           ' Адрес можно ввести вручную.', 'invalid');
                 }
             } catch (e) {
-                tcSay('Не удалось проверить подпись. Введите адрес вручную.', 'invalid');
+                if (isCurrent()) tcSay('Не удалось проверить подпись. Введите адрес вручную.', 'invalid');
             } finally {
                 tcPending = false;
             }
@@ -3500,6 +3536,7 @@
 
         // Подсказка адреса и восстановление из localStorage
         function updateAddressPlaceholder() {
+            tcInvalidateRecipient();
             const cur = document.getElementById('currency').value;
             const net = selectedNetwork();
             const ph  = { BTC: 'bc1... или 1... или 3...', LTC: 'L... или M... или ltc1...',

@@ -1,0 +1,25 @@
+{
+  "sourceSha256": "49523edd3f53c0152efe8688951aed7ddcb3ac93fe5243f9340a2744452e184d",
+  "runnerSha256": "f027602d2840e96cb84a8edabf0efd00439f686db4146e2d46e7a1ab03356d15",
+  "playwrightVersion": "1.62.0",
+  "checks": [],
+  "unexpectedWrites": [],
+  "verificationRequests": [
+    {
+      "width": 320,
+      "scenario": "route",
+      "body": {
+        "account": {
+          "address": "synthetic-account"
+        },
+        "proof": {
+          "synthetic": true
+        }
+      }
+    }
+  ],
+  "pageErrors": [],
+  "browserVersion": "152.0.7977.64",
+  "result": "FAIL",
+  "error": "AssertionError [ERR_ASSERTION]: obsolete verification must not overwrite newer intent or feedback\n+ actual - expected\n\n  {\n+   address: 'EQBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB',\n-   address: 'bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq',\n    currency: 'BTC',\n    noTag: false,\n+   status: 'Адрес подставлен из кошелька и подтверждён подписью.',\n-   status: '',\n    tag: ''\n  }\n\n    at main (/tmp/e4-review-browser-zbb5jmd_/runner.cjs:98:27)"
+}

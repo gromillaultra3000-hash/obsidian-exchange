@@ -1,0 +1,32 @@
+{
+  "result": "PASS",
+  "reviewer": "independent buy_custody_ops agent",
+  "recordedAt": "2026-09-09T00:54:45.548121+00:00",
+  "route": "E4/TONCONNECT_VERIFY_RESPONSE_RECIPIENT_BINDING",
+  "baseline_sha": "49523edd3f53c0152efe8688951aed7ddcb3ac93fe5243f9340a2744452e184d",
+  "candidate_sha": "8815f80d9f1a2f11fc29737d3227e8d494d5a673e9b5f6b459ae3c8a0ed87a07",
+  "rollout_sha": "313308b2838eba089219d1ee830c05bcb556ea3fa272c786a5e93f5d3ae2a136",
+  "helper_sha": "d2097d220500618ae684a46ac7e3eaf3caaa989a6915fed4301c6ce3f3b5fa7d",
+  "inventory_sha": "c50f535d0cfaca21de765b5376083941021e58aa2d3a7374fdb925c62a764dc6",
+  "scope": [
+    "tcRecipientGeneration/helpers/input-change listener block after tcPending",
+    "tcHandleWallet recipient binding and strict response gate",
+    "exact invalidation call in applyOfferings retired route",
+    "exact invalidation call in addressbook chip handler",
+    "exact invalidation call in updateAddressPlaceholder"
+  ],
+  "findings": [],
+  "assessment": [
+    "TON verification only starts for current valid TON route with wallet_connect explicitly true. Captured state binds route signature, exact address/memo/no_tag and recipient generation. Eligibility and state rechecked after awaited JSON and on error.",
+    "Input/change events and exact programmatic addressbook, explicit route helper and retired offering mutations invalidate pending recipient proof. SDK status events increment generation before pending/disconnect early return, suppressing obsolete success and errors.",
+    "Existing single-request tcPending serialization retained; a stale request cannot overlap a new request or clear a newer pending owner.",
+    "Successful response requires HTTP success, verified boolean true and bounded nonempty address string. It clears old memo before asserting no_tag and updating tag controls; stale responses do not mutate recipient or present verification success.",
+    "Only added state/listener block, tcHandleWallet, and three exact contextual invalidation calls changed. Surrounding route logic, wallet connect request machinery, submit payloads and backend untouched.",
+    "Read-only production preflight passed with 56 live inputs and 4 unchanged services. Seventeen local scope/drift/atomic apply/reconcile/rollback checks passed, including rejection of removed invalidation or unrelated wallet request logic changes."
+  ],
+  "public_baseline_sha": "f6c19af35546401dde6c99d64e1284d8d3164d17d121ddc8ef9528a533b1763a",
+  "live_input_count": 56,
+  "service_count": 4,
+  "production_mutated": false,
+  "verification": "docs/e4-tonconnect-binding/rollout-checks.json"
+}

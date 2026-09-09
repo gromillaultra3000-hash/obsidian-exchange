@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "e4-next-prerequisite.v1",
+  "criterion": "TONCONNECT_PREPARATION_ROUTE_BINDING",
+  "status": "OBSERVED_UNCLOSED",
+  "sourceSha256": "8815f80d9f1a2f11fc29737d3227e8d494d5a673e9b5f6b459ae3c8a0ed87a07",
+  "source": "relay/webapp.html tcConnect",
+  "reproductionCommand": "node docs/e4-tonconnect-binding/reproduce-next.cjs",
+  "reproductionSha256": "8a79723e163b1d134aa3f5435e502c99f7563e9be000719bf3b6ace82930ee42",
+  "result": {
+    "criterion": "TONCONNECT_PREPARATION_ROUTE_BINDING",
+    "stalePreparationOpensModal": true,
+    "modalCalls": [
+      {
+        "currency": "BTC",
+        "address": "new-manual-BTC"
+      }
+    ],
+    "realNetworkCalls": 0,
+    "walletSignatures": 0,
+    "moneyWrites": 0
+  },
+  "boundaries": "Actual preparation helper; synthetic deferred payload and SDK UI stub, no real network/signature/money",
+  "finding": "Late payload preparation opens TON wallet modal after the user has switched to BTC and entered a newer recipient",
+  "next": "Bind asynchronous connection preparation to the initiating recipient route and intent; discard obsolete preparation before opening wallet modal"
+}
