@@ -1,0 +1,29 @@
+{
+  "criterion": "TONCONNECT_PAYLOAD_WAIT_RECOVERY",
+  "reviewer": "independent browser/acceptance agent",
+  "sourceSha256": "0b58b622a8e168e96834e6f2ea663e223afe0ee29898e0bad686f1ee0616aadd",
+  "result": "PASS",
+  "findings": [],
+  "reviewed": [
+    "tcConnect full fetch and JSON body race against rejecting 8 second deadline",
+    "Losing request produces only data and cannot touch SDK or retry state",
+    "Elapsed and backwards wall-clock rejection before SDK handoff",
+    "Recipient identity check protects edited fields and messages",
+    "Finally clears only owned preparation; payload timeout allows explicit fresh retry; SDK quarantine behavior unchanged"
+  ],
+  "verification": {
+    "adversarialCases": 8,
+    "browserCases": 12,
+    "widths": [
+      320,
+      390
+    ],
+    "baseline": "Expected failure: payload deadline must release preparation",
+    "network": "synthetic intercepted traffic only, isolated non-root Chrome private network",
+    "cleanup": "both browser units stopped with MainPID 0 and empty cgroup"
+  },
+  "limitations": [
+    "Synthetic SDK and backend responses; no real wallet signature or monetary operation",
+    "Receipt covers payload preparation wait recovery, not all E4 site/bot criteria"
+  ]
+}

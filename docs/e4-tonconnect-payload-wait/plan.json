@@ -1,0 +1,317 @@
+{
+  "target": "/opt/obsidian-exchange/relay/webapp.html",
+  "candidate": "/root/relay/webapp.html",
+  "candidate_sha": "0b58b622a8e168e96834e6f2ea663e223afe0ee29898e0bad686f1ee0616aadd",
+  "baseline_sha": "0a596242b6b51783cf117a0848935eda7dbadb14d136f2558b05d8c607f47f76",
+  "inventory_sha": "e61dcbbdc9b52e1fbeb86a76306aa78b7573aed74734d7735e3ad06c7184498c",
+  "helper_sha": "d2097d220500618ae684a46ac7e3eaf3caaa989a6915fed4301c6ce3f3b5fa7d",
+  "rollout_sha": "a3029677fdb246cff9212c6e47de2aa83eaf156772978c2c6522bb876e9e9e40",
+  "metadata": {
+    "mode": 420,
+    "uid": 0,
+    "gid": 0,
+    "xattrs": {}
+  },
+  "bot_username": "Obsidian666999bot",
+  "url": "https://obsidian-exchange.org/webapp",
+  "inputs": [
+    {
+      "path": "/opt/obsidian-exchange/relay-fastapi/main.py",
+      "sha256": "25624ac7bc9174ac9ec35d90402042c62bd344d6c74c1cf730593017a79ae26f"
+    },
+    {
+      "path": "/opt/obsidian-exchange/bot/main_bot.py",
+      "sha256": "92a909790005af1b03839ef52f1089d776b37379e3031e7a9f0624b066eaf028"
+    },
+    {
+      "path": "/opt/obsidian-exchange/bot/sell_guard.py",
+      "sha256": "981399455403e38c242c9d81256c8cfd3e8f8405505cce0808c60d374fec56f8"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay/webapp.html",
+      "sha256": "0a596242b6b51783cf117a0848935eda7dbadb14d136f2558b05d8c607f47f76"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay-fastapi/auth.py",
+      "sha256": "cb0c3831f2d862a5519824b317dd537f7e592fdeb678a7d34a083b26436c9746"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay-fastapi/templates/base.html",
+      "sha256": "3f76e6770f5e8cd6ad7faaae612049bc1b2f21423c00b72c36cfd7ce97639a29"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay-fastapi/templates/index.html",
+      "sha256": "bcbf8332ad7bb0418ae66307f66676fb294364e4ba78833c968f32cf65b70720"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay-fastapi/templates/dashboard_base.html",
+      "sha256": "6d4c2abe68f390af6e26d1681c62c3a7cfdd3423d996e8946479bb07b7f3fc44"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay-fastapi/templates/dashboard.html",
+      "sha256": "c70821540cb8f6507cc8fb425b3bd97b4d95446eefd331a4409683539ce17e8e"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay-fastapi/templates/dashboard_exchange.html",
+      "sha256": "5c6c450f1568b717c55e306194108545377cd7e4d837d7e8b152ed3b2071628c"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay-fastapi/templates/dashboard_sell.html",
+      "sha256": "5bc8c50a023842439cf471005136fb5388910cf3025fb9b1fa4e6d4199a62343"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay-fastapi/templates/dashboard_swap.html",
+      "sha256": "afd1c004b3f07aa889a239498b01d89640ffbad15a6fc300f889daa036bd7e18"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay-fastapi/templates/dashboard_orders.html",
+      "sha256": "f468eb03f0590cc9315d4d9f675921174e1733d309ed65334b14b4c6fb1acc12"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay-fastapi/templates/login.html",
+      "sha256": "ca521f51a1e5fb0f5f60e6fe2fb2485c3cbb16e820fe24ac97b7c1f9d271251f"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay-fastapi/templates/register.html",
+      "sha256": "28d538972a1484f417a8cd5c910be6ebc8b7f7c989f1145b342fa6475056dc1b"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay-fastapi/templates/rates.html",
+      "sha256": "d7b123ba63672b1db42109ee0dfda30cad6a5406e3c38b946498d041d3111a3c"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay-fastapi/static/js/main.js",
+      "sha256": "49fe40ff6bad060ffd36d19f767d5bbd852d80cfdeab2f65d4ddedd7f4019c0d"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay-fastapi/static/js/v5.js",
+      "sha256": "3a858553247b0732e9db643fef5c36bd3090971a40e42944b7964e263f827770"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay/utils/exchange_calc.py",
+      "sha256": "39a3312103866be328604cc29384d77b906479b72992d7de4e060f3894a2617c"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay/core/assets.py",
+      "sha256": "151c33b0955b0104722215e853bdc6a515f039eda7f0e3221116b3e4901b0018"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay/core/pricing.py",
+      "sha256": "0cb22550f6f942288c65ef35305bee686775d72fcb8abf1c990d985a410f0c05"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay/core/attempt_id.py",
+      "sha256": "e6950a81684c5ea112165726dd8a2b58d1f732f31a25af4f350f771b14b0890d"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay/core/order_access.py",
+      "sha256": "15d996a1450ff898ef62b3e43c048069c2c4dc60863399bcba144cfd46c69a0f"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay/core/receipts.py",
+      "sha256": "f06b7e93a5e709e336c4ff53e1fddcc66571361b4d5b23dc05e3f1ac8daad0c3"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay/core/sell_assets.py",
+      "sha256": "3aff61df913728e43753e0ffadef5d3aaf5fcd0136d0c2e903d237659458dde6"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay/core/sell_payout.py",
+      "sha256": "99792c81d648ad5fdb2e711d34497f609efeca2e5dbd6d751bf36ae0bf1bb467"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay/core/wallet_send.py",
+      "sha256": "4f8c1003657f991317c4ee524cc54f5e33cc0c3dafa69aeaa5984eada2f8f865"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay/core/db_runtime.py",
+      "sha256": "9e0572dc70d5d883f7009c1f6701bdd8d34ec8fcc26a3d4c7a050a7938212237"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay/repositories/order_creation_store.py",
+      "sha256": "d3fa2c2655c3bf0436dd5ea223c90123209a35658544ba5078eb0a54bfef36d2"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay/repositories/order_read_store.py",
+      "sha256": "2cc91c733a8388ac2f643016fe192f7687ef0c44b79305d23fed50dcfd2ca06d"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay/repositories/order_workflow_store.py",
+      "sha256": "19fe23b8a6d5c892e703b6adb19b1604b5079934596d2427534c1e21e3629afc"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay/repositories/order_lifecycle_store.py",
+      "sha256": "054b64440d7e30a7d154ea5246d10abaa28ff3292a1d5482a74406b69c3aeb5f"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay/repositories/payment_transition_store.py",
+      "sha256": "c02cc8b6b6464fd33cf77600eca7a142759ef5174b0e737bfe8097dc66d5f527"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay/repositories/payment_session_store.py",
+      "sha256": "eb41d099a06beac4251190d10221467bdca4b21db7bc97dba687dd8d40653b8e"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay/repositories/receipt_store.py",
+      "sha256": "252ada0ad673dfb60ad3f18913b11aa0a6bfa90d647978af71a97651cc54e123"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay/repositories/sell_order_store.py",
+      "sha256": "f18b05cbe623a6073579112526605a419c52779995ecaa74d98177014ae83aa5"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay/repositories/sell_settlement_store.py",
+      "sha256": "400808d59c23666552ff3e584842521caedc9f87f3c2ca6b2ae2ce1b3969c8d2"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay/repositories/swap_store.py",
+      "sha256": "d034923545896be4a7b35deb30853fb36c1701547ce3f3aea76c63a25ca46f2b"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay/repositories/payment_status_read_store.py",
+      "sha256": "5cbd26d0335c0cf713aa4be9c87999773bbcc37ab89202a554a4811b6702b6f9"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay/repositories/activity_read_store.py",
+      "sha256": "32166cac62d1f92f21b1cdcaad46edda968c75832db7311969dff9228cd82f6e"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay/repositories/payout_store.py",
+      "sha256": "393a34b3326f87fb2abd8832ec04e0aab7fed0750de8fdfed744cf27f367f449"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay/repositories/wallet_store.py",
+      "sha256": "68faf78392b02f88ae840c477baa9bef7f6518ef36d89c978295041d3b6b1b8b"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay/repositories/bot_order_store.py",
+      "sha256": "01e836e04d21b27a073d7a2558b216ed33a62853a8c9742d5edb12a0ffc19885"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay/repositories/bot_notification_store.py",
+      "sha256": "e0d0d20ca43946dedb155406f00b2c3a5496f95b94dfa6c0da03165a03aaf8be"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay/core/payout_queue.py",
+      "sha256": "23aea1f15c254cc05c6732119158076d2b946fda3a6d3d5409b7e9a54086c93c"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay/core/txid.py",
+      "sha256": "726b98d97696578b0883f5a14eca119f9bc4ce0fd92f409617edf1190129f824"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay/repositories/operational_read_store.py",
+      "sha256": "c4df1ca1bc1b6c5d66234c8a314896b31cfb1c96c2900e7240ac36ee5c517259"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay/services/state_machine.py",
+      "sha256": "0582042d29f4d1fe78fb33b58a84dc5538e49b4142b036ad7ddec9fb3886557e"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay/core/requisites.py",
+      "sha256": "a6c9eb87a236081095eb8213828b4ea33e9296d6f1bb8696d2e91c9733aca507"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay/services/requisite_origin.py",
+      "sha256": "5552f1c274bc2e7721068bf7db69564ca360d5065920cebbb17c022df4335398"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay/core/telegram_freshness.py",
+      "sha256": "40bef427a0daa3069e05565fdb65217836414ed581960b64f1cff5c1c266d601"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay/services/payment_service.py",
+      "sha256": "727af4b63d4b45edded4e5ccb5c6743e6ea752050b76aaa7db26e32a1ff3f36a"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay/services/requisite_guard.py",
+      "sha256": "6899a37cb131dfc87b1907a0c0adf0f49b7a6010356cad80f8b6cc44fd740016"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay/services/smart_router.py",
+      "sha256": "0db451c341816ee877efc2f45db4bb9c389f3cff8199951d7a14dab56f5f10a4"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay/services/capacity.py",
+      "sha256": "8cb890d33467c1a0010fec50b049c3316942e83b4c2a3767d32201445eed2b97"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay/providers/fallback.py",
+      "sha256": "4bde28d584cb420bff209aaa2f8bf49f89025cd2feb9b9ef5b151031bff49b04"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay-fastapi/static/js/tonconnect-ui-3.0.0.min.js",
+      "sha256": "64964c3ae13c752bbabba990ddc51f7dd20759083368541d9199e04e3342656d"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay/core/tonconnect.py",
+      "sha256": "69ffd1157f222b97358bdd01017e2779ab37db9de6d63bfe546c968797b4ad1d"
+    }
+  ],
+  "units": [
+    {
+      "unit": "relay-fastapi.service",
+      "WorkingDirectory": "/opt/obsidian-exchange/relay-fastapi",
+      "FragmentPath": "/etc/systemd/system/relay-fastapi.service",
+      "executable": "/opt/obsidian-exchange/relay-venv/bin/python",
+      "pythonScriptTokens": [
+        "/opt/obsidian-exchange/relay-fastapi/main.py"
+      ],
+      "state": {
+        "MainPID": "3016726",
+        "NRestarts": "0",
+        "ExecMainStartTimestamp": "Tue 2026-09-08 03:26:45 UTC",
+        "ActiveState": "active",
+        "SubState": "running"
+      }
+    },
+    {
+      "unit": "exchange-bot.service",
+      "WorkingDirectory": "/opt/obsidian-exchange/bot",
+      "FragmentPath": "/etc/systemd/system/exchange-bot.service",
+      "executable": "/opt/obsidian-exchange/bot/venv/bin/python3",
+      "pythonScriptTokens": [
+        "/opt/obsidian-exchange/bot/main_bot.py"
+      ],
+      "state": {
+        "MainPID": "3877887",
+        "NRestarts": "0",
+        "ExecMainStartTimestamp": "Tue 2026-09-01 06:20:00 UTC",
+        "ActiveState": "active",
+        "SubState": "running"
+      }
+    },
+    {
+      "unit": "nginx.service",
+      "WorkingDirectory": "",
+      "FragmentPath": "/usr/lib/systemd/system/nginx.service",
+      "executable": "/usr/sbin/nginx",
+      "pythonScriptTokens": [],
+      "state": {
+        "MainPID": "3877705",
+        "NRestarts": "0",
+        "ExecMainStartTimestamp": "Tue 2026-09-01 06:19:56 UTC",
+        "ActiveState": "active",
+        "SubState": "running"
+      }
+    },
+    {
+      "unit": "obsidian-postgres.service",
+      "WorkingDirectory": "/opt/obsidian-exchange",
+      "FragmentPath": "/etc/systemd/system/obsidian-postgres.service",
+      "executable": "/usr/bin/docker",
+      "pythonScriptTokens": [],
+      "state": {
+        "MainPID": "3136948",
+        "NRestarts": "0",
+        "ExecMainStartTimestamp": "Mon 2026-08-24 05:08:51 UTC",
+        "ActiveState": "active",
+        "SubState": "running"
+      }
+    }
+  ],
+  "scope": [
+    "tcConnect finite payload response/body wait and timeout recovery"
+  ],
+  "baseline_public_sha": "8e1a95eee6c29edaa658b3f9fa5206f99b633061235265c794718ec245ac713e"
+}

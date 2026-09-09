@@ -1789,6 +1789,7 @@
             let ui = null;
             let handedOff = false;
             let timer = null;
+            let payloadExpired = false;
             // SDK operations cannot be cancelled. After an uncertain timeout,
             // quarantine this page's singleton instead of overlapping a new attempt.
             const sdkWait = async operation => {
@@ -1820,15 +1821,33 @@
                 tcSay('Готовим проверочный код…');
                 ui.setConnectRequestParameters({ state: 'loading' });
                 const controller = new AbortController();
-                timer = setTimeout(() => controller.abort(), 8000);
-                const r = await fetch('/api/tonconnect/payload', {
-                    headers: { 'X-Telegram-Init-Data': tg.initData || '' },
-                    signal: controller.signal, cache: 'no-store' });
-                const d = await r.json().catch(() => ({}));
+                const started = Date.now();
+                const deadline = new Promise((_, reject) => {
+                    timer = setTimeout(() => {
+                        payloadExpired = true;
+                        controller.abort();
+                        reject(new Error('Preparation expired'));
+                    }, 8000);
+                });
+                // Only the winning, current preparation may touch the SDK or UI.
+                // A late response/body produces data without application side effects.
+                const response = (async () => {
+                    const r = await fetch('/api/tonconnect/payload', {
+                        headers: { 'X-Telegram-Init-Data': tg.initData || '' },
+                        signal: controller.signal, cache: 'no-store' });
+                    const d = await r.json().catch(() => ({}));
+                    return { r, d };
+                })();
+                const { r, d } = await Promise.race([response, deadline]);
                 clearTimeout(timer);
                 timer = null;
+                const completed = Date.now();
+                if (payloadExpired || completed < started || completed - started >= 8000) {
+                    payloadExpired = true;
+                    controller.abort();
+                    throw new Error('Preparation expired');
+                }
                 if (!isCurrent()) return;
-                if (controller.signal.aborted) throw new Error('Preparation expired');
                 const payload = d && d.payload;
                 if (!r.ok || typeof payload !== 'string' || !payload.trim() || payload.length > 4096
                     || tcConnectionPayloads.has(payload)) {
@@ -1860,7 +1879,9 @@
             } catch (e) {
                 if (attempt.sdkExpired) {
                     if (attempt.expiryCurrent) tcSay('Кошелёк не ответил вовремя. Перезагрузите страницу для нового подключения или введите адрес вручную.', 'invalid');
-                } else if (isCurrent()) tcSay('Не удалось открыть кошелёк. Введите адрес вручную.', 'invalid');
+                } else if (isCurrent()) tcSay(payloadExpired
+                    ? 'Проверочный код не получен вовремя. Подключите кошелёк ещё раз или введите адрес вручную.'
+                    : 'Не удалось открыть кошелёк. Введите адрес вручную.', 'invalid');
             } finally {
                 if (timer !== null) clearTimeout(timer);
                 if (tcPreparation === attempt) {

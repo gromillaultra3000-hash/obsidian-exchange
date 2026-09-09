@@ -1,0 +1,33 @@
+{
+  "result": "PASS",
+  "reviewer": "independent ops_review agent",
+  "recordedAt": "2026-09-09T01:58:46.658769+00:00",
+  "route": "E4/TONCONNECT_PAYLOAD_WAIT_RECOVERY",
+  "baseline_sha": "0a596242b6b51783cf117a0848935eda7dbadb14d136f2558b05d8c607f47f76",
+  "candidate_sha": "0b58b622a8e168e96834e6f2ea663e223afe0ee29898e0bad686f1ee0616aadd",
+  "rollout_sha": "a3029677fdb246cff9212c6e47de2aa83eaf156772978c2c6522bb876e9e9e40",
+  "helper_sha": "d2097d220500618ae684a46ac7e3eaf3caaa989a6915fed4301c6ce3f3b5fa7d",
+  "inventory_sha": "e61dcbbdc9b52e1fbeb86a76306aa78b7573aed74734d7735e3ad06c7184498c",
+  "scope": [
+    "tcConnect finite payload response/body wait and timeout recovery"
+  ],
+  "findings": [],
+  "assessment": [
+    "Promise.race bounds the complete payload fetch and JSON body operation to 8000 ms. Timeout marks payloadExpired before abort, and the completion-time guard independently rejects elapsed or backward-clock completion.",
+    "The losing response operation only returns response/body data. Late resolution or rejection has no SDK calls, recipient mutation, status write, or preparation release; Promise.race installs rejection handling on both participants.",
+    "Current-only timeout feedback offers an explicit new connection or manual address. Outer finally clears the timer, clears unhanded request parameters and releases the preparation/button; payload timeout does not quarantine the SDK.",
+    "Identity and recipient-state checks remain before any payload is accepted or SDK handoff begins. Late old payload work cannot own or release a subsequent explicit preparation.",
+    "Only tcConnect changes. Existing SDK wait quarantine, callback guard, verification, BUY/SELL confirmation and backend paths are unchanged.",
+    "Read-only preflight validates 58 live input hashes, four unchanged service states, target metadata and exact substituted public response against deployed SDK-wait baseline 0a596242b6b51783cf117a0848935eda7dbadb14d136f2558b05d8c607f47f76.",
+    "Eighteen local scope/drift/apply/reconcile/exact rollback checks passed. Temporary-directory rehearsal preserved metadata and unrelated inputs; production not mutated."
+  ],
+  "limitations": [
+    "AbortController requests cancellation but cannot guarantee it; correctness relies on the raced losing operation being data-only and on preparation identity checks.",
+    "This slice addresses payload preparation waiting; other E4 prerequisites and business acceptance remain outside this review."
+  ],
+  "public_baseline_sha": "8e1a95eee6c29edaa658b3f9fa5206f99b633061235265c794718ec245ac713e",
+  "live_input_count": 58,
+  "service_count": 4,
+  "production_mutated": false,
+  "verification": "docs/e4-tonconnect-payload-wait/rollout-checks.json"
+}

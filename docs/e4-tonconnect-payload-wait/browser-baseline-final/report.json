@@ -1,0 +1,11 @@
+{
+  "sourceSha256": "0a596242b6b51783cf117a0848935eda7dbadb14d136f2558b05d8c607f47f76",
+  "runnerSha256": "672885e7fcf094636b2c416062d22903ae26ec1fea9026e9bbffc443f0fbcc6c",
+  "playwrightVersion": "1.62.0",
+  "checks": [],
+  "unexpectedWrites": [],
+  "pageErrors": [],
+  "browserVersion": "152.0.7977.64",
+  "result": "FAIL",
+  "error": "AssertionError [ERR_ASSERTION]: payload deadline must release preparation\n+ actual - expected\n\n+ {\n+   disconnecting: false,\n+   state: '[6,\"[\\\\\"TON\\\\\",\\\\\"MAINNET\\\\\",\\\\\"memo\\\\\",\\\\\"text\\\\\",\\\\\"#\\\\\"]\",\"EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\",\"\",false]'\n+ }\n- null\n\n    at main (/tmp/e4-review-browser-b9stu91q/runner.cjs:77:24)"
+}

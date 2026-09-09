@@ -1,0 +1,64 @@
+{
+  "criterion": "TONCONNECT_PAYLOAD_WAIT_RECOVERY",
+  "cases": [
+    {
+      "stage": "fetch",
+      "edit": false,
+      "deadlineReleased": true,
+      "lateLoserIsolated": true,
+      "freshRetryVerified": true
+    },
+    {
+      "stage": "fetch",
+      "edit": true,
+      "deadlineReleased": true,
+      "lateLoserIsolated": true,
+      "freshRetryVerified": true
+    },
+    {
+      "stage": "fetch",
+      "clockDelta": 8000,
+      "lateReadRejected": true
+    },
+    {
+      "stage": "fetch",
+      "clockDelta": -1,
+      "lateReadRejected": true
+    },
+    {
+      "stage": "body",
+      "edit": false,
+      "deadlineReleased": true,
+      "lateLoserIsolated": true,
+      "freshRetryVerified": true
+    },
+    {
+      "stage": "body",
+      "edit": true,
+      "deadlineReleased": true,
+      "lateLoserIsolated": true,
+      "freshRetryVerified": true
+    },
+    {
+      "stage": "body",
+      "clockDelta": 8000,
+      "lateReadRejected": true
+    },
+    {
+      "stage": "body",
+      "clockDelta": -1,
+      "lateReadRejected": true
+    }
+  ],
+  "realNetworkCalls": 0,
+  "walletSignatures": 0,
+  "moneyWrites": 0,
+  "result": "PASS",
+  "sourceSha256": "0b58b622a8e168e96834e6f2ea663e223afe0ee29898e0bad686f1ee0616aadd",
+  "runnerSha256": "b18dd9e7f6a80bd8ffd71228657748fa18cb11f8cee51e5bc429d581e61d946e",
+  "baseline": {
+    "sourceSha256": "0a596242b6b51783cf117a0848935eda7dbadb14d136f2558b05d8c607f47f76",
+    "exitCode": 1,
+    "error": "AssertionError [ERR_ASSERTION]: fetch deadline must release preparation\n\nfalse !== true\n\n    at expired (/root/docs/e4-tonconnect-payload-wait/acceptance.cjs:62:40)\n    at async /root/docs/e4-tonconnect-payload-wait/acceptance.cjs:85:44 {\n  generatedMessage: false,\n  code: 'ERR_ASSERTION',\n  actual: false,\n  expected: true,\n  operator: 'strictEqual',\n  diff: 'simple'\n}\n"
+  }
+}

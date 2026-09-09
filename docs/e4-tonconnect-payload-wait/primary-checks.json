@@ -1,0 +1,16 @@
+{
+  "sourceSha256": "0b58b622a8e168e96834e6f2ea663e223afe0ee29898e0bad686f1ee0616aadd",
+  "inlineScriptsSyntaxChecked": 2,
+  "legacy": {
+    "test_tonconnect_frontend.py": {
+      "result": "PASS",
+      "checks": 25
+    },
+    "test_tonconnect.py": {
+      "result": "PASS",
+      "checks": 69
+    }
+  },
+  "existingPytestPassed": 53,
+  "newPayloadPytestPassed": 1
+}
