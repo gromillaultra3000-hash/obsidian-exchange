@@ -1,0 +1,76 @@
+{
+  "schemaVersion": "e4-tonconnect-payload-wait-rollout.v1",
+  "recordedAt": "2026-09-09T02:01:32.382793+00:00",
+  "route": "E4 / TONCONNECT_PAYLOAD_WAIT_RECOVERY",
+  "status": "VERIFIED",
+  "fullE4": "IN_PROGRESS",
+  "implementationCommit": "08f148ceba5b7f1edf2fab5bbac98f9e5c60146a",
+  "behavior": [
+    "8s race bounds complete payload fetch/body even if abort ignored",
+    "Completion clock rejects late or backward results; losing response only produces data",
+    "Owned cleanup releases button/preparation for explicit fresh retry; stale response cannot affect newer SDK/UI",
+    "Existing SDK quarantine and verification guards preserved"
+  ],
+  "verification": {
+    "existingPytestPassed": 53,
+    "newPayloadPytestPassed": 1,
+    "legacyTonFrontendChecksPassed": 25,
+    "legacyTonBackendChecksPassed": 69,
+    "adversarialChecksPassed": 8,
+    "nativeBrowserScenariosPassed": 12,
+    "browserWidths": [
+      320,
+      390
+    ],
+    "sameRunnerBaselineRegression": "REPRODUCED",
+    "inlineScriptSyntaxChecksPassed": 2,
+    "localRolloutChecksPassed": 18,
+    "independentReviews": [
+      "docs/e4-tonconnect-payload-wait/acceptance-review.json",
+      "docs/e4-tonconnect-payload-wait/diff-ops-review.json"
+    ],
+    "stagedSecretScan": {
+      "tool": "gitleaks",
+      "version": "8.30.0",
+      "bytesScanned": 81754,
+      "findings": 0
+    }
+  },
+  "production": {
+    "apply": "APPLY_PASS",
+    "reconcile": "RECONCILE_PASS",
+    "liveSHA256": "0b58b622a8e168e96834e6f2ea663e223afe0ee29898e0bad686f1ee0616aadd",
+    "previousSHA256": "0a596242b6b51783cf117a0848935eda7dbadb14d136f2558b05d8c607f47f76",
+    "publicSHA256": "db281b5487372c081d8de3ea232b0ff680166779da1e54cab3842c2340f0e4df",
+    "publicExactBytes": true,
+    "otherLiveInputsPreserved": 57,
+    "serviceIdentitiesPreserved": 4,
+    "restart": false,
+    "backup": "/var/lib/obsidian-exchange/deployment-preimages/e4-tonconnect-payload-wait-20260909T0200Z",
+    "rollbackCommand": "python3 docs/e4-tonconnect-payload-wait/rollout.py rollback --plan docs/e4-tonconnect-payload-wait/plan.json --backup /var/lib/obsidian-exchange/deployment-preimages/e4-tonconnect-payload-wait-20260909T0200Z",
+    "autopilot": "failed / MainPID=0; not restarted"
+  },
+  "limitations": [
+    "Existing pages reload to receive patch",
+    "Synthetic wallet/backend tests, no real signatures/money/customer reads",
+    "Full E4 site/bot review gaps remain; not one Mini App HTML rollout"
+  ],
+  "ownerDeviceAcceptance": "Complete; no retest or local-report prerequisite",
+  "next": "WEBSITE_BUY_SELL_ACTION_REVIEW",
+  "completionAssessment": "docs/e4-completion-assessment-20260909.md",
+  "evidenceSHA256": {
+    "docs/e4-tonconnect-payload-wait/acceptance-review.json": "19f8ade01a1303fbb68dd3791bfb1e9ae97fe5464fb0ae3966b947fe16df2091",
+    "docs/e4-tonconnect-payload-wait/adversarial-report.json": "0e7481e479eafcb7e12f657b2039efadea00a7877fcffe087ab869cbbc04fbd3",
+    "docs/e4-tonconnect-payload-wait/diff-ops-review.json": "02353f4617f3899ff0d9f5a4a3e216a8279845c71e1b61deadf3f7dd28e825d7",
+    "docs/e4-tonconnect-payload-wait/ops-baseline.json": "e61dcbbdc9b52e1fbeb86a76306aa78b7573aed74734d7735e3ad06c7184498c",
+    "docs/e4-tonconnect-payload-wait/plan.json": "f5d0c7486fd978dc8be9ee31c35d6e302e9b4d69fa944f559c49fdb61db1ffef",
+    "docs/e4-tonconnect-payload-wait/primary-checks.json": "5088368b511fc4b89249ed7a074512cd845f8d48a6bd0d6ec096499accddd82a",
+    "docs/e4-tonconnect-payload-wait/primary-ops-review.json": "915eb4be014c4d476c562b879912bb7d0ac8d73dce5eeb6744363072bbaf8947",
+    "docs/e4-tonconnect-payload-wait/rollout-checks.json": "3f7febd40bbca3abf8ccf90d46d46001c8e9c254739aedf045eba05ac13999d2",
+    "docs/e4-tonconnect-payload-wait/browser-final/report.json": "25b9f29c2ccd9f2046f2bc32cc152c4baace9f4ba8c1b5432f7173f1cb6685d5",
+    "docs/e4-tonconnect-payload-wait/browser-final/isolation.json": "5338c0d82eb9e1ce647cea0ad0e455afc87846e381aa62028602fc229a6859a1",
+    "docs/e4-tonconnect-payload-wait/browser-baseline-final/report.json": "c93bd5131dc92128d569487cdb3f9685f2c1d0a5c630243c47fa7519a84088ed",
+    "docs/e4-tonconnect-payload-wait/browser-baseline-final/isolation.json": "07c1a59cd96f4093c246b8506384a1b25f369c002c62d347c1cb1a9798136d85",
+    "docs/e4-completion-assessment-20260909.md": "b3bd5cdd107e8dc3f9787fbd802a1c1aaa7044cf14d0396d32788ff1c209a9f5"
+  }
+}

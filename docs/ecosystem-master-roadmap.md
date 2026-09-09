@@ -1109,6 +1109,24 @@ no deadline/no retry request,no real network/signature/money. Evidence:
 `docs/e4-tonconnect-intent/next-prerequisite.json`. Owner iPhone acceptance
 remains complete with no local report prerequisite.
 
+2026-09-09: TONCONNECT_PAYLOAD_WAIT_RECOVERY VERIFIED/deployed (`08f148c`).
+8s response/body race works even when abort is ignored; completion clock rejects
+late/backward results. Losing response is data-only; owned cleanup releases
+preparation/button for fresh explicit retry. SDK quarantine/verification unchanged.
+53 existing pytest +1 new,25 frontend/69 backend,8 adversarial,12 Chrome cases
+at320/390,18 rollback checks and two independent reviews PASS;Gitleaks zero.
+HTML-only apply/reconcile/public exact;57 other inputs/four services preserved,
+no restart. HTML `0b58b622...f1ee0616aadd`; rollback retained at
+`deployment-preimages/e4-tonconnect-payload-wait-20260909T0200Z`.
+Evidence: `docs/e4-tonconnect-payload-wait-rollout.v1.json`. Full E4 IN_PROGRESS.
+Owner requested completion in one run if remaining E4 scope is small. Independent
+full-gate assessment found substantive existing site/bot gaps,not another TON
+micro-prerequisite: `docs/e4-completion-assessment-20260909.md`.
+Exactly next: WEBSITE_BUY_SELL_ACTION_REVIEW — implement both site forms as one
+review package with executor/custody/KYC/fees/risk,explicit acknowledgement,
+accessible controls and preserved POST semantics. SWAP/bot reviews remain after
+that package. Owner iPhone acceptance complete; no repeated device/report gate.
+
 2026-09-09: TONCONNECT_SDK_HANDOFF_WAIT_RECOVERY VERIFIED/deployed (`a30a806`).
 8s per-operation SDK race bounds disconnect/openModal/obsolete closeModal, with
 completion clock checks. Uncertain timeout quarantines the page singleton, retires
