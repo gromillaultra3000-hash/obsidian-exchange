@@ -1,12 +1,21 @@
 # Project memory
 
-Updated: 2026-09-08 UTC
+Updated: 2026-09-09 UTC
 
 ## Current goal and status
 
+- 2026-09-09 E4/WALLET_HANDOFF_DEVICE_ACCEPTANCE VERIFIED for the inert
+  interface check by direct owner observation: no issues on a friend's iPhone,
+  Telegram Mini App entered through bot /preview, context explicitly confirmed.
+  Owner accepts this evidence and removes the local-report requirement; do not
+  retain missing report as a limitation/blocker or request the check again.
+  Evidence: docs/e4-wallet-device-owner-acceptance.v1.json. Full E4 IN_PROGRESS.
+  Next: assess remaining canonical E4 action UX criteria for the next bounded
+  implementation item. Public diagnostic GET200 / exact published HTML verified
+  today; autopilot failed/MainPID0. No deployment or restart in this update.
 
 - 2026-09-08 E4 WALLET_HANDOFF_DEVICE_ACCEPTANCE: inert harness
-  PUBLISHED_VERIFIED,233cc57; actual iOS Telegram observation PENDING, E4 open.
+  PUBLISHED_VERIFIED,233cc57; owner iOS Telegram check accepted Sep 9, E4 open.
   Four generated static assets at https://obsidian-exchange.org/preview/device-check/;
   exact production helper extraction with declared CSS/namespaces, inert SDK,
   no signing/identity/network upload. Local report self-declared/verified:false.
@@ -21,8 +30,8 @@ Updated: 2026-09-08 UTC
   preserved. HEAD200/POST405; no restarts. Old static release retained at
   e4-preview-favicon-20260826T0926Z. Rollback/reconcile helper and pinned plan:
   docs/e4-wallet-device-check/rollout.py +plan.json. Evidence:
-  docs/e4-wallet-device-check-publication.v1.json. Next requires owner to perform
-  guided inert test on iPhone via /preview and return report plus observed steps.
+  docs/e4-wallet-device-check-publication.v1.json. Owner completed the guided inert iPhone check via /preview; Sep 9 acceptance
+  above supersedes the former pending observation/report prerequisite.
   Do not infer physical-device/human/SDK acceptance from Linux or declared labels.
   Product guard remains55808db/ee01d3f5, same browser partition/upgraded pages;
   old pages reload, manual assertion not chain evidence. Product rollback retained

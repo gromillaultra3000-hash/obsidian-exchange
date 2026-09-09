@@ -1,6 +1,6 @@
 # Current canonical route
 
-Updated: 2026-09-08 UTC
+Updated: 2026-09-09 UTC
 
 ## Product objective
 
@@ -11,7 +11,7 @@ non-custodial wallet whose keys never reach the server.
 
 ## Active route
 
-`E4 / WALLET_HANDOFF_DEVICE_ACCEPTANCE / obtain owner iOS Telegram observation from published inert device page`
+`E4 / remaining action UX acceptance criteria / assess the next unmet E4 criterion after accepted device check`
 
 2026-09-08: inert device harness PUBLISHED_VERIFIED, `233cc57`. Generated four
 static assets from production wallet review/attempt helpers, with declared CSS
@@ -33,12 +33,14 @@ No restart. Old release retained; rollback/reconcile via
 `docs/e4-wallet-device-check/rollout.py` with its committed plan.json.
 Evidence: `docs/e4-wallet-device-check-publication.v1.json` and task directory.
 
-Exactly next: owner uses existing bot `/preview` button on iPhone, opens the
-footer device-check link, performs the guided inert checks and returns the local
-report plus observed behavior/context. Direct URL in Telegram may be its browser;
-that does not prove Mini App acceptance. No physical device observation received.
-Full E4 remains IN_PROGRESS; do not infer actual SDK/reconnect/signature, human or
-iOS acceptance from synthetic checks or a user-selected environment label.
+2026-09-09: WALLET_HANDOFF_DEVICE_ACCEPTANCE is VERIFIED for the published
+inert interface check. The owner reported that the check passed without issues
+on a friend's phone and explicitly confirmed iPhone / Telegram / bot `/preview`
+entry. The owner accepted this direct observation as sufficient evidence and
+removed the local-report requirement; it is not an open limitation or blocker.
+Evidence: `docs/e4-wallet-device-owner-acceptance.v1.json` (owner conversation).
+Full E4 remains IN_PROGRESS. Exactly next: assess the remaining canonical E4
+action UX criteria and select the first unmet bounded implementation item.
 
 Production guard remains55808db/ee01d3f5: same-partition upgraded pages only, old
 pages must reload; manual outcome assertion is not chain evidence. Production

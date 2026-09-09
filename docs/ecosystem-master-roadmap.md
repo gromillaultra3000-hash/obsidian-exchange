@@ -989,6 +989,16 @@ Exactly next: owner iPhone /preview -> footer devicecheck -> guided inert checks
 local report plus observed behavior/context. Real iOS/Telegram/SDK/human acceptance
 not established; direct URL alone not Mini App proof. No money/signature authority.
 
+2026-09-09: WALLET_HANDOFF_DEVICE_ACCEPTANCE VERIFIED for the published inert
+interface check by direct owner observation. Owner reported no issues and
+explicitly confirmed iPhone / Telegram / bot `/preview` entry on a friend's phone.
+Owner accepts the observation as sufficient evidence and removes the local-report
+requirement; missing report is not a limitation or blocker. This supersedes the
+Sep 8 pending device/report prerequisite. Evidence:
+`docs/e4-wallet-device-owner-acceptance.v1.json`. Full E4 remains IN_PROGRESS.
+Exactly next: assess remaining canonical E4 action UX criteria and select the
+first unmet bounded implementation item. No runtime change in this acceptance.
+
 ### E5 — нативный некастодиальный кошелёк
 
 E0.4 inventory evidence (2026-08-18): the checkout has a Rust/UniFFI Bitcoin
