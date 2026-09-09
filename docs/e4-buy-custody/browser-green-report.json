@@ -1,0 +1,76 @@
+{
+  "sourceSha256": "89c8b728d3db3352929755a7b72f79cb62761d99c9b19e1d2e43a4b8fe3558fa",
+  "runnerSha256": "83daf76171892ce31a065d4495ccefa7243461ca3a58f1367f5afe55d0287145",
+  "playwrightVersion": "1.62.0",
+  "checks": [
+    {
+      "explicitConfirmationRequests": 1,
+      "unchangedBody": true,
+      "width": 320,
+      "result": "PASS",
+      "custody": "conditional-own-wallet-or-provider",
+      "irreversiblePayout": true,
+      "initiallyDisabled": true,
+      "acknowledgementOnlyEnables": true,
+      "cancelAndEscapeNoWrites": true,
+      "noHorizontalOverflow": true
+    },
+    {
+      "explicitConfirmationRequests": 1,
+      "unchangedBody": true,
+      "width": 390,
+      "result": "PASS",
+      "custody": "conditional-own-wallet-or-provider",
+      "irreversiblePayout": true,
+      "initiallyDisabled": true,
+      "acknowledgementOnlyEnables": true,
+      "cancelAndEscapeNoWrites": true,
+      "noHorizontalOverflow": true
+    },
+    {
+      "explicitConfirmationRequests": 1,
+      "unchangedBody": true,
+      "width": 1280,
+      "result": "PASS",
+      "custody": "conditional-own-wallet-or-provider",
+      "irreversiblePayout": true,
+      "initiallyDisabled": true,
+      "acknowledgementOnlyEnables": true,
+      "cancelAndEscapeNoWrites": true,
+      "noHorizontalOverflow": true
+    }
+  ],
+  "writes": [],
+  "confirmations": [
+    {
+      "currency": "BTC",
+      "amount": 12500,
+      "address": "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+      "network": "MAINNET",
+      "pay_method": "sbp",
+      "dest_tag": "",
+      "no_tag": false
+    },
+    {
+      "currency": "BTC",
+      "amount": 12500,
+      "address": "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+      "network": "MAINNET",
+      "pay_method": "sbp",
+      "dest_tag": "",
+      "no_tag": false
+    },
+    {
+      "currency": "BTC",
+      "amount": 12500,
+      "address": "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+      "network": "MAINNET",
+      "pay_method": "sbp",
+      "dest_tag": "",
+      "no_tag": false
+    }
+  ],
+  "pageErrors": [],
+  "browserVersion": "152.0.7977.64",
+  "result": "PASS"
+}

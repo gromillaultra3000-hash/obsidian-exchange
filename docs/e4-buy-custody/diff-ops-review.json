@@ -1,0 +1,29 @@
+{
+  "result": "PASS",
+  "reviewer": "independent buy_custody_ops agent",
+  "recordedAt": "2026-09-09T00:10:14.939390+00:00",
+  "route": "E4/BUY_RECIPIENT_CUSTODY_DISCLOSURE",
+  "baseline_sha": "ee01d3f55a2f97c3f957e9166a02f79cd247f7d924316c666d6d94a754bfe7e3",
+  "candidate_sha": "89c8b728d3db3352929755a7b72f79cb62761d99c9b19e1d2e43a4b8fe3558fa",
+  "rollout_sha": "2a8e6c6d323490acbc436a3038a459293005347b50cd7d23ab263b0deeb9a44d",
+  "helper_sha": "d2097d220500618ae684a46ac7e3eaf3caaa989a6915fed4301c6ce3f3b5fa7d",
+  "inventory_sha": "964e6c506442a61fcd2307044a1613265dbd09033ec11d9ca38e71e25cef535e",
+  "scope": [
+    "beginBuyOrder custody label/value",
+    "beginBuyOrder risk text"
+  ],
+  "findings": [],
+  "assessment": [
+    "Recipient custody now distinguishes personal-wallet key control from exchange/service custody and their separate access/KYC rules.",
+    "Risk text names irreversible blockchain payout and asks recipient address/network/memo verification before order confirmation.",
+    "Only two static UI disclosure replacements; route, fee, amounts, recipient, confirmation callback, all other functions and every byte outside beginBuyOrder unchanged.",
+    "Rollout helper enforces exact two replacements, digest pins, regular-file metadata/xattrs, unrelated input hashes, runtime state and inactive autopilot; atomic replacement with exact backup and rollback.",
+    "Read-only prepare verified exact public HTML against current production with bot placeholder substitution; four service states captured without restart.",
+    "Thirteen local guard/rehearsal checks passed, including candidate/metadata/live-input/service drift refusal, single-writer refusal, atomic apply/reconcile and byte-exact rollback."
+  ],
+  "public_baseline_sha": "34addbf753b61d796acd991b052805d49f3738e77c0008b3654553cdfccf758b",
+  "live_input_count": 56,
+  "service_count": 4,
+  "production_mutated": false,
+  "verification": "docs/e4-buy-custody/rollout-checks.json"
+}

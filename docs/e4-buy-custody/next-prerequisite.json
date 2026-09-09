@@ -1,0 +1,12 @@
+{
+  "route": "E4/BUY_REVIEW_RECEIVE_ESTIMATE_DISCLOSURE",
+  "status": "NOT_STARTED",
+  "source": "Independent acceptance assessment and primary source/320px visual inspection",
+  "finding": "Buy review only copies fee percent and says total is above; approximate receive amount and rate exist only in background form crypto-estimate.",
+  "references": [
+    "relay/webapp.html:413",
+    "relay/webapp.html:1308",
+    "relay/webapp.html:3401"
+  ],
+  "next": "Show indicative receive amount/rate inside Buy review with truthful unavailable/freshness semantics; do not present a binding quote."
+}

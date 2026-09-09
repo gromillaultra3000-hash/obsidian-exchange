@@ -1,0 +1,26 @@
+{
+  "result": "PASS",
+  "checks": [
+    "exact_two_disclosure_replacements_accepted",
+    "unrelated_bytes_rejected",
+    "beginBuyOrder_logic_mutation_rejected",
+    "only_one_disclosure_replacement_rejected",
+    "empty_candidate_rejected",
+    "candidate_digest_tamper_rejected",
+    "unrelated_live_drift_rejected",
+    "target_metadata_drift_rejected",
+    "active_autopilot_rejected",
+    "service_state_drift_rejected",
+    "local_atomic_apply_metadata_pass",
+    "local_reconcile_pass",
+    "local_exact_rollback_metadata_pass"
+  ],
+  "baseline_sha": "ee01d3f55a2f97c3f957e9166a02f79cd247f7d924316c666d6d94a754bfe7e3",
+  "candidate_sha": "89c8b728d3db3352929755a7b72f79cb62761d99c9b19e1d2e43a4b8fe3558fa",
+  "rehearsal": {
+    "target": "temporary directory only",
+    "runtime": "fixture unit states; real drift guards",
+    "public": "local fixture; real public GET checked separately in prepare",
+    "production_mutated": false
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "sourceSHA256": "89c8b728d3db3352929755a7b72f79cb62761d99c9b19e1d2e43a4b8fe3558fa",
+  "inlineScriptsSyntaxChecked": 2,
+  "pytest": {
+    "command": "/opt/lumi/venv/bin/python -m pytest -q tests/test_e4_exchange_review_ui.py tests/test_e4_recipient_review_behavior.py tests/test_e4_money_flow_outcome.py",
+    "passed": 101
+  },
+  "toolSetup": "System python and /root/venv lack pytest; existing /opt/lumi/venv used, no installation"
+}

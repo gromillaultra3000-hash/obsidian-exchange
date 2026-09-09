@@ -1,0 +1,21 @@
+{
+  "reviewer": "primary /root independent of rollout author /root/buy_custody_ops",
+  "recordedAt": "2026-09-09T00:10:23.402278+00:00",
+  "scope": "Rollout wrapper, shared helper, pinned plan, local rehearsal code/results and 320px visual",
+  "result": "PASS",
+  "findings": [],
+  "verified": [
+    "Candidate constrained to exact two static substitutions and beginBuyOrder function boundary",
+    "Candidate/helper/wrapper/inventory digests match plan",
+    "Original metadata and exact file rollback retained; apply checks unrelated inputs and service state before and after mutation",
+    "Reviewed 13 local rehearsal checks, including rollback and byte/metadata/runtime drift refusal",
+    "320px dialog custody content readable and wrapped; scrollable surface preserves all rows"
+  ],
+  "inputSHA256": {
+    "docs/e4-buy-custody/rollout.py": "2a8e6c6d323490acbc436a3038a459293005347b50cd7d23ab263b0deeb9a44d",
+    "docs/e4-buy-custody/check-rollout.py": "ba78e376a0dcd4f2c72a8a4c667233472fd781f5f2ff87f8e6eb46ec4f6acdf4",
+    "docs/e4-buy-custody/rollout-checks.json": "76f9f6ab9abb37e0648635d99fa80d1963419f9f11bc1214a69c2054406afa4b",
+    "docs/e4-buy-custody/plan.json": "b1c1bb72946a83dc1eb39a9202eab17a264de182dc4107fcd37a45d8f94d3af7",
+    "docs/e4-wallet-cross-tab/rollout.py": "d2097d220500618ae684a46ac7e3eaf3caaa989a6915fed4301c6ce3f3b5fa7d"
+  }
+}
