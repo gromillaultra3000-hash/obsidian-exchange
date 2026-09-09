@@ -1,0 +1,11 @@
+{
+  "sourceSha256": "34e98784ee7ca2a744bbf4490b8f102357dc04c954105709436bef3eee497d55",
+  "runnerSha256": "9a47d26b7716775b8f735f83dc86c5b25b04f709c6f6c76a2ad108358b28a703",
+  "playwrightVersion": "1.62.0",
+  "checks": [],
+  "unexpectedWrites": [],
+  "pageErrors": [],
+  "browserVersion": "152.0.7977.64",
+  "result": "FAIL",
+  "error": "AssertionError [ERR_ASSERTION]: SDK deadline must release preparation\n+ actual - expected\n\n+ {\n+   disconnecting: true,\n+   state: '[6,\"[\\\\\"TON\\\\\",\\\\\"MAINNET\\\\\",\\\\\"memo\\\\\",\\\\\"text\\\\\",\\\\\"#\\\\\"]\",\"EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\",\"\",false]'\n+ }\n- null\n\n    at main (/tmp/e4-review-browser-op1iih6_/runner.cjs:78:24)"
+}

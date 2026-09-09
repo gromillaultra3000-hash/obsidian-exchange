@@ -1,0 +1,33 @@
+{
+  "reviewer": "independent acceptance subagent /root/acceptance",
+  "observedAt": "2026-09-09T01:53:11.759561+00:00",
+  "sourceSha256": "0a596242b6b51783cf117a0848935eda7dbadb14d136f2558b05d8c607f47f76",
+  "reproductionSha256": "be3c3e01acd907a29b5bc60b973cb7fcc50796ad39c14efebedf958e7384e831",
+  "harnessSha256": "55cb689ccb3e8616d6a7bb8e891391c2555d1737113473db3ac08b1ebdd1022f",
+  "criterion": "TONCONNECT_PAYLOAD_WAIT_RECOVERY",
+  "result": "REPRODUCED",
+  "cases": [
+    {
+      "stage": "fetch",
+      "simulatedElapsedMs": 3600000,
+      "abortSignalled": true,
+      "preparationPending": true,
+      "connectButtonDisabled": true,
+      "activeDeadlineTimers": 0,
+      "newRequestsAfterRetry": 0
+    },
+    {
+      "stage": "body",
+      "simulatedElapsedMs": 3600000,
+      "abortSignalled": true,
+      "preparationPending": true,
+      "connectButtonDisabled": true,
+      "activeDeadlineTimers": 0,
+      "newRequestsAfterRetry": 0
+    }
+  ],
+  "realNetworkCalls": 0,
+  "walletSignatures": 0,
+  "moneyWrites": 0,
+  "nextStep": "Race payload fetch and JSON body against a deadline independently of AbortSignal; retire stale completion and release preparation for explicit retry."
+}

@@ -1,0 +1,21 @@
+{
+  "result": "PASS",
+  "reviewer": "primary Codex operations review",
+  "candidateSha256": "0a596242b6b51783cf117a0848935eda7dbadb14d136f2558b05d8c607f47f76",
+  "scope": "HTML-only atomic replacement; exact tcConnect + handler initial guard",
+  "checks": [
+    "Independent reviews match candidate",
+    "19 local drift/scope/apply/reconcile/rollback checks pass",
+    "58 input hashes and four service identities pinned",
+    "Backup requires fresh directory and verifies bytes/metadata before apply",
+    "Reconcile checks public template bytes without restart",
+    "SDK timeout quarantine requires reload; no false cancellation claim"
+  ],
+  "secretScan": {
+    "tool": "gitleaks",
+    "version": "8.30.0",
+    "stagedBytes": 80712,
+    "findings": 0
+  },
+  "productionMutated": false
+}

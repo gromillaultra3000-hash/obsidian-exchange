@@ -1,0 +1,81 @@
+{
+  "sourceSha256": "0a596242b6b51783cf117a0848935eda7dbadb14d136f2558b05d8c607f47f76",
+  "runnerSha256": "9a47d26b7716775b8f735f83dc86c5b25b04f709c6f6c76a2ad108358b28a703",
+  "playwrightVersion": "1.62.0",
+  "checks": [
+    {
+      "width": 320,
+      "scenario": "disconnect-hang",
+      "result": "PASS",
+      "payloadReads": 1,
+      "verificationRequests": 0
+    },
+    {
+      "width": 320,
+      "scenario": "modal-hang",
+      "result": "PASS",
+      "payloadReads": 1,
+      "verificationRequests": 0
+    },
+    {
+      "width": 320,
+      "scenario": "modal-edit",
+      "result": "PASS",
+      "payloadReads": 1,
+      "verificationRequests": 0
+    },
+    {
+      "width": 320,
+      "scenario": "close-hang",
+      "result": "PASS",
+      "payloadReads": 1,
+      "verificationRequests": 0
+    },
+    {
+      "width": 320,
+      "scenario": "fresh",
+      "result": "PASS",
+      "payloadReads": 1,
+      "verificationRequests": 1
+    },
+    {
+      "width": 390,
+      "scenario": "disconnect-hang",
+      "result": "PASS",
+      "payloadReads": 1,
+      "verificationRequests": 0
+    },
+    {
+      "width": 390,
+      "scenario": "modal-hang",
+      "result": "PASS",
+      "payloadReads": 1,
+      "verificationRequests": 0
+    },
+    {
+      "width": 390,
+      "scenario": "modal-edit",
+      "result": "PASS",
+      "payloadReads": 1,
+      "verificationRequests": 0
+    },
+    {
+      "width": 390,
+      "scenario": "close-hang",
+      "result": "PASS",
+      "payloadReads": 1,
+      "verificationRequests": 0
+    },
+    {
+      "width": 390,
+      "scenario": "fresh",
+      "result": "PASS",
+      "payloadReads": 1,
+      "verificationRequests": 1
+    }
+  ],
+  "unexpectedWrites": [],
+  "pageErrors": [],
+  "browserVersion": "152.0.7977.64",
+  "result": "PASS"
+}

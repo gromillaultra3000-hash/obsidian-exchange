@@ -1,0 +1,32 @@
+{
+  "result": "PASS",
+  "checks": [
+    "bounded_ton_sdk_wait_scope_accepted",
+    "callback_guard_removal_rejected",
+    "callback_body_mutation_rejected",
+    "unrelated_bytes_rejected",
+    "submitBuyOrder_mutation_rejected",
+    "shared_review_mutation_rejected",
+    "submitSellOrder_mutation_rejected",
+    "verification_mutation_rejected",
+    "buy_refresh_logic_mutation_rejected",
+    "recipient_generation_listener_mutation_rejected",
+    "empty_candidate_rejected",
+    "candidate_digest_tamper_rejected",
+    "unrelated_live_drift_rejected",
+    "target_metadata_drift_rejected",
+    "active_autopilot_rejected",
+    "service_state_drift_rejected",
+    "local_atomic_apply_metadata_pass",
+    "local_reconcile_pass",
+    "local_exact_rollback_metadata_pass"
+  ],
+  "baseline_sha": "34e98784ee7ca2a744bbf4490b8f102357dc04c954105709436bef3eee497d55",
+  "candidate_sha": "0a596242b6b51783cf117a0848935eda7dbadb14d136f2558b05d8c607f47f76",
+  "rehearsal": {
+    "target": "temporary directory only",
+    "runtime": "fixture unit states; real drift guards",
+    "public": "local fixture; real public GET checked separately in prepare",
+    "production_mutated": false
+  }
+}

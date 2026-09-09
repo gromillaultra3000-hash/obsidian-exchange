@@ -1,0 +1,33 @@
+{
+  "result": "PASS",
+  "reviewer": "independent ops_review agent",
+  "recordedAt": "2026-09-09T01:52:08.846489+00:00",
+  "route": "E4/TONCONNECT_SDK_HANDOFF_WAIT_RECOVERY",
+  "baseline_sha": "34e98784ee7ca2a744bbf4490b8f102357dc04c954105709436bef3eee497d55",
+  "candidate_sha": "0a596242b6b51783cf117a0848935eda7dbadb14d136f2558b05d8c607f47f76",
+  "rollout_sha": "50902d752a14b13c7091beabc015527dae1157911d745359323f31665a2e2605",
+  "helper_sha": "d2097d220500618ae684a46ac7e3eaf3caaa989a6915fed4301c6ce3f3b5fa7d",
+  "inventory_sha": "32de3a02dd4f9081369f558cce341084f31171787e65c91f0cd7fb158a29584f",
+  "scope": [
+    "tcConnect bounded SDK disconnect/modal waits and timeout quarantine; exact tcHandleWallet initial quarantine guard"
+  ],
+  "findings": [],
+  "assessment": [
+    "Each disconnect, openModal and obsolete closeModal SDK wait is bounded by its own 8000 ms Promise.race, with a completion-time elapsed/backward-clock guard and timer cleanup.",
+    "Timeout quarantines the uncancellable singleton via the existing availability flag, clears connection intent, invalidates the recipient generation and releases preparation/button ownership in the outer finally. New SDK attempts require page reload; manual recipient input remains available.",
+    "Exact initial tcHandleWallet quarantine guard suppresses both late wallet status and late null disconnect callbacks. Timeout calls tcInvalidateRecipient to increment recipient generation, so an in-flight verification fails its existing tcRecipientState equality guard before applying its result.",
+    "Late SDK promise resolution/rejection has no application continuation after the losing race. SDK-internal side effects are not cancelled, so quarantine intentionally persists for the page lifetime.",
+    "Current timeout feedback explicitly asks for reload or manual input; it does not promise SDK cancellation. Stale attempts do not publish timeout feedback.",
+    "Scope guard accepts only tcConnect body changes plus the exact initial tcHandleWallet guard; mutations to the remaining verification handler and other application functions are rejected.",
+    "Read-only live preflight passed: 58 input hashes, four unchanged runtime states, target metadata and exact substituted public template. Nineteen local scope/drift/apply/reconcile/rollback checks passed; rehearsal touched only temporary files."
+  ],
+  "limitations": [
+    "SDK promises remain uncancellable; a late internal modal side effect can still occur. Reload is required to establish a fresh SDK instance after timeout.",
+    "Payload request response/body wait remains the existing AbortController-based behavior and is outside this SDK wait slice."
+  ],
+  "public_baseline_sha": "aa4de572ff64a673ca532f4acaf30b7d32db82111d275667409dc539c0d4b431",
+  "live_input_count": 58,
+  "service_count": 4,
+  "production_mutated": false,
+  "verification": "docs/e4-tonconnect-sdk-wait/rollout-checks.json"
+}

@@ -1670,6 +1670,7 @@
         // Факт подключения кошелька сам по себе ничего не доказывает: подпись
         // проверяется ключом счёта из блокчейна, и только сервер это видел.
         async function tcHandleWallet(w) {
+            if (window.__oeTonConnectFailed) return;
             const preparing = tcPreparation;
             const beforeState = tcRecipientState();
             if (!w) {
@@ -1788,6 +1789,31 @@
             let ui = null;
             let handedOff = false;
             let timer = null;
+            // SDK operations cannot be cancelled. After an uncertain timeout,
+            // quarantine this page's singleton instead of overlapping a new attempt.
+            const sdkWait = async operation => {
+                const started = Date.now();
+                let sdkTimer = null;
+                const expire = () => {
+                    attempt.expiryCurrent = tcPreparation === attempt
+                        && attempt.state === tcRecipientState();
+                    attempt.sdkExpired = true;
+                    window.__oeTonConnectFailed = true;
+                    tcConnectionIntent = null;
+                    tcInvalidateRecipient();
+                    return new Error('SDK wait expired');
+                };
+                try {
+                    const deadline = new Promise((_, reject) => {
+                        sdkTimer = setTimeout(() => reject(expire()), 8000);
+                    });
+                    await Promise.race([operation(), deadline]);
+                    const completed = Date.now();
+                    if (completed < started || completed - started >= 8000) throw expire();
+                } finally {
+                    if (sdkTimer !== null) clearTimeout(sdkTimer);
+                }
+            };
             try {
                 ui = tcInit();
                 if (!isCurrent()) return;
@@ -1813,7 +1839,7 @@
                 // attempt awaits its own disconnect. Other statuses retire the attempt.
                 if (ui.connected) {
                     attempt.disconnecting = true;
-                    try { await ui.disconnect(); }
+                    try { await sdkWait(() => ui.disconnect()); }
                     finally { attempt.disconnecting = false; }
                     if (ui.connected) throw new Error('Wallet remains connected');
                 }
@@ -1823,16 +1849,18 @@
                 tcConnectionIntent = attempt.intent;
                 ui.setConnectRequestParameters({ state: 'ready', value: { tonProof: payload } });
                 tcSay('Выберите кошелёк…');
-                await ui.openModal();
+                await sdkWait(() => ui.openModal());
                 if (!isCurrent()) {
                     // This serialized attempt still owns the modal it just opened.
                     // Retire a handoff that became obsolete while the SDK awaited opening.
-                    try { await ui.closeModal(); } catch (_) {}
+                    await sdkWait(() => ui.closeModal());
                     return;
                 }
                 handedOff = true;
             } catch (e) {
-                if (isCurrent()) tcSay('Не удалось открыть кошелёк. Введите адрес вручную.', 'invalid');
+                if (attempt.sdkExpired) {
+                    if (attempt.expiryCurrent) tcSay('Кошелёк не ответил вовремя. Перезагрузите страницу для нового подключения или введите адрес вручную.', 'invalid');
+                } else if (isCurrent()) tcSay('Не удалось открыть кошелёк. Введите адрес вручную.', 'invalid');
             } finally {
                 if (timer !== null) clearTimeout(timer);
                 if (tcPreparation === attempt) {

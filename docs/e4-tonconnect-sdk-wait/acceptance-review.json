@@ -1,0 +1,89 @@
+{
+  "reviewedAt": "2026-09-09T01:53:11.759561+00:00",
+  "reviewer": "independent acceptance subagent /root/acceptance",
+  "criterion": "TONCONNECT_SDK_HANDOFF_WAIT_RECOVERY",
+  "source": "relay/webapp.html",
+  "sourceSha256": "0a596242b6b51783cf117a0848935eda7dbadb14d136f2558b05d8c607f47f76",
+  "test": "docs/e4-tonconnect-sdk-wait/acceptance.cjs",
+  "testSha256": "55cb689ccb3e8616d6a7bb8e891391c2555d1737113473db3ac08b1ebdd1022f",
+  "caseCount": 12,
+  "result": "PASS",
+  "blockingFindings": [],
+  "limitations": [
+    "All SDK/network scheduling is synthetic in a Node VM using shipped helper code; this is not a real-wallet or device acceptance receipt.",
+    "Timeout cannot physically cancel late SDK modal/disconnect; page quarantine prevents its callbacks from changing recipient authority.",
+    "Payload fetch/body await still relies on AbortSignal cooperation and can hold preparation indefinitely; tracked as next prerequisite."
+  ],
+  "cases": [
+    {
+      "stage": "disconnect",
+      "lateOutcome": "resolve",
+      "preparationReleased": true,
+      "lateProofIgnored": true,
+      "samePageRetryQuarantined": true
+    },
+    {
+      "stage": "disconnect",
+      "lateOutcome": "reject",
+      "preparationReleased": true,
+      "lateProofIgnored": true,
+      "samePageRetryQuarantined": true
+    },
+    {
+      "stage": "openModal",
+      "lateOutcome": "resolve",
+      "preparationReleased": true,
+      "lateProofIgnored": true,
+      "samePageRetryQuarantined": true
+    },
+    {
+      "stage": "openModal",
+      "lateOutcome": "reject",
+      "preparationReleased": true,
+      "lateProofIgnored": true,
+      "samePageRetryQuarantined": true
+    },
+    {
+      "stage": "closeModal",
+      "lateOutcome": "resolve",
+      "preparationReleased": true,
+      "lateProofIgnored": true,
+      "samePageRetryQuarantined": true
+    },
+    {
+      "stage": "closeModal",
+      "lateOutcome": "reject",
+      "preparationReleased": true,
+      "lateProofIgnored": true,
+      "samePageRetryQuarantined": true
+    },
+    {
+      "stage": "disconnect",
+      "delayedTimer": true,
+      "lateHandoffRejected": true
+    },
+    {
+      "stage": "openModal",
+      "delayedTimer": true,
+      "lateHandoffRejected": true
+    },
+    {
+      "stage": "closeModal",
+      "delayedTimer": true,
+      "lateHandoffRejected": true
+    },
+    {
+      "stage": "openModal",
+      "inFlightVerificationRetired": true
+    },
+    {
+      "stage": "timely-rejection",
+      "explicitRetryVerified": true,
+      "previousProofIgnored": true
+    },
+    {
+      "stage": "fresh-page",
+      "timelyHandoffVerified": true
+    }
+  ]
+}

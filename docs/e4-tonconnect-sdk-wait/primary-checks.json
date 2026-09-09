@@ -1,0 +1,12 @@
+{
+  "sourceSha256": "0a596242b6b51783cf117a0848935eda7dbadb14d136f2558b05d8c607f47f76",
+  "inlineScriptsSyntaxChecked": 2,
+  "pytest": {
+    "passed": 52,
+    "scope": "TON binding/preparation/intent/timeout plus Buy refresh/estimate, Sell estimate, recipient review"
+  },
+  "legacyTonFrontendPassed": 25,
+  "legacyTonBackendPassed": 69,
+  "environment": "System python and /root/venv have no pytest; existing /opt/lumi/venv used successfully; no dependency installed",
+  "newSdkWaitPytestPassed": 1
+}
