@@ -1053,6 +1053,23 @@ its old TON address. Actual-handler deferred-response reproduction, no real netw
 or signatures: `docs/e4-buy-refresh/next-prerequisite.json`.
 Owner iPhone acceptance remains complete; no local report required.
 
+2026-09-09: TONCONNECT_VERIFY_RESPONSE_RECIPIENT_BINDING VERIFIED/deployed (`fb99228`).
+Verification completion binds valid TON route,exact recipient/memo/no-tag and
+edit/status generation. Native and programmatic edits, away/back changes and SDK
+disconnect retire obsolete responses. Recheck after JSON; strict HTTP/verified/
+address gate,clear old memo on success. Same-route refresh remains eligible.
+147 existing pytest,legacy TON frontend/backend standalone checks,34 adversarial
+checks,30 Chrome scenarios at320/390,17 rollback checks and two reviews PASS;
+Gitleaks zero. HTML-only apply/reconcile/public exact,55 other inputs/four services
+unchanged,no restart. HTML `8815f80d...0ed87a07`; evidence:
+`docs/e4-tonconnect-binding-rollout.v1.json`. Rollback retained at
+`deployment-preimages/e4-tonconnect-binding-20260909T0058Z`.
+E4 IN_PROGRESS. Exactly next: TONCONNECT_PREPARATION_ROUTE_BINDING — a late
+payload response in tcConnect opens the TON wallet modal after a switch to BTC.
+Actual-handler deferred-response reproduction independently confirmed, no real
+network/signature/money: `docs/e4-tonconnect-binding/next-prerequisite.json`.
+Owner iPhone acceptance remains complete; no local report required.
+
 ### E5 — нативный некастодиальный кошелёк
 
 E0.4 inventory evidence (2026-08-18): the checkout has a Rust/UniFFI Bitcoin

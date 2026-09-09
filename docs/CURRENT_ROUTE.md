@@ -11,7 +11,24 @@ non-custodial wallet whose keys never reach the server.
 
 ## Active route
 
-`E4 / TONCONNECT_VERIFY_RESPONSE_RECIPIENT_BINDING / prevent late wallet verification from overwriting a newer recipient or route`
+`E4 / TONCONNECT_PREPARATION_ROUTE_BINDING / discard obsolete wallet connection preparation before opening its modal`
+
+2026-09-09: TONCONNECT_VERIFY_RESPONSE_RECIPIENT_BINDING VERIFIED/deployed (`fb99228`).
+Verification completion binds valid TON route,exact recipient/memo/no-tag and
+edit/status generation. Native and programmatic edits, away/back changes and SDK
+disconnect retire obsolete responses. Recheck after JSON; strict HTTP/verified/
+address gate,clear old memo on success. Same-route refresh remains eligible.
+147 existing pytest,legacy TON frontend/backend standalone checks,34 adversarial
+checks,30 Chrome scenarios at320/390,17 rollback checks and two reviews PASS;
+Gitleaks zero. HTML-only apply/reconcile/public exact,55 other inputs/four services
+unchanged,no restart. HTML `8815f80d...0ed87a07`; evidence:
+`docs/e4-tonconnect-binding-rollout.v1.json`. Rollback retained at
+`deployment-preimages/e4-tonconnect-binding-20260909T0058Z`.
+E4 IN_PROGRESS. Exactly next: TONCONNECT_PREPARATION_ROUTE_BINDING — a late
+payload response in tcConnect opens the TON wallet modal after a switch to BTC.
+Actual-handler deferred-response reproduction independently confirmed, no real
+network/signature/money: `docs/e4-tonconnect-binding/next-prerequisite.json`.
+Owner iPhone acceptance remains complete; no local report required.
 
 2026-09-09: BUY_RECIPIENT_REFRESH_PRESERVATION VERIFIED/deployed (`e3befd7`).
 Background Buy offerings refresh preserves typed recipient, network, memo/no-tag;
@@ -23,7 +40,7 @@ checks and two independent reviews PASS; Gitleaks zero. HTML-only apply/reconcil
 public exact bytes,55 other inputs/four services preserved; no restart.
 HTML `49523edd...4452e184d`; evidence: `docs/e4-buy-refresh-rollout.v1.json`.
 Rollback: `deployment-preimages/e4-buy-refresh-20260909T0049Z`.
-E4 IN_PROGRESS. Exactly next: TONCONNECT_VERIFY_RESPONSE_RECIPIENT_BINDING —
+That verification prerequisite is now resolved above. The prior observation was:
 a late tcHandleWallet verification response replaces a newer BTC recipient with
 its old TON address. Actual-handler deferred-response reproduction, no real network
 or signatures: `docs/e4-buy-refresh/next-prerequisite.json`.
@@ -105,7 +122,7 @@ Evidence: `docs/e4-wallet-device-owner-acceptance.v1.json` (owner conversation).
 This completed prerequisite led to the custody disclosure slice above.
 Full E4 remains IN_PROGRESS; the active next item is specified above.
 
-Wallet guard implementation remains55808db (current HTML49523edd): same-partition upgraded pages only, old
+Wallet guard implementation remains55808db (current HTML8815f80d): same-partition upgraded pages only, old
 pages must reload; manual outcome assertion is not chain evidence. Production
 rollback retained at deployment-preimages/e4-wallet-cross-tab-55808db-20260908.
 No real money/signature/customer read/new credentials/064A authority. Autopilot

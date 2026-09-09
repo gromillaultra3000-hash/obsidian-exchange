@@ -4,21 +4,23 @@ Updated: 2026-09-09 UTC
 
 ## Current goal and status
 
-- 2026-09-09 E4/BUY_RECIPIENT_REFRESH_PRESERVATION VERIFIED/deployed e3befd7.
-  Background Buy refresh preserves address/network/memo/no-tag. Removed routes
-  and changed tag contracts require reselection and invalidate matching review;
-  malformed metadata rejected before mutation. Review P1 empty-network default
-  fallback fixed. 146 existing tests,26 adversarial checks,34 Chrome scenarios,
-  14 rollback checks,two reviews,Gitleaks zero. HTML49523edd...4452e184d;
-  apply/reconcile/public exact,55 other inputs/four services unchanged,no restart.
-  Rollback: deployment-preimages/e4-buy-refresh-20260909T0049Z. Evidence:
-  docs/e4-buy-refresh-rollout.v1.json. Full E4 IN_PROGRESS; exactly next
-  TONCONNECT_VERIFY_RESPONSE_RECIPIENT_BINDING: late tcHandleWallet verification
-  overwrites a newer recipient/route; reproduced with actual handler and mocked
-  deferred response in docs/e4-buy-refresh/next-prerequisite.json.
-  Prior Sell/Buy estimate/custody slices remain verified (19d59ed/06df1bf/fa13d93;
-  their rollout receipts retain evidence). Autopilot failed/MainPID0; no restart
-  or new money authority. Reconcile stale supervisor receipts before future start.
+- 2026-09-09 E4/TONCONNECT_VERIFY_RESPONSE_RECIPIENT_BINDING VERIFIED/deployed fb99228.
+  Late verification cannot replace newer route/address/memo/no-tag; generation
+  handles away/back edits,programmatic choices and SDK status/disconnect. Strict
+  HTTP/verified/address gate; successful replacement clears old memo. Same-route
+  refresh stays eligible. 147 existing pytest,legacy TON frontend/backend scripts,
+  34 adversarial checks,30 Chrome scenarios,17 rollback checks,two reviews PASS;
+  Gitleaks zero. HTML8815f80d...0ed87a07; apply/reconcile/public exact,55 other
+  inputs/four services unchanged,no restart. Rollback retained:
+  deployment-preimages/e4-tonconnect-binding-20260909T0058Z. Evidence:
+  docs/e4-tonconnect-binding-rollout.v1.json. Full E4 IN_PROGRESS; exactly next
+  TONCONNECT_PREPARATION_ROUTE_BINDING: late tcConnect payload opens wallet modal
+  after route change to BTC; independently reproduced with actual helper and
+  mocked response in docs/e4-tonconnect-binding/next-prerequisite.json.
+  Prior Buy-refresh/Sell/Buy estimate/custody slices remain verified
+  (e3befd7/19d59ed/06df1bf/fa13d93; their rollout receipts retain evidence).
+  Autopilot failed/MainPID0; reconcile stale supervisor receipts before future
+  explicit start. No new money authority; owner iPhone acceptance retained below.
 
 - 2026-09-09 E4/WALLET_HANDOFF_DEVICE_ACCEPTANCE VERIFIED for the inert
   interface check by direct owner observation: no issues on a friend's iPhone,
