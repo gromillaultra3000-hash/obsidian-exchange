@@ -1,0 +1,21 @@
+{
+  "reviewer": "primary /root independent of rollout author /root/buy_custody_ops",
+  "recordedAt": "2026-09-09T00:46:25.585917+00:00",
+  "result": "PASS",
+  "findings": [],
+  "scope": "scoped wrapper, imported atomic helper, plan and local rollback tests",
+  "verified": [
+    "All artifact digests match pinned plan",
+    "Only marker/helper block and four specified Buy functions differ",
+    "Shared review/loadRates/submission paths untouched",
+    "14 local scope/drift/writer/metadata/apply/reconcile/exact-rollback checks reviewed",
+    "Backup saved before atomic change; public and55 unrelated input/four service state checks"
+  ],
+  "inputSHA256": {
+    "docs/e4-buy-refresh/rollout.py": "cfb7f4f63d8de167787a066ee4a359c92cded9738a4a063c500ddfa44e351ed1",
+    "docs/e4-buy-refresh/check-rollout.py": "7b1556c290f64af0c177c68cea71f13565551a40ebf956a2c6a317a5abe2630f",
+    "docs/e4-buy-refresh/rollout-checks.json": "bf4f068721a66409c2bd8ef7af590deefd0895c352ba26cd98cf966a00f217e0",
+    "docs/e4-buy-refresh/plan.json": "aa3c6d6b1d03238ebae6b9fd724c6c4382fd89ba5a8a02541cddb4de744dd315",
+    "docs/e4-wallet-cross-tab/rollout.py": "d2097d220500618ae684a46ac7e3eaf3caaa989a6915fed4301c6ce3f3b5fa7d"
+  }
+}

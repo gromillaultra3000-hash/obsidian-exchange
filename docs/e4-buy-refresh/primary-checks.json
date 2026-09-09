@@ -1,0 +1,14 @@
+{
+  "sourceSHA256": "49523edd3f53c0152efe8688951aed7ddcb3ac93fe5243f9340a2744452e184d",
+  "inlineScriptsSyntaxChecked": 2,
+  "pytest": {
+    "passed": 146,
+    "scope": "exchange_review_ui,recipient_review_behavior,money_flow_outcome,wallet_cross_tab,wallet_handoff,buy_estimate_adversarial,sell_estimate_adversarial"
+  },
+  "legacyFixtureUpdate": "Extract actual route-signature helper and populate known offering/network fixtures; preserve all recipient validation and payload cases",
+  "visual": {
+    "width": 320,
+    "result": "Native selected network and typed recipient/memo remain visible and usable",
+    "file": "output/playwright/e4-buy-refresh-empty-guard-green/320-preserved.png"
+  }
+}

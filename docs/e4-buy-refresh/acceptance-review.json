@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "e4-buy-refresh-acceptance-review.v1",
+  "reviewer": "/root/e4_gap_review",
+  "timestamp": "2026-09-09T00:45:08.414036+00:00",
+  "result": "PASS",
+  "sourceSha256": "49523edd3f53c0152efe8688951aed7ddcb3ac93fe5243f9340a2744452e184d",
+  "runnerSha256": "b0d97b49154240dac8742734d3f573939246d0ae803a7005a6472672815a9f56",
+  "scope": [
+    "relay/webapp.html offering validation, route signatures and rendering",
+    "applyOfferings recipient preservation and route retirement",
+    "explicit currency/network reset behavior",
+    "Buy review route binding and callback"
+  ],
+  "browserEvidence": "output/playwright/e4-buy-refresh-empty-guard-green",
+  "baselineEvidence": "output/playwright/e4-buy-refresh-empty-guard-red",
+  "browserCases": 34,
+  "adversarialChecks": 26,
+  "adversarialCommand": "node tests/e4_buy_refresh_adversarial.cjs",
+  "findings": [
+    {
+      "id": "KNOWN_EMPTY_NETWORK_IMPLICIT_DEFAULT",
+      "origin": "independent diff/ops reviewer",
+      "disposition": "Fixed. Known advertised empty-network currencies have null route signature and disabled options; native forced DOM reselection still cannot open review or POST. First sole-network hydration preserves typed address and chooses the single announced network."
+    }
+  ],
+  "acceptance": [
+    "exact typed address/tag/no_tag/currency/network and amount survive same/reordered refresh",
+    "latest response-time inputs preserved during pending native fetch",
+    "malformed nested and duplicate metadata leave DOM unchanged",
+    "valid empty and removed currency/network leave missing route requiring explicit reselection",
+    "changed tag contract retires matching Buy consent; identical refresh preserves acknowledged Buy review",
+    "explicit currency/network changes retain intentional cached-address reset behavior",
+    "exact one synthetic POST carries intended recipient, network and memo after explicit consent at320/390",
+    "native320 screenshot inspected: recipient and route controls remain usable",
+    "final baseline red proves address changed from EQAAAA to cached EQBBBB and networkALT toMAINNET; no writes/errors",
+    "known advertised empty networks cannot authorize implicit default even after manual DOM reselection",
+    "delayed first sole-network hydration preserves user-entered recipient before rates response"
+  ],
+  "limitations": []
+}

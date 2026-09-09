@@ -1,0 +1,41 @@
+{
+  "result": "PASS",
+  "reviewer": "independent buy_custody_ops agent",
+  "recordedAt": "2026-09-09T00:45:28.138753+00:00",
+  "route": "E4/BUY_RECIPIENT_REFRESH_PRESERVATION",
+  "baseline_sha": "691f2a79f1a54f712c784b60f46344af6d972fa88a6d81b511752378da4d68c3",
+  "candidate_sha": "49523edd3f53c0152efe8688951aed7ddcb3ac93fe5243f9340a2744452e184d",
+  "rollout_sha": "cfb7f4f63d8de167787a066ee4a359c92cded9738a4a063c500ddfa44e351ed1",
+  "helper_sha": "d2097d220500618ae684a46ac7e3eaf3caaa989a6915fed4301c6ce3f3b5fa7d",
+  "inventory_sha": "72bc3c21e13f1e8fab78cbc44a153823098660c683afef8572f0df138587ca94",
+  "scope": [
+    "buyReviewRoute state and validBuyOfferings/renderBuyNetworks/buyRouteSignature helpers",
+    "applyOfferings and onCurrencyChange refresh preservation",
+    "updateAddressPlaceholder explicit route changes",
+    "beginBuyOrder current route guard"
+  ],
+  "findings": [
+    {
+      "id": "BUY_EMPTY_NETWORK_DEFAULT_FALLTHROUGH",
+      "severity": "P1",
+      "status": "FIXED",
+      "trigger": "After all networks removed, reselecting the currency could leave empty network and produce a valid signature, enabling a POST with implicit backend default network.",
+      "impact": "Withdrawn route could still progress to order creation instead of requiring an available explicit network.",
+      "resolution": "Known offerings with empty networks return null route signature; their currency options are disabled. Reset currency and captured callback guards reject the route.",
+      "verification": "Final diff independently inspected; primary owns targeted behavioral and browser regression receipts."
+    }
+  ],
+  "assessment": [
+    "Validated unique currency/network option shapes are rendered with DOM option.textContent, avoiding interpolation. Same-route refresh preserves existing currency/network/address/tag/no_tag exactly without localStorage restore or addressbook reload.",
+    "Removed route or changed tag_name/tag_kind/tag_sep requires explicit re-selection, clears recipient data for known prior metadata, and retires pending addressbook requests/chips. First sole-network metadata hydration preserves in-progress address input.",
+    "Explicit route changes reset memo/no_tag, restore only route-keyed saved address, and tolerate storage read failure. Empty/removed networks cannot silently default after metadata is known.",
+    "Captured Buy route marker includes currency/network/tag contract and callback identity; refreshed offerings invalidate only the currently matching Buy review, while captured callback independently checks signature before submit. Other review flows are unaffected.",
+    "All bytes outside the declared state/helper and four-function scope are unchanged; loadRates, shared review machinery, both submit payloads and backend unchanged.",
+    "Read-only production preflight passed with 56 live inputs and 4 unchanged services. Fourteen local scope/drift/atomic apply/reconcile/rollback checks passed."
+  ],
+  "public_baseline_sha": "186b535e52b18b99eca11ee027f10bed4df70459caca268854e9a1cf4df2db7b",
+  "live_input_count": 56,
+  "service_count": 4,
+  "production_mutated": false,
+  "verification": "docs/e4-buy-refresh/rollout-checks.json"
+}

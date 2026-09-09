@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "e4-next-prerequisite.v1",
+  "criterion": "TONCONNECT_VERIFY_RESPONSE_RECIPIENT_BINDING",
+  "status": "OBSERVED_UNCLOSED",
+  "sourceSha256": "49523edd3f53c0152efe8688951aed7ddcb3ac93fe5243f9340a2744452e184d",
+  "source": "relay/webapp.html:1641 tcHandleWallet",
+  "reproductionCommand": "node docs/e4-buy-refresh/reproduce-next.cjs",
+  "reproductionSha256": "d0d3e2d049c779d146ec959b8480ad894c3b4d65b205ae4875eb9e4b4588feeb",
+  "result": {
+    "criterion": "TONCONNECT_VERIFY_RESPONSE_RECIPIENT_BINDING",
+    "initialCurrency": "TON",
+    "currencyAtCompletion": "BTC",
+    "typedRecipientAfterRouteChange": "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+    "lateVerifiedAddress": "EQBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+    "finalRecipient": "EQBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+    "staleResponseOverwritesNewRecipient": true,
+    "mockedVerificationRequests": [
+      {
+        "url": "/api/tonconnect/verify",
+        "method": "POST"
+      }
+    ],
+    "realNetworkCalls": 0,
+    "walletSignatures": 0,
+    "moneyWrites": 0
+  },
+  "boundaries": "Actual handler extracted verbatim. DOM and deferred fetch synthetic; validateAddress/updateTagField/tcSay/loadWallets are inert observation boundaries. No real TON Connect SDK, wallet, proof verification, signature, credentials, network or money.",
+  "finding": "A verification response begun on TON overwrites a subsequently typed BTC recipient without checking current currency/network/user edits. Handler remains asynchronous and has no preparation/recipient generation binding.",
+  "next": "Bound verification completion to the initiating route and recipient state; obsolete completion must not replace later user input."
+}

@@ -138,8 +138,10 @@ function harness(options = {}) {
             throw new Error('Synthetic signing blocked');
         }},
         window: {addEventListener() {}, __oeOfferings: [
-            {code: 'XRP', tag_name: 'destination tag', tag_kind: 'uint32', tag_sep: ':'},
-            {code: 'TON', tag_name: 'memo', tag_kind: 'text', tag_sep: '#'},
+            ...['BTC', 'LTC', 'ETH', 'USDT', 'XMR', 'FUTURE_ASSET'].map(code => ({code,
+                networks: ['MAINNET', 'ERC20', 'TRC20'].map(code => ({code, label: code}))})),
+            {code: 'XRP', networks: [{code: 'MAINNET', label: 'Mainnet'}], tag_name: 'destination tag', tag_kind: 'uint32', tag_sep: ':'},
+            {code: 'TON', networks: [{code: 'MAINNET', label: 'Mainnet'}], tag_name: 'memo', tag_kind: 'text', tag_sep: '#'},
         ]},
         sellPayoutWays: [
             {code: 'sbp', needs_bank: true, needs_name: true},
@@ -176,7 +178,7 @@ function harness(options = {}) {
     const attempt = source.includes('const walletAttemptStorageKey') ? oneRegion(
         /^        const walletAttemptStorageKey[^]*?(?=^        let exchangeReviewCommit)/m,
         'wallet attempt state') : '';
-    vm.runInContext('let buyRateSnapshot = null; let sellEstimateSnapshot = null; let sellOrderPending = false;\n' + functionSource('sellSnapshotInfo') + '\n' + functionSource('sellReviewEstimate') + '\n' + functionSource('buyReviewEstimate') + '\n' + declarations + '\n' + attempt + '\n' + functions.map(functionSource).join('\n') + '\n' + wiring,
+    vm.runInContext('let buyRateSnapshot = null; let sellEstimateSnapshot = null; let sellOrderPending = false; let buyReviewRoute = null;\n' + functionSource('buyRouteSignature') + '\n' + functionSource('sellSnapshotInfo') + '\n' + functionSource('sellReviewEstimate') + '\n' + functionSource('buyReviewEstimate') + '\n' + declarations + '\n' + attempt + '\n' + functions.map(functionSource).join('\n') + '\n' + wiring,
         context, {filename: sourcePath, timeout: 1000});
     if (attempt) vm.runInContext(oneRegion(
         /^        \(function wireWalletAttemptNotice\(\) \{[^]*?^        \}\)\(\);/m,

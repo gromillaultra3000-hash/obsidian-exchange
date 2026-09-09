@@ -1379,15 +1379,110 @@
                              USDT: '💵 Tether (USDT)', ETH: 'Ξ Ethereum (ETH)',
                              XRP: '✕ XRP (Ripple)', TON: '💎 Toncoin (TON)',
                              XMR: 'ɱ Monero (XMR)' };
+        let buyReviewRoute = null;
+        function validBuyOfferings(offerings) {
+            if (!Array.isArray(offerings)) return false;
+            const codes = new Set();
+            for (const item of offerings) {
+                if (!item || typeof item.code !== 'string' || !item.code || codes.has(item.code)
+                    || !Array.isArray(item.networks)) return false;
+                codes.add(item.code);
+                for (const key of ['tag_name', 'tag_kind', 'tag_sep']) {
+                    if (item[key] !== undefined && typeof item[key] !== 'string') return false;
+                }
+                const networks = new Set();
+                for (const net of item.networks) {
+                    if (!net || typeof net.code !== 'string' || !net.code || networks.has(net.code)
+                        || typeof net.label !== 'string') return false;
+                    networks.add(net.code);
+                }
+            }
+            return true;
+        }
+        function buyRouteSignature(currency, network) {
+            if (!currency) return null;
+            const offerings = window.__oeOfferings;
+            if (!Array.isArray(offerings)) return JSON.stringify([currency, network]);
+            const item = offerings.find(o => o.code === currency);
+            if (!item || !Array.isArray(item.networks) || !item.networks.length
+                || !item.networks.some(n => n.code === network)) return null;
+            return JSON.stringify([currency, network, item.tag_name || '', item.tag_kind || '', item.tag_sep || '']);
+        }
+        function renderBuyNetworks(networks, selected = null) {
+            const select = document.getElementById('network');
+            select.innerHTML = '';
+            const missing = selected !== null && networks.length && !networks.some(n => n.code === selected);
+            if (missing) {
+                const option = document.createElement('option');
+                option.value = ''; option.textContent = '— выберите сеть заново —';
+                select.appendChild(option);
+            }
+            for (const net of networks) {
+                const option = document.createElement('option');
+                option.value = net.code; option.textContent = net.label;
+                select.appendChild(option);
+            }
+            if (selected !== null) select.value = networks.some(n => n.code === selected) ? selected : '';
+            document.getElementById('network-group').style.display = networks.length > 1 || missing ? '' : 'none';
+        }
         function applyOfferings(offerings) {
-            if (!offerings || !offerings.length) return;
+            if (!validBuyOfferings(offerings)) throw new Error('Invalid Buy offerings');
+            const select = document.getElementById('currency');
+            const currency = select.value;
+            const network = selectedNetwork();
+            const previous = Array.isArray(window.__oeOfferings) ? window.__oeOfferings : null;
+            const old = previous && previous.find(o => o.code === currency);
+            const next = offerings.find(o => o.code === currency);
+            const changedTag = old && next && ['tag_name', 'tag_kind', 'tag_sep']
+                .some(key => (old[key] || '') !== (next[key] || ''));
+            const resetCurrency = !next || !next.networks.length || changedTag;
+            const hydratedNetwork = !previous && !network && next && next.networks.length === 1
+                ? next.networks[0].code : network;
             window.__oeOfferings = offerings;
-            const sel = document.getElementById('currency');
-            const prev = sel.value;
-            sel.innerHTML = offerings.map(o =>
-                `<option value="${o.code}">${COIN_LABEL[o.code] || o.code}</option>`).join('');
-            if (offerings.some(o => o.code === prev)) sel.value = prev;
-            onCurrencyChange();
+            select.innerHTML = '';
+            if (resetCurrency) {
+                const option = document.createElement('option');
+                option.value = ''; option.textContent = '— выберите валюту заново —';
+                select.appendChild(option);
+            }
+            for (const item of offerings) {
+                const option = document.createElement('option');
+                option.value = item.code; option.textContent = (COIN_LABEL[item.code] || item.code)
+                    + (!item.networks.length ? ' · недоступно' : '');
+                option.disabled = !item.networks.length;
+                select.appendChild(option);
+            }
+            select.value = resetCurrency ? '' : currency;
+            renderBuyNetworks(resetCurrency ? [] : next.networks, hydratedNetwork);
+            const available = buyRouteSignature(select.value, selectedNetwork()) !== null;
+            if (!available) {
+                if (previous) {
+                    document.getElementById('address').value = '';
+                    document.getElementById('dest_tag').value = '';
+                    document.getElementById('no_tag').checked = false;
+                }
+                document.getElementById('exchange-result').textContent =
+                    'Направление изменилось. Выберите валюту и сеть заново, затем проверьте получателя.';
+                document.getElementById('address-msg').textContent = '';
+                // Do not request a default-network address book for a retired route.
+                addrBookReq++;
+                document.getElementById('addr-book').style.display = 'none';
+                document.getElementById('addr-book-chips').innerHTML = '';
+                updateTagField();
+                tcRefresh();
+            } else if (!previous) {
+                // First metadata arrival may expose a tag field, but never restore
+                // a saved address over text entered while the response was pending.
+                updateTagField();
+                tcRefresh();
+            }
+            if (buyReviewRoute && exchangeReviewCommit === buyReviewRoute.commit
+                && buyRouteSignature(buyReviewRoute.currency, buyReviewRoute.network) !== buyReviewRoute.signature) {
+                invalidateExchangeReview();
+                document.getElementById('exchange-review-freshness').textContent =
+                    'Направление изменилось. Закройте проверку и выберите получателя заново.';
+            }
+            calculateFee();
         }
 
         function currentNetworks() {
@@ -1397,20 +1492,9 @@
         }
 
         function onCurrencyChange() {
-            const nets = currentNetworks();
-            const grp = document.getElementById('network-group');
-            const sel = document.getElementById('network');
-            // Селектор сети имеет смысл только когда сетей больше одной
-            if (nets.length > 1) {
-                sel.innerHTML = nets.map(n => `<option value="${n.code}">${n.label}</option>`).join('');
-                grp.style.display = '';
-            } else {
-                sel.innerHTML = nets.length ? `<option value="${nets[0].code}">${nets[0].label}</option>` : '';
-                grp.style.display = 'none';
-            }
+            renderBuyNetworks(currentNetworks());
             calculateFee();
             updateAddressPlaceholder();
-            updateTagField();
             loadAddressBook();
         }
 
@@ -3428,8 +3512,13 @@
                           XMR: '4... или 8... (integrated-адрес тоже подойдёт)' };
             const addrInput = document.getElementById('address');
             addrInput.placeholder = ph[cur] || 'Введите адрес кошелька';
-            const saved = localStorage.getItem('lastAddress_' + cur + '_' + net);
-            addrInput.value = saved || '';
+            // This helper is for explicit route changes and initial hydration only.
+            // A memo from another route must never carry over to this recipient.
+            document.getElementById('dest_tag').value = '';
+            document.getElementById('no_tag').checked = false;
+            let saved = '';
+            try { saved = localStorage.getItem('lastAddress_' + cur + '_' + net) || ''; } catch (_) {}
+            addrInput.value = saved;
             validateAddress();
             updateTagField();
             tcRefresh();
@@ -3489,6 +3578,12 @@
             const currency = document.getElementById('currency').value;
             const amount = Number(document.getElementById('amount').value);
             const address = document.getElementById('address').value.trim();
+            const network = selectedNetwork();
+            const routeSignature = buyRouteSignature(currency, network);
+            if (routeSignature === null) {
+                resultEl.textContent = 'Выберите доступную валюту и сеть, затем проверьте адрес получателя.';
+                return;
+            }
             const payMethod = document.querySelector('input[name="pay_method"]:checked')?.value || 'sbp';
             if (!amount || amount < 2000 || amount > 500000) { resultEl.textContent = 'Сумма от 2 000 до 500 000 ₽'; return; }
             if (!address) { resultEl.textContent = 'Введите адрес кошелька'; return; }
@@ -3508,9 +3603,20 @@
             const destTag = (tagVisible && tagEl) ? tagEl.value.trim() : '';
             const ntEl = document.getElementById('no_tag');
             const noTag = tagVisible && !!(ntEl && ntEl.checked);
-            const network = selectedNetwork();
             const payLabel = payMethod === 'card' ? 'банковская карта' : 'СБП';
             const estimate = buyReviewEstimate(amount, currency);
+            const commit = () => {
+                if (buyRouteSignature(currency, network) !== routeSignature) {
+                    resultEl.textContent = 'Направление изменилось. Откройте условия покупки заново.';
+                    return;
+                }
+                if (estimate && (Date.now() < estimate.receivedAt || Date.now() >= estimate.expiresAt)) {
+                    resultEl.textContent = 'Время расчёта истекло. Откройте условия покупки заново.';
+                    return;
+                }
+                return submitBuyOrder({currency, amount, address, payMethod, destTag, noTag, network});
+            };
+            buyReviewRoute = {currency, network, signature: routeSignature, commit};
             openExchangeReview({
                 title: 'Покупка ' + currency + ' за ' + amount.toLocaleString('ru-RU') + ' ₽',
                 rows: [
@@ -3526,13 +3632,7 @@
                 ],
                 risk: 'После создания появятся реквизиты для оплаты. Не переводите деньги вне заявки. Проверьте адрес, сеть и тег / memo получателя: после отправки выплаты в блокчейн отменить перевод нельзя.',
                 expiresAt: estimate ? estimate.expiresAt : null,
-                onConfirm: () => {
-                    if (estimate && (Date.now() < estimate.receivedAt || Date.now() >= estimate.expiresAt)) {
-                        resultEl.textContent = 'Время расчёта истекло. Откройте условия покупки заново.';
-                        return;
-                    }
-                    return submitBuyOrder({currency, amount, address, payMethod, destTag, noTag, network});
-                }
+                onConfirm: commit
             });
         }
 

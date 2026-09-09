@@ -1,0 +1,209 @@
+{
+  "sourceSha256": "49523edd3f53c0152efe8688951aed7ddcb3ac93fe5243f9340a2744452e184d",
+  "runnerSha256": "b0d97b49154240dac8742734d3f573939246d0ae803a7005a6472672815a9f56",
+  "playwrightVersion": "1.62.0",
+  "checks": [
+    {
+      "width": 320,
+      "scenario": "same",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "scenario": "first-hydration",
+      "result": "PASS",
+      "soleNetworkHydratedWithoutRecipientOverwrite": true
+    },
+    {
+      "width": 320,
+      "scenario": "reorder",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "scenario": "no-tag",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "scenario": "response-input-change",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "scenario": "malformed",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "scenario": "duplicate",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "scenario": "duplicate-network",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "scenario": "empty",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "scenario": "removed-currency",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "scenario": "removed-network",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "scenario": "removed-all-networks",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "scenario": "retire-review",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "scenario": "keep-review",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "scenario": "explicit-network",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "scenario": "explicit-currency",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "scenario": "submit",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "scenario": "same",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "scenario": "first-hydration",
+      "result": "PASS",
+      "soleNetworkHydratedWithoutRecipientOverwrite": true
+    },
+    {
+      "width": 390,
+      "scenario": "reorder",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "scenario": "no-tag",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "scenario": "response-input-change",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "scenario": "malformed",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "scenario": "duplicate",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "scenario": "duplicate-network",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "scenario": "empty",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "scenario": "removed-currency",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "scenario": "removed-network",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "scenario": "removed-all-networks",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "scenario": "retire-review",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "scenario": "keep-review",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "scenario": "explicit-network",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "scenario": "explicit-currency",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "scenario": "submit",
+      "result": "PASS"
+    }
+  ],
+  "unexpectedWrites": [],
+  "confirmations": [
+    {
+      "width": 320,
+      "body": {
+        "currency": "TON",
+        "amount": 12500,
+        "address": "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "network": "ALT",
+        "pay_method": "sbp",
+        "dest_tag": "memo <>&",
+        "no_tag": false
+      }
+    },
+    {
+      "width": 390,
+      "body": {
+        "currency": "TON",
+        "amount": 12500,
+        "address": "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "network": "ALT",
+        "pay_method": "sbp",
+        "dest_tag": "memo <>&",
+        "no_tag": false
+      }
+    }
+  ],
+  "pageErrors": [],
+  "browserVersion": "152.0.7977.64",
+  "result": "PASS"
+}
