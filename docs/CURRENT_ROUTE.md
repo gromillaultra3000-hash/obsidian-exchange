@@ -11,7 +11,23 @@ non-custodial wallet whose keys never reach the server.
 
 ## Active route
 
-`E4 / BUY_RECIPIENT_REFRESH_PRESERVATION / preserve entered recipient during background Buy rates/offering refresh`
+`E4 / TONCONNECT_VERIFY_RESPONSE_RECIPIENT_BINDING / prevent late wallet verification from overwriting a newer recipient or route`
+
+2026-09-09: BUY_RECIPIENT_REFRESH_PRESERVATION VERIFIED/deployed (`e3befd7`).
+Background Buy offerings refresh preserves typed recipient, network, memo/no-tag;
+malformed offerings rejected before mutation. Removed routes/tag-contract changes
+require reselection and invalidate the matching open Buy review. Known empty
+networks cannot fall through to a server default; independent P1 finding fixed.
+146 existing tests,26 adversarial checks,34 Chrome scenarios at320/390,14 rollback
+checks and two independent reviews PASS; Gitleaks zero. HTML-only apply/reconcile,
+public exact bytes,55 other inputs/four services preserved; no restart.
+HTML `49523edd...4452e184d`; evidence: `docs/e4-buy-refresh-rollout.v1.json`.
+Rollback: `deployment-preimages/e4-buy-refresh-20260909T0049Z`.
+E4 IN_PROGRESS. Exactly next: TONCONNECT_VERIFY_RESPONSE_RECIPIENT_BINDING —
+a late tcHandleWallet verification response replaces a newer BTC recipient with
+its old TON address. Actual-handler deferred-response reproduction, no real network
+or signatures: `docs/e4-buy-refresh/next-prerequisite.json`.
+Owner iPhone acceptance remains complete; no local report required.
 
 2026-09-09: SELL_REVIEW_ESTIMATE_FRESHNESS VERIFIED/deployed `19d59ed`.
 Sell uses server net rate and selected-coin fee,60s receipt age (no market-source
@@ -22,10 +38,10 @@ Independent review found refresh could re-enable a pending submit; fixed and
 verified at both widths.145 existing tests,38 adversarial checks,22 Chrome cases,
 14 rollback checks and two reviews PASS; Gitleaks zero. HTML-only apply/reconcile,
 public exact bytes,55 other files/four services preserved; no restart.
-Current HTML `691f2a79...da4d68c3`; evidence:
+Slice HTML `691f2a79...da4d68c3`; evidence:
 `docs/e4-sell-estimate-rollout.v1.json`. Rollback retained at
 `deployment-preimages/e4-sell-estimate-20260909T0032Z`.
-Exactly next: BUY_RECIPIENT_REFRESH_PRESERVATION. Automatic Buy loadRates calls
+The refresh prerequisite is now resolved by the deployment above. Previously, Buy loadRates called
 applyOfferings/onCurrencyChange/updateAddressPlaceholder and overwrites the typed
 recipient with a previously saved address. Read-only reproduction and prior native
 fixture observation: `docs/e4-sell-estimate/next-prerequisite.json`.
@@ -40,7 +56,7 @@ explicit and may still create an unpaid order with the existing payload.
 13 local rollout checks and two independent reviews PASS. Baseline regression
 reproduced with identical runner. HTML-only apply/reconcile PASS, exact public
 bytes,55 other application inputs/four services unchanged; no restart.
-Current HTML SHA256 `145d60c2...35e8ffb1`. Evidence:
+Slice HTML SHA256 `145d60c2...35e8ffb1`. Evidence:
 `docs/e4-buy-estimate-rollout.v1.json`; rollback retained at
 `deployment-preimages/e4-buy-estimate-20260909T0021Z`.
 That slice identified stale Sell estimates; the deployment above resolves that
@@ -54,7 +70,7 @@ Exactly two text replacements; submission/acknowledgement/payload unchanged.
 two independent reviews, primary ops review and secret scan PASS. Baseline false
 self-custody assertion reproduced. Atomic HTML-only apply/reconcile PASS, exact
 public bytes, 55 other application inputs and 4 service identities preserved;
-no restart. Current HTML SHA256 `89c8b728...58fa`; wallet guard logic unchanged.
+no restart. Slice HTML SHA256 `89c8b728...58fa`; wallet guard logic unchanged.
 Evidence: `docs/e4-buy-custody-rollout.v1.json`. Rollback is retained under
 `deployment-preimages/e4-buy-custody-20260909T0011Z`.
 The missing in-modal Buy estimate identified after that slice is resolved by
@@ -89,7 +105,7 @@ Evidence: `docs/e4-wallet-device-owner-acceptance.v1.json` (owner conversation).
 This completed prerequisite led to the custody disclosure slice above.
 Full E4 remains IN_PROGRESS; the active next item is specified above.
 
-Wallet guard implementation remains55808db (current HTML691f2a79): same-partition upgraded pages only, old
+Wallet guard implementation remains55808db (current HTML49523edd): same-partition upgraded pages only, old
 pages must reload; manual outcome assertion is not chain evidence. Production
 rollback retained at deployment-preimages/e4-wallet-cross-tab-55808db-20260908.
 No real money/signature/customer read/new credentials/064A authority. Autopilot

@@ -1037,6 +1037,22 @@ BUY_RECIPIENT_REFRESH_PRESERVATION — periodic rates/offering refresh overwrite
 typed Buy recipient with saved prior address; reproduction in slice evidence.
 Owner iPhone acceptance remains complete, no report required.
 
+2026-09-09: BUY_RECIPIENT_REFRESH_PRESERVATION VERIFIED/deployed (`e3befd7`).
+Background Buy offerings refresh preserves typed recipient, network, memo/no-tag;
+malformed offerings rejected before mutation. Removed routes/tag-contract changes
+require reselection and invalidate the matching open Buy review. Known empty
+networks cannot fall through to a server default; independent P1 finding fixed.
+146 existing tests,26 adversarial checks,34 Chrome scenarios at320/390,14 rollback
+checks and two independent reviews PASS; Gitleaks zero. HTML-only apply/reconcile,
+public exact bytes,55 other inputs/four services preserved; no restart.
+HTML `49523edd...4452e184d`; evidence: `docs/e4-buy-refresh-rollout.v1.json`.
+Rollback: `deployment-preimages/e4-buy-refresh-20260909T0049Z`.
+E4 IN_PROGRESS. Exactly next: TONCONNECT_VERIFY_RESPONSE_RECIPIENT_BINDING —
+a late tcHandleWallet verification response replaces a newer BTC recipient with
+its old TON address. Actual-handler deferred-response reproduction, no real network
+or signatures: `docs/e4-buy-refresh/next-prerequisite.json`.
+Owner iPhone acceptance remains complete; no local report required.
+
 ### E5 — нативный некастодиальный кошелёк
 
 E0.4 inventory evidence (2026-08-18): the checkout has a Rust/UniFFI Bitcoin

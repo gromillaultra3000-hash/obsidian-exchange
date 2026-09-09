@@ -1,0 +1,70 @@
+{
+  "schemaVersion": "e4-buy-refresh-rollout.v1",
+  "recordedAt": "2026-09-09T00:49:20Z",
+  "route": "E4 / BUY_RECIPIENT_REFRESH_PRESERVATION",
+  "status": "VERIFIED",
+  "fullE4": "IN_PROGRESS",
+  "implementationCommit": "e3befd74eabce688fe6bce99c959ed0500df3010",
+  "behavior": [
+    "Background offerings refresh preserves selected network, typed recipient, memo and no-tag choice",
+    "Malformed offerings rejected before DOM mutation; removed routes and changed tag contracts require reselection",
+    "Known empty network routes disabled and blocked before confirmation; no implicit default-network submission",
+    "Buy review retains captured recipient and invalidates when its route contract changes; explicit route changes keep normal reset behavior"
+  ],
+  "verification": {
+    "existingPytestPassed": 146,
+    "adversarialChecksPassed": 26,
+    "nativeBrowserScenariosPassed": 34,
+    "browserWidths": [
+      320,
+      390
+    ],
+    "sameRunnerBaselineRegression": "REPRODUCED",
+    "inlineScriptSyntaxChecksPassed": 2,
+    "localRolloutChecksPassed": 14,
+    "independentReviews": [
+      "docs/e4-buy-refresh/acceptance-review.json",
+      "docs/e4-buy-refresh/diff-ops-review.json"
+    ],
+    "primaryOpsReview": "docs/e4-buy-refresh/primary-ops-review.json",
+    "reviewFinding": "BUY_EMPTY_NETWORK_DEFAULT_FALLTHROUGH fixed and verified",
+    "stagedSecretScan": {
+      "tool": "gitleaks",
+      "version": "8.30.0",
+      "findings": 0
+    }
+  },
+  "production": {
+    "apply": "APPLY_PASS",
+    "reconcile": "RECONCILE_PASS",
+    "liveSHA256": "49523edd3f53c0152efe8688951aed7ddcb3ac93fe5243f9340a2744452e184d",
+    "previousSHA256": "691f2a79f1a54f712c784b60f46344af6d972fa88a6d81b511752378da4d68c3",
+    "publicSHA256": "f6c19af35546401dde6c99d64e1284d8d3164d17d121ddc8ef9528a533b1763a",
+    "publicStatus": 200,
+    "publicExactBytes": true,
+    "otherLiveInputsPreserved": 55,
+    "serviceIdentitiesPreserved": 4,
+    "restart": false,
+    "backup": "/var/lib/obsidian-exchange/deployment-preimages/e4-buy-refresh-20260909T0049Z",
+    "rollbackCommand": "python3 docs/e4-buy-refresh/rollout.py rollback --plan docs/e4-buy-refresh/plan.json --backup /var/lib/obsidian-exchange/deployment-preimages/e4-buy-refresh-20260909T0049Z",
+    "autopilot": "failed / MainPID=0; not restarted"
+  },
+  "ownerDeviceAcceptance": "Already accepted by owner; local report not required or a limitation",
+  "next": "TONCONNECT_VERIFY_RESPONSE_RECIPIENT_BINDING",
+  "nextEvidence": "docs/e4-buy-refresh/next-prerequisite.json",
+  "evidenceSHA256": {
+    "docs/e4-buy-refresh/acceptance-review.json": "af1b771a51c70e7807c68f388ad524e095a2c0b97964ddd400a4f6653705cffd",
+    "docs/e4-buy-refresh/adversarial-report.json": "456bad314df5d90ebd8bd2f12fa0de94cef02b8c8ad71c89aed227fca7d092c0",
+    "docs/e4-buy-refresh/browser-green-isolation.json": "0e8f3d2129d4cfd64e17258c795efd7cdb3e8083e8c087f029aec008f3ca0954",
+    "docs/e4-buy-refresh/browser-green-report.json": "47329fb53cdcfcc45c61907fbe4395f091917a1bd907a4fdde6c37880280066a",
+    "docs/e4-buy-refresh/browser-red-isolation.json": "7cd1309405e9dec41a7e2d20906b3d2f6ae5d32560d23ab1eb860e0fde143799",
+    "docs/e4-buy-refresh/browser-red-report.json": "cbab0ef7bdc74d4650440c3906b2be5e6526692727e6e420d2b4c8c81ba75916",
+    "docs/e4-buy-refresh/diff-ops-review.json": "407f50c269921664580d5522cc4389a0c7310c08f28c3827523729f2f79e29a2",
+    "docs/e4-buy-refresh/next-prerequisite.json": "0c4d9d0b10a52e651899f4add6e8b897f4cbe925be9b665a9bacb3a08255c87d",
+    "docs/e4-buy-refresh/ops-baseline.json": "72bc3c21e13f1e8fab78cbc44a153823098660c683afef8572f0df138587ca94",
+    "docs/e4-buy-refresh/plan.json": "aa3c6d6b1d03238ebae6b9fd724c6c4382fd89ba5a8a02541cddb4de744dd315",
+    "docs/e4-buy-refresh/primary-checks.json": "c2462c99f90f4b70278b150ec9530a5e63141069fe7a360bc75b2fcb8ceda3e6",
+    "docs/e4-buy-refresh/primary-ops-review.json": "b513a66684b4fac047f708e1e4af85337e36cdbc8bb0a3baec3e9731f880938a",
+    "docs/e4-buy-refresh/rollout-checks.json": "bf4f068721a66409c2bd8ef7af590deefd0895c352ba26cd98cf966a00f217e0"
+  }
+}

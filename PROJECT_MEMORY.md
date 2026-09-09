@@ -4,21 +4,21 @@ Updated: 2026-09-09 UTC
 
 ## Current goal and status
 
-- 2026-09-09 E4/SELL_REVIEW_ESTIMATE_FRESHNESS VERIFIED/deployed19d59ed.
-  Sell form/review now bound receipt age60s, calculate with server net rate and
-  selected-coin fee; clear stale numbers, offer refresh, preserve inputs, require
-  reselection for removed options. Review deadline and pending-submit guard;
-  independent P1 refresh-reenabled-pending-submit finding fixed/browser verified.
-  145 existing tests,38 adversarial checks,22 Chrome cases,14 rollback checks,
-  two reviews and Gitleaks zero. HTML691f2a79...da4d68c3; public exact apply/
-  reconcile,55 other inputs/four services preserved,no restart. Rollback:
-  deployment-preimages/e4-sell-estimate-20260909T0032Z. Evidence:
-  docs/e4-sell-estimate-rollout.v1.json. Full E4 IN_PROGRESS; exactly next
-  BUY_RECIPIENT_REFRESH_PRESERVATION: automatic rates/offering refresh replaces
-  typed recipient with saved prior address; concrete reproduction in slice
-  next-prerequisite.json. Predecessor Buy custody/estimate slices remain verified
-  (fa13d93/06df1bf; their rollout receipts retain evidence). No market-source
-  freshness/binding-quote claim. Autopilot failed/MainPID0; no new money authority.
+- 2026-09-09 E4/BUY_RECIPIENT_REFRESH_PRESERVATION VERIFIED/deployed e3befd7.
+  Background Buy refresh preserves address/network/memo/no-tag. Removed routes
+  and changed tag contracts require reselection and invalidate matching review;
+  malformed metadata rejected before mutation. Review P1 empty-network default
+  fallback fixed. 146 existing tests,26 adversarial checks,34 Chrome scenarios,
+  14 rollback checks,two reviews,Gitleaks zero. HTML49523edd...4452e184d;
+  apply/reconcile/public exact,55 other inputs/four services unchanged,no restart.
+  Rollback: deployment-preimages/e4-buy-refresh-20260909T0049Z. Evidence:
+  docs/e4-buy-refresh-rollout.v1.json. Full E4 IN_PROGRESS; exactly next
+  TONCONNECT_VERIFY_RESPONSE_RECIPIENT_BINDING: late tcHandleWallet verification
+  overwrites a newer recipient/route; reproduced with actual handler and mocked
+  deferred response in docs/e4-buy-refresh/next-prerequisite.json.
+  Prior Sell/Buy estimate/custody slices remain verified (19d59ed/06df1bf/fa13d93;
+  their rollout receipts retain evidence). Autopilot failed/MainPID0; no restart
+  or new money authority. Reconcile stale supervisor receipts before future start.
 
 - 2026-09-09 E4/WALLET_HANDOFF_DEVICE_ACCEPTANCE VERIFIED for the inert
   interface check by direct owner observation: no issues on a friend's iPhone,
