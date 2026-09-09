@@ -1,0 +1,73 @@
+{
+  "schemaVersion": "e4-tonconnect-timeout-rollout.v1",
+  "recordedAt": "2026-09-09T01:29:59.577170+00:00",
+  "route": "E4 / TONCONNECT_VERIFICATION_WAIT_RECOVERY",
+  "status": "VERIFIED",
+  "fullE4": "IN_PROGRESS",
+  "implementationCommit": "9d309452b152f1c35a3e783ce651bbf45cadc708",
+  "behavior": [
+    "8second Promise.race bounds verification fetch and body even if AbortSignal is ignored",
+    "Expired flag before abort plus completion elapsed/clockrollback guard prevent delayed timer dispatch from admitting late results",
+    "Losing request only returns data;it cannot change UI or release a newer pending verification",
+    "Single finally clears timer/pending;current timeout allows explicit fresh connection/manual input;stale timeout silent",
+    "Existing intent consumption,strict response checks and recipient guard retained;no automatic retry"
+  ],
+  "verification": {
+    "existingPytestPassed": 150,
+    "legacyTonFrontendChecksPassed": 25,
+    "legacyTonBackendChecksPassed": 69,
+    "adversarialChecksPassed": 10,
+    "nativeBrowserScenariosPassed": 10,
+    "browserWidths": [
+      320,
+      390
+    ],
+    "sameRunnerBaselineRegression": "REPRODUCED",
+    "inlineScriptSyntaxChecksPassed": 2,
+    "localRolloutChecksPassed": 17,
+    "independentReviews": [
+      "docs/e4-tonconnect-timeout/acceptance-review.json",
+      "docs/e4-tonconnect-timeout/diff-ops-review.json"
+    ],
+    "primaryOpsReview": "docs/e4-tonconnect-timeout/primary-ops-review.json",
+    "stagedSecretScan": {
+      "tool": "gitleaks",
+      "version": "8.30.0",
+      "findings": 0
+    }
+  },
+  "production": {
+    "apply": "APPLY_PASS",
+    "reconcile": "RECONCILE_PASS",
+    "liveSHA256": "34e98784ee7ca2a744bbf4490b8f102357dc04c954105709436bef3eee497d55",
+    "previousSHA256": "43295c726ddc86a05835314196b022f92593c0d842e060da7c908b52bedcbba9",
+    "publicSHA256": "aa4de572ff64a673ca532f4acaf30b7d32db82111d275667409dc539c0d4b431",
+    "publicStatus": 200,
+    "publicExactBytes": true,
+    "otherLiveInputsPreserved": 57,
+    "serviceIdentitiesPreserved": 4,
+    "restart": false,
+    "backup": "/var/lib/obsidian-exchange/deployment-preimages/e4-tonconnect-timeout-20260909T0128Z",
+    "rollbackCommand": "python3 docs/e4-tonconnect-timeout/rollout.py rollback --plan docs/e4-tonconnect-timeout/plan.json --backup /var/lib/obsidian-exchange/deployment-preimages/e4-tonconnect-timeout-20260909T0128Z",
+    "autopilot": "failed / MainPID=0;not restarted"
+  },
+  "backendBoundary": "Browser timeout does not cancel/reverse/order server proof verification or profile wallet association;the verified backend may remember association before a late response. No backend changes or real verification requests in this iteration.",
+  "ownerDeviceAcceptance": "Already accepted by owner;no local report prerequisite or limitation",
+  "next": "TONCONNECT_SDK_HANDOFF_WAIT_RECOVERY",
+  "nextEvidence": "docs/e4-tonconnect-timeout/next-prerequisite.json",
+  "evidenceSHA256": {
+    "docs/e4-tonconnect-timeout/acceptance-review.json": "c00f8af710db9943037f94a1c0f088dd31bc5a1cd05a09e6101b5e2c59f6f150",
+    "docs/e4-tonconnect-timeout/adversarial-report.json": "f6aeb29ce9109763989ce8746d817402e3108be52342caff62eb90a5b8e5216e",
+    "docs/e4-tonconnect-timeout/browser-green-isolation.json": "76b301a87d89d49b4d645d437843df1a794525e4bd7941492517d6ea4b31e3ab",
+    "docs/e4-tonconnect-timeout/browser-green-report.json": "a511af9ebd848ec66e7b1b9512459194e67743ef3ed7d2eb7778375b2f638398",
+    "docs/e4-tonconnect-timeout/browser-red-isolation.json": "1e00903caed8cbf5d95e2d23565234fcd37131792770c2518ebae73d9bfc7bff",
+    "docs/e4-tonconnect-timeout/browser-red-report.json": "4715c55f49e2b2325b9b8ee121cef52a3fc288ef702de5c033249f700d31342f",
+    "docs/e4-tonconnect-timeout/diff-ops-review.json": "52d42addac5392dc077842d1c7fee15106b17d72d32edaf14cd586008d4ae6a5",
+    "docs/e4-tonconnect-timeout/next-prerequisite.json": "5a8b98a8af268cd6a644da79c1aa90d652bfecf6abf39d8271ad0d6266ff600f",
+    "docs/e4-tonconnect-timeout/ops-baseline.json": "f13460347c408092bf0be76c3e1914818e563bdd0ee240606c4a2d94cbb2cc48",
+    "docs/e4-tonconnect-timeout/plan.json": "7e5e3e319e9ba72fc2c6bc3b9c0e02651fd2d60f87a31f9c5a9195865b85b136",
+    "docs/e4-tonconnect-timeout/primary-checks.json": "7bcfc5869533249e2d343b113d58bd851e2cd05d4663fe0d0c06cf505db7e05f",
+    "docs/e4-tonconnect-timeout/primary-ops-review.json": "2b76a97e6a3223254ab389a44e709b3e4c50a6ed7971b06b19a895e56a938b4c",
+    "docs/e4-tonconnect-timeout/rollout-checks.json": "e6ed2ca8b61cc6fd81badbc8a960ef05b26db09e0bfd15fa4dfb3ebe85c730bd"
+  }
+}

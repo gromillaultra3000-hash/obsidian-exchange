@@ -1,0 +1,75 @@
+{
+  "schemaVersion": "e4-tonconnect-sdk-wait-rollout.v1",
+  "recordedAt": "2026-09-09T01:55:38.492801+00:00",
+  "route": "E4 / TONCONNECT_SDK_HANDOFF_WAIT_RECOVERY",
+  "status": "VERIFIED",
+  "fullE4": "IN_PROGRESS",
+  "implementationCommit": "a30a80644a5e723b47d4524cda597ac811b5c747",
+  "behavior": [
+    "8s per-operation race bounds disconnect/openModal/obsolete closeModal; completion clock check rejects late or rollback results",
+    "Uncertain SDK timeout quarantines singleton for page lifetime; retires intent/generation, ignores late callbacks and releases preparation/button",
+    "Timeout recovery explicitly requires page reload or manual recipient entry; timely failures retain explicit same-page retry"
+  ],
+  "verification": {
+    "existingPytestPassed": 52,
+    "newSdkWaitPytestPassed": 1,
+    "legacyTonFrontendChecksPassed": 25,
+    "legacyTonBackendChecksPassed": 69,
+    "adversarialChecksPassed": 12,
+    "nativeBrowserScenariosPassed": 10,
+    "browserWidths": [
+      320,
+      390
+    ],
+    "sameRunnerBaselineRegression": "REPRODUCED",
+    "inlineScriptSyntaxChecksPassed": 2,
+    "localRolloutChecksPassed": 19,
+    "independentReviews": [
+      "docs/e4-tonconnect-sdk-wait/acceptance-review.json",
+      "docs/e4-tonconnect-sdk-wait/diff-ops-review.json"
+    ],
+    "stagedSecretScan": {
+      "tool": "gitleaks",
+      "version": "8.30.0",
+      "bytesScanned": 85050,
+      "findings": 0
+    }
+  },
+  "production": {
+    "apply": "APPLY_PASS",
+    "reconcile": "RECONCILE_PASS",
+    "liveSHA256": "0a596242b6b51783cf117a0848935eda7dbadb14d136f2558b05d8c607f47f76",
+    "previousSHA256": "34e98784ee7ca2a744bbf4490b8f102357dc04c954105709436bef3eee497d55",
+    "publicSHA256": "8e1a95eee6c29edaa658b3f9fa5206f99b633061235265c794718ec245ac713e",
+    "publicExactBytes": true,
+    "otherLiveInputsPreserved": 57,
+    "serviceIdentitiesPreserved": 4,
+    "restart": false,
+    "backup": "/var/lib/obsidian-exchange/deployment-preimages/e4-tonconnect-sdk-wait-20260909T0155Z",
+    "rollbackCommand": "python3 docs/e4-tonconnect-sdk-wait/rollout.py rollback --plan docs/e4-tonconnect-sdk-wait/plan.json --backup /var/lib/obsidian-exchange/deployment-preimages/e4-tonconnect-sdk-wait-20260909T0155Z",
+    "autopilot": "failed / MainPID=0; not restarted"
+  },
+  "limitations": [
+    "SDK timeout cannot cancel late internal modal effects; quarantine blocks product recipient authority",
+    "Browser waiting does not cancel/reverse/order server profile association; backend unchanged",
+    "Existing pages reload to receive the patch"
+  ],
+  "ownerDeviceAcceptance": "Previously accepted; no local-report prerequisite",
+  "next": "TONCONNECT_PAYLOAD_WAIT_RECOVERY",
+  "nextEvidence": "docs/e4-tonconnect-sdk-wait/next-prerequisite.json",
+  "evidenceSHA256": {
+    "docs/e4-tonconnect-sdk-wait/acceptance-review.json": "08dbb321dda308cbdc48f43fe48277f39bc548b68e907744a02310639bd4c25c",
+    "docs/e4-tonconnect-sdk-wait/adversarial-report.json": "dce436d95545f76c0ec83ccad686d7365159f115bc6188d4dce08be24f6eeec8",
+    "docs/e4-tonconnect-sdk-wait/diff-ops-review.json": "f80f02d1a3f1079c0b61e889283458ea7a58115fbffb3258e96a5c2e8736da84",
+    "docs/e4-tonconnect-sdk-wait/next-prerequisite.json": "17908088fa89b8eeac8b0a08a5f91d1ee200ed8b5bc12b3beb2b118a73149976",
+    "docs/e4-tonconnect-sdk-wait/ops-baseline.json": "32de3a02dd4f9081369f558cce341084f31171787e65c91f0cd7fb158a29584f",
+    "docs/e4-tonconnect-sdk-wait/plan.json": "607f63e3ffb6f5ea9db9dd88ac1162eba85d949ae0ee4efd4965b39e7712f798",
+    "docs/e4-tonconnect-sdk-wait/primary-checks.json": "cadcf1123d6be10dfd6d354181d676e19cc6d864d6c11031365559d50a6eee1c",
+    "docs/e4-tonconnect-sdk-wait/primary-ops-review.json": "63385fb37fd534ba93f16569560e15fbdadfc7eb9c5e6224463c838ad4891cd9",
+    "docs/e4-tonconnect-sdk-wait/rollout-checks.json": "4576dd294283153b2e02449b1dd0b33cf5999ae235b0848e14851eae15c22f48",
+    "docs/e4-tonconnect-sdk-wait/browser-final/report.json": "570811c04256c8ea733958d97d1ea52a8d86f65cd79575499d0548214060bcdb",
+    "docs/e4-tonconnect-sdk-wait/browser-final/isolation.json": "d7dfa7314ab4cf855bc85ead83c6ae59b140d2442a75e001b0a01ace78dd9acf",
+    "docs/e4-tonconnect-sdk-wait/browser-baseline-final/report.json": "7e4d4a59e92e4a6955ddb10a25aacf5ad30452c2db9fb6c3f371baa8e31782af",
+    "docs/e4-tonconnect-sdk-wait/browser-baseline-final/isolation.json": "b23e61451c0804b8311bd235a39471139480d3d42fe5b6f866f089ea50d3bbc6"
+  }
+}

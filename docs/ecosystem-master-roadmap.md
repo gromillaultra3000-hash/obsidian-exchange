@@ -1109,6 +1109,42 @@ no deadline/no retry request,no real network/signature/money. Evidence:
 `docs/e4-tonconnect-intent/next-prerequisite.json`. Owner iPhone acceptance
 remains complete with no local report prerequisite.
 
+2026-09-09: TONCONNECT_SDK_HANDOFF_WAIT_RECOVERY VERIFIED/deployed (`a30a806`).
+8s per-operation SDK race bounds disconnect/openModal/obsolete closeModal, with
+completion clock checks. Uncertain timeout quarantines the page singleton, retires
+intent/generation, ignores late callbacks and releases preparation/button. Explicit
+reload is required for another SDK attempt; manual input remains available. Late
+SDK modal effects cannot be cancelled; no recipient authority survives quarantine.
+52 existing pytest +1 new,25 frontend/69 backend checks,12 adversarial,10 Chrome
+cases at320/390,19 rollback checks and two independent reviews PASS;Gitleaks zero.
+HTML-only apply/reconcile/public exact;57 other inputs/four services preserved,
+no restart. HTML `0a596242...607f47f76`; rollback retained at
+`deployment-preimages/e4-tonconnect-sdk-wait-20260909T0155Z`.
+Evidence: `docs/e4-tonconnect-sdk-wait-rollout.v1.json`. Full E4 IN_PROGRESS.
+Exactly next: TONCONNECT_PAYLOAD_WAIT_RECOVERY — payload fetch/body wait relies
+on cooperative abort; both remain locked after1hour in actual-helper reproduction.
+Evidence: `docs/e4-tonconnect-sdk-wait/next-prerequisite.json`. Backend unchanged;
+no real signatures/money/customer reads. Owner iPhone acceptance remains complete.
+
+2026-09-09: TONCONNECT_VERIFICATION_WAIT_RECOVERY VERIFIED/deployed (`9d30945`).
+8s Promise.race covers verification response/body even if abort ignored;completion
+clock rejects late/throttled-timer or rollback results. Losing request only returns
+data,never mutates UI or releases newer pending. Single cleanup allows fresh explicit
+retry/manual input;stale timeout silent,existing intent/recipient guards retained.
+150 existing pytest,25 legacy frontend/69 backend checks,10 adversarial checks,
+10 Chrome cases at320/390,17 rollback checks and two reviews PASS;Gitleaks zero.
+HTML-only apply/reconcile/public exact,57 other inputs/four services preserved,
+no restart. HTML `34e98784...ee497d55`; evidence:
+`docs/e4-tonconnect-timeout-rollout.v1.json`. Rollback retained at
+`deployment-preimages/e4-tonconnect-timeout-20260909T0128Z`.
+Browser deadline does not cancel/reverse/order backend verification or profile
+association;server semantics unchanged. E4 IN_PROGRESS. Exactly next:
+TONCONNECT_SDK_HANDOFF_WAIT_RECOVERY — SDK disconnect/openModal may remain
+pending indefinitely,leaving preparation/button locked. Actual-helper/fakeclock
+1hour reproduction independently confirmed for both waits,no real network/
+signatures/money: `docs/e4-tonconnect-timeout/next-prerequisite.json`.
+Owner iPhone acceptance remains complete with no local report prerequisite.
+
 ### E5 — нативный некастодиальный кошелёк
 
 E0.4 inventory evidence (2026-08-18): the checkout has a Rust/UniFFI Bitcoin
