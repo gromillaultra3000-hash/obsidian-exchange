@@ -1617,6 +1617,8 @@
         let tcPending = false;
         let tcRecipientGeneration = 0;
         let tcPreparation = null;
+        let tcConnectionIntent = null;
+        const tcConnectionPayloads = new Set();
 
         function tcInvalidateRecipient() {
             tcRecipientGeneration += 1;
@@ -1668,25 +1670,32 @@
         // Факт подключения кошелька сам по себе ничего не доказывает: подпись
         // проверяется ключом счёта из блокчейна, и только сервер это видел.
         async function tcHandleWallet(w) {
-            // Only our awaited disconnect may advance the preparation snapshot.
-            // User edits or a replacement wallet must never be rebound to old intent.
             const preparing = tcPreparation;
             const beforeState = tcRecipientState();
-            const stalePreparation = preparing && (!tcAvailable() || preparing.state !== beforeState);
-            const ownDisconnect = !w && preparing && preparing.disconnecting
-                && !stalePreparation;
+            if (!w) {
+                const ownDisconnect = preparing && preparing.disconnecting
+                    && tcAvailable() && preparing.state === beforeState;
+                tcConnectionIntent = null;
+                tcInvalidateRecipient();
+                if (ownDisconnect) preparing.state = tcRecipientState();
+                return;
+            }
+            const proof = w.connectItems && w.connectItems.tonProof
+                          && w.connectItems.tonProof.proof;
+            const intent = tcConnectionIntent;
+            // A status event has no authority to select a recipient by itself.
+            // Match the server challenge from this explicit connection before any side effect.
+            if (!intent || !proof || proof.payload !== intent.payload) return;
+            if (!tcAvailable() || intent.state !== beforeState) {
+                tcConnectionIntent = null;
+                return;
+            }
+            if (tcPending) return;
+            tcConnectionIntent = null; // consume once, before awaiting verification
             tcInvalidateRecipient();
-            if (ownDisconnect) preparing.state = tcRecipientState();
-            if (!w || tcPending || stalePreparation) return;
             const recipientState = tcRecipientState();
             if (!recipientState) return;
             const isCurrent = () => tcRecipientState() === recipientState;
-            const proof = w.connectItems && w.connectItems.tonProof
-                          && w.connectItems.tonProof.proof;
-            if (!proof) {
-                tcSay('Кошелёк подключён, но подпись не выдал. Введите адрес вручную.', 'invalid');
-                return;
-            }
             tcPending = true;
             tcSay('Проверяем подпись…');
             try {
@@ -1744,6 +1753,7 @@
             if (!state) return;
             const attempt = { state, disconnecting: false };
             tcPreparation = attempt;
+            tcConnectionIntent = null; // a new explicit request retires the previous connection
             const isCurrent = () => tcPreparation === attempt && tcAvailable()
                 && attempt.state === tcRecipientState();
             const btn = document.getElementById('tc-connect');
@@ -1760,14 +1770,15 @@
                 timer = setTimeout(() => controller.abort(), 8000);
                 const r = await fetch('/api/tonconnect/payload', {
                     headers: { 'X-Telegram-Init-Data': tg.initData || '' },
-                    signal: controller.signal });
+                    signal: controller.signal, cache: 'no-store' });
                 const d = await r.json().catch(() => ({}));
                 clearTimeout(timer);
                 timer = null;
                 if (!isCurrent()) return;
                 if (controller.signal.aborted) throw new Error('Preparation expired');
                 const payload = d && d.payload;
-                if (!r.ok || typeof payload !== 'string' || !payload.trim() || payload.length > 4096) {
+                if (!r.ok || typeof payload !== 'string' || !payload.trim() || payload.length > 4096
+                    || tcConnectionPayloads.has(payload)) {
                     tcSay('Подключение сейчас недоступно. Введите адрес вручную.', 'invalid');
                     return;
                 }
@@ -1780,6 +1791,9 @@
                     if (ui.connected) throw new Error('Wallet remains connected');
                 }
                 if (!isCurrent()) return;
+                tcConnectionPayloads.add(payload);
+                attempt.intent = { state: attempt.state, payload };
+                tcConnectionIntent = attempt.intent;
                 ui.setConnectRequestParameters({ state: 'ready', value: { tonProof: payload } });
                 tcSay('Выберите кошелёк…');
                 await ui.openModal();
@@ -1797,6 +1811,7 @@
                 if (tcPreparation === attempt) {
                     // Keep the proof available to the opened SDK modal; clear only
                     // preparations that never handed off successfully.
+                    if (!handedOff && tcConnectionIntent === attempt.intent) tcConnectionIntent = null;
                     if (ui && !handedOff) {
                         try { ui.setConnectRequestParameters(null); } catch (_) {}
                     }

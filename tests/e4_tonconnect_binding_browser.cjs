@@ -53,7 +53,11 @@ async function main() {
             if (scenario === 'non-ton') await page.locator('#currency').selectOption('BTC');
             await page.evaluate(hold => {
                 window.__holdVerificationJson = hold;
-                window.__verification = tcHandleWallet({account: {address: 'synthetic-account'}, connectItems: {tonProof: {proof: {synthetic: true}}}});
+                // This suite isolates verification completion; a matching issued
+                // intent is its explicit precondition. The lifecycle suite drives tcConnect.
+                window.__oeTonConnectFailed = false;
+                tcConnectionIntent = {state: tcRecipientState(), payload: 'synthetic-binding'};
+                window.__verification = tcHandleWallet({account: {address: 'synthetic-account'}, connectItems: {tonProof: {proof: {payload: 'synthetic-binding', synthetic: true}}}});
             }, scenario === 'json-delay');
             if (scenario === 'non-ton') {
                 await page.evaluate(() => window.__verification);

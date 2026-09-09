@@ -1,0 +1,14 @@
+{
+  "backend": "relay/core/tonconnect.py",
+  "backendSha256": "69ffd1157f222b97358bdd01017e2779ab37db9de6d63bfe546c968797b4ad1d",
+  "backendMatchesLive": true,
+  "sdk": "relay-fastapi/static/js/tonconnect-ui-3.0.0.min.js",
+  "sdkSha256": "64964c3ae13c752bbabba990ddc51f7dd20759083368541d9199e04e3342656d",
+  "observations": [
+    "make_payload creates a timestamp, subject tag, 96 random bits and HMAC per issuance; no deterministic repeated challenge expected.",
+    "Backend check_payload authenticates subject and expiration but explicitly permits same-subject replay within 15 minutes; frontend intent consumption is separate from server proof verification.",
+    "Vendored SDK validates proof.payload as string and copies it unchanged into connectItems.tonProof.proof.payload before publishing wallet status.",
+    "Exact payload attribution plus no-store GET and per-page issued challenge rejection prevents an old status consuming a newly requested intent with a reused challenge."
+  ],
+  "not_claimed": "No server nonce consumption/storage or cryptographic verifier changes."
+}

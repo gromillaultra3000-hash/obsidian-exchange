@@ -11,12 +11,13 @@ function setup() {
         no_tag: {checked: false}, 'tc-msg': {textContent: '', className: ''}};
     const pending = [], counts = {profiles: 0, validations: 0};
     const context = vm.createContext({document: {getElementById: id => nodes[id]}, tg: {initData: ''},
-        window: {__oeOfferings: [{code: 'TON', networks: [{code: 'MAINNET', label: 'TON'}], wallet_connect: true, tag_name: 'memo'}]},
+        window: {TON_CONNECT_UI: {}, __oeOfferings: [{code: 'TON', networks: [{code: 'MAINNET', label: 'TON'}], wallet_connect: true, tag_name: 'memo'}]},
         validateAddress() {counts.validations++;}, updateTagField() {}, loadWallets() {counts.profiles++;},
         fetch(url, options) {assert.equal(url, '/api/tonconnect/verify'); assert.equal(options.method, 'POST');
             return new Promise((resolve, reject) => pending.push({resolve, reject}));}});
-    vm.runInContext('let tcPending=false,tcRecipientGeneration=0,tcPreparation=null;\n' + ['buyRouteSignature','currentOffering','tcSay','tcInvalidateRecipient','tcRecipientState','tcHandleWallet'].map(extract).join('\n'), context);
-    context.wallet = {account: {address: 'synthetic'}, connectItems: {tonProof: {proof: {synthetic: true}}}};
+    vm.runInContext('let tcPending=false,tcRecipientGeneration=0,tcPreparation=null,tcConnectionIntent=null;\n' + ['buyRouteSignature','currentOffering','tcSay','tcInvalidateRecipient','tcRecipientState','tcAvailable','tcHandleWallet'].map(extract).join('\n'), context);
+    context.wallet = {account: {address: 'synthetic'}, connectItems: {tonProof: {proof: {synthetic: true, payload: 'synthetic-intent'}}}};
+    vm.runInContext("tcConnectionIntent={state:tcRecipientState(),payload:'synthetic-intent'}", context);
     return {nodes, pending, counts, context, call: () => vm.runInContext('tcHandleWallet(wallet)', context)};
 }
 let checks = 0;
@@ -29,7 +30,7 @@ async function main() {
         const h = setup(), p = h.call(); h.pending[0].resolve({ok: true, async json() {return {verified: value, address: verified};}}); await p;
         assert.equal(h.nodes.address.value, initial); assert.equal(h.counts.profiles, 0); checks++;
     }
-    for (const change of ['address', 'memo', 'no-tag', 'route', 'wallet-disabled', 'away-back', 'disconnect', 'second-sdk']) {
+    for (const change of ['address', 'memo', 'no-tag', 'route', 'wallet-disabled', 'away-back', 'disconnect']) {
         for (const outcome of ['success', 'error']) {
             const h = setup(), p = h.call();
             if (change === 'address') h.nodes.address.value = 'new recipient';
@@ -42,7 +43,6 @@ async function main() {
                 h.nodes.address.value = initial; vm.runInContext('tcInvalidateRecipient()', h.context);
             }
             if (change === 'disconnect') await vm.runInContext('tcHandleWallet(null)', h.context);
-            if (change === 'second-sdk') await h.call();
             const before = JSON.stringify(h.nodes);
             if (outcome === 'error') h.pending[0].reject(new Error('synthetic failure'));
             else h.pending[0].resolve({ok: true, async json() {return {verified: true, address: verified};}});
@@ -59,7 +59,7 @@ async function main() {
     }
     const h = setup(), p = h.call(); h.pending[0].resolve({ok: false, async json() {return {verified: true, address: verified};}}); await p;
     assert.equal(h.nodes.address.value, initial); assert.equal(h.counts.profiles, 0); checks++;
-    const success = setup(), good = success.call(); success.pending[0].resolve({ok: true, async json() {return {verified: true, address: verified};}}); await good;
+    const success = setup(), good = success.call(); await success.call(); assert.equal(success.pending.length, 1); success.pending[0].resolve({ok: true, async json() {return {verified: true, address: verified};}}); await good;
     assert.equal(success.nodes.address.value, verified); assert.equal(success.nodes.dest_tag.value, ''); assert.equal(success.nodes.no_tag.checked, true);
     assert.equal(success.counts.profiles, 1); checks++;
     console.log(JSON.stringify({result: 'PASS', checks}));

@@ -1,0 +1,32 @@
+{
+  "result": "PASS",
+  "reviewer": "independent buy_custody_ops agent",
+  "recordedAt": "2026-09-09T01:16:09.869651+00:00",
+  "route": "E4/TONCONNECT_CONNECTION_INTENT_LIFETIME",
+  "baseline_sha": "537671a07f77b520a8445213f604974829a2abf86d926325174b766a368258e3",
+  "candidate_sha": "43295c726ddc86a05835314196b022f92593c0d842e060da7c908b52bedcbba9",
+  "rollout_sha": "28f220f27a4e6212a0cd03d6076d3ed66474f9045b2643cb952b5124dcba6ff6",
+  "helper_sha": "d2097d220500618ae684a46ac7e3eaf3caaa989a6915fed4301c6ce3f3b5fa7d",
+  "inventory_sha": "cd70866786c0389a819c1b0b190874a1f5867daf57ccf8707023687585cd486f",
+  "scope": [
+    "tcConnectionIntent and tcConnectionPayloads declarations after tcPreparation",
+    "tcHandleWallet owned challenge consumption preamble",
+    "tcConnect connection intent installation and owned cleanup"
+  ],
+  "findings": [],
+  "assessment": [
+    "Persistent intent is installed before ready parameters/modal opening and retained across successful preparation retirement. Exact issued payload and unchanged captured recipient state plus SDK availability are required before a status can start verification.",
+    "The matching intent is consumed before await. Unowned, missing-proof and mismatched-payload statuses have no recipient/generation side effects and cannot consume a newer intent; stale matching intent is retired. Null/disconnect invalidates intent, preserving only the existing narrow preparation-state rebind for an expected own disconnect.",
+    "New explicit preparation retires prior connection intent. Failed handoff cleanup clears only its own still-current intent; it cannot erase a newer owner or restore consumed intent.",
+    "Payload GET uses no-store and all previously installed payloads are rejected for the page lifetime, preventing reused challenge attribution. Backend 96-bit random nonce generation and SDK exact proof.payload preservation independently inspected; backend proof replay allowance is documented rather than misrepresented as server-side one-use consumption.",
+    "The prior post-preparation late callback boundary is covered by persistent intent state: after recipient edit, an old exact payload cannot select the new recipient; after new preparation, the old payload does not match new intent.",
+    "Only state declarations, tcHandleWallet preamble and tcConnect changed. Cryptographic verification request/response, submit payloads, recipient generation listeners, shared review, backend and SDK bundle untouched.",
+    "Read-only production preflight passed with 58 live inputs and 4 unchanged services, including SDK and backend nonce source. Seventeen local scope/drift/atomic apply/reconcile/rollback checks passed."
+  ],
+  "nonce_evidence": "docs/e4-tonconnect-intent/nonce-review.json",
+  "public_baseline_sha": "f8910624acef1b71f68488dd805326279cc358b1a3b71b73c8e498c390bde957",
+  "live_input_count": 58,
+  "service_count": 4,
+  "production_mutated": false,
+  "verification": "docs/e4-tonconnect-intent/rollout-checks.json"
+}

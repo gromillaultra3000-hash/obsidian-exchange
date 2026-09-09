@@ -1,0 +1,17 @@
+{
+  "user": "nobody",
+  "chromiumSandbox": true,
+  "privateNetwork": true,
+  "protectHome": true,
+  "unit": "e4-review-browser-88a9dc9cb9b5414da12243bf0f99eaa6",
+  "unitStopped": true,
+  "stopObservation": {
+    "MainPID": "0",
+    "LoadState": "not-found",
+    "ActiveState": "inactive",
+    "cgroupEmpty": true
+  },
+  "sourceSha256": "43295c726ddc86a05835314196b022f92593c0d842e060da7c908b52bedcbba9",
+  "runnerSha256": "e151d0a895685673631df23747c064381e10231438284cb414c9305b205e3642",
+  "processExitCode": 0
+}

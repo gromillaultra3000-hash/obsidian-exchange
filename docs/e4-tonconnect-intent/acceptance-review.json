@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "e4-tonconnect-intent-acceptance-review.v1",
+  "reviewer": "/root/e4_gap_review",
+  "timestamp": "2026-09-09T01:18:32.963959+00:00",
+  "result": "PASS",
+  "sourceSha256": "43295c726ddc86a05835314196b022f92593c0d842e060da7c908b52bedcbba9",
+  "runnerSha256": "61b5e25dc00e365a83bdd33b43a5b07e1ac99c057093fe0f5ef0dc341aee5256",
+  "scope": [
+    "tcConnectionIntent lifetime and issued-payload uniqueness",
+    "tcHandleWallet nonce attribution before sideeffects and single consumption",
+    "tcConnect intent creation/retirement/failed handoff cleanup",
+    "docs/e4-tonconnect-intent/contract.md",
+    "adapted existing verification-binding and preparation browser fixtures"
+  ],
+  "browserEvidence": "output/playwright/e4-tonconnect-intent-green",
+  "baselineEvidence": "output/playwright/e4-tonconnect-intent-red",
+  "browserCases": 22,
+  "adversarialChecks": 22,
+  "adversarialCommand": "node tests/e4_tonconnect_intent_adversarial.cjs",
+  "legacyBrowserSuites": [
+    {
+      "suite": "binding",
+      "cases": 30,
+      "result": "PASS",
+      "sourceSha256": "43295c726ddc86a05835314196b022f92593c0d842e060da7c908b52bedcbba9",
+      "runnerSha256": "0915701a7b615b3e0c91b1e1bfb3144159c33ad94ec00e4ca83b7858fcec85df",
+      "evidence": "output/playwright/e4-tonconnect-intent-legacy-binding"
+    },
+    {
+      "suite": "preparation",
+      "cases": 38,
+      "result": "PASS",
+      "sourceSha256": "43295c726ddc86a05835314196b022f92593c0d842e060da7c908b52bedcbba9",
+      "runnerSha256": "e151d0a895685673631df23747c064381e10231438284cb414c9305b205e3642",
+      "evidence": "output/playwright/e4-tonconnect-intent-legacy-preparation"
+    }
+  ],
+  "findings": [],
+  "acceptance": [
+    "new native suite drives actual tcConnect with distinct synthetic payloads before SDK status callbacks",
+    "late old callbacks after preparation retirement cannot adopt new recipient",
+    "wrong/missing/malformed payload does not mutate feedback,generation or newer intent",
+    "oldpayload during new pending preparation and installed intent preserves newflow",
+    "matching callback consumes once before POST; duplicate does not interrupt active response",
+    "valid response and explicit retry with fresh challenge succeed; reused issuedchallenge rejected",
+    "route,network,memo,no_tag,tagcontract and edit-awayback retire old intent",
+    "null disconnect revokes; failed owned handoff clears intent",
+    "verification response-time edit guard retained",
+    "90 total browser cases on same candidate pass without unexpected writes/page errors"
+  ],
+  "fixtureAdaptations": [
+    "Binding suite explicitly seeds legitimate matching intent to isolate downstream response handling; new lifecycle suite uses full tcConnect flow.",
+    "Preparation suite includes proof.payload and new challenge on retry. Unowned non-null statuses are now expected to preserve owned preparation; stale matching proofs remain rejected."
+  ],
+  "nextPrerequisiteReview": {
+    "criterion": "TONCONNECT_VERIFICATION_WAIT_RECOVERY",
+    "command": "node docs/e4-tonconnect-intent/reproduce-next.cjs",
+    "independentResult": "CONFIRMED: actual complete prepare flow followed by stalled verification leaves tcPending true after simulated1hour,zero active deadlines,and blocks newpayload preparation."
+  },
+  "scopeLimits": [
+    "Verification request/body wait remains unbounded and is the next confirmed task. No full E4 closure."
+  ],
+  "realNetworkCalls": 0,
+  "walletSignatures": 0,
+  "moneyWrites": 0
+}

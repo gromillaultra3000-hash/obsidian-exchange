@@ -79,7 +79,7 @@ async function main() {
                 await page.locator('#currency').selectOption('BTC'); await page.locator('#address').fill('bc1' + 'q'.repeat(87));
             }
             if (scenario === 'away-back') {await page.locator('#address').fill('other'); await page.locator('#address').fill(initial);}
-            const valid = {payload: 'synthetic-payload'};
+            const valid = {payload: 'synthetic-payload-1'};
             if (scenario === 'timeout') await page.clock.fastForward(8001);
             else if (scenario === 'stale-error' || scenario === 'retry') await pending[0].abort('failed');
             else await pending[0].fulfill({status: scenario === 'http-error' ? 403 : 200, contentType: 'application/json',
@@ -99,7 +99,7 @@ async function main() {
                 await page.waitForFunction(() => window.__modalStarted === true);
                 if (scenario === 'modal-edit' || scenario === 'modal-edit-proof') await page.locator('#address').fill('edited while modal opening');
                 if (scenario === 'modal-edit-proof' || scenario === 'modal-proof') {
-                    await page.evaluate(() => tcHandleWallet({account: {address: 'synthetic'}, connectItems: {tonProof: {proof: {synthetic: true}}}}));
+                    await page.evaluate(() => tcHandleWallet({account: {address: 'synthetic'}, connectItems: {tonProof: {proof: {payload: 'synthetic-payload-1', synthetic: true}}}}));
                     assert.equal(report.verificationRequests.filter(x => x.width === width).length, scenario === 'modal-proof' ? 1 : 0);
                 }
                 else if (scenario === 'modal-status') await page.evaluate(() => tcHandleWallet({account: {address: 'synthetic replacement'}}));
@@ -107,15 +107,16 @@ async function main() {
             }
             await page.evaluate(() => window.__preparation);
             let calls = await page.evaluate(() => window.__calls);
-            const succeeded = ['success', 'own-disconnect', 'duplicate'].includes(scenario);
+            // Unowned status events cannot invalidate the current explicit intent.
+            const succeeded = ['success', 'own-disconnect', 'duplicate', 'disconnect-status', 'modal-status'].includes(scenario);
             assert.equal(calls.modals.length, succeeded || scenario.startsWith('modal-') ? 1 : 0, 'stale/failed preparation must not open wallet modal');
-            if (scenario.startsWith('modal-')) assert.equal(calls.closes, 1, 'stale owned opening is closed');
+            if (scenario.startsWith('modal-')) assert.equal(calls.closes, scenario === 'modal-status' ? 0 : 1, 'only stale owned opening is closed');
             if (!succeeded) assert.equal(calls.params.at(-1), null, 'failed preparation clears SDK parameters');
             if (scenario === 'retry') {
                 await page.evaluate(() => {window.__preparation = tcConnect();});
                 for (let n = 0; pending.length < 2 && n < 100; n++) await new Promise(resolve => setTimeout(resolve, 10));
                 assert.equal(pending.length, 2);
-                await pending[1].fulfill({contentType: 'application/json', body: JSON.stringify(valid)});
+                await pending[1].fulfill({contentType: 'application/json', body: JSON.stringify({payload: 'synthetic-payload-2'})});
                 await page.evaluate(() => window.__preparation);
                 calls = await page.evaluate(() => window.__calls); assert.equal(calls.modals.length, 1);
             }

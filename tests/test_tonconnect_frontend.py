@@ -134,7 +134,7 @@ function fetch(url, opts) {
 """
 
 body = ("const __OFF = %s;\nwindow.__oeOfferings = __OFF;\n"
-        "let tcUI = null;\nlet tcPending = false;\nlet tcRecipientGeneration = 0;\nlet tcPreparation = null;\n"
+        "let tcUI = null;\nlet tcPending = false;\nlet tcRecipientGeneration = 0;\nlet tcPreparation = null;\nlet tcConnectionIntent = null;\n"
         "_els.network.value = __OFF.find(o => o.code === 'TON').networks[0].code;\n" % OFFERINGS) + "\n".join(
     extract_function(src, n) for n in
     ("currentOffering", "buyRouteSignature", "tcInvalidateRecipient", "tcRecipientState",
@@ -142,6 +142,7 @@ body = ("const __OFF = %s;\nwindow.__oeOfferings = __OFF;\n"
 
 
 def run_js(scenario):
+    scenario = scenario.replace("\ntcHandleWallet(", "\ntcConnectionIntent = {state: tcRecipientState(), payload: 'synthetic-intent'};\ntcHandleWallet(")
     js = DOM_STUB + "\n" + body + "\n" + scenario + "\n"
     with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False, encoding="utf-8") as f:
         f.write(js)
@@ -184,7 +185,7 @@ res = run_js("""
 _els['currency'].value = 'TON';
 _fetchReply['/api/tonconnect/verify'] = { verified: true, address: %s, message: 'ок' };
 tcHandleWallet({ account: { address: '0:aaa' },
-                 connectItems: { tonProof: { proof: { signature: 'x' } } } })
+                 connectItems: { tonProof: { proof: { signature: 'x', payload: 'synthetic-intent' } } } })
   .then(() => console.log(JSON.stringify({
       address: _els['address'].value,
       msg: _els['tc-msg'].textContent,
@@ -209,7 +210,7 @@ _els['address'].value = 'НАБРАНО-РУКАМИ';
 _fetchReply['/api/tonconnect/verify'] =
   { verified: false, address: null, message: 'Подпись не подтверждает владение адресом.' };
 tcHandleWallet({ account: { address: '0:aaa' },
-                 connectItems: { tonProof: { proof: { signature: 'x' } } } })
+                 connectItems: { tonProof: { proof: { signature: 'x', payload: 'synthetic-intent' } } } })
   .then(() => console.log(JSON.stringify({
       address: _els['address'].value,
       msg: _els['tc-msg'].textContent,
@@ -230,7 +231,7 @@ res = run_js("""
 _els['currency'].value = 'TON';
 _fetchReply['/api/tonconnect/verify'] = { verified: true, address: '', message: 'ок' };
 tcHandleWallet({ account: { address: '0:aaa' },
-                 connectItems: { tonProof: { proof: { signature: 'x' } } } })
+                 connectItems: { tonProof: { proof: { signature: 'x', payload: 'synthetic-intent' } } } })
   .then(() => console.log(JSON.stringify({
       address: _els['address'].value, cls: _els['tc-msg'].className })));
 """)
@@ -246,7 +247,7 @@ tcHandleWallet({ account: { address: '0:aaa' }, connectItems: {} })
       calls: _fetchCalls })));
 """)
 check("кошелёк без подписи → на сервер не ходим", res["calls"] == [])
-check("кошелёк без подписи → сказано ввести вручную", "вручную" in res["msg"])
+check("кошелёк без подписи → событию без кода не приписываем текущую попытку", res["msg"] == "")
 check("кошелёк без подписи → поле адреса пустое", res["address"] == "")
 
 # Сеть отвалилась на проверке.
@@ -255,7 +256,7 @@ _els['currency'].value = 'TON';
 _els['address'].value = 'НАБРАНО-РУКАМИ';
 _fetchReply['/api/tonconnect/verify'] = 'boom';
 tcHandleWallet({ account: { address: '0:aaa' },
-                 connectItems: { tonProof: { proof: { signature: 'x' } } } })
+                 connectItems: { tonProof: { proof: { signature: 'x', payload: 'synthetic-intent' } } } })
   .then(() => console.log(JSON.stringify({
       address: _els['address'].value, msg: _els['tc-msg'].textContent })));
 """)
@@ -269,7 +270,7 @@ res = run_js("""
 _els['currency'].value = 'TON';
 _fetchReply['/api/tonconnect/verify'] = { verified: true, address: %s };
 tcHandleWallet({ account: { address: '0:deadbeef' },
-                 connectItems: { tonProof: { proof: { signature: 'x' } } } })
+                 connectItems: { tonProof: { proof: { signature: 'x', payload: 'synthetic-intent' } } } })
   .then(() => console.log(JSON.stringify({ address: _els['address'].value })));
 """ % json.dumps(OTHER_ADDR))
 check("адрес кошелька из запроса игнорируется, берётся ответ сервера",

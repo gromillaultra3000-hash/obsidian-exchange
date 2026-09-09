@@ -1,0 +1,22 @@
+{
+  "reviewer": "primary /root independent of rollout author /root/buy_custody_ops",
+  "recordedAt": "2026-09-09T01:16:55.483352+00:00",
+  "result": "PASS",
+  "findings": [],
+  "verified": [
+    "Artifact digests match pinned plan",
+    "Scope two declarations,handler preamble,tcConnect only;verification request/response and submission paths unchanged",
+    "17 scope/drift/writer/atomic apply/reconcile/exact rollback checks inspected",
+    "Backend make_payload random96bit nonce and check_payload/proof_message binding inspected;server replay semantics not changed",
+    "58 live inputs include SDK and nonce module;57 unrelated inputs/four services preserved",
+    "Backup metadata/bytes before atomic publication,public exact check and runtime reconcile"
+  ],
+  "inputSHA256": {
+    "docs/e4-tonconnect-intent/rollout.py": "28f220f27a4e6212a0cd03d6076d3ed66474f9045b2643cb952b5124dcba6ff6",
+    "docs/e4-tonconnect-intent/check-rollout.py": "e556ca72bf00d6ef0bc0d673f5c9ed4ec6a5dc8509d454eba889cadaa058dc9a",
+    "docs/e4-tonconnect-intent/rollout-checks.json": "14f639ae67edf3f79a3635af466988d8f977792760262cf1da705ead2fc61b21",
+    "docs/e4-tonconnect-intent/plan.json": "4c71e055ce54a264a10f887f8e65346f1fde7d4d25e81fc6429c42070f327c96",
+    "docs/e4-tonconnect-intent/nonce-review.json": "4cfc19e0ffa5a7a2fba382bf02ada7b5f7f6ca75b655f5691039420761c5fcf4",
+    "docs/e4-wallet-cross-tab/rollout.py": "d2097d220500618ae684a46ac7e3eaf3caaa989a6915fed4301c6ce3f3b5fa7d"
+  }
+}

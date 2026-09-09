@@ -16,7 +16,7 @@ function setup() {
         setTimeout(fn) {timers.push(fn); return timers.length;}, clearTimeout() {},
         fetch(url, options) {assert.equal(url, '/api/tonconnect/payload');
             return new Promise((resolve, reject) => pending.push({resolve, reject, signal: options.signal}));}, ui});
-    vm.runInContext('let tcUI=ui,tcPending=false,tcPreparation=null,tcRecipientGeneration=0;\n' +
+    vm.runInContext('let tcUI=ui,tcPending=false,tcPreparation=null,tcRecipientGeneration=0,tcConnectionIntent=null; const tcConnectionPayloads=new Set();\n' +
         ['buyRouteSignature','currentOffering','tcSay','tcInvalidateRecipient','tcRecipientState','tcAvailable','tcInit','tcHandleWallet','tcConnect'].map(extract).join('\n'), context);
     ui.disconnect = async () => {await vm.runInContext('tcHandleWallet(null)', context); ui.connected = false;};
     return {nodes, pending, timers, calls, ui, context, call: () => vm.runInContext('tcConnect()', context)};

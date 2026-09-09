@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "e4-next-prerequisite.v1",
+  "criterion": "TONCONNECT_VERIFICATION_WAIT_RECOVERY",
+  "status": "OBSERVED_UNCLOSED",
+  "sourceSha256": "43295c726ddc86a05835314196b022f92593c0d842e060da7c908b52bedcbba9",
+  "source": "relay/webapp.html tcHandleWallet verification wait",
+  "reproductionCommand": "node docs/e4-tonconnect-intent/reproduce-next.cjs",
+  "reproductionSha256": "9eb95c2aafd4ab2239829a8842b996f4e59966d00e91a154feb85ee332f5a595",
+  "result": {
+    "criterion": "TONCONNECT_VERIFICATION_WAIT_RECOVERY",
+    "simulatedElapsedMs": 3600000,
+    "verificationPending": true,
+    "activeDeadlineTimers": 0,
+    "newPreparationRequestsAfterRetry": 0,
+    "realNetworkCalls": 0,
+    "walletSignatures": 0,
+    "moneyWrites": 0
+  },
+  "boundaries": "Actual full intent/preparation/verification helpers;fake clock and indefinitely deferred synthetic fetch,no real network/signatures/money",
+  "finding": "A stalled verification has no deadline and retains tcPending indefinitely,blocking all new connection preparation until reload",
+  "next": "Bound verification request/body wait and release pending state for safe explicit retry without accepting obsolete completion"
+}

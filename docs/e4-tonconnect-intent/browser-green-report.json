@@ -1,0 +1,165 @@
+{
+  "sourceSha256": "43295c726ddc86a05835314196b022f92593c0d842e060da7c908b52bedcbba9",
+  "runnerSha256": "61b5e25dc00e365a83bdd33b43a5b07e1ac99c057093fe0f5ef0dc341aee5256",
+  "playwrightVersion": "1.62.0",
+  "checks": [
+    {
+      "width": 320,
+      "scenario": "stale-after-retirement",
+      "result": "PASS",
+      "payloadReads": 1,
+      "verificationRequests": 0
+    },
+    {
+      "width": 320,
+      "scenario": "valid",
+      "result": "PASS",
+      "payloadReads": 1,
+      "verificationRequests": 1
+    },
+    {
+      "width": 320,
+      "scenario": "unsolicited",
+      "result": "PASS",
+      "payloadReads": 0,
+      "verificationRequests": 0
+    },
+    {
+      "width": 320,
+      "scenario": "wrong-nonce",
+      "result": "PASS",
+      "payloadReads": 1,
+      "verificationRequests": 1
+    },
+    {
+      "width": 320,
+      "scenario": "duplicate",
+      "result": "PASS",
+      "payloadReads": 1,
+      "verificationRequests": 1
+    },
+    {
+      "width": 320,
+      "scenario": "old-during-new-prep",
+      "result": "PASS",
+      "payloadReads": 2,
+      "verificationRequests": 1
+    },
+    {
+      "width": 320,
+      "scenario": "old-during-new-intent",
+      "result": "PASS",
+      "payloadReads": 2,
+      "verificationRequests": 1
+    },
+    {
+      "width": 320,
+      "scenario": "away-back",
+      "result": "PASS",
+      "payloadReads": 1,
+      "verificationRequests": 0
+    },
+    {
+      "width": 320,
+      "scenario": "null-disconnect",
+      "result": "PASS",
+      "payloadReads": 1,
+      "verificationRequests": 0
+    },
+    {
+      "width": 320,
+      "scenario": "retry-after-error",
+      "result": "PASS",
+      "payloadReads": 2,
+      "verificationRequests": 2
+    },
+    {
+      "width": 320,
+      "scenario": "late-verify-edit",
+      "result": "PASS",
+      "payloadReads": 1,
+      "verificationRequests": 1
+    },
+    {
+      "width": 390,
+      "scenario": "stale-after-retirement",
+      "result": "PASS",
+      "payloadReads": 1,
+      "verificationRequests": 0
+    },
+    {
+      "width": 390,
+      "scenario": "valid",
+      "result": "PASS",
+      "payloadReads": 1,
+      "verificationRequests": 1
+    },
+    {
+      "width": 390,
+      "scenario": "unsolicited",
+      "result": "PASS",
+      "payloadReads": 0,
+      "verificationRequests": 0
+    },
+    {
+      "width": 390,
+      "scenario": "wrong-nonce",
+      "result": "PASS",
+      "payloadReads": 1,
+      "verificationRequests": 1
+    },
+    {
+      "width": 390,
+      "scenario": "duplicate",
+      "result": "PASS",
+      "payloadReads": 1,
+      "verificationRequests": 1
+    },
+    {
+      "width": 390,
+      "scenario": "old-during-new-prep",
+      "result": "PASS",
+      "payloadReads": 2,
+      "verificationRequests": 1
+    },
+    {
+      "width": 390,
+      "scenario": "old-during-new-intent",
+      "result": "PASS",
+      "payloadReads": 2,
+      "verificationRequests": 1
+    },
+    {
+      "width": 390,
+      "scenario": "away-back",
+      "result": "PASS",
+      "payloadReads": 1,
+      "verificationRequests": 0
+    },
+    {
+      "width": 390,
+      "scenario": "null-disconnect",
+      "result": "PASS",
+      "payloadReads": 1,
+      "verificationRequests": 0
+    },
+    {
+      "width": 390,
+      "scenario": "retry-after-error",
+      "result": "PASS",
+      "payloadReads": 2,
+      "verificationRequests": 2
+    },
+    {
+      "width": 390,
+      "scenario": "late-verify-edit",
+      "result": "PASS",
+      "payloadReads": 1,
+      "verificationRequests": 1
+    }
+  ],
+  "unexpectedWrites": [],
+  "pageErrors": [],
+  "browserVersion": "152.0.7977.64",
+  "result": "PASS"
+}
