@@ -134,7 +134,7 @@ function fetch(url, opts) {
 """
 
 body = ("const __OFF = %s;\nwindow.__oeOfferings = __OFF;\n"
-        "let tcUI = null;\nlet tcPending = false;\nlet tcRecipientGeneration = 0;\n"
+        "let tcUI = null;\nlet tcPending = false;\nlet tcRecipientGeneration = 0;\nlet tcPreparation = null;\n"
         "_els.network.value = __OFF.find(o => o.code === 'TON').networks[0].code;\n" % OFFERINGS) + "\n".join(
     extract_function(src, n) for n in
     ("currentOffering", "buyRouteSignature", "tcInvalidateRecipient", "tcRecipientState",

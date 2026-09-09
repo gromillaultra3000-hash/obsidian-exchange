@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "e4-next-prerequisite.v1",
+  "criterion": "TONCONNECT_CONNECTION_INTENT_LIFETIME",
+  "status": "OBSERVED_UNCLOSED",
+  "sourceSha256": "537671a07f77b520a8445213f604974829a2abf86d926325174b766a368258e3",
+  "reproductionCommand": "node docs/e4-tonconnect-preparation/reproduce-next.cjs",
+  "reproductionSha256": "558e4ff5d3759021d0b583e433f87c5318e097de88bb4b633d7954628dc9ef8d",
+  "result": {
+    "criterion": "TONCONNECT_CONNECTION_INTENT_LIFETIME",
+    "closedObsoleteOpening": 1,
+    "preparationRetired": true,
+    "laterCallbackVerificationRequests": 1,
+    "newRecipient": "EQCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+    "finalRecipient": "EQBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+    "lateOldIntentOverwritesRecipient": true,
+    "realNetworkCalls": 0,
+    "walletSignatures": 0,
+    "moneyWrites": 0
+  },
+  "boundaries": "Actual tcConnect,tcHandleWallet and state helpers; synthetic in-process fetch and SDK with deferred open. No real signature,network,money. Sequence models a callback after modal close; vendored SDK inspection belongs to independent ops review.",
+  "finding": "After obsolete openModal completes and preparation token is cleared, a later old-wallet callback starts verification against the newly edited recipient and replaces it.",
+  "next": "Preserve connection intent ownership through late SDK callbacks after preparation retires; obsolete connections must not adopt current recipient intent."
+}

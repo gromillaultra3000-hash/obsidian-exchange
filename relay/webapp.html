@@ -1616,6 +1616,7 @@
         let tcUI = null;
         let tcPending = false;
         let tcRecipientGeneration = 0;
+        let tcPreparation = null;
 
         function tcInvalidateRecipient() {
             tcRecipientGeneration += 1;
@@ -1667,9 +1668,16 @@
         // Факт подключения кошелька сам по себе ничего не доказывает: подпись
         // проверяется ключом счёта из блокчейна, и только сервер это видел.
         async function tcHandleWallet(w) {
-            // Every SDK status event invalidates an older verification, including disconnect.
+            // Only our awaited disconnect may advance the preparation snapshot.
+            // User edits or a replacement wallet must never be rebound to old intent.
+            const preparing = tcPreparation;
+            const beforeState = tcRecipientState();
+            const stalePreparation = preparing && (!tcAvailable() || preparing.state !== beforeState);
+            const ownDisconnect = !w && preparing && preparing.disconnecting
+                && !stalePreparation;
             tcInvalidateRecipient();
-            if (!w || tcPending) return;
+            if (ownDisconnect) preparing.state = tcRecipientState();
+            if (!w || tcPending || stalePreparation) return;
             const recipientState = tcRecipientState();
             if (!recipientState) return;
             const isCurrent = () => tcRecipientState() === recipientState;
@@ -1731,40 +1739,70 @@
         }
 
         async function tcConnect() {
-            if (!tcAvailable()) return;
+            if (!tcAvailable() || tcPreparation || tcPending) return;
+            const state = tcRecipientState();
+            if (!state) return;
+            const attempt = { state, disconnecting: false };
+            tcPreparation = attempt;
+            const isCurrent = () => tcPreparation === attempt && tcAvailable()
+                && attempt.state === tcRecipientState();
             const btn = document.getElementById('tc-connect');
             btn.disabled = true;
+            let ui = null;
+            let handedOff = false;
+            let timer = null;
             try {
-                const ui = tcInit();
-                // Код одноразовый и живёт минуты: берём его ПЕРЕД каждым
-                // подключением, а не при загрузке страницы.
+                ui = tcInit();
+                if (!isCurrent()) return;
                 tcSay('Готовим проверочный код…');
                 ui.setConnectRequestParameters({ state: 'loading' });
-                let payload = '';
-                try {
-                    const r = await fetch('/api/tonconnect/payload', {
-                        headers: { 'X-Telegram-Init-Data': tg.initData || '' } });
-                    const d = await r.json().catch(() => ({}));
-                    payload = (d && d.payload) || '';
-                } catch (e) { payload = ''; }
-                if (!payload) {
-                    // Без кода подпись бессмысленна — подключаться «просто так»
-                    // не станем: адрес без доказательства ничем не лучше
-                    // введённого руками, но выглядел бы надёжнее.
-                    ui.setConnectRequestParameters(null);
+                const controller = new AbortController();
+                timer = setTimeout(() => controller.abort(), 8000);
+                const r = await fetch('/api/tonconnect/payload', {
+                    headers: { 'X-Telegram-Init-Data': tg.initData || '' },
+                    signal: controller.signal });
+                const d = await r.json().catch(() => ({}));
+                clearTimeout(timer);
+                timer = null;
+                if (!isCurrent()) return;
+                if (controller.signal.aborted) throw new Error('Preparation expired');
+                const payload = d && d.payload;
+                if (!r.ok || typeof payload !== 'string' || !payload.trim() || payload.length > 4096) {
                     tcSay('Подключение сейчас недоступно. Введите адрес вручную.', 'invalid');
                     return;
                 }
+                // The expected SDK null status is accepted only while this unchanged
+                // attempt awaits its own disconnect. Other statuses retire the attempt.
+                if (ui.connected) {
+                    attempt.disconnecting = true;
+                    try { await ui.disconnect(); }
+                    finally { attempt.disconnecting = false; }
+                    if (ui.connected) throw new Error('Wallet remains connected');
+                }
+                if (!isCurrent()) return;
                 ui.setConnectRequestParameters({ state: 'ready', value: { tonProof: payload } });
-                // Повторное подключение того же кошелька не выдаст новую подпись,
-                // пока прошлая сессия жива, — сначала отсоединяемся.
-                if (ui.connected) { try { await ui.disconnect(); } catch (e) {} }
                 tcSay('Выберите кошелёк…');
                 await ui.openModal();
+                if (!isCurrent()) {
+                    // This serialized attempt still owns the modal it just opened.
+                    // Retire a handoff that became obsolete while the SDK awaited opening.
+                    try { await ui.closeModal(); } catch (_) {}
+                    return;
+                }
+                handedOff = true;
             } catch (e) {
-                tcSay('Не удалось открыть кошелёк. Введите адрес вручную.', 'invalid');
+                if (isCurrent()) tcSay('Не удалось открыть кошелёк. Введите адрес вручную.', 'invalid');
             } finally {
-                btn.disabled = false;
+                if (timer !== null) clearTimeout(timer);
+                if (tcPreparation === attempt) {
+                    // Keep the proof available to the opened SDK modal; clear only
+                    // preparations that never handed off successfully.
+                    if (ui && !handedOff) {
+                        try { ui.setConnectRequestParameters(null); } catch (_) {}
+                    }
+                    tcPreparation = null;
+                    btn.disabled = false;
+                }
             }
         }
 

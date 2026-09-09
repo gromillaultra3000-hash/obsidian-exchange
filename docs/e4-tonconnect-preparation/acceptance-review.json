@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "e4-tonconnect-preparation-acceptance-review.v1",
+  "reviewer": "/root/e4_gap_review",
+  "timestamp": "2026-09-09T01:08:31.314139+00:00",
+  "result": "PASS",
+  "sourceSha256": "537671a07f77b520a8445213f604974829a2abf86d926325174b766a368258e3",
+  "runnerSha256": "7a43688040123431c314d984ac24e39bd86323dcd3a75dd3b5934dae3098b06e",
+  "scope": [
+    "tcPreparation serialized ownership",
+    "tcConnect payload/JSON/disconnect/openModal checkpoints and cleanup",
+    "tcHandleWallet expected disconnect and active stale preparation guard",
+    "docs/e4-tonconnect-preparation/contract.md"
+  ],
+  "browserEvidence": "output/playwright/e4-tonconnect-preparation-proof-green",
+  "baselineEvidence": "output/playwright/e4-tonconnect-preparation-proof-red",
+  "browserCases": 38,
+  "adversarialChecks": 19,
+  "adversarialCommand": "node tests/e4_tonconnect_preparation_adversarial.cjs",
+  "findings": [
+    {
+      "id": "DEFERRED_OPENING_INTENT_CHANGE",
+      "origin": "independent ops reviewer",
+      "disposition": "Fixed within owned pending preparation: postawait intent check closes owned stale modal and clears parameters; native modal-edit/status pass."
+    },
+    {
+      "id": "ACTIVE_OBSOLETE_PREPARATION_PROOF_CALLBACK",
+      "origin": "independent ops reviewer SDK inspection",
+      "disposition": "Fixed while tcPreparation exists: stale callback cannot verify; native staleproof0verification and sameintentproof1mockverification pass."
+    }
+  ],
+  "acceptance": [
+    "eligible success retains ready proof and opens one synthetic modal",
+    "same-intent own disconnect null status rebinds generation without discarding preparation",
+    "route/edit-awayback and SDKreplacement during disconnect cannot rebind stale snapshot",
+    "payload body delay,staleerrors,invalidHTTP/payload,timeout and lateafterabort suppress opening",
+    "duplicatecalls and pendingverification block extra preparation",
+    "failed obsolete SDK parameters cleared; ownedbutton restored; explicit retry succeeds",
+    "active pending modal becoming stale closes on resolution; proofcallback guard remains while active",
+    "metadata replacement with equivalent current route remains eligible",
+    "final baseline opens oldTONmodal afterBTCselection; candidate suppresses it"
+  ],
+  "scopeLimits": [
+    "PASS applies only while the preparation token owns the asynchronous operation. It does not establish ownership of all later SDK callbacks after token retirement.",
+    "TONCONNECT_CONNECTION_INTENT_LIFETIME remains independently reproduced and is the next item. SDK close does not prove cancellation of embedded connection work."
+  ],
+  "realNetworkCalls": 0,
+  "walletSignatures": 0,
+  "moneyWrites": 0
+}

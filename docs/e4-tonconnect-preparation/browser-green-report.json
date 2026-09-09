@@ -1,0 +1,303 @@
+{
+  "sourceSha256": "537671a07f77b520a8445213f604974829a2abf86d926325174b766a368258e3",
+  "runnerSha256": "7a43688040123431c314d984ac24e39bd86323dcd3a75dd3b5934dae3098b06e",
+  "playwrightVersion": "1.62.0",
+  "checks": [
+    {
+      "width": 320,
+      "scenario": "route",
+      "result": "PASS",
+      "payloadReads": 1,
+      "modalCalls": 0
+    },
+    {
+      "width": 320,
+      "scenario": "success",
+      "result": "PASS",
+      "payloadReads": 1,
+      "modalCalls": 1
+    },
+    {
+      "width": 320,
+      "scenario": "own-disconnect",
+      "result": "PASS",
+      "payloadReads": 1,
+      "modalCalls": 1
+    },
+    {
+      "width": 320,
+      "scenario": "disconnect-route",
+      "result": "PASS",
+      "payloadReads": 1,
+      "modalCalls": 0
+    },
+    {
+      "width": 320,
+      "scenario": "disconnect-away-back",
+      "result": "PASS",
+      "payloadReads": 1,
+      "modalCalls": 0
+    },
+    {
+      "width": 320,
+      "scenario": "disconnect-status",
+      "result": "PASS",
+      "payloadReads": 1,
+      "modalCalls": 0
+    },
+    {
+      "width": 320,
+      "scenario": "disconnect-error",
+      "result": "PASS",
+      "payloadReads": 1,
+      "modalCalls": 0
+    },
+    {
+      "width": 320,
+      "scenario": "modal-edit",
+      "result": "PASS",
+      "payloadReads": 1,
+      "modalCalls": 1
+    },
+    {
+      "width": 320,
+      "scenario": "modal-status",
+      "result": "PASS",
+      "payloadReads": 1,
+      "modalCalls": 1
+    },
+    {
+      "width": 320,
+      "scenario": "modal-edit-proof",
+      "result": "PASS",
+      "payloadReads": 1,
+      "modalCalls": 1
+    },
+    {
+      "width": 320,
+      "scenario": "modal-proof",
+      "result": "PASS",
+      "payloadReads": 1,
+      "modalCalls": 1
+    },
+    {
+      "width": 320,
+      "scenario": "away-back",
+      "result": "PASS",
+      "payloadReads": 1,
+      "modalCalls": 0
+    },
+    {
+      "width": 320,
+      "scenario": "json-delay",
+      "result": "PASS",
+      "payloadReads": 1,
+      "modalCalls": 0
+    },
+    {
+      "width": 320,
+      "scenario": "stale-error",
+      "result": "PASS",
+      "payloadReads": 1,
+      "modalCalls": 0
+    },
+    {
+      "width": 320,
+      "scenario": "http-error",
+      "result": "PASS",
+      "payloadReads": 1,
+      "modalCalls": 0
+    },
+    {
+      "width": 320,
+      "scenario": "bad-payload",
+      "result": "PASS",
+      "payloadReads": 1,
+      "modalCalls": 0
+    },
+    {
+      "width": 320,
+      "scenario": "duplicate",
+      "result": "PASS",
+      "payloadReads": 1,
+      "modalCalls": 1
+    },
+    {
+      "width": 320,
+      "scenario": "retry",
+      "result": "PASS",
+      "payloadReads": 2,
+      "modalCalls": 1
+    },
+    {
+      "width": 320,
+      "scenario": "timeout",
+      "result": "PASS",
+      "payloadReads": 1,
+      "modalCalls": 0
+    },
+    {
+      "width": 390,
+      "scenario": "route",
+      "result": "PASS",
+      "payloadReads": 1,
+      "modalCalls": 0
+    },
+    {
+      "width": 390,
+      "scenario": "success",
+      "result": "PASS",
+      "payloadReads": 1,
+      "modalCalls": 1
+    },
+    {
+      "width": 390,
+      "scenario": "own-disconnect",
+      "result": "PASS",
+      "payloadReads": 1,
+      "modalCalls": 1
+    },
+    {
+      "width": 390,
+      "scenario": "disconnect-route",
+      "result": "PASS",
+      "payloadReads": 1,
+      "modalCalls": 0
+    },
+    {
+      "width": 390,
+      "scenario": "disconnect-away-back",
+      "result": "PASS",
+      "payloadReads": 1,
+      "modalCalls": 0
+    },
+    {
+      "width": 390,
+      "scenario": "disconnect-status",
+      "result": "PASS",
+      "payloadReads": 1,
+      "modalCalls": 0
+    },
+    {
+      "width": 390,
+      "scenario": "disconnect-error",
+      "result": "PASS",
+      "payloadReads": 1,
+      "modalCalls": 0
+    },
+    {
+      "width": 390,
+      "scenario": "modal-edit",
+      "result": "PASS",
+      "payloadReads": 1,
+      "modalCalls": 1
+    },
+    {
+      "width": 390,
+      "scenario": "modal-status",
+      "result": "PASS",
+      "payloadReads": 1,
+      "modalCalls": 1
+    },
+    {
+      "width": 390,
+      "scenario": "modal-edit-proof",
+      "result": "PASS",
+      "payloadReads": 1,
+      "modalCalls": 1
+    },
+    {
+      "width": 390,
+      "scenario": "modal-proof",
+      "result": "PASS",
+      "payloadReads": 1,
+      "modalCalls": 1
+    },
+    {
+      "width": 390,
+      "scenario": "away-back",
+      "result": "PASS",
+      "payloadReads": 1,
+      "modalCalls": 0
+    },
+    {
+      "width": 390,
+      "scenario": "json-delay",
+      "result": "PASS",
+      "payloadReads": 1,
+      "modalCalls": 0
+    },
+    {
+      "width": 390,
+      "scenario": "stale-error",
+      "result": "PASS",
+      "payloadReads": 1,
+      "modalCalls": 0
+    },
+    {
+      "width": 390,
+      "scenario": "http-error",
+      "result": "PASS",
+      "payloadReads": 1,
+      "modalCalls": 0
+    },
+    {
+      "width": 390,
+      "scenario": "bad-payload",
+      "result": "PASS",
+      "payloadReads": 1,
+      "modalCalls": 0
+    },
+    {
+      "width": 390,
+      "scenario": "duplicate",
+      "result": "PASS",
+      "payloadReads": 1,
+      "modalCalls": 1
+    },
+    {
+      "width": 390,
+      "scenario": "retry",
+      "result": "PASS",
+      "payloadReads": 2,
+      "modalCalls": 1
+    },
+    {
+      "width": 390,
+      "scenario": "timeout",
+      "result": "PASS",
+      "payloadReads": 1,
+      "modalCalls": 0
+    }
+  ],
+  "unexpectedWrites": [],
+  "verificationRequests": [
+    {
+      "width": 320,
+      "scenario": "modal-proof",
+      "body": {
+        "account": {
+          "address": "synthetic"
+        },
+        "proof": {
+          "synthetic": true
+        }
+      }
+    },
+    {
+      "width": 390,
+      "scenario": "modal-proof",
+      "body": {
+        "account": {
+          "address": "synthetic"
+        },
+        "proof": {
+          "synthetic": true
+        }
+      }
+    }
+  ],
+  "pageErrors": [],
+  "browserVersion": "152.0.7977.64",
+  "result": "PASS"
+}

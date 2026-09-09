@@ -1,0 +1,59 @@
+{
+  "result": "PASS",
+  "reviewer": "independent buy_custody_ops agent",
+  "recordedAt": "2026-09-09T01:07:11.713535+00:00",
+  "route": "E4/TONCONNECT_PREPARATION_ROUTE_BINDING",
+  "baseline_sha": "8815f80d9f1a2f11fc29737d3227e8d494d5a673e9b5f6b459ae3c8a0ed87a07",
+  "candidate_sha": "537671a07f77b520a8445213f604974829a2abf86d926325174b766a368258e3",
+  "rollout_sha": "2a672d0476c56bba2e5742635af0934999a22269f8be178a003abb45d7a1dc47",
+  "helper_sha": "d2097d220500618ae684a46ac7e3eaf3caaa989a6915fed4301c6ce3f3b5fa7d",
+  "inventory_sha": "dedb2a36d1c2448c36d7369ac745f961abc44fa08b7b7563db98da0897239f8c",
+  "scope": [
+    "tcPreparation declaration after tcRecipientGeneration",
+    "tcHandleWallet expected-disconnect preparation preamble",
+    "tcConnect serialized route-bound payload preparation"
+  ],
+  "findings": [
+    {
+      "id": "TC_BODY_ABORT_STALE_PREPARING_FEEDBACK",
+      "severity": "P2",
+      "status": "FIXED",
+      "trigger": "Abort during JSON body parsing was swallowed, leaving preparing text despite cleanup.",
+      "resolution": "Current aborted controller throws into owned failure feedback; stale attempts remain silent."
+    },
+    {
+      "id": "TC_DEFERRED_MODAL_OWNED_CLEANUP",
+      "severity": "P1",
+      "status": "FIXED",
+      "trigger": "Recipient changed while openModal awaited; unconditional handedOff retained obsolete ready proof.",
+      "resolution": "Recheck state after modal opening, close owned obsolete modal and clear parameters while serialized ownership is retained."
+    },
+    {
+      "id": "TC_PENDING_PREPARATION_EMBEDDED_CALLBACK",
+      "severity": "P1",
+      "status": "FIXED",
+      "trigger": "SDK openModal awaits discovery and can auto-connect embedded wallet before returning; status could otherwise verify against an edited recipient during pending preparation.",
+      "resolution": "tcHandleWallet tests preparation state and availability before incrementing generation; obsolete pending preparation cannot start verification."
+    }
+  ],
+  "assessment": [
+    "Preparation token serializes requests and binds exact existing recipient state, route and SDK availability; duplicate calls and calls during verification do not begin preparation. Rechecks follow initialization, JSON, disconnect and modal-opening completion.",
+    "Payload HTTP success and bounded nonempty string are required; 8-second abort covers response body and late completion. Failure/stale cleanup only acts for owned token and restores button; successful current modal handoff retains proof.",
+    "Own null disconnect may rebind only during awaited disconnect with unchanged original state. Recipient edits and replacement wallet statuses cannot rebind the old attempt; failed/still-connected disconnect prevents modal opening.",
+    "Actual vendored SDK and production copy matched by SHA; async discovery and embedded fire-and-forget behavior documented in sdk-review.json and SDK pinned as an additional read-only live input.",
+    "No active-preparation blockers remain in reviewed candidate. Lifecycle after preparation retirement is explicitly a separate open item, not covered by this PASS.",
+    "Only declaration, tcHandleWallet preamble and tcConnect changed; recipient response application, submit payloads, shared review, SDK bundle and backend unchanged.",
+    "Read-only production preflight passed with 57 live inputs and 4 unchanged services. Seventeen local scope/drift/atomic apply/reconcile/rollback checks passed."
+  ],
+  "next_boundary": {
+    "route": "E4/TONCONNECT_CONNECTION_INTENT_LIFETIME",
+    "status": "OPEN_FOLLOWUP",
+    "description": "After tcPreparation is cleared, a delayed SDK connection status can still be accepted against the current recipient. SDK closeModal only closes UI and does not cancel a pending embedded connection. Requires persistent connection-intent ownership across preparation retirement; current slice does not claim to suppress all later stale callbacks.",
+    "evidence": "docs/e4-tonconnect-preparation/sdk-review.json"
+  },
+  "public_baseline_sha": "e2ccb1ac0ed66546c5dad9dcadaec46ab0dbed70e5eec78edb6b3d717f6d4f60",
+  "live_input_count": 57,
+  "service_count": 4,
+  "production_mutated": false,
+  "verification": "docs/e4-tonconnect-preparation/rollout-checks.json"
+}

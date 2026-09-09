@@ -1,0 +1,12 @@
+{
+  "sourceSha256": "8815f80d9f1a2f11fc29737d3227e8d494d5a673e9b5f6b459ae3c8a0ed87a07",
+  "runnerSha256": "7a43688040123431c314d984ac24e39bd86323dcd3a75dd3b5934dae3098b06e",
+  "playwrightVersion": "1.62.0",
+  "checks": [],
+  "unexpectedWrites": [],
+  "verificationRequests": [],
+  "pageErrors": [],
+  "browserVersion": "152.0.7977.64",
+  "result": "FAIL",
+  "error": "AssertionError [ERR_ASSERTION]: stale/failed preparation must not open wallet modal\n\n1 !== 0\n\n    at main (/tmp/e4-review-browser-pdt5d110/runner.cjs:111:20)"
+}

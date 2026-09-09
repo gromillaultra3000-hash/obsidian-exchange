@@ -1,0 +1,22 @@
+{
+  "reviewer": "primary /root independent of rollout author /root/buy_custody_ops",
+  "recordedAt": "2026-09-09T01:06:28.213272+00:00",
+  "result": "PASS",
+  "findings": [],
+  "verified": [
+    "Pinned candidate/inventory/helper/wrapper digests match",
+    "Scope tcPreparation declaration,tcHandleWallet preamble,tcConnect only",
+    "17 scope/drift/writer/atomic apply/reconcile/exact rollback checks inspected",
+    "SDK source offsets independently inspected: async discovery/embedded connect and close semantics",
+    "SDK included as additional protected runtime input;57 inputs total,56 other preserved",
+    "Backup and metadata verification before atomic replacement;public exact bytes and four service identity checks"
+  ],
+  "inputSHA256": {
+    "docs/e4-tonconnect-preparation/rollout.py": "2a672d0476c56bba2e5742635af0934999a22269f8be178a003abb45d7a1dc47",
+    "docs/e4-tonconnect-preparation/check-rollout.py": "48e04f7a5e7a567c7d25dc13cbfa1ab6ef10e2f5cdb644059c13ab4b45ec4a94",
+    "docs/e4-tonconnect-preparation/rollout-checks.json": "dfd3d54080eece22925e1855296762199cb190186156daf4a9e3dd5d9cb8c5ae",
+    "docs/e4-tonconnect-preparation/plan.json": "73c692b523fe26a84748e8a2afb52aab1e334318c9cf3ff4c3058a642a78c284",
+    "docs/e4-tonconnect-preparation/sdk-review.json": "7dc2b797f02da6310fe2ea81b3a161b422da43301dbfc10a87ca9b66ddb5c41e",
+    "docs/e4-wallet-cross-tab/rollout.py": "d2097d220500618ae684a46ac7e3eaf3caaa989a6915fed4301c6ce3f3b5fa7d"
+  }
+}

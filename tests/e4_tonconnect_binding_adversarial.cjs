@@ -15,7 +15,7 @@ function setup() {
         validateAddress() {counts.validations++;}, updateTagField() {}, loadWallets() {counts.profiles++;},
         fetch(url, options) {assert.equal(url, '/api/tonconnect/verify'); assert.equal(options.method, 'POST');
             return new Promise((resolve, reject) => pending.push({resolve, reject}));}});
-    vm.runInContext('let tcPending=false,tcRecipientGeneration=0;\n' + ['buyRouteSignature','currentOffering','tcSay','tcInvalidateRecipient','tcRecipientState','tcHandleWallet'].map(extract).join('\n'), context);
+    vm.runInContext('let tcPending=false,tcRecipientGeneration=0,tcPreparation=null;\n' + ['buyRouteSignature','currentOffering','tcSay','tcInvalidateRecipient','tcRecipientState','tcHandleWallet'].map(extract).join('\n'), context);
     context.wallet = {account: {address: 'synthetic'}, connectItems: {tonProof: {proof: {synthetic: true}}}};
     return {nodes, pending, counts, context, call: () => vm.runInContext('tcHandleWallet(wallet)', context)};
 }

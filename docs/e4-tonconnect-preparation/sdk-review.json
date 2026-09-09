@@ -1,0 +1,25 @@
+{
+  "sdk": "relay-fastapi/static/js/tonconnect-ui-3.0.0.min.js",
+  "live_sdk": "/opt/obsidian-exchange/relay-fastapi/static/js/tonconnect-ui-3.0.0.min.js",
+  "sha256": "64964c3ae13c752bbabba990ddc51f7dd20759083368541d9199e04e3342656d",
+  "local_matches_production": true,
+  "observations": [
+    {
+      "finding": "public openModal awaits modal.open, then session analytics; completion is asynchronous",
+      "characterOffset": 428023
+    },
+    {
+      "finding": "modal.open awaits connector.getWallets before either embedded auto-connect or rendering wallet modal",
+      "characterOffset": 416746
+    },
+    {
+      "finding": "connectEmbeddedWallet calls connector.connect with current connect request parameters",
+      "characterOffset": 417307
+    },
+    {
+      "finding": "closeModal delegates synchronous modal.close; closes modal UI but does not cancel awaiting getWallets or embedded connect",
+      "characterOffset": 428312
+    }
+  ],
+  "implication": "Bind any wallet status arriving during pending preparation to its unchanged original recipient intent; clear and close stale owned modal completion."
+}

@@ -1,0 +1,19 @@
+{
+  "sourceSHA256": "537671a07f77b520a8445213f604974829a2abf86d926325174b766a368258e3",
+  "inlineScriptsSyntaxChecked": 2,
+  "pytest": {
+    "passed": 148,
+    "scope": "previous eight E4 suites plus tonconnect_binding_adversarial"
+  },
+  "legacyStandalone": {
+    "test_tonconnect_frontend.py": {
+      "result": "PASS",
+      "checks": 25
+    },
+    "test_tonconnect.py": {
+      "result": "PASS",
+      "checks": 69
+    }
+  },
+  "fixtureAdaptation": "Initialize tcPreparation=null in two existing extracted-handler fixtures; no assertion removed"
+}

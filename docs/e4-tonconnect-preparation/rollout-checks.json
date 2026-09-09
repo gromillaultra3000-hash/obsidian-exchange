@@ -1,0 +1,30 @@
+{
+  "result": "PASS",
+  "checks": [
+    "bounded_ton_preparation_scope_accepted",
+    "unrelated_bytes_rejected",
+    "submitBuyOrder_mutation_rejected",
+    "shared_review_mutation_rejected",
+    "submitSellOrder_mutation_rejected",
+    "verify_response_logic_mutation_rejected",
+    "buy_refresh_logic_mutation_rejected",
+    "recipient_generation_listener_mutation_rejected",
+    "empty_candidate_rejected",
+    "candidate_digest_tamper_rejected",
+    "unrelated_live_drift_rejected",
+    "target_metadata_drift_rejected",
+    "active_autopilot_rejected",
+    "service_state_drift_rejected",
+    "local_atomic_apply_metadata_pass",
+    "local_reconcile_pass",
+    "local_exact_rollback_metadata_pass"
+  ],
+  "baseline_sha": "8815f80d9f1a2f11fc29737d3227e8d494d5a673e9b5f6b459ae3c8a0ed87a07",
+  "candidate_sha": "537671a07f77b520a8445213f604974829a2abf86d926325174b766a368258e3",
+  "rehearsal": {
+    "target": "temporary directory only",
+    "runtime": "fixture unit states; real drift guards",
+    "public": "local fixture; real public GET checked separately in prepare",
+    "production_mutated": false
+  }
+}
