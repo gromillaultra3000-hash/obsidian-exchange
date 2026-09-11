@@ -1,0 +1,38 @@
+{
+  "route": "E4 / BOT_BUY_SELL_ACTION_REVIEW",
+  "status": "VERIFIED",
+  "full_E4": "IN_PROGRESS",
+  "observed_at": "2026-09-11T00:45:40.980850+00:00",
+  "implementation_commit": "cfe9dc3",
+  "deployment": "APPLY_PASS",
+  "targets": {
+    "/opt/obsidian-exchange/bot/action_review.py": "9be5153f6648e51978d372e71a69ccfee8ae46522da3eecbdc80c1be39e1513a",
+    "/opt/obsidian-exchange/bot/main_bot.py": "9a9bda2c02f3b00805a391e2c59f6d4c8c151ee9f2ee1e64ceb3e08926e17e6d"
+  },
+  "other_inputs_preserved": 60,
+  "other_services_preserved": 3,
+  "bot": {
+    "restart_count_in_slice": 1,
+    "MainPID": 3792398,
+    "NRestarts": 0,
+    "started": "2026-09-11T00:44:59Z",
+    "state": "active/running",
+    "process_count": 1
+  },
+  "rollback": "/var/lib/obsidian-exchange/deployment-preimages/e4-bot-buy-sell-20260911",
+  "checks": "docs/e4-bot-buy-sell/checks.json",
+  "reviews": [
+    "docs/e4-bot-buy-sell/acceptance-review.json",
+    "docs/e4-bot-buy-sell/ops-review.json"
+  ],
+  "secret_scan": {
+    "tool": "gitleaks",
+    "findings": 0
+  },
+  "limits": [
+    "Standard menu Buy/Sell only; bot SWAP and other specialized ingress not claimed complete.",
+    "Actual handlers tested with inert Telegram/store boundaries, no real user/order acceptance.",
+    "In-process receipts expire120s and on restart; Redis FSM cannot preserve approval authority."
+  ],
+  "next": "E4 / BOT_SWAP_ACTION_REVIEW"
+}

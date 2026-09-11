@@ -11,7 +11,25 @@ non-custodial wallet whose keys never reach the server.
 
 ## Active route
 
-`E4 / BOT_BUY_SELL_ACTION_REVIEW / explicit Buy and Sell review in Telegram before proceeding`
+`E4 / BOT_SWAP_ACTION_REVIEW / provider estimate and explicit confirmation before Telegram swap creation`
+
+2026-09-11: BOT_BUY_SELL_ACTION_REVIEW VERIFIED/deployed (`cfe9dc3`).
+Standard bot menu Buy/Sell now show executor/custody/KYC/fees/network/recipient
+and irreversible-risk review before order insert. Explicit one-use callback,
+owner/chat/all-FSM binding,120s expiry, frozen creation data; cancel/replay/stale/
+foreign callbacks cannot create. New-flow cancellation guarded; uncertain insert
+points to history/support without restoring approval. Sell no longer shows deposit
+address before review; callback creation uses customer ID rather than bot sender.
+12 cache +13 actual-handler tests and pricing/tag regressions PASS;20 rollback
+checks,two independent acceptance/ops reviews,Gitleaks0. Two-file rollout with one
+bot restart,PID3792398,NRestarts0;60 other files/three services preserved. Single
+bot process active/running. No real user/order test. Rollback retained under
+ deployment-preimages/e4-bot-buy-sell-20260911.
+Evidence: docs/e4-bot-buy-sell-rollout.v1.json. Full E4 IN_PROGRESS.
+Exactly next: E4 / BOT_SWAP_ACTION_REVIEW. Specialized bot ingress/legacy WebApp,
+DCA/gift coverage remains to assess; this receipt does not close those flows.
+Autopilot failed/inactive; owner wants concise progress and proportional checks.
+
 
 2026-09-11: WEBSITE_SWAP_ACTION_REVIEW VERIFIED/deployed (`510a2ef`).
 Website first obtains SwapUZ estimate without creating an order, then requires
