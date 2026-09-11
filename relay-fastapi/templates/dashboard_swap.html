@@ -6,17 +6,17 @@
 <div class="dash-card">
     {# Список свопа — из exchange_calc.SWAP_COINS: он свой и с витриной покупки
    не совпадает. #}
-    <p>Прямой обмен {{ swap_currencies|join(', ') }} без рубля — монеты приходят прямо на ваш кошелёк, без участия наших адресов и без KYC.</p>
-    <p style="margin-top:10px;">💰 <b>Комиссия: ~1%</b> — включена в курс, отдельных сборов нет. Вы видите итоговую сумму до подтверждения.</p>
+    <p>Обмен {{ swap_currencies|join(', ') }} через SwapUZ. ObsidianExchange передаёт заявку; отправленные монеты получает провайдер, а результат приходит на указанный вами адрес.</p>
+    <p style="margin-top:10px;">Сначала получите предварительный расчёт и проверьте сети, комиссии и условия провайдера. Курс плавающий: итоговая сумма может измениться.</p>
 </div>
 
 <div class="dash-card">
     {% if error %}<div class="error-msg">{{ error }}</div>{% endif %}
-    <form method="post" action="/dashboard/swap">
+    <form method="post" action="/dashboard/swap/quote">
         <input type="hidden" name="csrf_token" value="{{ web_user.csrf_token }}">
         <div class="input-group">
-            <label>Отдаёте</label>
-            <select name="coin_from">
+            <label for="swap-coin_from">Отдаёте</label>
+            <select id="swap-coin_from" name="coin_from">
                 {% set cf = form.coin_from if form else (prefill.coin_from if prefill else '') %}
                 {% for c in swap_coins %}
                 <option value="{{ c }}" {{ 'selected' if cf == c }}>{{ c }}</option>
@@ -24,8 +24,8 @@
             </select>
         </div>
         <div class="input-group">
-            <label>Получаете</label>
-            <select name="coin_to">
+            <label for="swap-coin_to">Получаете</label>
+            <select id="swap-coin_to" name="coin_to">
                 {% set ct = form.coin_to if form else (prefill.coin_to if prefill else '') %}
                 {% for c in swap_coins %}
                 <option value="{{ c }}" {{ 'selected' if ct == c }}>{{ c }}</option>
@@ -33,22 +33,22 @@
             </select>
         </div>
         <div class="input-group">
-            <label>Сумма к отправке (сколько отдаёте)</label>
-            <input type="number" name="amount" step="any" min="0"
+            <label for="swap-amount">Сумма к отправке (сколько отдаёте)</label>
+            <input type="number" id="swap-amount" name="amount" step="any" min="0"
                    value="{{ form.amount if form else (prefill.amount if prefill else '') }}"
                    placeholder="Например, 0.01" required>
         </div>
         <div class="input-group">
-            <label>Адрес для получения</label>
-            <input type="text" name="address"
+            <label for="swap-address">Адрес для получения</label>
+            <input type="text" id="swap-address" name="address"
                    value="{{ form.address if form else (prefill.address if prefill else '') }}"
                    placeholder="Введите адрес кошелька" required>
         </div>
-        <button class="btn btn-primary btn-block" type="submit">🔄 Создать своп</button>
+        <button class="btn btn-primary btn-block" type="submit">Рассчитать и проверить условия</button>
     </form>
 </div>
 
 <div class="dash-card" style="font-size:13px;color:var(--text-muted,#888);">
-    ℹ️ После создания свопа вы получите адрес для перевода. Средства поступают на ваш кошелёк напрямую. Минимальные суммы: BTC от 0.0014, LTC от 1.97, USDT от 90.
+    ℹ️ Расчёт не создаёт своп. После отдельного подтверждения вы получите адрес провайдера для отправки монет. Доступные суммы определяются текущими лимитами SwapUZ.
 </div>
 {% endblock %}

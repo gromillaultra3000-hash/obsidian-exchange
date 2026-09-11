@@ -1,0 +1,30 @@
+{
+  "result": "PASS",
+  "reviewer": "swap_diff_review",
+  "recordedAt": "2026-09-11T00:37:02.285215+00:00",
+  "route": "E4 website SWAP explicit confirmation",
+  "scope": "Independent scoped product diff and bounded four-file rollout review",
+  "inputs": {
+    "relay-fastapi/main.py": "9b7c25a21b942e6355867d622521db9903059d1b48a033adf03f79a0507e900f",
+    "relay-fastapi/swap_review.py": "fa64c300fa70d2a41b3f831c89e16cf360fc9dbb1824de36aeb51fa2decd8c7f",
+    "relay-fastapi/templates/dashboard_swap.html": "aa0fea84be518d648acc23d4f59843ca2b5b7cb902c359e1bef4a9cdf4d6ca06",
+    "relay-fastapi/templates/dashboard_swap_review.html": "117d557fff503c24fba8e253e873b0e8345dc5d6b382c212069c67bfebfc88a2",
+    "docs/e4-website-swap/rollout.py": "51ca1841862dd008f7eb6b8353ca5c8e5403c454499138895790ff55a0b69f7c",
+    "docs/e4-website-swap/check-rollout.py": "ae3cf5d244249075adbd05a5f7e040ecab336bf62c5b6f802fbe51194429a96c",
+    "docs/e4-wallet-cross-tab/rollout.py": "d2097d220500618ae684a46ac7e3eaf3caaa989a6915fed4301c6ce3f3b5fa7d"
+  },
+  "findings": [],
+  "resolved": [
+    "Initial quote form now posts /dashboard/swap/quote; stale quote and confirmation pages use new paths rejected by the baseline backend after rollback."
+  ],
+  "checks": [
+    "Explicit confirmation and acknowledgement precede session/user/exact-field single-use receipt consumption and provider creation.",
+    "Finite positive quote/amount validation, bounds, expiry and locked consume fail closed.",
+    "Escaped recipient fields; no-store review/error responses; provider, custody, networks, floating quote, fees and KYC disclosed without prior unsupported guarantees.",
+    "Uncertain provider result and persistence failure consume the receipt and instruct no retry; persistence failure includes support reference.",
+    "Four target paths, candidate/baseline hashes, preserved metadata and unrelated inputs checked by rollout.",
+    "Backups are verified and synced before production writes; new backend starts before new quote form is advertised.",
+    "Mixed/failed-relay rollback restores baseline, removes new files, and restarts only relay while other units are guarded."
+  ],
+  "verification_limits": "Source review only; read existing 22-check rollout rehearsal receipt, did not rerun tests or mutate production. Parent owns handler/browser execution and ops owns runtime verification; process-memory receipt requires single-worker runtime."
+}

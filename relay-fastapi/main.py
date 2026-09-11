@@ -25,6 +25,9 @@ import sys
 import urllib.parse
 
 import auth
+from swap_review import SwapReviewCache
+
+_swap_reviews = SwapReviewCache()
 
 # Загрузка .env
 env_path = _PROJECT_ROOT / 'bot' / '.env'
@@ -1533,6 +1536,8 @@ async def dashboard_swap_page(request: Request):
     ))
 
 @app.post("/dashboard/swap", response_class=HTMLResponse)
+@app.post("/dashboard/swap/quote", response_class=HTMLResponse)
+@app.post("/dashboard/swap/confirm", response_class=HTMLResponse)
 async def dashboard_swap_submit(
     request: Request,
     csrf_token: str = Form(...),
@@ -1540,6 +1545,9 @@ async def dashboard_swap_submit(
     coin_to: str = Form(...),
     amount: float = Form(...),
     address: str = Form(...),
+    review_action: str = Form("quote"),
+    review_token: str = Form(""),
+    review_ack: str = Form(""),
 ):
     web_user = auth.get_web_user(request)
     if not web_user:
@@ -1550,59 +1558,81 @@ async def dashboard_swap_submit(
     coin_from = coin_from.upper().strip()
     coin_to = coin_to.upper().strip()
     address = address.strip()
-    error = None
-    if coin_from not in exchange_calc.SWAP_COINS or coin_to not in exchange_calc.SWAP_COINS:
-        error = "Неподдерживаемая пара валют."
-    elif coin_from == coin_to:
-        error = "Валюты пары должны отличаться."
-    elif amount <= 0:
-        error = "Сумма должна быть больше 0."
-    elif not exchange_calc.validate_crypto_address(address, coin_to):
-        error = "Некорректный адрес для выбранной валюты."
+    fields = dict(coin_from=coin_from, coin_to=coin_to, amount=amount, address=address)
 
-    if error:
+    def form_response(error=None, status_code=400):
         return templates.TemplateResponse(request, "dashboard_swap.html", site_context(
-            request, active="swap", swap_coins=exchange_calc.SWAP_COINS, error=error,
-            form={"coin_from": coin_from, "coin_to": coin_to, "amount": amount, "address": address},
-        ), status_code=400)
+            request, active="swap", swap_coins=exchange_calc.SWAP_COINS,
+            error=error, form=fields,
+        ), status_code=status_code, headers={"Cache-Control": "no-store"})
+
+    if coin_from not in exchange_calc.SWAP_COINS or coin_to not in exchange_calc.SWAP_COINS:
+        return form_response("Неподдерживаемая пара валют.")
+    if coin_from == coin_to:
+        return form_response("Валюты пары должны отличаться.")
+    if not math.isfinite(amount) or amount <= 0:
+        return form_response("Сумма должна быть конечным числом больше 0.")
+    if not exchange_calc.validate_crypto_address(address, coin_to):
+        return form_response("Некорректный адрес для выбранной валюты.")
+
+    if (request.url.path in {"/dashboard/swap", "/dashboard/swap/quote"} and review_action != "quote") or (
+            request.url.path == "/dashboard/swap/confirm" and review_action not in {"edit", "confirm"}):
+        return form_response("Откройте форму обмена и заново проверьте условия.", 409)
+
+    # The receipt is held only by this process, bound to the authenticated
+    # session and exact fields, and consumed BEFORE any provider creation call.
+    # Restart/expiry requires a new review; concurrent/replayed submits cannot
+    # reuse a receipt. This does not assert provider-level idempotency.
+    owner = str(web_user['id']) + ":" + web_user['session_token']
+    from providers.swapuz import SwapUzProvider, SWAPUZ_NETWORKS
+    if review_action == "edit":
+        try:
+            _swap_reviews.consume(review_token, owner, fields)
+        except ValueError:
+            pass
+        return form_response(status_code=200)
+    if review_action == "quote":
+        try:
+            rate_info = await asyncio.to_thread(SwapUzProvider().get_rate, coin_from, coin_to, amount)
+            review = _swap_reviews.issue(owner, fields, rate_info)
+        except (ValueError, TypeError, KeyError):
+            return form_response("Курс или лимиты обмена недоступны для этой суммы. Проверьте сумму и запросите расчёт снова.")
+        return templates.TemplateResponse(request, "dashboard_swap_review.html", site_context(
+            request, active="swap", form=fields, review=review,
+            network_from=SWAPUZ_NETWORKS[coin_from], network_to=SWAPUZ_NETWORKS[coin_to],
+        ), headers={"Cache-Control": "no-store"})
+    if review_action != "confirm" or review_ack != "1":
+        return form_response("Для создания свопа проверьте условия и подтвердите согласие.")
+    try:
+        _swap_reviews.consume(review_token, owner, fields)
+    except ValueError:
+        return form_response("Проверка истекла, уже использована или данные изменились. Проверьте историю заявок перед новым расчётом.", 409)
 
     from utils.tokens import generate_session_token
-    from providers.swapuz import SwapUzProvider
-
     token = generate_session_token()
-    provider = SwapUzProvider()
-
-    # Проверяем курс и лимиты
-    rate_info = provider.get_rate(coin_from, coin_to, amount)
-    if "error" in rate_info:
-        return templates.TemplateResponse(request, "dashboard_swap.html", site_context(
-            request, active="swap", swap_coins=exchange_calc.SWAP_COINS,
-            error=f"Не удалось получить курс: {rate_info['error']}",
-            form={"coin_from": coin_from, "coin_to": coin_to, "amount": amount, "address": address},
-        ), status_code=400)
-
-    result = provider.create_swap(
-        coin_from=coin_from,
-        coin_to=coin_to,
-        amount=amount,
-        address=address,
-        order_uuid=token,
-    )
-
-    if "error" in result:
-        return templates.TemplateResponse(request, "dashboard_swap.html", site_context(
-            request, active="swap", swap_coins=exchange_calc.SWAP_COINS,
-            error=f"Не удалось создать своп: {result['error']}. Попробуйте другую сумму или адрес.",
-            form={"coin_from": coin_from, "coin_to": coin_to, "amount": amount, "address": address},
-        ), status_code=400)
+    try:
+        result = await asyncio.to_thread(
+            SwapUzProvider().create_swap, coin_from=coin_from, coin_to=coin_to,
+            amount=amount, address=address, order_uuid=token,
+        )
+    except Exception:
+        result = {"error": "creation outcome unknown"}
+    if (not isinstance(result, dict) or result.get("error") or
+            not all(isinstance(result.get(k), str) and result[k] for k in ("uid", "url", "deposit_address"))):
+        # Provider exceptions may be post-submit. Never suggest blind retry or
+        # automatically reuse the consumed review after an uncertain response.
+        return form_response("Результат создания свопа не подтверждён. Не создавайте повторный обмен и не отправляйте монеты; обратитесь в поддержку.", 502)
 
     user_id = web_user['telegram_id'] if web_user['telegram_id'] else -web_user['id']
-    _swap_store.create(token=token,user_id=user_id,coin_from=coin_from,coin_to=coin_to,
-                       amount_from=amount,address_to=address,external_id=result['uid'],
-                       external_url=result['url'],status='waiting',web_user_id=web_user['id'],
-                       provider='swapuz',deposit_address=result['deposit_address'])
+    try:
+        _swap_store.create(token=token,user_id=user_id,coin_from=coin_from,coin_to=coin_to,
+                           amount_from=amount,address_to=address,external_id=result['uid'],
+                           external_url=result['url'],status='waiting',web_user_id=web_user['id'],
+                           provider='swapuz',deposit_address=result['deposit_address'])
+    except Exception:
+        logger.error("web_swap_persist_failed reference=%s", token)
+        return form_response("Провайдер создал своп, но сохранить заявку не удалось. Не повторяйте обмен и не отправляйте монеты; обратитесь в поддержку. Код обращения: " + token, 502)
     audit_log("web_swap_created", f"web_user_id={web_user['id']} provider=swapuz")
-
     return RedirectResponse(f"/swap/{token}", status_code=302)
 
 # --- Личный кабинет: рефералы и профиль ---

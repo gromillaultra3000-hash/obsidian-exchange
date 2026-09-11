@@ -1,0 +1,36 @@
+{% extends "dashboard_base.html" %}
+{% block title %}Проверка свопа | ObsidianExchange{% endblock %}
+{% block dashboard_content %}
+<h1>Проверьте условия свопа</h1>
+<div class="dash-card">
+    <p>Своп ещё не создан. Расчёт доступен для подтверждения {{ review.ttl }} секунд; после этого потребуется новый расчёт.</p>
+    <dl class="swap-review-details">
+        <dt>Исполнитель</dt><dd>SwapUZ. ObsidianExchange передаёт вашу заявку провайдеру.</dd>
+        <dt>Отправляете</dt><dd>{{ form.amount }} {{ form.coin_from }} · сеть {{ network_from }}</dd>
+        <dt>Предварительно получите</dt><dd>≈ {{ review.quote.estimated_receive }} {{ form.coin_to }} · сеть {{ network_to }}</dd>
+        <dt>Адрес получателя</dt><dd>{{ form.address }}</dd>
+        <dt>Курс</dt><dd>{{ review.quote.rate }} {{ form.coin_to }} за 1 {{ form.coin_from }}. Плавающий, не зафиксирован: окончательная сумма может отличаться.</dd>
+        <dt>Сбор вывода по расчёту SwapUZ</dt><dd>{% if review.quote.withdraw_fee is not none %}{{ review.quote.withdraw_fee }} (единица не указана в ответе){% else %}Провайдер не сообщил отдельную сумму{% endif %}. Отдельная разбивка комиссии обмена и включение сбора в итог не подтверждены; не считайте сборы нулевыми. Проверьте условия провайдера до отправки.</dd>
+        <dt>Комиссия отправки</dt><dd>Оплачивается вами отдельно в сети {{ network_from }}; кошелёк покажет её перед подписью.</dd>
+        <dt>Хранение средств</dt><dd>До отправки ключами распоряжаетесь вы или ваш кошелёк/биржа. После отправки средства получает SwapUZ для обмена. На адресе биржи результат хранит биржа; на личном адресе — ваш кошелёк. ObsidianExchange не получает ваши ключи.</dd>
+        <dt>Идентификация / KYC</dt><dd>Действуют условия SwapUZ и биржи получателя. Отсутствие проверки личности не гарантируется; провайдер может потребовать дополнительные сведения.</dd>
+    </dl>
+    <p id="swap-risk">Проверьте адрес и обе сети. После отправки монет отменить перевод в блокчейне нельзя. Создание заявки само по себе не отправляет ваши монеты; адрес для отправки появится после создания.</p>
+    <form method="post" action="/dashboard/swap/confirm" id="swap-confirm-form">
+        <input type="hidden" name="csrf_token" value="{{ web_user.csrf_token }}">
+        {% for name in ['coin_from', 'coin_to', 'amount', 'address'] %}
+        <input type="hidden" name="{{ name }}" value="{{ form[name] }}">
+        {% endfor %}
+        <input type="hidden" name="review_token" value="{{ review.token }}">
+        <label style="display:flex;gap:10px;align-items:flex-start;margin:16px 0">
+            <input type="checkbox" name="review_ack" value="1" required style="width:auto" aria-describedby="swap-risk">
+            <span>Я проверил адрес, сети и условия, понимаю плавающий курс и риск необратимого перевода.</span>
+        </label>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+            <button class="btn btn-secondary" type="submit" name="review_action" value="edit" formnovalidate>Изменить данные</button>
+            <button class="btn btn-primary" type="submit" name="review_action" value="confirm">Создать своп</button>
+        </div>
+    </form>
+</div>
+<style>.swap-review-details dt{margin-top:14px;font-weight:600}.swap-review-details dd{margin:4px 0 0;overflow-wrap:anywhere}#swap-confirm-form :focus-visible{outline:3px solid #a78bfa;outline-offset:3px}</style>
+{% endblock %}

@@ -1,0 +1,29 @@
+{
+  "result": "PASS",
+  "checks": [
+    "real_plan_validation",
+    "inventory_sha_tamper_rejected",
+    "helper_sha_tamper_rejected",
+    "rollout_sha_tamper_rejected",
+    "inputs_tamper_rejected",
+    "units_tamper_rejected",
+    "target_scope_tamper_rejected",
+    "candidate_digest_tamper_rejected",
+    "unrelated_input_drift_rejected",
+    "metadata_drift_rejected",
+    "active_autopilot_rejected",
+    "runtime_identity_drift_rejected",
+    "four_file_apply_metadata_pass",
+    "reconcile_pass_without_restart",
+    "only_relay_restarted_once",
+    "backend_activated_before_quote_only_form",
+    "corrupt_backup_rejected",
+    "failed_relay_rollback_removes_new_helper_and_include_preserves_metadata_restarts_relay",
+    "interruption_after_1",
+    "partial_1_rollback_pass",
+    "interruption_after_3",
+    "partial_3_rollback_pass"
+  ],
+  "production_mutated": false,
+  "limitations": "Temporary filesystem; fixture service identities and public responses. Real plan binding checked separately; public auth redirects checked in prepare."
+}

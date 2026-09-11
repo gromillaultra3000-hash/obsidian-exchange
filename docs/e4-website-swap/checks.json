@@ -1,0 +1,32 @@
+{
+  "date": "2026-09-11",
+  "route": "E4 / WEBSITE_SWAP_ACTION_REVIEW",
+  "helper_tests": {
+    "count": 50,
+    "result": "PASS",
+    "agent": "/root/swap_review_core"
+  },
+  "handler_tests": {
+    "count": 12,
+    "result": "PASS",
+    "interpreter": "/opt/lumi/venv/bin/python",
+    "execution": "host real asyncio.to_thread; sandbox thread-pool shutdown hung; stopped sandbox runs"
+  },
+  "browser": {
+    "count": 6,
+    "result": "PASS",
+    "report": "output/playwright/e4-website-swap-20260911-final/report.json"
+  },
+  "acceptance_review": {
+    "reviewer": "/root/swap_review_core",
+    "result": "PASS after persistence-failure guidance added"
+  },
+  "rollback_tests": 22,
+  "scope": "Website only. No real provider creation, customer reads, money or new credentials. Cache process-local TTL120/max256; restart expires tokens.",
+  "next": "E4 / BOT_BUY_SELL_ACTION_REVIEW",
+  "secret_scan": {
+    "tool": "gitleaks",
+    "result": "PASS",
+    "findings": 0
+  }
+}

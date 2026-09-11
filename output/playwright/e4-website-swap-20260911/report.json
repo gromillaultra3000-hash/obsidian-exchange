@@ -1,0 +1,82 @@
+{
+  "sourceSha256": "86cc49df57c674ee18e18361133f090eab7bc3457b6ce7079f18742522283752",
+  "runnerSha256": "2581785aeae059a2d29bb4ee57f00092af68684b53bc775100fcbed9971e00b1",
+  "inputHashes": {
+    "/root/relay-fastapi/templates/dashboard_swap.html": "dc9ad0493b87bb62c9e11948bafc168794f9d3eefbe7c7c7cdb28bd0cce87262",
+    "/root/relay-fastapi/templates/dashboard_swap_review.html": "117d557fff503c24fba8e253e873b0e8345dc5d6b382c212069c67bfebfc88a2",
+    "/root/relay-fastapi/templates/dashboard_base.html": "6d4c2abe68f390af6e26d1681c62c3a7cfdd3423d996e8946479bb07b7f3fc44",
+    "/root/relay-fastapi/templates/base.html": "3f76e6770f5e8cd6ad7faaae612049bc1b2f21423c00b72c36cfd7ce97639a29",
+    "/root/relay-fastapi/static/css/style.css": "e7865b92de24ac2a8fe3fe5100a4482981a5817f613de9c927dc837419f7cb7b",
+    "/root/relay-fastapi/static/css/v5.css": "b247b63772249c0def120617df50303b9e8fbd00cf81b8121a45827ec7bab2fe",
+    "/root/relay-fastapi/static/js/main.js": "49fe40ff6bad060ffd36d19f767d5bbd852d80cfdeab2f65d4ddedd7f4019c0d",
+    "/root/relay-fastapi/static/js/ambient.js": "26f09e16a3641c6e9ca3790c67d9ec005ef263a3d434cc096e3f42914e1f786c",
+    "/root/relay-fastapi/static/js/lucide-0.468.0.min.js": "3411692820cb8d47543f69496aa25fd603a358f4498046f41c508a5a3342210e",
+    "/root/relay-fastapi/static/js/v5.js": "3a858553247b0732e9db643fef5c36bd3090971a40e42944b7964e263f827770",
+    "/root/docs/e4-website-swap/run-browser.py": "e52610532fc96e1a015e7f0cd0987e8f17e2efcbc0733e004b2b8eba346743b9",
+    "/root/scripts/run_e4_review_browser.py": "6f4c9bf3020ae80b323655333a1eb3697eca4d44672ef6d28c679749136c412b"
+  },
+  "checks": [
+    {
+      "width": 320,
+      "theme": "legacy",
+      "result": "PASS",
+      "quoteBeforeConfirm": true,
+      "ack": true,
+      "cancel": true,
+      "labels": true,
+      "recipient": true
+    },
+    {
+      "width": 320,
+      "theme": "v5",
+      "result": "PASS",
+      "quoteBeforeConfirm": true,
+      "ack": true,
+      "cancel": true,
+      "labels": true,
+      "recipient": true
+    },
+    {
+      "width": 390,
+      "theme": "legacy",
+      "result": "PASS",
+      "quoteBeforeConfirm": true,
+      "ack": true,
+      "cancel": true,
+      "labels": true,
+      "recipient": true
+    },
+    {
+      "width": 390,
+      "theme": "v5",
+      "result": "PASS",
+      "quoteBeforeConfirm": true,
+      "ack": true,
+      "cancel": true,
+      "labels": true,
+      "recipient": true
+    },
+    {
+      "width": 1280,
+      "theme": "legacy",
+      "result": "PASS",
+      "quoteBeforeConfirm": true,
+      "ack": true,
+      "cancel": true,
+      "labels": true,
+      "recipient": true
+    },
+    {
+      "width": 1280,
+      "theme": "v5",
+      "result": "PASS",
+      "quoteBeforeConfirm": true,
+      "ack": true,
+      "cancel": true,
+      "labels": true,
+      "recipient": true
+    }
+  ],
+  "pageErrors": [],
+  "result": "PASS"
+}
