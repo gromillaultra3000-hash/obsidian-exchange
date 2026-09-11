@@ -4,6 +4,23 @@ Updated: 2026-09-11 UTC
 
 ## Current goal and status
 
+2026-09-11: WEBSITE_SWAP_ACTION_REVIEW VERIFIED/deployed (`510a2ef`).
+Website first obtains SwapUZ estimate without creating an order, then requires
+explicit acknowledgement bound to session/exact inputs with single-use120s cache.
+Finite quotes/limits, provider custody/KYC/fees/network/risk disclosures; unknown
+submit/persistence outcome does not retry. New /quote and /confirm endpoints make
+both stale forms fail404 after rollback. Process restart expires pending reviews.
+50 helper +12 actual-handler tests,6 Chrome viewport/theme scenarios and22 rollout
+checks PASS; independent acceptance/diff/ops reviews, Gitleaks0. Four-file rollout,
+one relay restart (PID3781558,active/running,NRestarts0);57 other inputs and three
+services preserved; public auth redirects PASS. No real provider order/customer
+operation in verification. Evidence: docs/e4-website-swap-rollout.v1.json.
+Rollback: deployment-preimages/e4-website-swap-20260911. Full E4 IN_PROGRESS.
+Exactly next: E4 / BOT_BUY_SELL_ACTION_REVIEW; bot SWAP remains after that.
+Owner iPhone acceptance complete; autopilot remains failed/inactive, stale receipts
+must be reconciled before explicitly requested restart. Keep updates concise and
+checks proportional per owner request.
+
 2026-09-11: WEBSITE_BUY_SELL_ACTION_REVIEW VERIFIED/deployed (`26226f0`).
 Website Buy/Sell now show explicit executor/custody/KYC/fees/risk and recipient/
 payout review before original POST; acknowledgement, expiry, stale-input rejection,

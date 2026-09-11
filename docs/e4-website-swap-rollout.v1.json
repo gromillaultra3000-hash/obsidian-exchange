@@ -1,0 +1,38 @@
+{
+  "route": "E4 / WEBSITE_SWAP_ACTION_REVIEW",
+  "status": "VERIFIED",
+  "full_E4": "IN_PROGRESS",
+  "observed_at": "2026-09-11T00:38:10.927542+00:00",
+  "implementation_commit": "510a2ef",
+  "deployment": "APPLY_PASS",
+  "targets": {
+    "/opt/obsidian-exchange/relay-fastapi/swap_review.py": "fa64c300fa70d2a41b3f831c89e16cf360fc9dbb1824de36aeb51fa2decd8c7f",
+    "/opt/obsidian-exchange/relay-fastapi/templates/dashboard_swap_review.html": "117d557fff503c24fba8e253e873b0e8345dc5d6b382c212069c67bfebfc88a2",
+    "/opt/obsidian-exchange/relay-fastapi/templates/dashboard_swap.html": "aa0fea84be518d648acc23d4f59843ca2b5b7cb902c359e1bef4a9cdf4d6ca06",
+    "/opt/obsidian-exchange/relay-fastapi/main.py": "9b7c25a21b942e6355867d622521db9903059d1b48a033adf03f79a0507e900f"
+  },
+  "other_inputs_preserved": 57,
+  "other_services_preserved": 3,
+  "relay": {
+    "restart_count_in_slice": 1,
+    "MainPID": 3781558,
+    "NRestarts": 0,
+    "started": "2026-09-11T00:37:26Z",
+    "state": "active/running"
+  },
+  "public": {
+    "/dashboard/swap": 302,
+    "/dashboard/exchange": 302,
+    "/dashboard/sell": 302,
+    "location": "/login"
+  },
+  "rollback": "/var/lib/obsidian-exchange/deployment-preimages/e4-website-swap-20260911",
+  "tests": "docs/e4-website-swap/checks.json",
+  "review": "docs/e4-website-swap/final-review.json",
+  "browser": "output/playwright/e4-website-swap-20260911-final/report.json",
+  "limits": [
+    "Synthetic/inert provider and persistence tests; no real provider order or authenticated customer action executed.",
+    "Single-process cache TTL120s/max256; restart expires unconsumed reviews. Floating estimate is not a guaranteed rate; missing fee details explicitly disclosed."
+  ],
+  "next": "E4 / BOT_BUY_SELL_ACTION_REVIEW"
+}
