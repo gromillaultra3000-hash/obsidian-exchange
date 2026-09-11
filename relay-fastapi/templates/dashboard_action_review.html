@@ -1,0 +1,153 @@
+{# Shared, local review of the existing POST. Never an authorization boundary. #}
+<style>
+#action-review {width:min(620px, calc(100vw - 28px));max-height:85vh;box-sizing:border-box;overflow:auto;border:1px solid #64748b;border-radius:16px;padding:20px;background:var(--bg,#101827);color:var(--t1,#e2e8f0)}
+#action-review::backdrop {background:rgba(0,0,0,.7)}
+#action-review dt {font-size:12px;opacity:.75;margin-top:12px}
+#action-review dd {margin:4px 0 0;overflow-wrap:anywhere;white-space:pre-wrap}
+#action-review button:focus-visible,#action-review input:focus-visible {outline:3px solid #a78bfa;outline-offset:3px}
+#action-review .review-buttons {display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+</style>
+<p id="action-review-status" role="status" aria-live="polite"></p>
+<dialog id="action-review" aria-labelledby="action-review-title" aria-describedby="action-review-risk">
+    <h2 id="action-review-title" tabindex="-1">Проверьте условия заявки</h2>
+    <dl id="action-review-rows"></dl>
+    <p id="action-review-risk" style="margin-top:16px;line-height:1.5"></p>
+    <label style="display:flex;align-items:flex-start;gap:10px;margin-top:16px">
+        <input type="checkbox" id="action-review-ack" style="width:auto;margin-top:4px">
+        <span>Я проверил реквизиты и условия, понимаю риск необратимого перевода.</span>
+    </label>
+    <div class="review-buttons">
+        <button type="button" class="btn btn-secondary" id="action-review-cancel">Вернуться к форме</button>
+        <button type="button" class="btn btn-primary" id="action-review-confirm" disabled>Создать заявку</button>
+    </div>
+</dialog>
+<script>
+(function () {
+    'use strict';
+    const kind = {{ action_review_kind|tojson }};
+    const form = document.getElementById('action-order-form');
+    const open = document.getElementById('action-review-open');
+    const modal = document.getElementById('action-review');
+    const ack = document.getElementById('action-review-ack');
+    const confirm = document.getElementById('action-review-confirm');
+    const status = document.getElementById('action-review-status');
+    if (!form || typeof modal.showModal !== 'function') return;
+    let snapshot = null, expires = 0, started = 0, timer = null, submitting = false, priorFocus = null;
+    const field = name => form.elements.namedItem(name);
+    const value = name => field(name).value;
+    const label = name => {
+        const el = field(name);
+        return el.selectedOptions && el.selectedOptions.length ? el.selectedOptions[0].textContent.trim() : el.value;
+    };
+    // Re-read actual successful controls at confirmation, including silent .value
+    // writes/autofill. Input events alone cannot establish what will be posted.
+    function signature() {
+        return JSON.stringify([form.action, form.method, Array.from(new FormData(form).entries()),
+            kind === 'buy' ? [OFFERINGS, TIERS] : [SELL, PAYOUT]]);
+    }
+    function close() {
+        snapshot = null; expires = 0; ack.checked = false; confirm.disabled = true;
+        clearInterval(timer); timer = null;
+        if (modal.open) modal.close();
+        if (priorFocus && priorFocus.isConnected) priorFocus.focus();
+    }
+    function invalidate() {
+        close();
+        status.textContent = 'Условия изменились или время проверки истекло. Проверьте заявку заново.';
+    }
+    function current() {
+        return !!snapshot && performance.now() >= started && performance.now() < expires && signature() === snapshot;
+    }
+    function row(name, text) {
+        const dt = document.createElement('dt'), dd = document.createElement('dd');
+        dt.textContent = name; dd.textContent = text;
+        document.getElementById('action-review-rows').append(dt, dd);
+    }
+    form.onsubmit = function (event) {
+        event.preventDefault();
+        if (submitting || modal.open || !form.reportValidity()) return false;
+        status.textContent = '';
+        document.getElementById('action-review-rows').replaceChildren();
+        row('Маршрут и исполнитель', 'ObsidianExchange · private lane · без KYC. Правила банка, платёжного партнёра и биржи получателя действуют отдельно.');
+        if (kind === 'buy') {
+            calculateFee();
+            const offering = currentOffering();
+            if (!offering || !(offering.networks || []).some(n => n.code === value('network'))) {
+                status.textContent = 'Выберите доступную валюту и сеть.'; return false;
+            }
+            row('Покупка', value('amount') + ' RUB → ' + value('currency'));
+            row('Сеть', label('network') + ' (' + value('network') + ')');
+            row('Адрес получателя', value('address'));
+            row('Тег / memo', addressCarriesTag(value('address'), offering)
+                ? 'Встроен в адрес — проверьте адрес целиком'
+                : (value('dest_tag') || (field('no_tag').checked ? 'Без тега — подтверждено в форме' : (offering.tag_name ? 'Не указан — проверьте требования получателя' : 'Не используется для выбранной валюты'))));
+            row('Кто хранит полученные средства', 'В личном кошельке ключами управляете вы. Если адрес принадлежит бирже или другому сервису, средства хранит этот сервис и применяет свои правила доступа и KYC. ObsidianExchange не получает ключи кошелька получателя.');
+            row('Способ оплаты', label('payment_method'));
+            row('Комиссия и предварительный расчёт', document.getElementById('fee-display').textContent.trim());
+            row('Курс и итог', 'Расчёт в рублёвом эквиваленте ориентировочный. Точную сумму криптовалюты и курс покажет созданная заявка. Комиссия сети и платёжного партнёра, если применима, уточняется перед переводом.');
+            document.getElementById('action-review-risk').textContent = 'После создания появятся реквизиты для оплаты. Не переводите деньги вне заявки. Проверьте адрес, сеть и тег / memo: после отправки выплаты в блокчейн отменить перевод нельзя.';
+        } else {
+            calcSell();
+            const info = SELL[value('currency')], way = PAYOUT[value('payout_method')];
+            if (!info || !way || !Number.isFinite(Number(value('amount'))) || Number(value('amount')) <= 0
+                || !Number.isFinite(info.min) || Number(value('amount')) < info.min
+                || !Number.isFinite(info.rate) || !(info.rate > 0)
+                || !Number.isFinite(Number(value('amount')) * info.rate)
+                || !Number.isFinite(info.market) || info.market < 0
+                || !Number.isFinite(Number(value('amount')) * info.market)
+                || !Number.isFinite(info.fee_percent) || info.fee_percent < 0 || info.fee_percent > 100) {
+                status.textContent = 'Проверьте монету, минимальное количество и доступность курса выплаты.'; return false;
+            }
+            row('Продажа', value('amount') + ' · ' + label('currency'));
+            row('Хранение и исполнение', 'До отправки монеты остаются в вашем кошельке. После отправки их получает ObsidianExchange; выплата рублей выполняется после подтверждения поступления, через платёжного партнёра или оператора.');
+            row('Способ выплаты', way.label || label('payout_method'));
+            row(way.details_label || 'Реквизиты получателя', value('sbp_phone'));
+            if (value('payout_bank')) row('Банк получателя', label('payout_bank'));
+            if (value('payout_name')) row('Получатель', value('payout_name'));
+            row('Предварительная выплата', document.getElementById('sb-total').textContent);
+            row('Комиссия обмена', document.getElementById('sb-fee').textContent + document.getElementById('sb-fee-pct').textContent + ' — уже учтена в выплате');
+            row('Курс и итог', 'Ориентир: ' + info.rate + ' RUB за ' + value('currency') + '. Выплата в созданной заявке может отличаться. Комиссию отправки сети оплачивает отправитель; кошелёк покажет её перед переводом.');
+            row('Адрес, сеть и комментарий для отправки', 'Будут указаны в созданной заявке. Перед отправкой проверьте сеть, адрес целиком и обязательный комментарий / memo в её инструкции. Сейчас вы создаёте заявку, а не подтверждаете перевод монет.');
+            row('Подтверждение поступления', info.manual ? 'Оператор подтверждает вручную; выплата занимает дольше обычного.' : 'После подтверждения транзакции в сети; ожидаемая выплата 30–60 минут.');
+            document.getElementById('action-review-risk').textContent = 'Проверьте реквизиты получателя рублей. После перевода монет на адрес заявки отменить операцию блокчейна нельзя. До отправки сверьте инструкцию созданной заявки.';
+        }
+        snapshot = signature(); started = performance.now(); expires = started + 60000;
+        priorFocus = document.activeElement;
+        ack.checked = false; confirm.disabled = true;
+        modal.showModal(); document.getElementById('action-review-title').focus();
+        timer = setInterval(() => { if (!current()) invalidate(); }, 250);
+        return false;
+    };
+    ack.addEventListener('change', () => {
+        if (!current()) { invalidate(); return; }
+        confirm.disabled = !ack.checked;
+    });
+    document.getElementById('action-review-cancel').addEventListener('click', close);
+    modal.addEventListener('cancel', event => { event.preventDefault(); close(); });
+    modal.addEventListener('keydown', event => {
+        if (event.key !== 'Tab') return;
+        const controls = Array.from(modal.querySelectorAll('input,button')).filter(el => !el.disabled);
+        const first = controls[0], last = controls[controls.length - 1];
+        if (event.shiftKey && (document.activeElement === first || !controls.includes(document.activeElement))) {
+            event.preventDefault(); last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault(); first.focus();
+        }
+    });
+    ['input', 'change', 'reset'].forEach(type => form.addEventListener(type, () => { if (snapshot) invalidate(); }));
+    confirm.addEventListener('click', () => {
+        if (submitting || !ack.checked) return;
+        if (!current()) { invalidate(); return; }
+        if (!form.reportValidity()) { invalidate(); return; }
+        submitting = true; open.disabled = true;
+        close();
+        // Existing endpoint/CSRF/fields remain unchanged; there is no new POST
+        // field for this local acknowledgement, nor a request before it.
+        HTMLFormElement.prototype.submit.call(form);
+    });
+    window.addEventListener('pageshow', event => {
+        if (event.persisted) { submitting = false; close(); open.disabled = false; }
+    });
+    open.disabled = false;
+})();
+</script>

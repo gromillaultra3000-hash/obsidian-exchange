@@ -1,0 +1,70 @@
+{
+  "reviewed_at_utc": "2026-09-09T03:08:26.153826+00:00",
+  "reviewer": "independent site_review agent",
+  "route": "E4 / WEBSITE_BUY_SELL_ACTION_REVIEW",
+  "verdict": "PASS",
+  "disposition": "No blocking findings in scoped product diff or operations tooling. Acceptance and rollout rehearsal are separate receipts.",
+  "input_sha256": [
+    {
+      "path": "relay-fastapi/templates/dashboard_exchange.html",
+      "sha256": "8cad872ca31fd8f9c17c51634f017db7cfe748808f30fa0ca939d59794842f18"
+    },
+    {
+      "path": "relay-fastapi/templates/dashboard_sell.html",
+      "sha256": "a70eb5f7b1a47d164eabecfe22f4ff0603c9a8133acd2b71de729077f9e50bb5"
+    },
+    {
+      "path": "relay-fastapi/templates/dashboard_action_review.html",
+      "sha256": "376613b0341994b20e2490e748ab23e203941d49347cc31a0e1986999b028ad1"
+    },
+    {
+      "path": "tests/test_sell_pricing.py",
+      "sha256": "1ef07fb271b8cd370b7c369395f371c7e7c2a16b0302493038e9f257180e8bd3"
+    },
+    {
+      "path": "docs/e4-website-buy-sell/rollout.py",
+      "sha256": "c75033ff4bb684aebafc9ab5da798fcd2b87466c19e80d697ec142493424b424"
+    },
+    {
+      "path": "docs/e4-website-buy-sell/check-rollout.py",
+      "sha256": "4a51b229a64bea431ccba430f0b97cf3564b9d1aced5f6aa1fda418f662f13cc"
+    },
+    {
+      "path": "docs/e4-wallet-cross-tab/rollout.py",
+      "sha256": "d2097d220500618ae684a46ac7e3eaf3caaa989a6915fed4301c6ce3f3b5fa7d"
+    },
+    {
+      "path": "docs/e4-website-buy-sell/contract.md",
+      "sha256": "7d1f1e0adc723196fa0c6d952d391dbd0293415590ab9211090f465ade4e607f"
+    },
+    {
+      "path": "docs/e4-website-buy-sell/jinja-reload-check.json",
+      "sha256": "0c7381fea61b57e8b4707b778c23734bf353f2d2c3cf67ded29091cff86bfcdd"
+    }
+  ],
+  "prior_review_sha256": "a16e322f46a202c8274876fa75a01979a599bf7736254a12a2a13e5a715fa1ea",
+  "prior_input_hashes_all_match": false,
+  "tracked_diff_sha256": "f203a1f86e3b138d9d27841e8fd27a7577827507901299ce234f6d59d74d97c7",
+  "findings": [],
+  "reviewed_properties": [
+    "Existing action/method, successful named controls and CSRF are preserved; acknowledgement adds no submitted field and is explicitly a UX gate.",
+    "Review requires acknowledgement, checks exact FormData/action/method and pricing-source snapshot, expires after 60 seconds on monotonic clock, rejects silent changes and repeated confirm. Cancellation resets acknowledgement; native validation runs before review and confirm.",
+    "Review values use textContent; custody/executor/external identity rules and indicative pricing are disclosed. SELL correctly defers deposit address/network/memo to the created order.",
+    "Operations restrict targets and candidate paths, bind inventory/helper/rollout/runtime identity and input hashes, preserve file metadata, durably save backups, publish include before parents and restore parents before removing include. Mixed-state rollback handles interrupted apply.",
+    "Legacy pricing assertion updates the source expectation to the previously deployed selected-coin estimate."
+  ],
+  "independently_executed_checks": [
+    "All 11 prior input hashes matched at initial check; concurrent acceptance harness changes then detected: docs/e4-website-buy-sell/run-browser.py, tests/e4_website_buy_sell_browser.cjs. Reviewed product and operations hashes remain recorded in input_sha256; tracked product diff hash matches prior review.",
+    "git diff HEAD --check on four scoped tracked files: PASS.",
+    "AST syntax parse of rollout.py, check-rollout.py and shared rollout helper: PASS."
+  ],
+  "limitations": [
+    "This agent did not execute browser acceptance, rollout rehearsal, deployment or authenticated production rendering. Public redirects alone do not establish authenticated template rendering.",
+    "Multi-file replacements are individually atomic. During rollback an already-running render retaining a candidate parent could briefly request the include after removal; parent-first restoration reduces but cannot prove elimination of that race. No service restart or request draining is included.",
+    "Backend security/pricing policy and full application review remain outside this bounded audit."
+  ],
+  "prior_review_input_hash_mismatches": [
+    "docs/e4-website-buy-sell/run-browser.py",
+    "tests/e4_website_buy_sell_browser.cjs"
+  ]
+}

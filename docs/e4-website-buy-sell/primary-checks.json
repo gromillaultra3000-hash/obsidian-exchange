@@ -1,0 +1,25 @@
+{
+  "result": "PASS",
+  "scope": "Resume existing candidate; no broad regression rerun per owner request to accelerate",
+  "legacyEvidence": "docs/e4-website-buy-sell/legacy-regressions.json",
+  "legacyTests": [
+    "test_sell_assets.py",
+    "test_sell_payout.py",
+    "test_sell_pricing.py",
+    "test_tag_field_frontend.py",
+    "test_e4_sell_estimate_adversarial.py"
+  ],
+  "rollbackChecks": 20,
+  "diffCheck": "PASS",
+  "secretScan": {
+    "tool": "gitleaks",
+    "version": "8.30.0",
+    "bytes": 93713,
+    "findings": 0
+  },
+  "productionTemplateSHA256": {
+    "dashboard_action_review.html": "376613b0341994b20e2490e748ab23e203941d49347cc31a0e1986999b028ad1",
+    "dashboard_exchange.html": "8cad872ca31fd8f9c17c51634f017db7cfe748808f30fa0ca939d59794842f18",
+    "dashboard_sell.html": "a70eb5f7b1a47d164eabecfe22f4ff0603c9a8133acd2b71de729077f9e50bb5"
+  }
+}

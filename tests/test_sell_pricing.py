@@ -200,7 +200,10 @@ for tpl in ("dashboard_sell.html", "index.html", "faq.html", "how_it_works.html"
           f"{tpl} печатает ставку выкупа без проверки, что она вообще есть")
 
 webapp = read("relay", "webapp.html")
-check("fee_label" in webapp and "sell-fee-note" in webapp,
+# The Mini App now shows the selected coin's validated snapshot fee; the
+# aggregate API fee_label is no longer its source (E4 sell estimate rollout).
+check("sell-fee-note" in webapp and "const snapshot = sellSnapshotInfo(cur);" in webapp
+      and "snapshot.fee + '% уже учтена в курсе выплаты.'" in webapp,
       "Mini App не показывает ставку выкупа до ввода суммы")
 check("sell-breakdown" in webapp, "в Mini App нет разбивки выплаты")
 

@@ -1,0 +1,75 @@
+{
+  "reviewed_at_utc": "2026-09-09T03:02:11.744375+00:00",
+  "reviewer": "independent context-poor site_diff_review agent",
+  "route": "E4 / WEBSITE_BUY_SELL_ACTION_REVIEW",
+  "verdict": "PASS",
+  "disposition": "No blocking findings in scoped final product diff and rollout helpers. Deployment remains subject to separate acceptance and rehearsal receipts matching these bytes.",
+  "input_sha256": [
+    {
+      "path": "relay-fastapi/templates/dashboard_exchange.html",
+      "sha256": "8cad872ca31fd8f9c17c51634f017db7cfe748808f30fa0ca939d59794842f18"
+    },
+    {
+      "path": "relay-fastapi/templates/dashboard_sell.html",
+      "sha256": "a70eb5f7b1a47d164eabecfe22f4ff0603c9a8133acd2b71de729077f9e50bb5"
+    },
+    {
+      "path": "relay-fastapi/templates/dashboard_action_review.html",
+      "sha256": "376613b0341994b20e2490e748ab23e203941d49347cc31a0e1986999b028ad1"
+    },
+    {
+      "path": "tests/test_sell_pricing.py",
+      "sha256": "1ef07fb271b8cd370b7c369395f371c7e7c2a16b0302493038e9f257180e8bd3"
+    },
+    {
+      "path": "docs/e4-website-buy-sell/rollout.py",
+      "sha256": "c75033ff4bb684aebafc9ab5da798fcd2b87466c19e80d697ec142493424b424"
+    },
+    {
+      "path": "docs/e4-website-buy-sell/check-rollout.py",
+      "sha256": "4a51b229a64bea431ccba430f0b97cf3564b9d1aced5f6aa1fda418f662f13cc"
+    },
+    {
+      "path": "docs/e4-website-buy-sell/run-browser.py",
+      "sha256": "91566a18d9c8b25d0f583315858cf93eb1f4a1790aba35c61b87ee1342475834"
+    },
+    {
+      "path": "tests/e4_website_buy_sell_browser.cjs",
+      "sha256": "770d1d7647a3b3b221f5bbfe119ba7fe47737c900d5469f74bb367e3feb1faef"
+    },
+    {
+      "path": "docs/e4-wallet-cross-tab/rollout.py",
+      "sha256": "d2097d220500618ae684a46ac7e3eaf3caaa989a6915fed4301c6ce3f3b5fa7d"
+    },
+    {
+      "path": "docs/e4-website-buy-sell/contract.md",
+      "sha256": "7d1f1e0adc723196fa0c6d952d391dbd0293415590ab9211090f465ade4e607f"
+    },
+    {
+      "path": "docs/e4-website-buy-sell/jinja-reload-check.json",
+      "sha256": "0c7381fea61b57e8b4707b778c23734bf353f2d2c3cf67ded29091cff86bfcdd"
+    }
+  ],
+  "tracked_diff_sha256": "f203a1f86e3b138d9d27841e8fd27a7577827507901299ce234f6d59d74d97c7",
+  "findings": [],
+  "reviewed_properties": [
+    "Existing Buy/Sell POST action, method, named successful controls and CSRF preserved; acknowledgement is explicitly a client UX gate, not authorization.",
+    "Dynamic review values use textContent/createElement; no new HTML injection sink, persistence, external request, credentials or remote dependency.",
+    "Unacknowledged, cancelled, expired, silently edited or repeated confirmation cannot use this handler to POST stale review; signature includes current FormData, action/method and pricing/payout source objects.",
+    "Recipient address/network/tag or payout details displayed with indicative fees, executor, custody, external identity rules and irreversible-transfer caveat; SELL explicitly defers deposit instructions to created order.",
+    "Native modal, associated labels, focus restoration, Escape cancellation and Tab wrap present. Initial disabled submit plus onsubmit=false fail closed if review script unavailable.",
+    "Apply publishes include before parent templates; rollback restores parents before removing include. Helper binds source/live hashes and service identities, preserves metadata, fsyncs durable backups before mutation and fsyncs atomic replacements.",
+    "Rehearsal code exercises candidate/unrelated/metadata/runtime drift, corrupted backup, partial apply after each first/second file, rollback removal of new include and reconcile."
+  ],
+  "independently_executed_checks": [
+    "git diff HEAD --check for tracked product/template and legacy assertion changes: PASS",
+    "ast.parse for rollout.py, check-rollout.py and run-browser.py: PASS",
+    "node --check tests/e4_website_buy_sell_browser.cjs: PASS"
+  ],
+  "limitations": [
+    "This agent did not run browser acceptance, production deployment or rollout rehearsal; respective execution receipts must be assessed separately.",
+    "Browser harness reviewed covers 12 width/theme/side cases and exact intercepted POST but does not itself exercise 60-second expiry, Tab wrap or single payout-method branch. These paths received static review only.",
+    "Authenticated production page rendering is not established by public /login redirects; Jinja auto-reload receipt uses separate installed-runtime interpreter and explicitly does not introspect production process.",
+    "Backend authorization/pricing/security policy and pre-existing template JavaScript are outside this change audit except unchanged integration points; no full application security assessment claimed."
+  ]
+}

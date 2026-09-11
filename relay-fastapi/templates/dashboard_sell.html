@@ -31,10 +31,10 @@
 {% else %}
 <div class="dash-card">
     {% if error %}<div class="error-msg">{{ error }}</div>{% endif %}
-    <form method="post" action="/dashboard/sell">
+    <form id="action-order-form" onsubmit="return false" method="post" action="/dashboard/sell">
         <input type="hidden" name="csrf_token" value="{{ web_user.csrf_token }}">
         <div class="input-group">
-            <label>Монета</label>
+            <label for="sell-currency">Монета</label>
             <select id="sell-currency" name="currency" onchange="calcSell()">
                 {% for c in sell_coins %}
                 <option value="{{ c.code }}" {{ 'selected' if form and form.currency == c.code }}>{{ c.label }} — курс {{ '{:,.2f}'.format(c.rate).replace(',', ' ') }} ₽</option>
@@ -42,7 +42,7 @@
             </select>
         </div>
         <div class="input-group">
-            <label>Количество</label>
+            <label for="sell-amount">Количество</label>
             <input type="number" id="sell-amount" name="amount" step="any" min="0"
                    placeholder="например 0.01" value="{{ form.amount if form else '' }}"
                    oninput="calcSell()" required>
@@ -73,7 +73,7 @@
            одного пункта — лишний шаг, за который клиент платит вниманием. #}
         {% if payout_ways|length > 1 %}
         <div class="input-group">
-            <label>Куда получить рубли</label>
+            <label for="payout-method">Куда получить рубли</label>
             <select id="payout-method" name="payout_method" onchange="payoutSwitch()">
                 {% for w in payout_ways %}
                 <option value="{{ w.code }}" {{ 'selected' if form and form.payout_method == w.code }}>{{ w.label }}</option>
@@ -86,13 +86,13 @@
         <div class="input-group">
             {# Подпись и пример меняются вместе со способом: «79001234567» над
                полем для номера карты — прямая инструкция ввести не то. #}
-            <label id="payout-details-label">Телефон для выплаты по СБП</label>
+            <label id="payout-details-label" for="payout-details">Телефон для выплаты по СБП</label>
             <input type="text" id="payout-details" name="sbp_phone" placeholder="79001234567"
                    value="{{ form.sbp_phone if form else '' }}" required>
             <div style="font-size:12px;opacity:.6;margin-top:4px;" id="payout-details-hint"></div>
         </div>
         <div class="input-group" id="payout-bank-group" style="display:none;">
-            <label>Банк получателя</label>
+            <label for="payout-bank">Банк получателя</label>
             <select id="payout-bank" name="payout_bank">
                 <option value="">— выберите банк —</option>
                 {% for b in payout_banks %}
@@ -101,13 +101,14 @@
             </select>
         </div>
         <div class="input-group" id="payout-name-group" style="display:none;">
-            <label>ФИО получателя как в банке</label>
+            <label for="payout-name">ФИО получателя как в банке</label>
             <input type="text" id="payout-name" name="payout_name" placeholder="Иван Иванов"
                    value="{{ form.payout_name if form else '' }}">
             <div style="font-size:12px;opacity:.6;margin-top:4px;">Этого требует платёжный партнёр: перевод без имени получателя он не примет.</div>
         </div>
-        <button class="btn btn-primary btn-block" type="submit">💰 Создать заявку на продажу</button>
+        <button id="action-review-open" class="btn btn-primary btn-block" type="submit" disabled>Проверить условия продажи</button>
         <p style="margin-top:10px;font-size:12px;opacity:.6;">Создавая заявку, вы принимаете условия <a href="/offer" target="_blank">пользовательского соглашения</a>.</p>
+        <noscript><p>Для проверки условий и создания заявки включите JavaScript.</p></noscript>
     </form>
 </div>
 
@@ -172,5 +173,7 @@ function payoutSwitch() {
 }
 payoutSwitch();
 </script>
+{% set action_review_kind = "sell" %}
+{% include "dashboard_action_review.html" %}
 {% endif %}
 {% endblock %}

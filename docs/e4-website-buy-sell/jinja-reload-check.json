@@ -1,0 +1,22 @@
+{
+  "result": "PASS",
+  "app_configuration": "templates = Jinja2Templates(directory=str(BASE_DIR / \"templates\"))",
+  "auto_reload": true,
+  "cached_template_atomic_replacement": "PASS",
+  "production_process_introspection": false,
+  "method": "Separate installed-runtime interpreter; no app import, auth, customer reads or production write",
+  "sources": [
+    {
+      "path": "/opt/obsidian-exchange/relay-fastapi/main.py",
+      "sha256": "25624ac7bc9174ac9ec35d90402042c62bd344d6c74c1cf730593017a79ae26f"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay-venv/lib/python3.12/site-packages/starlette/templating.py",
+      "sha256": "cbe013950acd0e82cc66ce61ac7cd00536a9102043afdc0097e6ecf01964e63c"
+    },
+    {
+      "path": "/opt/obsidian-exchange/relay-venv/lib/python3.12/site-packages/jinja2/environment.py",
+      "sha256": "f6786b3fb0a1f8d6c65f4d30bf2af8cb2fae84d1ead8e09ceb48201ab9e2fdf9"
+    }
+  ]
+}

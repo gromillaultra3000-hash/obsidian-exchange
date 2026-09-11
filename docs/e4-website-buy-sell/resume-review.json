@@ -1,0 +1,7 @@
+{
+  "date": "2026-09-11",
+  "reviewer": "/root/site_acceptance",
+  "verdict": "PASS",
+  "scope": "Read-only Buy/Sell product acceptance review; all nine previous review hashes match. Explicit acknowledgement, expiry, stale-input and duplicate-click protection; POST fields/CSRF preserved.",
+  "limitations": "Fresh browser completion required; no authenticated production user session inspected."
+}
