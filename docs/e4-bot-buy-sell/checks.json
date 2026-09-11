@@ -1,0 +1,16 @@
+{
+  "date": "2026-09-11",
+  "route": "E4 / BOT_BUY_SELL_ACTION_REVIEW",
+  "tests": {
+    "cache": 12,
+    "actual_handlers": 13,
+    "result": "PASS",
+    "regressions": [
+      "test_sell_pricing.py",
+      "test_bot_tag_answer.py"
+    ]
+  },
+  "scope": "Standard Telegram menu Buy/Sell; inert messages and stores, no real customer/order/Telegram API actions. Covers acknowledgement, cancel, replay, foreign user, stale FSM, concurrent callbacks, newer flow, unknown insert, closed sell destination.",
+  "limitations": "No live human Telegram acceptance in this slice. Other bot ingress (SWAP, legacy WebApp, DCA/gift) not claimed closed.",
+  "next": "E4 / BOT_SWAP_ACTION_REVIEW"
+}

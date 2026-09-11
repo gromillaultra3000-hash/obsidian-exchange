@@ -1,3 +1,9 @@
+import math
+from html import escape as _review_escape
+from action_review import ActionReviewCache
+
+_order_reviews = ActionReviewCache()
+
 import asyncio, random, requests, os, sys, re, logging, time, csv, hmac, hashlib, aiohttp, json, uuid
 from logging.handlers import RotatingFileHandler
 from datetime import datetime, timedelta, timezone
@@ -790,6 +796,7 @@ class Exchange(StatesGroup):
     captcha = State()
     address = State()
     dest_tag = State()       # только у валют с тегом (XRP), если он не в адресе
+    action_review = State()
     payment_method = State()
     receipt_upload = State()
     verification_upload = State()
@@ -814,6 +821,7 @@ class Sell(StatesGroup):
     bank = State()      # банк получателя — нужен рельсу выплаты (кнопки)
     details = State()   # сам реквизит: номер карты либо телефон
     name = State()      # ФИО получателя — требование рельса, не наше
+    action_review = State()
 
 class LimitOrder(StatesGroup):
     currency   = State()
@@ -2613,7 +2621,7 @@ async def process_sell_currency(callback: CallbackQuery, state: FSMContext):
     await callback.message.answer(
         f"💰 <b>Продажа {sell_coin_label(currency)}</b>\n\n"
         f"<blockquote>"
-        f"📬 Адрес для перевода{_sell_network_hint(currency)}:\n<code>{receive_addr}</code>\n"
+        "📬 Адрес для отправки появится после проверки условий и создания заявки.\n"
         f"💱 Курс выкупа: <b>{sell_rate:,.2f} ₽</b> за 1 {currency}\n"
         + _sell_market_line(currency, rate)
         + f"📦 Минимум: <b>{min_amt} {currency}</b>"
@@ -2639,8 +2647,8 @@ async def process_sell_amount(message: Message, state: FSMContext):
         await message.answer("❌ Продажа этой монеты сейчас недоступна.")
         await state.clear()
         return
-    if amount < min_amt:
-        await message.answer(f"❌ Минимальная сумма: {min_amt} {currency}")
+    if not math.isfinite(amount) or amount <= 0 or amount < min_amt:
+        await message.answer(f"❌ Введите конечное положительное число. Минимум: {min_amt} {currency}")
         return
     sell_rate = data.get('sell_rate', 0)
     rub_amount = round(amount * sell_rate, 2)
@@ -2765,11 +2773,13 @@ async def process_sell_name(message: Message, state: FSMContext):
     await _finish_sell_order(message, state)
 
 
-async def _finish_sell_order(message: Message, state: FSMContext):
+async def _finish_sell_order(message: Message, state: FSMContext, *, review_approved=False, user_id=None, username=None, review_data=None):
     """Записывает заявку и показывает карточку. Реквизит выплаты уже собран и
     проверен — здесь только запись, иначе проверка разъедется по трём местам."""
+    uid = user_id if user_id is not None else message.from_user.id
+    uname = username if user_id is not None else message.from_user.username
     sp = _sell_payout()
-    data = await state.get_data()
+    data = review_data if review_approved else await state.get_data()
     currency = data.get('sell_currency', 'BTC')
     amount = data.get('sell_amount', 0)
     rub_amount = data.get('sell_rub_amount', 0)
@@ -2787,18 +2797,54 @@ async def _finish_sell_order(message: Message, state: FSMContext):
         await state.clear()
         return
 
+    current_address = sell_receive_address(currency)
+    minimum = sell_min_amount(currency)
+    if (currency not in sell_coins() or not current_address or current_address != receive_addr
+            or minimum is None or not all(isinstance(v, (int, float)) and math.isfinite(v) and v > 0 for v in (amount, rub_amount))
+            or amount < minimum):
+        await message.answer("⛔ Условия продажи изменились. Начните заново — /start")
+        await state.clear()
+        return
+    if not review_approved:
+        market = get_cached_rate(currency) or 0
+        rate = sell_rate_for(currency, market)
+        if not math.isfinite(rate) or rate <= 0 or not math.isfinite(amount * rate):
+            await message.answer("⛔ Курс недоступен. Начните заново — /start")
+            return
+        rub_amount = round(amount * rate, 2)
+        data.update(sell_rub_amount=rub_amount, sell_rate=rate)
+        esc = lambda value: _review_escape(str(value))
+        text = (
+            "💰 <b>Проверьте продажу</b>\n\n"
+            f"Продаёте: <b>{esc(amount)} {esc(sell_coin_label(currency))}</b>{_sell_network_hint(currency)}\n"
+            f"Получите ориентировочно: <b>{rub_amount:,.2f} ₽</b>\n"
+            f"Комиссия обмена: {esc(sell_commission_label(currency) or 'не определена')} — учтена в выплате.\n"
+            f"Способ: {esc(sp.label(method))}\nРеквизиты: <code>{esc(details)}</code>\n"
+            f"Банк: {esc(sp.bank_label(bank) if bank else 'не указан')}\n"
+            f"Получатель: {esc(full_name or 'не требуется')}\n\n"
+            "Исполнитель: ObsidianExchange, private lane. После вашей отправки монеты получает обменник; "
+            "рубли выплачивает платёжный партнёр или оператор. Ключи кошелька остаются у вас или вашего сервиса.\n"
+            "KYC: действуют отдельные требования банка и платёжного партнёра.\n"
+            "Комиссия сети оплачивается вами отдельно; кошелёк покажет её перед подписью.\n"
+            "После создания сверьте сеть, адрес и обязательный комментарий в инструкции. "
+            "До этого не отправляйте монеты. Перевод в блокчейне необратим.\n\n"
+            "Подтверждение создаёт только заявку, не переводит ваши средства. Проверка действует 2 минуты."
+        )
+        await _publish_order_review(message, state, 'sell', data, {}, uid, uname, text)
+        return
+
     # sbp_phone остаётся заполненным для СБП: его читают старые места (карточка
     # выплаты, список заявок на сайте). Новый источник правды — payout_details,
     # и разбирается это в ОДНОМ месте, core.sell_payout.target().
     phone_col = details if method == 'sbp' else ''
     try:
-        sell_id = _sell_store.create(user_id=message.from_user.id,currency=currency,
+        sell_id = _sell_store.create(user_id=uid,currency=currency,
             crypto_amount=amount,rub_amount=rub_amount,sbp_phone=phone_col,
             receive_address=receive_addr,payout_method=method,payout_bank=bank,
             payout_details=details,payout_name=full_name)
     except Exception as e:
         logger.error(f"Ошибка создания sell_order: {e}")
-        await message.answer("⛔ Временная ошибка сервера. Попробуйте через минуту или обратитесь в поддержку @ObsidianSupBot")
+        await message.answer("⛔ Создание заявки не подтверждено. Не повторяйте её вслепую; проверьте историю или обратитесь в поддержку @ObsidianSupBot")
         await state.clear()
         return
 
@@ -2841,7 +2887,7 @@ async def _finish_sell_order(message: Message, state: FSMContext):
         ])
         await notify_admins(
             f"💰 <b>Новая заявка на ПРОДАЖУ #{sell_id}</b>\n"
-            f"👤 Пользователь: {message.from_user.id} (@{message.from_user.username or '-'})\n"
+            f"👤 Пользователь: {uid} (@{uname or '-'})\n"
             f"💸 Продаёт: {amount} {currency}\n"
             f"📬 На наш адрес: <code>{receive_addr}</code>\n"
             + (f"🏷 Метка перевода: <code>{marker}</code>\n" if marker else "")
@@ -4122,9 +4168,78 @@ async def process_dest_tag_none(callback: CallbackQuery, state: FSMContext):
                           username=callback.from_user.username)
 
 
+async def _publish_order_review(message, state, kind, data, args, uid, username, text):
+    # Bind the locally rendered snapshot; concurrent input cannot authorize a
+    # different FSM snapshot. No receipt survives a process restart.
+    snapshot = {k: v for k, v in data.items() if not k.startswith('_order_review_')}
+    snapshot.update(_order_review_kind=kind, _order_review_args=args,
+                    _order_review_uid=uid, _order_review_username=username)
+    owner = f"{uid}:{message.chat.id}"
+    try:
+        token = _order_reviews.issue(owner, snapshot)
+    except ValueError:
+        await message.answer("⛔ Проверка условий временно недоступна. Начните заново — /start")
+        return
+    await state.set_data(dict(snapshot, _order_review_token=token))
+    await state.set_state(Exchange.action_review if kind == 'buy' else Sell.action_review)
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✅ Условия проверены — создать заявку", callback_data=f"order_review_yes_{token}")],
+        [InlineKeyboardButton(text="Отменить", callback_data=f"order_review_no_{token}")],
+    ])
+    await message.answer(text, parse_mode="HTML", reply_markup=keyboard)
+
+
+@router.callback_query(F.data.startswith("order_review_"))
+async def process_order_review(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    parts = (callback.data or '').split('_', 3)
+    kind = data.get('_order_review_kind')
+    expected_state = Exchange.action_review if kind == 'buy' else Sell.action_review
+    if (len(parts) != 4 or parts[2] not in {'yes', 'no'} or kind not in {'buy', 'sell'}
+            or await state.get_state() != expected_state.state
+            or callback.from_user.id != data.get('_order_review_uid')
+            or parts[3] != data.get('_order_review_token')):
+        await callback.answer("Эта проверка уже неактуальна. Начните заново — /start", show_alert=True)
+        return
+    snapshot = {k: v for k, v in data.items() if k != '_order_review_token'}
+    try:
+        _order_reviews.consume(parts[3], f"{callback.from_user.id}:{callback.message.chat.id}", snapshot)
+    except ValueError:
+        await callback.answer("Проверка истекла или использована. Проверьте историю заявок.", show_alert=True)
+        return
+    # Claim synchronously before the first Telegram/FSM await: a duplicate
+    # callback cannot enter either creation path with the same receipt.
+    await callback.answer()
+    try:
+        await callback.message.edit_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+    # Neither confirmation nor cancellation may overwrite a newer flow.
+    if await state.get_state() != expected_state.state or await state.get_data() != data:
+        await callback.message.answer("Данные изменились. Проверьте условия заново — /start")
+        return
+    if parts[2] == 'no':
+        await state.clear()
+        await callback.message.answer("Заявка не создана. Начать заново — /start")
+        return
+    try:
+        if kind == 'buy':
+            await _finalize_order(callback.message, state, **data['_order_review_args'],
+                                  user_id=callback.from_user.id, username=callback.from_user.username,
+                                  review_approved=True, review_data=data)
+        else:
+            await _finish_sell_order(callback.message, state, user_id=callback.from_user.id,
+                                     username=callback.from_user.username, review_approved=True, review_data=data)
+    except Exception:
+        # The insert/notification boundary can be ambiguous. Do not restore the
+        # receipt or encourage another creation; inspect history/support first.
+        logger.error("bot_review_creation_unconfirmed kind=%s", kind)
+        await callback.message.answer("Результат создания заявки не подтверждён. Не повторяйте её вслепую; проверьте историю или обратитесь в поддержку @ObsidianSupBot.")
+
+
 async def _finalize_order(message: Message, state: FSMContext, currency, network, address,
                           shown_tag=None,
-                          user_id=None, username=None):
+                          user_id=None, username=None, review_approved=False, review_data=None):
     """Создание заявки после того, как адрес назначения окончательно собран.
 
     Вынесено из process_address, потому что путь с тегом приходит сюда вторым
@@ -4135,7 +4250,7 @@ async def _finalize_order(message: Message, state: FSMContext, currency, network
     БОТУ, и message.from_user был бы самим ботом (эта ошибка уже случалась в
     меню — заявки уходили на user_id бота).
     """
-    data = await state.get_data()
+    data = review_data if review_approved else await state.get_data()
     uid = user_id if user_id is not None else message.from_user.id
     uname = username if user_id is not None else message.from_user.username
 
@@ -4168,6 +4283,9 @@ async def _finalize_order(message: Message, state: FSMContext, currency, network
         await message.answer(f"⛔ {limit_err}")
         return
     amount = data.get("amount")
+    if not isinstance(amount, (int, float)) or not math.isfinite(amount) or amount <= 0:
+        await message.answer("⛔ Некорректная сумма. Начните заново — /start")
+        return
     # Котировку считаем ДО вставки и пишем тем же INSERT: заявка не должна ни
     # на мгновение существовать без зафиксированной договорённости, иначе сбой
     # между INSERT и UPDATE оставил бы её «легаси» — и выплата пересчиталась бы
@@ -4193,6 +4311,31 @@ async def _finalize_order(message: Message, state: FSMContext, currency, network
         currency, amount, uid, include_promo=False)
     regular_no_promo_crypto = (round(amount / regular_no_promo_rate, 8)
                                if regular_no_promo_rate else 0)
+    if not all(isinstance(v, (int, float)) and math.isfinite(v) and v > 0 for v in (amount, rate, crypto_amount)):
+        await message.answer("⛔ Сумма или курс недоступны. Начните заново — /start")
+        await state.clear()
+        return
+    if not review_approved:
+        esc = lambda value: _review_escape(str(value))
+        shown_address = _display_destination(currency, address)
+        text = (
+            "💎 <b>Проверьте покупку</b>\n\n"
+            f"Оплата: <b>{amount:,.2f} ₽</b>\n"
+            f"Получите ориентировочно: <b>{crypto_amount} {esc(currency)}</b>\n"
+            f"Сеть: <b>{esc(_canon_network(currency, network))}</b>\n"
+            f"Адрес и тег / memo: <code>{esc(shown_address)}</code>\n"
+            f"Комиссия обмена: <b>{esc(commission_with_promo)}%</b>\n\n"
+            "Исполнитель: ObsidianExchange, private lane. Ключи личного кошелька остаются у вас; "
+            "если получатель — биржа, средства хранит биржа. Обменник не получает ваши ключи.\n"
+            "KYC: правила банка, платёжного партнёра и биржи получателя действуют отдельно.\n"
+            "Курс и итог будут указаны в созданной заявке до оплаты. Возможные сборы сети и "
+            "платёжного партнёра уточняются перед переводом.\n"
+            "Проверьте адрес, сеть и тег: выплату в блокчейне отменить нельзя.\n\n"
+            "Подтверждение создаёт только заявку. Проверка действует 2 минуты."
+        )
+        args = dict(currency=currency, network=network, address=address, shown_tag=shown_tag)
+        await _publish_order_review(message, state, 'buy', data, args, uid, uname, text)
+        return
     created = _get_bot_order_store().create_order(
         user_id=uid, username=uname, currency=currency, rub_amount=amount,
         destination=address, network=_canon_network(currency, network),
@@ -4225,7 +4368,7 @@ async def _finalize_order(message: Message, state: FSMContext, currency, network
     # что вводил.
     tag_line = ""
     if shown_tag is not None:
-        tag_line = f"🏷 {(_tag_name(currency) or 'тег').capitalize()}: <b>{shown_tag}</b>\n"
+        tag_line = f"🏷 {(_tag_name(currency) or 'тег').capitalize()}: <b>{_review_escape(str(shown_tag))}</b>\n"
     elif _tag_name(currency):
         _shown = _display_destination(currency, address)
         if "(тег " in _shown:

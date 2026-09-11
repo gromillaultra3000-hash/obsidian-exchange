@@ -1,0 +1,27 @@
+{
+  "result": "PASS",
+  "checks": [
+    "real_plan_validation",
+    "inventory_sha_tamper_rejected",
+    "helper_sha_tamper_rejected",
+    "rollout_sha_tamper_rejected",
+    "inputs_tamper_rejected",
+    "units_tamper_rejected",
+    "target_scope_tamper_rejected",
+    "candidate_digest_tamper_rejected",
+    "unrelated_input_drift_rejected",
+    "metadata_drift_rejected",
+    "active_autopilot_rejected",
+    "runtime_identity_drift_rejected",
+    "two_file_apply_metadata_pass",
+    "reconcile_pass_without_restart",
+    "only_bot_restarted_once",
+    "both_files_installed_before_bot_restart",
+    "corrupt_backup_rejected",
+    "failed_bot_rollback_removes_helper_preserves_metadata_restarts_bot",
+    "interruption_after_1",
+    "partial_1_rollback_pass"
+  ],
+  "production_mutated": false,
+  "limitations": "Temporary filesystem; fixture service identities and public responses. Real plan binding checked separately; single bot PID checked in prepare."
+}

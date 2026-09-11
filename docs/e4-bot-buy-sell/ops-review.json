@@ -1,0 +1,35 @@
+{
+  "result": "OPS_REVIEW_PASS",
+  "reviewer": "independent bot_review_ops agent",
+  "scope": [
+    "bot/main_bot.py",
+    "bot/action_review.py"
+  ],
+  "findings": [],
+  "reviewed": [
+    "Exact two-target allowlist with candidate/input/helper/rollout digest binding",
+    "Fsynced metadata-preserving baseline backup before first publication",
+    "Helper installed before entry point; one explicit bot-only restart",
+    "Rollback restores entry point before removing helper, accepts failed bot and partial publication",
+    "No baseline callback registration matches new order_review_ namespace",
+    "Preserved 60 unrelated file inputs and relay/nginx/PostgreSQL process states",
+    "Preflight compiles without importing application; process-only health check has no Telegram/API traffic"
+  ],
+  "limitations": [
+    "Actual candidate receipt semantics require application tests and primary review",
+    "Process liveness is not end-to-end Telegram flow verification",
+    "Restart invalidates in-process review receipts; persistent FSM alone must not authorize submission"
+  ],
+  "production_mutated": false,
+  "plan_sha256": "5b9af9c7ea9120949edaa83c20fd31cf896cfc54550e1a68c14d3214de09c84b",
+  "checks_result": "PASS",
+  "bot_command": [
+    "/opt/obsidian-exchange/bot/venv/bin/python3",
+    "/opt/obsidian-exchange/bot/main_bot.py"
+  ],
+  "bot_pid": "3877887",
+  "candidates": {
+    "action_review.py": "9be5153f6648e51978d372e71a69ccfee8ae46522da3eecbdc80c1be39e1513a",
+    "main_bot.py": "9a9bda2c02f3b00805a391e2c59f6d4c8c151ee9f2ee1e64ceb3e08926e17e6d"
+  }
+}

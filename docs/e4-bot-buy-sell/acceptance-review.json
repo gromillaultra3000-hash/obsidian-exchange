@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "review": "independent_acceptance",
+  "route": "E4 / BOT_BUY_SELL_ACTION_REVIEW",
+  "reviewed_at_utc": "2026-09-11T00:44:21.423705+00:00",
+  "verdict": "GO",
+  "scope": "Standard Telegram bot menu Buy/Sell explicit action reviews; legacy web_app_data ingress and bot SWAP excluded.",
+  "sha256": {
+    "bot/main_bot.py": "9a9bda2c02f3b00805a391e2c59f6d4c8c151ee9f2ee1e64ceb3e08926e17e6d",
+    "bot/action_review.py": "9be5153f6648e51978d372e71a69ccfee8ae46522da3eecbdc80c1be39e1513a",
+    "tests/test_e4_bot_buy_sell_review.py": "781a37474cd8fde8187a9facb83c5588881fcabb53e80a170c9fe67a2a25abf6",
+    "tests/test_e4_bot_action_review_cache.py": "0489f34e7343a5b7eab6bb61aae393d731dd54a84742e24787d884698c667c1d"
+  },
+  "findings": [],
+  "verified_by_inspection": [
+    "Owner and chat bound to exact JSON snapshot, short-lived process-local token consumed atomically once before creation.",
+    "Review publication does not create an order; deliberate yes enters finalizer with frozen reviewed data.",
+    "Both yes and no recheck state and data after Telegram awaits; newer flow is preserved by the observed guard.",
+    "Unknown confirmed creation outcome does not restore receipt or recommend blind retry.",
+    "Executor, custody, KYC, fees, destination/payout, network and irreversible transfer risks disclosed.",
+    "Targeted race and ambiguous-insert regressions inspect the actual handlers."
+  ],
+  "validation_note": "Final delta and regression code inspected; no duplicate test execution, production customer operation, or network action by reviewer."
+}
