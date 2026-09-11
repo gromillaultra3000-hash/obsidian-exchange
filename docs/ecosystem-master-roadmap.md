@@ -717,6 +717,22 @@ Gate E3: повтор/рестарт/таймаут не создаёт втор
 
 ### E4 — единый UX действий
 
+2026-09-11: WEBSITE_BUY_SELL_ACTION_REVIEW VERIFIED/deployed (`26226f0`).
+Website Buy/Sell now show explicit executor/custody/KYC/fees/risk and recipient/
+payout review before original POST; acknowledgement, expiry, stale-input rejection,
+keyboard/focus handling and duplicate-click guard. Existing server contracts retained.
+18 synthetic Chrome scenarios (320/390/1280, both themes) PASS; prior regression/
+20 rollback checks retained with exact product hashes and independent reviews.
+Fixed test navigation teardown wait; initial harness failures superseded by final PASS.
+Three templates deployed; 56 other inputs/four services preserved, no restart.
+Post-apply hashes and public auth redirects PASS; no authenticated production order.
+Rollback: deployment-preimages/e4-website-buy-sell-20260911.
+Evidence: docs/e4-website-buy-sell-rollout.v1.json. Full E4 IN_PROGRESS.
+Exactly next: E4 / WEBSITE_SWAP_ACTION_REVIEW; bot reviews remain after it.
+Owner iPhone acceptance remains complete. Autopilot failed/inactive; reconcile its
+stale status before an explicitly requested restart. Owner prefers concise updates
+and proportional checks without repeated full-suite runs.
+
 - обмен из портфеля через явный выбор private/KYC lane;
 - предварительный экран identity/custody/fees/risk;
 - адресная книга и receive/send без ложного ощущения серверного custody;

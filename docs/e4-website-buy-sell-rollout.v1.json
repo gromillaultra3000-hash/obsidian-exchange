@@ -1,0 +1,55 @@
+{
+  "route": "E4 / WEBSITE_BUY_SELL_ACTION_REVIEW",
+  "status": "VERIFIED",
+  "full_E4": "IN_PROGRESS",
+  "observed_at": "2026-09-11T00:28:17.124601+00:00",
+  "implementation_commit": "26226f0",
+  "deployment": "APPLY_PASS",
+  "targets": {
+    "/opt/obsidian-exchange/relay-fastapi/templates/dashboard_action_review.html": "376613b0341994b20e2490e748ab23e203941d49347cc31a0e1986999b028ad1",
+    "/opt/obsidian-exchange/relay-fastapi/templates/dashboard_exchange.html": "8cad872ca31fd8f9c17c51634f017db7cfe748808f30fa0ca939d59794842f18",
+    "/opt/obsidian-exchange/relay-fastapi/templates/dashboard_sell.html": "a70eb5f7b1a47d164eabecfe22f4ff0603c9a8133acd2b71de729077f9e50bb5"
+  },
+  "other_inputs_preserved": 56,
+  "services_preserved": 4,
+  "restart": false,
+  "public": [
+    {
+      "path": "/dashboard/exchange",
+      "status": 302,
+      "location": "/login"
+    },
+    {
+      "path": "/dashboard/sell",
+      "status": 302,
+      "location": "/login"
+    }
+  ],
+  "rollback": "/var/lib/obsidian-exchange/deployment-preimages/e4-website-buy-sell-20260911",
+  "browser": {
+    "report": "output/playwright/e4-site-review-20260911-final/report.json",
+    "sha256": "9b675d8030c1a98d2250fdefd24cf57577cdab06cd7f70ca6826264712adc3d3",
+    "scenarios": 18,
+    "result": "PASS"
+  },
+  "reviews": [
+    "docs/e4-website-buy-sell/final-independent-review.json",
+    "docs/e4-website-buy-sell/resume-review.json"
+  ],
+  "harness_review": {
+    "reviewer": "/root/site_acceptance",
+    "verdict": "PASS",
+    "change": "Await synthetic POST DOMContentLoaded before context teardown; unchanged assertions."
+  },
+  "prior_tests": "docs/e4-website-buy-sell/legacy-regressions.json",
+  "rollback_checks": 20,
+  "failures_resolved": [
+    "Prior and initial resumed browser run reached supervisor timeout during navigation/context teardown; explicit navigation wait fixed harness.",
+    "Temporary unsupported clock.uninstall call removed; final run passed."
+  ],
+  "limitations": [
+    "Browser used synthetic fixtures and intercepted POSTs, not real customer orders.",
+    "Public checks establish unauthenticated redirects; authenticated production session not exercised."
+  ],
+  "next": "E4 / WEBSITE_SWAP_ACTION_REVIEW"
+}
